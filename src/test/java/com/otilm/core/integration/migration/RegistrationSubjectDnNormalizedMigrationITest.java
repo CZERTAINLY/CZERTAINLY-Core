@@ -60,6 +60,7 @@ class RegistrationSubjectDnNormalizedMigrationITest extends BaseMigrationTest {
     void migrate_backfillsRegistrationRowsAndLeavesOutOfScopeRowsAlone() throws Exception {
         Certificate registeredWithDn = persist(CertificateState.REGISTERED, "CN=device-1", null);
         Certificate pendingWithDn = persist(CertificateState.PENDING_REGISTRATION, "CN=device-2", null);
+        Certificate pendingApprovalWithDn = persist(CertificateState.PENDING_APPROVAL, "CN=device-approval", null);
         Certificate registeredNullDn = persist(CertificateState.REGISTERED, null, null);
         Certificate registeredBlankDn = persist(CertificateState.REGISTERED, "   ", null);
         Certificate registeredUnparseable = persist(CertificateState.REGISTERED, "not-a-dn", null);
@@ -76,6 +77,9 @@ class RegistrationSubjectDnNormalizedMigrationITest extends BaseMigrationTest {
         assertThat(reload(pendingWithDn).getSubjectDnNormalized())
                 .as("PENDING_REGISTRATION rows are in scope because they transition to REGISTERED unchanged")
                 .isEqualTo(CertificateUtil.normalizeStoredSubjectDn("CN=device-2"));
+        assertThat(reload(pendingApprovalWithDn).getSubjectDnNormalized())
+                .as("PENDING_APPROVAL rows are in scope because a rejected approval restores them to REGISTERED")
+                .isEqualTo(CertificateUtil.normalizeStoredSubjectDn("CN=device-approval"));
         assertThat(reload(registeredNullDn).getSubjectDnNormalized())
                 .as("a null subject DN normalizes to the empty name")
                 .isEqualTo("");
@@ -86,7 +90,7 @@ class RegistrationSubjectDnNormalizedMigrationITest extends BaseMigrationTest {
                 .as("an unparseable stored DN stays NULL, matching the identity match's own skip")
                 .isNull();
         assertThat(reload(issuedUntouched).getSubjectDnNormalized())
-                .as("a certificate outside REGISTERED/PENDING_REGISTRATION is out of scope")
+                .as("a certificate outside the backfilled registration states is out of scope")
                 .isNull();
         assertThat(reload(registeredAlreadyNormalized).getSubjectDnNormalized())
                 .as("an already-populated normalized subject is never overwritten")
@@ -116,6 +120,45 @@ class RegistrationSubjectDnNormalizedMigrationITest extends BaseMigrationTest {
         assertThat(reload(withCustomRdn).getSubjectDnNormalized())
                 .as("the custom RDN code resolves to its registered OID once the migration seeds it from the database")
                 .contains(customOid + "=widget-42");
+    }
+
+    @Test
+    void migrate_seedsSystemRdnCodesWithoutAnyCustomEntries() throws Exception {
+        // A deployment with no custom RDN OIDs: the seed must still publish the SystemOid built-ins,
+        // because codes such as EMAIL are absent from BouncyCastle's keyword table and stored DNs
+        // rendered with them would otherwise be skipped as unparseable.
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
+        assertThat(OidHandler.getOidForRdnCode("EMAIL"))
+                .as("the system code must be unresolvable before the migration seeds the built-ins")
+                .isNull();
+
+        Certificate withSystemRdn = persist(CertificateState.REGISTERED, "EMAIL=user@example.com, CN=device-10", null);
+
+        runMigration();
+
+        assertThat(reload(withSystemRdn).getSubjectDnNormalized())
+                .as("a system RDN code unknown to BouncyCastle resolves through the seeded built-ins")
+                .contains("1.2.840.113549.1.9.1=user@example.com");
+    }
+
+    @Test
+    void migrate_customEntryOnSystemOidWinsOverTheBuiltIn() throws Exception {
+        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
+
+        RdnAttributeTypeCustomOidEntry entry = new RdnAttributeTypeCustomOidEntry();
+        entry.setOid("1.2.840.113549.1.9.1");
+        entry.setDisplayName("Contact Mail");
+        entry.setCode("CONTACTMAIL");
+        entry.setAltCodes(List.of());
+        customOidEntryRepository.save(entry);
+
+        Certificate withShadowingCode = persist(CertificateState.REGISTERED, "CONTACTMAIL=user@example.com", null);
+
+        runMigration();
+
+        assertThat(reload(withShadowingCode).getSubjectDnNormalized())
+                .as("a custom row occupying a system OID keeps its own code, mirroring the runtime registry merge")
+                .contains("1.2.840.113549.1.9.1=user@example.com");
     }
 
     // --- helpers ---
