@@ -15,16 +15,15 @@ import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
 import com.otilm.core.dao.converter.ObjectToJsonConverter;
 import com.otilm.core.model.compliance.ComplianceResultDto;
-import org.hibernate.type.format.jackson.JacksonJsonFormatMapper;
-import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
-
 import java.lang.reflect.Type;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.hibernate.type.format.jackson.JacksonJsonFormatMapper;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,15 +38,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * <b>Columns are not serialized by the wire mapper.</b> A {@code @JdbcTypeCode(SqlTypes.JSON)} field goes through
  * Hibernate's own {@code FormatMapper}, and Spring's {@code ObjectMapper} bean reaches it only via a
- * {@code HibernatePropertiesCustomizer} that production does not register — {@link GoldenMappers#hibernateJson()}
- * has the full account. These goldens therefore go through the real {@code FormatMapper} interface, which is what
- * production actually calls. The one exception is {@link ObjectToJsonConverter}, a JPA {@code AttributeConverter}
- * that genuinely injects the Spring bean, and which is tested against the wire mapper for exactly that reason.
+ * {@code HibernatePropertiesCustomizer} that production does not register — {@link GoldenMappers#hibernateJson()} has
+ * the full account. These goldens therefore go through the real {@code FormatMapper} interface, which is what
+ * production actually calls. The one exception is {@link ObjectToJsonConverter}, a JPA {@code AttributeConverter} that
+ * genuinely injects the Spring bean, and which is tested against the wire mapper for exactly that reason.
  */
 class JsonColumnGoldenTest {
 
-    private static final OffsetDateTime FIXED_TIMESTAMP =
-            OffsetDateTime.of(2026, 1, 15, 9, 30, 0, 123_000_000, ZoneOffset.UTC);
+    private static final OffsetDateTime FIXED_TIMESTAMP = OffsetDateTime
+            .of(2026, 1, 15, 9, 30, 0, 123_000_000, ZoneOffset.UTC);
 
     private final JacksonJsonFormatMapper columnMapper = GoldenMappers.hibernateJson();
 
@@ -110,11 +109,10 @@ class JsonColumnGoldenTest {
      */
     @Test
     void requestAttributeListColumnKeepsItsShapeAndRoundTrips() {
-        List<RequestAttribute> attributes = List.of(new RequestAttributeV3(
-                UUID.fromString("3a8f61d2-0000-4000-8000-000000000001"),
-                "revokeReason",
-                AttributeContentType.STRING,
-                List.of(new StringAttributeContentV3("ref-reason", "keyCompromise"))));
+        List<RequestAttribute> attributes = List
+                .of(new RequestAttributeV3(UUID.fromString("3a8f61d2-0000-4000-8000-000000000001"), "revokeReason",
+                        AttributeContentType.STRING,
+                        List.of(new StringAttributeContentV3("ref-reason", "keyCompromise"))));
 
         assertColumnGoldenAndRoundTrip("column-request-attributes", attributes,
                 new TypeReference<List<RequestAttribute>>() {
@@ -146,14 +144,14 @@ class JsonColumnGoldenTest {
     }
 
     /**
-     * Pins the branch decision inside {@code AttributeContentDeserializer}, the hand-written deserializer registered
-     * on {@code AttributeContent} — the declared type of the {@code AttributeContentItem.json} column.
+     * Pins the branch decision inside {@code AttributeContentDeserializer}, the hand-written deserializer registered on
+     * {@code AttributeContent} — the declared type of the {@code AttributeContentItem.json} column.
      * <p>
-     * Unlike the dormant custom <i>serializer</i>, this deserializer runs on every read of that column, and it
-     * chooses between the v2 and v3 content models by a single rule: whether a {@code contentType} property is
-     * present and non-null. There is no discriminator and no registered subtype resolution involved — just that
-     * check. So a stored v3 content whose {@code contentType} stopped being written would come back as v2 content,
-     * silently downgrading the stored value rather than failing.
+     * Unlike the dormant custom <i>serializer</i>, this deserializer runs on every read of that column, and it chooses
+     * between the v2 and v3 content models by a single rule: whether a {@code contentType} property is present and
+     * non-null. There is no discriminator and no registered subtype resolution involved — just that check. So a stored
+     * v3 content whose {@code contentType} stopped being written would come back as v2 content, silently downgrading
+     * the stored value rather than failing.
      * <p>
      * It is also written against Jackson 2 APIs that Jackson 3 changes — {@code JsonParser.getCodec()},
      * {@code JsonDeserializer}, and the checked {@code IOException} contract — so it cannot survive the upgrade
@@ -176,14 +174,14 @@ class JsonColumnGoldenTest {
     /**
      * {@link ObjectToJsonConverter} backs {@code Approval.objectData}, {@code ScheduledJob.objectData},
      * {@code ConditionItem.value} and {@code ExecutionItem.data}. It is the one column path that genuinely uses the
-     * <b>wire</b> mapper, because it is a JPA {@code AttributeConverter} with an {@code @Autowired ObjectMapper}
-     * rather than a {@code @JdbcTypeCode} field routed through Hibernate's {@code FormatMapper}.
+     * <b>wire</b> mapper, because it is a JPA {@code AttributeConverter} with an {@code @Autowired ObjectMapper} rather
+     * than a {@code @JdbcTypeCode} field routed through Hibernate's {@code FormatMapper}.
      * <p>
-     * It is also the sharpest edge here: it writes an untyped {@code Object} and reads it back as
-     * {@code Serializable}, so no target type guides deserialization and the result is whatever Jackson's default
-     * binding produces — a map, not the original class. That asymmetry is existing, intended behaviour, and the
-     * point is to hold the resulting shape still. Jackson 3 changes default binding in this exact area, so drift
-     * would rewrite stored approval and scheduled-job payloads with no compiler error anywhere.
+     * It is also the sharpest edge here: it writes an untyped {@code Object} and reads it back as {@code Serializable},
+     * so no target type guides deserialization and the result is whatever Jackson's default binding produces — a map,
+     * not the original class. That asymmetry is existing, intended behaviour, and the point is to hold the resulting
+     * shape still. Jackson 3 changes default binding in this exact area, so drift would rewrite stored approval and
+     * scheduled-job payloads with no compiler error anywhere.
      */
     @Test
     void objectToJsonConverterKeepsItsUntypedColumnShapeAcrossTheSerializableReadBack() {
@@ -213,8 +211,8 @@ class JsonColumnGoldenTest {
     /**
      * Compare a column payload against its golden and require it to survive a load-and-save cycle unchanged.
      * <p>
-     * The read-back leg is what matters most for a column: it models exactly what the application does to a stored
-     * row every time it loads and saves one. A write-only golden would not notice a type whose read and write sides
+     * The read-back leg is what matters most for a column: it models exactly what the application does to a stored row
+     * every time it loads and saves one. A write-only golden would not notice a type whose read and write sides
      * disagree, which for a column means the row silently mutates on each cycle.
      */
     private void assertColumnGoldenAndRoundTrip(String goldenName, Object value, Type readAs) {

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -17,20 +16,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 /**
- * Compares serialized JSON against a committed golden file, so a change in Jackson's output shape fails a test
- * instead of silently reaching a client, a connector, or a persisted JSON column.
+ * Compares serialized JSON against a committed golden file, so a change in Jackson's output shape fails a test instead
+ * of silently reaching a client, a connector, or a persisted JSON column.
  * <p>
  * These goldens exist to baseline Jackson 2 behaviour ahead of the Spring Boot 4.1 / Jackson 3 migration
  * (OmniTrustILM/core#1941). During that migration a golden diff is a <b>migration finding to be explained</b>, not a
  * test to be updated: each diff must be traced to a documented Jackson 3 behaviour change and either accepted
  * deliberately or fixed, before the golden is regenerated.
  * <p>
- * To regenerate intentionally, run the suite with {@code -Dgolden.regenerate=true}; every golden touched by the run
- * is rewritten from current behaviour. Review the resulting diff in the PR — an unreviewed regeneration defeats the
- * entire purpose of the baseline.
+ * To regenerate intentionally, run the suite with {@code -Dgolden.regenerate=true}; every golden touched by the run is
+ * rewritten from current behaviour. Review the resulting diff in the PR — an unreviewed regeneration defeats the entire
+ * purpose of the baseline.
  * <p>
- * This class deliberately uses no Spring machinery. The suite must stay outside the Spring test-context taxonomy so
- * it costs zero context boots and leaves {@code ContextSignatureGuardTest.BASELINE} untouched.
+ * This class deliberately uses no Spring machinery. The suite must stay outside the Spring test-context taxonomy so it
+ * costs zero context boots and leaves {@code ContextSignatureGuardTest.BASELINE} untouched.
  */
 final class GoldenJson {
 
@@ -60,8 +59,8 @@ final class GoldenJson {
         assertThat(actual)
                 .describedAs("Serialized JSON drifted from golden '%s.json'. During the Jackson 3 migration this is a "
                         + "finding to explain, not a test to update — trace the diff to a documented behaviour change "
-                        + "first. Regenerate deliberately with -D%s=true once the diff is understood.",
-                        goldenName, REGENERATE_PROPERTY)
+                        + "first. Regenerate deliberately with -D%s=true once the diff is understood.", goldenName,
+                        REGENERATE_PROPERTY)
                 .isEqualTo(expected);
     }
 
@@ -69,13 +68,14 @@ final class GoldenJson {
      * Assert the golden shape and that the value survives a deserialize/re-serialize cycle unchanged.
      * <p>
      * The re-serialization leg is what catches an <i>asymmetric</i> mapping — a type whose write side and read side
-     * disagree, which for a JSON database column means a row silently changes shape every time it is loaded and
-     * saved. A write-only golden would not notice.
+     * disagree, which for a JSON database column means a row silently changes shape every time it is loaded and saved.
+     * A write-only golden would not notice.
      *
-     * @param readAs the declared type the production code reads the column/payload back as, which is what decides
-     *               how polymorphic type information is resolved
+     * @param readAs the declared type the production code reads the column/payload back as, which is what decides how
+     * polymorphic type information is resolved
      */
-    static void assertMatchesGoldenAndRoundTrips(String goldenName, ObjectMapper mapper, Object value, Class<?> readAs) {
+    static void assertMatchesGoldenAndRoundTrips(String goldenName, ObjectMapper mapper, Object value,
+            Class<?> readAs) {
         assertMatchesGolden(goldenName, mapper, value);
 
         String serialized = serialize(mapper, value);
@@ -83,7 +83,8 @@ final class GoldenJson {
         try {
             reread = mapper.readValue(serialized, readAs);
         } catch (IOException e) {
-            throw new UncheckedIOException("Golden '" + goldenName + "' could not be read back as " + readAs.getName(), e);
+            throw new UncheckedIOException("Golden '" + goldenName + "' could not be read back as " + readAs.getName(),
+                    e);
         }
 
         assertThat(serialize(mapper, reread))
@@ -96,11 +97,10 @@ final class GoldenJson {
     /**
      * Assert that a JSON document produced by something other than an {@link ObjectMapper} matches its golden.
      * <p>
-     * Hibernate's {@code FormatMapper} returns a compact string rather than writing through an {@code ObjectWriter},
-     * so its output is re-indented here with the same pinned printer the mapper path uses. Only whitespace is
-     * normalized: floats are read as {@code BigDecimal} so a literal like {@code 1.5} survives the reformat exactly,
-     * and key order, key presence and scalar rendering — the things a migration would change — pass through
-     * untouched.
+     * Hibernate's {@code FormatMapper} returns a compact string rather than writing through an {@code ObjectWriter}, so
+     * its output is re-indented here with the same pinned printer the mapper path uses. Only whitespace is normalized:
+     * floats are read as {@code BigDecimal} so a literal like {@code 1.5} survives the reformat exactly, and key order,
+     * key presence and scalar rendering — the things a migration would change — pass through untouched.
      */
     static void assertRawJsonMatchesGolden(String goldenName, String rawJson) {
         String actual = reindent(rawJson);
@@ -113,14 +113,13 @@ final class GoldenJson {
         assertThat(actual)
                 .describedAs("Serialized JSON drifted from golden '%s.json'. During the Jackson 3 migration this is a "
                         + "finding to explain, not a test to update — trace the diff to a documented behaviour change "
-                        + "first. Regenerate deliberately with -D%s=true once the diff is understood.",
-                        goldenName, REGENERATE_PROPERTY)
+                        + "first. Regenerate deliberately with -D%s=true once the diff is understood.", goldenName,
+                        REGENERATE_PROPERTY)
                 .isEqualTo(read(goldenName));
     }
 
     private static String reindent(String rawJson) {
-        ObjectMapper reader = new ObjectMapper()
-                .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+        ObjectMapper reader = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
         try {
             return serialize(reader, reader.readTree(rawJson));
         } catch (IOException e) {
@@ -129,10 +128,10 @@ final class GoldenJson {
     }
 
     /**
-     * Serialize with a pretty printer pinned to {@code \n} and two-space indents. The platform-default printer uses
-     * the system line separator, which would make goldens fail on a different OS for no behavioural reason.
-     * Whitespace is normalized; key names, key order, presence and scalar rendering — the things that matter — are
-     * exactly as the mapper produced them.
+     * Serialize with a pretty printer pinned to {@code \n} and two-space indents. The platform-default printer uses the
+     * system line separator, which would make goldens fail on a different OS for no behavioural reason. Whitespace is
+     * normalized; key names, key order, presence and scalar rendering — the things that matter — are exactly as the
+     * mapper produced them.
      */
     private static String serialize(ObjectMapper mapper, Object value) {
         DefaultIndenter indenter = new DefaultIndenter("  ", "\n");
@@ -168,8 +167,10 @@ final class GoldenJson {
             if (Files.exists(onDisk)) {
                 return normalize(Files.readString(onDisk, StandardCharsets.UTF_8));
             }
-            // Fall back to the classpath copy so the suite still runs when the working directory is not the module root.
-            try (InputStream stream = GoldenJson.class.getResourceAsStream("/" + RESOURCE_DIR + "/" + goldenName + ".json")) {
+            // Fall back to the classpath copy so the suite still runs when the working directory is not the module
+            // root.
+            try (InputStream stream = GoldenJson.class
+                    .getResourceAsStream("/" + RESOURCE_DIR + "/" + goldenName + ".json")) {
                 if (stream == null) {
                     return fail("Golden '%s.json' does not exist. Create it by running with -D%s=true and reviewing "
                             + "the generated file before committing.", goldenName, REGENERATE_PROPERTY);
