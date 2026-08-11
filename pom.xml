@@ -461,7 +461,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>%regex[.*/integration/.*ITest.*]</exclude>
+                                <exclude>%regex[com/otilm/core/integration/.*ITest.*]</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -507,7 +507,7 @@
                                 <include>com/otilm/core/integration/service/**/*ITest.java</include>
                             </includes>
                             <excludes>
-                                <exclude>%regex[.*/integration/service/[D-Z][^/]*ITest.*]</exclude>
+                                <exclude>%regex[com/otilm/core/integration/service/[D-Z][^/]*ITest.*]</exclude>
                                 <exclude>com/otilm/core/integration/service/AcmeProfileServiceITest.java</exclude>
                                 <exclude>com/otilm/core/integration/service/AcmeServiceITest.java</exclude>
                                 <exclude>com/otilm/core/integration/service/CertificateServiceITest.java</exclude>
@@ -529,7 +529,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>%regex[.*/integration/service/[D-Z][^/]*ITest.*]</include>
+                                <include>%regex[com/otilm/core/integration/service/[D-Z][^/]*ITest.*]</include>
                                 <include>com/otilm/core/integration/service/AcmeProfileServiceITest.java</include>
                                 <include>com/otilm/core/integration/service/AcmeServiceITest.java</include>
                                 <include>com/otilm/core/integration/service/CertificateServiceITest.java</include>
