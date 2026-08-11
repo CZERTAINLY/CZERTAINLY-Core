@@ -2,18 +2,28 @@ package com.otilm.core.service.cmp.message.validator.impl;
 
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.api.model.core.cmp.ProtectionMethod;
+import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.CMPObjectIdentifiers;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIConfirmContent;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
+import org.bouncycastle.asn1.cmp.PKIHeader;
+import org.bouncycastle.asn1.cmp.PKIHeaderBuilder;
+import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.GeneralName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for the protection-type consistency check in {@link ProtectionValidator}.
@@ -72,6 +82,32 @@ class ProtectionValidatorTest {
     @Test
     void acceptsAnyMessage_whenProfileDoesNotConstrainRequestMethod() {
         assertThatCode(() -> ProtectionValidator.assertMessageProtectionMatchesProfile(TID, SIGNATURE_ALG, null))
+                .doesNotThrowAnyException();
+    }
+
+    /** A message with neither protection bits nor a protectionAlg; the body is irrelevant to the check under test. */
+    private static PKIMessage unprotectedMessage() {
+        PKIHeader header = new PKIHeaderBuilder(PKIHeader.CMP_2000, new GeneralName(new X500Name("CN=user")),
+                new GeneralName(new X500Name("CN=ca"))).setTransactionID(TID.getOctets()).build();
+        return new PKIMessage(header, new PKIBody(PKIBody.TYPE_CONFIRM, new PKIConfirmContent()));
+    }
+
+    @Test
+    void rejectsUnprotectedRequest_inRegistrationMode() {
+        ConfigurationContext configuration = mock(ConfigurationContext.class);
+        when(configuration.isRegistrationMode()).thenReturn(true);
+
+        assertThatThrownBy(() -> new ProtectionValidator().validateIn(unprotectedMessage(), configuration))
+                .isInstanceOfSatisfying(CmpProcessingException.class,
+                        e -> assertThat(e.getFailureInfo()).isEqualTo(PKIFailureInfo.notAuthorized));
+    }
+
+    @Test
+    void acceptsUnprotectedRequest_whenNotInRegistrationMode() {
+        ConfigurationContext configuration = mock(ConfigurationContext.class);
+        when(configuration.isRegistrationMode()).thenReturn(false);
+
+        assertThatCode(() -> new ProtectionValidator().validateIn(unprotectedMessage(), configuration))
                 .doesNotThrowAnyException();
     }
 }
