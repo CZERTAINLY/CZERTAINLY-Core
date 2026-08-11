@@ -17,13 +17,19 @@ import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIHeader;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.cmp.ProtectedPart;
+import org.bouncycastle.asn1.iana.IANAObjectIdentifiers;
+import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
+import org.bouncycastle.asn1.oiw.OIWObjectIdentifiers;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.util.Set;
 
 /**
  * Validator of Password-Based MAC protection of {@link PKIMessage}.
@@ -31,6 +37,27 @@ import java.security.NoSuchProviderException;
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3.1">Shared secret Information</a>
  */
 public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
+
+    // Guardrails on the client-supplied PBMParameter, enforced before the MAC is computed and — in
+    // registration mode — before the challenge gate takes its row lock. The iteration count drives a digest
+    // loop, so an unbounded value would burn CPU while holding the lock. These are protocol-hardening bounds,
+    // not operator settings.
+    static final int MAX_PBM_ITERATION_COUNT = 100_000;
+    static final int MAX_PBM_SALT_LENGTH = 1024;
+
+    private static final Set<String> ALLOWED_OWF_OIDS = Set.of(
+            OIWObjectIdentifiers.idSHA1.getId(),
+            NISTObjectIdentifiers.id_sha256.getId(),
+            NISTObjectIdentifiers.id_sha384.getId(),
+            NISTObjectIdentifiers.id_sha512.getId());
+    private static final Set<String> ALLOWED_MAC_OIDS = Set.of(
+            // Both the IPSEC/ISAKMP (IANA) and PKCS#5 forms of HMAC-SHA1; RFC 4210 clients and the platform's
+            // own shared-secret response strategy use the PKCS form.
+            IANAObjectIdentifiers.hmacSHA1.getId(),
+            PKCSObjectIdentifiers.id_hmacWithSHA1.getId(),
+            PKCSObjectIdentifiers.id_hmacWithSHA256.getId(),
+            PKCSObjectIdentifiers.id_hmacWithSHA384.getId(),
+            PKCSObjectIdentifiers.id_hmacWithSHA512.getId());
 
     /**
      * see flow at rfc4210, section 5.1.3.1 id-PasswordBasedMac OBJECT IDENTIFIER ::= {1 2 840 113533 7 66 13}
@@ -44,6 +71,8 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
         ASN1OctetString tid = message.getHeader().getTransactionID();
+        // Before anything that iterates the PBM parameters — the gate's row lock included — bound them.
+        validatePbmParameters(message, tid);
         // The registration gate runs on the incoming request only. A response (validateOut) is MAC-validated
         // through the normal path below, keyed by the matched registration's challenge via getSharedSecret().
         if (configuration.isRegistrationMode()) {
@@ -94,6 +123,39 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
                 || bodyType == PKIBody.TYPE_KEY_UPDATE_REQ
                 || bodyType == PKIBody.TYPE_POLL_REQ
                 || bodyType == PKIBody.TYPE_CERT_CONFIRM;
+    }
+
+    /**
+     * Rejects a message whose Password-Based MAC parameters fall outside the accepted bounds: a non-positive
+     * or over-maximum iteration count, an oversized salt, or a one-way-function / MAC algorithm outside the
+     * allowlist. Enforced before the MAC computation (and the registration gate's row lock), so a hostile
+     * iteration count cannot drive the digest loop while holding resources.
+     */
+    static void validatePbmParameters(PKIMessage message, ASN1OctetString tid) throws CmpProcessingException {
+        PBMParameter pbmParameter;
+        try {
+            pbmParameter = PBMParameter.getInstance(message.getHeader().getProtectionAlg().getParameters());
+        } catch (RuntimeException e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, "PBM protection parameters are malformed");
+        }
+        if (pbmParameter == null) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, "PBM protection parameters are missing");
+        }
+        BigInteger iterationCount = pbmParameter.getIterationCount().getValue();
+        if (iterationCount.signum() <= 0
+                || iterationCount.compareTo(BigInteger.valueOf(MAX_PBM_ITERATION_COUNT)) > 0) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
+                    "PBM iteration count is outside the permitted range");
+        }
+        if (pbmParameter.getSalt().getOctets().length > MAX_PBM_SALT_LENGTH) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, "PBM salt exceeds the permitted size");
+        }
+        if (!ALLOWED_OWF_OIDS.contains(pbmParameter.getOwf().getAlgorithm().getId())) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badAlg, "PBM one-way function algorithm is not permitted");
+        }
+        if (!ALLOWED_MAC_OIDS.contains(pbmParameter.getMac().getAlgorithm().getId())) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badAlg, "PBM MAC algorithm is not permitted");
+        }
     }
 
     /**
