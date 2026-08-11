@@ -5,12 +5,11 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.cmp.CmpProfile;
 import com.otilm.core.dao.entity.cmp.CmpTransaction;
 import com.otilm.core.dao.repository.cmp.CmpTransactionRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 @Component
 public class CmpTransactionService {
@@ -27,14 +26,18 @@ public class CmpTransactionService {
     }
 
     /**
-     * List of transactions for given transactionId (even if current version of cmp ilm
-     * works with one request per transactionId).
+     * List of transactions for given transactionId (even if current version of cmp ilm works with one request per
+     * transactionId).
      *
-     * <p>List is prepare for future behaviour of CMP protocol (ir,cr,kur allows to process list of requests). It means
-     * the given transactionId can keep relation to many request subjects (certificates).</p>
+     * <p>
+     * List is prepare for future behaviour of CMP protocol (ir,cr,kur allows to process list of requests). It means the
+     * given transactionId can keep relation to many request subjects (certificates).
+     * </p>
      *
-     * <p>There's a next solution to move m:n relationship to another table (with removing certificate
-     * column in {@link CmpTransactionService}) with list of {@link Certificate}</p>
+     * <p>
+     * There's a next solution to move m:n relationship to another table (with removing certificate column in
+     * {@link CmpTransactionService}) with list of {@link Certificate}
+     * </p>
      *
      * @param transactionId unique identifier of transaction
      * @return list of transactions
@@ -46,28 +49,26 @@ public class CmpTransactionService {
     /**
      * Helper to create {@link CmpTransaction} entity
      *
-     * @param transactionId   unique identifier of transaction
-     * @param cmpProfile      CMP profile
+     * @param transactionId unique identifier of transaction
+     * @param cmpProfile CMP profile
      * @param certificateUuid unique identifier of certificate
-     * @param state           state of transaction
+     * @param state state of transaction
      * @return new instance of {@link CmpTransaction}
      */
-    public CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile,
-                                                  String certificateUuid, CmpTransactionState state) {
+    public CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile, String certificateUuid,
+            CmpTransactionState state) {
         return createTransactionEntity(transactionId, cmpProfile, certificateUuid, state, null);
     }
 
     /**
-     * Helper to create {@link CmpTransaction} entity with the original request body type
-     * recorded so a subsequent pollReq response can be built with the matching body type.
+     * Helper to create {@link CmpTransaction} entity with the original request body type recorded so a subsequent
+     * pollReq response can be built with the matching body type.
      *
-     * @param originalRequestBodyType BouncyCastle {@code PKIBody.TYPE_*} integer of the
-     *                                originating request (ir / cr / kur / rr); may be {@code null}
-     *                                for transactions where the original type is unknown
+     * @param originalRequestBodyType BouncyCastle {@code PKIBody.TYPE_*} integer of the originating request (ir / cr /
+     * kur / rr); may be {@code null} for transactions where the original type is unknown
      */
-    public CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile,
-                                                  String certificateUuid, CmpTransactionState state,
-                                                  Integer originalRequestBodyType) {
+    public CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile, String certificateUuid,
+            CmpTransactionState state, Integer originalRequestBodyType) {
         CmpTransaction cmpTransaction = new CmpTransaction();
         cmpTransaction.setTransactionId(transactionId);
         cmpTransaction.setCmpProfile(cmpProfile);
@@ -81,7 +82,7 @@ public class CmpTransactionService {
      * Find transaction by transactionId and fingerprint from related certificate
      *
      * @param transactionId unique identifier of transaction
-     * @param fingerprint   unique identifier of certificate
+     * @param fingerprint unique identifier of certificate
      * @return a concrete transaction (fingerprints must be unique in given table)
      */
     public Optional<CmpTransaction> findByTransactionIdAndFingerprint(String transactionId, String fingerprint) {
@@ -92,10 +93,11 @@ public class CmpTransactionService {
      * Find transaction by transactionId and serial number from related certificate
      *
      * @param transactionId unique identifier of transaction
-     * @param serialNumber  unique identifier of certificate
+     * @param serialNumber unique identifier of certificate
      * @return a concrete transaction (serial numbers must be unique in given table)
      */
-    public Optional<CmpTransaction> findByTransactionIdAndCertificateSerialNumber(String transactionId, String serialNumber) {
+    public Optional<CmpTransaction> findByTransactionIdAndCertificateSerialNumber(String transactionId,
+            String serialNumber) {
         return cmpTransactionRepository.findByTransactionIdAndSerialNumber(transactionId, serialNumber);
     }
 }

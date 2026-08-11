@@ -3,6 +3,16 @@ package com.otilm.core.util;
 import com.otilm.api.model.core.audit.AuditLogDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
+import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Field;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -11,12 +21,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.web.util.UriComponentsBuilder;
-
-import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Field;
-import java.time.OffsetDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
 
 public class UriParamsBuilderTest {
 

@@ -2,10 +2,9 @@ package com.otilm.core.model.auth;
 
 import com.otilm.api.model.core.connector.EndpointDto;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-
-import java.util.List;
 
 public class SyncEndpointsDto {
     @Schema(description = "List of end points added")

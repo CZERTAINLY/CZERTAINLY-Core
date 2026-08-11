@@ -2,12 +2,21 @@ package com.otilm.core.provider.spi;
 
 import com.otilm.core.provider.PlatformCipherService;
 import com.otilm.core.provider.key.PlatformPrivateKey;
+import java.security.AlgorithmParameters;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.CipherSpi;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.ShortBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.crypto.*;
-import java.security.*;
-import java.security.spec.AlgorithmParameterSpec;
 
 public class PlatformCipherSpi extends CipherSpi {
 
@@ -28,17 +37,17 @@ public class PlatformCipherSpi extends CipherSpi {
     }
 
     @Override
-    protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException {
+    protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset)
+            throws ShortBufferException {
         return 0;
     }
 
     @Override
-    protected byte[] engineDoFinal(byte[] encryptedData, int inputOffset, int inputLen) throws IllegalBlockSizeException, BadPaddingException {
-        if (operationMode == Cipher.DECRYPT_MODE) {;
-            return cipherService.decrypt(
-                    encryptedData,
-                    privateKey
-            );
+    protected byte[] engineDoFinal(byte[] encryptedData, int inputOffset, int inputLen)
+            throws IllegalBlockSizeException, BadPaddingException {
+        if (operationMode == Cipher.DECRYPT_MODE) {
+            ;
+            return cipherService.decrypt(encryptedData, privateKey);
         } else {
             throw new IllegalStateException("Encryption is not supported by this provider (yet)");
         }
@@ -46,26 +55,30 @@ public class PlatformCipherSpi extends CipherSpi {
     }
 
     @Override
-    protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException, IllegalBlockSizeException, BadPaddingException {
+    protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset)
+            throws ShortBufferException, IllegalBlockSizeException, BadPaddingException {
         // Method is not implemented. The current implementation involves only for SCEP related items
         // And this method is not used.
-        // This method should be implemented when the complete encryption and decryption is processed through the Platform Provider
+        // This method should be implemented when the complete encryption and decryption is processed through the
+        // Platform Provider
         return 0;
     }
 
     @Override
     protected int engineGetBlockSize() {
-        //Method is not implemented. The current implementation involves only for SCEP related items
+        // Method is not implemented. The current implementation involves only for SCEP related items
         // And this method is not used.
-        // This method should be implemented when the complete encryption and decryption is processed through the Platform Provider
+        // This method should be implemented when the complete encryption and decryption is processed through the
+        // Platform Provider
         return 0;
     }
 
     @Override
     protected byte[] engineGetIV() {
-        //Method is not implemented. The current implementation involves only for SCEP related items
+        // Method is not implemented. The current implementation involves only for SCEP related items
         // And this method is not used.
-        // This method should be implemented when the complete encryption and decryption is processed through the Platform Provider
+        // This method should be implemented when the complete encryption and decryption is processed through the
+        // Platform Provider
         return null;
     }
 
@@ -73,7 +86,8 @@ public class PlatformCipherSpi extends CipherSpi {
     protected int engineGetOutputSize(int value) {
         // Method is not implemented. The current implementation involves only for SCEP related items
         // And this method is not used.
-        // This method should be implemented when the complete encryption and decryption is processed through the Platform Provider
+        // This method should be implemented when the complete encryption and decryption is processed through the
+        // Platform Provider
         return 0;
     }
 
@@ -81,7 +95,8 @@ public class PlatformCipherSpi extends CipherSpi {
     protected AlgorithmParameters engineGetParameters() {
         // Method is not implemented. The current implementation involves only for SCEP related items
         // And this method is not used.
-        // This method should be implemented when the complete encryption and decryption is processed through the Platform Provider
+        // This method should be implemented when the complete encryption and decryption is processed through the
+        // Platform Provider
         return null;
     }
 
@@ -103,7 +118,8 @@ public class PlatformCipherSpi extends CipherSpi {
             throws InvalidKeyException, InvalidAlgorithmParameterException {
         // Method is not implemented. The current implementation involves only for SCEP related items
         // And this method is not used.
-        // This method should be implemented when the complete encryption and decryption is processed through the Platform Provider
+        // This method should be implemented when the complete encryption and decryption is processed through the
+        // Platform Provider
     }
 
     @Override
@@ -111,21 +127,24 @@ public class PlatformCipherSpi extends CipherSpi {
             throws InvalidKeyException, InvalidAlgorithmParameterException {
         // Method is not implemented. The current implementation involves only for SCEP related items
         // And this method is not used.
-        // This method should be implemented when the complete encryption and decryption is processed through the Platform Provider
+        // This method should be implemented when the complete encryption and decryption is processed through the
+        // Platform Provider
     }
 
     @Override
     protected void engineSetMode(String operationMode) throws NoSuchAlgorithmException {
         // Method is not implemented. The current implementation involves only for SCEP related items
         // And this method is not used.
-        // This method should be implemented when the complete encryption and decryption is processed through the Platform Provider
+        // This method should be implemented when the complete encryption and decryption is processed through the
+        // Platform Provider
     }
 
     @Override
     protected void engineSetPadding(String operationMode) throws NoSuchPaddingException {
         // Method is not implemented. The current implementation involves only for SCEP related items
         // And this method is not used.
-        // This method should be implemented when the complete encryption and decryption is processed through the Platform Provider
+        // This method should be implemented when the complete encryption and decryption is processed through the
+        // Platform Provider
     }
 
 }

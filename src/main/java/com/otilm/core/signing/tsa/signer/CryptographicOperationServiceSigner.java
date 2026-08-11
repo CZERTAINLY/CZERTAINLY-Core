@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * {@link Signer} implementation that delegates signing to {@link CryptographicOperationInternalService}.
- * Created per-request by {@link StaticManagedKeySignerCreator} with pre-resolved key routing information.
+ * {@link Signer} implementation that delegates signing to {@link CryptographicOperationInternalService}. Created
+ * per-request by {@link StaticManagedKeySignerCreator} with pre-resolved key routing information.
  */
 public class CryptographicOperationServiceSigner implements Signer {
 
@@ -32,12 +32,8 @@ public class CryptographicOperationServiceSigner implements Signer {
     private final SignatureAlgorithm signatureAlgorithm;
 
     public CryptographicOperationServiceSigner(CryptographicOperationInternalService cryptographicOperationService,
-                                               SecuredParentUUID tokenInstanceUuid,
-                                               SecuredUUID tokenProfileUuid,
-                                               UUID keyUuid,
-                                               UUID privateKeyItemUuid,
-                                               List<RequestAttribute> signatureAttributes,
-                                               SignatureAlgorithm signatureAlgorithm) {
+            SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID keyUuid, UUID privateKeyItemUuid,
+            List<RequestAttribute> signatureAttributes, SignatureAlgorithm signatureAlgorithm) {
         this.cryptographicOperationService = cryptographicOperationService;
         this.tokenInstanceUuid = tokenInstanceUuid;
         this.tokenProfileUuid = tokenProfileUuid;
@@ -66,25 +62,23 @@ public class CryptographicOperationServiceSigner implements Signer {
         request.setData(List.of(requestData));
 
         try {
-            SignDataResponseDto response = cryptographicOperationService.signDataWithoutEventHistory(
-                    tokenInstanceUuid, tokenProfileUuid, keyUuid, privateKeyItemUuid, request);
+            SignDataResponseDto response = cryptographicOperationService
+                    .signDataWithoutEventHistory(tokenInstanceUuid, tokenProfileUuid, keyUuid, privateKeyItemUuid,
+                            request);
 
             if (response == null || response.getSignatures() == null || response.getSignatures().isEmpty()) {
-                throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                        "Signing operation returned no signatures",
+                throw new TspException(TspFailureInfo.SYSTEM_FAILURE, "Signing operation returned no signatures",
                         "Internal signing error");
             }
 
             return Base64.getDecoder().decode(response.getSignatures().getFirst().getData());
 
         } catch (ConnectorException e) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Connector error during signing: " + e.getMessage(), e,
-                    "Internal signing error");
+            throw new TspException(TspFailureInfo.SYSTEM_FAILURE, "Connector error during signing: " + e.getMessage(),
+                    e, "Internal signing error");
         } catch (NotFoundException e) {
             throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Key or token not found during signing: " + e.getMessage(), e,
-                    "Internal signing error");
+                    "Key or token not found during signing: " + e.getMessage(), e, "Internal signing error");
         }
     }
 }

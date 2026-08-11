@@ -4,14 +4,13 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.messaging.jms.producers.CertificateStatusPollProducer;
 import com.otilm.core.messaging.model.CertificateStatusPollMessage;
 import com.otilm.core.service.handler.authority.CertificateOperation;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doThrow;
@@ -22,9 +21,12 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CertificateStatusPollSweeperTest {
 
-    @Mock private CertificateStatusPollClaimer pollClaimer;
-    @Mock private CertificateStatusPollProducer pollProducer;
-    @Mock private PendingIssueReaper pendingIssueReaper;
+    @Mock
+    private CertificateStatusPollClaimer pollClaimer;
+    @Mock
+    private CertificateStatusPollProducer pollProducer;
+    @Mock
+    private PendingIssueReaper pendingIssueReaper;
 
     private static final int BATCH_SIZE = 200;
 
@@ -55,8 +57,8 @@ class CertificateStatusPollSweeperTest {
 
     @Test
     void due_sendsClaimedMessagesOutsideTheClaim() {
-        CertificateStatusPollMessage msg = new CertificateStatusPollMessage(
-                Resource.CERTIFICATE, UUID.randomUUID(), CertificateOperation.ISSUE, 2);
+        CertificateStatusPollMessage msg = new CertificateStatusPollMessage(Resource.CERTIFICATE, UUID.randomUUID(),
+                CertificateOperation.ISSUE, 2);
         // A partial batch (< batchSize) ends the loop after one round.
         when(pollClaimer.claimDueBatch(BATCH_SIZE)).thenReturn(List.of(msg));
 
@@ -69,8 +71,8 @@ class CertificateStatusPollSweeperTest {
 
     @Test
     void sendFailure_doesNotAbortTheSweep() {
-        CertificateStatusPollMessage msg = new CertificateStatusPollMessage(
-                Resource.CERTIFICATE, UUID.randomUUID(), CertificateOperation.ISSUE, 1);
+        CertificateStatusPollMessage msg = new CertificateStatusPollMessage(Resource.CERTIFICATE, UUID.randomUUID(),
+                CertificateOperation.ISSUE, 1);
         when(pollClaimer.claimDueBatch(BATCH_SIZE)).thenReturn(List.of(msg));
         doThrow(new RuntimeException("broker down")).when(pollProducer).produceMessage(msg);
 

@@ -1,8 +1,17 @@
 package com.otilm.core.service.impl;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.clients.ApiClientConnectorInfo;
-import com.otilm.core.client.ConnectorApiFactory;
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.connector.v2.ConnectorInterface;
+import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
+import com.otilm.api.model.client.connector.v2.attribute.ScopedAttributes;
 import com.otilm.api.model.client.cryptography.key.KeyRequestType;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
@@ -13,15 +22,12 @@ import com.otilm.api.model.common.attribute.common.callback.RequestAttributeCall
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.core.auth.AttributeResource;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.client.attribute.RequestAttribute;
-import com.otilm.api.model.client.connector.v2.ConnectorInterface;
-import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
-import com.otilm.api.model.client.connector.v2.attribute.ScopedAttributes;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.AttributeReferenceExpander;
 import com.otilm.core.attribute.engine.AttributeVersionHelper;
+import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
@@ -35,24 +41,32 @@ import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.model.auth.ResourceAction;
-import com.otilm.core.service.callback.AttributeCallbackScopeResolver;
-import com.otilm.core.service.callback.NgCallbackDispatcher;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
-import com.otilm.core.service.*;
+import com.otilm.core.service.CallbackExternalService;
+import com.otilm.core.service.CoreCallbackService;
+import com.otilm.core.service.CredentialInternalService;
+import com.otilm.core.service.CryptographicKeyExternalService;
+import com.otilm.core.service.ResourceInternalService;
+import com.otilm.core.service.TokenProfileInternalService;
+import com.otilm.core.service.callback.AttributeCallbackScopeResolver;
+import com.otilm.core.service.callback.NgCallbackDispatcher;
 import com.otilm.core.service.v2.ConnectorExternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.*;
 
 @Service
 @Transactional
@@ -124,12 +138,14 @@ public class CallbackServiceImpl implements CallbackExternalService {
     }
 
     @Autowired
-    public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
+    public void setAuthorityInstanceReferenceRepository(
+            AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
         this.authorityInstanceReferenceRepository = authorityInstanceReferenceRepository;
     }
 
     @Autowired
-    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
+    public void setEntityInstanceReferenceRepository(
+            EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
         this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
     }
 
@@ -165,20 +181,25 @@ public class CallbackServiceImpl implements CallbackExternalService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException, AttributeException {
+    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback)
+            throws ConnectorException, ValidationException, NotFoundException, AttributeException {
         ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromString(uuid));
-        List<BaseAttribute> definitions = connectorApiFactory.getAttributeApiClient(connector).listAttributeDefinitions(connector, functionGroup, kind);
+        List<BaseAttribute> definitions = connectorApiFactory
+                .getAttributeApiClient(connector)
+                .listAttributeDefinitions(connector, functionGroup, kind);
         return getCallbackObject(callback, definitions, connector);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public Object callback(UUID connectorUuid, RequestAttributeCallback callback) throws NotFoundException, ConnectorException, AttributeException {
+    public Object callback(UUID connectorUuid, RequestAttributeCallback callback)
+            throws NotFoundException, ConnectorException, AttributeException {
         ConnectorDetailDto connector = connectorService.getConnector(SecuredUUID.fromUUID(connectorUuid));
         return getCallbackObject(callback, null, connector);
     }
 
-    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, ConnectorDetailDto connector) throws NotFoundException, ConnectorException, AttributeException {
+    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions,
+            ConnectorDetailDto connector) throws NotFoundException, ConnectorException, AttributeException {
         // Connector-scoped entrypoints carry no parent scope object, so no scope coordinates and no pre-resolved
         // connectorInterface. This is the route parent-less forms (the connector/authority instance create-edit
         // form) use for NG callbacks: the interface is stamped in dispatchNg from the request's interfaceUuid, and
@@ -187,9 +208,10 @@ public class CallbackServiceImpl implements CallbackExternalService {
         return getCallbackObject(callback, definitions, connector, null, null, null, null);
     }
 
-    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, ConnectorDetailDto connector,
-                                     Resource scopeResource, UUID scopeParentUuid, ConnectorInterface connectorInterface,
-                                     String interfaceVersion) throws NotFoundException, ConnectorException, AttributeException {
+    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions,
+            ConnectorDetailDto connector, Resource scopeResource, UUID scopeParentUuid,
+            ConnectorInterface connectorInterface, String interfaceVersion)
+            throws NotFoundException, ConnectorException, AttributeException {
         UUID connectorUuid = UUID.fromString(connector.getUuid());
         BaseAttribute attribute = getBaseAttribute(callback, definitions, connectorUuid);
 
@@ -198,8 +220,8 @@ public class CallbackServiceImpl implements CallbackExternalService {
             // A DATA/GROUP attribute can be stored without a callback. Every path below (isNgCallback,
             // validateCallback, the core/getCredentials and RESOURCE arms) dereferences it, so a null here would be
             // an unhandled 500 NPE. Surface a controlled 400 instead.
-            throw new ValidationException(ValidationError.create(
-                    "Attribute '" + attribute.getName() + "' has no callback definition to invoke"));
+            throw new ValidationException(ValidationError
+                    .create("Attribute '" + attribute.getName() + "' has no callback definition to invoke"));
         }
 
         AttributeResource attributeResource = getAttributeResource(attribute);
@@ -210,7 +232,8 @@ public class CallbackServiceImpl implements CallbackExternalService {
         // declaration is validated at ingest instead. Both-set is rejected at ingest, so the
         // callbackContext == null conjunct here is defensive. Legacy callbacks fall through unchanged.
         if (isNgCallback(attribute, attributeCallback)) {
-            return dispatchNg(connector, attribute, attributeCallback, callback, scopeResource, scopeParentUuid, connectorInterface, interfaceVersion);
+            return dispatchNg(connector, attribute, attributeCallback, callback, scopeResource, scopeParentUuid,
+                    connectorInterface, interfaceVersion);
         }
 
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback, attributeResource != null);
@@ -219,7 +242,8 @@ public class CallbackServiceImpl implements CallbackExternalService {
             return coreCallbackService.coreGetCredentials(callback);
         }
 
-        if (attribute instanceof DataAttribute dataAttribute && dataAttribute.getContentType() == AttributeContentType.RESOURCE) {
+        if (attribute instanceof DataAttribute dataAttribute
+                && dataAttribute.getContentType() == AttributeContentType.RESOURCE) {
             return coreCallbackService.coreGetResources(callback, attributeResource);
         }
 
@@ -228,7 +252,12 @@ public class CallbackServiceImpl implements CallbackExternalService {
         if (attribute.getType() == AttributeType.DATA && callback.getBody() != null) {
             Map<String, AttributeResource> toResource = new HashMap<>();
             for (String to : callback.getBody().keySet()) {
-                AttributeCallbackMapping callbackMapping = attributeCallback.getMappings().stream().filter(attributeCallbackMapping -> attributeCallbackMapping.getTo().equals(to)).findFirst().orElse(null);
+                AttributeCallbackMapping callbackMapping = attributeCallback
+                        .getMappings()
+                        .stream()
+                        .filter(attributeCallbackMapping -> attributeCallbackMapping.getTo().equals(to))
+                        .findFirst()
+                        .orElse(null);
                 if (callbackMapping != null && callbackMapping.getFrom() != null) {
                     String fromAttributeName = callbackMapping.getFrom().split("\\.", 2)[0];
                     DataAttribute fromAttribute = getFromAttribute(definitions, connectorUuid, fromAttributeName);
@@ -238,19 +267,23 @@ public class CallbackServiceImpl implements CallbackExternalService {
             resourceService.loadResourceObjectContentData(attributeCallback, callback, toResource);
         }
 
-        Object response = connectorApiFactory.getAttributeApiClient(connector).attributeCallback(connector, attributeCallback, callback);
+        Object response = connectorApiFactory
+                .getAttributeApiClient(connector)
+                .attributeCallback(connector, attributeCallback, callback);
         if (attribute.getType().equals(AttributeType.GROUP)) {
             processGroupAttributes(connectorUuid, response);
         }
         return response;
     }
 
-    private DataAttribute getFromAttribute(List<BaseAttribute> definitions, UUID connectorUuid, String fromAttributeName) throws NotFoundException {
+    private DataAttribute getFromAttribute(List<BaseAttribute> definitions, UUID connectorUuid,
+            String fromAttributeName) throws NotFoundException {
         DataAttribute fromAttribute;
         if (definitions == null || definitions.isEmpty()) {
             fromAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, fromAttributeName);
             if (fromAttribute == null) {
-                throw new NotFoundException("Attribute definition '" + fromAttributeName + "' not found for connector " + connectorUuid);
+                throw new NotFoundException(
+                        "Attribute definition '" + fromAttributeName + "' not found for connector " + connectorUuid);
             }
         } else {
             fromAttribute = (DataAttribute) getAttributeByName(fromAttributeName, definitions, connectorUuid);
@@ -258,7 +291,8 @@ public class CallbackServiceImpl implements CallbackExternalService {
         return fromAttribute;
     }
 
-    private BaseAttribute getBaseAttribute(RequestAttributeCallback callback, List<BaseAttribute> definitions, UUID connectorUuid) throws NotFoundException {
+    private BaseAttribute getBaseAttribute(RequestAttributeCallback callback, List<BaseAttribute> definitions,
+            UUID connectorUuid) throws NotFoundException {
         BaseAttribute attribute;
         if (definitions != null && !definitions.isEmpty()) {
             attribute = getAttributeByName(callback.getName(), definitions, connectorUuid);
@@ -268,7 +302,8 @@ public class CallbackServiceImpl implements CallbackExternalService {
         return attribute;
     }
 
-    private BaseAttribute getBaseAttributeFromExistingDefinition(RequestAttributeCallback callback, UUID connectorUuid) throws NotFoundException {
+    private BaseAttribute getBaseAttributeFromExistingDefinition(RequestAttributeCallback callback, UUID connectorUuid)
+            throws NotFoundException {
         // Prefer the referenced attributeUuid when it actually identifies a stored (attributeUuid, name) row: a
         // non-unique (type, connector, name) must not silently pick the wrong row on the initial dispatch.
         // Fall back to deterministic name-only resolution when no uuid is given OR the uuid does not match a row
@@ -314,8 +349,7 @@ public class CallbackServiceImpl implements CallbackExternalService {
         // open" (a scope-only dropdown), so it must dispatch NG, not fall to the legacy rung. RESOURCE content is
         // answered by the core resource path (ladder rung 1), so it is excluded — otherwise a live-listed definition
         // (which bypasses the ingest-time declaration guard) could route a RESOURCE attribute through NG.
-        if (attributeCallback == null
-                || attributeCallback.getDependsOn() == null
+        if (attributeCallback == null || attributeCallback.getDependsOn() == null
                 || attributeCallback.getCallbackContext() != null) {
             return false;
         }
@@ -324,14 +358,14 @@ public class CallbackServiceImpl implements CallbackExternalService {
     }
 
     /**
-     * Assemble the NG dispatch context and hand off to the {@link NgCallbackDispatcher} collaborator bean,
-     * which performs the connector POST outside any transaction. {@code currentAttributes} are the values
-     * supplied with the callback (the dependsOn-named attributes), expanded per the calling user via the same
+     * Assemble the NG dispatch context and hand off to the {@link NgCallbackDispatcher} collaborator bean, which
+     * performs the connector POST outside any transaction. {@code currentAttributes} are the values supplied with the
+     * callback (the dependsOn-named attributes), expanded per the calling user via the same
      * {@link AttributeReferenceExpander} used for the scope chain.
      */
-    private Object dispatchNg(ConnectorDetailDto connector, BaseAttribute attribute, AttributeCallback attributeCallback,
-                              RequestAttributeCallback callback, Resource scopeResource, UUID scopeParentUuid,
-                              ConnectorInterface connectorInterface, String interfaceVersion)
+    private Object dispatchNg(ConnectorDetailDto connector, BaseAttribute attribute,
+            AttributeCallback attributeCallback, RequestAttributeCallback callback, Resource scopeResource,
+            UUID scopeParentUuid, ConnectorInterface connectorInterface, String interfaceVersion)
             throws NotFoundException, ConnectorException, AttributeException {
         UUID connectorUuid = UUID.fromString(connector.getUuid());
         List<RequestAttribute> currentAttributes = callback.getAttributes();
@@ -363,9 +397,10 @@ public class CallbackServiceImpl implements CallbackExternalService {
         if (currentAttributes != null && !currentAttributes.isEmpty()) {
             attributeReferenceExpander.expandForCaller(currentAttributes, expandedSecrets);
         }
-        NgCallbackDispatcher.NgDispatchContext context = new NgCallbackDispatcher.NgDispatchContext(
-                attribute, connectorInterface, interfaceVersion, contextAttributes, currentAttributes);
-        AttributeCallbackResponseDto response = ngCallbackDispatcher.dispatchNgCallback(connector, context, callback, expandedSecrets);
+        NgCallbackDispatcher.NgDispatchContext context = new NgCallbackDispatcher.NgDispatchContext(attribute,
+                connectorInterface, interfaceVersion, contextAttributes, currentAttributes);
+        AttributeCallbackResponseDto response = ngCallbackDispatcher
+                .dispatchNgCallback(connector, context, callback, expandedSecrets);
         return response.getContent() != null ? response.getContent() : response.getAttributes();
     }
 
@@ -374,21 +409,21 @@ public class CallbackServiceImpl implements CallbackExternalService {
      * pre-resolved the interface from a scoped object — the connector-scoped route, and the token-instance /
      * cryptographic-key / location arms that carry no {@link ConnectorInterfaceEntity} — an NG callback must supply
      * {@code interfaceUuid}. The row disambiguates parallel NG interface versions on one connector and supplies the
-     * interface/version Core stamps on the envelope. It must belong to the route connector — otherwise a caller
-     * could stamp another connector's interface onto the dispatch.
+     * interface/version Core stamps on the envelope. It must belong to the route connector — otherwise a caller could
+     * stamp another connector's interface onto the dispatch.
      */
     private ConnectorInterfaceEntity resolveRequestInterface(RequestAttributeCallback callback, UUID connectorUuid) {
         UUID interfaceUuid = callback.getInterfaceUuid();
         if (interfaceUuid == null) {
-            throw new ValidationException(ValidationError.create(
-                    "NG attribute callback requires interfaceUuid identifying the form's connector interface"));
+            throw new ValidationException(ValidationError
+                    .create("NG attribute callback requires interfaceUuid identifying the form's connector interface"));
         }
         // Collapse "no such row" and "row owned by another connector" into one message: distinct messages would let
         // a caller with connector access probe which interface UUIDs exist globally.
         ConnectorInterfaceEntity iface = connectorInterfaceRepository.findById(interfaceUuid).orElse(null);
         if (iface == null || !connectorUuid.equals(iface.getConnectorUuid())) {
-            throw new ValidationException(ValidationError.create(
-                    "Connector interface " + interfaceUuid + " is not valid for connector " + connectorUuid));
+            throw new ValidationException(ValidationError
+                    .create("Connector interface " + interfaceUuid + " is not valid for connector " + connectorUuid));
         }
         return iface;
     }
@@ -409,28 +444,24 @@ public class CallbackServiceImpl implements CallbackExternalService {
         }
         List<String> missing = dependsOn.stream().filter(name -> !present.contains(name)).toList();
         if (!missing.isEmpty()) {
-            throw new ValidationException(ValidationError.create(
-                    "NG attribute callback is missing current values for dependsOn attributes: " + missing));
+            throw new ValidationException(ValidationError
+                    .create("NG attribute callback is missing current values for dependsOn attributes: " + missing));
         }
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
-    public Object resourceCallback(Resource resource, String parentObjectUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException, AttributeException {
+    public Object resourceCallback(Resource resource, String parentObjectUuid, RequestAttributeCallback callback)
+            throws ConnectorException, ValidationException, NotFoundException, AttributeException {
         List<BaseAttribute> definitions = null;
         Connector connector = null;
         ConnectorInterface connectorInterface = null;
         String interfaceVersion = null;
         switch (resource) {
             case RA_PROFILE:
-                AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(
-                                UUID.fromString(parentObjectUuid))
-                        .orElseThrow(
-                                () -> new NotFoundException(
-                                        AuthorityInstanceReference.class,
-                                        parentObjectUuid
-                                )
-                        );
+                AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository
+                        .findByUuid(UUID.fromString(parentObjectUuid))
+                        .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, parentObjectUuid));
                 connector = authorityInstance.getConnector();
                 connectorInterface = interfaceCodeOf(authorityInstance);
                 interfaceVersion = interfaceVersionOf(authorityInstance);
@@ -438,19 +469,22 @@ public class CallbackServiceImpl implements CallbackExternalService {
                 // listRAProfileAttributes call would pass null and break. Route them through the NG scope
                 // resolver + dispatcher instead; legacy (v1/v2) authorities keep the exact v1 call below.
                 if (!isV3Authority(authorityInstance)) {
-                    ApiClientConnectorInfo raProfileConnectorDto = connectorInternalService.getConnectorForApiClient(connector.getUuid());
-                    definitions = connectorApiFactory.getAuthorityInstanceApiClient(raProfileConnectorDto).listRAProfileAttributes(
-                            raProfileConnectorDto,
-                            authorityInstance.getAuthorityInstanceUuid()
-                    );
+                    ApiClientConnectorInfo raProfileConnectorDto = connectorInternalService
+                            .getConnectorForApiClient(connector.getUuid());
+                    definitions = connectorApiFactory
+                            .getAuthorityInstanceApiClient(raProfileConnectorDto)
+                            .listRAProfileAttributes(raProfileConnectorDto,
+                                    authorityInstance.getAuthorityInstanceUuid());
                 }
                 break;
 
             case CERTIFICATE:
                 // Issuance scope (NG-only): the FE issuance form sends (CERTIFICATE, raProfile). Resolve the
                 // connector via the raProfile -> authority chain, consistent with the scope walker
-                // (walkCertificateIssuance). Inert until the FE issuance form is wired; the scope chain is resolved by the NG path below.
-                RaProfile issuanceRaProfile = raProfileRepository.findByUuid(UUID.fromString(parentObjectUuid))
+                // (walkCertificateIssuance). Inert until the FE issuance form is wired; the scope chain is resolved by
+                // the NG path below.
+                RaProfile issuanceRaProfile = raProfileRepository
+                        .findByUuid(UUID.fromString(parentObjectUuid))
                         .orElseThrow(() -> new NotFoundException(RaProfile.class, parentObjectUuid));
                 AuthorityInstanceReference issuanceAuthority = issuanceRaProfile.getAuthorityInstanceReference();
                 if (issuanceAuthority == null) {
@@ -466,7 +500,8 @@ public class CallbackServiceImpl implements CallbackExternalService {
                 // under an instance), so the FE sends the token-instance UUID as the parent — matching the scope
                 // table (TOKEN_PROFILE -> [{tokenInstance}]). Load the instance directly; loading a TokenProfile by
                 // this UUID would 404.
-                TokenInstanceReference tokenInstance = tokenInstanceReferenceRepository.findByUuid(UUID.fromString(parentObjectUuid))
+                TokenInstanceReference tokenInstance = tokenInstanceReferenceRepository
+                        .findByUuid(UUID.fromString(parentObjectUuid))
                         .orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, parentObjectUuid));
                 connector = tokenInstance.getConnector();
                 // Token connectors carry no ConnectorInterfaceEntity, so this arm pre-resolves no interface: a legacy
@@ -475,56 +510,47 @@ public class CallbackServiceImpl implements CallbackExternalService {
                 break;
 
             case CRYPTOGRAPHIC_KEY:
-                connector =
-                        tokenProfileService.getTokenProfileEntity(
-                                SecuredUUID.fromString(
-                                        parentObjectUuid
-                                )
-                        ).getTokenInstanceReference().getConnector();
+                connector = tokenProfileService
+                        .getTokenProfileEntity(SecuredUUID.fromString(parentObjectUuid))
+                        .getTokenInstanceReference()
+                        .getConnector();
                 // See TOKEN_PROFILE: token connectors carry no ConnectorInterfaceEntity, so this arm pre-resolves no
                 // interface; an NG definition here must carry interfaceUuid on the request.
-                definitions = cryptographicKeyService.listCreateKeyAttributes(
-                        null,
-                        SecuredParentUUID.fromString(
-                                parentObjectUuid
-                        ),
-                        KeyRequestType.KEY_PAIR
-                );
+                definitions = cryptographicKeyService
+                        .listCreateKeyAttributes(null, SecuredParentUUID.fromString(parentObjectUuid),
+                                KeyRequestType.KEY_PAIR);
                 break;
 
             case LOCATION:
-                EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(UUID.fromString(parentObjectUuid))
-                        .orElseThrow(
-                                () -> new NotFoundException(
-                                        EntityInstanceReference.class,
-                                        parentObjectUuid
-                                )
-                        );
+                EntityInstanceReference entityInstance = entityInstanceReferenceRepository
+                        .findByUuid(UUID.fromString(parentObjectUuid))
+                        .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, parentObjectUuid));
                 connector = entityInstance.getConnector();
                 // See TOKEN_PROFILE: entity connectors carry no ConnectorInterfaceEntity, so this arm pre-resolves no
                 // interface; an NG definition here must carry interfaceUuid on the request.
-                ApiClientConnectorInfo locationConnectorDto = connectorInternalService.getConnectorForApiClient(connector.getUuid());
-                definitions = connectorApiFactory.getEntityInstanceApiClient(locationConnectorDto).listLocationAttributes(locationConnectorDto, entityInstance.getEntityInstanceUuid());
+                ApiClientConnectorInfo locationConnectorDto = connectorInternalService
+                        .getConnectorForApiClient(connector.getUuid());
+                definitions = connectorApiFactory
+                        .getEntityInstanceApiClient(locationConnectorDto)
+                        .listLocationAttributes(locationConnectorDto, entityInstance.getEntityInstanceUuid());
                 break;
 
             default:
                 throw new ValidationException(
-                        ValidationError.create(
-                                "Callback for the requested resource is not supported"
-                        )
-                );
+                        ValidationError.create("Callback for the requested resource is not supported"));
         }
 
         LoggingHelper.putLogResourceInfo(Resource.CONNECTOR, true, connector.getUuid().toString(), connector.getName());
         // The scope chain is resolved lazily inside the NG branch (dispatchNg) so legacy callbacks never pay its
         // per-object DETAIL authorization; pass the scope coordinates rather than a pre-resolved chain.
-        return getCallbackObject(callback, definitions, connector.mapToDetailDto(), resource, UUID.fromString(parentObjectUuid), connectorInterface, interfaceVersion);
+        return getCallbackObject(callback, definitions, connector.mapToDetailDto(), resource,
+                UUID.fromString(parentObjectUuid), connectorInterface, interfaceVersion);
     }
 
     /**
-     * Local v3-authority predicate. Mirrors {@code AuthorityInstanceServiceImpl.isV3} byte-for-byte but is
-     * duplicated here to avoid coupling to the in-flight authority-v3 changes. Reads the connector-interface
-     * version directly off the reference entity.
+     * Local v3-authority predicate. Mirrors {@code AuthorityInstanceServiceImpl.isV3} byte-for-byte but is duplicated
+     * here to avoid coupling to the in-flight authority-v3 changes. Reads the connector-interface version directly off
+     * the reference entity.
      */
     private static boolean isV3Authority(AuthorityInstanceReference ref) {
         ConnectorInterfaceEntity iface = ref.getConnectorInterface();
@@ -537,9 +563,9 @@ public class CallbackServiceImpl implements CallbackExternalService {
     }
 
     /**
-     * The connector-interface code the authority's attributes belong to (Core-stamped envelope context, not
-     * routing). The envelope DTO marks {@code connectorInterface} required; sourcing it from the authority's
-     * own {@link ConnectorInterfaceEntity} keeps it accurate for the authority-backed NG paths.
+     * The connector-interface code the authority's attributes belong to (Core-stamped envelope context, not routing).
+     * The envelope DTO marks {@code connectorInterface} required; sourcing it from the authority's own
+     * {@link ConnectorInterfaceEntity} keeps it accurate for the authority-backed NG paths.
      */
     private static ConnectorInterface interfaceCodeOf(AuthorityInstanceReference ref) {
         ConnectorInterfaceEntity iface = ref.getConnectorInterface();
@@ -553,10 +579,13 @@ public class CallbackServiceImpl implements CallbackExternalService {
         } else if (type == AttributeType.GROUP) {
             return AttributeVersionHelper.getGroupAttributeCallback(attribute);
         }
-        throw new IllegalArgumentException("Attribute %s is not of type DATA or GROUP, cannot get callback for this attribute".formatted(attribute.getName()));
+        throw new IllegalArgumentException(
+                "Attribute %s is not of type DATA or GROUP, cannot get callback for this attribute"
+                        .formatted(attribute.getName()));
     }
 
-    private BaseAttribute getAttributeByName(String name, List<BaseAttribute> attributes, UUID connectorUuid) throws NotFoundException {
+    private BaseAttribute getAttributeByName(String name, List<BaseAttribute> attributes, UUID connectorUuid)
+            throws NotFoundException {
         for (BaseAttribute attributeDefinition : attributes) {
             if (attributeDefinition.getName().equals(name)) {
                 return attributeDefinition;
@@ -578,14 +607,17 @@ public class CallbackServiceImpl implements CallbackExternalService {
     private void processGroupAttributes(UUID connectorUuid, Object callbackResponse) {
         // When the callback is retrieved from the connector, and of the type of the attribute triggering the
         // callback is GROUP, then the response is expected to be list of other attributes. In that case,
-        // We are not able to merge the attributes since these attributes will not be available as part of the list attribute
+        // We are not able to merge the attributes since these attributes will not be available as part of the list
+        // attribute
         // response.
         // This method will take the attribute definition and store it in the database. In the other methods where there
         // group attributes, we can retrieve them and merge them with the code.
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         try {
-            List<BaseAttribute> callbackAttributes = mapper.convertValue(callbackResponse, mapper.getTypeFactory().constructCollectionType(List.class, BaseAttribute.class));
+            List<BaseAttribute> callbackAttributes = mapper
+                    .convertValue(callbackResponse,
+                            mapper.getTypeFactory().constructCollectionType(List.class, BaseAttribute.class));
             attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, callbackAttributes);
         } catch (Exception e) {
             logger.debug("Failed to create the reference attributes. Exception is {}", e.getMessage());

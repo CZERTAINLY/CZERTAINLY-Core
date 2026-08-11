@@ -1,10 +1,9 @@
 package com.otilm.core.model.auth;
 
 import com.otilm.api.model.core.enums.CertificateProtocol;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.util.UUID;
 
 @Getter
 @Setter

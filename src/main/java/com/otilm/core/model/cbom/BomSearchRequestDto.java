@@ -11,18 +11,11 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 @Schema(description = "Search BOMs created after a timestamp")
 public class BomSearchRequestDto {
 
-        @Schema(
-                description = "Unix timestamp",
-                example = "1769156084",
-                requiredMode = Schema.RequiredMode.NOT_REQUIRED
-        )
-        private Long after;
+    @Schema(description = "Unix timestamp", example = "1769156084", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+    private Long after;
 
-        @Override
-        public String toString() {
-                return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("after", after)
-                .toString();
-        }
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("after", after).toString();
+    }
 }
-

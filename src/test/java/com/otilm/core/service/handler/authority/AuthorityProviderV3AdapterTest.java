@@ -1,49 +1,56 @@
 package com.otilm.core.service.handler.authority;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.ConnectorProblemException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.client.v3.AuthoritySyncApiClient;
 import com.otilm.api.interfaces.client.v3.CertificateSyncApiClient;
-import com.otilm.api.model.common.attribute.common.MetadataAttribute;
-import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.common.error.ErrorCode;
-import com.otilm.api.model.common.error.ProblemDetailExtended;
-import com.otilm.api.model.connector.v3.certificate.CertificateAttributeListRequestDtoV3;
-import com.otilm.api.model.connector.v3.certificate.CertificateDataResponseDto;
-import com.otilm.api.model.connector.v3.certificate.CertificateIdentificationRequestDtoV3;
-import com.otilm.api.model.connector.v3.authority.CaCertificatesRequestDtoV3;
-import com.otilm.api.model.connector.v3.authority.CaCertificatesResponseDto;
-import com.otilm.api.model.connector.v3.certificate.CertificateIdentificationResponseDto;
-import com.otilm.api.model.connector.v3.certificate.CertificateOperationCancelRequestDtoV3;
-import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatus;
-import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatusRequestDtoV3;
-import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatusResponseDto;
-import com.otilm.api.model.connector.v3.certificate.CertificateRevocationRequestDtoV3;
-import com.otilm.api.model.connector.v3.certificate.CertificateSignRequestDtoV3;
-import com.otilm.api.model.core.v2.ClientCertificateRegistrationDto;
-import com.otilm.api.model.core.v2.ClientCertificateRenewRequestDto;
-import com.otilm.api.model.core.v2.ClientCertificateRevocationDto;
-import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.authority.CertificateRevocationReason;
-import com.otilm.api.model.core.certificate.CertificateType;
-import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
+import com.otilm.api.model.client.connector.v2.FeatureFlag;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSecretContentData;
+import com.otilm.api.model.common.error.ErrorCode;
+import com.otilm.api.model.common.error.ProblemDetailExtended;
 import com.otilm.api.model.connector.secrets.content.ApiKeySecretContent;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.api.model.connector.v3.authority.CaCertificatesRequestDtoV3;
+import com.otilm.api.model.connector.v3.authority.CaCertificatesResponseDto;
+import com.otilm.api.model.connector.v3.certificate.CertificateAttributeListRequestDtoV3;
+import com.otilm.api.model.connector.v3.certificate.CertificateDataResponseDto;
+import com.otilm.api.model.connector.v3.certificate.CertificateExtension;
+import com.otilm.api.model.connector.v3.certificate.CertificateIdentificationRequestDtoV3;
+import com.otilm.api.model.connector.v3.certificate.CertificateIdentificationResponseDto;
+import com.otilm.api.model.connector.v3.certificate.CertificateOperationCancelRequestDtoV3;
+import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatus;
+import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatusRequestDtoV3;
+import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatusResponseDto;
+import com.otilm.api.model.connector.v3.certificate.CertificateRegistrationRequestDtoV3;
+import com.otilm.api.model.connector.v3.certificate.CertificateRevocationRequestDtoV3;
+import com.otilm.api.model.connector.v3.certificate.CertificateSignRequestDtoV3;
+import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
+import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.authority.CertificateRevocationReason;
+import com.otilm.api.model.core.certificate.CertificateType;
+import com.otilm.api.model.core.oid.ExtensionValueEncoding;
+import com.otilm.api.model.core.oid.OidCategory;
+import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
+import com.otilm.api.model.core.v2.ClientCertificateRegistrationDto;
+import com.otilm.api.model.core.v2.ClientCertificateRenewRequestDto;
+import com.otilm.api.model.core.v2.ClientCertificateRevocationDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.AttributeOperation;
 import com.otilm.core.attribute.engine.OutboundSecretContainment;
 import com.otilm.core.attribute.engine.OutboundSecretLeakException;
-import com.otilm.core.service.handler.OperationAttributeResolver;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
@@ -51,19 +58,17 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.CertificateRequestEntity;
 import com.otilm.core.dao.entity.RaProfile;
-import com.otilm.api.exception.ValidationException;
-import com.otilm.api.model.client.connector.v2.FeatureFlag;
-import com.otilm.api.model.connector.v3.certificate.CertificateExtension;
-import com.otilm.api.model.connector.v3.certificate.CertificateRegistrationRequestDtoV3;
-import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
-import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
-import com.otilm.api.model.core.oid.ExtensionValueEncoding;
-import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.exception.ConnectorAcceptedButLocalFailureException;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.handler.ConnectorCapabilityService;
+import com.otilm.core.service.handler.OperationAttributeResolver;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import java.net.URI;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,17 +81,26 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
-import java.net.URI;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AuthorityProviderV3AdapterTest {
@@ -107,7 +121,8 @@ class AuthorityProviderV3AdapterTest {
     @InjectMocks
     AuthorityProviderV3Adapter adapter;
 
-    // The register dual-wire tests render the flat subject DN, which resolves RDN codes via the process-wide OidHandler cache.
+    // The register dual-wire tests render the flat subject DN, which resolves RDN codes via the process-wide OidHandler
+    // cache.
     private static Map<String, OidRecord> savedRdnCache;
 
     @BeforeAll
@@ -115,16 +130,19 @@ class AuthorityProviderV3AdapterTest {
         Map<String, OidRecord> existing = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE);
         savedRdnCache = existing == null ? null : new HashMap<>(existing);
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.10",
-                OidRecord.builder().displayName("Organization").code("O").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.10",
+                        OidRecord.builder().displayName("Organization").code("O").build());
     }
 
     @AfterAll
     static void restoreRdnCache() {
-        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
-                savedRdnCache != null ? savedRdnCache : new HashMap<>());
+        OidHandler
+                .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
+                        savedRdnCache != null ? savedRdnCache : new HashMap<>());
     }
 
     @Mock
@@ -174,7 +192,9 @@ class AuthorityProviderV3AdapterTest {
 
         lenient().when(connectorService.getConnectorForApiClient(connectorUuid)).thenReturn(connectorInfo);
         lenient().when(connectorApiFactory.getCertificateApiClientV3(connectorInfo)).thenReturn(certClientV3);
-        lenient().when(connectorApiFactory.getAuthorityInstanceApiClientV3(connectorInfo)).thenReturn(authorityClientV3);
+        lenient()
+                .when(connectorApiFactory.getAuthorityInstanceApiClientV3(connectorInfo))
+                .thenReturn(authorityClientV3);
         lenient().when(attributeEngine.getRequestObjectDataAttributesContent(any())).thenReturn(List.of());
         lenient().when(attributeEngine.getMetadataAttributesDefinitionContent(any())).thenReturn(List.of());
     }
@@ -222,7 +242,9 @@ class AuthorityProviderV3AdapterTest {
         // engine returns unscoped attributes. (Other captured calls are AUTHORITY/RA_PROFILE-scoped.)
         ArgumentCaptor<ObjectAttributeContentInfo> captor = ArgumentCaptor.forClass(ObjectAttributeContentInfo.class);
         verify(attributeEngine, atLeastOnce()).getRequestObjectDataAttributesContent(captor.capture());
-        ObjectAttributeContentInfo certScoped = captor.getAllValues().stream()
+        ObjectAttributeContentInfo certScoped = captor
+                .getAllValues()
+                .stream()
                 .filter(info -> info.objectType() == Resource.CERTIFICATE)
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("no CERTIFICATE-scoped attribute load during issue"));
@@ -242,9 +264,13 @@ class AuthorityProviderV3AdapterTest {
         List<RequestAttribute> storedRaProfile = List.of(mock(RequestAttribute.class));
         List<RequestAttribute> resolvedAuthority = List.of(mock(RequestAttribute.class));
         List<RequestAttribute> resolvedRaProfile = List.of(mock(RequestAttribute.class));
-        when(attributeEngine.getRequestObjectDataAttributesContent(argThat(info -> info != null && info.objectType() == Resource.AUTHORITY)))
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && info.objectType() == Resource.AUTHORITY)))
                 .thenReturn(storedAuthority);
-        when(attributeEngine.getRequestObjectDataAttributesContent(argThat(info -> info != null && info.objectType() == Resource.RA_PROFILE)))
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && info.objectType() == Resource.RA_PROFILE)))
                 .thenReturn(storedRaProfile);
         when(operationAttributeResolver.resolveForConnectorRequestAsSystem(connectorUuid, storedAuthority))
                 .thenReturn(resolvedAuthority);
@@ -255,7 +281,8 @@ class AuthorityProviderV3AdapterTest {
 
         adapter.issue(cert, new ClientCertificateIssueRequestDto());
 
-        ArgumentCaptor<CertificateSignRequestDtoV3> wireCaptor = ArgumentCaptor.forClass(CertificateSignRequestDtoV3.class);
+        ArgumentCaptor<CertificateSignRequestDtoV3> wireCaptor = ArgumentCaptor
+                .forClass(CertificateSignRequestDtoV3.class);
         verify(certClientV3).issue(eq(connectorInfo), wireCaptor.capture());
         CertificateSignRequestDtoV3 wire = wireCaptor.getValue();
         assertSame(resolvedAuthority, wire.getAuthorityAttributes(),
@@ -271,9 +298,13 @@ class AuthorityProviderV3AdapterTest {
         List<RequestAttribute> storedRaProfile = List.of(mock(RequestAttribute.class));
         List<RequestAttribute> resolvedAuthority = List.of(mock(RequestAttribute.class));
         List<RequestAttribute> resolvedRaProfile = List.of(mock(RequestAttribute.class));
-        when(attributeEngine.getRequestObjectDataAttributesContent(argThat(info -> info != null && info.objectType() == Resource.AUTHORITY)))
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && info.objectType() == Resource.AUTHORITY)))
                 .thenReturn(storedAuthority);
-        when(attributeEngine.getRequestObjectDataAttributesContent(argThat(info -> info != null && info.objectType() == Resource.RA_PROFILE)))
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && info.objectType() == Resource.RA_PROFILE)))
                 .thenReturn(storedRaProfile);
         when(operationAttributeResolver.resolveForConnectorRequestAsSystem(connectorUuid, storedAuthority))
                 .thenReturn(resolvedAuthority);
@@ -284,8 +315,8 @@ class AuthorityProviderV3AdapterTest {
 
         adapter.listIssueAttributes(authority, raProfile);
 
-        ArgumentCaptor<CertificateAttributeListRequestDtoV3> dtoCaptor =
-                ArgumentCaptor.forClass(CertificateAttributeListRequestDtoV3.class);
+        ArgumentCaptor<CertificateAttributeListRequestDtoV3> dtoCaptor = ArgumentCaptor
+                .forClass(CertificateAttributeListRequestDtoV3.class);
         verify(certClientV3).listIssueAttributes(eq(connectorInfo), dtoCaptor.capture());
         CertificateAttributeListRequestDtoV3 dto = dtoCaptor.getValue();
         assertSame(resolvedAuthority, dto.getAuthorityAttributes(),
@@ -310,8 +341,7 @@ class AuthorityProviderV3AdapterTest {
         when(certClientV3.listIssueAttributes(eq(connectorInfo), any(CertificateAttributeListRequestDtoV3.class)))
                 .thenReturn(List.<BaseAttribute>of(echoed));
 
-        assertThrows(OutboundSecretLeakException.class,
-                () -> adapter.listIssueAttributes(authority, raProfile),
+        assertThrows(OutboundSecretLeakException.class, () -> adapter.listIssueAttributes(authority, raProfile),
                 "a connector echoing a resolved secret into the attribute list must fail closed");
     }
 
@@ -345,8 +375,7 @@ class AuthorityProviderV3AdapterTest {
         CertificateDataResponseDto faultyBody = spy(new CertificateDataResponseDto());
         doThrow(new RuntimeException("synthetic local failure")).when(faultyBody).getCertificateData();
         when(faultyResponse.getBody()).thenReturn(faultyBody);
-        when(certClientV3.issue(eq(connectorInfo), any(CertificateSignRequestDtoV3.class)))
-                .thenReturn(faultyResponse);
+        when(certClientV3.issue(eq(connectorInfo), any(CertificateSignRequestDtoV3.class))).thenReturn(faultyResponse);
 
         assertThrows(ConnectorAcceptedButLocalFailureException.class,
                 () -> adapter.issue(cert, new ClientCertificateIssueRequestDto()));
@@ -358,8 +387,7 @@ class AuthorityProviderV3AdapterTest {
     void issuePropagatesRawFailureWhenConnectorCallItselfThrows() throws ConnectorException {
         // The connector never accepted, so the failure must propagate unchanged rather than be wrapped.
         RuntimeException connectorFailure = new RuntimeException("connector unreachable");
-        when(certClientV3.issue(eq(connectorInfo), any(CertificateSignRequestDtoV3.class)))
-                .thenThrow(connectorFailure);
+        when(certClientV3.issue(eq(connectorInfo), any(CertificateSignRequestDtoV3.class))).thenThrow(connectorFailure);
 
         ClientCertificateIssueRequestDto request = new ClientCertificateIssueRequestDto();
         RuntimeException thrown = assertThrows(RuntimeException.class, () -> adapter.issue(cert, request));
@@ -372,8 +400,7 @@ class AuthorityProviderV3AdapterTest {
     void revokeMaps200ToSyncOk() throws ConnectorException {
         CertificateDataResponseDto body = new CertificateDataResponseDto();
         body.setMeta(List.of());
-        when(certClientV3.revoke(eq(connectorInfo), any()))
-                .thenReturn(ResponseEntity.status(200).body(body));
+        when(certClientV3.revoke(eq(connectorInfo), any())).thenReturn(ResponseEntity.status(200).body(body));
 
         AdapterOperationResult result = adapter.revoke(cert, new ClientCertificateRevocationDto());
 
@@ -384,8 +411,7 @@ class AuthorityProviderV3AdapterTest {
 
     @Test
     void revokeMaps202ToAsyncAccepted() throws ConnectorException {
-        when(certClientV3.revoke(eq(connectorInfo), any()))
-                .thenReturn(ResponseEntity.status(202).build());
+        when(certClientV3.revoke(eq(connectorInfo), any())).thenReturn(ResponseEntity.status(202).build());
 
         AdapterOperationResult result = adapter.revoke(cert, new ClientCertificateRevocationDto());
 
@@ -397,8 +423,7 @@ class AuthorityProviderV3AdapterTest {
 
     @Test
     void revokeMaps204ToSyncNoContent() throws ConnectorException {
-        when(certClientV3.revoke(eq(connectorInfo), any()))
-                .thenReturn(ResponseEntity.noContent().build());
+        when(certClientV3.revoke(eq(connectorInfo), any())).thenReturn(ResponseEntity.noContent().build());
 
         AdapterOperationResult result = adapter.revoke(cert, new ClientCertificateRevocationDto());
 
@@ -408,13 +433,12 @@ class AuthorityProviderV3AdapterTest {
 
     @Test
     void revokeDefaultsNullReasonToUnspecified() throws ConnectorException {
-        when(certClientV3.revoke(eq(connectorInfo), any()))
-                .thenReturn(ResponseEntity.noContent().build());
+        when(certClientV3.revoke(eq(connectorInfo), any())).thenReturn(ResponseEntity.noContent().build());
 
         adapter.revoke(cert, new ClientCertificateRevocationDto());
 
-        ArgumentCaptor<CertificateRevocationRequestDtoV3> captor =
-                ArgumentCaptor.forClass(CertificateRevocationRequestDtoV3.class);
+        ArgumentCaptor<CertificateRevocationRequestDtoV3> captor = ArgumentCaptor
+                .forClass(CertificateRevocationRequestDtoV3.class);
         verify(certClientV3).revoke(eq(connectorInfo), captor.capture());
         assertEquals(CertificateRevocationReason.UNSPECIFIED, captor.getValue().getReason());
     }
@@ -432,8 +456,8 @@ class AuthorityProviderV3AdapterTest {
         List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=");
 
         assertSame(meta, result);
-        ArgumentCaptor<CertificateIdentificationRequestDtoV3> captor =
-                ArgumentCaptor.forClass(CertificateIdentificationRequestDtoV3.class);
+        ArgumentCaptor<CertificateIdentificationRequestDtoV3> captor = ArgumentCaptor
+                .forClass(CertificateIdentificationRequestDtoV3.class);
         verify(certClientV3).identify(eq(connectorInfo), captor.capture());
         assertEquals("dGVzdGNlcnQ=", captor.getValue().getCertificate());
     }
@@ -476,9 +500,13 @@ class AuthorityProviderV3AdapterTest {
         List<RequestAttribute> storedRaProfile = List.of(mock(RequestAttribute.class));
         List<RequestAttribute> resolvedAuthority = List.of(mock(RequestAttribute.class));
         List<RequestAttribute> resolvedRaProfile = List.of(mock(RequestAttribute.class));
-        when(attributeEngine.getRequestObjectDataAttributesContent(argThat(info -> info != null && info.objectType() == Resource.AUTHORITY)))
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && info.objectType() == Resource.AUTHORITY)))
                 .thenReturn(storedAuthority);
-        when(attributeEngine.getRequestObjectDataAttributesContent(argThat(info -> info != null && info.objectType() == Resource.RA_PROFILE)))
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && info.objectType() == Resource.RA_PROFILE)))
                 .thenReturn(storedRaProfile);
         when(operationAttributeResolver.resolveForConnectorRequestAsSystem(connectorUuid, storedAuthority))
                 .thenReturn(resolvedAuthority);
@@ -513,8 +541,7 @@ class AuthorityProviderV3AdapterTest {
     void registerCallsRegisterEndpoint() throws ConnectorException {
         CertificateDataResponseDto body = new CertificateDataResponseDto();
         body.setMeta(List.of());
-        when(certClientV3.register(eq(connectorInfo), any()))
-                .thenReturn(ResponseEntity.ok(body));
+        when(certClientV3.register(eq(connectorInfo), any())).thenReturn(ResponseEntity.ok(body));
 
         AdapterOperationResult result = adapter.register(cert, new ClientCertificateRegistrationDto(), null);
 
@@ -544,8 +571,8 @@ class AuthorityProviderV3AdapterTest {
 
         adapter.register(cert, req, null);
 
-        ArgumentCaptor<CertificateRegistrationRequestDtoV3> captor =
-                ArgumentCaptor.forClass(CertificateRegistrationRequestDtoV3.class);
+        ArgumentCaptor<CertificateRegistrationRequestDtoV3> captor = ArgumentCaptor
+                .forClass(CertificateRegistrationRequestDtoV3.class);
         verify(certClientV3).register(eq(connectorInfo), captor.capture());
         return captor.getValue();
     }
@@ -614,8 +641,8 @@ class AuthorityProviderV3AdapterTest {
 
         adapter.register(cert, new ClientCertificateRegistrationDto(), projected);
 
-        ArgumentCaptor<CertificateRegistrationRequestDtoV3> captor =
-                ArgumentCaptor.forClass(CertificateRegistrationRequestDtoV3.class);
+        ArgumentCaptor<CertificateRegistrationRequestDtoV3> captor = ArgumentCaptor
+                .forClass(CertificateRegistrationRequestDtoV3.class);
         verify(certClientV3).register(eq(connectorInfo), captor.capture());
         assertSame(projected, captor.getValue().getRequestContent());
     }
@@ -626,7 +653,9 @@ class AuthorityProviderV3AdapterTest {
         // represent (here a non-DER extension) must be rejected, not silently dropped.
         when(capabilityService.supports(authority, FeatureFlag.CERTIFICATE_REQUEST_STRUCTURED)).thenReturn(false);
         X509RequestContent content = new X509RequestContent();
-        content.setExtensions(List.of(new RequestedExtension("1.2.3.4", false, ExtensionValueEncoding.UTF8_STRING, "Zm9v")));
+        content
+                .setExtensions(
+                        List.of(new RequestedExtension("1.2.3.4", false, ExtensionValueEncoding.UTF8_STRING, "Zm9v")));
         ClientCertificateRegistrationDto req = new ClientCertificateRegistrationDto();
 
         assertThrows(ValidationException.class, () -> adapter.register(cert, req, content));
@@ -635,16 +664,14 @@ class AuthorityProviderV3AdapterTest {
     // ---- issueRegistered: register-bound issue ----
 
     private CertificateSignRequestDtoV3 issueRegisteredAndCaptureWire(List<MetadataAttribute> replayMeta,
-                                                                      X509RequestContent content)
-            throws ConnectorException {
+            X509RequestContent content) throws ConnectorException {
         CertificateDataResponseDto body = new CertificateDataResponseDto();
         body.setCertificateData("aXNzdWVkQ2VydA==");
         when(certClientV3.issue(eq(connectorInfo), any())).thenReturn(ResponseEntity.ok(body));
 
         adapter.issueRegistered(cert, replayMeta, content);
 
-        ArgumentCaptor<CertificateSignRequestDtoV3> captor =
-                ArgumentCaptor.forClass(CertificateSignRequestDtoV3.class);
+        ArgumentCaptor<CertificateSignRequestDtoV3> captor = ArgumentCaptor.forClass(CertificateSignRequestDtoV3.class);
         verify(certClientV3).issue(eq(connectorInfo), captor.capture());
         return captor.getValue();
     }
@@ -658,9 +685,13 @@ class AuthorityProviderV3AdapterTest {
         List<RequestAttribute> storedRaProfile = List.of(mock(RequestAttribute.class));
         List<RequestAttribute> resolvedAuthority = List.of(mock(RequestAttribute.class));
         List<RequestAttribute> resolvedRaProfile = List.of(mock(RequestAttribute.class));
-        when(attributeEngine.getRequestObjectDataAttributesContent(argThat(info -> info != null && info.objectType() == Resource.AUTHORITY)))
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && info.objectType() == Resource.AUTHORITY)))
                 .thenReturn(storedAuthority);
-        when(attributeEngine.getRequestObjectDataAttributesContent(argThat(info -> info != null && info.objectType() == Resource.RA_PROFILE)))
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && info.objectType() == Resource.RA_PROFILE)))
                 .thenReturn(storedRaProfile);
         when(operationAttributeResolver.resolveForConnectorRequestAsSystem(connectorUuid, storedAuthority))
                 .thenReturn(resolvedAuthority);
@@ -761,10 +792,10 @@ class AuthorityProviderV3AdapterTest {
 
     @Test
     void cancelMaps422PastPonrToRefused() throws ConnectorException {
-        ProblemDetailExtended problem = ProblemDetailExtended.fromErrorCode(
-                ErrorCode.OPERATION_PAST_POINT_OF_NO_RETURN, "past ponr", URI.create("https://example.com"), null);
-        when(certClientV3.cancelIssue(eq(connectorInfo), any()))
-                .thenThrow(new ConnectorProblemException(problem));
+        ProblemDetailExtended problem = ProblemDetailExtended
+                .fromErrorCode(ErrorCode.OPERATION_PAST_POINT_OF_NO_RETURN, "past ponr",
+                        URI.create("https://example.com"), null);
+        when(certClientV3.cancelIssue(eq(connectorInfo), any())).thenThrow(new ConnectorProblemException(problem));
 
         CancelResult result = adapter.cancel(cert, CertificateOperation.ISSUE);
 
@@ -775,10 +806,9 @@ class AuthorityProviderV3AdapterTest {
 
     @Test
     void cancelMaps422RegistrationNotFoundToNotTracked() throws ConnectorException {
-        ProblemDetailExtended problem = ProblemDetailExtended.fromErrorCode(
-                ErrorCode.REGISTRATION_NOT_FOUND, "not found", URI.create("https://example.com"), null);
-        when(certClientV3.cancelRegister(eq(connectorInfo), any()))
-                .thenThrow(new ConnectorProblemException(problem));
+        ProblemDetailExtended problem = ProblemDetailExtended
+                .fromErrorCode(ErrorCode.REGISTRATION_NOT_FOUND, "not found", URI.create("https://example.com"), null);
+        when(certClientV3.cancelRegister(eq(connectorInfo), any())).thenThrow(new ConnectorProblemException(problem));
 
         CancelResult result = adapter.cancel(cert, CertificateOperation.REGISTER);
 

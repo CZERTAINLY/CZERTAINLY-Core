@@ -5,33 +5,52 @@ import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.AttributeDefinition;
 import com.otilm.core.model.SearchFieldObject;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AttributeDefinitionRepository extends SecurityFilterRepository<AttributeDefinition, String> {
     Optional<AttributeDefinition> findByUuid(UUID uuid);
+
     Optional<AttributeDefinition> findByUuidAndType(UUID uuid, AttributeType type);
+
     Optional<AttributeDefinition> findByUuidAndTypeAndGlobalTrue(UUID uuid, AttributeType type);
+
     Optional<AttributeDefinition> findByAttributeUuid(UUID uuid);
+
     List<AttributeDefinition> findByAttributeUuidIn(Collection<UUID> attributeUuids);
-    List<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(AttributeType type, UUID connectorUuid, List<UUID> uuids, List<String> names);
-    List<AttributeDefinition> findAllByTypeAndConnectorUuidAndName(AttributeType type, UUID connectorUuid, String attributeName);
+
+    List<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(AttributeType type,
+            UUID connectorUuid, List<UUID> uuids, List<String> names);
+
+    List<AttributeDefinition> findAllByTypeAndConnectorUuidAndName(AttributeType type, UUID connectorUuid,
+            String attributeName);
+
     List<AttributeDefinition> findByTypeAndGlobal(AttributeType type, boolean global);
-    List<AttributeDefinition> findByConnectorUuidAndTypeAndGlobal(UUID connectorUuid, AttributeType type, boolean global);
-    Optional<AttributeDefinition> findByTypeAndNameAndGlobal(AttributeType attributeType, String attributeName, boolean global);
+
+    List<AttributeDefinition> findByConnectorUuidAndTypeAndGlobal(UUID connectorUuid, AttributeType type,
+            boolean global);
+
+    Optional<AttributeDefinition> findByTypeAndNameAndGlobal(AttributeType attributeType, String attributeName,
+            boolean global);
+
     Optional<AttributeDefinition> findByConnectorUuidAndAttributeUuid(UUID connectorUuid, UUID attributeUuid);
-    Optional<AttributeDefinition> findByTypeAndConnectorUuidAndName(AttributeType type, UUID connectorUuid, String attributeName);
-    Optional<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType attributeType, UUID connectorUuid, UUID attributeUuid, String attributeName);
+
+    Optional<AttributeDefinition> findByTypeAndConnectorUuidAndName(AttributeType type, UUID connectorUuid,
+            String attributeName);
+
+    Optional<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType attributeType,
+            UUID connectorUuid, UUID attributeUuid, String attributeName);
+
     Optional<AttributeDefinition> findByTypeAndName(AttributeType type, String attributeName);
 
     Boolean existsByTypeAndName(AttributeType type, String attributeName);
+
     Boolean existsByTypeAndNameAndGlobalTrue(AttributeType type, String attributeName);
 
     @Modifying
@@ -40,9 +59,9 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
 
     Long deleteByTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
 
-    /* The following SELECT has been carefully optimized for PostgreSQL's query planner,
-     * together with relevant database indices.
-     * The original LEFT JOIN over 4 tables is split into two SELECTS, using a sub-SELECT to optimize further.
+    /*
+     * The following SELECT has been carefully optimized for PostgreSQL's query planner, together with relevant database
+     * indices. The original LEFT JOIN over 4 tables is split into two SELECTS, using a sub-SELECT to optimize further.
      */
     @Query("""
             SELECT DISTINCT new com.otilm.core.model.SearchFieldObject(
@@ -64,11 +83,12 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
                         )
                 )
             """)
-    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrType(final Resource resourceType, final List<AttributeType> attributeTypes);
+    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrType(final Resource resourceType,
+            final List<AttributeType> attributeTypes);
 
-    /* The following SELECT has been carefully optimized for PostgreSQL's query planner,
-     * together with relevant database indices.
-     * The original LEFT JOIN over 4 tables is split into two SELECTS, using a sub-SELECT to optimize further.
+    /*
+     * The following SELECT has been carefully optimized for PostgreSQL's query planner, together with relevant database
+     * indices. The original LEFT JOIN over 4 tables is split into two SELECTS, using a sub-SELECT to optimize further.
      */
     @Query("""
             SELECT DISTINCT new com.otilm.core.model.SearchFieldObject(
@@ -90,5 +110,7 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
                         )
                 )
             """)
-    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentType(final Resource resourceType, final List<AttributeType> attributeTypes, final List<AttributeContentType> attributeContentTypes);
+    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentType(
+            final Resource resourceType, final List<AttributeType> attributeTypes,
+            final List<AttributeContentType> attributeContentTypes);
 }

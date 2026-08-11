@@ -1,25 +1,24 @@
 package com.otilm.core.service.cmp.configurations.variants;
 
-import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
-import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.api.interfaces.core.cmp.error.CmpConfigurationException;
+import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.core.cmp.ProtectionMethod;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.cmp.CmpProfile;
-import com.otilm.core.service.cmp.message.CertificateKeyService;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
+import com.otilm.core.service.cmp.message.CertificateKeyService;
 import com.otilm.core.service.cmp.message.protection.ProtectionStrategy;
 import com.otilm.core.service.cmp.message.protection.impl.PasswordBasedMacProtectionStrategy;
 import com.otilm.core.service.cmp.message.protection.impl.SingatureBaseProtectionStrategy;
 import com.otilm.core.util.CertificateUtil;
+import java.util.List;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.x509.GeneralName;
-
-import java.util.List;
 
 public class CmpConfigurationContext implements ConfigurationContext {
 
@@ -31,9 +30,8 @@ public class CmpConfigurationContext implements ConfigurationContext {
     private final List<RequestAttribute> revokeAttributes;
 
     public CmpConfigurationContext(CmpProfile cmpProfile, RaProfile raProfile, PKIMessage pkiRequest,
-                                   CertificateKeyService certificateKeyServiceImpl,
-                                   List<RequestAttribute> issueAttributes,
-                                   List<RequestAttribute> revokeAttributes) {
+            CertificateKeyService certificateKeyServiceImpl, List<RequestAttribute> issueAttributes,
+            List<RequestAttribute> revokeAttributes) {
         this.requestMessage = pkiRequest;
         this.cmpProfile = cmpProfile;
         this.raProfile = raProfile;
@@ -59,7 +57,7 @@ public class CmpConfigurationContext implements ConfigurationContext {
      */
     @Override
     public GeneralName getRecipient() {
-        return null; /*requestMessage.getHeader().getRecipient();*/
+        return null; /* requestMessage.getHeader().getRecipient(); */
     }
 
     /**
@@ -91,13 +89,12 @@ public class CmpConfigurationContext implements ConfigurationContext {
         ProtectionMethod czrtProtectionMethod = getCmpProfile().getResponseProtectionMethod();
         switch (czrtProtectionMethod) {
             case SIGNATURE:
-                return new SingatureBaseProtectionStrategy(this,
-                        requestMessage.getHeader().getProtectionAlg(), certificateKeyService);
+                return new SingatureBaseProtectionStrategy(this, requestMessage.getHeader().getProtectionAlg(),
+                        certificateKeyService);
             case SHARED_SECRET:
                 byte[] salt = CertificateUtil.generateRandomBytes(20);
                 int iterationCount = 1000;
-                return new PasswordBasedMacProtectionStrategy(this,
-                        requestMessage.getHeader().getProtectionAlg(),
+                return new PasswordBasedMacProtectionStrategy(this, requestMessage.getHeader().getProtectionAlg(),
                         getSharedSecret(), salt, iterationCount);
             default:
                 throw new CmpConfigurationException(requestMessage.getHeader().getTransactionID(),
@@ -108,9 +105,10 @@ public class CmpConfigurationContext implements ConfigurationContext {
 
     @Override
     public byte[] getSharedSecret() {
-        /* senderKID field MUST hold an identifier
-         *    that indicates to the receiver the appropriate shared secret
-         *    information to use to verify the message */
+        /*
+         * senderKID field MUST hold an identifier that indicates to the receiver the appropriate shared secret
+         * information to use to verify the message
+         */
         // ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();
         return getCmpProfile().getSharedSecret().getBytes();
     }
@@ -122,6 +120,6 @@ public class CmpConfigurationContext implements ConfigurationContext {
 
     @Override
     public boolean dumpSigning() {
-        return false; //default: false
+        return false; // default: false
     }
 }

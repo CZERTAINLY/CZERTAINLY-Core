@@ -8,11 +8,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * Owns the periodic trigger that drives {@link SigningRecordOutboxDrainer}. The drainer holds all
- * claim/copy/poison/retry orchestration; this class holds only the schedule and the
- * {@code scheduled-tasks.enabled} gate. Keeping them apart mirrors {@link SigningRecordBestEffortFlusher}
- * and lets the drainer be unit- and integration-tested without standing up the scheduling machinery. The
- * drainer's outer transaction only holds the cluster-wide advisory lock; each row is copied in its own short
- * transaction through {@link SigningRecordWriter}.
+ * claim/copy/poison/retry orchestration; this class holds only the schedule and the {@code scheduled-tasks.enabled}
+ * gate. Keeping them apart mirrors {@link SigningRecordBestEffortFlusher} and lets the drainer be unit- and
+ * integration-tested without standing up the scheduling machinery. The drainer's outer transaction only holds the
+ * cluster-wide advisory lock; each row is copied in its own short transaction through {@link SigningRecordWriter}.
  */
 @Slf4j
 @Component

@@ -12,19 +12,18 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.TspProfileExternalService;
 import com.otilm.core.service.TspProfileInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests verifying that the TSP profile cache is correctly populated on lookup
- * and evicted after mutations that change the profile's observable state.
+ * Integration tests verifying that the TSP profile cache is correctly populated on lookup and evicted after mutations
+ * that change the profile's observable state.
  */
 class TspProfileCacheITest extends BaseSpringBootTest {
 
@@ -230,10 +229,9 @@ class TspProfileCacheITest extends BaseSpringBootTest {
         assertThat(cache.get(second.getName(), TspProfileModel.class)).isNotNull();
 
         // when
-        tspProfileService.bulkDeleteTspProfiles(List.of(
-                SecuredUUID.fromUUID(profile.getUuid()),
-                SecuredUUID.fromUUID(second.getUuid())
-        ));
+        tspProfileService
+                .bulkDeleteTspProfiles(
+                        List.of(SecuredUUID.fromUUID(profile.getUuid()), SecuredUUID.fromUUID(second.getUuid())));
 
         // then - both entries are evicted
         assertThat(cache.get(profile.getName(), TspProfileModel.class)).isNull();
@@ -256,10 +254,9 @@ class TspProfileCacheITest extends BaseSpringBootTest {
         assertThat(cache.get(second.getName(), TspProfileModel.class)).isNotNull();
 
         // when
-        tspProfileService.bulkEnableTspProfiles(List.of(
-                SecuredUUID.fromUUID(profile.getUuid()),
-                SecuredUUID.fromUUID(second.getUuid())
-        ));
+        tspProfileService
+                .bulkEnableTspProfiles(
+                        List.of(SecuredUUID.fromUUID(profile.getUuid()), SecuredUUID.fromUUID(second.getUuid())));
 
         // then - both stale entries are evicted
         assertThat(cache.get(profile.getName(), TspProfileModel.class)).isNull();
@@ -280,10 +277,9 @@ class TspProfileCacheITest extends BaseSpringBootTest {
         assertThat(cache.get(second.getName(), TspProfileModel.class)).isNotNull();
 
         // when
-        tspProfileService.bulkDisableTspProfiles(List.of(
-                SecuredUUID.fromUUID(profile.getUuid()),
-                SecuredUUID.fromUUID(second.getUuid())
-        ));
+        tspProfileService
+                .bulkDisableTspProfiles(
+                        List.of(SecuredUUID.fromUUID(profile.getUuid()), SecuredUUID.fromUUID(second.getUuid())));
 
         // then - both stale entries are evicted
         assertThat(cache.get(profile.getName(), TspProfileModel.class)).isNull();

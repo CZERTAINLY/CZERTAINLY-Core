@@ -8,31 +8,31 @@ import com.otilm.core.dao.repository.signing.SigningRecordOutboxRepository;
 import com.otilm.core.mapper.signing.SigningRecordMapper;
 import com.otilm.core.service.writer.signingrecord.SigningRecordWriter;
 import jakarta.persistence.EntityManager;
+import java.util.List;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
-
 /**
- * Drains the {@code signing_record_outbox} into {@code signing_record}. Holds the claim/retry orchestration
- * but no scheduling — the periodic trigger lives in {@link SigningRecordOutboxDrainScheduler}.
+ * Drains the {@code signing_record_outbox} into {@code signing_record}. Holds the claim/retry orchestration but no
+ * scheduling — the periodic trigger lives in {@link SigningRecordOutboxDrainScheduler}.
  *
- * <p>Cross-node mutual exclusion is a single cluster-wide advisory lock held for the whole drain (the same
- * {@link ClusterOperationSynchronizer} pattern the retention sweep uses): only one node drains at a time, so
- * the claim is a plain ordered read with no row locks. The lock is transaction-scoped, hence the
- * {@link Propagation#REQUIRES_NEW} outer transaction — which does nothing but hold the lock and read batches.
+ * <p>
+ * Cross-node mutual exclusion is a single cluster-wide advisory lock held for the whole drain (the same
+ * {@link ClusterOperationSynchronizer} pattern the retention sweep uses): only one node drains at a time, so the claim
+ * is a plain ordered read with no row locks. The lock is transaction-scoped, hence the {@link Propagation#REQUIRES_NEW}
+ * outer transaction — which does nothing but hold the lock and read batches.
  *
- * <p>Normal path: each batch is drained in one transaction via
- * {@link SigningRecordWriter#persistBatchAndDeleteOutbox} — Hibernate JDBC batching + one bulk DELETE, so the
- * per-batch cost is two round-trips regardless of batch size. If that transaction fails (rare crash-recovery
- * duplicate: a node crashed after inserting into {@code signing_record} but before deleting the outbox row),
- * the batch falls back to per-row draining via {@link SigningRecordWriter#saveRecordAndDeleteOutbox}, which
- * uses a merge copy (idempotent) and records failed attempts toward the poison threshold via
- * {@link SigningRecordWriter#recordFailure(java.util.UUID, String)}.
+ * <p>
+ * Normal path: each batch is drained in one transaction via {@link SigningRecordWriter#persistBatchAndDeleteOutbox} —
+ * Hibernate JDBC batching + one bulk DELETE, so the per-batch cost is two round-trips regardless of batch size. If that
+ * transaction fails (rare crash-recovery duplicate: a node crashed after inserting into {@code signing_record} but
+ * before deleting the outbox row), the batch falls back to per-row draining via
+ * {@link SigningRecordWriter#saveRecordAndDeleteOutbox}, which uses a merge copy (idempotent) and records failed
+ * attempts toward the poison threshold via {@link SigningRecordWriter#recordFailure(java.util.UUID, String)}.
  */
 @Slf4j
 @Component
@@ -48,12 +48,9 @@ public class SigningRecordOutboxDrainer {
     private final int poisonThreshold;
     private final int maxBatchesPerRun;
 
-    public SigningRecordOutboxDrainer(EntityManager entityManager,
-                                      SigningRecordOutboxRepository outboxRepo,
-                                      SigningRecordWriter writer,
-                                      ClusterOperationSynchronizer clusterSynchronizer,
-                                      SigningRecordMetrics metrics,
-                                      SigningRecordOutboxProperties properties) {
+    public SigningRecordOutboxDrainer(EntityManager entityManager, SigningRecordOutboxRepository outboxRepo,
+            SigningRecordWriter writer, ClusterOperationSynchronizer clusterSynchronizer, SigningRecordMetrics metrics,
+            SigningRecordOutboxProperties properties) {
         this.entityManager = entityManager;
         this.outboxRepo = outboxRepo;
         this.writer = writer;
@@ -78,13 +75,12 @@ public class SigningRecordOutboxDrainer {
     }
 
     /**
-     * Drains successive batches, stopping at the first non-full batch or once {@code maxBatchesPerRun} batches
-     * have been drained. The cap bounds how long this run holds the advisory lock and its enclosing
-     * transaction open — a long hold would keep a connection idle-in-transaction and pin the vacuum horizon —
-     * so a large backlog is drained across several scheduled runs rather than one long-running transaction.
-     * A batch is "full" only when every claimed row was copied; a partial batch (the last short one, or one
-     * where a row failed and was left for retry) ends the run, so a failing row is attempted at most once per
-     * run and retried on the next.
+     * Drains successive batches, stopping at the first non-full batch or once {@code maxBatchesPerRun} batches have
+     * been drained. The cap bounds how long this run holds the advisory lock and its enclosing transaction open — a
+     * long hold would keep a connection idle-in-transaction and pin the vacuum horizon — so a large backlog is drained
+     * across several scheduled runs rather than one long-running transaction. A batch is "full" only when every claimed
+     * row was copied; a partial batch (the last short one, or one where a row failed and was left for retry) ends the
+     * run, so a failing row is attempted at most once per run and retried on the next.
      */
     private void drainBatches() {
         int batchesRun = 0;
@@ -99,8 +95,9 @@ public class SigningRecordOutboxDrainer {
         } while (drained == batchSize && batchesRun < maxBatchesPerRun);
 
         if (drained == batchSize) {
-            log.debug("Outbox drain hit the per-run cap of {} batch(es); remaining rows drain on the next run",
-                    maxBatchesPerRun);
+            log
+                    .debug("Outbox drain hit the per-run cap of {} batch(es); remaining rows drain on the next run",
+                            maxBatchesPerRun);
         }
     }
 
@@ -109,23 +106,27 @@ public class SigningRecordOutboxDrainer {
      * {@link SigningRecordWriter#persistBatchAndDeleteOutbox} which persists all records via Hibernate JDBC batching
      * and removes the outbox rows with a single bulk DELETE — two round-trips per batch instead of four per row.
      *
-     * <p>Falls back to per-row draining only when the batch path throws a constraint violation: a node crashed
-     * after writing to {@code signing_record} but before deleting the outbox row, leaving a duplicate. The
-     * per-row fallback handles this via the idempotent {@link SigningRecordWriter#saveRecordAndDeleteOutbox}
-     * merge copy, and gives each row individual retry/poison accounting via {@link #recordFailure}.
+     * <p>
+     * Falls back to per-row draining only when the batch path throws a constraint violation: a node crashed after
+     * writing to {@code signing_record} but before deleting the outbox row, leaving a duplicate. The per-row fallback
+     * handles this via the idempotent {@link SigningRecordWriter#saveRecordAndDeleteOutbox} merge copy, and gives each
+     * row individual retry/poison accounting via {@link #recordFailure}.
      *
-     * <p>Any other failure (a dropped connection, a statement/lock timeout, a serialization error) is not a
-     * per-row problem — it is rethrown so the caller's {@code catch (RuntimeException)} aborts this run without
-     * driving every row in an otherwise-healthy batch toward the poison threshold. The batch is retried whole on
-     * the next scheduled run.
+     * <p>
+     * Any other failure (a dropped connection, a statement/lock timeout, a serialization error) is not a per-row
+     * problem — it is rethrown so the caller's {@code catch (RuntimeException)} aborts this run without driving every
+     * row in an otherwise-healthy batch toward the poison threshold. The batch is retried whole on the next scheduled
+     * run.
      */
     private int drainRows(List<UUID> outboxRowUuids) {
-        if (outboxRowUuids.isEmpty())
+        if (outboxRowUuids.isEmpty()) {
             return 0;
+        }
 
         List<SigningRecordOutbox> rows = outboxRepo.findAllById(outboxRowUuids);
-        if (rows.isEmpty())
+        if (rows.isEmpty()) {
             return 0;
+        }
 
         metrics.persist(SigningRecordPersistenceMode.DEFERRED_DURABLE.name()).increment(rows.size());
 
@@ -135,25 +136,28 @@ public class SigningRecordOutboxDrainer {
             writer.persistBatchAndDeleteOutbox(records);
             return records.size();
         } catch (RuntimeException e) {
-            if (!isConstraintViolation(e))
+            if (!isConstraintViolation(e)) {
                 throw e;
-            log.debug("Batch drain failed (crash-recovery duplicate), falling back to row-by-row for {} rows: {}",
-                    outboxRowUuids.size(), e.getMessage());
+            }
+            log
+                    .debug("Batch drain failed (crash-recovery duplicate), falling back to row-by-row for {} rows: {}",
+                            outboxRowUuids.size(), e.getMessage());
             metrics.batchDrainFallback().increment();
             return drainRowsOneByOne(records);
         }
     }
 
     /**
-     * Walks the cause chain looking for a {@link ConstraintViolationException} — the signal that the batch
-     * flush hit a duplicate key on {@code signing_record}, i.e. the crash-recovery case this fallback exists
-     * for. Direct {@code EntityManager} usage (bypassing Spring Data) means Spring's exception translation does
-     * not apply here, so the raw Hibernate exception is what surfaces.
+     * Walks the cause chain looking for a {@link ConstraintViolationException} — the signal that the batch flush hit a
+     * duplicate key on {@code signing_record}, i.e. the crash-recovery case this fallback exists for. Direct
+     * {@code EntityManager} usage (bypassing Spring Data) means Spring's exception translation does not apply here, so
+     * the raw Hibernate exception is what surfaces.
      */
     private static boolean isConstraintViolation(Throwable e) {
         for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ConstraintViolationException)
+            if (cause instanceof ConstraintViolationException) {
                 return true;
+            }
         }
         return false;
     }
@@ -176,9 +180,9 @@ public class SigningRecordOutboxDrainer {
 
     /**
      * Per-row fallback used when the batch path fails. Copies the record to {@code signing_record} via
-     * {@link SigningRecordWriter#saveRecordAndDeleteOutbox} (idempotent merge copy that handles
-     * crash-recovery duplicates), and records a failed attempt when the copy throws so the row advances
-     * toward the poison threshold without aborting the rest of the batch.
+     * {@link SigningRecordWriter#saveRecordAndDeleteOutbox} (idempotent merge copy that handles crash-recovery
+     * duplicates), and records a failed attempt when the copy throws so the row advances toward the poison threshold
+     * without aborting the rest of the batch.
      */
     private boolean attemptDrain(SigningRecord signingRecord) {
         try {
@@ -193,9 +197,9 @@ public class SigningRecordOutboxDrainer {
     }
 
     /**
-     * Records the failed attempt in the writer's own transaction. A failure to even record it (e.g. the
-     * database is unavailable) is logged and swallowed: the row keeps its current attempt count and is
-     * retried on the next run, while the rest of the batch still drains.
+     * Records the failed attempt in the writer's own transaction. A failure to even record it (e.g. the database is
+     * unavailable) is logged and swallowed: the row keeps its current attempt count and is retried on the next run,
+     * while the rest of the batch still drains.
      */
     private void recordFailure(UUID uuid, String error) {
         try {

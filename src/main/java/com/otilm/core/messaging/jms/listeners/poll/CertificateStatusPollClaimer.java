@@ -7,6 +7,11 @@ import com.otilm.core.dao.repository.CertificateStatusPollRepository;
 import com.otilm.core.messaging.jms.configuration.StatusPollProperties;
 import com.otilm.core.messaging.model.CertificateStatusPollMessage;
 import com.otilm.core.service.writer.statuspoll.CertificateStatusPollWriter;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -14,21 +19,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Transactional claim half of the status-poll sweep, kept in its own bean so the {@link Transactional}
- * boundary is honoured (a self-invoked {@code @Transactional} method on {@link CertificateStatusPollSweeper}
- * would be silently skipped by the Spring proxy).
+ * Transactional claim half of the status-poll sweep, kept in its own bean so the {@link Transactional} boundary is
+ * honoured (a self-invoked {@code @Transactional} method on {@link CertificateStatusPollSweeper} would be silently
+ * skipped by the Spring proxy).
  *
- * <p>One claim runs entirely against the database — no external call — so the advisory lock and the
- * transaction are held only for the duration of the read and the reschedules. The reschedule commits with
- * the same transaction that holds the lock, so a row is either claimed-and-rescheduled or neither; the
- * caller then sends the returned poll messages <em>outside</em> this transaction and lock.</p>
+ * <p>
+ * One claim runs entirely against the database — no external call — so the advisory lock and the transaction are held
+ * only for the duration of the read and the reschedules. The reschedule commits with the same transaction that holds
+ * the lock, so a row is either claimed-and-rescheduled or neither; the caller then sends the returned poll messages
+ * <em>outside</em> this transaction and lock.
+ * </p>
  */
 @Component
 public class CertificateStatusPollClaimer {
@@ -41,9 +42,8 @@ public class CertificateStatusPollClaimer {
     private final StatusPollProperties statusPollProperties;
 
     public CertificateStatusPollClaimer(ClusterOperationSynchronizer clusterSynchronizer,
-                                        CertificateStatusPollRepository pollRepository,
-                                        CertificateStatusPollWriter pollWriter,
-                                        StatusPollProperties statusPollProperties) {
+            CertificateStatusPollRepository pollRepository, CertificateStatusPollWriter pollWriter,
+            StatusPollProperties statusPollProperties) {
         this.clusterSynchronizer = clusterSynchronizer;
         this.pollRepository = pollRepository;
         this.pollWriter = pollWriter;
@@ -51,10 +51,9 @@ public class CertificateStatusPollClaimer {
     }
 
     /**
-     * Claims up to {@code batchSize} due rows: advances each row's {@code attempt}/{@code next_poll_at} by the
-     * backoff curve and returns the poll message to send for each. Returns empty when another node already holds
-     * the sweep lock. The returned messages must be sent by the caller after this method returns (outside the
-     * lock/transaction).
+     * Claims up to {@code batchSize} due rows: advances each row's {@code attempt}/{@code next_poll_at} by the backoff
+     * curve and returns the poll message to send for each. Returns empty when another node already holds the sweep
+     * lock. The returned messages must be sent by the caller after this method returns (outside the lock/transaction).
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<CertificateStatusPollMessage> claimDueBatch(int batchSize) {
@@ -63,15 +62,19 @@ public class CertificateStatusPollClaimer {
             return List.of();
         }
         List<CertificateStatusPoll> due = pollRepository
-                .findByNextPollAtLessThanEqualOrderByNextPollAt(OffsetDateTime.now(ZoneOffset.UTC), PageRequest.of(0, batchSize));
+                .findByNextPollAtLessThanEqualOrderByNextPollAt(OffsetDateTime.now(ZoneOffset.UTC),
+                        PageRequest.of(0, batchSize));
         List<CertificateStatusPollMessage> messages = new ArrayList<>(due.size());
         for (CertificateStatusPoll poll : due) {
-            messages.add(new CertificateStatusPollMessage(
-                    Resource.CERTIFICATE, poll.getCertificateUuid(), poll.getOperation(), poll.getAttempt()));
+            messages
+                    .add(new CertificateStatusPollMessage(Resource.CERTIFICATE, poll.getCertificateUuid(),
+                            poll.getOperation(), poll.getAttempt()));
 
             int nextAttempt = poll.getAttempt() + 1;
             Duration nextDelay = statusPollProperties.scheduleFor(poll.getOperation()).delayFor(nextAttempt);
-            pollWriter.reschedule(poll.getCertificateUuid(), nextAttempt, OffsetDateTime.now(ZoneOffset.UTC).plus(nextDelay));
+            pollWriter
+                    .reschedule(poll.getCertificateUuid(), nextAttempt,
+                            OffsetDateTime.now(ZoneOffset.UTC).plus(nextDelay));
         }
         return messages;
     }

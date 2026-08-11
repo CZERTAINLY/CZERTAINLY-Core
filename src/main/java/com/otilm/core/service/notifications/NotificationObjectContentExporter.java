@@ -6,14 +6,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Exports a resource's canonical content representation for the notification OBJECT_CONTENT
- * category. The set of registered exporters is the fail-closed whitelist: no resource's content
- * is exportable unless an exporter is deliberately registered for it. An implementation must
- * export public material only (never key material, secrets, or protected content), must have
- * its permission requirements added to {@link NotificationDataCategoryGate} so enabling the
- * category is gated on them at configuration time, and must never activate silently for
- * profiles that already have the category enabled -- their operators were not gated against
- * the new exporter's permissions.
+ * Exports a resource's canonical content representation for the notification OBJECT_CONTENT category. The set of
+ * registered exporters is the fail-closed whitelist: no resource's content is exportable unless an exporter is
+ * deliberately registered for it. An implementation must export public material only (never key material, secrets, or
+ * protected content), must have its permission requirements added to {@link NotificationDataCategoryGate} so enabling
+ * the category is gated on them at configuration time, and must never activate silently for profiles that already have
+ * the category enabled -- their operators were not gated against the new exporter's permissions.
  */
 public interface NotificationObjectContentExporter {
 
@@ -24,8 +22,8 @@ public interface NotificationObjectContentExporter {
     String format();
 
     /**
-     * The subject's content, or empty when the object does not exist or carries no content yet
-     * -- absence is best-effort, never an error.
+     * The subject's content, or empty when the object does not exist or carries no content yet -- absence is
+     * best-effort, never an error.
      */
     Optional<String> export(UUID objectUuid);
 }

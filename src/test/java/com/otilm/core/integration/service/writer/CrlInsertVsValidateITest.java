@@ -1,5 +1,8 @@
 package com.otilm.core.integration.service.writer;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.core.dao.entity.Crl;
 import com.otilm.core.dao.repository.CrlRepository;
@@ -7,9 +10,20 @@ import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.service.CrlService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.PlatformX500NameStyle;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.cert.X509CRL;
+import java.security.cert.X509Certificate;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.CRLDistPoint;
@@ -31,21 +45,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.PrivateKey;
-import java.security.cert.X509CRL;
-import java.security.cert.X509Certificate;
-import java.util.Date;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -71,15 +70,19 @@ class CrlInsertVsValidateITest extends BaseSpringBootTest {
         caCert = CertificateGeneratorHelper.generateCACertificate(caKeyPair, "CN=CrlRaceCa-" + System.nanoTime());
 
         KeyPair eeKeyPair = generateRsaKeyPair();
-        eeCert = generateEndEntityCertificateWithCdp(caKeyPair, caCert, eeKeyPair, "CN=CrlRaceEE-" + System.nanoTime(), crlUrl);
+        eeCert = generateEndEntityCertificateWithCdp(caKeyPair, caCert, eeKeyPair, "CN=CrlRaceEE-" + System.nanoTime(),
+                crlUrl);
 
         X509CRL crl = generateEmptyCrl(caCert, caKeyPair.getPrivate());
-        crlServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/crl/ca.crl"))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/pkix-crl")
-                        .withBody(crl.getEncoded())
-                        .withFixedDelay(500)));
+        crlServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/crl/ca.crl"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/pkix-crl")
+                                .withBody(crl.getEncoded())
+                                .withFixedDelay(500)));
     }
 
     @AfterEach
@@ -91,8 +94,9 @@ class CrlInsertVsValidateITest extends BaseSpringBootTest {
 
     @Test
     void parallelGetCurrentCrlCallsResultInExactlyOneRow() throws Exception {
-        String issuerDn = X500Name.getInstance(new PlatformX500NameStyle(true),
-                eeCert.getIssuerX500Principal().getEncoded()).toString();
+        String issuerDn = X500Name
+                .getInstance(new PlatformX500NameStyle(true), eeCert.getIssuerX500Principal().getEncoded())
+                .toString();
         String issuerSerial = caCert.getSerialNumber().toString(16);
 
         // Pre-condition: no CRL row yet for this issuer.
@@ -120,7 +124,8 @@ class CrlInsertVsValidateITest extends BaseSpringBootTest {
         assertThat(err2.get()).as("race worker 2 must not throw: " + err2.get()).isNull();
 
         List<Crl> rows = crlRepository.findAll();
-        long matchingRows = rows.stream()
+        long matchingRows = rows
+                .stream()
                 .filter(c -> issuerDn.equals(c.getIssuerDn()) && issuerSerial.equals(c.getSerialNumber()))
                 .count();
         assertThat(matchingRows)
@@ -149,31 +154,31 @@ class CrlInsertVsValidateITest extends BaseSpringBootTest {
         return gen.generateKeyPair();
     }
 
-    private static X509Certificate generateEndEntityCertificateWithCdp(
-            KeyPair caKeyPair, X509Certificate caCert, KeyPair eeKeyPair, String subjectDn, String crlUrl) throws Exception {
+    private static X509Certificate generateEndEntityCertificateWithCdp(KeyPair caKeyPair, X509Certificate caCert,
+            KeyPair eeKeyPair, String subjectDn, String crlUrl) throws Exception {
         X500Name issuer = new X500Name(caCert.getSubjectX500Principal().getName());
         X500Name subject = new X500Name(subjectDn);
         BigInteger serial = BigInteger.valueOf(System.nanoTime());
         Date start = new Date();
         Date end = new Date(System.currentTimeMillis() + 365L * 86400000L);
 
-        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, serial, start, end, subject, eeKeyPair.getPublic());
-        DistributionPoint[] dps = new DistributionPoint[]{
-                new DistributionPoint(
-                        new DistributionPointName(new GeneralNames(
-                                new GeneralName(GeneralName.uniformResourceIdentifier, new DERIA5String(crlUrl)))),
-                        null, null)
-        };
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, serial, start, end, subject,
+                eeKeyPair.getPublic());
+        DistributionPoint[] dps = new DistributionPoint[]{new DistributionPoint(
+                new DistributionPointName(new GeneralNames(
+                        new GeneralName(GeneralName.uniformResourceIdentifier, new DERIA5String(crlUrl)))),
+                null, null)};
         builder.addExtension(Extension.cRLDistributionPoints, false, new CRLDistPoint(dps));
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(caKeyPair.getPrivate());
-        return new JcaX509CertificateConverter().setProvider(new BouncyCastleProvider()).getCertificate(builder.build(signer));
+        return new JcaX509CertificateConverter()
+                .setProvider(new BouncyCastleProvider())
+                .getCertificate(builder.build(signer));
     }
 
     private static X509CRL generateEmptyCrl(X509Certificate caCert, PrivateKey caKey) throws Exception {
         X509v2CRLBuilder crlBuilder = new X509v2CRLBuilder(
-                X500Name.getInstance(caCert.getSubjectX500Principal().getEncoded()),
-                new Date());
+                X500Name.getInstance(caCert.getSubjectX500Principal().getEncoded()), new Date());
         crlBuilder.setNextUpdate(new Date(System.currentTimeMillis() + 7L * 86400000L));
         crlBuilder.addExtension(Extension.cRLNumber, false, new CRLNumber(BigInteger.ONE));
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").setProvider("BC").build(caKey);

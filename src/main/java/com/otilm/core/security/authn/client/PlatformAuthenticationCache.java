@@ -1,17 +1,16 @@
 package com.otilm.core.security.authn.client;
 
 import com.otilm.core.config.cache.CacheConfig;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
-
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-import java.util.function.Supplier;
 
 @Component
 public class PlatformAuthenticationCache implements AuthenticationCache {
@@ -23,7 +22,8 @@ public class PlatformAuthenticationCache implements AuthenticationCache {
     private final Cache tokenCache;
 
     @Autowired
-    public PlatformAuthenticationCache(CacheManager cacheManager, TokenJtiIndex tokenJtiIndex, UserCertificateIndex userCertificateIndex) {
+    public PlatformAuthenticationCache(CacheManager cacheManager, TokenJtiIndex tokenJtiIndex,
+            UserCertificateIndex userCertificateIndex) {
         this.cacheManager = cacheManager;
         this.tokenJtiIndex = tokenJtiIndex;
         this.userCertificateIndex = userCertificateIndex;
@@ -62,7 +62,8 @@ public class PlatformAuthenticationCache implements AuthenticationCache {
     // Manual caching (instead of @Cacheable) keeps tokenJtiIndex in sync, enabling targeted
     // per-user eviction via evictTokensByUserUuid().
     @Override
-    public AuthenticationInfo getOrAuthenticateByToken(String issuer, String jti, long settingsGeneration, Supplier<AuthenticationInfo> loader) {
+    public AuthenticationInfo getOrAuthenticateByToken(String issuer, String jti, long settingsGeneration,
+            Supplier<AuthenticationInfo> loader) {
         if (jti == null || StringUtils.isBlank(issuer)) {
             return loader.get();
         }
@@ -80,14 +81,13 @@ public class PlatformAuthenticationCache implements AuthenticationCache {
     }
 
     /**
-     * Builds the token cache key as {@code generation:issuerLength:issuer:jti}.
-     * The generation is decimal digits and therefore self-delimiting, but an issuer URL contains colons and
-     * slashes and a {@code jti} is an opaque string chosen by the issuer, so a plain separator would let one
-     * (generation, issuer, jti) triple render as the key of another - issuer {@code https://a} with
-     * {@code jti} {@code x:y} and issuer {@code https://a:x} with {@code jti} {@code y} would collide.
-     * Prefixing the issuer with its character length makes the split deterministic: the digits before the
-     * second colon give the issuer length, the next that many characters are the issuer, and everything after
-     * the following colon is the {@code jti}. Every distinct triple therefore yields a distinct key.
+     * Builds the token cache key as {@code generation:issuerLength:issuer:jti}. The generation is decimal digits and
+     * therefore self-delimiting, but an issuer URL contains colons and slashes and a {@code jti} is an opaque string
+     * chosen by the issuer, so a plain separator would let one (generation, issuer, jti) triple render as the key of
+     * another - issuer {@code https://a} with {@code jti} {@code x:y} and issuer {@code https://a:x} with {@code jti}
+     * {@code y} would collide. Prefixing the issuer with its character length makes the split deterministic: the digits
+     * before the second colon give the issuer length, the next that many characters are the issuer, and everything
+     * after the following colon is the {@code jti}. Every distinct triple therefore yields a distinct key.
      */
     private static String tokenCacheKey(String issuer, String jti, long settingsGeneration) {
         return settingsGeneration + ":" + issuer.length() + ":" + issuer + ":" + jti;
@@ -114,7 +114,9 @@ public class PlatformAuthenticationCache implements AuthenticationCache {
     // No-op if the user has no cached tokens.
     private void evictTokensByUserUuid(UUID userUuid) {
         Set<String> jtis = tokenJtiIndex.removeUser(userUuid);
-        if (jtis == null) return;
+        if (jtis == null) {
+            return;
+        }
         jtis.forEach(tokenCache::evict);
     }
 
@@ -122,7 +124,9 @@ public class PlatformAuthenticationCache implements AuthenticationCache {
     // No-op if the user has no cached certificate.
     private void evictCertificateByUserUuid(UUID userUuid) {
         String fingerprint = userCertificateIndex.removeUser(userUuid);
-        if (fingerprint == null) return;
+        if (fingerprint == null) {
+            return;
+        }
         certCache.evict(fingerprint);
     }
 

@@ -40,13 +40,10 @@ public class RsaSignatureAttributesBuilder {
     }
 
     public List<RequestAttribute> build() {
-        return List.of(
-                attribute(RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID,
-                        RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME,
-                        scheme.getLabel(), scheme.getCode()),
-                attribute(RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST_UUID,
-                        RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST,
-                        digest.getLabel(), digest.getCode())
-        );
+        return List
+                .of(attribute(RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID,
+                        RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, scheme.getLabel(), scheme.getCode()),
+                        attribute(RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST_UUID,
+                                RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST, digest.getLabel(), digest.getCode()));
     }
 }

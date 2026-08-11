@@ -1,5 +1,6 @@
 package com.otilm.core.integration.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
@@ -14,10 +15,13 @@ import com.otilm.core.messaging.model.TimeQualityConfigDeletedEvent;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.TimeQualityConfigurationExternalService;
 import com.otilm.core.util.BaseMessagingIntTest;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.jms.JMSException;
 import jakarta.jms.Message;
 import jakarta.jms.TextMessage;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,11 +29,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,12 +38,18 @@ class TimeQualityConfigurationServiceJmsITest extends BaseMessagingIntTest {
     private static final long DRAIN_TIMEOUT_MS = 200;
     private static final long RECEIVE_TIMEOUT_MS = 5_000;
 
-    @Autowired ApplicationEvents applicationEvents;
-    @Autowired TimeQualityConfigurationExternalService service;
-    @Autowired TimeQualityConfigurationRepository repository;
-    @Autowired JmsTemplate jmsTemplate;
-    @Autowired MessagingProperties messagingProperties;
-    @Autowired ObjectMapper objectMapper;
+    @Autowired
+    ApplicationEvents applicationEvents;
+    @Autowired
+    TimeQualityConfigurationExternalService service;
+    @Autowired
+    TimeQualityConfigurationRepository repository;
+    @Autowired
+    JmsTemplate jmsTemplate;
+    @Autowired
+    MessagingProperties messagingProperties;
+    @Autowired
+    ObjectMapper objectMapper;
 
     private String configQueueConsumer;
     private String configRequestExchange;
@@ -63,7 +68,8 @@ class TimeQualityConfigurationServiceJmsITest extends BaseMessagingIntTest {
     }
 
     @Test
-    void create_publishesSnapshotContainingNewConfiguration() throws AlreadyExistException, AttributeException, NotFoundException {
+    void create_publishesSnapshotContainingNewConfiguration()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         String name = uniqueName("create");
 
         var created = service.createTimeQualityConfiguration(buildRequest(name));
@@ -84,7 +90,8 @@ class TimeQualityConfigurationServiceJmsITest extends BaseMessagingIntTest {
     }
 
     @Test
-    void update_publishesSnapshotContainingUpdatedConfiguration() throws AlreadyExistException, AttributeException, NotFoundException {
+    void update_publishesSnapshotContainingUpdatedConfiguration()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         var created = service.createTimeQualityConfiguration(buildRequest(uniqueName("update-pre")));
         drainConfigQueue();
         applicationEvents.clear();
@@ -101,7 +108,8 @@ class TimeQualityConfigurationServiceJmsITest extends BaseMessagingIntTest {
     }
 
     @Test
-    void delete_publishesEmptySnapshotAndFiresDeletedEventWithUuid() throws AlreadyExistException, AttributeException, NotFoundException {
+    void delete_publishesEmptySnapshotAndFiresDeletedEventWithUuid()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         var created = service.createTimeQualityConfiguration(buildRequest(uniqueName("delete")));
         drainConfigQueue();
         applicationEvents.clear();
@@ -114,24 +122,24 @@ class TimeQualityConfigurationServiceJmsITest extends BaseMessagingIntTest {
 
         // Both in-process events must fire so the local register and external monitor stay aligned.
         assertThat(applicationEvents.stream(TimeQualityConfigChangedEvent.class)).hasSize(1);
-        assertThat(applicationEvents.stream(TimeQualityConfigDeletedEvent.class)
-                .map(TimeQualityConfigDeletedEvent::getConfigurationId))
-                .containsExactly(configurationId);
+        assertThat(applicationEvents
+                .stream(TimeQualityConfigDeletedEvent.class)
+                .map(TimeQualityConfigDeletedEvent::getConfigurationId)).containsExactly(configurationId);
     }
 
     @Test
-    void bulkDelete_publishesSnapshotPerDeletionAndFiresDeletedEventPerEntry() throws AlreadyExistException, AttributeException, NotFoundException {
+    void bulkDelete_publishesSnapshotPerDeletionAndFiresDeletedEventPerEntry()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         var a = service.createTimeQualityConfiguration(buildRequest(uniqueName("bulk-a")));
         var b = service.createTimeQualityConfiguration(buildRequest(uniqueName("bulk-b")));
         var c = service.createTimeQualityConfiguration(buildRequest(uniqueName("bulk-c")));
         drainConfigQueue();
         applicationEvents.clear();
 
-        var failures = service.bulkDeleteTimeQualityConfigurations(List.of(
-                SecuredUUID.fromString(a.getUuid()),
-                SecuredUUID.fromString(b.getUuid()),
-                SecuredUUID.fromString(c.getUuid())
-        ));
+        var failures = service
+                .bulkDeleteTimeQualityConfigurations(List
+                        .of(SecuredUUID.fromString(a.getUuid()), SecuredUUID.fromString(b.getUuid()),
+                                SecuredUUID.fromString(c.getUuid())));
 
         assertThat(failures).isEmpty();
 
@@ -146,16 +154,16 @@ class TimeQualityConfigurationServiceJmsITest extends BaseMessagingIntTest {
         assertThat(snapshots.get(2).getConfigurations()).isEmpty();
 
         assertThat(applicationEvents.stream(TimeQualityConfigChangedEvent.class)).hasSize(3);
-        assertThat(applicationEvents.stream(TimeQualityConfigDeletedEvent.class)
+        assertThat(applicationEvents
+                .stream(TimeQualityConfigDeletedEvent.class)
                 .map(TimeQualityConfigDeletedEvent::getConfigurationId))
-                .containsExactlyInAnyOrder(
-                        UUID.fromString(a.getUuid()),
-                        UUID.fromString(b.getUuid()),
+                .containsExactlyInAnyOrder(UUID.fromString(a.getUuid()), UUID.fromString(b.getUuid()),
                         UUID.fromString(c.getUuid()));
     }
 
     @Test
-    void configRequest_triggersSnapshotResponseCarryingCorrelationId() throws AlreadyExistException, AttributeException, NotFoundException {
+    void configRequest_triggersSnapshotResponseCarryingCorrelationId()
+            throws AlreadyExistException, AttributeException, NotFoundException {
         var created = service.createTimeQualityConfiguration(buildRequest(uniqueName("resync")));
         drainConfigQueue();
 
@@ -165,10 +173,12 @@ class TimeQualityConfigurationServiceJmsITest extends BaseMessagingIntTest {
         request.setRequestedAt(Instant.now());
         sendConfigRequest(request);
 
-        TimeQualityConfigSnapshot response = Awaitility.await()
+        TimeQualityConfigSnapshot response = Awaitility
+                .await()
                 .atMost(Duration.ofSeconds(10))
                 .pollInterval(Duration.ofMillis(200))
-                .until(this::receiveSnapshotIfAvailable, snapshot -> snapshot != null && correlationId.equals(snapshot.getCorrelationId()));
+                .until(this::receiveSnapshotIfAvailable,
+                        snapshot -> snapshot != null && correlationId.equals(snapshot.getCorrelationId()));
 
         assertThat(response.getConfigurations()).hasSize(1);
         assertThat(response.getConfigurations().getFirst().getId()).isEqualTo(UUID.fromString(created.getUuid()));
@@ -209,10 +219,7 @@ class TimeQualityConfigurationServiceJmsITest extends BaseMessagingIntTest {
     }
 
     private List<TimeQualityConfigSnapshot> receiveSnapshots(int expected) {
-        return java.util.stream.Stream
-                .generate(this::receiveNextSnapshot)
-                .limit(expected)
-                .toList();
+        return java.util.stream.Stream.generate(this::receiveNextSnapshot).limit(expected).toList();
     }
 
     private void drainConfigQueue() {
@@ -222,10 +229,9 @@ class TimeQualityConfigurationServiceJmsITest extends BaseMessagingIntTest {
     }
 
     /**
-     * Production listeners do not use the JMS message converter — they read the
-     * raw TextMessage body and deserialize with ObjectMapper to a known class
-     * (see AbstractJmsEndpointConfig). We mirror that pattern here so the test
-     * uses the same deserialization contract as the receivers in production.
+     * Production listeners do not use the JMS message converter — they read the raw TextMessage body and deserialize
+     * with ObjectMapper to a known class (see AbstractJmsEndpointConfig). We mirror that pattern here so the test uses
+     * the same deserialization contract as the receivers in production.
      */
     private TimeQualityConfigSnapshot receiveSnapshotWithTimeout(long timeoutMs) {
         long previous = jmsTemplate.getReceiveTimeout();

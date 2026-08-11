@@ -1,28 +1,62 @@
 package com.otilm.core.integration.service;
 
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.argThat;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockConstruction;
-import static org.mockito.Mockito.when;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.JWSObjectJSON;
+import com.nimbusds.jose.JWSSigner;
+import com.nimbusds.jose.Payload;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import com.nimbusds.jose.util.Base64URL;
 import com.otilm.api.exception.AcmeProblemDocumentException;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
-import com.otilm.api.model.core.acme.*;
+import com.otilm.api.model.core.acme.Account;
+import com.otilm.api.model.core.acme.AccountStatus;
+import com.otilm.api.model.core.acme.Authorization;
+import com.otilm.api.model.core.acme.AuthorizationStatus;
+import com.otilm.api.model.core.acme.Challenge;
+import com.otilm.api.model.core.acme.ChallengeStatus;
+import com.otilm.api.model.core.acme.ChallengeType;
+import com.otilm.api.model.core.acme.Directory;
+import com.otilm.api.model.core.acme.Order;
+import com.otilm.api.model.core.acme.OrderStatus;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.enums.CertificateProtocol;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.entity.acme.*;
-import com.otilm.core.dao.repository.*;
-import com.otilm.core.dao.repository.acme.*;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.CertificateProtocolAssociation;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.acme.AcmeAccount;
+import com.otilm.core.dao.entity.acme.AcmeAuthorization;
+import com.otilm.core.dao.entity.acme.AcmeChallenge;
+import com.otilm.core.dao.entity.acme.AcmeNonce;
+import com.otilm.core.dao.entity.acme.AcmeOrder;
+import com.otilm.core.dao.entity.acme.AcmeProfile;
+import com.otilm.core.dao.repository.AcmeProfileRepository;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateProtocolAssociationRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.dao.repository.acme.AcmeAccountRepository;
+import com.otilm.core.dao.repository.acme.AcmeAuthorizationRepository;
+import com.otilm.core.dao.repository.acme.AcmeChallengeRepository;
+import com.otilm.core.dao.repository.acme.AcmeNonceRepository;
+import com.otilm.core.dao.repository.acme.AcmeOrderRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
 import com.otilm.core.security.authz.opa.dto.OpaResourceAccessResult;
@@ -31,16 +65,31 @@ import com.otilm.core.service.acme.AcmeExternalService;
 import com.otilm.core.util.AcmeCommonHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateTestUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.nimbusds.jose.*;
-import com.nimbusds.jose.crypto.RSASSASigner;
-import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SignatureException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.directory.Attribute;
+import javax.naming.directory.Attributes;
+import javax.naming.directory.InitialDirContext;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.AfterEach;
-import com.nimbusds.jose.util.Base64URL;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,21 +97,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import javax.naming.NamingEnumeration;
-import javax.naming.NamingException;
-import javax.naming.directory.Attribute;
-import javax.naming.directory.Attributes;
-import javax.naming.directory.InitialDirContext;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.security.spec.InvalidKeySpecException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.when;
 
 class AcmeServiceITest extends BaseSpringBootTest {
 
@@ -127,7 +168,8 @@ class AcmeServiceITest extends BaseSpringBootTest {
     WireMockServer mockServer;
 
     @BeforeEach
-    void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
+    void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException,
+            InvalidKeyException, NoSuchProviderException, OperatorCreationException {
         // prepare mock server
         mockServer = new WireMockServer(0);
         mockServer.start();
@@ -136,21 +178,25 @@ class AcmeServiceITest extends BaseSpringBootTest {
 
         WireMock.configureFor("localhost", mockServer.port());
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
 
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
 
-        RSAKey rsa2048JWK = new RSAKeyGenerator(2048)
-                .generate();
+        RSAKey rsa2048JWK = new RSAKeyGenerator(2048).generate();
         rsa2048PublicJWK = rsa2048JWK.toPublicJWK();
         rsa2048Signer = new RSASSASigner(rsa2048JWK);
 
-        RSAKey newRsa2048JWK = new RSAKeyGenerator(2048)
-                .generate();
+        RSAKey newRsa2048JWK = new RSAKeyGenerator(2048).generate();
         newRsa2048PublicJWK = newRsa2048JWK.toPublicJWK();
         newRsa2048Signer = new RSASSASigner(newRsa2048JWK);
 
@@ -306,198 +352,124 @@ class AcmeServiceITest extends BaseSpringBootTest {
     }
 
     private void mockAcmeRolePermissions() {
-        OpaResourceAccessResult resourceAccessAllowed = new OpaResourceAccessResult(true, List.of("AllResourcesAllowed"));
+        OpaResourceAccessResult resourceAccessAllowed = new OpaResourceAccessResult(true,
+                List.of("AllResourcesAllowed"));
         OpaResourceAccessResult resourceAccessNotAllowed = new OpaResourceAccessResult(false, List.of());
 
-
         // By default, reject all
-        when(
-                opaClient.checkResourceAccess(any(), any(), any(), any())
-        ).thenReturn(resourceAccessNotAllowed);
+        when(opaClient.checkResourceAccess(any(), any(), any(), any())).thenReturn(resourceAccessNotAllowed);
 
         // allow all ACME account actions
-        when(
-                opaClient.checkResourceAccess(any(), argThat(req ->
-                        req != null && req.getProperties().containsKey(Resource.ACME_ACCOUNT.getCode())
-                ), any(), any())
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> req != null && req.getProperties().containsKey(Resource.ACME_ACCOUNT.getCode())),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
         // allow all ACME Profile detail and list
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.ACME_PROFILE, ResourceAction.LIST)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.ACME_PROFILE, ResourceAction.LIST)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.ACME_PROFILE, ResourceAction.DETAIL)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.ACME_PROFILE, ResourceAction.DETAIL)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
         // Allow attribute members
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.ATTRIBUTE, ResourceAction.MEMBERS)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.ATTRIBUTE, ResourceAction.MEMBERS)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
         // Allow authorities detail, list and members
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.AUTHORITY, ResourceAction.LIST)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.AUTHORITY, ResourceAction.LIST)), any(),
+                        any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.AUTHORITY, ResourceAction.DETAIL)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.AUTHORITY, ResourceAction.DETAIL)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.AUTHORITY, ResourceAction.MEMBERS)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.AUTHORITY, ResourceAction.MEMBERS)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
         // Allow certificates create, detail, issue, list, renew, revoke, update
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.LIST)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.LIST)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.CREATE)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.CREATE)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.DETAIL)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.DETAIL)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.RENEW)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.RENEW)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.REVOKE)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.REVOKE)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.UPDATE)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.CERTIFICATE, ResourceAction.UPDATE)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
         // Allow RA Profiles detail, list and members
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.RA_PROFILE, ResourceAction.LIST)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.RA_PROFILE, ResourceAction.LIST)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.RA_PROFILE, ResourceAction.DETAIL)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.RA_PROFILE, ResourceAction.DETAIL)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        any(),
-                        argThat(req ->
-                                isRequestForResourceAction(req, Resource.RA_PROFILE, ResourceAction.MEMBERS)
-                        ),
-                        any(),
-                        any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(any(),
+                        argThat(req -> isRequestForResourceAction(req, Resource.RA_PROFILE, ResourceAction.MEMBERS)),
+                        any(), any()))
+                .thenReturn(resourceAccessAllowed);
 
     }
 
-    private static boolean isRequestForResourceAction(OpaRequestedResource requestedResource, Resource resource, ResourceAction resourceAction) {
-        return requestedResource != null && requestedResource.getProperties() != null &&
-                (requestedResource.getProperties().containsKey("name") && requestedResource.getProperties().get("name").equals(resource.getCode())) &&
-                (requestedResource.getProperties().containsKey("action") && requestedResource.getProperties().get("action").equals(resourceAction.getCode()));
+    private static boolean isRequestForResourceAction(OpaRequestedResource requestedResource, Resource resource,
+            ResourceAction resourceAction) {
+        return requestedResource != null && requestedResource.getProperties() != null
+                && (requestedResource.getProperties().containsKey("name")
+                        && requestedResource.getProperties().get("name").equals(resource.getCode()))
+                && (requestedResource.getProperties().containsKey("action")
+                        && requestedResource.getProperties().get("action").equals(resourceAction.getCode()));
     }
 
     @AfterEach
@@ -553,56 +525,63 @@ class AcmeServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testNewAccount_acmeProfileBased_withExistingKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount_acmeProfileBased_withExistingKey()
+            throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
-        ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false);
+        ResponseEntity<Account> account = acmeService
+                .newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri,
+                        false);
         assertNewAccount(account);
     }
 
     @Test
-    void testNewAccount_raProfileBased_withExistingKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount_raProfileBased_withExistingKey()
+            throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
-        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, true);
+        ResponseEntity<Account> account = acmeService
+                .newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, true);
         assertNewAccount(account);
     }
 
     @Test
-    void testNewAccount_acmeProfileBased_withNewKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount_acmeProfileBased_withNewKey()
+            throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
-        ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_withNewKey(requestUri), requestUri, false);
+        ResponseEntity<Account> account = acmeService
+                .newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_withNewKey(requestUri), requestUri, false);
         assertNewAccount(account);
     }
 
     @Test
-    void testNewAccount_raProfileBased_withNewKey() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount_raProfileBased_withNewKey()
+            throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
-        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_withNewKey(requestUri), requestUri, true);
+        ResponseEntity<Account> account = acmeService
+                .newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_withNewKey(requestUri), requestUri, true);
         assertNewAccount(account);
     }
 
     private String buildNewAccountRequestJSON_withExistingKey(URI requestUri) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(
+                "{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .jwk(rsa2048PublicJWK)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
     private String buildNewAccountRequestJSON_withNewKey(URI requestUri) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(
+                "{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .jwk(newRsa2048PublicJWK)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                newRsa2048Signer
-        );
+                        .build(), newRsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
@@ -618,32 +597,31 @@ class AcmeServiceITest extends BaseSpringBootTest {
     @Test
     void testNewAccount_fail() throws URISyntaxException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
-        Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_fail(), requestUri, false));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class, () -> acmeService
+                        .newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_fail(), requestUri, false));
     }
 
     @Test
     void testNewAccount_fail_raProfileBased() throws URISyntaxException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
-        Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_fail(), requestUri, true));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class, () -> acmeService
+                        .newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_fail(), requestUri, true));
     }
 
     private String buildNewAccountRequestJSON_fail() throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("dfgdrtyufghgjghktyfghdtu"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
-                        .jwk(rsa2048PublicJWK)
-                        .build(),
-                rsa2048Signer
-        );
+        jwsObjectJSON.sign(new JWSHeader.Builder(JWSAlgorithm.RS256).jwk(rsa2048PublicJWK).build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
     @Test
-    void testOnlyReturnExistingAccount() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
+    void testOnlyReturnExistingAccount()
+            throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
-        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildOnlyReturnExistingAccountJSON(requestUri), requestUri, true);
+        ResponseEntity<Account> account = acmeService
+                .newAccount(RA_PROFILE_NAME, buildOnlyReturnExistingAccountJSON(requestUri), requestUri, true);
         Assertions.assertEquals(HttpStatus.OK, account.getStatusCode());
         Assertions.assertNotNull(account);
         Assertions.assertEquals(AccountStatus.VALID, Objects.requireNonNull(account.getBody()).getStatus());
@@ -651,79 +629,84 @@ class AcmeServiceITest extends BaseSpringBootTest {
 
     private String buildOnlyReturnExistingAccountJSON(URI requestUri) throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"onlyReturnExisting\":true}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .jwk(rsa2048PublicJWK)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
     @Test
     void testOnlyReturnExistingAccount_fail() throws URISyntaxException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
-        Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newAccount(RA_PROFILE_NAME, buildOnlyReturnExistingAccountJSON_fail(requestUri), requestUri, true));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService
+                                .newAccount(RA_PROFILE_NAME, buildOnlyReturnExistingAccountJSON_fail(requestUri),
+                                        requestUri, true));
     }
 
     private String buildOnlyReturnExistingAccountJSON_fail(URI requestUri) throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"onlyReturnExisting\":true}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .jwk(newRsa2048PublicJWK)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                newRsa2048Signer
-        );
+                        .build(), newRsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
     @Test
     void testNewAccountOnExisting_wrongConfiguration() throws URISyntaxException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME_2 + "/new-account");
-        Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newAccount(ACME_PROFILE_NAME_2, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService
+                                .newAccount(ACME_PROFILE_NAME_2, buildNewAccountRequestJSON_withExistingKey(requestUri),
+                                        requestUri, false));
     }
 
     @Test
     void testNewAccountOnExisting_wrongConfiguration_raProfileBased() throws URISyntaxException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME_2 + "/new-account");
-        Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newAccount(RA_PROFILE_NAME_2, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, true));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService
+                                .newAccount(RA_PROFILE_NAME_2, buildNewAccountRequestJSON_withExistingKey(requestUri),
+                                        requestUri, true));
     }
 
     @Test
     void testNewOrder() throws JOSEException, URISyntaxException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-order");
-        ResponseEntity<Order> order = acmeService.newOrder(
-                ACME_PROFILE_NAME,
-                buildNewOrderRequestJSON(requestUri, BASE_URI + ACME_PROFILE_NAME), requestUri, false);
+        ResponseEntity<Order> order = acmeService
+                .newOrder(ACME_PROFILE_NAME, buildNewOrderRequestJSON(requestUri, BASE_URI + ACME_PROFILE_NAME),
+                        requestUri, false);
         assertNewOrder(order);
     }
 
     @Test
-    void testNewOrder_raProfileBased() throws JOSEException, URISyntaxException, AcmeProblemDocumentException, NotFoundException {
+    void testNewOrder_raProfileBased()
+            throws JOSEException, URISyntaxException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-order");
-        ResponseEntity<Order> order = acmeService.newOrder(
-                RA_PROFILE_NAME,
-                buildNewOrderRequestJSON(requestUri, RA_BASE_URI + RA_PROFILE_NAME), requestUri, true);
+        ResponseEntity<Order> order = acmeService
+                .newOrder(RA_PROFILE_NAME, buildNewOrderRequestJSON(requestUri, RA_BASE_URI + RA_PROFILE_NAME),
+                        requestUri, true);
         assertNewOrder(order);
     }
 
     private String buildNewOrderRequestJSON(URI requestUri, String baseUri) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"identifiers\":[{\"type\":\"dns\",\"value\":\"debian10.acme.local\"}]}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(
+                new Payload("{\"identifiers\":[{\"type\":\"dns\",\"value\":\"debian10.acme.local\"}]}"));
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
@@ -739,57 +722,55 @@ class AcmeServiceITest extends BaseSpringBootTest {
     @Test
     void testNewOrder_Fail() throws URISyntaxException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-order");
-        Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newOrder(ACME_PROFILE_NAME, buildNewOrderRequestJSON_fail(), requestUri, false));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class, () -> acmeService
+                        .newOrder(ACME_PROFILE_NAME, buildNewOrderRequestJSON_fail(), requestUri, false));
     }
 
     @Test
     void testNewOrder_fail_raProfileBased() throws URISyntaxException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-order");
-        Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.newOrder(RA_PROFILE_NAME, buildNewOrderRequestJSON_fail(), requestUri, true));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService.newOrder(RA_PROFILE_NAME, buildNewOrderRequestJSON_fail(), requestUri, true));
     }
 
     private String buildNewOrderRequestJSON_fail() throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("dfgdrtyufghgjghktyfghdtu"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
-                        .build(),
-                rsa2048Signer
-        );
+        jwsObjectJSON.sign(new JWSHeader.Builder(JWSAlgorithm.RS256).build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
     @Test
-    void testGetAuthorization() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testGetAuthorization()
+            throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/authz/" + AUTHORIZATION_ID_PENDING);
-        ResponseEntity<Authorization> authorization = acmeService.getAuthorization(
-                ACME_PROFILE_NAME, AUTHORIZATION_ID_PENDING,
-                buildGetAuthorizationRequestJSON(requestUri, baseUri), requestUri, false);
+        ResponseEntity<Authorization> authorization = acmeService
+                .getAuthorization(ACME_PROFILE_NAME, AUTHORIZATION_ID_PENDING,
+                        buildGetAuthorizationRequestJSON(requestUri, baseUri), requestUri, false);
         assertGetAuthorization(authorization);
     }
 
     @Test
-    void testGetAuthorization_raProfileBased() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testGetAuthorization_raProfileBased()
+            throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/authz/" + AUTHORIZATION_ID_PENDING);
-        ResponseEntity<Authorization> authorization = acmeService.getAuthorization(
-                RA_PROFILE_NAME, AUTHORIZATION_ID_PENDING,
-                buildGetAuthorizationRequestJSON(requestUri, baseUri), requestUri, true);
+        ResponseEntity<Authorization> authorization = acmeService
+                .getAuthorization(RA_PROFILE_NAME, AUTHORIZATION_ID_PENDING,
+                        buildGetAuthorizationRequestJSON(requestUri, baseUri), requestUri, true);
         assertGetAuthorization(authorization);
     }
 
     private String buildGetAuthorizationRequestJSON(URI requestUri, String baseUri) throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(""));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
@@ -804,52 +785,62 @@ class AcmeServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testFinalize() throws URISyntaxException, ConnectorException, CertificateException, AlreadyExistException, JOSEException, AcmeProblemDocumentException, JsonProcessingException {
+    void testFinalize() throws URISyntaxException, ConnectorException, CertificateException, AlreadyExistException,
+            JOSEException, AcmeProblemDocumentException, JsonProcessingException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
         certificate.setState(CertificateState.FAILED);
         certificateRepository.save(certificate);
         order1.setStatus(OrderStatus.PENDING);
         acmeOrderRepository.save(order1);
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
-                ACME_PROFILE_NAME, ORDER_ID_VALID,
-                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService
+                                .finalizeOrder(ACME_PROFILE_NAME, ORDER_ID_VALID,
+                                        buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
         AcmeAccount acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
         Assertions.assertEquals(1, acmeAccount.getFailedOrders());
         certificate.setState(CertificateState.ISSUED);
         certificateRepository.save(certificate);
         order1.setStatus(OrderStatus.PENDING);
         acmeOrderRepository.save(order1);
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
-                ACME_PROFILE_NAME, ORDER_ID_VALID,
-                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService
+                                .finalizeOrder(ACME_PROFILE_NAME, ORDER_ID_VALID,
+                                        buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
         acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
         Assertions.assertEquals(1, acmeAccount.getValidOrders());
 
-
         order1.setCertificateReference(null);
         order1.setCertificateReferenceUuid(null);
         order1.setStatus(OrderStatus.READY);
         acmeOrderRepository.save(order1);
-        acmeService.finalizeOrder(
-                ACME_PROFILE_NAME, ORDER_ID_VALID,
-                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false);
+        acmeService
+                .finalizeOrder(ACME_PROFILE_NAME, ORDER_ID_VALID, buildFinalizeRequestJSON(requestUri, baseUri),
+                        requestUri, false);
         acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
         Assertions.assertEquals(2, acmeAccount.getFailedOrders());
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
         order1.setCertificateReference(null);
         order1.setCertificateReferenceUuid(null);
         order1.setStatus(OrderStatus.READY);
         acmeOrderRepository.save(order1);
-        acmeService.finalizeOrder(
-                ACME_PROFILE_NAME, ORDER_ID_VALID,
-                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false);
+        acmeService
+                .finalizeOrder(ACME_PROFILE_NAME, ORDER_ID_VALID, buildFinalizeRequestJSON(requestUri, baseUri),
+                        requestUri, false);
         acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
         Assertions.assertEquals(2, acmeAccount.getFailedOrders());
     }
@@ -858,21 +849,22 @@ class AcmeServiceITest extends BaseSpringBootTest {
     void testFinalize_raProfileBased() throws URISyntaxException {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
-                RA_PROFILE_NAME, ORDER_ID_VALID,
-                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, true));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService
+                                .finalizeOrder(RA_PROFILE_NAME, ORDER_ID_VALID,
+                                        buildFinalizeRequestJSON(requestUri, baseUri), requestUri, true));
     }
 
     private String buildFinalizeRequestJSON(URI requestUri, String baseUri) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"csr\":\"MIICdjCCAV4CAQIwADCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALeJvx7JWbwzobWL74KyHz0FjPqt0R5iOaOxiYqpfMY-ZVhMBkS0FqnCBQzMn5BkHukdx7HsIMkJ-sM01HVHJaRpgpf1zeTyRQjY7ESDikRL_1Ekxi6Sgf5unzB35aP2EBxiAaomG610HjpqSfGtOzEf12hy4jkcC446TT8nE9dm6CBf7XAoq9vXxXRjnAgdkr62yIzanXedDwdcNyk5EiiRWQXwW-L5Pex5808ip2gmE5Al5SPUiv8eDCq02QVDJ8Ln4UPYkxL1b6RMlfEgKLsGEZX0e-FC0w_fiBN48zrvHxqM2fdU7Ae8pRDwUOClYOxDkrvDv60RGikLlQZ45FcCAwEAAaAxMC8GCSqGSIb3DQEJDjEiMCAwHgYDVR0RBBcwFYITZGViaWFuMTAuYWNtZS5sb2NhbDANBgkqhkiG9w0BAQsFAAOCAQEAHlO0ZuPuYEtplU0gEUj88Yi1MWkrElx0JoTk7qonRsufu_Y2P_u-RrkWOzM3VJ08lNz90L_mnc8NOONMl_WlYWBywbUMsGar4Y_1x0ySOEdp5fg87rxY1b2jbSL7tPe4OV7yAebdCEzzXXBi3Ay9NoJAhwNONjyRp92vqT5-MWMXQyZvdcUMM38l6aNc9jof3EluNbgO7nWSle6MQJJvlEYwXx7ZPvvgxMfrRa-Yc_aWS7w25MSAODKKwvIivGn5q_owfd5AozYp0pymiLLbvAWhYVWL_-bGvJ13xpyfNPnGJIdwcY8zgikYPyBfbRmPyKJLPI4QnWz8GsWGiaUgjA\"}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(
+                "{\"csr\":\"MIICdjCCAV4CAQIwADCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALeJvx7JWbwzobWL74KyHz0FjPqt0R5iOaOxiYqpfMY-ZVhMBkS0FqnCBQzMn5BkHukdx7HsIMkJ-sM01HVHJaRpgpf1zeTyRQjY7ESDikRL_1Ekxi6Sgf5unzB35aP2EBxiAaomG610HjpqSfGtOzEf12hy4jkcC446TT8nE9dm6CBf7XAoq9vXxXRjnAgdkr62yIzanXedDwdcNyk5EiiRWQXwW-L5Pex5808ip2gmE5Al5SPUiv8eDCq02QVDJ8Ln4UPYkxL1b6RMlfEgKLsGEZX0e-FC0w_fiBN48zrvHxqM2fdU7Ae8pRDwUOClYOxDkrvDv60RGikLlQZ45FcCAwEAAaAxMC8GCSqGSIb3DQEJDjEiMCAwHgYDVR0RBBcwFYITZGViaWFuMTAuYWNtZS5sb2NhbDANBgkqhkiG9w0BAQsFAAOCAQEAHlO0ZuPuYEtplU0gEUj88Yi1MWkrElx0JoTk7qonRsufu_Y2P_u-RrkWOzM3VJ08lNz90L_mnc8NOONMl_WlYWBywbUMsGar4Y_1x0ySOEdp5fg87rxY1b2jbSL7tPe4OV7yAebdCEzzXXBi3Ay9NoJAhwNONjyRp92vqT5-MWMXQyZvdcUMM38l6aNc9jof3EluNbgO7nWSle6MQJJvlEYwXx7ZPvvgxMfrRa-Yc_aWS7w25MSAODKKwvIivGn5q_owfd5AozYp0pymiLLbvAWhYVWL_-bGvJ13xpyfNPnGJIdwcY8zgikYPyBfbRmPyKJLPI4QnWz8GsWGiaUgjA\"}"));
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
@@ -881,9 +873,9 @@ class AcmeServiceITest extends BaseSpringBootTest {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
         var requestJson = buildRevokeCertRequestJSON_fail(requestUri, baseUri);
-        Assertions.assertThrows(NullPointerException.class,
-                () -> acmeService.revokeCertificate(
-                        ACME_PROFILE_NAME, requestJson, requestUri, false));
+        Assertions
+                .assertThrows(NullPointerException.class,
+                        () -> acmeService.revokeCertificate(ACME_PROFILE_NAME, requestJson, requestUri, false));
 
     }
 
@@ -892,9 +884,9 @@ class AcmeServiceITest extends BaseSpringBootTest {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
         var requestJson = buildRevokeCertRequestJSON_fail(requestUri, baseUri);
-        Assertions.assertThrows(NullPointerException.class,
-                () -> acmeService.revokeCertificate(
-                        RA_PROFILE_NAME, requestJson, requestUri, true));
+        Assertions
+                .assertThrows(NullPointerException.class,
+                        () -> acmeService.revokeCertificate(RA_PROFILE_NAME, requestJson, requestUri, true));
 
     }
 
@@ -904,41 +896,46 @@ class AcmeServiceITest extends BaseSpringBootTest {
         URI requestUri = new URI(baseUri + "/revoke-cert");
         certificate.setArchived(true);
         certificateRepository.save(certificate);
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.revokeCertificate(
-                ACME_PROFILE_NAME,
-                buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, b64UrlCertificate), requestUri, false));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class, () -> acmeService
+                        .revokeCertificate(ACME_PROFILE_NAME,
+                                buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, b64UrlCertificate),
+                                requestUri, false));
     }
 
     private String buildRevokeCertRequestJSON_fail(URI requestUri, String baseUri) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"certificate\":\"MIIFOzCCAyOgAwIBAgITGAAAA4HCMidgplmlrQAAAAADgTANBgkqhkiG9w0BAQ0FADA3MRcwFQYDVQQDDA5EZW1vIE1TIFN1YiBDQTEcMBoGA1UECgwTM0tleSBDb21wYW55IHMuci5vLjAeFw0yNDAzMTIxMTI3MDBaFw0yNjAzMTIxMTI3MDBaMBgxFjAUBgNVBAMTDXRmdC4za2V5LnRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDgoHj1WO_sXoqfcr7pm5KUjsAnmdjgzBbFwHCAvlDwsF8Z6B6i77AB-xLIUdcVLPu417mApEbH9Nu9jvcO_b2QEh_tDAczbug6SVMwgl7va3H5qGwg_0qepRHNWAMt1TWgY-rFZbUn1WLSO97armFjVPKK-AeuBVz4EQIqS1vxLLg0MxajR19euvkLBjbjYtjp7pwgHT2jMsccJ06bGN3Ik7wTZMnObfwxhhmwApEjyeDevVywopULc9zarvOSgFTnejlfOmwUBnnHlp8Xpq7P_izt1AhJkij9eElzSXnZUHAFQoQh3fQ6yelXFBxDOEAao8o3FR-R6Ss3kZ3mxkbjAgMBAAGjggFdMIIBWTAnBgNVHREEIDAegg10ZnQuM2tleS50ZXN0gg13d3cuM2tleS50ZXN0MB0GA1UdDgQWBBSA81KtARou26mp921nppmTGjC6BTAfBgNVHSMEGDAWgBSSwrzfVcXBk4VJB_esyR0LaAEHUTBNBgNVHR8ERjBEMEKgQKA-hjxodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2NybHMvZGVtby9EZW1vJTIwTVMlMjBTdWIlMjBDQS5jcmwwVwYIKwYBBQUHAQEESzBJMEcGCCsGAQUFBzABhjtodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2Nhcy9kZW1vL0RlbW8lMjBNUyUyMFN1YiUyMENBLmNydDAhBgkrBgEEAYI3FAIEFB4SAFcAZQBiAFMAZQByAHYAZQByMA4GA1UdDwEB_wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATANBgkqhkiG9w0BAQ0FAAOCAgEAb_N3sf9Kda5t_jsL_VQYW0OPiHD0V1QcwqiyplvclD7NahnV7QiUwS7V-QmHHD1V2_xkYNhlgkinu1SWbpJ8gAcLDbADfnMkaOZNr6dvKiDGw0Xppmfbha1Bbb3JA_DOHFrXBm3795mQDgaRuvPke0qyyL1DP9xAdxubQaYQDZA9WAYNztgVe3V4zngwzI6P6BiDQ7CgZLNv_e8e5ME4_MCeO0cUFxt7mzKIhH54wL4yY8DJ3LHVWXsMPntRMdvYWjYf-1Ivb5x2WvuU_SPcnCSyEj0qdcLlm9BWxbfM-5h4gXWvsCjG2anGLtsl5Ut3Sz1vvoM49N981pZEZDlNFlsBgYCF-MDKZwBOiX8uTgQkv5bqA7_tPvIgQI_JTbSYeqRtb4J6SH1_uRrhyU7w88PlSmZwkf5S5ZxX9eqjSEFENB7ARh4KaiHyYqTfYxAP6-EFs9dxBTQ5eQu2jFXy4xJG4g-r1KZujv6wgPoDZsbbqTfBg27_sQsTyzZqI1vL5UrCqxDSo-Pw9JPITYi8AdOffT0hkgQ7RmLHb6HYV7JqABmhZ3G9QQfuk2W7_o6l6jnpZM7pHEkZ30s54cIHgYG3JifXd2m6uxU6iX48mJy_VUZcVikxSbCg5eLlvq_HWnxk2DE_9PWjA_YxZs2Jtqpi2FtLCli2cykGGumhhJ0\",\"reason\":8}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(
+                "{\"certificate\":\"MIIFOzCCAyOgAwIBAgITGAAAA4HCMidgplmlrQAAAAADgTANBgkqhkiG9w0BAQ0FADA3MRcwFQYDVQQDDA5EZW1vIE1TIFN1YiBDQTEcMBoGA1UECgwTM0tleSBDb21wYW55IHMuci5vLjAeFw0yNDAzMTIxMTI3MDBaFw0yNjAzMTIxMTI3MDBaMBgxFjAUBgNVBAMTDXRmdC4za2V5LnRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDgoHj1WO_sXoqfcr7pm5KUjsAnmdjgzBbFwHCAvlDwsF8Z6B6i77AB-xLIUdcVLPu417mApEbH9Nu9jvcO_b2QEh_tDAczbug6SVMwgl7va3H5qGwg_0qepRHNWAMt1TWgY-rFZbUn1WLSO97armFjVPKK-AeuBVz4EQIqS1vxLLg0MxajR19euvkLBjbjYtjp7pwgHT2jMsccJ06bGN3Ik7wTZMnObfwxhhmwApEjyeDevVywopULc9zarvOSgFTnejlfOmwUBnnHlp8Xpq7P_izt1AhJkij9eElzSXnZUHAFQoQh3fQ6yelXFBxDOEAao8o3FR-R6Ss3kZ3mxkbjAgMBAAGjggFdMIIBWTAnBgNVHREEIDAegg10ZnQuM2tleS50ZXN0gg13d3cuM2tleS50ZXN0MB0GA1UdDgQWBBSA81KtARou26mp921nppmTGjC6BTAfBgNVHSMEGDAWgBSSwrzfVcXBk4VJB_esyR0LaAEHUTBNBgNVHR8ERjBEMEKgQKA-hjxodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2NybHMvZGVtby9EZW1vJTIwTVMlMjBTdWIlMjBDQS5jcmwwVwYIKwYBBQUHAQEESzBJMEcGCCsGAQUFBzABhjtodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2Nhcy9kZW1vL0RlbW8lMjBNUyUyMFN1YiUyMENBLmNydDAhBgkrBgEEAYI3FAIEFB4SAFcAZQBiAFMAZQByAHYAZQByMA4GA1UdDwEB_wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATANBgkqhkiG9w0BAQ0FAAOCAgEAb_N3sf9Kda5t_jsL_VQYW0OPiHD0V1QcwqiyplvclD7NahnV7QiUwS7V-QmHHD1V2_xkYNhlgkinu1SWbpJ8gAcLDbADfnMkaOZNr6dvKiDGw0Xppmfbha1Bbb3JA_DOHFrXBm3795mQDgaRuvPke0qyyL1DP9xAdxubQaYQDZA9WAYNztgVe3V4zngwzI6P6BiDQ7CgZLNv_e8e5ME4_MCeO0cUFxt7mzKIhH54wL4yY8DJ3LHVWXsMPntRMdvYWjYf-1Ivb5x2WvuU_SPcnCSyEj0qdcLlm9BWxbfM-5h4gXWvsCjG2anGLtsl5Ut3Sz1vvoM49N981pZEZDlNFlsBgYCF-MDKZwBOiX8uTgQkv5bqA7_tPvIgQI_JTbSYeqRtb4J6SH1_uRrhyU7w88PlSmZwkf5S5ZxX9eqjSEFENB7ARh4KaiHyYqTfYxAP6-EFs9dxBTQ5eQu2jFXy4xJG4g-r1KZujv6wgPoDZsbbqTfBg27_sQsTyzZqI1vL5UrCqxDSo-Pw9JPITYi8AdOffT0hkgQ7RmLHb6HYV7JqABmhZ3G9QQfuk2W7_o6l6jnpZM7pHEkZ30s54cIHgYG3JifXd2m6uxU6iX48mJy_VUZcVikxSbCg5eLlvq_HWnxk2DE_9PWjA_YxZs2Jtqpi2FtLCli2cykGGumhhJ0\",\"reason\":8}"));
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
     @Test
-    void testRevokeCert_withAccountKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+    void testRevokeCert_withAccountKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException,
+            ConnectorException, CertificateException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
-        ResponseEntity<?> response = acmeService.revokeCertificate(
-                ACME_PROFILE_NAME,
-                buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, b64UrlCertificate), requestUri, false);
+        ResponseEntity<?> response = acmeService
+                .revokeCertificate(ACME_PROFILE_NAME,
+                        buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, b64UrlCertificate), requestUri,
+                        false);
         assertRevokeCert_withAccountKey(response);
     }
 
     @Test
-    void testRevokeCert_withAccountKey_raProfileBased() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+    void testRevokeCert_withAccountKey_raProfileBased() throws URISyntaxException, JOSEException,
+            AcmeProblemDocumentException, ConnectorException, CertificateException {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
-        ResponseEntity<?> response = acmeService.revokeCertificate(
-                RA_PROFILE_NAME,
-                buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, b64UrlCertificate), requestUri, true);
+        ResponseEntity<?> response = acmeService
+                .revokeCertificate(RA_PROFILE_NAME,
+                        buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, b64UrlCertificate), requestUri,
+                        true);
         assertRevokeCert_withAccountKey(response);
     }
 
@@ -946,10 +943,11 @@ class AcmeServiceITest extends BaseSpringBootTest {
     void testRevokeCert_withAccountKey_nonAcmeCertificate() throws URISyntaxException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
-        AcmeProblemDocumentException thrown = Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.revokeCertificate(
-                        ACME_PROFILE_NAME,
-                        buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, nonAcmeB64UrlCertificate), requestUri, false));
+        AcmeProblemDocumentException thrown = Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService
+                                .revokeCertificate(ACME_PROFILE_NAME, buildRevokeCertRequestJSON_withAccountKey(
+                                        requestUri, baseUri, nonAcmeB64UrlCertificate), requestUri, false));
         Assertions.assertEquals(thrown.getHttpStatusCode(), HttpStatus.FORBIDDEN.value());
     }
 
@@ -957,10 +955,11 @@ class AcmeServiceITest extends BaseSpringBootTest {
     void testRevokeCert_withAccountKey_nonAcmeCertificate_raProfileBased() throws URISyntaxException {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
-        AcmeProblemDocumentException thrown = Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.revokeCertificate(
-                        RA_PROFILE_NAME,
-                        buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, nonAcmeB64UrlCertificate), requestUri, true));
+        AcmeProblemDocumentException thrown = Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService
+                                .revokeCertificate(RA_PROFILE_NAME, buildRevokeCertRequestJSON_withAccountKey(
+                                        requestUri, baseUri, nonAcmeB64UrlCertificate), requestUri, true));
         Assertions.assertEquals(thrown.getHttpStatusCode(), HttpStatus.FORBIDDEN.value());
     }
 
@@ -968,21 +967,23 @@ class AcmeServiceITest extends BaseSpringBootTest {
     void testUpdateAccount() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/update");
-        acmeService.updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false);
+        acmeService
+                .updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID,
+                        buildNewAccountRequestJSON_withExistingKey(requestUri), requestUri, false);
         AcmeAccount acmeAccount = acmeAccountRepository.findByAccountId(ACME_ACCOUNT_ID_VALID).orElseThrow();
         Assertions.assertEquals(1, acmeAccount.getFailedOrders());
     }
 
-    private String buildRevokeCertRequestJSON_withAccountKey(URI requestUri, String baseUri, String certificate) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"certificate\":\"" + certificate + "\",\"reason\":0}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+    private String buildRevokeCertRequestJSON_withAccountKey(URI requestUri, String baseUri, String certificate)
+            throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(
+                new Payload("{\"certificate\":\"" + certificate + "\",\"reason\":0}"));
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
@@ -992,33 +993,34 @@ class AcmeServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCert_withPrivateKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+    public void testRevokeCert_withPrivateKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException,
+            ConnectorException, CertificateException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/revoke-cert");
-        ResponseEntity<?> response = acmeService.revokeCertificate(
-                ACME_PROFILE_NAME,
-                buildRevokeCertRequestJSON_withPrivateKey(requestUri), requestUri, false);
+        ResponseEntity<?> response = acmeService
+                .revokeCertificate(ACME_PROFILE_NAME, buildRevokeCertRequestJSON_withPrivateKey(requestUri), requestUri,
+                        false);
         assertRevokeCert_withPrivateKey(response);
     }
 
     @Test
-    void testRevokeCert_withPrivateKey_raProfileBased() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+    void testRevokeCert_withPrivateKey_raProfileBased() throws URISyntaxException, JOSEException,
+            AcmeProblemDocumentException, ConnectorException, CertificateException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/revoke-cert");
-        ResponseEntity<?> response = acmeService.revokeCertificate(
-                RA_PROFILE_NAME,
-                buildRevokeCertRequestJSON_withPrivateKey(requestUri), requestUri, true);
+        ResponseEntity<?> response = acmeService
+                .revokeCertificate(RA_PROFILE_NAME, buildRevokeCertRequestJSON_withPrivateKey(requestUri), requestUri,
+                        true);
         assertRevokeCert_withPrivateKey(response);
     }
 
     private String buildRevokeCertRequestJSON_withPrivateKey(URI requestUri) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"certificate\":\"" + b64UrlCertificate + "\",\"reason\":0}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(
+                new Payload("{\"certificate\":\"" + b64UrlCertificate + "\",\"reason\":0}"));
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .jwk(rsa2048PublicJWK)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
@@ -1030,7 +1032,8 @@ class AcmeServiceITest extends BaseSpringBootTest {
     @Test
     void testGetOrderList() throws AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_VALID);
-        ResponseEntity<List<Order>> orders = acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, false);
+        ResponseEntity<List<Order>> orders = acmeService
+                .listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, false);
         assertGetOrderList(orders);
         order1.setStatus(OrderStatus.READY);
         order1.setExpires(Date.from(Instant.now().minus(1, ChronoUnit.DAYS)));
@@ -1043,7 +1046,8 @@ class AcmeServiceITest extends BaseSpringBootTest {
     @Test
     void testGetOrderList_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_VALID);
-        ResponseEntity<List<Order>> orders = acmeService.listOrders(RA_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, true);
+        ResponseEntity<List<Order>> orders = acmeService
+                .listOrders(RA_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, true);
         assertGetOrderList(orders);
     }
 
@@ -1056,15 +1060,17 @@ class AcmeServiceITest extends BaseSpringBootTest {
     @Test
     void testGetOrderListFail() {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_INVALID);
-        Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID, requestUri, false));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID, requestUri, false));
     }
 
     @Test
     void testGetOrderList_fail_isRaProfileBased() {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_INVALID);
-        Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.listOrders(RA_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID, requestUri, true));
+        Assertions
+                .assertThrows(AcmeProblemDocumentException.class,
+                        () -> acmeService.listOrders(RA_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID, requestUri, true));
     }
 
     @Test
@@ -1092,18 +1098,18 @@ class AcmeServiceITest extends BaseSpringBootTest {
     @Test
     void testKeyRollover() throws JOSEException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/key-change");
-        ResponseEntity<?> response = acmeService.keyRollover(
-                ACME_PROFILE_NAME,
-                buildKeyRolloverRequestJSON(requestUri, BASE_URI + ACME_PROFILE_NAME), requestUri, false);
+        ResponseEntity<?> response = acmeService
+                .keyRollover(ACME_PROFILE_NAME, buildKeyRolloverRequestJSON(requestUri, BASE_URI + ACME_PROFILE_NAME),
+                        requestUri, false);
         assertKeyRollover(response);
     }
 
     @Test
     void testKeyRollover_raProfileBased() throws JOSEException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/key-change");
-        ResponseEntity<?> response = acmeService.keyRollover(
-                RA_PROFILE_NAME,
-                buildKeyRolloverRequestJSON(requestUri, RA_BASE_URI + RA_PROFILE_NAME), requestUri, true);
+        ResponseEntity<?> response = acmeService
+                .keyRollover(RA_PROFILE_NAME, buildKeyRolloverRequestJSON(requestUri, RA_BASE_URI + RA_PROFILE_NAME),
+                        requestUri, true);
         assertKeyRollover(response);
     }
 
@@ -1111,24 +1117,21 @@ class AcmeServiceITest extends BaseSpringBootTest {
         String account = baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID;
         String oldKey = rsa2048PublicJWK.toString();
 
-        JWSObjectJSON innerJwsObjectJSON = new JWSObjectJSON(new Payload("{\"account\":\"" + account + "\",\"oldKey\":" + oldKey + "}"));
-        innerJwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        JWSObjectJSON innerJwsObjectJSON = new JWSObjectJSON(
+                new Payload("{\"account\":\"" + account + "\",\"oldKey\":" + oldKey + "}"));
+        innerJwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .jwk(newRsa2048PublicJWK)
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                newRsa2048Signer
-        );
+                        .build(), newRsa2048Signer);
 
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(innerJwsObjectJSON.serializeFlattened()));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
@@ -1140,7 +1143,8 @@ class AcmeServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testValidateChallenge_Dns01() throws AcmeProblemDocumentException, JOSEException, NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, NamingException {
+    void testValidateChallenge_Dns01() throws AcmeProblemDocumentException, JOSEException, NotFoundException,
+            NoSuchAlgorithmException, InvalidKeySpecException, NamingException {
         AcmeAuthorization authorization = new AcmeAuthorization();
         authorization.setAuthorizationId("authDns01");
         authorization.setStatus(AuthorizationStatus.PENDING);
@@ -1158,9 +1162,11 @@ class AcmeServiceITest extends BaseSpringBootTest {
         challenge.setAuthorization(authorization);
         acmeChallengeRepository.save(challenge);
 
-        String keyAuthorization = AcmeCommonHelper.createKeyAuthorization(challenge.getToken(), rsa2048PublicJWK.toPublicKey());
+        String keyAuthorization = AcmeCommonHelper
+                .createKeyAuthorization(challenge.getToken(), rsa2048PublicJWK.toPublicKey());
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        final byte[] encodedHashOfExpectedKeyAuthorization = digest.digest(keyAuthorization.getBytes(StandardCharsets.UTF_8));
+        final byte[] encodedHashOfExpectedKeyAuthorization = digest
+                .digest(keyAuthorization.getBytes(StandardCharsets.UTF_8));
         String expectedDnsValidationToken = Base64URL.encode(encodedHashOfExpectedKeyAuthorization).toString();
 
         try (var mockedContext = mockConstruction(InitialDirContext.class, (mock, context) -> {
@@ -1176,12 +1182,15 @@ class AcmeServiceITest extends BaseSpringBootTest {
             when(attr.get()).thenReturn(expectedDnsValidationToken);
         })) {
             URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/chall/" + challenge.getChallengeId());
-            ResponseEntity<Challenge> response = acmeService.validateChallenge(ACME_PROFILE_NAME, challenge.getChallengeId(), requestUri, false);
+            ResponseEntity<Challenge> response = acmeService
+                    .validateChallenge(ACME_PROFILE_NAME, challenge.getChallengeId(), requestUri, false);
 
             Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
             Assertions.assertEquals(ChallengeStatus.VALID, Objects.requireNonNull(response.getBody()).getStatus());
 
-            AcmeChallenge updatedChallenge = acmeChallengeRepository.findByChallengeId(challenge.getChallengeId()).orElseThrow();
+            AcmeChallenge updatedChallenge = acmeChallengeRepository
+                    .findByChallengeId(challenge.getChallengeId())
+                    .orElseThrow();
             Assertions.assertEquals(ChallengeStatus.VALID, updatedChallenge.getStatus());
             Assertions.assertNotNull(updatedChallenge.getValidated());
         }

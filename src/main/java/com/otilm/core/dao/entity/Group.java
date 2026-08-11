@@ -7,12 +7,14 @@ import com.otilm.core.util.ObjectAccessControlMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -20,7 +22,11 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "\"group\"")
-public class Group extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+public class Group extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<GroupDto>,
+            ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Serial
     private static final long serialVersionUID = 6407781756692461875L;
@@ -51,17 +57,29 @@ public class Group extends UniquelyIdentifiedAndAudited implements Serializable,
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         Group group = (Group) o;
         return getUuid() != null && Objects.equals(getUuid(), group.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

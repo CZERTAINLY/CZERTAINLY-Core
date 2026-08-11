@@ -9,13 +9,11 @@ import java.util.UUID;
 /**
  * Scheme model for delegated signing.
  *
- * @param connectorUuid       UUID of the Connector used for delegated signing.
+ * @param connectorUuid UUID of the Connector used for delegated signing.
  * @param connectorAttributes Attributes provided by the delegated signing Connector.
  */
-public record DelegatedSigning(
-        UUID connectorUuid,
-        List<RequestAttribute> connectorAttributes
-) implements SigningSchemeModel {
+public record DelegatedSigning(UUID connectorUuid,
+        List<RequestAttribute> connectorAttributes) implements SigningSchemeModel {
 
     @Override
     public SigningScheme getSchemeType() {

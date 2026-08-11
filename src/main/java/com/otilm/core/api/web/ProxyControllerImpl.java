@@ -20,15 +20,15 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ProxyExternalService;
 import com.otilm.core.util.converter.ProxyStatusConverter;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.WebDataBinder;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
  * REST controller implementation for proxy management operations.
@@ -62,8 +62,11 @@ public class ProxyControllerImpl implements ProxyController {
     public ResponseEntity<?> createProxy(ProxyRequestDto request) throws AlreadyExistException {
         ProxyDto proxyDto = proxyService.createProxy(request);
 
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
-                .buildAndExpand(proxyDto.getUuid()).toUri();
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{uuid}")
+                .buildAndExpand(proxyDto.getUuid())
+                .toUri();
         UuidDto dto = new UuidDto();
         dto.setUuid(proxyDto.getUuid());
         return ResponseEntity.created(location).body(dto);
@@ -84,7 +87,8 @@ public class ProxyControllerImpl implements ProxyController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.PROXY, operation = Operation.GET_PROXY_INSTALLATION)
-    public ProxyInstallInstructionsDto getInstallationInstructions(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public ProxyInstallInstructionsDto getInstallationInstructions(@LogResource(uuid = true) String uuid)
+            throws NotFoundException {
         return proxyService.getInstallationInstructions(SecuredUUID.fromString(uuid));
     }
 }

@@ -1,12 +1,12 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.model.client.signing.profile.SigningProfileRequestDto;
-import com.otilm.api.model.core.signing.SigningProtocol;
-import com.otilm.api.model.client.signing.profile.record.SigningRecordPolicyRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
+import com.otilm.api.model.client.signing.profile.SigningProfileRequestDto;
+import com.otilm.api.model.client.signing.profile.record.SigningRecordPolicyRequestDto;
 import com.otilm.api.model.client.signing.profile.scheme.DelegatedSigningRequestDto;
 import com.otilm.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
 import com.otilm.api.model.core.connector.ConnectorStatus;
+import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.signing.SigningRecord;
 import com.otilm.core.dao.repository.ConnectorRepository;
@@ -16,14 +16,16 @@ import com.otilm.core.dao.repository.signing.SigningRecordRepository;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.SigningProfileExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.Instant;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SigningProfileRecordPolicyITest extends BaseSpringBootTest {
 
@@ -151,7 +153,9 @@ class SigningProfileRecordPolicyITest extends BaseSpringBootTest {
         assertTrue(v2.isRecordDtbs());
         assertTrue(v2.isDeleteAfterRetrieval());
 
-        long versionCount = versionRepo.findAll().stream()
+        long versionCount = versionRepo
+                .findAll()
+                .stream()
                 .filter(v -> v.getSigningProfileUuid().equals(profileUuid))
                 .count();
         assertEquals(2, versionCount);

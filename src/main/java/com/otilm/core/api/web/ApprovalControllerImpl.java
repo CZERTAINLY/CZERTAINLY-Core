@@ -30,7 +30,8 @@ public class ApprovalControllerImpl implements ApprovalController {
 
     @Override
     @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL, operation = Operation.LIST)
-    public ApprovalResponseDto listUserApprovals(PaginationRequestDto paginationRequestDto, ApprovalUserDto approvalUserDto) {
+    public ApprovalResponseDto listUserApprovals(PaginationRequestDto paginationRequestDto,
+            ApprovalUserDto approvalUserDto) {
         return approvalService.listUserApprovals(approvalUserDto.isHistory(), paginationRequestDto);
     }
 
@@ -54,13 +55,15 @@ public class ApprovalControllerImpl implements ApprovalController {
 
     @Override
     @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL, operation = Operation.APPROVE)
-    public void approveApprovalRecipient(@LogResource(uuid = true) final String uuid, final UserApprovalDto userApprovalDto) throws NotFoundException {
+    public void approveApprovalRecipient(@LogResource(uuid = true) final String uuid,
+            final UserApprovalDto userApprovalDto) throws NotFoundException {
         approvalService.approveApprovalRecipient(uuid, userApprovalDto);
     }
 
     @Override
     @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL, operation = Operation.REJECT)
-    public void rejectApprovalRecipient(@LogResource(uuid = true) final String uuid, final UserApprovalDto userApprovalDto) throws NotFoundException {
+    public void rejectApprovalRecipient(@LogResource(uuid = true) final String uuid,
+            final UserApprovalDto userApprovalDto) throws NotFoundException {
         approvalService.rejectApprovalRecipient(uuid, userApprovalDto);
     }
 

@@ -12,8 +12,9 @@ import java.util.UUID;
 /**
  * Holds a discovery run's per-row outcomes on the orchestrator thread.
  *
- * <p>Not thread-safe by design: results arrive one group at a time on the thread consuming the parallel stream,
- * so synchronisation here would only mask a caller that had moved off it.
+ * <p>
+ * Not thread-safe by design: results arrive one group at a time on the thread consuming the parallel stream, so
+ * synchronisation here would only mask a caller that had moved off it.
  */
 public class DiscoveryRunAccumulator {
 
@@ -40,19 +41,22 @@ public class DiscoveryRunAccumulator {
             contentIdsWithKeyGap.add(group.certificateContentId());
         }
         if (group.committed()) {
-            group.keyEntries().forEach(entry -> rowsByCertificate
-                    .computeIfAbsent(entry.certificateUuid(), key -> new ArrayList<>())
-                    .addAll(entry.discoveryCertificateUuids()));
+            group
+                    .keyEntries()
+                    .forEach(entry -> rowsByCertificate
+                            .computeIfAbsent(entry.certificateUuid(), key -> new ArrayList<>())
+                            .addAll(entry.discoveryCertificateUuids()));
         }
     }
 
     /**
-     * Re-classifies a committed certificate's rows once its key association has failed. Group results are
-     * immutable and classified at import time, so a row that imported cleanly and only later lost its key has to
-     * be replaced rather than mutated.
+     * Re-classifies a committed certificate's rows once its key association has failed. Group results are immutable and
+     * classified at import time, so a row that imported cleanly and only later lost its key has to be replaced rather
+     * than mutated.
      *
-     * <p>A certificate whose group never committed has no rows registered here, so a late failure for it is
-     * ignored rather than overwriting its rollback reason.
+     * <p>
+     * A certificate whose group never committed has no rows registered here, so a late failure for it is ignored rather
+     * than overwriting its rollback reason.
      */
     public void failKeyAssociation(UUID certificateUuid, String reason) {
         List<UUID> rows = rowsByCertificate.get(certificateUuid);
@@ -63,8 +67,10 @@ public class DiscoveryRunAccumulator {
         // A hybrid certificate can fail both its primary and its alternative key; aggregate so the second
         // reason does not overwrite the first.
         String aggregated = String.join("; ", keyFailureReasons.get(certificateUuid));
-        rows.forEach(row -> resultsByRow.put(row, new DiscoveryCertificateResult(
-                row, DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED, aggregated)));
+        rows
+                .forEach(row -> resultsByRow
+                        .put(row, new DiscoveryCertificateResult(row,
+                                DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED, aggregated)));
     }
 
     public void recordBookkeepingFailure() {
@@ -80,17 +86,14 @@ public class DiscoveryRunAccumulator {
     }
 
     /**
-     * Every certificate count is per certificate, not per row: a certificate found on ten hosts is one certificate,
-     * so a failed or unattempted group counts once however many rows it carried. The status message says
-     * "certificate(s)" for all of them, so mixing units here would make it lie.
+     * Every certificate count is per certificate, not per row: a certificate found on ten hosts is one certificate, so
+     * a failed or unattempted group counts once however many rows it carried. The status message says "certificate(s)"
+     * for all of them, so mixing units here would make it lie.
      */
     public DiscoveryRunCounts counts() {
-        return new DiscoveryRunCounts(
-                contentIdsWithInventoryGap.size(),
-                (long) keyFailureReasons.size() + contentIdsWithKeyGap.size(),
-                contentIdsNotAttempted.size(),
-                bookkeepingFailures,
-                validationNotQueued);
+        return new DiscoveryRunCounts(contentIdsWithInventoryGap.size(),
+                (long) keyFailureReasons.size() + contentIdsWithKeyGap.size(), contentIdsNotAttempted.size(),
+                bookkeepingFailures, validationNotQueued);
     }
 
     private static boolean hasInventoryGap(GroupImportResult group) {
@@ -99,7 +102,6 @@ public class DiscoveryRunAccumulator {
     }
 
     private static boolean hasOutcome(GroupImportResult group, DiscoveryCertificateOutcome... outcomes) {
-        return group.rowResults().stream()
-                .anyMatch(result -> Arrays.asList(outcomes).contains(result.outcome()));
+        return group.rowResults().stream().anyMatch(result -> Arrays.asList(outcomes).contains(result.outcome()));
     }
 }

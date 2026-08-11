@@ -10,29 +10,25 @@ import java.util.TreeSet;
 import java.util.stream.Stream;
 
 /**
- * Canonical, order-insensitive signature for a test class's Spring context configuration: the union of
- * - imported module simple-names,
- * - local mock TYPE simple-names,
- * - active profiles,
- * - @TestPropertySource args,
- * - @DirtiesContext mode,
- * - nested @TestConfiguration class simple-names,
- * - verbatim @SpringBootTest arguments,
- * - @AutoConfigure* annotation names,
- * - @TypeExcludeFilters filter-class names of the NEAREST declaration in the chain, and
+ * Canonical, order-insensitive signature for a test class's Spring context configuration: the union of - imported
+ * module simple-names, - local mock TYPE simple-names, - active profiles, - @TestPropertySource args, - @DirtiesContext
+ * mode, - nested @TestConfiguration class simple-names, - verbatim @SpringBootTest arguments, - @AutoConfigure*
+ * annotation names, - @TypeExcludeFilters filter-class names of the NEAREST declaration in the chain, and
  * - @DynamicPropertySource methods as declaringClass#method, unioned over the chain.
  *
  * Two classes with equal signatures are expected to share one cached context. Import order is not a signature axis
  */
 final class ContextSignature {
 
-    private ContextSignature() {}
+    private ContextSignature() {
+    }
 
     /** Builds simple-class-name -> file for a whole tree, once. */
     static Map<String, Path> filesBySimpleName(Path testRoot) {
         try (Stream<Path> s = Files.walk(testRoot)) {
             Map<String, Path> map = new HashMap<>();
-            s.filter(p -> p.toString().endsWith(".java"))
+            s
+                    .filter(p -> p.toString().endsWith(".java"))
                     .forEach(p -> map.putIfAbsent(stripExtension(p.getFileName().toString()), p));
             return map;
         } catch (IOException e) {
@@ -76,19 +72,17 @@ final class ContextSignature {
             }
             simple = extendsGraph.get(simple);
         }
-        return "imports=" + imports + ";mocks=" + mocks + ";profiles=" + profiles
-                + ";props=" + props + ";dirties=" + dirties
-                + ";configs=" + configs + ";sbt=" + springBootTest
-                + ";autoconfig=" + autoconfig
-                + ";typeExcludeFilters=" + typeExcludeFilters
-                + ";dynamicPropertySources=" + dynamicPropertySources;
+        return "imports=" + imports + ";mocks=" + mocks + ";profiles=" + profiles + ";props=" + props + ";dirties="
+                + dirties + ";configs=" + configs + ";sbt=" + springBootTest + ";autoconfig=" + autoconfig
+                + ";typeExcludeFilters=" + typeExcludeFilters + ";dynamicPropertySources=" + dynamicPropertySources;
     }
 
     static int distinctCount(Path testRoot) {
         Map<String, String> graph = TestClassTaxonomy.parseExtends(testRoot);
         Map<String, Path> byName = filesBySimpleName(testRoot);
         try (Stream<Path> s = Files.walk(testRoot)) {
-            return (int) s.filter(p -> p.toString().endsWith(".java"))
+            return (int) s
+                    .filter(p -> p.toString().endsWith(".java"))
                     .filter(TestClassTaxonomy::isRunnableTest)
                     .filter(p -> TestClassTaxonomy.loadsContext(p, graph))
                     .map(p -> of(stripExtension(p.getFileName().toString()), graph, byName))

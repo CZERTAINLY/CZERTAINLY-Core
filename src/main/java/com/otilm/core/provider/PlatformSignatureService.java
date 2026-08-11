@@ -14,11 +14,10 @@ import com.otilm.core.attribute.EcdsaSignatureAttributes;
 import com.otilm.core.attribute.RsaSignatureAttributes;
 import com.otilm.core.provider.key.PlatformPrivateKey;
 import com.otilm.core.provider.key.PlatformPublicKey;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.security.SignatureException;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PlatformSignatureService {
 
@@ -37,110 +36,86 @@ public class PlatformSignatureService {
     public List<RequestAttribute> mapSignatureAttributesFromSignatureAlgorithm(String algorithm) {
         switch (algorithm) {
             case "NONEwithRSA" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5)
-                );
+                return List.of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5));
             }
             case "MD5withRSA" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.MD5)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.MD5));
             }
             case "SHA1withRSA" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_1)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_1));
             }
             case "SHA224withRSA" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_224)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_224));
             }
             case "SHA256withRSA" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256));
             }
             case "SHA384withRSA" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_384)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_384));
             }
             case "SHA512withRSA" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512));
             }
             case "NONEwithRSA/PSS" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS)
-                );
+                return List.of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS));
             }
             case "SHA1withRSA/PSS" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_1)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_1));
             }
             case "SHA224withRSA/PSS" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_224)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_224));
             }
             case "SHA256withRSA/PSS" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256));
             }
             case "SHA384withRSA/PSS" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_384)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_384));
             }
             case "SHA512withRSA/PSS" -> {
-                return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
-                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512)
-                );
+                return List
+                        .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
+                                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512));
             }
             case "NONEwithECDSA" -> {
                 return List.of();
             }
             case "SHA1withECDSA" -> {
-                return List.of(
-                        EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_1)
-                );
+                return List.of(EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_1));
             }
             case "SHA224withECDSA" -> {
-                return List.of(
-                        EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_224)
-                );
+                return List.of(EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_224));
             }
             case "SHA256withECDSA" -> {
-                return List.of(
-                        EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256)
-                );
+                return List.of(EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256));
             }
             case "SHA384withECDSA" -> {
-                return List.of(
-                        EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_384)
-                );
+                return List.of(EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_384));
             }
             case "SHA512withECDSA" -> {
-                return List.of(
-                        EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512)
-                );
+                return List.of(EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512));
             }
-            default -> throw new IllegalArgumentException("No signatures attributes mapped for algorithm: " + algorithm);
+            default ->
+                throw new IllegalArgumentException("No signatures attributes mapped for algorithm: " + algorithm);
         }
     }
 
@@ -155,18 +130,15 @@ public class PlatformSignatureService {
         signatureRequestData.setData(dataToSign);
         requestDto.setData(List.of(signatureRequestData));
 
-        log.debug("Signing data on connector: {} with token instance: {} and key: {}",
-                privateKey.getConnectorDto().getName(),
-                privateKey.getTokenInstanceUuid(),
-                privateKey.getKeyUuid());
+        log
+                .debug("Signing data on connector: {} with token instance: {} and key: {}",
+                        privateKey.getConnectorDto().getName(), privateKey.getTokenInstanceUuid(),
+                        privateKey.getKeyUuid());
 
         try {
-            SignDataResponseDto response = apiClient.signData(
-                    privateKey.getConnectorDto(),
-                    privateKey.getTokenInstanceUuid(),
-                    privateKey.getKeyUuid(),
-                    requestDto
-            );
+            SignDataResponseDto response = apiClient
+                    .signData(privateKey.getConnectorDto(), privateKey.getTokenInstanceUuid(), privateKey.getKeyUuid(),
+                            requestDto);
 
             return response.getSignatures().get(0).getData();
 
@@ -175,7 +147,8 @@ public class PlatformSignatureService {
         }
     }
 
-    public boolean verify(PlatformPublicKey publicKey, byte[] signature, byte[] dataToVerify) throws SignatureException {
+    public boolean verify(PlatformPublicKey publicKey, byte[] signature, byte[] dataToVerify)
+            throws SignatureException {
         try {
             VerifyDataRequestDto requestDto = new VerifyDataRequestDto();
             requestDto.setSignatureAttributes(signatureAttributes);
@@ -189,12 +162,9 @@ public class PlatformSignatureService {
             signatureRequestData.setData(signature);
             requestDto.setSignatures(List.of(signatureRequestData));
 
-            VerifyDataResponseDto response = apiClient.verifyData(
-                    publicKey.getConnectorDto(),
-                    publicKey.getTokenInstanceUuid(),
-                    publicKey.getKeyUuid(),
-                    requestDto
-            );
+            VerifyDataResponseDto response = apiClient
+                    .verifyData(publicKey.getConnectorDto(), publicKey.getTokenInstanceUuid(), publicKey.getKeyUuid(),
+                            requestDto);
 
             return response.getVerifications().get(0).isResult();
 

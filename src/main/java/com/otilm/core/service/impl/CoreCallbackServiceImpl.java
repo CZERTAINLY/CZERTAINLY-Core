@@ -18,12 +18,11 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CoreCallbackService;
 import com.otilm.core.service.CredentialInternalService;
 import com.otilm.core.service.ResourceExternalService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import jakarta.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 @Transactional
@@ -46,14 +45,17 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
     }
 
     @Override
-    public List<ObjectAttributeContentV2> coreGetCredentials(RequestAttributeCallback callback) throws ValidationException {
-        if (callback.getPathVariable() == null ||
-                callback.getPathVariable().get(CREDENTIAL_KIND_PATH_VARIABLE) == null) {
-            throw new ValidationException(ValidationError.create("Required path variable credentialKind not found in callback."));
+    public List<ObjectAttributeContentV2> coreGetCredentials(RequestAttributeCallback callback)
+            throws ValidationException {
+        if (callback.getPathVariable() == null
+                || callback.getPathVariable().get(CREDENTIAL_KIND_PATH_VARIABLE) == null) {
+            throw new ValidationException(
+                    ValidationError.create("Required path variable credentialKind not found in callback."));
         }
 
         String kind = callback.getPathVariable().get(CREDENTIAL_KIND_PATH_VARIABLE).toString();
-        List<NameAndUuidDto> credentialDataList = credentialService.listCredentialsCallback(SecurityFilter.create(), kind);
+        List<NameAndUuidDto> credentialDataList = credentialService
+                .listCredentialsCallback(SecurityFilter.create(), kind);
 
         List<ObjectAttributeContentV2> jsonContent = new ArrayList<>();
         for (NameAndUuidDto credentialData : credentialDataList) {
@@ -69,15 +71,16 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
      * <p>
      * Routes through {@link ResourceExternalService#getResourceObjects} rather than the internal
      * {@code getResourceObjectsInternal} so the {@code @ExternalAuthorizationDynamic(LIST)} guard on
-     * {@code getResourceObjects} applies the caller's per-object ACL. This closes the CERTIFICATE
-     * listing gap (whose own {@code listResourceObjects} carries no {@code @ExternalAuthorization}) and
-     * installs uniform defense-in-depth so any future unannotated per-kind listing stays scoped.
+     * {@code getResourceObjects} applies the caller's per-object ACL. This closes the CERTIFICATE listing gap (whose
+     * own {@code listResourceObjects} carries no {@code @ExternalAuthorization}) and installs uniform defense-in-depth
+     * so any future unannotated per-kind listing stays scoped.
      * <p>
-     * Same-connector narrowing of the dropdown is deliberately not applied here (cross-connector
-     * references are legitimate); it is deferred to core #1643.
+     * Same-connector narrowing of the dropdown is deliberately not applied here (cross-connector references are
+     * legitimate); it is deferred to core #1643.
      */
     @Override
-    public List<ResourceObjectContent> coreGetResources(RequestAttributeCallback callback, AttributeResource resource) throws NotFoundException {
+    public List<ResourceObjectContent> coreGetResources(RequestAttributeCallback callback, AttributeResource resource)
+            throws NotFoundException {
         // Filters are in form: property_name.operator
         List<SearchFilterRequestDto> filters = new ArrayList<>();
         if (callback.getFilter() != null) {
@@ -89,16 +92,17 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
                     String filterOperatorString = filterDefinition.split("\\.")[1];
                     operator = FilterConditionOperator.valueOf(filterOperatorString);
                 } catch (Exception e) {
-                    throw new ValidationException("Filter %s for callback mapping is invalid: %s".formatted(filterDefinition, e.getMessage()));
+                    throw new ValidationException("Filter %s for callback mapping is invalid: %s"
+                            .formatted(filterDefinition, e.getMessage()));
                 }
-                filters.add(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, filterFieldString, operator, callback.getFilter().get(filterDefinition)));
+                filters
+                        .add(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, filterFieldString, operator,
+                                callback.getFilter().get(filterDefinition)));
             }
         }
-        return resourceService.getResourceObjects(
-                        SecuredResource.fromResource(Resource.findByCode(resource.getCode())),
-                        SecurityFilter.create(),
-                        filters,
-                        callback.getPagination())
+        return resourceService
+                .getResourceObjects(SecuredResource.fromResource(Resource.findByCode(resource.getCode())),
+                        SecurityFilter.create(), filters, callback.getPagination())
                 .stream()
                 .map(id -> {
                     ResourceObjectContentData data = new ResourceObjectContentData(resource);

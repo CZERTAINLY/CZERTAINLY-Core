@@ -20,7 +20,8 @@ public class AuditLogsListener implements MessageProcessor<AuditLogMessage> {
     @Override
     public void processMessage(final AuditLogMessage auditLogMessage) {
         LogRecord logRecord = auditLogMessage.getLogRecord();
-        LogRecord.LogRecordBuilder builder = LogRecord.builder()
+        LogRecord.LogRecordBuilder builder = LogRecord
+                .builder()
                 .audited(true)
                 .timestamp(logRecord.timestamp())
                 .version(logRecord.version())
@@ -32,10 +33,16 @@ public class AuditLogsListener implements MessageProcessor<AuditLogMessage> {
                 .operationData(logRecord.operationData())
                 .operation(logRecord.operation())
                 .operationResult(logRecord.operationResult())
-                .resource(new ResourceRecord(logRecord.resource().type(), auditLogEnhancer.enrichObjectIdentities(logRecord.resource().objects(), logRecord.resource().type())))
-                .affiliatedResource(logRecord.affiliatedResource() == null ? null : new ResourceRecord(logRecord.affiliatedResource().type(), auditLogEnhancer.enrichObjectIdentities(logRecord.affiliatedResource().objects(), logRecord.affiliatedResource().type())));
+                .resource(new ResourceRecord(logRecord.resource().type(),
+                        auditLogEnhancer
+                                .enrichObjectIdentities(logRecord.resource().objects(), logRecord.resource().type())))
+                .affiliatedResource(logRecord.affiliatedResource() == null
+                        ? null
+                        : new ResourceRecord(logRecord.affiliatedResource().type(),
+                                auditLogEnhancer
+                                        .enrichObjectIdentities(logRecord.affiliatedResource().objects(),
+                                                logRecord.affiliatedResource().type())));
         auditLogService.log(builder.build(), auditLogMessage.getAuditLogOutput());
     }
 
 }
-

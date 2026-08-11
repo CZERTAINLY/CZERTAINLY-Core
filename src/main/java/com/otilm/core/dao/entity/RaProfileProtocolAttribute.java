@@ -1,12 +1,19 @@
 package com.otilm.core.dao.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -51,22 +58,36 @@ public class RaProfileProtocolAttribute extends UniquelyIdentified {
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
-        if(raProfile != null) raProfileUuid = raProfile.getUuid();
+        if (raProfile != null) {
+            raProfileUuid = raProfile.getUuid();
+        }
     }
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         RaProfileProtocolAttribute that = (RaProfileProtocolAttribute) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

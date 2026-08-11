@@ -1,19 +1,19 @@
 package com.otilm.core.util;
 
-import com.otilm.api.model.connector.secrets.content.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.*;
-import javax.crypto.spec.PBEKeySpec;
+import com.otilm.api.model.connector.secrets.content.ApiKeySecretContent;
+import com.otilm.api.model.connector.secrets.content.BasicAuthSecretContent;
+import com.otilm.api.model.connector.secrets.content.GenericSecretContent;
+import com.otilm.api.model.connector.secrets.content.JwtTokenSecretContent;
+import com.otilm.api.model.connector.secrets.content.KeyStoreSecretContent;
+import com.otilm.api.model.connector.secrets.content.KeyValueSecretContent;
+import com.otilm.api.model.connector.secrets.content.PrivateKeySecretContent;
+import com.otilm.api.model.connector.secrets.content.SecretContent;
+import com.otilm.api.model.connector.secrets.content.SecretKeySecretContent;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -21,6 +21,17 @@ import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @Component
 public class SecretsUtil {
@@ -32,14 +43,15 @@ public class SecretsUtil {
     private static final SecureRandom random = new SecureRandom();
 
     @Value("${secrets.encryption.key}")
-    public void setEncryptionKeyStatic(String key){
+    public void setEncryptionKeyStatic(String key) {
         SecretsUtil.encryptionKey = key;
     }
 
     private static final String algorithm = "PBEWithSHA256And256BitAES-CBC-BC";
     private static final int iterations = 1000;
 
-    private static final ObjectMapper objectMapper = JsonMapper.builder()
+    private static final ObjectMapper objectMapper = JsonMapper
+            .builder()
             .findAndAddModules()
             .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
             .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
@@ -47,6 +59,7 @@ public class SecretsUtil {
 
     /**
      * Encrypts and encodes the given secret using the PBEWithSHA256And256BitAES-CBC-BC algorithm.
+     *
      * @param secret the secret to encrypt and encode
      * @param secretVersion the version of the encoding
      * @return the encrypted and encoded secret
@@ -127,11 +140,15 @@ public class SecretsUtil {
         }
     }
 
-    public static String calculateSecretContentFingerprint(SecretContent secretContent) throws JsonProcessingException, NoSuchAlgorithmException {
+    public static String calculateSecretContentFingerprint(SecretContent secretContent)
+            throws JsonProcessingException, NoSuchAlgorithmException {
         switch (secretContent.getType()) {
             case BASIC_AUTH -> {
                 BasicAuthSecretContent basicAuthSecretContent = (BasicAuthSecretContent) secretContent;
-                return CertificateUtil.getThumbprint((basicAuthSecretContent.getUsername() + "|" + basicAuthSecretContent.getPassword()).getBytes(StandardCharsets.UTF_8));
+                return CertificateUtil
+                        .getThumbprint(
+                                (basicAuthSecretContent.getUsername() + "|" + basicAuthSecretContent.getPassword())
+                                        .getBytes(StandardCharsets.UTF_8));
             }
             case API_KEY -> {
                 ApiKeySecretContent apiKeySecretContent = (ApiKeySecretContent) secretContent;
@@ -139,36 +156,42 @@ public class SecretsUtil {
             }
             case JWT_TOKEN -> {
                 JwtTokenSecretContent jwtTokenSecretContent = (JwtTokenSecretContent) secretContent;
-                return CertificateUtil.getThumbprint(jwtTokenSecretContent.getContent().getBytes(StandardCharsets.UTF_8));
+                return CertificateUtil
+                        .getThumbprint(jwtTokenSecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case PRIVATE_KEY -> {
                 PrivateKeySecretContent privateKeySecretContent = (PrivateKeySecretContent) secretContent;
-                return CertificateUtil.getThumbprint(privateKeySecretContent.getContent().getBytes(StandardCharsets.UTF_8));
+                return CertificateUtil
+                        .getThumbprint(privateKeySecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case SECRET_KEY -> {
                 SecretKeySecretContent secretKeySecretContent = (SecretKeySecretContent) secretContent;
-                return CertificateUtil.getThumbprint(secretKeySecretContent.getContent().getBytes(StandardCharsets.UTF_8));
+                return CertificateUtil
+                        .getThumbprint(secretKeySecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case GENERIC -> {
                 GenericSecretContent genericSecretContent = (GenericSecretContent) secretContent;
-                return CertificateUtil.getThumbprint(genericSecretContent.getContent().getBytes(StandardCharsets.UTF_8));
+                return CertificateUtil
+                        .getThumbprint(genericSecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case KEY_STORE -> {
                 KeyStoreSecretContent keyStoreSecretContent = (KeyStoreSecretContent) secretContent;
-                return CertificateUtil.getThumbprint(keyStoreSecretContent.getContent().getBytes(StandardCharsets.UTF_8));
+                return CertificateUtil
+                        .getThumbprint(keyStoreSecretContent.getContent().getBytes(StandardCharsets.UTF_8));
             }
             case KEY_VALUE -> {
                 KeyValueSecretContent keyValueSecretContent = (KeyValueSecretContent) secretContent;
-                return CertificateUtil.getThumbprint(objectMapper.writeValueAsBytes(keyValueSecretContent.getContent()));
+                return CertificateUtil
+                        .getThumbprint(objectMapper.writeValueAsBytes(keyValueSecretContent.getContent()));
             }
             default ->
-                    throw new IllegalArgumentException("Unsupported secret content type: " + secretContent.getType());
+                throw new IllegalArgumentException("Unsupported secret content type: " + secretContent.getType());
         }
     }
 
     /**
-     * Encoded the secret value into string
-     * V1|secret|salt|count
+     * Encoded the secret value into string V1|secret|salt|count
+     *
      * @param secret value to be encoded
      * @param salt used salt
      * @param count number of iterations
@@ -228,6 +251,7 @@ public class SecretsUtil {
 
     /**
      * Generate random salt for encryption
+     *
      * @return salt
      */
     private static byte[] generateRandomSalt() {

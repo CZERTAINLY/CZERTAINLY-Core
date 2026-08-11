@@ -4,10 +4,10 @@ import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.ResponseAttribute;
+import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.DataAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
@@ -18,17 +18,29 @@ import com.otilm.core.security.authz.AnyPrincipalEndpoint;
 import com.otilm.core.service.ConnectorAuthExternalService;
 import com.otilm.core.service.ConnectorAuthInternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
+import jakarta.transaction.Transactional;
+import java.io.ByteArrayInputStream;
+import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
-import java.io.ByteArrayInputStream;
-import java.security.KeyStore;
-import java.util.*;
-
-import static com.otilm.api.clients.BaseApiClient.*;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_API_KEY;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_API_KEY_HEADER;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_KEYSTORE;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_KEYSTORE_PASSWORD;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_KEYSTORE_TYPE;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_PASSWORD;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_TRUSTSTORE;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_TRUSTSTORE_PASSWORD;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_TRUSTSTORE_TYPE;
+import static com.otilm.api.clients.BaseApiClient.ATTRIBUTE_USERNAME;
 
 @Service
 @Transactional
@@ -36,7 +48,6 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthExternalService, C
     private static final Logger logger = LoggerFactory.getLogger(ConnectorAuthServiceImpl.class);
 
     private static final ArrayList<String> SUPPORTED_KEY_STORE_TYPES = new ArrayList<>(List.of("PKCS12", "JKS"));
-
 
     @Override
     @AnyPrincipalEndpoint
@@ -67,13 +78,15 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthExternalService, C
     }
 
     @Override
-    public List<BaseAttribute> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttribute> attributes) {
+    public List<BaseAttribute> mergeAndValidateAuthAttributes(AuthType authenticationType,
+            List<ResponseAttribute> attributes) {
         if (authenticationType == null || attributes == null) {
             return List.of();
         }
 
         List<DataAttribute> definitions = getAuthAttributes(authenticationType);
-        return AttributeDefinitionUtils.mergeAttributes(definitions, AttributeDefinitionUtils.getClientAttributes(attributes));
+        return AttributeDefinitionUtils
+                .mergeAttributes(definitions, AttributeDefinitionUtils.getClientAttributes(attributes));
     }
 
     @Override
@@ -222,13 +235,15 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthExternalService, C
     public Boolean validateCertificateAttributes(List<RequestAttribute> attributes) {
         AttributeDefinitionUtils.validateAttributes(getCertificateAttributes(), attributes);
 
-
         try {
-            FileAttributeContentV2 keyStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE, attributes, true);
+            FileAttributeContentV2 keyStoreBase64 = AttributeDefinitionUtils
+                    .getAttributeContent(ATTRIBUTE_KEYSTORE, attributes, true);
             byte[] keyStoreBytes = Base64.getDecoder().decode(keyStoreBase64.getData().getContent());
 
-            StringAttributeContentV2 keyStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_TYPE, attributes, true);
-            StringAttributeContentV2 keyStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_PASSWORD, attributes, true);
+            StringAttributeContentV2 keyStoreType = AttributeDefinitionUtils
+                    .getAttributeContent(ATTRIBUTE_KEYSTORE_TYPE, attributes, true);
+            StringAttributeContentV2 keyStorePassword = AttributeDefinitionUtils
+                    .getAttributeContent(ATTRIBUTE_KEYSTORE_PASSWORD, attributes, true);
 
             KeyStore keyStore = KeyStore.getInstance(keyStoreType.getData());
             keyStore.load(new ByteArrayInputStream(keyStoreBytes), keyStorePassword.getData().toCharArray());
@@ -240,15 +255,22 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthExternalService, C
         }
 
         try {
-            FileAttributeContentV2 trustStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE, attributes, false);
-            StringAttributeContentV2 trustStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_TYPE, attributes, false);
-            StringAttributeContentV2 trustStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_PASSWORD, attributes, false);
+            FileAttributeContentV2 trustStoreBase64 = AttributeDefinitionUtils
+                    .getAttributeContent(ATTRIBUTE_TRUSTSTORE, attributes, false);
+            StringAttributeContentV2 trustStoreType = AttributeDefinitionUtils
+                    .getAttributeContent(ATTRIBUTE_TRUSTSTORE_TYPE, attributes, false);
+            StringAttributeContentV2 trustStorePassword = AttributeDefinitionUtils
+                    .getAttributeContent(ATTRIBUTE_TRUSTSTORE_PASSWORD, attributes, false);
 
-            if (trustStoreBase64 != null && !StringUtils.isAnyBlank(trustStoreBase64.getData().getContent(), trustStoreType.getData(), trustStorePassword.getData())) {
+            if (trustStoreBase64 != null && !StringUtils
+                    .isAnyBlank(trustStoreBase64.getData().getContent(), trustStoreType.getData(),
+                            trustStorePassword.getData())) {
                 byte[] trustStoreBytes = Base64.getDecoder().decode(trustStoreBase64.getData().getContent());
                 KeyStore trustStore = KeyStore.getInstance(trustStoreType.getData());
                 trustStore.load(new ByteArrayInputStream(trustStoreBytes), trustStorePassword.getData().toCharArray());
-                logger.info("Trust store attribute successfully validated. Given trust store contains: {}", trustStore.aliases());
+                logger
+                        .info("Trust store attribute successfully validated. Given trust store contains: {}",
+                                trustStore.aliases());
             }
         } catch (Exception e) {
             logger.error(e.getMessage(), e);

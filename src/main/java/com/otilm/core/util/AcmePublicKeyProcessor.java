@@ -15,11 +15,16 @@ public class AcmePublicKeyProcessor {
         return pubKeyString;
     }
 
-    public static PublicKey publicKeyObjectFromString(String publicKey) throws NoSuchAlgorithmException, InvalidKeySpecException {
+    public static PublicKey publicKeyObjectFromString(String publicKey)
+            throws NoSuchAlgorithmException, InvalidKeySpecException {
         byte[] publicBytes = Base64.getDecoder().decode(publicKey);
-        String oid = org.bouncycastle.asn1.x509.SubjectPublicKeyInfo.getInstance(publicBytes)
-                .getAlgorithm().getAlgorithm().toString();
-        PublicKey publicKeyObject = KeyFactory.getInstance(oid, new org.bouncycastle.jce.provider.BouncyCastleProvider())
+        String oid = org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
+                .getInstance(publicBytes)
+                .getAlgorithm()
+                .getAlgorithm()
+                .toString();
+        PublicKey publicKeyObject = KeyFactory
+                .getInstance(oid, new org.bouncycastle.jce.provider.BouncyCastleProvider())
                 .generatePublic(new X509EncodedKeySpec(publicBytes));
         return publicKeyObject;
     }

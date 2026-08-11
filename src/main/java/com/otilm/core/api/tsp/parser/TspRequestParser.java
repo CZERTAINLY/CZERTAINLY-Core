@@ -4,17 +4,16 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.core.signing.tsa.messages.TspRequest;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.util.List;
+import java.util.Optional;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.tsp.TimeStampRequest;
 import org.springframework.lang.NonNull;
-
-import java.io.IOException;
-import java.math.BigInteger;
-import java.util.List;
-import java.util.Optional;
 
 public class TspRequestParser {
 
@@ -30,14 +29,16 @@ public class TspRequestParser {
         try {
             digestAlgorithm = DigestAlgorithm.findByOid(algorithmOid);
         } catch (ValidationException e) {
-            throw new TspRequestParsingException(TspFailureInfo.BAD_ALG,
-                    "Unknown hash algorithm OID: " + algorithmOid, "Unknown hash algorithm");
+            throw new TspRequestParsingException(TspFailureInfo.BAD_ALG, "Unknown hash algorithm OID: " + algorithmOid,
+                    "Unknown hash algorithm");
         }
 
         var hashedMessage = tsr.getMessageImprintDigest();
         if (hashedMessage.length != digestAlgorithm.getDigestSizeBytes()) {
             throw new TspRequestParsingException(TspFailureInfo.BAD_DATA_FORMAT,
-                    "Hash length %d does not match expected %d for %s".formatted(hashedMessage.length, digestAlgorithm.getDigestSizeBytes(), digestAlgorithm.getCode()),
+                    "Hash length %d does not match expected %d for %s"
+                            .formatted(hashedMessage.length, digestAlgorithm.getDigestSizeBytes(),
+                                    digestAlgorithm.getCode()),
                     "Invalid hash length");
         }
 
@@ -75,9 +76,9 @@ public class TspRequestParser {
     }
 
     /**
-     * BouncyCastle leaves an extension's {@code extnValue} as an opaque OCTET STRING — it never decodes the
-     * bytes inside. Confirm that inner content is at least well-formed DER; per-OID type checking is out of
-     * scope because for now we accept all extensions.
+     * BouncyCastle leaves an extension's {@code extnValue} as an opaque OCTET STRING — it never decodes the bytes
+     * inside. Confirm that inner content is at least well-formed DER; per-OID type checking is out of scope because for
+     * now we accept all extensions.
      */
     private static void ensureValidExtension(Extension extension) throws TspRequestParsingException {
         try {

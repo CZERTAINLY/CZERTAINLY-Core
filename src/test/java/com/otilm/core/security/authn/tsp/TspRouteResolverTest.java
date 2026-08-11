@@ -4,6 +4,9 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.core.model.signing.TspProfileModel;
 import com.otilm.core.service.SigningProfileInternalService;
 import com.otilm.core.service.TspProfileInternalService;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -12,10 +15,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -23,8 +22,10 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TspRouteResolverTest {
 
-    @Mock private TspProfileInternalService tspProfileService;
-    @Mock private SigningProfileInternalService signingProfileService;
+    @Mock
+    private TspProfileInternalService tspProfileService;
+    @Mock
+    private SigningProfileInternalService signingProfileService;
 
     private TspRouteResolver resolver;
 
@@ -36,7 +37,8 @@ class TspRouteResolverTest {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static TspProfileModel anyProfile() {
-        return new TspProfileModel(UUID.randomUUID(), "p", null, true, null, null, List.of(), List.of(), List.of(), null);
+        return new TspProfileModel(UUID.randomUUID(), "p", null, true, null, null, List.of(), List.of(), List.of(),
+                null);
     }
 
     private static MockHttpServletRequest requestWith(String servletPath) {
@@ -104,7 +106,8 @@ class TspRouteResolverTest {
         void usesSigningProfileService_forIndirectRoute() throws NotFoundException {
             // given
             TspProfileModel profile = anyProfile();
-            when(signingProfileService.resolveTspProfileForSigningProfileAuthentication("sp1")).thenReturn(Optional.of(profile));
+            when(signingProfileService.resolveTspProfileForSigningProfileAuthentication("sp1"))
+                    .thenReturn(Optional.of(profile));
 
             // when
             Optional<TspProfileModel> resolved = resolver.resolve(requestWith("/v1/protocols/tsp/signingProfiles/sp1"));

@@ -1,14 +1,21 @@
 package com.otilm.core.integration.migration;
 
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.logging.enums.*;
+import com.otilm.api.model.core.logging.enums.ActorType;
+import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.api.model.core.logging.enums.Module;
+import com.otilm.api.model.core.logging.enums.Operation;
+import com.otilm.api.model.core.logging.enums.OperationResult;
 import com.otilm.api.model.core.logging.records.LogRecord;
 import com.otilm.api.model.core.logging.records.ResourceObjectIdentity;
-import com.otilm.core.dao.entity.*;
 import com.otilm.core.dao.entity.AuditLog;
 import com.otilm.core.dao.repository.AuditLogRepository;
 import db.migration.V202509191412__LogRecordsRefactor;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.OffsetDateTime;
+import java.util.List;
+import javax.sql.DataSource;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -16,11 +23,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import javax.sql.DataSource;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.OffsetDateTime;
-import java.util.List;
 
 import static org.mockito.Mockito.when;
 
@@ -258,7 +260,6 @@ class LogRecordsRefactorITest extends BaseMigrationTest {
               }
             """;
 
-
     AuditLog nullResource = new AuditLog();
     AuditLog nullAffiliatedResource = new AuditLog();
     AuditLog nullBothResources = new AuditLog();
@@ -268,8 +269,12 @@ class LogRecordsRefactorITest extends BaseMigrationTest {
 
     @Test
     void testMigration() throws Exception {
-        List<AuditLog> auditLogs = List.of(nullResource, nullAffiliatedResource, nullBothResources, oneNameTwoUuids, twoNamesTwoUuids, twoNamesOneUuid);
-        for (AuditLog auditLog : auditLogs) setNotNullFields(auditLog);
+        List<AuditLog> auditLogs = List
+                .of(nullResource, nullAffiliatedResource, nullBothResources, oneNameTwoUuids, twoNamesTwoUuids,
+                        twoNamesOneUuid);
+        for (AuditLog auditLog : auditLogs) {
+            setNotNullFields(auditLog);
+        }
         auditLogRepository.saveAll(auditLogs);
 
         Context context = Mockito.mock(Context.class);
@@ -333,7 +338,7 @@ class LogRecordsRefactorITest extends BaseMigrationTest {
 
     private void simulateOldEnvironment(Context context) throws SQLException {
         try (Statement alterStatement = context.getConnection().createStatement();
-             Statement insertStatement = context.getConnection().createStatement()) {
+                Statement insertStatement = context.getConnection().createStatement()) {
             alterStatement.execute("ALTER TABLE audit_log DROP COLUMN timestamp;");
             insertStatement.execute("""
                     UPDATE audit_log SET log_record='%s' WHERE id='%s'

@@ -1,13 +1,17 @@
 package com.otilm.core.config;
 
 import com.otilm.core.service.ApprovalInternalService;
-import jakarta.servlet.*;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
-
-import java.io.IOException;
 
 public class ApprovalExpirationFilter implements Filter {
 
@@ -26,7 +30,8 @@ public class ApprovalExpirationFilter implements Filter {
     }
 
     @Override
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws ServletException, IOException {
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
+            throws ServletException, IOException {
         logger.debug("Checking expired approvals");
         int expiredApprovals = approvalService.checkApprovalsExpiration();
 

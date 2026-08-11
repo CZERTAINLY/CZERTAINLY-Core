@@ -1,8 +1,7 @@
 package com.otilm.core.security.authn.client.dto;
 
-import com.otilm.api.model.common.NameAndUuidDto;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+import com.otilm.api.model.common.NameAndUuidDto;
 import java.util.Collection;
 
 public class UserDetailsDto {

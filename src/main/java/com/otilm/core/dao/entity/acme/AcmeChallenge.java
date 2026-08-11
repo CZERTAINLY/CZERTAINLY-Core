@@ -7,15 +7,24 @@ import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.otilm.core.service.acme.AcmeConstants;
 import com.otilm.core.util.AcmeCommonHelper;
 import com.otilm.core.util.DtoMapper;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Getter
 @Setter
@@ -25,21 +34,21 @@ import java.util.UUID;
 @Table(name = "acme_challenge")
 public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Challenge> {
 
-    @Column(name="challenge_id")
+    @Column(name = "challenge_id")
     private String challengeId;
 
-    @Column(name="type")
+    @Column(name = "type")
     @Enumerated(EnumType.STRING)
     private ChallengeType type;
 
-    @Column(name="token")
+    @Column(name = "token")
     private String token;
 
-    @Column(name="status")
+    @Column(name = "status")
     @Enumerated(EnumType.STRING)
     private ChallengeStatus status;
 
-    @Column(name="validated")
+    @Column(name = "validated")
     private Date validated;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -51,7 +60,7 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
     private UUID authorizationUuid;
 
     @Override
-    public Challenge mapToDto(){
+    public Challenge mapToDto() {
         Challenge challenge = new Challenge();
         challenge.setStatus(status);
         challenge.setToken(token);
@@ -68,7 +77,7 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
 
     // Custom Getter for Challenge URL
     private String getBaseUrl() {
-        if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
+        if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
             return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + AcmeConstants.ACME_URI_HEADER + "/raProfile/"
                     + authorization.getOrder().getAcmeAccount().getRaProfile().getName();
@@ -84,17 +93,29 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         AcmeChallenge that = (AcmeChallenge) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

@@ -66,15 +66,8 @@ public final class ManagedTimestampingWorkflowBuilder {
     }
 
     public ManagedTimestampingWorkflow build() {
-        return new ManagedTimestampingWorkflow(
-                signatureFormattingConnectorUuid,
-                signatureFormattingConnectorAttributes,
-                isQualifiedTimestamp,
-                timeQualityConfigurationUuid,
-                defaultPolicyId,
-                allowedPolicyIds,
-                allowedDigestAlgorithms,
-                validateTokenSignature
-        );
+        return new ManagedTimestampingWorkflow(signatureFormattingConnectorUuid, signatureFormattingConnectorAttributes,
+                isQualifiedTimestamp, timeQualityConfigurationUuid, defaultPolicyId, allowedPolicyIds,
+                allowedDigestAlgorithms, validateTokenSignature);
     }
 }

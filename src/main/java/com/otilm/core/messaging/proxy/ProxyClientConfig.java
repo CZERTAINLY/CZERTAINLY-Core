@@ -21,8 +21,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Configuration class that enables proxy client functionality.
- * Automatically registers ProxyProperties configuration.
+ * Configuration class that enables proxy client functionality. Automatically registers ProxyProperties configuration.
  */
 @Configuration
 @ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
@@ -30,8 +29,7 @@ import org.springframework.context.annotation.Configuration;
 public class ProxyClientConfig {
 
     /**
-     * Create MQ-based HealthApiClient bean.
-     * This bean is used by ConnectorServiceImpl when connector has proxyId set.
+     * Create MQ-based HealthApiClient bean. This bean is used by ConnectorServiceImpl when connector has proxyId set.
      */
     @Bean
     public HealthApiClient mqHealthApiClient(ProxyClient proxyClient) {
@@ -39,8 +37,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based ConnectorApiClient bean.
-     * This bean is used when connector has proxyId set to list supported functions.
+     * Create MQ-based ConnectorApiClient bean. This bean is used when connector has proxyId set to list supported
+     * functions.
      */
     @Bean
     public ConnectorApiClient mqConnectorApiClient(ProxyClient proxyClient) {
@@ -48,8 +46,7 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based AttributeApiClient bean.
-     * This bean is used when connector has proxyId set to manage attributes.
+     * Create MQ-based AttributeApiClient bean. This bean is used when connector has proxyId set to manage attributes.
      */
     @Bean
     public AttributeApiClient mqAttributeApiClient(ProxyClient proxyClient) {
@@ -57,8 +54,7 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based DiscoveryApiClient bean.
-     * This bean is used when connector has proxyId set to run discoveries.
+     * Create MQ-based DiscoveryApiClient bean. This bean is used when connector has proxyId set to run discoveries.
      */
     @Bean
     public DiscoveryApiClient mqDiscoveryApiClient(ProxyClient proxyClient) {
@@ -66,8 +62,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based EndEntityProfileApiClient bean.
-     * This bean is used when connector has proxyId set to manage end entity profiles.
+     * Create MQ-based EndEntityProfileApiClient bean. This bean is used when connector has proxyId set to manage end
+     * entity profiles.
      */
     @Bean
     public EndEntityProfileApiClient mqEndEntityProfileApiClient(ProxyClient proxyClient) {
@@ -75,8 +71,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based CertificateApiClient bean.
-     * This bean is used when connector has proxyId set for certificate operations.
+     * Create MQ-based CertificateApiClient bean. This bean is used when connector has proxyId set for certificate
+     * operations.
      */
     @Bean
     public CertificateApiClient mqCertificateApiClient(ProxyClient proxyClient) {
@@ -84,8 +80,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based AuthorityInstanceApiClient bean.
-     * This bean is used when connector has proxyId set for authority instance operations.
+     * Create MQ-based AuthorityInstanceApiClient bean. This bean is used when connector has proxyId set for authority
+     * instance operations.
      */
     @Bean
     public AuthorityInstanceApiClient mqAuthorityInstanceApiClient(ProxyClient proxyClient) {
@@ -93,8 +89,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based EntityInstanceApiClient bean.
-     * This bean is used when connector has proxyId set for entity instance operations.
+     * Create MQ-based EntityInstanceApiClient bean. This bean is used when connector has proxyId set for entity
+     * instance operations.
      */
     @Bean
     public EntityInstanceApiClient mqEntityInstanceApiClient(ProxyClient proxyClient) {
@@ -102,8 +98,7 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based LocationApiClient bean.
-     * This bean is used when connector has proxyId set for location operations.
+     * Create MQ-based LocationApiClient bean. This bean is used when connector has proxyId set for location operations.
      */
     @Bean
     public LocationApiClient mqLocationApiClient(ProxyClient proxyClient) {
@@ -111,8 +106,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based TokenInstanceApiClient bean.
-     * This bean is used when connector has proxyId set for token instance operations.
+     * Create MQ-based TokenInstanceApiClient bean. This bean is used when connector has proxyId set for token instance
+     * operations.
      */
     @Bean
     public TokenInstanceApiClient mqTokenInstanceApiClient(ProxyClient proxyClient) {
@@ -120,8 +115,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based KeyManagementApiClient bean.
-     * This bean is used when connector has proxyId set for key management operations.
+     * Create MQ-based KeyManagementApiClient bean. This bean is used when connector has proxyId set for key management
+     * operations.
      */
     @Bean
     public KeyManagementApiClient mqKeyManagementApiClient(ProxyClient proxyClient) {
@@ -129,8 +124,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based CryptographicOperationsApiClient bean.
-     * This bean is used when connector has proxyId set for cryptographic operations.
+     * Create MQ-based CryptographicOperationsApiClient bean. This bean is used when connector has proxyId set for
+     * cryptographic operations.
      */
     @Bean
     public CryptographicOperationsApiClient mqCryptographicOperationsApiClient(ProxyClient proxyClient) {
@@ -138,8 +133,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based v2 CertificateApiClient bean.
-     * This bean is used when connector has proxyId set for v2 certificate operations.
+     * Create MQ-based v2 CertificateApiClient bean. This bean is used when connector has proxyId set for v2 certificate
+     * operations.
      */
     @Bean
     public com.otilm.api.clients.mq.v2.CertificateApiClient mqCertificateApiClientV2(ProxyClient proxyClient) {
@@ -147,8 +142,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based v2 AttributesApiClient bean.
-     * This bean is used when connector has proxyId set for v2 attribute operations (definitions + callback).
+     * Create MQ-based v2 AttributesApiClient bean. This bean is used when connector has proxyId set for v2 attribute
+     * operations (definitions + callback).
      */
     @Bean
     public com.otilm.api.clients.mq.v2.AttributesApiClient mqAttributesApiClientV2(ProxyClient proxyClient) {
@@ -156,8 +151,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based ComplianceApiClient bean.
-     * This bean is used when connector has proxyId set for compliance operations.
+     * Create MQ-based ComplianceApiClient bean. This bean is used when connector has proxyId set for compliance
+     * operations.
      */
     @Bean
     public com.otilm.api.clients.mq.ComplianceApiClient mqComplianceApiClient(ProxyClient proxyClient) {
@@ -165,8 +160,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based v2 ComplianceApiClient bean.
-     * This bean is used when connector has proxyId set for v2 compliance operations.
+     * Create MQ-based v2 ComplianceApiClient bean. This bean is used when connector has proxyId set for v2 compliance
+     * operations.
      */
     @Bean
     public com.otilm.api.clients.mq.v2.ComplianceApiClient mqComplianceApiClientV2(ProxyClient proxyClient) {
@@ -174,8 +169,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based EndEntityApiClient bean.
-     * This bean is used when connector has proxyId set for end entity operations.
+     * Create MQ-based EndEntityApiClient bean. This bean is used when connector has proxyId set for end entity
+     * operations.
      */
     @Bean
     public EndEntityApiClient mqEndEntityApiClient(ProxyClient proxyClient) {
@@ -183,8 +178,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based NotificationInstanceApiClient bean.
-     * This bean is used when connector has proxyId set for notification instance operations.
+     * Create MQ-based NotificationInstanceApiClient bean. This bean is used when connector has proxyId set for
+     * notification instance operations.
      */
     @Bean
     public NotificationInstanceApiClient mqNotificationInstanceApiClient(ProxyClient proxyClient) {
@@ -192,8 +187,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based v3 CertificateApiClient bean.
-     * This bean is used when connector has proxyId set for v3 certificate operations.
+     * Create MQ-based v3 CertificateApiClient bean. This bean is used when connector has proxyId set for v3 certificate
+     * operations.
      */
     @Bean
     public com.otilm.api.clients.mq.v3.CertificateApiClient mqCertificateApiClientV3(ProxyClient proxyClient) {
@@ -201,8 +196,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based v3 AuthorityApiClient bean.
-     * This bean is used when connector has proxyId set for v3 authority operations.
+     * Create MQ-based v3 AuthorityApiClient bean. This bean is used when connector has proxyId set for v3 authority
+     * operations.
      */
     @Bean
     public com.otilm.api.clients.mq.v3.AuthorityApiClient mqAuthorityApiClientV3(ProxyClient proxyClient) {

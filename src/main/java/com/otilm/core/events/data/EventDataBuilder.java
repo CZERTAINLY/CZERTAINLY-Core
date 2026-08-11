@@ -1,7 +1,16 @@
 package com.otilm.core.events.data;
 
 import com.otilm.api.model.client.approvalprofile.ApprovalStepDto;
-import com.otilm.api.model.common.events.data.*;
+import com.otilm.api.model.common.events.data.ApprovalEventData;
+import com.otilm.api.model.common.events.data.CertificateActionPerformedEventData;
+import com.otilm.api.model.common.events.data.CertificateDiscoveredEventData;
+import com.otilm.api.model.common.events.data.CertificateEventAuthorityData;
+import com.otilm.api.model.common.events.data.CertificateEventData;
+import com.otilm.api.model.common.events.data.CertificateExpiringEventData;
+import com.otilm.api.model.common.events.data.CertificateNotCompliantEventData;
+import com.otilm.api.model.common.events.data.CertificateRegisteredEventData;
+import com.otilm.api.model.common.events.data.CertificateStatusChangedEventData;
+import com.otilm.api.model.common.events.data.DiscoveryFinishedEventData;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.otilm.api.model.core.notification.RecipientType;
@@ -10,10 +19,9 @@ import com.otilm.core.dao.entity.ApprovalProfile;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.model.auth.ResourceAction;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.ZoneId;
 import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
 public class EventDataBuilder {
@@ -21,7 +29,8 @@ public class EventDataBuilder {
     private EventDataBuilder() {
     }
 
-    public static ApprovalEventData getApprovalEventData(Approval approval, ApprovalProfile approvalProfile, String creatorUsername) {
+    public static ApprovalEventData getApprovalEventData(Approval approval, ApprovalProfile approvalProfile,
+            String creatorUsername) {
         ApprovalEventData eventData = new ApprovalEventData();
         eventData.setApprovalUuid(approval.getUuid());
         eventData.setApprovalProfileUuid(approvalProfile.getUuid());
@@ -39,7 +48,8 @@ public class EventDataBuilder {
         return eventData;
     }
 
-    public static ApprovalEventData getApprovalRequestedEventData(Approval approval, ApprovalProfile approvalProfile, ApprovalStepDto approvalStepDto, String creatorUsername) {
+    public static ApprovalEventData getApprovalRequestedEventData(Approval approval, ApprovalProfile approvalProfile,
+            ApprovalStepDto approvalStepDto, String creatorUsername) {
         ApprovalEventData eventData = getApprovalEventData(approval, approvalProfile, creatorUsername);
 
         if (approvalStepDto.getUserUuid() != null) {
@@ -56,7 +66,8 @@ public class EventDataBuilder {
         return eventData;
     }
 
-    public static CertificateStatusChangedEventData getCertificateStatusChangedEventData(Certificate certificate, CertificateValidationStatus[] statusArrayData) {
+    public static CertificateStatusChangedEventData getCertificateStatusChangedEventData(Certificate certificate,
+            CertificateValidationStatus[] statusArrayData) {
         CertificateStatusChangedEventData eventData = new CertificateStatusChangedEventData();
         eventData.setOldStatus(statusArrayData[0].getLabel());
         eventData.setNewStatus(statusArrayData[1].getLabel());
@@ -69,7 +80,8 @@ public class EventDataBuilder {
         return eventData;
     }
 
-    public static CertificateActionPerformedEventData getCertificateActionPerformedEventData(Certificate certificate, ResourceAction action) {
+    public static CertificateActionPerformedEventData getCertificateActionPerformedEventData(Certificate certificate,
+            ResourceAction action) {
         CertificateActionPerformedEventData eventData = new CertificateActionPerformedEventData();
         eventData.setAction(action.getCode());
         eventData.setState(certificate.getState());
@@ -78,7 +90,8 @@ public class EventDataBuilder {
         return eventData;
     }
 
-    public static CertificateDiscoveredEventData getCertificateDiscoveredEventData(Certificate certificate, DiscoveryHistory discovery, UUID userUuid) {
+    public static CertificateDiscoveredEventData getCertificateDiscoveredEventData(Certificate certificate,
+            DiscoveryHistory discovery, UUID userUuid) {
         CertificateDiscoveredEventData eventData = new CertificateDiscoveredEventData();
         setCertificateEventData(eventData, certificate);
         eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
@@ -100,7 +113,10 @@ public class EventDataBuilder {
         eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid());
         eventData.setDiscoveryConnectorName(discovery.getConnectorName());
         eventData.setDiscoveryStatus(discovery.getStatus());
-        eventData.setTotalCertificateDiscovered(discovery.getTotalCertificatesDiscovered() == null ? 0 : discovery.getTotalCertificatesDiscovered());
+        eventData
+                .setTotalCertificateDiscovered(discovery.getTotalCertificatesDiscovered() == null
+                        ? 0
+                        : discovery.getTotalCertificatesDiscovered());
         eventData.setDiscoveryMessage(discovery.getMessage());
 
         return eventData;
@@ -116,7 +132,8 @@ public class EventDataBuilder {
         return eventData;
     }
 
-    public static CertificateNotCompliantEventData getCertificateNotCompliantEventData(Certificate certificate, ComplianceCheckResultDto checkResultDto) {
+    public static CertificateNotCompliantEventData getCertificateNotCompliantEventData(Certificate certificate,
+            ComplianceCheckResultDto checkResultDto) {
         CertificateNotCompliantEventData eventData = new CertificateNotCompliantEventData();
         setCertificateEventData(eventData, certificate);
         eventData.setComplianceCheckResultDto(checkResultDto);

@@ -19,43 +19,48 @@ import java.util.stream.Stream;
  * <p>
  * Heuristic boundaries (load-bearing for the CI split guards that consume this — know them):
  * <ul>
- *   <li><b>First class per file is the primary type.</b> {@link #parseExtends} records the first {@code class} declaration
- *   in each file and ignores nested/secondary classes. Every test file in this tree declares its primary type first;
- *   files whose primary type is an {@code interface}/{@code enum}/{@code record} are absent from the graph.</li>
- *   <li><b>Source is comment-stripped by a string-literal-aware scan.</b> Comments are removed so prose containing Java keywords
- *   (e.g. "Base class for ...") is not matched, and annotation/keyword checks are token-anchored (word boundaries) so that
- *   {@code @TestConfiguration} is not mistaken for {@code @Test} nor a {@code "abstract class"} string literal for an abstract
- *   declaration.</li>
- *   <li><b>The inheritance graph is keyed by the simple class name.</b> {@link #parseExtends} records {@code simpleName -> superSimpleName},
- *   and {@link #hasContextBearingAncestor} resolves {@code extends} clauses (which use simple names) against it. {@code parseExtends}
- *   throws only on a duplicate primary simple name with a <em>conflicting</em> supertype — that is the case that would corrupt
- *   context-ancestry resolution. Two unrelated classes sharing a simple name but mapping to the same supertype (commonly both none)
- *   coalesce harmlessly.</li>
- *   <li><b>Context detection is limited to {@code @SpringBootTest} and the known context-root base classes.
- *   </b> Spring test-slice / meta-annotations that also start a context ({@code @WebMvcTest}, {@code @DataJpaTest}, {@code @JsonTest}, {@code @ContextConfiguration},
- *   a bare {@code @ExtendWith(SpringExtension.class)}) are intentionally out of scope — none exist in this tree.</li>
+ * <li><b>First class per file is the primary type.</b> {@link #parseExtends} records the first {@code class}
+ * declaration in each file and ignores nested/secondary classes. Every test file in this tree declares its primary type
+ * first; files whose primary type is an {@code interface}/{@code enum}/{@code record} are absent from the graph.</li>
+ * <li><b>Source is comment-stripped by a string-literal-aware scan.</b> Comments are removed so prose containing Java
+ * keywords (e.g. "Base class for ...") is not matched, and annotation/keyword checks are token-anchored (word
+ * boundaries) so that {@code @TestConfiguration} is not mistaken for {@code @Test} nor a {@code "abstract class"}
+ * string literal for an abstract declaration.</li>
+ * <li><b>The inheritance graph is keyed by the simple class name.</b> {@link #parseExtends} records
+ * {@code simpleName -> superSimpleName}, and {@link #hasContextBearingAncestor} resolves {@code extends} clauses (which
+ * use simple names) against it. {@code parseExtends} throws only on a duplicate primary simple name with a
+ * <em>conflicting</em> supertype — that is the case that would corrupt context-ancestry resolution. Two unrelated
+ * classes sharing a simple name but mapping to the same supertype (commonly both none) coalesce harmlessly.</li>
+ * <li><b>Context detection is limited to {@code @SpringBootTest} and the known context-root base classes. </b> Spring
+ * test-slice / meta-annotations that also start a context ({@code @WebMvcTest}, {@code @DataJpaTest},
+ * {@code @JsonTest}, {@code @ContextConfiguration}, a bare {@code @ExtendWith(SpringExtension.class)}) are
+ * intentionally out of scope — none exist in this tree.</li>
  * </ul>
  */
 final class TestClassTaxonomy {
 
-    private static final Set<String> CONTEXT_ROOTS = Set.of("BaseSpringBootTest", "BaseSpringBootTestNoAuth", "BaseMessagingIntTest",
-            "BaseMigrationTest", "BaseComplianceTest");
+    private static final Set<String> CONTEXT_ROOTS = Set
+            .of("BaseSpringBootTest", "BaseSpringBootTestNoAuth", "BaseMessagingIntTest", "BaseMigrationTest",
+                    "BaseComplianceTest");
 
     // Primary class declaration: optional `abstract` modifier (adjacent to `class` in this codebase), the class name,
     // an optional generic parameter list (so `class Foo<T> extends Base` still captures the supertype),
     // and an optional single `extends` supertype (simple name).
-    private static final Pattern CLASS_DECL = Pattern.compile("(abstract\\s+)?class\\s+(\\w+)(?:<[^>]*>)?(?:\\s+extends\\s+(\\w+))?");
+    private static final Pattern CLASS_DECL = Pattern
+            .compile("(abstract\\s+)?class\\s+(\\w+)(?:<[^>]*>)?(?:\\s+extends\\s+(\\w+))?");
 
     // Annotation checks are:
-    //   (a) line-anchored — a real annotation begins its line (after indentation)
-    //   (b) token-anchored with `\b` so `@Test` does not match `@TestConfiguration`/`@Testcontainers`/`@TestInstance`.
-    private static final Pattern TEST_ANNOTATION = Pattern.compile("(?m)^[ \\t]*(?:@Test\\b|@ParameterizedTest\\b|@RepeatedTest\\b)");
+    // (a) line-anchored — a real annotation begins its line (after indentation)
+    // (b) token-anchored with `\b` so `@Test` does not match `@TestConfiguration`/`@Testcontainers`/`@TestInstance`.
+    private static final Pattern TEST_ANNOTATION = Pattern
+            .compile("(?m)^[ \\t]*(?:@Test\\b|@ParameterizedTest\\b|@RepeatedTest\\b)");
     private static final Pattern SPRING_BOOT_TEST = Pattern.compile("(?m)^[ \\t]*@SpringBootTest\\b");
 
     // Context-affecting annotations parsed by annotationTokens(). Each contributes one axis of the context cache key.
     private static final Pattern IMPORTS = Pattern.compile("@Import\\s*\\(([^)]*)\\)");
     private static final Pattern IMPORT_CLASS = Pattern.compile("(\\w+)\\s*\\.\\s*class");
-    private static final Pattern MOCK_FIELD = Pattern.compile("@Mockito(?:Bean|SpyBean)\\b[^;{}]*?\\b(\\w+)\\s+\\w+\\s*;");
+    private static final Pattern MOCK_FIELD = Pattern
+            .compile("@Mockito(?:Bean|SpyBean)\\b[^;{}]*?\\b(\\w+)\\s+\\w+\\s*;");
     private static final Pattern PROFILES = Pattern.compile("@ActiveProfiles\\s*\\(([^)]*)\\)");
     private static final Pattern QUOTED = Pattern.compile("\"([^\"]*)\"");
     private static final Pattern INHERIT = Pattern.compile("inheritProfiles\\s*=\\s*(true|false)");
@@ -63,8 +68,8 @@ final class TestClassTaxonomy {
     private static final Pattern DIRTIES = Pattern.compile("@DirtiesContext\\b(?:\\s*\\(([^)]*)\\))?");
     // Nested @TestConfiguration classes fork the context cache key. Match the annotation (with optional args),
     // tolerate interposed other annotations/modifiers, and capture the declared class simple-name.
-    private static final Pattern NESTED_CONFIG = Pattern.compile(
-            "@TestConfiguration\\b(?:\\s*\\([^)]*\\))?"
+    private static final Pattern NESTED_CONFIG = Pattern
+            .compile("@TestConfiguration\\b(?:\\s*\\([^)]*\\))?"
                     + "(?:\\s+(?:@\\w+(?:\\([^)]*\\))?|public|protected|private|static|final|abstract))*"
                     + "\\s+class\\s+(\\w+)");
     // @SpringBootTest arguments (webEnvironment=..., classes=...) select distinct contexts from the default.
@@ -79,13 +84,12 @@ final class TestClassTaxonomy {
     private static final Pattern FILTER_CLASS = Pattern.compile("((?:\\w+\\.)*\\w+)\\.class");
     // @DynamicPropertySource becomes a DynamicPropertiesContextCustomizer whose equals/hashCode are the Set<Method>
     // it collected, so each declaring method forks the context cache key.
-    private static final Pattern DYNAMIC_PROPERTY_SOURCE = Pattern.compile(
-            "@DynamicPropertySource\\b(?:\\s*\\([^)]*\\))?"
+    private static final Pattern DYNAMIC_PROPERTY_SOURCE = Pattern
+            .compile("@DynamicPropertySource\\b(?:\\s*\\([^)]*\\))?"
                     + "(?:\\s+(?:@\\w+(?:\\([^)]*\\))?|public|protected|private|static|final|synchronized))*"
                     + "\\s+void\\s+(\\w+)\\s*\\(");
     // Counts declarations independently of the capture above so an unparseable shape fails.
-    private static final Pattern DYNAMIC_PROPERTY_SOURCE_MARKER =
-            Pattern.compile("(?m)^\\s*@DynamicPropertySource\\b");
+    private static final Pattern DYNAMIC_PROPERTY_SOURCE_MARKER = Pattern.compile("(?m)^\\s*@DynamicPropertySource\\b");
 
     private TestClassTaxonomy() {
     }
@@ -103,8 +107,8 @@ final class TestClassTaxonomy {
                     String name = m.group(2);
                     String superName = m.group(3);
                     if (graph.containsKey(name) && !Objects.equals(graph.get(name), superName)) {
-                        throw new IllegalStateException("Duplicate primary test-class simple name '"
-                                + name + "' with conflicting supertypes at " + p + "; the context graph is keyed by "
+                        throw new IllegalStateException("Duplicate primary test-class simple name '" + name
+                                + "' with conflicting supertypes at " + p + "; the context graph is keyed by "
                                 + "simple name, so this collision would corrupt context-ancestry resolution. Rename one class.");
                     }
                     graph.put(name, superName); // name -> superclass (may be null)
@@ -120,7 +124,9 @@ final class TestClassTaxonomy {
         String cur = className;
         int guard = 0;
         while (cur != null && guard++ < 50) {
-            if (CONTEXT_ROOTS.contains(cur)) return true;
+            if (CONTEXT_ROOTS.contains(cur)) {
+                return true;
+            }
             cur = graph.get(cur);
         }
         return false;
@@ -128,14 +134,16 @@ final class TestClassTaxonomy {
 
     static boolean loadsContext(Path javaFile, Map<String, String> graph) {
         String src = code(javaFile);
-        if (SPRING_BOOT_TEST.matcher(src).find()) return true;
+        if (SPRING_BOOT_TEST.matcher(src).find()) {
+            return true;
+        }
         String primary = primaryClassName(src);
         return primary != null && hasContextBearingAncestor(primary, graph);
     }
 
     /**
-     * Simple name of the file's primary type — the first {@code class} declaration, the same one
-     * {@link #parseExtends} keys the inheritance graph by — or {@code null} for a file declaring none.
+     * Simple name of the file's primary type — the first {@code class} declaration, the same one {@link #parseExtends}
+     * keys the inheritance graph by — or {@code null} for a file declaring none.
      */
     static String primaryClassName(Path javaFile) {
         return primaryClassName(code(javaFile));
@@ -148,28 +156,23 @@ final class TestClassTaxonomy {
 
     static boolean isRunnableTest(Path javaFile) {
         String src = code(javaFile);
-        if (!TEST_ANNOTATION.matcher(src).find()) return false;
+        if (!TEST_ANNOTATION.matcher(src).find()) {
+            return false;
+        }
         Matcher m = CLASS_DECL.matcher(src);
         boolean primaryIsAbstract = m.find() && m.group(1) != null;
         return !primaryIsAbstract;
     }
 
     /**
-     * Context-affecting annotation tokens parsed from ONE file (not its ancestors). Each list is an axis of the
-     * Spring context cache key; {@link ContextSignature} combines the axes across the inheritance chain — unioning
-     * the inherited ones, and taking only the nearest declaration where Spring itself does (see {@link #typeExcludeFilters()}).
+     * Context-affecting annotation tokens parsed from ONE file (not its ancestors). Each list is an axis of the Spring
+     * context cache key; {@link ContextSignature} combines the axes across the inheritance chain — unioning the
+     * inherited ones, and taking only the nearest declaration where Spring itself does (see
+     * {@link #typeExcludeFilters()}).
      */
-    record ContextTokens(
-            List<String> imports,
-            List<String> mocks,
-            List<String> profiles,
-            List<String> props,
-            List<String> dirties,
-            List<String> configs,
-            List<String> springBootTest,
-            List<String> autoconfig,
-            List<String> typeExcludeFilters,
-            List<String> dynamicPropertySources) {
+    record ContextTokens(List<String> imports, List<String> mocks, List<String> profiles, List<String> props,
+            List<String> dirties, List<String> configs, List<String> springBootTest, List<String> autoconfig,
+            List<String> typeExcludeFilters, List<String> dynamicPropertySources) {
     }
 
     static ContextTokens annotationTokens(Path javaFile) {
@@ -180,17 +183,10 @@ final class TestClassTaxonomy {
             imports.addAll(allMatches(IMPORT_CLASS, 1, importList));
         }
 
-        return new ContextTokens(
-                imports,
-                allMatches(MOCK_FIELD, 1, src),
-                parseProfiles(src),
-                normalizedArgs(PROPS, src),
-                parseDirties(src),
-                allMatches(NESTED_CONFIG, 1, src),
-                normalizedArgs(SPRING_BOOT_TEST_ARGS, src),
-                allMatches(AUTOCONFIGURE, 1, src),
-                parseTypeExcludeFilters(src),
-                parseDynamicPropertySources(javaFile, src));
+        return new ContextTokens(imports, allMatches(MOCK_FIELD, 1, src), parseProfiles(src),
+                normalizedArgs(PROPS, src), parseDirties(src), allMatches(NESTED_CONFIG, 1, src),
+                normalizedArgs(SPRING_BOOT_TEST_ARGS, src), allMatches(AUTOCONFIGURE, 1, src),
+                parseTypeExcludeFilters(src), parseDynamicPropertySources(javaFile, src));
     }
 
     /**

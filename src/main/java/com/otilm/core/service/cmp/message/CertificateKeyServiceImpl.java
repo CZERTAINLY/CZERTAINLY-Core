@@ -11,10 +11,9 @@ import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.provider.PlatformProvider;
 import com.otilm.core.provider.key.PlatformPrivateKey;
 import com.otilm.core.service.CryptographicKeyInternalService;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.UUID;
 
 @Component
 public class CertificateKeyServiceImpl implements CertificateKeyService {
@@ -34,7 +33,8 @@ public class CertificateKeyServiceImpl implements CertificateKeyService {
     }
 
     @Override
-    public PlatformProvider getProvider(String cmpProfileName, Certificate signingCertificate) throws NotFoundException {
+    public PlatformProvider getProvider(String cmpProfileName, Certificate signingCertificate)
+            throws NotFoundException {
         CryptographicKey key = signingCertificate.getKey();
         if (key == null) {
             throw new IllegalStateException("Signing certificate has no associated cryptographic key");
@@ -48,7 +48,8 @@ public class CertificateKeyServiceImpl implements CertificateKeyService {
             throw new IllegalStateException("Token instance has no associated connector");
         }
 
-        CryptographicOperationsSyncApiClient apiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorUuid);
+        CryptographicOperationsSyncApiClient apiClient = connectorApiFactory
+                .getCryptographicOperationsApiClient(connectorUuid);
         return PlatformProvider.getInstance(cmpProfileName, true, apiClient);
     }
 
@@ -57,12 +58,8 @@ public class CertificateKeyServiceImpl implements CertificateKeyService {
         CryptographicKey key = certificate.getKey();
         CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
         TokenInstanceReference tokenInsReference = key.getTokenInstanceReference();
-        return new PlatformPrivateKey(
-                tokenInsReference.getTokenInstanceUuid(),
-                item.getKeyReferenceUuid().toString(),
-                tokenInsReference.getConnector().mapToDto(),
-                item.getKeyAlgorithm().getLabel()
-        );
+        return new PlatformPrivateKey(tokenInsReference.getTokenInstanceUuid(), item.getKeyReferenceUuid().toString(),
+                tokenInsReference.getConnector().mapToDto(), item.getKeyAlgorithm().getLabel());
     }
 
 }

@@ -85,15 +85,7 @@ public final class TimeQualityResultBuilder {
     }
 
     public TimeQualityResult build() {
-        return new TimeQualityResult(
-                configurationId,
-                name,
-                timestamp,
-                status,
-                measuredDriftMs,
-                reachableServers,
-                reason,
-                leapSecondWarning,
-                servers != null ? servers : List.of());
+        return new TimeQualityResult(configurationId, name, timestamp, status, measuredDriftMs, reachableServers,
+                reason, leapSecondWarning, servers != null ? servers : List.of());
     }
 }

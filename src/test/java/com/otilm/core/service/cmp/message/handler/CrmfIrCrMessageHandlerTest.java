@@ -10,6 +10,7 @@ import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.v2.ClientOperationInternalService;
+import java.util.UUID;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
@@ -25,8 +26,6 @@ import org.bouncycastle.asn1.x509.GeneralName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.any;
@@ -54,17 +53,17 @@ class CrmfIrCrMessageHandlerTest {
         UUID cmpProfileUuid = UUID.randomUUID();
         UUID raProfileUuid = UUID.randomUUID();
         ConfigurationContext configuration = configuration(cmpProfileUuid, raProfileUuid);
-        when(clientOperationService.issueCertificate(
-                any(SecuredParentUUID.class), any(SecuredUUID.class),
-                any(ClientCertificateIssueRequestDto.class), any(CertificateProtocolInfo.class)))
+        when(clientOperationService
+                .issueCertificate(any(SecuredParentUUID.class), any(SecuredUUID.class),
+                        any(ClientCertificateIssueRequestDto.class), any(CertificateProtocolInfo.class)))
                 .thenReturn(new ClientCertificateDataResponseDto());
 
         handler.handle(irMessage(), configuration);
 
         ArgumentCaptor<CertificateProtocolInfo> protocolInfo = ArgumentCaptor.forClass(CertificateProtocolInfo.class);
-        verify(clientOperationService).issueCertificate(
-                any(SecuredParentUUID.class), any(SecuredUUID.class),
-                any(ClientCertificateIssueRequestDto.class), protocolInfo.capture());
+        verify(clientOperationService)
+                .issueCertificate(any(SecuredParentUUID.class), any(SecuredUUID.class),
+                        any(ClientCertificateIssueRequestDto.class), protocolInfo.capture());
         assertThat(protocolInfo.getValue().getProtocol()).isEqualTo(CertificateProtocol.CMP);
         assertThat(protocolInfo.getValue().getProtocolProfileUuid()).isEqualTo(cmpProfileUuid);
     }
@@ -82,17 +81,13 @@ class CrmfIrCrMessageHandlerTest {
     }
 
     private static PKIMessage irMessage() {
-        PKIHeader header = new PKIHeaderBuilder(
-                PKIHeader.CMP_2000,
-                new GeneralName(new X500Name("CN=test-sender")),
+        PKIHeader header = new PKIHeaderBuilder(PKIHeader.CMP_2000, new GeneralName(new X500Name("CN=test-sender")),
                 new GeneralName(new X500Name("CN=test-recipient")))
                 .setTransactionID(new DEROctetString(new byte[]{1, 2, 3, 4}))
                 .setSenderNonce(new DEROctetString(new byte[]{5, 6, 7, 8}))
                 .build();
-        CertRequest certRequest = new CertRequest(
-                new ASN1Integer(0),
-                new CertTemplateBuilder().setSubject(new X500Name("CN=cmp-certificate")).build(),
-                null);
+        CertRequest certRequest = new CertRequest(new ASN1Integer(0),
+                new CertTemplateBuilder().setSubject(new X500Name("CN=cmp-certificate")).build(), null);
         CertReqMessages certReqMessages = new CertReqMessages(new CertReqMsg(certRequest, null, null));
         return new PKIMessage(header, new PKIBody(PKIBody.TYPE_INIT_REQ, certReqMessages));
     }

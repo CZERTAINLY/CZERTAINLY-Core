@@ -2,11 +2,9 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.otilm.core.dao.entity.ScheduledJobHistory;
-
-import org.springframework.stereotype.Repository;
-
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ScheduledJobHistoryRepository extends SecurityFilterRepository<ScheduledJobHistory, UUID> {
@@ -14,10 +12,9 @@ public interface ScheduledJobHistoryRepository extends SecurityFilterRepository<
 
     boolean existsByScheduledJobUuid(UUID scheduledJobUuid);
 
-    boolean existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(UUID scheduledJobUuid, SchedulerJobExecutionStatus schedulerExecutionStatus);
+    boolean existsByScheduledJobUuidAndSchedulerExecutionStatusAndJobEndTimeIsNull(UUID scheduledJobUuid,
+            SchedulerJobExecutionStatus schedulerExecutionStatus);
 
     Optional<ScheduledJobHistory> findFirstByScheduledJobJobNameAndSchedulerExecutionStatusOrderByJobExecutionDesc(
-            String jobName,
-            SchedulerJobExecutionStatus status
-    );
+            String jobName, SchedulerJobExecutionStatus status);
 }

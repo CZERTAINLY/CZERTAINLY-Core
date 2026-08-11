@@ -2,20 +2,37 @@ package com.otilm.core.mapper.certificate;
 
 import com.otilm.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
-import com.otilm.api.model.core.certificate.*;
+import com.otilm.api.model.core.certificate.CertificateDetailDto;
+import com.otilm.api.model.core.certificate.CertificateDto;
+import com.otilm.api.model.core.certificate.CertificateProtocolDto;
+import com.otilm.api.model.core.certificate.CertificateQcStatementsDto;
+import com.otilm.api.model.core.certificate.CertificateRelationType;
+import com.otilm.api.model.core.certificate.CertificateRequestDto;
+import com.otilm.api.model.core.certificate.CertificateSimpleDto;
+import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateType;
+import com.otilm.api.model.core.certificate.QcType;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.enums.CertificateProtocol;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
-import com.otilm.core.dao.entity.*;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.CertificateProtocolAssociation;
+import com.otilm.core.dao.entity.CertificateRelation;
+import com.otilm.core.dao.entity.CertificateRequestEntity;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.Group;
+import com.otilm.core.dao.entity.OwnerAssociation;
+import com.otilm.core.dao.entity.RaProfile;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class CertificateDetailDtoMapperTest {
 
@@ -136,22 +153,22 @@ class CertificateDetailDtoMapperTest {
         CertificateDetailDto dto = CertificateDetailDtoMapper.toDetailDto(certificate);
 
         // flat fields
-        Assertions.assertEquals(certificate.uuid.toString(),    dto.getUuid());
-        Assertions.assertEquals("test.example.com",             dto.getCommonName());
-        Assertions.assertEquals("Example CA",                   dto.getIssuerCommonName());
-        Assertions.assertEquals("CN=test.example.com",          dto.getSubjectDn());
-        Assertions.assertEquals("RSA",                          dto.getPublicKeyAlgorithm());
-        Assertions.assertEquals("ML-DSA",                       dto.getAltPublicKeyAlgorithm());
-        Assertions.assertEquals("SHA256withRSA",                dto.getSignatureAlgorithm());
-        Assertions.assertEquals("ML-DSA",                       dto.getAltSignatureAlgorithm());
-        Assertions.assertEquals(CertificateState.ISSUED,        dto.getState());
-        Assertions.assertEquals(CertificateType.X509,           dto.getCertificateType());
-        Assertions.assertEquals(ComplianceStatus.OK,            dto.getComplianceStatus());
+        Assertions.assertEquals(certificate.uuid.toString(), dto.getUuid());
+        Assertions.assertEquals("test.example.com", dto.getCommonName());
+        Assertions.assertEquals("Example CA", dto.getIssuerCommonName());
+        Assertions.assertEquals("CN=test.example.com", dto.getSubjectDn());
+        Assertions.assertEquals("RSA", dto.getPublicKeyAlgorithm());
+        Assertions.assertEquals("ML-DSA", dto.getAltPublicKeyAlgorithm());
+        Assertions.assertEquals("SHA256withRSA", dto.getSignatureAlgorithm());
+        Assertions.assertEquals("ML-DSA", dto.getAltSignatureAlgorithm());
+        Assertions.assertEquals(CertificateState.ISSUED, dto.getState());
+        Assertions.assertEquals(CertificateType.X509, dto.getCertificateType());
+        Assertions.assertEquals(ComplianceStatus.OK, dto.getComplianceStatus());
         // certificateContent branch
-        Assertions.assertEquals("base64encodedcert==",          dto.getCertificateContent());
-        Assertions.assertEquals("CN=Example CA",                dto.getIssuerDn());
-        Assertions.assertEquals("0123456789abcdef",             dto.getSerialNumber());
-        Assertions.assertEquals("aa:bb:cc",                     dto.getFingerprint());
+        Assertions.assertEquals("base64encodedcert==", dto.getCertificateContent());
+        Assertions.assertEquals("CN=Example CA", dto.getIssuerDn());
+        Assertions.assertEquals("0123456789abcdef", dto.getSerialNumber());
+        Assertions.assertEquals("aa:bb:cc", dto.getFingerprint());
         // QC statements branch
         CertificateQcStatementsDto qc = dto.getQcStatements();
         Assertions.assertNotNull(qc);
@@ -162,40 +179,40 @@ class CertificateDetailDtoMapperTest {
         Assertions.assertEquals(1, qc.getQcCcLegislation().size());
         Assertions.assertEquals("CZ", qc.getQcCcLegislation().getFirst());
         // issuerCertificateUuid branch
-        Assertions.assertEquals(issuerUuid.toString(),          dto.getIssuerCertificateUuid());
+        Assertions.assertEquals(issuerUuid.toString(), dto.getIssuerCertificateUuid());
         // predecessorRelations branch
-        Assertions.assertEquals(predecessor.uuid,               dto.getSourceCertificateUuid());
+        Assertions.assertEquals(predecessor.uuid, dto.getSourceCertificateUuid());
         // owner branch
         Assertions.assertEquals(owner.getOwnerUuid().toString(), dto.getOwnerUuid());
-        Assertions.assertEquals("alice",                        dto.getOwner());
+        Assertions.assertEquals("alice", dto.getOwner());
         // raProfile branch
         SimplifiedRaProfileDto raDto = dto.getRaProfile();
         Assertions.assertNotNull(raDto);
-        Assertions.assertEquals(raProfile.uuid.toString(),      raDto.getUuid());
-        Assertions.assertEquals("test-ra",                      raDto.getName());
+        Assertions.assertEquals(raProfile.uuid.toString(), raDto.getUuid());
+        Assertions.assertEquals("test-ra", raDto.getName());
         // groups branch
         Assertions.assertEquals(1, dto.getGroups().size());
-        Assertions.assertEquals(group.uuid.toString(),          dto.getGroups().getFirst().getUuid());
+        Assertions.assertEquals(group.uuid.toString(), dto.getGroups().getFirst().getUuid());
         // certificateRequest branch
         CertificateRequestDto reqDto = dto.getCertificateRequest();
         Assertions.assertNotNull(reqDto);
-        Assertions.assertEquals(request.uuid,                   reqDto.getUuid());
+        Assertions.assertEquals(request.uuid, reqDto.getUuid());
         Assertions.assertEquals(request.getKeyUuid().toString(), reqDto.getKeyUuid());
         Assertions.assertEquals(request.getAltKeyUuid().toString(), reqDto.getAltKeyUuid());
         // privateKeyAvailability branch
         Assertions.assertTrue(dto.isPrivateKeyAvailability());
         // key branch
         Assertions.assertNotNull(dto.getKey());
-        Assertions.assertEquals(key.uuid.toString(),            dto.getKey().getUuid());
+        Assertions.assertEquals(key.uuid.toString(), dto.getKey().getUuid());
         // altKey branch
         Assertions.assertNotNull(dto.getAltKey());
-        Assertions.assertEquals(altKey.uuid.toString(),         dto.getAltKey().getUuid());
+        Assertions.assertEquals(altKey.uuid.toString(), dto.getAltKey().getUuid());
         // protocolAssociation branch
         CertificateProtocolDto protocolDto = dto.getProtocolInfo();
         Assertions.assertNotNull(protocolDto);
-        Assertions.assertEquals(CertificateProtocol.ACME,      protocolDto.getProtocol());
-        Assertions.assertEquals(protocolProfileUuid,            protocolDto.getProtocolProfileUuid());
-        Assertions.assertEquals(additionalProtocolUuid,         protocolDto.getAdditionalProtocolUuid());
+        Assertions.assertEquals(CertificateProtocol.ACME, protocolDto.getProtocol());
+        Assertions.assertEquals(protocolProfileUuid, protocolDto.getProtocolProfileUuid());
+        Assertions.assertEquals(additionalProtocolUuid, protocolDto.getAdditionalProtocolUuid());
     }
 
     @Test
@@ -250,32 +267,32 @@ class CertificateDetailDtoMapperTest {
 
         CertificateDto dto = CertificateDetailDtoMapper.toListDto(certificate);
 
-        Assertions.assertEquals(certificate.uuid.toString(),  dto.getUuid());
-        Assertions.assertEquals("test.example.com",           dto.getCommonName());
-        Assertions.assertEquals("Example CA",                 dto.getIssuerCommonName());
-        Assertions.assertEquals("0123456789abcdef",           dto.getSerialNumber());
-        Assertions.assertEquals("CN=Example CA",              dto.getIssuerDn());
-        Assertions.assertEquals("CN=test.example.com",        dto.getSubjectDn());
-        Assertions.assertEquals("aa:bb:cc",                   dto.getFingerprint());
-        Assertions.assertEquals("RSA",                        dto.getPublicKeyAlgorithm());
-        Assertions.assertEquals("ML-DSA",                     dto.getAltPublicKeyAlgorithm());
-        Assertions.assertEquals("SHA256withRSA",              dto.getSignatureAlgorithm());
-        Assertions.assertEquals("ML-DSA",                     dto.getAltSignatureAlgorithm());
-        Assertions.assertEquals(certificate.getNotBefore(),   dto.getNotBefore());
-        Assertions.assertEquals(certificate.getNotAfter(),    dto.getNotAfter());
-        Assertions.assertEquals(CertificateState.ISSUED,      dto.getState());
-        Assertions.assertEquals(CertificateType.X509,         dto.getCertificateType());
-        Assertions.assertEquals(ComplianceStatus.OK,          dto.getComplianceStatus());
+        Assertions.assertEquals(certificate.uuid.toString(), dto.getUuid());
+        Assertions.assertEquals("test.example.com", dto.getCommonName());
+        Assertions.assertEquals("Example CA", dto.getIssuerCommonName());
+        Assertions.assertEquals("0123456789abcdef", dto.getSerialNumber());
+        Assertions.assertEquals("CN=Example CA", dto.getIssuerDn());
+        Assertions.assertEquals("CN=test.example.com", dto.getSubjectDn());
+        Assertions.assertEquals("aa:bb:cc", dto.getFingerprint());
+        Assertions.assertEquals("RSA", dto.getPublicKeyAlgorithm());
+        Assertions.assertEquals("ML-DSA", dto.getAltPublicKeyAlgorithm());
+        Assertions.assertEquals("SHA256withRSA", dto.getSignatureAlgorithm());
+        Assertions.assertEquals("ML-DSA", dto.getAltSignatureAlgorithm());
+        Assertions.assertEquals(certificate.getNotBefore(), dto.getNotBefore());
+        Assertions.assertEquals(certificate.getNotAfter(), dto.getNotAfter());
+        Assertions.assertEquals(CertificateState.ISSUED, dto.getState());
+        Assertions.assertEquals(CertificateType.X509, dto.getCertificateType());
+        Assertions.assertEquals(ComplianceStatus.OK, dto.getComplianceStatus());
         // issuerCertificateUuid branch
-        Assertions.assertEquals(issuerUuid.toString(),        dto.getIssuerCertificateUuid());
+        Assertions.assertEquals(issuerUuid.toString(), dto.getIssuerCertificateUuid());
         // owner branch
         Assertions.assertEquals(owner.getOwnerUuid().toString(), dto.getOwnerUuid());
-        Assertions.assertEquals("alice",                      dto.getOwner());
+        Assertions.assertEquals("alice", dto.getOwner());
         // raProfile branch (no authorityInstanceReference → uuid and name only)
         SimplifiedRaProfileDto raDto = dto.getRaProfile();
         Assertions.assertNotNull(raDto);
-        Assertions.assertEquals(raProfile.uuid.toString(),    raDto.getUuid());
-        Assertions.assertEquals("test-ra",                    raDto.getName());
+        Assertions.assertEquals(raProfile.uuid.toString(), raDto.getUuid());
+        Assertions.assertEquals("test-ra", raDto.getName());
         Assertions.assertTrue(raDto.getEnabled());
         Assertions.assertNull(raDto.getAuthorityInstanceUuid());
         // no private key set
@@ -290,21 +307,21 @@ class CertificateDetailDtoMapperTest {
     void toSimpleDto_mapsAllFields() {
         CertificateSimpleDto dto = CertificateDetailDtoMapper.toSimpleDto(certificate, CertificateRelationType.RENEWAL);
 
-        Assertions.assertEquals(certificate.uuid,              dto.getUuid());
-        Assertions.assertEquals(CertificateType.X509,         dto.getCertificateType());
-        Assertions.assertEquals(CertificateState.ISSUED,      dto.getState());
+        Assertions.assertEquals(certificate.uuid, dto.getUuid());
+        Assertions.assertEquals(CertificateType.X509, dto.getCertificateType());
+        Assertions.assertEquals(CertificateState.ISSUED, dto.getState());
         Assertions.assertEquals(CertificateRelationType.RENEWAL, dto.getRelationType());
-        Assertions.assertEquals("test.example.com",           dto.getCommonName());
-        Assertions.assertEquals("CN=test.example.com",        dto.getSubjectDn());
-        Assertions.assertEquals("Example CA",                 dto.getIssuerCommonName());
-        Assertions.assertEquals("CN=Example CA",              dto.getIssuerDn());
-        Assertions.assertEquals("0123456789abcdef",           dto.getSerialNumber());
-        Assertions.assertEquals("aa:bb:cc",                   dto.getFingerprint());
-        Assertions.assertEquals("RSA",                        dto.getPublicKeyAlgorithm());
-        Assertions.assertEquals("ML-DSA",                     dto.getAltPublicKeyAlgorithm());
-        Assertions.assertEquals("SHA256withRSA",              dto.getSignatureAlgorithm());
-        Assertions.assertEquals("ML-DSA",                     dto.getAltSignatureAlgorithm());
-        Assertions.assertEquals(certificate.getNotBefore(),   dto.getNotBefore());
-        Assertions.assertEquals(certificate.getNotAfter(),    dto.getNotAfter());
+        Assertions.assertEquals("test.example.com", dto.getCommonName());
+        Assertions.assertEquals("CN=test.example.com", dto.getSubjectDn());
+        Assertions.assertEquals("Example CA", dto.getIssuerCommonName());
+        Assertions.assertEquals("CN=Example CA", dto.getIssuerDn());
+        Assertions.assertEquals("0123456789abcdef", dto.getSerialNumber());
+        Assertions.assertEquals("aa:bb:cc", dto.getFingerprint());
+        Assertions.assertEquals("RSA", dto.getPublicKeyAlgorithm());
+        Assertions.assertEquals("ML-DSA", dto.getAltPublicKeyAlgorithm());
+        Assertions.assertEquals("SHA256withRSA", dto.getSignatureAlgorithm());
+        Assertions.assertEquals("ML-DSA", dto.getAltSignatureAlgorithm());
+        Assertions.assertEquals(certificate.getNotBefore(), dto.getNotBefore());
+        Assertions.assertEquals(certificate.getNotAfter(), dto.getNotAfter());
     }
 }

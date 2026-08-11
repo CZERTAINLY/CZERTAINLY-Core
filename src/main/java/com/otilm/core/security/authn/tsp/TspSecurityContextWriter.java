@@ -6,17 +6,16 @@ import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.util.AuthHelper;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.UUID;
-
 /**
- * Writes the authenticated identity into the {@link SecurityContext} on behalf of the TSP authenticators.
- * Centralizes the two ways a TSP request gains an authenticated principal: directly from an authenticated identity
- * (certificate / bearer token), or by proxying as a pre-configured mapped user (Basic password).
+ * Writes the authenticated identity into the {@link SecurityContext} on behalf of the TSP authenticators. Centralizes
+ * the two ways a TSP request gains an authenticated principal: directly from an authenticated identity (certificate /
+ * bearer token), or by proxying as a pre-configured mapped user (Basic password).
  */
 public class TspSecurityContextWriter {
 
@@ -29,8 +28,8 @@ public class TspSecurityContextWriter {
     }
 
     /**
-     * Populates the context from auth-service-resolved {@link AuthenticationInfo}.
-     * Returns {@code false} (context untouched) for anonymous/empty info.
+     * Populates the context from auth-service-resolved {@link AuthenticationInfo}. Returns {@code false} (context
+     * untouched) for anonymous/empty info.
      */
     public boolean setFromAuthInfo(AuthenticationInfo authInfo) {
         if (authInfo == null || authInfo.isAnonymous()) {
@@ -45,7 +44,8 @@ public class TspSecurityContextWriter {
     }
 
     /**
-     * Authenticates as the mapped user via the user-proxy. Returns {@code false} (and clears the context) if the proxy call fails.
+     * Authenticates as the mapped user via the user-proxy. Returns {@code false} (and clears the context) if the proxy
+     * call fails.
      */
     public boolean authenticateAsUser(UUID mappedUserUuid) {
         try {

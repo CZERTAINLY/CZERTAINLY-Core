@@ -23,8 +23,8 @@ class AggregateResultDtoTest {
     }
 
     /**
-     * Grouping on a nullable column produces a NULL group; Hibernate instantiates the DTO with a null
-     * grouping value, and callers map that null to their own placeholder label.
+     * Grouping on a nullable column produces a NULL group; Hibernate instantiates the DTO with a null grouping value,
+     * and callers map that null to their own placeholder label.
      */
     @Test
     void integerConstructorAcceptsNullValue() {

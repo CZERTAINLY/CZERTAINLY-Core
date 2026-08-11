@@ -13,9 +13,8 @@ import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CryptographicOperationInternalService;
 import com.otilm.core.util.CryptographyUtil;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 @Component
 public class StaticManagedKeySignerCreator implements SignerCreator {
@@ -44,14 +43,16 @@ public class StaticManagedKeySignerCreator implements SignerCreator {
 
         List<CryptographicKeyItemModel> keyItems = signingScheme.keyItems();
 
-        CryptographicKeyItemModel privateKeyItem = keyItems.stream()
+        CryptographicKeyItemModel privateKeyItem = keyItems
+                .stream()
                 .filter(item -> item.keyType() == KeyType.PRIVATE_KEY)
                 .findFirst()
                 .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,
                         String.format("No private key item found for key '%s'", certificate.keyUuid()),
                         "Signing key could not be found."));
 
-        CryptographicKeyItemModel publicKeyItem = keyItems.stream()
+        CryptographicKeyItemModel publicKeyItem = keyItems
+                .stream()
                 .filter(item -> item.keyType() == KeyType.PUBLIC_KEY)
                 .findFirst()
                 .orElseThrow(() -> new TspException(TspFailureInfo.SYSTEM_FAILURE,
@@ -60,18 +61,14 @@ public class StaticManagedKeySignerCreator implements SignerCreator {
 
         List<RequestAttribute> requestAttributes = signingScheme.signingOperationAttributes();
 
-        String algorithmName = CryptographyUtil.resolveSignatureAlgorithmName(
-                privateKeyItem.keyAlgorithm(), requestAttributes, publicKeyItem.pqcParameterSpecName());
+        String algorithmName = CryptographyUtil
+                .resolveSignatureAlgorithmName(privateKeyItem.keyAlgorithm(), requestAttributes,
+                        publicKeyItem.pqcParameterSpecName());
         SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.findByCode(algorithmName);
 
-        return new CryptographicOperationServiceSigner(
-                cryptographicOperationService,
+        return new CryptographicOperationServiceSigner(cryptographicOperationService,
                 SecuredParentUUID.fromUUID(certificate.tokenInstanceReferenceUuid()),
-                SecuredUUID.fromUUID(certificate.tokenProfileUuid()),
-                certificate.keyUuid(),
-                privateKeyItem.keyItemUuid(),
-                requestAttributes,
-                signatureAlgorithm
-        );
+                SecuredUUID.fromUUID(certificate.tokenProfileUuid()), certificate.keyUuid(),
+                privateKeyItem.keyItemUuid(), requestAttributes, signatureAlgorithm);
     }
 }

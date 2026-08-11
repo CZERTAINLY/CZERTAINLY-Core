@@ -14,18 +14,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Evicts the signing-certificate cache after any mutation on {@link CryptographicKeyRepository}
- * or {@link CryptographicKeyItemRepository}.
+ * Evicts the signing-certificate cache after any mutation on {@link CryptographicKeyRepository} or
+ * {@link CryptographicKeyItemRepository}.
  *
- * <p>{@link SigningCertificate} caches key-level structural
- * references ({@code tokenInstanceReferenceUuid}, {@code tokenProfileUuid}, {@code keyItemUuids})
- * derived from the associated {@link CryptographicKey}. When the
- * key is mutated (e.g. token-profile reassignment via
- * {@link CryptographicKeyServiceImpl#editKey}), those cached
- * values become stale and must be cleared.
+ * <p>
+ * {@link SigningCertificate} caches key-level structural references ({@code tokenInstanceReferenceUuid},
+ * {@code tokenProfileUuid}, {@code keyItemUuids}) derived from the associated {@link CryptographicKey}. When the key is
+ * mutated (e.g. token-profile reassignment via {@link CryptographicKeyServiceImpl#editKey}), those cached values become
+ * stale and must be cleared.
  *
- * <p>Only {@link CacheConfig#SIGNING_CERTIFICATE_CACHE} is cleared — key mutations do not
- * affect the certificate chain.
+ * <p>
+ * Only {@link CacheConfig#SIGNING_CERTIFICATE_CACHE} is cleared — key mutations do not affect the certificate chain.
  */
 @Aspect
 @Component
@@ -42,7 +41,8 @@ public class CryptographicKeyRepositoryCacheEvictionAspect {
             + "|| target(com.otilm.core.dao.repository.CryptographicKeyItemRepository+)) "
             + "&& (execution(* save*(..)) || execution(* delete*(..)) || execution(* insert*(..)) "
             + "|| execution(* update*(..)) || execution(* clear*(..)))")
-    private void cryptographicKeyMutation() {}
+    private void cryptographicKeyMutation() {
+    }
 
     @AfterReturning("cryptographicKeyMutation()")
     public void onMutation() {

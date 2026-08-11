@@ -1,25 +1,23 @@
 package com.otilm.core.messaging.scheduler;
 
 import com.otilm.core.util.OAuth2Util;
-import org.slf4j.MarkerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import jakarta.annotation.PostConstruct;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.convert.support.GenericConversionService;
-import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
-import org.springframework.stereotype.Component;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.Instant;
+import javax.sql.DataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MarkerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.convert.support.GenericConversionService;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.session.jdbc.JdbcIndexedSessionRepository;
+import org.springframework.stereotype.Component;
 
 @Component
 public class SessionExpirationPublisher {
@@ -45,9 +43,8 @@ public class SessionExpirationPublisher {
     }
 
     @Autowired
-    public SessionExpirationPublisher(JdbcIndexedSessionRepository sessionRepository,
-                                      DataSource dataSource,
-                                      @Qualifier("springSessionConversionService") GenericConversionService conversionService) {
+    public SessionExpirationPublisher(JdbcIndexedSessionRepository sessionRepository, DataSource dataSource,
+            @Qualifier("springSessionConversionService") GenericConversionService conversionService) {
         this.sessionRepository = sessionRepository;
         this.dataSource = dataSource;
         this.conversionService = conversionService;
@@ -64,8 +61,7 @@ public class SessionExpirationPublisher {
                   AND a.ATTRIBUTE_NAME = ?
                 WHERE s.EXPIRY_TIME < ?
                 """, tableName, tableName);
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, "SPRING_SECURITY_CONTEXT");
             ps.setLong(2, now);
             ResultSet rs = ps.executeQuery();
@@ -73,7 +69,9 @@ public class SessionExpirationPublisher {
                 processExpiredSession(rs);
             }
         } catch (Exception e) {
-            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION), "Failed to process expired sessions: {}", e.getMessage(), e);
+            logger
+                    .error(MarkerFactory.getMarker(EXPIRED_SESSION), "Failed to process expired sessions: {}",
+                            e.getMessage(), e);
         }
     }
 
@@ -86,30 +84,32 @@ public class SessionExpirationPublisher {
             if (attributeBytes != null) {
                 securityContext = getSecurityContext(attributeBytes, securityContext, sessionId);
             }
-            logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION),
-                    "Processing expired session ID: {}", sessionId);
+            logger.debug(MarkerFactory.getMarker(EXPIRED_SESSION), "Processing expired session ID: {}", sessionId);
             OAuth2Util.endUserSession(securityContext);
             sessionRepository.deleteById(sessionId);
         } catch (Exception ex) {
-            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION),
-                    "Failed to process expired session {}: {}",
-                    sessionId, ex.getMessage(), ex);
+            logger
+                    .error(MarkerFactory.getMarker(EXPIRED_SESSION), "Failed to process expired session {}: {}",
+                            sessionId, ex.getMessage(), ex);
         }
     }
 
-    private SecurityContext getSecurityContext(byte[] attributeBytes, SecurityContext securityContext, String sessionId) {
+    private SecurityContext getSecurityContext(byte[] attributeBytes, SecurityContext securityContext,
+            String sessionId) {
         try {
             Object obj = conversionService.convert(attributeBytes, Object.class);
             if (obj instanceof SecurityContext sc) {
                 securityContext = sc;
             } else {
-                logger.error(MarkerFactory.getMarker(EXPIRED_SESSION),
-                        "Deserialized object is not a SecurityContext for session {}.", sessionId);
+                logger
+                        .error(MarkerFactory.getMarker(EXPIRED_SESSION),
+                                "Deserialized object is not a SecurityContext for session {}.", sessionId);
             }
         } catch (Exception ex) {
-            logger.error(MarkerFactory.getMarker(EXPIRED_SESSION),
-                    "Failed to deserialize SPRING_SECURITY_CONTEXT for session {}: {}",
-                    sessionId, ex.getMessage(), ex);
+            logger
+                    .error(MarkerFactory.getMarker(EXPIRED_SESSION),
+                            "Failed to deserialize SPRING_SECURITY_CONTEXT for session {}: {}", sessionId,
+                            ex.getMessage(), ex);
         }
         return securityContext;
     }

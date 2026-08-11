@@ -8,6 +8,15 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.otilm.core.attribute.EcdsaSignatureAttributes;
 import com.otilm.core.attribute.RsaSignatureAttributes;
+import java.io.IOException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.Security;
+import java.security.spec.AlgorithmParameterSpec;
+import java.util.Base64;
+import java.util.List;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
@@ -20,13 +29,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-import java.io.IOException;
-import java.security.*;
-import java.security.spec.AlgorithmParameterSpec;
-import java.util.Base64;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CryptographyUtilTest {
 
@@ -46,10 +53,9 @@ class CryptographyUtilTest {
     @EnumSource(DigestAlgorithm.class)
     void resolveRsaPkcs1AlgorithmName(DigestAlgorithm digest) {
         // given
-        List<RequestAttributeV2> attrs = List.of(
-                RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                RsaSignatureAttributes.buildRequestDigest(digest)
-        );
+        List<RequestAttributeV2> attrs = List
+                .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                        RsaSignatureAttributes.buildRequestDigest(digest));
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.RSA, null, attrs);
@@ -63,10 +69,9 @@ class CryptographyUtilTest {
     @EnumSource(DigestAlgorithm.class)
     void resolveRsaPssAlgorithmName(DigestAlgorithm digest) {
         // given
-        List<RequestAttributeV2> attrs = List.of(
-                RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
-                RsaSignatureAttributes.buildRequestDigest(digest)
-        );
+        List<RequestAttributeV2> attrs = List
+                .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
+                        RsaSignatureAttributes.buildRequestDigest(digest));
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.RSA, null, attrs);
@@ -78,10 +83,9 @@ class CryptographyUtilTest {
     @Test
     void resolveRsaSha256Pkcs1AlgorithmName() {
         // given
-        List<RequestAttributeV2> attrs = List.of(
-                RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256)
-        );
+        List<RequestAttributeV2> attrs = List
+                .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256));
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.RSA, null, attrs);
@@ -93,10 +97,9 @@ class CryptographyUtilTest {
     @Test
     void resolveRsaSha256PssAlgorithmName() {
         // given
-        List<RequestAttributeV2> attrs = List.of(
-                RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
-                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256)
-        );
+        List<RequestAttributeV2> attrs = List
+                .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
+                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256));
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.RSA, null, attrs);
@@ -111,9 +114,7 @@ class CryptographyUtilTest {
     @EnumSource(DigestAlgorithm.class)
     void resolveEcdsaAlgorithmName(DigestAlgorithm digest) {
         // given
-        List<RequestAttributeV2> attrs = List.of(
-                EcdsaSignatureAttributes.buildRequestDigest(digest)
-        );
+        List<RequestAttributeV2> attrs = List.of(EcdsaSignatureAttributes.buildRequestDigest(digest));
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.ECDSA, null, attrs);
@@ -125,9 +126,7 @@ class CryptographyUtilTest {
     @Test
     void resolveEcdsaSha256AlgorithmName() {
         // given
-        List<RequestAttributeV2> attrs = List.of(
-                EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256)
-        );
+        List<RequestAttributeV2> attrs = List.of(EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256));
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.ECDSA, null, attrs);
@@ -141,7 +140,8 @@ class CryptographyUtilTest {
     @Test
     void resolveFalcon512AlgorithmName() throws Exception {
         // given
-        String publicKey = generatePublicKeyBase64("Falcon", FalconParameterSpec.falcon_512, BouncyCastlePQCProvider.PROVIDER_NAME);
+        String publicKey = generatePublicKeyBase64("Falcon", FalconParameterSpec.falcon_512,
+                BouncyCastlePQCProvider.PROVIDER_NAME);
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.FALCON, publicKey, List.of());
@@ -153,7 +153,8 @@ class CryptographyUtilTest {
     @Test
     void resolveFalcon1024AlgorithmName() throws Exception {
         // given
-        String publicKey = generatePublicKeyBase64("Falcon", FalconParameterSpec.falcon_1024, BouncyCastlePQCProvider.PROVIDER_NAME);
+        String publicKey = generatePublicKeyBase64("Falcon", FalconParameterSpec.falcon_1024,
+                BouncyCastlePQCProvider.PROVIDER_NAME);
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.FALCON, publicKey, List.of());
@@ -175,7 +176,8 @@ class CryptographyUtilTest {
     @Test
     void resolveFalconThrowsWhenSpkiAlgorithmOidDoesNotMatch() throws Exception {
         // given — valid SPKI structure but ML-DSA key content handed to FALCON resolver
-        String mlDsaKey = generatePublicKeyBase64("ML-DSA", MLDSAParameterSpec.ml_dsa_44, BouncyCastleProvider.PROVIDER_NAME);
+        String mlDsaKey = generatePublicKeyBase64("ML-DSA", MLDSAParameterSpec.ml_dsa_44,
+                BouncyCastleProvider.PROVIDER_NAME);
 
         // when + then
         assertThrows(ValidationException.class,
@@ -187,7 +189,8 @@ class CryptographyUtilTest {
     @Test
     void resolveMlDsa44AlgorithmName() throws Exception {
         // given
-        String publicKey = generatePublicKeyBase64("ML-DSA", MLDSAParameterSpec.ml_dsa_44, BouncyCastleProvider.PROVIDER_NAME);
+        String publicKey = generatePublicKeyBase64("ML-DSA", MLDSAParameterSpec.ml_dsa_44,
+                BouncyCastleProvider.PROVIDER_NAME);
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.MLDSA, publicKey, List.of());
@@ -199,7 +202,8 @@ class CryptographyUtilTest {
     @Test
     void resolveMlDsa65AlgorithmName() throws Exception {
         // given
-        String publicKey = generatePublicKeyBase64("ML-DSA", MLDSAParameterSpec.ml_dsa_65, BouncyCastleProvider.PROVIDER_NAME);
+        String publicKey = generatePublicKeyBase64("ML-DSA", MLDSAParameterSpec.ml_dsa_65,
+                BouncyCastleProvider.PROVIDER_NAME);
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.MLDSA, publicKey, List.of());
@@ -221,7 +225,8 @@ class CryptographyUtilTest {
     @Test
     void resolveMlDsaThrowsWhenSpkiAlgorithmOidDoesNotMatch() throws Exception {
         // given — valid SPKI structure but SLH-DSA key content handed to ML-DSA resolver
-        String slhDsaKey = generatePublicKeyBase64("SLH-DSA", SLHDSAParameterSpec.slh_dsa_shake_128s, BouncyCastleProvider.PROVIDER_NAME);
+        String slhDsaKey = generatePublicKeyBase64("SLH-DSA", SLHDSAParameterSpec.slh_dsa_shake_128s,
+                BouncyCastleProvider.PROVIDER_NAME);
 
         // when + then
         assertThrows(ValidationException.class,
@@ -231,7 +236,8 @@ class CryptographyUtilTest {
     @Test
     void resolveMlDsaThrowsWhenKeyPayloadIsCorrupted() throws Exception {
         // given — correct ML-DSA OID but zeroed payload; BCMLDSAPublicKey validates key length and throws
-        String corruptKey = buildSpkiWithGarbagePayload("ML-DSA", MLDSAParameterSpec.ml_dsa_44, BouncyCastleProvider.PROVIDER_NAME);
+        String corruptKey = buildSpkiWithGarbagePayload("ML-DSA", MLDSAParameterSpec.ml_dsa_44,
+                BouncyCastleProvider.PROVIDER_NAME);
 
         // when + then
         assertThrows(ValidationException.class,
@@ -243,7 +249,8 @@ class CryptographyUtilTest {
     @Test
     void resolveSlhDsaShake128sAlgorithmName() throws Exception {
         // given
-        String publicKey = generatePublicKeyBase64("SLH-DSA", SLHDSAParameterSpec.slh_dsa_shake_128s, BouncyCastleProvider.PROVIDER_NAME);
+        String publicKey = generatePublicKeyBase64("SLH-DSA", SLHDSAParameterSpec.slh_dsa_shake_128s,
+                BouncyCastleProvider.PROVIDER_NAME);
 
         // when
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.SLHDSA, publicKey, List.of());
@@ -265,7 +272,8 @@ class CryptographyUtilTest {
     @Test
     void resolveSlhDsaThrowsWhenSpkiAlgorithmOidDoesNotMatch() throws Exception {
         // given — valid SPKI structure but Falcon key content handed to SLH-DSA resolver
-        String falconKey = generatePublicKeyBase64("Falcon", FalconParameterSpec.falcon_512, BouncyCastlePQCProvider.PROVIDER_NAME);
+        String falconKey = generatePublicKeyBase64("Falcon", FalconParameterSpec.falcon_512,
+                BouncyCastlePQCProvider.PROVIDER_NAME);
 
         // when + then
         assertThrows(ValidationException.class,
@@ -289,10 +297,9 @@ class CryptographyUtilTest {
     @Test
     void resolveWithPrecomputedSpec_rsa_resolvesFromAttributes_ignoringSpec() {
         // given
-        List<RequestAttributeV2> attrs = List.of(
-                RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256)
-        );
+        List<RequestAttributeV2> attrs = List
+                .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256));
 
         // when — the precomputed PQC spec is irrelevant for classical algorithms
         String result = CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.RSA, attrs, "ignored-spec");
@@ -318,10 +325,12 @@ class CryptographyUtilTest {
         // given / when / then — for FALCON / ML-DSA / SLH-DSA the precomputed parameter-spec name is returned as-is
         assertEquals("FALCON-512",
                 CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.FALCON, List.of(), "FALCON-512"));
-        assertEquals(MLDSAParameterSpec.ml_dsa_65.getName(),
-                CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.MLDSA, List.of(), MLDSAParameterSpec.ml_dsa_65.getName()));
+        assertEquals(MLDSAParameterSpec.ml_dsa_65.getName(), CryptographyUtil
+                .resolveSignatureAlgorithmName(KeyAlgorithm.MLDSA, List.of(), MLDSAParameterSpec.ml_dsa_65.getName()));
         assertEquals(SLHDSAParameterSpec.slh_dsa_shake_128s.getName(),
-                CryptographyUtil.resolveSignatureAlgorithmName(KeyAlgorithm.SLHDSA, List.of(), SLHDSAParameterSpec.slh_dsa_shake_128s.getName()));
+                CryptographyUtil
+                        .resolveSignatureAlgorithmName(KeyAlgorithm.SLHDSA, List.of(),
+                                SLHDSAParameterSpec.slh_dsa_shake_128s.getName()));
     }
 
     @Test
@@ -335,10 +344,9 @@ class CryptographyUtilTest {
     @Test
     void prepareSignatureAlgorithmRsaSha256Pkcs1() {
         // given
-        List<RequestAttribute> attrs = List.of(
-                RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
-                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256)
-        );
+        List<RequestAttribute> attrs = List
+                .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
+                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256));
 
         // when
         AlgorithmIdentifier algId = CryptographyUtil.prepareSignatureAlgorithm(KeyAlgorithm.RSA, null, attrs);
@@ -351,10 +359,9 @@ class CryptographyUtilTest {
     @Test
     void prepareSignatureAlgorithmRsaSha512Pss() {
         // given
-        List<RequestAttribute> attrs = List.of(
-                RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
-                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512)
-        );
+        List<RequestAttribute> attrs = List
+                .of(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PSS),
+                        RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512));
 
         // when
         AlgorithmIdentifier algId = CryptographyUtil.prepareSignatureAlgorithm(KeyAlgorithm.RSA, null, attrs);
@@ -367,9 +374,7 @@ class CryptographyUtilTest {
     @Test
     void prepareSignatureAlgorithmEcdsaSha384() {
         // given
-        List<RequestAttribute> attrs = List.of(
-                EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_384)
-        );
+        List<RequestAttribute> attrs = List.of(EcdsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_384));
 
         // when
         AlgorithmIdentifier algId = CryptographyUtil.prepareSignatureAlgorithm(KeyAlgorithm.ECDSA, null, attrs);
@@ -398,20 +403,25 @@ class CryptographyUtilTest {
 
     @Test
     void resolvePqcSpecNameFalcon1024() throws Exception {
-        String publicKey = generatePublicKeyBase64("Falcon", FalconParameterSpec.falcon_1024, BouncyCastlePQCProvider.PROVIDER_NAME);
+        String publicKey = generatePublicKeyBase64("Falcon", FalconParameterSpec.falcon_1024,
+                BouncyCastlePQCProvider.PROVIDER_NAME);
         assertEquals("FALCON-1024", CryptographyUtil.resolvePqcParameterSpecName(KeyAlgorithm.FALCON, publicKey));
     }
 
     @Test
     void resolvePqcSpecNameMlDsa44() throws Exception {
-        String publicKey = generatePublicKeyBase64("ML-DSA", MLDSAParameterSpec.ml_dsa_44, BouncyCastleProvider.PROVIDER_NAME);
-        assertEquals(MLDSAParameterSpec.ml_dsa_44.getName(), CryptographyUtil.resolvePqcParameterSpecName(KeyAlgorithm.MLDSA, publicKey));
+        String publicKey = generatePublicKeyBase64("ML-DSA", MLDSAParameterSpec.ml_dsa_44,
+                BouncyCastleProvider.PROVIDER_NAME);
+        assertEquals(MLDSAParameterSpec.ml_dsa_44.getName(),
+                CryptographyUtil.resolvePqcParameterSpecName(KeyAlgorithm.MLDSA, publicKey));
     }
 
     @Test
     void resolvePqcSpecNameSlhDsa() throws Exception {
-        String publicKey = generatePublicKeyBase64("SLH-DSA", SLHDSAParameterSpec.slh_dsa_shake_128s, BouncyCastleProvider.PROVIDER_NAME);
-        assertEquals(SLHDSAParameterSpec.slh_dsa_shake_128s.getName(), CryptographyUtil.resolvePqcParameterSpecName(KeyAlgorithm.SLHDSA, publicKey));
+        String publicKey = generatePublicKeyBase64("SLH-DSA", SLHDSAParameterSpec.slh_dsa_shake_128s,
+                BouncyCastleProvider.PROVIDER_NAME);
+        assertEquals(SLHDSAParameterSpec.slh_dsa_shake_128s.getName(),
+                CryptographyUtil.resolvePqcParameterSpecName(KeyAlgorithm.SLHDSA, publicKey));
     }
 
     @Test
@@ -434,7 +444,8 @@ class CryptographyUtilTest {
             throws NoSuchAlgorithmException, NoSuchProviderException, InvalidAlgorithmParameterException, IOException {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance(keyAlgorithm, provider);
         kpg.initialize(spec);
-        SubjectPublicKeyInfo realSpki = SubjectPublicKeyInfo.getInstance(kpg.generateKeyPair().getPublic().getEncoded());
+        SubjectPublicKeyInfo realSpki = SubjectPublicKeyInfo
+                .getInstance(kpg.generateKeyPair().getPublic().getEncoded());
         SubjectPublicKeyInfo corruptSpki = new SubjectPublicKeyInfo(realSpki.getAlgorithm(), new byte[32]);
         return Base64.getEncoder().encodeToString(corruptSpki.getEncoded());
     }

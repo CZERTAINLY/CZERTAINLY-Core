@@ -1,20 +1,36 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.location.CertificateInLocationDto;
 import com.otilm.api.model.core.location.LocationDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -22,7 +38,11 @@ import java.util.*;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "location")
-public class Location extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<LocationDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+public class Location extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<LocationDto>,
+            ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Serial
     private static final long serialVersionUID = -5260518684354195007L;
@@ -48,11 +68,8 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
     @Column(name = "enabled")
     private Boolean enabled;
 
-    @OneToMany(
-            mappedBy = "location",
-            cascade = CascadeType.ALL,
-            fetch = FetchType.LAZY
-            //orphanRemoval = true
+    @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, fetch = FetchType.LAZY
+    // orphanRemoval = true
     )
     @JsonManagedReference
     @ToString.Exclude
@@ -66,8 +83,11 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     public void setEntityInstanceReference(EntityInstanceReference entityInstanceReference) {
         this.entityInstanceReference = entityInstanceReference;
-        if (entityInstanceReference != null) this.entityInstanceReferenceUuid = entityInstanceReference.getUuid();
-        else this.entityInstanceReferenceUuid = null;
+        if (entityInstanceReference != null) {
+            this.entityInstanceReferenceUuid = entityInstanceReference.getUuid();
+        } else {
+            this.entityInstanceReferenceUuid = null;
+        }
     }
 
     @Override
@@ -77,14 +97,19 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
-        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
+        dto
+                .setEntityInstanceUuid(
+                        entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
         dto.setEntityInstanceName(this.entityInstanceName);
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
         dto.setSupportKeyManagement(supportKeyManagement);
         List<CertificateInLocationDto> cilDtoList = new ArrayList<>();
 
-        List<CertificateLocation> orderedList = certificates.stream().sorted(Comparator.comparing(CertificateLocation::getCreated).reversed()).toList();
+        List<CertificateLocation> orderedList = certificates
+                .stream()
+                .sorted(Comparator.comparing(CertificateLocation::getCreated).reversed())
+                .toList();
         for (CertificateLocation certificateLocation : orderedList) {
             CertificateInLocationDto cilDto = new CertificateInLocationDto();
             cilDto.setCommonName(certificateLocation.getCertificate().getCommonName());
@@ -93,8 +118,12 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
             cilDto.setState(certificateLocation.getCertificate().getState());
             cilDto.setValidationStatus(certificateLocation.getCertificate().getValidationStatus());
             cilDto.setWithKey(certificateLocation.isWithKey());
-            cilDto.setPushAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getPushAttributes()));
-            cilDto.setCsrAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getCsrAttributes()));
+            cilDto
+                    .setPushAttributes(AttributeEngine
+                            .getResponseAttributesFromBaseAttributes(certificateLocation.getPushAttributes()));
+            cilDto
+                    .setCsrAttributes(AttributeEngine
+                            .getResponseAttributesFromBaseAttributes(certificateLocation.getCsrAttributes()));
 
             cilDtoList.add(cilDto);
         }
@@ -113,12 +142,14 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
-        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
+        dto
+                .setEntityInstanceUuid(
+                        entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
         dto.setEntityInstanceName(this.entityInstanceName);
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
         dto.setSupportKeyManagement(supportKeyManagement);
-        //TODO - Create a new DTO for the list location operation. Has to be done when creating the objects for other
+        // TODO - Create a new DTO for the list location operation. Has to be done when creating the objects for other
         // similar operation
         dto.setCertificates(List.of());
         return dto;
@@ -126,17 +157,29 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         Location location = (Location) o;
         return getUuid() != null && Objects.equals(getUuid(), location.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

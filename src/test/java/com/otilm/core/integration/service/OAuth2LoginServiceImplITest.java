@@ -10,6 +10,9 @@ import com.otilm.core.service.AuditLogExternalService;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.service.impl.OAuth2LoginServiceImpl;
 import com.otilm.core.settings.SettingsCache;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,10 +21,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
@@ -156,12 +155,14 @@ class OAuth2LoginServiceImplITest {
 
     @Test
     void testResolveProviderOrThrow_UnknownProviderAuditsAndThrows() {
-        PlatformAuthenticationException exception = Assertions.assertThrows(PlatformAuthenticationException.class,
-                () -> service.resolveProviderOrThrow("unknown", "session-access-token"));
+        PlatformAuthenticationException exception = Assertions
+                .assertThrows(PlatformAuthenticationException.class,
+                        () -> service.resolveProviderOrThrow("unknown", "session-access-token"));
 
         Assertions.assertTrue(exception.getMessage().contains("Unknown OAuth2 Provider"));
-        verify(auditLogService, times(1)).logAuthentication(
-                eq(Operation.LOGIN), eq(OperationResult.FAILURE), contains("Unknown OAuth2 Provider"), eq("session-access-token"));
+        verify(auditLogService, times(1))
+                .logAuthentication(eq(Operation.LOGIN), eq(OperationResult.FAILURE),
+                        contains("Unknown OAuth2 Provider"), eq("session-access-token"));
     }
 
     @Test
@@ -174,12 +175,14 @@ class OAuth2LoginServiceImplITest {
 
     @Test
     void testValidateRedirectOrThrow_InvalidAuditsAndThrows() {
-        PlatformAuthenticationException exception = Assertions.assertThrows(PlatformAuthenticationException.class,
-                () -> service.validateRedirectOrThrow("//malicious.com"));
+        PlatformAuthenticationException exception = Assertions
+                .assertThrows(PlatformAuthenticationException.class,
+                        () -> service.validateRedirectOrThrow("//malicious.com"));
 
         Assertions.assertTrue(exception.getMessage().contains("redirect URL"));
-        verify(auditLogService, times(1)).logAuthentication(
-                eq(Operation.LOGIN), eq(OperationResult.FAILURE), contains("redirect URL"), isNull());
+        verify(auditLogService, times(1))
+                .logAuthentication(eq(Operation.LOGIN), eq(OperationResult.FAILURE), contains("redirect URL"),
+                        isNull());
     }
 
     @ParameterizedTest
@@ -203,8 +206,8 @@ class OAuth2LoginServiceImplITest {
     }
 
     /**
-     * Exercises the private provider-validation logic through the public surface:
-     * a provider is valid exactly when {@link OAuth2LoginServiceImpl#getValidOAuth2Providers()} returns it.
+     * Exercises the private provider-validation logic through the public surface: a provider is valid exactly when
+     * {@link OAuth2LoginServiceImpl#getValidOAuth2Providers()} returns it.
      */
     private boolean isConsideredValid(OAuth2ProviderSettingsDto provider) {
         cacheProviders(Map.of(provider.getName(), provider));

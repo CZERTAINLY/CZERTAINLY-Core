@@ -7,14 +7,13 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.core.attribute.engine.ConnectorRequestAttributesBuilder;
 import com.otilm.core.util.AuthHelper;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -62,7 +61,8 @@ class OperationAttributeResolverTest {
         UUID connectorUuid = UUID.randomUUID();
         List<RequestAttribute> stored = List.of(referenceAttribute());
         List<RequestAttribute> resolved = List.of(mock(RequestAttribute.class));
-        when(connectorRequestAttributesBuilder.dereferenceForConnectorRequest(connectorUuid, stored)).thenReturn(resolved);
+        when(connectorRequestAttributesBuilder.dereferenceForConnectorRequest(connectorUuid, stored))
+                .thenReturn(resolved);
 
         List<RequestAttribute> out = resolver.resolveForConnectorRequestAsSystem(connectorUuid, stored);
 
@@ -97,7 +97,8 @@ class OperationAttributeResolverTest {
 
         ConnectorException thrown = assertThrows(ConnectorException.class,
                 () -> resolver.resolveForConnectorRequestAsSystem(connectorUuid, stored));
-        assertSame(original, thrown, "a ConnectorException from the deref must propagate unwrapped, not double-wrapped");
+        assertSame(original, thrown,
+                "a ConnectorException from the deref must propagate unwrapped, not double-wrapped");
     }
 
     @Test

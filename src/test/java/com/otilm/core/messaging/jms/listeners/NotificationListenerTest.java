@@ -7,10 +7,10 @@ import com.otilm.api.model.common.events.data.CertificateRegisteredEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.other.ResourceEvent;
-import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
-import com.otilm.core.dao.entity.notifications.NotificationProfileVersion;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.client.ConnectorApiFactory;
+import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
+import com.otilm.core.dao.entity.notifications.NotificationProfileVersion;
 import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.otilm.core.dao.repository.notifications.NotificationProfileVersionRepository;
@@ -23,16 +23,15 @@ import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.TriggerInternalService;
-import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.service.notifications.NotificationObjectDataService;
+import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.service.writer.PendingNotificationWriter;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,24 +52,15 @@ class NotificationListenerTest {
 
     private NotificationListener listener() {
         ObjectMapper realMapper = JsonMapper.builder().findAndAddModules().build();
-        return new NotificationListener(
-                realMapper,
-                mock(AttributeEngine.class),
-                notificationService,
-                mock(TriggerInternalService.class),
-                mock(ConnectorApiFactory.class),
-                mock(ConnectorInternalService.class),
-                mock(PendingNotificationRepository.class),
-                mock(NotificationProfileVersionRepository.class),
-                mock(NotificationInstanceReferenceRepository.class),
-                mock(GroupRepository.class),
-                mock(UserManagementApiClient.class),
-                mock(RoleManagementApiClient.class),
+        return new NotificationListener(realMapper, mock(AttributeEngine.class), notificationService,
+                mock(TriggerInternalService.class), mock(ConnectorApiFactory.class),
+                mock(ConnectorInternalService.class), mock(PendingNotificationRepository.class),
+                mock(NotificationProfileVersionRepository.class), mock(NotificationInstanceReferenceRepository.class),
+                mock(GroupRepository.class), mock(UserManagementApiClient.class), mock(RoleManagementApiClient.class),
                 mock(ResourceObjectAssociationService.class),
                 // The real handler, invoked directly rather than through its proxy, runs the work without a
                 // transaction -- which is what this unencumbered unit context wants.
-                new TransactionHandler(),
-                mock(PendingNotificationWriter.class),
+                new TransactionHandler(), mock(PendingNotificationWriter.class),
                 mock(NotificationObjectDataService.class));
     }
 
@@ -84,16 +74,17 @@ class NotificationListenerTest {
         data.setCredential("s3cret-challenge-value");
 
         // Default internal path: profileUuids == null, an owner USER recipient.
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_REGISTERED, Resource.CERTIFICATE, certUuid, null,
-                List.of(new NotificationRecipient(RecipientType.USER, ownerUuid)), data);
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_REGISTERED,
+                Resource.CERTIFICATE, certUuid, null, List.of(new NotificationRecipient(RecipientType.USER, ownerUuid)),
+                data);
 
         listener().processMessage(message);
 
         ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> detail = ArgumentCaptor.forClass(String.class);
-        verify(notificationService).createNotificationForUser(text.capture(), detail.capture(),
-                eq(ownerUuid.toString()), eq(Resource.CERTIFICATE), eq(certUuid.toString()));
+        verify(notificationService)
+                .createNotificationForUser(text.capture(), detail.capture(), eq(ownerUuid.toString()),
+                        eq(Resource.CERTIFICATE), eq(certUuid.toString()));
 
         assertTrue(text.getValue().contains("CN=device-7"), "the internal notification names the certificate");
         assertFalse((text.getValue() + detail.getValue()).contains("s3cret-challenge-value"),
@@ -124,9 +115,12 @@ class NotificationListenerTest {
         instanceRef.setMappedAttributes(List.of());
 
         NotificationProfileVersionRepository versionRepository = mock(NotificationProfileVersionRepository.class);
-        when(versionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(profileUuid)).thenReturn(Optional.of(version));
-        NotificationInstanceReferenceRepository instanceRefRepository = mock(NotificationInstanceReferenceRepository.class);
-        when(instanceRefRepository.findWithMappedAttributesByUuid(instanceRefUuid)).thenReturn(Optional.of(instanceRef));
+        when(versionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(profileUuid))
+                .thenReturn(Optional.of(version));
+        NotificationInstanceReferenceRepository instanceRefRepository = mock(
+                NotificationInstanceReferenceRepository.class);
+        when(instanceRefRepository.findWithMappedAttributesByUuid(instanceRefUuid))
+                .thenReturn(Optional.of(instanceRef));
 
         ConnectorInternalService connectorService = mock(ConnectorInternalService.class);
         NotificationInstanceSyncApiClient apiClient = mock(NotificationInstanceSyncApiClient.class);
@@ -135,37 +129,27 @@ class NotificationListenerTest {
         when(connectorApiFactory.getNotificationInstanceApiClient(any())).thenReturn(apiClient);
 
         PendingNotificationWriter failingWriter = mock(PendingNotificationWriter.class);
-        doThrow(new RuntimeException("suppression store unavailable")).when(failingWriter)
+        doThrow(new RuntimeException("suppression store unavailable"))
+                .when(failingWriter)
                 .recordSent(any(), any(), any(), any(), anyInt());
         TriggerInternalService triggerService = mock(TriggerInternalService.class);
 
-        NotificationListener listener = new NotificationListener(
-                JsonMapper.builder().findAndAddModules().build(),
-                mock(AttributeEngine.class),
-                notificationService,
-                triggerService,
-                connectorApiFactory,
-                connectorService,
-                mock(PendingNotificationRepository.class),
-                versionRepository,
-                instanceRefRepository,
-                mock(GroupRepository.class),
-                mock(UserManagementApiClient.class),
-                mock(RoleManagementApiClient.class),
-                mock(ResourceObjectAssociationService.class),
-                new TransactionHandler(),
-                failingWriter,
+        NotificationListener listener = new NotificationListener(JsonMapper.builder().findAndAddModules().build(),
+                mock(AttributeEngine.class), notificationService, triggerService, connectorApiFactory, connectorService,
+                mock(PendingNotificationRepository.class), versionRepository, instanceRefRepository,
+                mock(GroupRepository.class), mock(UserManagementApiClient.class), mock(RoleManagementApiClient.class),
+                mock(ResourceObjectAssociationService.class), new TransactionHandler(), failingWriter,
                 mock(NotificationObjectDataService.class));
 
-        NotificationMessage message = new NotificationMessage(
-                ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, UUID.randomUUID(),
-                List.of(profileUuid), List.of(), null,
-                UUID.randomUUID(), null);
+        NotificationMessage message = new NotificationMessage(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE,
+                UUID.randomUUID(), List.of(profileUuid), List.of(), null, UUID.randomUUID(), null);
 
         assertDoesNotThrow(() -> listener.processMessage(message));
 
         verify(apiClient).sendNotification(any(), any(), any());
-        verify(failingWriter).recordSent(eq(profileUuid), eq(Resource.CERTIFICATE), any(), eq(ResourceEvent.CERTIFICATE_EXPIRING), eq(1));
+        verify(failingWriter)
+                .recordSent(eq(profileUuid), eq(Resource.CERTIFICATE), any(), eq(ResourceEvent.CERTIFICATE_EXPIRING),
+                        eq(1));
         // The failed suppression write is not a delivery failure: trigger history stays untouched.
         verifyNoInteractions(triggerService);
     }
@@ -184,7 +168,8 @@ class NotificationListenerTest {
         UUID first = UUID.randomUUID();
         UUID second = UUID.randomUUID();
 
-        List<NotificationRecipient> mapped = NotificationListener.explicitRecipients(RecipientType.ROLE, List.of(first, second));
+        List<NotificationRecipient> mapped = NotificationListener
+                .explicitRecipients(RecipientType.ROLE, List.of(first, second));
 
         assertEquals(2, mapped.size());
         assertEquals(RecipientType.ROLE, mapped.get(0).getRecipientType());

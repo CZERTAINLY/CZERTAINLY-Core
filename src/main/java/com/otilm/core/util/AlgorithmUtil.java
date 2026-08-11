@@ -1,19 +1,19 @@
 package com.otilm.core.util;
 
 import com.otilm.api.exception.ValidationException;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AlgorithmUtil {
 
     private static final Logger logger = LoggerFactory.getLogger(AlgorithmUtil.class);
 
-    public static String getSignatureAlgorithmName(String digestAlgorithmOID, String privateKeyAlgorithm) throws NoSuchAlgorithmException {
+    public static String getSignatureAlgorithmName(String digestAlgorithmOID, String privateKeyAlgorithm)
+            throws NoSuchAlgorithmException {
         // Map digest algorithm OID to digest algorithm name
         String digestAlgorithm = getDigestAlgorithm(digestAlgorithmOID);
         // Determine signature algorithm name based on private key algorithm and digest algorithm
@@ -32,10 +32,9 @@ public class AlgorithmUtil {
     public static String getDigestAlgorithm(String digestAlgorithmOID) throws NoSuchAlgorithmException {
         // Try to identify the digest algorithm from the bouncy castle provider
         try {
-            MessageDigest md = MessageDigest.getInstance(
-                    digestAlgorithmOID, BouncyCastleProvider.PROVIDER_NAME);
+            MessageDigest md = MessageDigest.getInstance(digestAlgorithmOID, BouncyCastleProvider.PROVIDER_NAME);
             String digestAlgorithmName = md.getAlgorithm();
-            if(!List.of("SHA-1", "SHA-256", "SHA-384", "SHA-512", "MD5").contains(digestAlgorithmName)) {
+            if (!List.of("SHA-1", "SHA-256", "SHA-384", "SHA-512", "MD5").contains(digestAlgorithmName)) {
                 throw new ValidationException("Unsupported digest algorithm");
             }
             return digestAlgorithmName;
@@ -52,9 +51,9 @@ public class AlgorithmUtil {
             return "SHA-384";
         } else if (digestAlgorithmOID.equals("2.16.840.1.101.3.4.2.3")) { // SHA512 OID
             return "SHA-512";
-        } else if(digestAlgorithmOID.equals("1.2.840.10045.4.3.2")) {
+        } else if (digestAlgorithmOID.equals("1.2.840.10045.4.3.2")) {
             return "SHA256";
-        } else if(digestAlgorithmOID.equals("1.2.840.10045.4.3.3")) {
+        } else if (digestAlgorithmOID.equals("1.2.840.10045.4.3.3")) {
             return "SHA384";
         } else if (digestAlgorithmOID.equals("1.2.840.10045.4.3.4")) {
             return "SHA512";

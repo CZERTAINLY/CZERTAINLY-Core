@@ -21,8 +21,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * Unit tests for {@link ProtocolValidationFilter} — the global protocol gate is deny-by-default over
- * {@code /{context}/v*\/protocols/**}. TSP requests are authenticated by the dedicated TSP security chain,
- * so this filter must pass {@code tsp/} through untouched (no system-user authentication, no 422).
+ * {@code /{context}/v*\/protocols/**}. TSP requests are authenticated by the dedicated TSP security chain, so this
+ * filter must pass {@code tsp/} through untouched (no system-user authentication, no 422).
  */
 @ExtendWith(MockitoExtension.class)
 class ProtocolValidationFilterTest {
@@ -51,7 +51,8 @@ class ProtocolValidationFilterTest {
     @Test
     void passesThrough_whenTspRequest_withoutSystemUserAuthOrRejection() throws Exception {
         // given
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", CONTEXT + "/v1/protocols/tsp/some-profile/sign");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST",
+                CONTEXT + "/v1/protocols/tsp/some-profile/sign");
         request.setContent(new byte[0]);
 
         // when

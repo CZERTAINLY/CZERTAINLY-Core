@@ -1,12 +1,14 @@
 package com.otilm.core.aop;
 
+import com.otilm.api.model.core.logging.Sensitive;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
-import com.otilm.api.model.core.logging.Sensitive;
 import io.opentelemetry.context.Scope;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -14,14 +16,9 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-
 @Aspect
 @Component
-@ConditionalOnExpression(
-        "!${otel.sdk.disabled:true} && '${otel.traces.exporter:none}' != 'none'"
-)
+@ConditionalOnExpression("!${otel.sdk.disabled:true} && '${otel.traces.exporter:none}' != 'none'")
 public class TracingAspect {
 
     private final Tracer tracer;
@@ -43,9 +40,7 @@ public class TracingAspect {
         // Concatenate class name and method name for the span name
         String spanName = className + "." + methodName;
 
-        Span span = tracer.spanBuilder(spanName)
-                .setSpanKind(SpanKind.INTERNAL)
-                .startSpan();
+        Span span = tracer.spanBuilder(spanName).setSpanKind(SpanKind.INTERNAL).startSpan();
 
         // Add class name and method name as span attributes
         span.setAttribute("code.namespace", method.getDeclaringClass().getName());
@@ -70,7 +65,9 @@ public class TracingAspect {
                         continue;
                     }
                     Object paramValue = parameterValues[i];
-                    span.setAttribute("function.param."+paramName, paramValue != null ? paramValue.toString() : "null");
+                    span
+                            .setAttribute("function.param." + paramName,
+                                    paramValue != null ? paramValue.toString() : "null");
                 }
             }
 

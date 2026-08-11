@@ -2,24 +2,30 @@ package com.otilm.core.messaging.proxy.handler;
 
 import com.otilm.api.clients.mq.model.ConnectorResponse;
 import com.otilm.api.clients.mq.model.ProxyMessage;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link MessageTypeHandlerRegistry}.
- * Tests handler registration, exact match, and RabbitMQ topic exchange pattern matching.
+ * Unit tests for {@link MessageTypeHandlerRegistry}. Tests handler registration, exact match, and RabbitMQ topic
+ * exchange pattern matching.
  *
- * <p>Pattern matching follows RabbitMQ topic exchange semantics:</p>
+ * <p>
+ * Pattern matching follows RabbitMQ topic exchange semantics:
+ * </p>
  * <ul>
- *   <li>Segments separated by '.' (dot)</li>
- *   <li>'*' matches exactly one segment</li>
- *   <li>'#' matches zero or more segments</li>
+ * <li>Segments separated by '.' (dot)</li>
+ * <li>'*' matches exactly one segment</li>
+ * <li>'#' matches zero or more segments</li>
  * </ul>
  */
 class MessageTypeHandlerRegistryTest {
@@ -28,11 +34,8 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void init_registersAllHandlers() {
-        List<MessageTypeResponseHandler> handlers = List.of(
-                createHandler("type.a"),
-                createHandler("type.b"),
-                createHandler("type.c")
-        );
+        List<MessageTypeResponseHandler> handlers = List
+                .of(createHandler("type.a"), createHandler("type.b"), createHandler("type.c"));
 
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(handlers);
         registry.init();
@@ -58,11 +61,8 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void init_withBlankMessageType_skipsHandler() {
-        List<MessageTypeResponseHandler> handlers = List.of(
-                createHandler("valid.type"),
-                createHandler(""),
-                createHandler("another.type")
-        );
+        List<MessageTypeResponseHandler> handlers = List
+                .of(createHandler("valid.type"), createHandler(""), createHandler("another.type"));
 
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(handlers);
         registry.init();
@@ -108,8 +108,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void hasHandler_withExactMatch_returnsTrue() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("certificate.issued"))
-        );
+                List.of(createHandler("certificate.issued")));
         registry.init();
 
         assertThat(registry.hasHandler("certificate.issued")).isTrue();
@@ -118,8 +117,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void hasHandler_withNoMatch_returnsFalse() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("certificate.issued"))
-        );
+                List.of(createHandler("certificate.issued")));
         registry.init();
 
         assertThat(registry.hasHandler("certificate.revoked")).isFalse();
@@ -129,8 +127,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void hasHandler_withNullMessageType_returnsFalse() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("certificate.issued"))
-        );
+                List.of(createHandler("certificate.issued")));
         registry.init();
 
         assertThat(registry.hasHandler(null)).isFalse();
@@ -141,8 +138,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void hasHandler_singleWildcard_matchesExactlyOneSegment() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("GET.v1.certificates.*"))
-        );
+                List.of(createHandler("GET.v1.certificates.*")));
         registry.init();
 
         // Should match: exactly one segment after certificates
@@ -159,8 +155,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void hasHandler_singleWildcard_atStart() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("*.v1.certificates"))
-        );
+                List.of(createHandler("*.v1.certificates")));
         registry.init();
 
         assertThat(registry.hasHandler("GET.v1.certificates")).isTrue();
@@ -174,8 +169,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void hasHandler_singleWildcard_inMiddle() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("GET.*.certificates"))
-        );
+                List.of(createHandler("GET.*.certificates")));
         registry.init();
 
         assertThat(registry.hasHandler("GET.v1.certificates")).isTrue();
@@ -188,9 +182,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void hasHandler_multipleStarWildcards() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("*.v1.*.issue"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("*.v1.*.issue")));
         registry.init();
 
         assertThat(registry.hasHandler("POST.v1.certificates.issue")).isTrue();
@@ -205,9 +197,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void hasHandler_hashWildcard_matchesZeroOrMoreSegments() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("GET.v1.#"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("GET.v1.#")));
         registry.init();
 
         // Zero segments after v1
@@ -222,9 +212,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void hasHandler_hashAtEnd_matchesEverythingAfter() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("audit.events.#"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("audit.events.#")));
         registry.init();
 
         assertThat(registry.hasHandler("audit.events")).isTrue();
@@ -238,9 +226,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void hasHandler_hashOnly_matchesEverything() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("#"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("#")));
         registry.init();
 
         // Fanout behavior - matches everything
@@ -253,8 +239,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void hasHandler_hashInMiddle_matchesVariableSegments() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("events.#.completed"))
-        );
+                List.of(createHandler("events.#.completed")));
         registry.init();
 
         // Zero middle segments
@@ -272,9 +257,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void hasHandler_hashAtStart() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("#.completed"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("#.completed")));
         registry.init();
 
         assertThat(registry.hasHandler("completed")).isTrue();
@@ -288,9 +271,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void hasHandler_starAndHashCombined() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("*.events.#"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("*.events.#")));
         registry.init();
 
         assertThat(registry.hasHandler("audit.events")).isTrue();
@@ -304,9 +285,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void hasHandler_hashThenStar() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("#.resource.*"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("#.resource.*")));
         registry.init();
 
         // # matches zero, then resource, then exactly one
@@ -343,8 +322,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void dispatch_withExactMatch_returnsTrue() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("certificate.issued"))
-        );
+                List.of(createHandler("certificate.issued")));
         registry.init();
 
         assertThat(registry.dispatch(createMessage("certificate.issued"))).isTrue();
@@ -385,9 +363,7 @@ class MessageTypeHandlerRegistryTest {
         MessageTypeResponseHandler wildcardHandler = createHandler("GET.v1.certificates.*");
         MessageTypeResponseHandler exactHandler = createHandler("GET.v1.certificates.special");
 
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(wildcardHandler, exactHandler)
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(wildcardHandler, exactHandler));
         registry.init();
 
         ProxyMessage message = createMessage("GET.v1.certificates.special");
@@ -403,9 +379,7 @@ class MessageTypeHandlerRegistryTest {
         MessageTypeResponseHandler generalHandler = createHandler("GET.#");
         MessageTypeResponseHandler specificHandler = createHandler("GET.v1.certificates.*");
 
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(generalHandler, specificHandler)
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(generalHandler, specificHandler));
         registry.init();
 
         ProxyMessage message = createMessage("GET.v1.certificates.123");
@@ -421,9 +395,7 @@ class MessageTypeHandlerRegistryTest {
         MessageTypeResponseHandler wildcardHandler = createHandler("GET.v1.certificates.*");
         MessageTypeResponseHandler literalHandler = createHandler("GET.v1.certificates.special");
 
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(wildcardHandler, literalHandler)
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(wildcardHandler, literalHandler));
         registry.init();
 
         // Message matching both patterns
@@ -440,9 +412,7 @@ class MessageTypeHandlerRegistryTest {
         MessageTypeResponseHandler hashHandler = createHandler("GET.v1.#");
         MessageTypeResponseHandler starHandler = createHandler("GET.v1.*");
 
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(hashHandler, starHandler)
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(hashHandler, starHandler));
         registry.init();
 
         // Message with single segment after v1
@@ -459,9 +429,7 @@ class MessageTypeHandlerRegistryTest {
         MessageTypeResponseHandler shortHandler = createHandler("GET.*");
         MessageTypeResponseHandler longHandler = createHandler("GET.v1.certificates.*");
 
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(shortHandler, longHandler)
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(shortHandler, longHandler));
         registry.init();
 
         ProxyMessage message = createMessage("GET.v1.certificates.issue");
@@ -478,9 +446,7 @@ class MessageTypeHandlerRegistryTest {
         MessageTypeResponseHandler level2 = createHandler("GET.v1.#");
         MessageTypeResponseHandler level3 = createHandler("GET.v1.certificates.#");
 
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(level1, level2, level3)
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(level1, level2, level3));
         registry.init();
 
         // Test different paths - most specific (highest specificity score) should win
@@ -502,8 +468,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void dispatch_withNoMatch_returnsFalse() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("certificate.issued"))
-        );
+                List.of(createHandler("certificate.issued")));
         registry.init();
 
         assertThat(registry.dispatch(createMessage("unknown.type"))).isFalse();
@@ -512,8 +477,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void dispatch_withNullResponse_returnsFalse() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("certificate.issued"))
-        );
+                List.of(createHandler("certificate.issued")));
         registry.init();
 
         assertThat(registry.dispatch(null)).isFalse();
@@ -522,8 +486,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void dispatch_withNullMessageType_returnsFalse() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("certificate.issued"))
-        );
+                List.of(createHandler("certificate.issued")));
         registry.init();
 
         assertThat(registry.dispatch(createMessage(null))).isFalse();
@@ -551,9 +514,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void matches_consecutiveWildcards_workCorrectly() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("*.*.end"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("*.*.end")));
         registry.init();
 
         assertThat(registry.hasHandler("a.b.end")).isTrue();
@@ -566,9 +527,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void matches_emptySegments_handledCorrectly() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("a..b"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("a..b")));
         registry.init();
 
         // Pattern with empty segment
@@ -578,9 +537,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void matches_singleSegmentPattern() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("*"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("*")));
         registry.init();
 
         assertThat(registry.hasHandler("anything")).isTrue();
@@ -589,9 +546,7 @@ class MessageTypeHandlerRegistryTest {
 
     @Test
     void matches_multipleHashPatterns() {
-        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(createHandler("#.middle.#"))
-        );
+        MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(List.of(createHandler("#.middle.#")));
         registry.init();
 
         assertThat(registry.hasHandler("middle")).isTrue();
@@ -608,12 +563,7 @@ class MessageTypeHandlerRegistryTest {
     @Test
     void getHandlerCount_returnsCorrectCount() {
         MessageTypeHandlerRegistry registry = new MessageTypeHandlerRegistry(
-                List.of(
-                        createHandler("type.a"),
-                        createHandler("type.b"),
-                        createHandler("type.c")
-                )
-        );
+                List.of(createHandler("type.a"), createHandler("type.b"), createHandler("type.c")));
         registry.init();
 
         assertThat(registry.getHandlerCount()).isEqualTo(3);
@@ -641,14 +591,13 @@ class MessageTypeHandlerRegistryTest {
     }
 
     private ProxyMessage createMessage(String messageType) {
-        return ProxyMessage.builder()
+        return ProxyMessage
+                .builder()
                 .correlationId("test-corr")
                 .proxyId("test-proxy")
                 .messageType(messageType)
                 .timestamp(Instant.now())
-                .connectorResponse(ConnectorResponse.builder()
-                        .statusCode(200)
-                        .build())
+                .connectorResponse(ConnectorResponse.builder().statusCode(200).build())
                 .build();
     }
 }

@@ -1,5 +1,6 @@
 package com.otilm.core.mapper.notifications;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.client.attribute.ResponseAttributeV2;
 import com.otilm.api.model.client.attribute.ResponseAttributeV3;
 import com.otilm.api.model.client.metadata.MetadataResponseDto;
@@ -16,14 +17,12 @@ import com.otilm.api.model.connector.notification.NotificationEventObjectDataDto
 import com.otilm.api.model.connector.notification.NotificationMetadataGroupDto;
 import com.otilm.api.model.connector.notification.NotificationObjectContentDto;
 import com.otilm.api.model.core.auth.Resource;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.Test;
-
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,10 +40,13 @@ class NotificationObjectDataMapperTest {
 
     @Test
     void scalarTypesContributeRawData() {
-        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper.mapCustomAttributes(List.of(
-                custom(UUID_1, "department", AttributeContentType.STRING, content("E-Commerce")),
-                custom(UUID_2, "port", AttributeContentType.INTEGER, content(443)),
-                custom(UUID_3, "active", AttributeContentType.BOOLEAN, content(Boolean.TRUE))), Set.of());
+        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper
+                .mapCustomAttributes(
+                        List
+                                .of(custom(UUID_1, "department", AttributeContentType.STRING, content("E-Commerce")),
+                                        custom(UUID_2, "port", AttributeContentType.INTEGER, content(443)),
+                                        custom(UUID_3, "active", AttributeContentType.BOOLEAN, content(Boolean.TRUE))),
+                        Set.of());
 
         assertEquals(List.of("E-Commerce"), mapped.get("department").getValues());
         assertEquals(List.of(443), mapped.get("port").getValues());
@@ -55,32 +57,44 @@ class NotificationObjectDataMapperTest {
 
     @Test
     void secretBearingTypesAreUnconditionallyExcluded() {
-        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper.mapCustomAttributes(List.of(
-                custom(UUID_1, "apiKey", AttributeContentType.SECRET, content("s3cret")),
-                custom(UUID_2, "creds", AttributeContentType.CREDENTIAL, content("token")),
-                custom(UUID_3, "plain", AttributeContentType.STRING, content("visible"))), Set.of());
+        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper
+                .mapCustomAttributes(
+                        List
+                                .of(custom(UUID_1, "apiKey", AttributeContentType.SECRET, content("s3cret")),
+                                        custom(UUID_2, "creds", AttributeContentType.CREDENTIAL, content("token")),
+                                        custom(UUID_3, "plain", AttributeContentType.STRING, content("visible"))),
+                        Set.of());
 
         assertEquals(Set.of("plain"), mapped.keySet());
     }
 
     @Test
     void excludedDefinitionsAreFilteredOut() {
-        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper.mapCustomAttributes(List.of(
-                custom(UUID_1, "protected", AttributeContentType.STRING, content("decrypted-secret")),
-                custom(UUID_2, "plain", AttributeContentType.STRING, content("visible"))), Set.of(UUID_1));
+        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper
+                .mapCustomAttributes(List
+                        .of(custom(UUID_1, "protected", AttributeContentType.STRING, content("decrypted-secret")),
+                                custom(UUID_2, "plain", AttributeContentType.STRING, content("visible"))),
+                        Set.of(UUID_1));
 
         assertEquals(Set.of("plain"), mapped.keySet());
     }
 
     @Test
     void complexTypesContributeReferenceOnlyAndReferencelessEntriesAreOmitted() {
-        BaseAttributeContentV3<Serializable> withReference = new BaseAttributeContentV3<>("P1 - 24x7 pager", (Serializable) Map.of("nested", "structure"));
-        BaseAttributeContentV3<Serializable> withoutReference = new BaseAttributeContentV3<>(null, (Serializable) Map.of("other", "structure"));
-        BaseAttributeContentV3<Serializable> blankReference = new BaseAttributeContentV3<>("  ", (Serializable) Map.of("third", "structure"));
+        BaseAttributeContentV3<Serializable> withReference = new BaseAttributeContentV3<>("P1 - 24x7 pager",
+                (Serializable) Map.of("nested", "structure"));
+        BaseAttributeContentV3<Serializable> withoutReference = new BaseAttributeContentV3<>(null,
+                (Serializable) Map.of("other", "structure"));
+        BaseAttributeContentV3<Serializable> blankReference = new BaseAttributeContentV3<>("  ",
+                (Serializable) Map.of("third", "structure"));
 
-        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper.mapCustomAttributes(List.of(
-                customWithContent(UUID_1, "escalation", AttributeContentType.OBJECT, List.of(withReference, withoutReference, blankReference)),
-                customWithContent(UUID_2, "emptyObject", AttributeContentType.OBJECT, List.of(withoutReference))), Set.of());
+        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper
+                .mapCustomAttributes(List
+                        .of(customWithContent(UUID_1, "escalation", AttributeContentType.OBJECT,
+                                List.of(withReference, withoutReference, blankReference)),
+                                customWithContent(UUID_2, "emptyObject", AttributeContentType.OBJECT,
+                                        List.of(withoutReference))),
+                        Set.of());
 
         assertEquals(List.of("P1 - 24x7 pager"), mapped.get("escalation").getValues());
         assertFalse(mapped.containsKey("emptyObject"), "an attribute with no extractable values is omitted");
@@ -88,9 +102,12 @@ class NotificationObjectDataMapperTest {
 
     @Test
     void duplicateCustomNameFirstWinsInUuidOrder() {
-        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper.mapCustomAttributes(List.of(
-                custom(UUID_2, "department", AttributeContentType.STRING, content("second")),
-                custom(UUID_1, "department", AttributeContentType.STRING, content("first"))), Set.of());
+        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper
+                .mapCustomAttributes(
+                        List
+                                .of(custom(UUID_2, "department", AttributeContentType.STRING, content("second")),
+                                        custom(UUID_1, "department", AttributeContentType.STRING, content("first"))),
+                        Set.of());
 
         assertEquals(List.of("first"), mapped.get("department").getValues(),
                 "the definition with the lowest attribute UUID wins deterministically");
@@ -108,7 +125,8 @@ class NotificationObjectDataMapperTest {
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(v2Content));
 
-        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper.mapCustomAttributes(List.of(attribute), Set.of());
+        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper
+                .mapCustomAttributes(List.of(attribute), Set.of());
 
         assertEquals(List.of("legacy-value"), mapped.get("legacy").getValues());
     }
@@ -116,12 +134,16 @@ class NotificationObjectDataMapperTest {
     @Test
     void longStringValuesAreTruncatedWithSuffix() {
         String longValue = "x".repeat(NotificationObjectDataMapper.MAX_VALUE_LENGTH + 100);
-        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper.mapCustomAttributes(List.of(
-                custom(UUID_1, "big", AttributeContentType.TEXT, content(longValue)),
-                custom(UUID_2, "number", AttributeContentType.INTEGER, content(42))), Set.of());
+        Map<String, NotificationAttributeDto> mapped = NotificationObjectDataMapper
+                .mapCustomAttributes(List
+                        .of(custom(UUID_1, "big", AttributeContentType.TEXT, content(longValue)),
+                                custom(UUID_2, "number", AttributeContentType.INTEGER, content(42))),
+                        Set.of());
 
         String truncated = (String) mapped.get("big").getValues().getFirst();
-        assertEquals(NotificationObjectDataMapper.MAX_VALUE_LENGTH + NotificationObjectDataMapper.TRUNCATION_SUFFIX.length(), truncated.length());
+        assertEquals(
+                NotificationObjectDataMapper.MAX_VALUE_LENGTH + NotificationObjectDataMapper.TRUNCATION_SUFFIX.length(),
+                truncated.length());
         assertTrue(truncated.endsWith(NotificationObjectDataMapper.TRUNCATION_SUFFIX));
         assertEquals(42, mapped.get("number").getValues().getFirst(), "non-string scalars are never truncated");
     }
@@ -145,8 +167,8 @@ class NotificationObjectDataMapperTest {
                 meta(UUID_3, "discoverySource", AttributeContentType.STRING, List.of(content("acme-directory")),
                         List.of(source(UUID_1, "acme-prod-ca"))));
 
-        List<NotificationMetadataGroupDto> mapped = NotificationObjectDataMapper.mapMetadata(
-                List.of(discoveryGroup, authorityGroup), Set.of());
+        List<NotificationMetadataGroupDto> mapped = NotificationObjectDataMapper
+                .mapMetadata(List.of(discoveryGroup, authorityGroup), Set.of());
 
         assertEquals(2, mapped.size());
         assertEquals("Network-Discovery", mapped.get(0).getConnectorName());
@@ -168,7 +190,8 @@ class NotificationObjectDataMapperTest {
         List<NotificationMetadataGroupDto> mapped = NotificationObjectDataMapper.mapMetadata(List.of(group), Set.of());
 
         NotificationAttributeDto merged = mapped.getFirst().getAttributes().get("port");
-        assertEquals(List.of(443, 8443), merged.getValues(), "values are the deduplicated union in attribute-UUID order");
+        assertEquals(List.of(443, 8443), merged.getValues(),
+                "values are the deduplicated union in attribute-UUID order");
         assertEquals(2, merged.getSourceObjects().size(), "source objects are the union of contributors");
         assertEquals("sweep-b", merged.getSourceObjects().getFirst().getName(),
                 "the lower attribute UUID contributes first");
@@ -230,11 +253,13 @@ class NotificationObjectDataMapperTest {
         return new BaseAttributeContentV3<>(null, data);
     }
 
-    private static ResponseAttributeV3 custom(UUID uuid, String name, AttributeContentType contentType, BaseAttributeContentV3<?> content) {
+    private static ResponseAttributeV3 custom(UUID uuid, String name, AttributeContentType contentType,
+            BaseAttributeContentV3<?> content) {
         return customWithContent(uuid, name, contentType, List.of(content));
     }
 
-    private static ResponseAttributeV3 customWithContent(UUID uuid, String name, AttributeContentType contentType, List<BaseAttributeContentV3<?>> content) {
+    private static ResponseAttributeV3 customWithContent(UUID uuid, String name, AttributeContentType contentType,
+            List<BaseAttributeContentV3<?>> content) {
         ResponseAttributeV3 attribute = new ResponseAttributeV3();
         attribute.setUuid(uuid);
         attribute.setName(name);
@@ -246,7 +271,7 @@ class NotificationObjectDataMapperTest {
     }
 
     private static ResponseMetadataV3 meta(UUID uuid, String name, AttributeContentType contentType,
-                                           List<BaseAttributeContentV3<?>> content, List<NameAndUuidDto> sources) {
+            List<BaseAttributeContentV3<?>> content, List<NameAndUuidDto> sources) {
         return new ResponseMetadataV3(sources, uuid, name, "Label " + name, AttributeType.META, contentType, content);
     }
 

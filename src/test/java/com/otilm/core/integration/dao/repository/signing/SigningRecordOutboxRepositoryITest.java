@@ -4,18 +4,17 @@ import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.dao.entity.signing.SigningRecordOutbox;
 import com.otilm.core.dao.repository.signing.SigningRecordOutboxRepository;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -85,9 +84,9 @@ class SigningRecordOutboxRepositoryITest extends BaseSpringBootTest {
         // given
         var now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         var drainable = now.minus(Duration.ofHours(1));
-        insertOutbox(now.minus(Duration.ofHours(3)), POISON_THRESHOLD);       // poisoned, oldest
-        insertOutbox(now.minus(Duration.ofHours(2)), POISON_THRESHOLD + 1);   // poisoned, older
-        SigningRecordOutbox drainableRow = insertOutbox(drainable, POISON_THRESHOLD - 1);  // still drainable
+        insertOutbox(now.minus(Duration.ofHours(3)), POISON_THRESHOLD); // poisoned, oldest
+        insertOutbox(now.minus(Duration.ofHours(2)), POISON_THRESHOLD + 1); // poisoned, older
+        SigningRecordOutbox drainableRow = insertOutbox(drainable, POISON_THRESHOLD - 1); // still drainable
 
         // when
         List<UUID> found = repository.findDrainableBatch(POISON_THRESHOLD, BATCH_LARGER_THAN_FIXTURES);

@@ -4,23 +4,21 @@ import com.azure.core.credential.AccessToken;
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.credential.TokenRequestContext;
 import jakarta.jms.Connection;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.net.URI;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.function.BiFunction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Token provider for Azure Active Directory (AAD) authentication with Azure ServiceBus.
  * <p>
- * This class implements the Qpid JMS PASSWORD_OVERRIDE extension mechanism to provide
- * OAuth2 tokens for AMQP connection authentication. It automatically handles token
- * caching and refresh before expiration.
+ * This class implements the Qpid JMS PASSWORD_OVERRIDE extension mechanism to provide OAuth2 tokens for AMQP connection
+ * authentication. It automatically handles token caching and refresh before expiration.
  * <p>
- * The provider is called by Qpid JMS client on each connection attempt, including
- * reconnects after connection loss, ensuring fresh tokens are always used.
+ * The provider is called by Qpid JMS client on each connection attempt, including reconnects after connection loss,
+ * ensuring fresh tokens are always used.
  */
 public class AadTokenProvider implements BiFunction<Connection, URI, Object> {
 
@@ -53,8 +51,8 @@ public class AadTokenProvider implements BiFunction<Connection, URI, Object> {
      * <p>
      * Token is refreshed if:
      * <ul>
-     *   <li>No token has been obtained yet</li>
-     *   <li>Token will expire within the configured refresh buffer period</li>
+     * <li>No token has been obtained yet</li>
+     * <li>Token will expire within the configured refresh buffer period</li>
      * </ul>
      *
      * @return valid OAuth2 access token

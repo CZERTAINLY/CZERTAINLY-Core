@@ -17,7 +17,8 @@ public interface GroupExternalService {
 
     GroupDto getGroup(SecuredUUID uuid) throws NotFoundException;
 
-    GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException, NotFoundException, AttributeException;
+    GroupDto createGroup(GroupRequestDto request)
+            throws ValidationException, AlreadyExistException, NotFoundException, AttributeException;
 
     GroupDto editGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException, AttributeException;
 

@@ -1,17 +1,17 @@
 package com.otilm.core.intune.scepvalidation;
 
 import com.otilm.core.dao.entity.scep.ScepProfile;
+import java.util.Properties;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.Properties;
-
 /**
- * Factory for building the {@link Properties} object required by {@link IntuneScepServiceClient}
- * and {@link IntuneRevocationClient}.
+ * Factory for building the {@link Properties} object required by {@link IntuneScepServiceClient} and
+ * {@link IntuneRevocationClient}.
  *
- * <p>Centralises the app-identity fields ({@code app.version}, {@code info.app.name}) so they
- * do not need to be injected separately in every caller.
+ * <p>
+ * Centralises the app-identity fields ({@code app.version}, {@code info.app.name}) so they do not need to be injected
+ * separately in every caller.
  */
 @Component
 public class IntuneConfigProperties {

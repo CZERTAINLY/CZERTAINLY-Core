@@ -3,6 +3,7 @@ package com.otilm.core.events.handlers;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.entity.workflows.TriggerAssociation;
+import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.workflows.EventHistoryRepository;
 import com.otilm.core.evaluator.CertificateTriggerEvaluator;
@@ -14,21 +15,19 @@ import com.otilm.core.events.handlers.discovery.DiscoveryRunAccumulator;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunContext;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
 import com.otilm.core.events.handlers.discovery.GroupImportResult;
-import com.otilm.core.dao.entity.workflows.TriggerHistory;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.writer.DiscoveryWriter;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
-import org.springframework.transaction.UnexpectedRollbackException;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.springframework.transaction.UnexpectedRollbackException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -75,7 +74,8 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     @Test
     void aFailedProgressWriteIsContainedAndCountedRatherThanThrown() {
         doThrow(new RuntimeException("could not reach the database"))
-                .when(discoveryWriter).updateProgressMessage(any(UUID.class), anyString());
+                .when(discoveryWriter)
+                .updateProgressMessage(any(UUID.class), anyString());
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
 
         handler.reportProgressSafely(runContext(), accumulator, 3);
@@ -103,9 +103,7 @@ class CertificateDiscoveredEventHandlerContainmentTest {
         assertThat(accumulator.counts().notAttempted())
                 .as("one certificate on two hosts is one certificate")
                 .isEqualTo(1);
-        assertThat(accumulator.counts().allClear())
-                .as("a run that lost work must not report itself clean")
-                .isFalse();
+        assertThat(accumulator.counts().allClear()).as("a run that lost work must not report itself clean").isFalse();
         // markProcessed would set processed = true on rows the platform never reached.
         verify(discoveryWriter).recordProcessedError(anyCollection(), anyString());
         verify(discoveryWriter, never()).markProcessed(anyCollection(), anyString());
@@ -139,8 +137,8 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     }
 
     /**
-     * The distinction the database exists to settle here: a group whose certificate is already committed did import,
-     * so calling it never-attempted would claim a missing certificate that is sitting in the inventory.
+     * The distinction the database exists to settle here: a group whose certificate is already committed did import, so
+     * calling it never-attempted would claim a missing certificate that is sitting in the inventory.
      */
     @Test
     void anUnconsumedGroupWhoseCertificateCommittedIsAKeyGapNotAnUnattemptedImport() {
@@ -151,14 +149,12 @@ class CertificateDiscoveredEventHandlerContainmentTest {
 
         assertThat(accumulator.results()).singleElement().satisfies(result -> {
             assertThat(result.outcome()).isEqualTo(DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED);
-            assertThat(result.detail()).isEqualTo(
-                    "the certificate was imported, but the run stopped before its key could be associated");
+            assertThat(result.detail())
+                    .isEqualTo("the certificate was imported, but the run stopped before its key could be associated");
         });
         DiscoveryRunCounts counts = accumulator.counts();
         assertThat(counts.keyGaps()).isEqualTo(1);
-        assertThat(counts.notAttempted())
-                .as("the certificate exists, so nothing here was left unattempted")
-                .isZero();
+        assertThat(counts.notAttempted()).as("the certificate exists, so nothing here was left unattempted").isZero();
         assertThat(counts.inventoryGaps()).isZero();
         // The key phase owns these rows and writes them after aggregation.
         verify(discoveryWriter, never()).markProcessed(anyCollection(), anyString());
@@ -174,17 +170,17 @@ class CertificateDiscoveredEventHandlerContainmentTest {
         UUID rowUuid = UUID.randomUUID();
         UUID certificateUuid = UUID.randomUUID();
         GroupImportResult committed = new GroupImportResult(6L,
-                List.of(new DiscoveryCertificateResult(rowUuid, DiscoveryCertificateOutcome.IMPORTED, null)),
-                List.of(), true);
-        when(transactionHandler.runInNewTransaction(
-                ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
-                .thenReturn(new CertificateDiscoveredEventHandler.ImportedGroup(
-                        committed, certificateUuid, null, rowUuid));
+                List.of(new DiscoveryCertificateResult(rowUuid, DiscoveryCertificateOutcome.IMPORTED, null)), List.of(),
+                true);
+        when(transactionHandler
+                .runInNewTransaction(ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
+                .thenReturn(
+                        new CertificateDiscoveredEventHandler.ImportedGroup(committed, certificateUuid, null, rowUuid));
         doThrow(new UnexpectedRollbackException("an execution poisoned the trigger transaction"))
-                .when(transactionHandler).runInNewTransaction(any(Runnable.class));
+                .when(transactionHandler)
+                .runInNewTransaction(any(Runnable.class));
 
-        GroupImportResult result = handler.importGroupSafely(
-                runContextWithTriggers(), group(6L, rowUuid));
+        GroupImportResult result = handler.importGroupSafely(runContextWithTriggers(), group(6L, rowUuid));
 
         assertThat(result.committed())
                 .as("the import committed, so the group is imported however the triggers fared")
@@ -196,19 +192,19 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     }
 
     /**
-     * Asserted structurally because no execution an integration test can reach fails unchecked. Sharing one
-     * transaction is what let a single poisoned execution discard every other trigger's history and writes.
+     * Asserted structurally because no execution an integration test can reach fails unchecked. Sharing one transaction
+     * is what let a single poisoned execution discard every other trigger's history and writes.
      */
     @Test
     void eachActionTriggerGetsItsOwnTransaction() {
         UUID rowUuid = UUID.randomUUID();
         GroupImportResult committed = new GroupImportResult(7L,
-                List.of(new DiscoveryCertificateResult(rowUuid, DiscoveryCertificateOutcome.IMPORTED, null)),
-                List.of(), true);
-        when(transactionHandler.runInNewTransaction(
-                ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
-                .thenReturn(new CertificateDiscoveredEventHandler.ImportedGroup(
-                        committed, UUID.randomUUID(), null, rowUuid));
+                List.of(new DiscoveryCertificateResult(rowUuid, DiscoveryCertificateOutcome.IMPORTED, null)), List.of(),
+                true);
+        when(transactionHandler
+                .runInNewTransaction(ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
+                .thenReturn(new CertificateDiscoveredEventHandler.ImportedGroup(committed, UUID.randomUUID(), null,
+                        rowUuid));
 
         handler.importGroupSafely(runContextWithTriggers(3), group(7L, rowUuid));
 
@@ -216,20 +212,20 @@ class CertificateDiscoveredEventHandlerContainmentTest {
     }
 
     /**
-     * A lost trigger transaction takes the evaluator's own record of the failure with it, so it is written again in
-     * a fresh one. Only reachable with a stub, which is why the end-to-end tests cannot cover it.
+     * A lost trigger transaction takes the evaluator's own record of the failure with it, so it is written again in a
+     * fresh one. Only reachable with a stub, which is why the end-to-end tests cannot cover it.
      */
     @Test
     void aLostTriggerTransactionStillLeavesAFailureRecord() {
         UUID rowUuid = UUID.randomUUID();
         UUID certificateUuid = UUID.randomUUID();
         GroupImportResult committed = new GroupImportResult(8L,
-                List.of(new DiscoveryCertificateResult(rowUuid, DiscoveryCertificateOutcome.IMPORTED, null)),
-                List.of(), true);
-        when(transactionHandler.runInNewTransaction(
-                ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
-                .thenReturn(new CertificateDiscoveredEventHandler.ImportedGroup(
-                        committed, certificateUuid, null, rowUuid));
+                List.of(new DiscoveryCertificateResult(rowUuid, DiscoveryCertificateOutcome.IMPORTED, null)), List.of(),
+                true);
+        when(transactionHandler
+                .runInNewTransaction(ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
+                .thenReturn(
+                        new CertificateDiscoveredEventHandler.ImportedGroup(committed, certificateUuid, null, rowUuid));
         TriggerHistory history = new TriggerHistory();
         history.setUuid(UUID.randomUUID());
         when(triggerService.createTriggerHistory(any(), any(), any(), any(), any(), any())).thenReturn(history);
@@ -239,7 +235,8 @@ class CertificateDiscoveredEventHandlerContainmentTest {
                     invocation.getArgument(0, Runnable.class).run();
                     return null;
                 })
-                .when(transactionHandler).runInNewTransaction(any(Runnable.class));
+                .when(transactionHandler)
+                .runInNewTransaction(any(Runnable.class));
 
         handler.importGroupSafely(runContextWithTriggers(), group(8L, rowUuid));
 
@@ -253,7 +250,8 @@ class CertificateDiscoveredEventHandlerContainmentTest {
      */
     @Test
     void anAlreadyShapedRollbackReasonSurvivesTheOrchestratorsShaping() {
-        when(transactionHandler.runInNewTransaction(ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
+        when(transactionHandler
+                .runInNewTransaction(ArgumentMatchers.<Supplier<CertificateDiscoveredEventHandler.ImportedGroup>>any()))
                 .thenThrow(new DiscoveryImportRollbackException(
                         "trigger evaluation failed: the discovered certificate could not be parsed", null));
 
@@ -262,8 +260,9 @@ class CertificateDiscoveredEventHandlerContainmentTest {
         assertThat(result.committed()).isFalse();
         assertThat(result.rowResults()).singleElement().satisfies(row -> {
             assertThat(row.outcome()).isEqualTo(DiscoveryCertificateOutcome.IMPORT_ROLLED_BACK);
-            assertThat(row.detail()).isEqualTo("Import rolled back: trigger evaluation failed: "
-                    + "the discovered certificate could not be parsed");
+            assertThat(row.detail())
+                    .isEqualTo("Import rolled back: trigger evaluation failed: "
+                            + "the discovered certificate could not be parsed");
         });
     }
 
@@ -299,14 +298,13 @@ class CertificateDiscoveredEventHandlerContainmentTest {
             association.setTrigger(trigger);
             associations.add(association);
         }
-        return new DiscoveryRunContext(UUID.randomUUID(), "discovery", UUID.randomUUID(), "connector",
-                "kind", UUID.randomUUID(), List.of(), associations, UUID.randomUUID(), UUID.randomUUID(),
-                7, null);
+        return new DiscoveryRunContext(UUID.randomUUID(), "discovery", UUID.randomUUID(), "connector", "kind",
+                UUID.randomUUID(), List.of(), associations, UUID.randomUUID(), UUID.randomUUID(), 7, null);
     }
 
     private DiscoveryRunContext runContext() {
-        return new DiscoveryRunContext(UUID.randomUUID(), "discovery", UUID.randomUUID(), "connector",
-                "kind", UUID.randomUUID(), List.of(), List.of(), UUID.randomUUID(), UUID.randomUUID(), 7, null);
+        return new DiscoveryRunContext(UUID.randomUUID(), "discovery", UUID.randomUUID(), "connector", "kind",
+                UUID.randomUUID(), List.of(), List.of(), UUID.randomUUID(), UUID.randomUUID(), 7, null);
     }
 
     private DiscoveryContentGroup group(Long contentId, UUID... rowUuids) {

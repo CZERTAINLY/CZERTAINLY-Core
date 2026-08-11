@@ -1,5 +1,6 @@
 package com.otilm.core.dao.entity.scep;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.scep.ScepProfileDetailDto;
@@ -14,15 +15,23 @@ import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @Getter
 @Setter
@@ -30,7 +39,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "scep_profile")
-public class ScepProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ScepProfileDto>, ObjectAccessControlMapper<NameAndUuidDto>, Securable {
+public class ScepProfile extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<ScepProfileDto>,
+            ObjectAccessControlMapper<NameAndUuidDto>,
+            Securable {
 
     @Column(name = "name")
     private String name;
@@ -106,8 +120,9 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         ScepProfileDto scepProfileDto = new ScepProfileDto();
         if (raProfile != null) {
             scepProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
-            scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
+            scepProfileDto
+                    .setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                            + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         }
         scepProfileDto.setDescription(description);
         scepProfileDto.setEnabled(isEnabled);
@@ -134,10 +149,13 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setIncludeCaCertificate(includeCaCertificate);
         scepProfileDto.setIncludeCaCertificateChain(includeCaCertificateChain);
         scepProfileDto.setRenewThreshold(renewalThreshold);
-        if (caCertificate != null) scepProfileDto.setCaCertificate(caCertificate.mapToListDto());
+        if (caCertificate != null) {
+            scepProfileDto.setCaCertificate(caCertificate.mapToListDto());
+        }
         if (raProfile != null) {
-            scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
+            scepProfileDto
+                    .setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                            + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         }
         scepProfileDto.setEnableIntune(intuneEnabled);
         scepProfileDto.setEnableChallengePassword(challengePassword != null);
@@ -163,13 +181,18 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
-        if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
-        else this.raProfileUuid = null;
+        if (raProfile != null) {
+            this.raProfileUuid = raProfile.getUuid();
+        } else {
+            this.raProfileUuid = null;
+        }
     }
 
     public void setCaCertificate(Certificate caCertificate) {
         this.caCertificate = caCertificate;
-        if (caCertificate != null) this.setCaCertificateUuid(caCertificate.getUuid());
+        if (caCertificate != null) {
+            this.setCaCertificateUuid(caCertificate.getUuid());
+        }
     }
 
     public String getChallengePassword() {
@@ -181,7 +204,8 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setChallengePassword(String challengePassword) {
         if (challengePassword != null) {
-            this.challengePassword = SecretsUtil.encryptAndEncodeSecretString(challengePassword, SecretEncodingVersion.V1);
+            this.challengePassword = SecretsUtil
+                    .encryptAndEncodeSecretString(challengePassword, SecretEncodingVersion.V1);
         } else {
             this.challengePassword = null;
         }
@@ -189,17 +213,29 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         ScepProfile that = (ScepProfile) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

@@ -1,19 +1,29 @@
 package com.otilm.core.service;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.otilm.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.otilm.api.model.client.compliance.SimplifiedComplianceProfileDto;
-import com.otilm.api.model.client.raprofile.*;
+import com.otilm.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.ActivateCmpForRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.ActivateScepForRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.AddRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.otilm.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.otilm.api.model.client.raprofile.RaProfileCmpDetailResponseDto;
+import com.otilm.api.model.client.raprofile.RaProfileScepDetailResponseDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.certificate.CertificateDetailDto;
-import com.otilm.api.model.core.raprofile.RaProfileDto;
-import com.otilm.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.otilm.api.model.core.raprofile.RaProfileCertificateRequestAttributesUpdateDto;
+import com.otilm.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
+import com.otilm.api.model.core.raprofile.RaProfileDto;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -21,13 +31,15 @@ public interface RaProfileExternalService {
 
     List<RaProfileDto> listRaProfiles(SecurityFilter filter, Optional<Boolean> enabled);
 
-    RaProfileDto addRaProfile(SecuredParentUUID authorityUuid, AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException;
+    RaProfileDto addRaProfile(SecuredParentUUID authorityUuid, AddRaProfileRequestDto dto) throws AlreadyExistException,
+            ValidationException, ConnectorException, AttributeException, NotFoundException;
 
     RaProfileDto getRaProfile(SecuredUUID uuid) throws NotFoundException;
 
     RaProfileDto getRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
-    RaProfileDto editRaProfile(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, EditRaProfileRequestDto dto) throws ConnectorException, AttributeException, NotFoundException;
+    RaProfileDto editRaProfile(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, EditRaProfileRequestDto dto)
+            throws ConnectorException, AttributeException, NotFoundException;
 
     void deleteRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
@@ -43,13 +55,18 @@ public interface RaProfileExternalService {
 
     void bulkEnableRaProfile(List<SecuredUUID> uuids);
 
-    RaProfileAcmeDetailResponseDto getAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
+    RaProfileAcmeDetailResponseDto getAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid)
+            throws NotFoundException;
 
-    RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException;
+    RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid,
+            SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request)
+            throws ConnectorException, ValidationException, AttributeException, NotFoundException;
 
     void deactivateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
-    RaProfileScepDetailResponseDto activateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException;
+    RaProfileScepDetailResponseDto activateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid,
+            SecuredUUID scepProfileUuid, ActivateScepForRaProfileRequestDto request)
+            throws ConnectorException, ValidationException, AttributeException, NotFoundException;
 
     void deactivateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
@@ -67,10 +84,8 @@ public interface RaProfileExternalService {
      * @return RA Profile CMP protocol details
      * @throws NotFoundException in case the entity is not found
      */
-    RaProfileCmpDetailResponseDto getCmpForRaProfile(
-            SecuredParentUUID authorityInstanceUuid,
-            SecuredUUID raProfileUuid
-    ) throws NotFoundException;
+    RaProfileCmpDetailResponseDto getCmpForRaProfile(SecuredParentUUID authorityInstanceUuid, SecuredUUID raProfileUuid)
+            throws NotFoundException;
 
     /**
      * Activate the CMP protocol for the RA Profile
@@ -84,12 +99,9 @@ public interface RaProfileExternalService {
      * @throws ValidationException in case the validation fails
      * @throws AttributeException in case the attribute is not found
      */
-    RaProfileCmpDetailResponseDto activateCmpForRaProfile(
-            SecuredParentUUID authorityUuid,
-            SecuredUUID uuid,
-            SecuredUUID cmpProfileUuid,
-            ActivateCmpForRaProfileRequestDto request
-    ) throws ConnectorException, ValidationException, AttributeException, NotFoundException;
+    RaProfileCmpDetailResponseDto activateCmpForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid,
+            SecuredUUID cmpProfileUuid, ActivateCmpForRaProfileRequestDto request)
+            throws ConnectorException, ValidationException, AttributeException, NotFoundException;
 
     /**
      * Deactivate the CMP protocol for the RA Profile
@@ -98,14 +110,13 @@ public interface RaProfileExternalService {
      * @param uuid UUID of the RA Profile
      * @throws NotFoundException in case the entity is not found
      */
-    void deactivateCmpForRaProfile(
-            SecuredParentUUID authorityUuid,
-            SecuredUUID uuid
-    ) throws NotFoundException;
+    void deactivateCmpForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
-    List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid)
+            throws ConnectorException, NotFoundException;
 
-    List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid)
+            throws ConnectorException, NotFoundException;
 
     /**
      * Check the compliance for all the certificates associated with the RA Profile
@@ -121,19 +132,24 @@ public interface RaProfileExternalService {
      * @param raProfileUuid UUID of the RA Profile
      * @return
      */
-    List<SimplifiedComplianceProfileDto> getComplianceProfiles(String authorityUuid, String raProfileUuid, SecurityFilter filter) throws NotFoundException;
+    List<SimplifiedComplianceProfileDto> getComplianceProfiles(String authorityUuid, String raProfileUuid,
+            SecurityFilter filter) throws NotFoundException;
 
-    RaProfileScepDetailResponseDto getScepForRaProfile(SecuredParentUUID authorityInstanceUuid, SecuredUUID raProfileUuid) throws NotFoundException;
+    RaProfileScepDetailResponseDto getScepForRaProfile(SecuredParentUUID authorityInstanceUuid,
+            SecuredUUID raProfileUuid) throws NotFoundException;
 
-    List<ApprovalProfileDto> getAssociatedApprovalProfiles(String authorityInstanceUuid, String raProfileUuid, SecurityFilter securityFilter) throws NotFoundException;
+    List<ApprovalProfileDto> getAssociatedApprovalProfiles(String authorityInstanceUuid, String raProfileUuid,
+            SecurityFilter securityFilter) throws NotFoundException;
 
-    ApprovalProfileRelationDto associateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
+    ApprovalProfileRelationDto associateApprovalProfile(String authorityInstanceUuid, String raProfileUuid,
+            SecuredUUID approvalProfileUuid) throws NotFoundException;
 
-    void disassociateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
+    void disassociateApprovalProfile(String authorityInstanceUuid, String raProfileUuid,
+            SecuredUUID approvalProfileUuid) throws NotFoundException;
 
     /**
-     * Function to get the list of CA certificates associated with the RA Profile.
-     * Certificate chain is returned from the connector if the endpoint is implemented in the connector.
+     * Function to get the list of CA certificates associated with the RA Profile. Certificate chain is returned from
+     * the connector if the endpoint is implemented in the connector.
      *
      * @param authorityUuid UUID of the authority
      * @param raProfileUuid UUID of the RA Profile
@@ -145,20 +161,24 @@ public interface RaProfileExternalService {
 
     /**
      * Update configuration of validation of certificates associated with the RA Profile
+     *
      * @param authorityUuid UUID of the authority associated with the RA profile
      * @param raProfileUuid UUID of the RA Profile
      * @param request Validation configuration request
      * @return Edited RA Profile
      */
-    RaProfileDto updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileCertificateValidationSettingsUpdateDto request) throws NotFoundException;
+    RaProfileDto updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
+            RaProfileCertificateValidationSettingsUpdateDto request) throws NotFoundException;
 
     /**
-     * Update the static request-attribute configuration (definitions, merge mode, value-source bindings, strictness) of the RA Profile.
+     * Update the static request-attribute configuration (definitions, merge mode, value-source bindings, strictness) of
+     * the RA Profile.
      *
      * @param authorityUuid UUID of the authority associated with the RA profile
      * @param raProfileUuid UUID of the RA Profile
      * @param request Request-attribute configuration request
      * @return Edited RA Profile
      */
-    RaProfileDto updateRaProfileRequestAttributesConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileCertificateRequestAttributesUpdateDto request) throws NotFoundException;
+    RaProfileDto updateRaProfileRequestAttributesConfiguration(SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid, RaProfileCertificateRequestAttributesUpdateDto request) throws NotFoundException;
 }

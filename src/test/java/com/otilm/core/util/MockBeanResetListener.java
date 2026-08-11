@@ -9,11 +9,12 @@ import org.springframework.test.context.TestExecutionListener;
 /**
  * Resets every already-instantiated singleton mock in the test context before each test method.
  *
- * <p>Spring's standard reset lifecycle only covers {@code @MockitoBean}/{@code @MockitoSpyBean}
- * discovered by walking the test class, its superclasses, and enclosing classes — NOT mocks declared
- * on an {@code @Import}ed {@code @TestConfiguration}. Without this, a composed mock leaks stubbings
- * and interactions across tests that share a cached context. Runs before {@code @BeforeEach}, so
- * stubs set up there survive; touches only created singletons, so no lazy bean is forced.
+ * <p>
+ * Spring's standard reset lifecycle only covers {@code @MockitoBean}/{@code @MockitoSpyBean} discovered by walking the
+ * test class, its superclasses, and enclosing classes — NOT mocks declared on an {@code @Import}ed
+ * {@code @TestConfiguration}. Without this, a composed mock leaks stubbings and interactions across tests that share a
+ * cached context. Runs before {@code @BeforeEach}, so stubs set up there survive; touches only created singletons, so
+ * no lazy bean is forced.
  */
 public class MockBeanResetListener implements TestExecutionListener {
 

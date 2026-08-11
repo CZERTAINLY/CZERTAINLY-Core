@@ -2,12 +2,19 @@ package com.otilm.core.service;
 
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
-import com.otilm.api.model.client.cryptography.operations.*;
+import com.otilm.api.model.client.cryptography.operations.CipherDataRequestDto;
+import com.otilm.api.model.client.cryptography.operations.DecryptDataResponseDto;
+import com.otilm.api.model.client.cryptography.operations.EncryptDataResponseDto;
+import com.otilm.api.model.client.cryptography.operations.RandomDataRequestDto;
+import com.otilm.api.model.client.cryptography.operations.RandomDataResponseDto;
+import com.otilm.api.model.client.cryptography.operations.SignDataRequestDto;
+import com.otilm.api.model.client.cryptography.operations.SignDataResponseDto;
+import com.otilm.api.model.client.cryptography.operations.VerifyDataRequestDto;
+import com.otilm.api.model.client.cryptography.operations.VerifyDataResponseDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -16,121 +23,90 @@ public interface CryptographicOperationExternalService {
      * List Cipher Attributes
      *
      * @param tokenInstanceUuid UUID of the token instance
-     * @param tokenProfileUUID  UUID of the token profile
-     * @param uuid              UUID of the cryptographic key
-     * @param keyItemUuid       UUID of the Item inside the key Object
-     * @param keyAlgorithm      Key algorithm for which the attributes have to be fetched {@link KeyAlgorithm}
+     * @param tokenProfileUUID UUID of the token profile
+     * @param uuid UUID of the cryptographic key
+     * @param keyItemUuid UUID of the Item inside the key Object
+     * @param keyAlgorithm Key algorithm for which the attributes have to be fetched {@link KeyAlgorithm}
      * @return List of attributes for Cipher Attributes
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    List<BaseAttribute> listCipherAttributes(
-            SecuredParentUUID tokenInstanceUuid,
-            SecuredUUID tokenProfileUUID,
-            UUID uuid,
-            UUID keyItemUuid,
-            KeyAlgorithm keyAlgorithm
-    ) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listCipherAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUUID,
+            UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
-     * @param tokenProfileUUID  UUID of the token profile
-     * @param uuid              UUID of the cryptographic key
-     * @param keyItemUuid       UUID of the Item inside the key Object
-     * @param request           DTO containing the data to encrypt the data
+     * @param tokenProfileUUID UUID of the token profile
+     * @param uuid UUID of the cryptographic key
+     * @param keyItemUuid UUID of the Item inside the key Object
+     * @param request DTO containing the data to encrypt the data
      * @return Encrypted data response {@link EncryptDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    EncryptDataResponseDto encryptData(
-            SecuredParentUUID tokenInstanceUuid,
-            SecuredUUID tokenProfileUUID,
-            UUID uuid,
-            UUID keyItemUuid,
-            CipherDataRequestDto request
-    ) throws ConnectorException, NotFoundException;
+    EncryptDataResponseDto encryptData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUUID, UUID uuid,
+            UUID keyItemUuid, CipherDataRequestDto request) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
-     * @param tokenProfileUUID  UUID of the token profile
-     * @param uuid              UUID of the cryptographic key
-     * @param keyItemUuid       UUID of the Item inside the key Object
-     * @param request           DTO containing the data to decrypt the data
+     * @param tokenProfileUUID UUID of the token profile
+     * @param uuid UUID of the cryptographic key
+     * @param keyItemUuid UUID of the Item inside the key Object
+     * @param request DTO containing the data to decrypt the data
      * @return Decrypted data response {@link DecryptDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    DecryptDataResponseDto decryptData(
-            SecuredParentUUID tokenInstanceUuid,
-            SecuredUUID tokenProfileUUID,
-            UUID uuid,
-            UUID keyItemUuid,
-            CipherDataRequestDto request
-    ) throws ConnectorException, NotFoundException;
+    DecryptDataResponseDto decryptData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUUID, UUID uuid,
+            UUID keyItemUuid, CipherDataRequestDto request) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
-     * @param tokenProfileUUID  UUID of the token profile
-     * @param uuid              UUID of the cryptographic key
-     * @param keyItemUuid       UUID of the Item inside the key Object
-     * @param keyAlgorithm      Key algorithm for which the Signature Attributes has to be fetched {@link KeyAlgorithm}
+     * @param tokenProfileUUID UUID of the token profile
+     * @param uuid UUID of the cryptographic key
+     * @param keyItemUuid UUID of the Item inside the key Object
+     * @param keyAlgorithm Key algorithm for which the Signature Attributes has to be fetched {@link KeyAlgorithm}
      * @return List of attributes for the Signature Algorithm
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    List<BaseAttribute> listSignatureAttributes(
-            SecuredParentUUID tokenInstanceUuid,
-            SecuredUUID tokenProfileUUID,
-            UUID uuid,
-            UUID keyItemUuid,
-            KeyAlgorithm keyAlgorithm
-    ) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUUID,
+            UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
-     * @param tokenProfileUUID  UUID of the token profile
-     * @param uuid              UUID of the cryptographic key
-     * @param keyItemUuid       UUID of the Item inside the key Object
-     * @param request           DTO containing the data to sign a request {@link SignDataRequestDto}
+     * @param tokenProfileUUID UUID of the token profile
+     * @param uuid UUID of the cryptographic key
+     * @param keyItemUuid UUID of the Item inside the key Object
+     * @param request DTO containing the data to sign a request {@link SignDataRequestDto}
      * @return Signed Data {@link SignDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    SignDataResponseDto signData(
-            SecuredParentUUID tokenInstanceUuid,
-            SecuredUUID tokenProfileUUID,
-            UUID uuid, UUID keyItemUuid,
-            SignDataRequestDto request
-    ) throws ConnectorException, NotFoundException;
+    SignDataResponseDto signData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUUID, UUID uuid,
+            UUID keyItemUuid, SignDataRequestDto request) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
-     * @param tokenProfileUUID  UUID of the token profile
-     * @param uuid              UUID of the cryptographic key
-     * @param keyItemUuid       UUID of the Item inside the key Object
-     * @param request           DTO Containing the data to verify the signature {@link VerifyDataRequestDto}
+     * @param tokenProfileUUID UUID of the token profile
+     * @param uuid UUID of the cryptographic key
+     * @param keyItemUuid UUID of the Item inside the key Object
+     * @param request DTO Containing the data to verify the signature {@link VerifyDataRequestDto}
      * @return Verification result {@link VerifyDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    VerifyDataResponseDto verifyData(
-            SecuredParentUUID tokenInstanceUuid,
-            SecuredUUID tokenProfileUUID,
-            UUID uuid, UUID keyItemUuid,
-            VerifyDataRequestDto request
-    ) throws ConnectorException, NotFoundException;
+    VerifyDataResponseDto verifyData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUUID, UUID uuid,
+            UUID keyItemUuid, VerifyDataRequestDto request) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
      * @return List of attributes for random data generation
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    List<BaseAttribute> listRandomAttributes(
-            SecuredUUID tokenInstanceUuid
-    ) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listRandomAttributes(SecuredUUID tokenInstanceUuid)
+            throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
-     * @param request           DTO containing the information for generating a strong random data {@link RandomDataRequestDto}
+     * @param request DTO containing the information for generating a strong random data {@link RandomDataRequestDto}
      * @return Random generated data {@link RandomDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    RandomDataResponseDto randomData(
-            SecuredUUID tokenInstanceUuid,
-            RandomDataRequestDto request
-    ) throws ConnectorException, NotFoundException;
+    RandomDataResponseDto randomData(SecuredUUID tokenInstanceUuid, RandomDataRequestDto request)
+            throws ConnectorException, NotFoundException;
 }

@@ -1,11 +1,16 @@
 package com.otilm.core.integration.service;
 
-
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
-import com.otilm.api.model.core.oid.*;
+import com.otilm.api.model.core.oid.CustomOidEntryDetailResponseDto;
+import com.otilm.api.model.core.oid.CustomOidEntryListResponseDto;
+import com.otilm.api.model.core.oid.CustomOidEntryRequestDto;
+import com.otilm.api.model.core.oid.CustomOidEntryUpdateRequestDto;
+import com.otilm.api.model.core.oid.ExtensionValueEncoding;
+import com.otilm.api.model.core.oid.OidCategory;
+import com.otilm.api.model.core.oid.SystemOid;
 import com.otilm.api.model.core.oid.properties.CertificateExtensionOidPropertiesDto;
 import com.otilm.api.model.core.oid.properties.RdnAttributeTypeOidPropertiesDto;
 import com.otilm.api.model.core.search.FilterConditionOperator;
@@ -21,15 +26,14 @@ import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.CustomOidEntryExternalService;
 import com.otilm.core.service.impl.CustomOidEntryServiceImpl;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 
 class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
@@ -104,7 +108,6 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         request.setOid(SystemOid.COUNTRY.getOid());
         Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
 
-
         request.setOid("1.2.3.4");
         request.setCategory(OidCategory.RDN_ATTRIBUTE_TYPE);
         Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
@@ -120,8 +123,12 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getDescription(), response.getDescription());
         Assertions.assertEquals(request.getDisplayName(), response.getDisplayName());
         Assertions.assertTrue(customOidEntryRepository.existsById(request.getOid()));
-        Assertions.assertEquals(propertiesDto.getCode(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getCode());
-        Assertions.assertEquals(propertiesDto.getAltCodes(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
+        Assertions
+                .assertEquals(propertiesDto.getCode(),
+                        ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getCode());
+        Assertions
+                .assertEquals(propertiesDto.getAltCodes(),
+                        ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
         Assertions.assertNotNull(OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).get(request.getOid()));
 
         request.setOid("1.2.3.4.5.6");
@@ -152,29 +159,35 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(cachedRecord);
         Assertions.assertTrue(cachedRecord.defaultCritical());
         Assertions.assertEquals(ExtensionValueEncoding.UTF8_STRING, cachedRecord.valueEncoding());
-        CertificateExtensionOidPropertiesDto responseProps = (CertificateExtensionOidPropertiesDto) response.getAdditionalProperties();
+        CertificateExtensionOidPropertiesDto responseProps = (CertificateExtensionOidPropertiesDto) response
+                .getAdditionalProperties();
         Assertions.assertTrue(responseProps.getDefaultCritical());
         Assertions.assertEquals(ExtensionValueEncoding.UTF8_STRING, responseProps.getValueEncoding());
     }
 
     @Test
     void testGetCustomOidEntry() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> customOidEntryService.getCustomOidEntry(NON_EXISTENT_OID));
-        CustomOidEntryDetailResponseDto response = customOidEntryService.getCustomOidEntry(genericCustomOidEntry.getOid());
+        Assertions
+                .assertThrows(NotFoundException.class, () -> customOidEntryService.getCustomOidEntry(NON_EXISTENT_OID));
+        CustomOidEntryDetailResponseDto response = customOidEntryService
+                .getCustomOidEntry(genericCustomOidEntry.getOid());
         Assertions.assertEquals(genericCustomOidEntry.getOid(), response.getOid());
         Assertions.assertEquals(genericCustomOidEntry.getCategory(), response.getCategory());
         Assertions.assertNull(response.getAdditionalProperties());
         Assertions.assertEquals(genericCustomOidEntry.getDescription(), response.getDescription());
         Assertions.assertEquals(genericCustomOidEntry.getDisplayName(), response.getDisplayName());
 
-
         response = customOidEntryService.getCustomOidEntry(rdnOidEntry.getOid());
         Assertions.assertEquals(rdnOidEntry.getOid(), response.getOid());
         Assertions.assertEquals(rdnOidEntry.getCategory(), response.getCategory());
         Assertions.assertEquals(rdnOidEntry.getDescription(), response.getDescription());
         Assertions.assertEquals(rdnOidEntry.getDisplayName(), response.getDisplayName());
-        Assertions.assertEquals(rdnOidEntry.getCode(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getCode());
-        Assertions.assertEquals(rdnOidEntry.getAltCodes(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
+        Assertions
+                .assertEquals(rdnOidEntry.getCode(),
+                        ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getCode());
+        Assertions
+                .assertEquals(rdnOidEntry.getAltCodes(),
+                        ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
     }
 
     @Test
@@ -182,14 +195,17 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         CustomOidEntryDetailResponseDto response = customOidEntryService.getCustomOidEntry(extensionOidEntry.getOid());
         Assertions.assertEquals(extensionOidEntry.getOid(), response.getOid());
         Assertions.assertEquals(OidCategory.CERTIFICATE_EXTENSION, response.getCategory());
-        CertificateExtensionOidPropertiesDto props = (CertificateExtensionOidPropertiesDto) response.getAdditionalProperties();
+        CertificateExtensionOidPropertiesDto props = (CertificateExtensionOidPropertiesDto) response
+                .getAdditionalProperties();
         Assertions.assertTrue(props.getDefaultCritical());
         Assertions.assertEquals(ExtensionValueEncoding.IA5_STRING, props.getValueEncoding());
     }
 
     @Test
     void testRemoveOidEntry() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> customOidEntryService.deleteCustomOidEntry(NON_EXISTENT_OID));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> customOidEntryService.deleteCustomOidEntry(NON_EXISTENT_OID));
         customOidEntryService.deleteCustomOidEntry(genericCustomOidEntry.getOid());
         Assertions.assertTrue(customOidEntryRepository.findById(genericCustomOidEntry.getOid()).isEmpty());
         Assertions.assertNull(OidHandler.getOidCache(OidCategory.GENERIC).get(genericCustomOidEntry.getOid()));
@@ -197,7 +213,10 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
     @Test
     void testBulkDeleteOidEntries() {
-        customOidEntryService.bulkDeleteCustomOidEntry(List.of(NON_EXISTENT_OID, genericCustomOidEntry.getOid(), rdnOidEntry.getOid(), extensionOidEntry.getOid()));
+        customOidEntryService
+                .bulkDeleteCustomOidEntry(List
+                        .of(NON_EXISTENT_OID, genericCustomOidEntry.getOid(), rdnOidEntry.getOid(),
+                                extensionOidEntry.getOid()));
         Assertions.assertTrue(customOidEntryRepository.findAll().isEmpty());
     }
 
@@ -207,13 +226,15 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(3, response.getOidEntries().size());
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
-        SearchFilterRequestDto filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OID_ENTRY_CATEGORY.name(), FilterConditionOperator.EQUALS, OidCategory.GENERIC.getCode());
+        SearchFilterRequestDto filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY,
+                FilterField.OID_ENTRY_CATEGORY.name(), FilterConditionOperator.EQUALS, OidCategory.GENERIC.getCode());
         searchRequestDto.setFilters(List.of(filterRequestDto));
         response = customOidEntryService.listCustomOidEntries(searchRequestDto);
         Assertions.assertEquals(1, response.getOidEntries().size());
         Assertions.assertEquals(genericCustomOidEntry.getOid(), response.getOidEntries().getFirst().getOid());
 
-        filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OID_ENTRY_CODE.name(), FilterConditionOperator.EQUALS, rdnOidEntry.getCode());
+        filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OID_ENTRY_CODE.name(),
+                FilterConditionOperator.EQUALS, rdnOidEntry.getCode());
         searchRequestDto.setFilters(List.of(filterRequestDto));
         response = customOidEntryService.listCustomOidEntries(searchRequestDto);
         Assertions.assertEquals(1, response.getOidEntries().size());
@@ -225,34 +246,47 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         List<CustomOidEntryDetailResponseDto> all = customOidEntryService.listSystemOidEntries(null);
         Assertions.assertEquals(SystemOid.values().length, all.size());
 
-        CustomOidEntryDetailResponseDto commonName = all.stream()
+        CustomOidEntryDetailResponseDto commonName = all
+                .stream()
                 .filter(e -> e.getOid().equals(SystemOid.COMMON_NAME.getOid()))
-                .findFirst().orElseThrow();
+                .findFirst()
+                .orElseThrow();
         Assertions.assertEquals(SystemOid.COMMON_NAME.getDisplayName(), commonName.getDisplayName());
         Assertions.assertEquals(OidCategory.RDN_ATTRIBUTE_TYPE, commonName.getCategory());
-        RdnAttributeTypeOidPropertiesDto commonNameProps = (RdnAttributeTypeOidPropertiesDto) commonName.getAdditionalProperties();
+        RdnAttributeTypeOidPropertiesDto commonNameProps = (RdnAttributeTypeOidPropertiesDto) commonName
+                .getAdditionalProperties();
         Assertions.assertEquals(SystemOid.COMMON_NAME.getCode(), commonNameProps.getCode());
         Assertions.assertEquals(SystemOid.COMMON_NAME.getAltCodes(), commonNameProps.getAltCodes());
     }
 
     @Test
     void testListSystemOidEntriesFiltersByRdnCategory() {
-        long expectedRdnCount = Arrays.stream(SystemOid.values())
-                .filter(o -> o.getCategory() == OidCategory.RDN_ATTRIBUTE_TYPE).count();
-        List<CustomOidEntryDetailResponseDto> rdns = customOidEntryService.listSystemOidEntries(OidCategory.RDN_ATTRIBUTE_TYPE);
+        long expectedRdnCount = Arrays
+                .stream(SystemOid.values())
+                .filter(o -> o.getCategory() == OidCategory.RDN_ATTRIBUTE_TYPE)
+                .count();
+        List<CustomOidEntryDetailResponseDto> rdns = customOidEntryService
+                .listSystemOidEntries(OidCategory.RDN_ATTRIBUTE_TYPE);
         Assertions.assertEquals(expectedRdnCount, rdns.size());
         Assertions.assertTrue(rdns.stream().allMatch(e -> e.getCategory() == OidCategory.RDN_ATTRIBUTE_TYPE));
-        CustomOidEntryDetailResponseDto email = rdns.stream()
+        CustomOidEntryDetailResponseDto email = rdns
+                .stream()
                 .filter(e -> e.getOid().equals(SystemOid.EMAIL.getOid()))
-                .findFirst().orElseThrow();
-        Assertions.assertEquals(SystemOid.EMAIL.getAltCodes(), ((RdnAttributeTypeOidPropertiesDto) email.getAdditionalProperties()).getAltCodes());
+                .findFirst()
+                .orElseThrow();
+        Assertions
+                .assertEquals(SystemOid.EMAIL.getAltCodes(),
+                        ((RdnAttributeTypeOidPropertiesDto) email.getAdditionalProperties()).getAltCodes());
     }
 
     @Test
     void testListSystemOidEntriesFiltersByEkuCategoryWithNoProperties() {
-        long expectedEkuCount = Arrays.stream(SystemOid.values())
-                .filter(o -> o.getCategory() == OidCategory.EXTENDED_KEY_USAGE).count();
-        List<CustomOidEntryDetailResponseDto> ekus = customOidEntryService.listSystemOidEntries(OidCategory.EXTENDED_KEY_USAGE);
+        long expectedEkuCount = Arrays
+                .stream(SystemOid.values())
+                .filter(o -> o.getCategory() == OidCategory.EXTENDED_KEY_USAGE)
+                .count();
+        List<CustomOidEntryDetailResponseDto> ekus = customOidEntryService
+                .listSystemOidEntries(OidCategory.EXTENDED_KEY_USAGE);
         Assertions.assertEquals(expectedEkuCount, ekus.size());
         Assertions.assertTrue(ekus.stream().allMatch(e -> e.getCategory() == OidCategory.EXTENDED_KEY_USAGE));
         Assertions.assertTrue(ekus.stream().allMatch(e -> e.getAdditionalProperties() == null));
@@ -260,29 +294,34 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListSystemOidEntriesCertificateExtensionCarriesTypedProperties() {
-        long expectedExtensionCount = Arrays.stream(SystemOid.values())
-                .filter(o -> o.getCategory() == OidCategory.CERTIFICATE_EXTENSION).count();
-        List<CustomOidEntryDetailResponseDto> extensions =
-                customOidEntryService.listSystemOidEntries(OidCategory.CERTIFICATE_EXTENSION);
+        long expectedExtensionCount = Arrays
+                .stream(SystemOid.values())
+                .filter(o -> o.getCategory() == OidCategory.CERTIFICATE_EXTENSION)
+                .count();
+        List<CustomOidEntryDetailResponseDto> extensions = customOidEntryService
+                .listSystemOidEntries(OidCategory.CERTIFICATE_EXTENSION);
 
         Assertions.assertEquals(expectedExtensionCount, extensions.size());
         Assertions.assertFalse(extensions.isEmpty(), "the seeded certificate extensions must be listed");
         // Both fields are required on the response contract, so every entry must carry them.
         for (CustomOidEntryDetailResponseDto entry : extensions) {
-            CertificateExtensionOidPropertiesDto props =
-                    (CertificateExtensionOidPropertiesDto) entry.getAdditionalProperties();
+            CertificateExtensionOidPropertiesDto props = (CertificateExtensionOidPropertiesDto) entry
+                    .getAdditionalProperties();
             Assertions.assertNotNull(props, "additionalProperties missing for " + entry.getOid());
             Assertions.assertNotNull(props.getDefaultCritical(), "defaultCritical missing for " + entry.getOid());
             Assertions.assertNotNull(props.getValueEncoding(), "valueEncoding missing for " + entry.getOid());
         }
 
-        CustomOidEntryDetailResponseDto nameConstraints = extensions.stream()
+        CustomOidEntryDetailResponseDto nameConstraints = extensions
+                .stream()
                 .filter(e -> e.getOid().equals(SystemOid.NAME_CONSTRAINTS.getOid()))
-                .findFirst().orElseThrow();
-        CertificateExtensionOidPropertiesDto nameConstraintsProps =
-                (CertificateExtensionOidPropertiesDto) nameConstraints.getAdditionalProperties();
-        Assertions.assertTrue(nameConstraintsProps.getDefaultCritical(),
-                "Name Constraints must be critical — RFC 5280 4.2.1.10");
+                .findFirst()
+                .orElseThrow();
+        CertificateExtensionOidPropertiesDto nameConstraintsProps = (CertificateExtensionOidPropertiesDto) nameConstraints
+                .getAdditionalProperties();
+        Assertions
+                .assertTrue(nameConstraintsProps.getDefaultCritical(),
+                        "Name Constraints must be critical — RFC 5280 4.2.1.10");
     }
 
     /** Seeds a row the way an upgrade leaves it: valid when created, its OID since promoted to a system OID. */
@@ -317,8 +356,11 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         // when / then — the uniqueness check must not reject the row against its own code
         customOidEntryService.editCustomOidEntry(rdnOidEntry.getOid(), request);
 
-        Assertions.assertEquals("Rdn",
-                ((RdnAttributeTypeCustomOidEntry) customOidEntryRepository.findById(rdnOidEntry.getOid()).orElseThrow()).getCode());
+        Assertions
+                .assertEquals("Rdn",
+                        ((RdnAttributeTypeCustomOidEntry) customOidEntryRepository
+                                .findById(rdnOidEntry.getOid())
+                                .orElseThrow()).getCode());
         Assertions.assertEquals(rdnOidEntry.getOid(), OidHandler.getOidForRdnCode("Rdn"));
     }
 
@@ -335,8 +377,8 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
         // when / then — one throwing call in the lambda, so the assertion cannot pass on the wrong one
         String oid = rdnOidEntry.getOid();
-        Assertions.assertThrows(ValidationException.class,
-                () -> customOidEntryService.editCustomOidEntry(oid, request));
+        Assertions
+                .assertThrows(ValidationException.class, () -> customOidEntryService.editCustomOidEntry(oid, request));
     }
 
     @Test
@@ -352,9 +394,9 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         // plain row leaves the registry and the shadowed one hands its OID back to the built-in
         Assertions.assertNull(OidHandler.getOidForRdnCode("RDN"), "deleted custom code must stop resolving");
         Assertions.assertNull(OidHandler.getOidForRdnCode("LEGACYUID"));
-        Assertions.assertEquals(SystemOid.USER_ID.getOid(),
-                OidHandler.getOidForRdnCode(SystemOid.USER_ID.getCode()),
-                "the built-in must take over the OID it was shadowed on");
+        Assertions
+                .assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode(SystemOid.USER_ID.getCode()),
+                        "the built-in must take over the OID it was shadowed on");
     }
 
     @Test
@@ -365,10 +407,13 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
         // when / then — the built-in entry must not replace the operator's record wholesale; losing the
         // code makes every DN carrying it fail to resolve at request time
-        Assertions.assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode("LEGACYUID"),
-                "the operator's code must survive the promotion");
-        Assertions.assertTrue(customOidEntryServiceImpl.getShadowedCustomOidEntries().contains(SystemOid.USER_ID.getOid()),
-                "the shadowed row must be reported so an operator can resolve it");
+        Assertions
+                .assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode("LEGACYUID"),
+                        "the operator's code must survive the promotion");
+        Assertions
+                .assertTrue(
+                        customOidEntryServiceImpl.getShadowedCustomOidEntries().contains(SystemOid.USER_ID.getOid()),
+                        "the shadowed row must be reported so an operator can resolve it");
     }
 
     @Test
@@ -386,11 +431,13 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
         // when / then — silently swapping the encoding to the built-in DER makes the renderer
         // base64-decode a plain string, so issuance fails
-        OidRecord cachedRecord = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION)
+        OidRecord cachedRecord = OidHandler
+                .getOidCache(OidCategory.CERTIFICATE_EXTENSION)
                 .get(SystemOid.EXTENDED_KEY_USAGE_EXTENSION.getOid());
         Assertions.assertNotNull(cachedRecord);
-        Assertions.assertEquals(ExtensionValueEncoding.UTF8_STRING, cachedRecord.valueEncoding(),
-                "the operator's value encoding must survive the promotion");
+        Assertions
+                .assertEquals(ExtensionValueEncoding.UTF8_STRING, cachedRecord.valueEncoding(),
+                        "the operator's value encoding must survive the promotion");
         Assertions.assertEquals(Boolean.TRUE, cachedRecord.defaultCritical());
     }
 
@@ -425,8 +472,10 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         // then — the built-in entry takes over rather than the OID disappearing from the registry
         Assertions.assertEquals(SystemOid.USER_ID.getOid(), OidHandler.getOidForRdnCode(SystemOid.USER_ID.getCode()));
         Assertions.assertNull(OidHandler.getOidForRdnCode("LEGACYUID"));
-        Assertions.assertFalse(customOidEntryServiceImpl.getShadowedCustomOidEntries().contains(SystemOid.USER_ID.getOid()),
-                "the conflict must clear once the row is gone");
+        Assertions
+                .assertFalse(
+                        customOidEntryServiceImpl.getShadowedCustomOidEntries().contains(SystemOid.USER_ID.getOid()),
+                        "the conflict must clear once the row is gone");
     }
 
     @Test
@@ -443,14 +492,17 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
 
     @Test
     void testUpdateOidEntry() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> customOidEntryService.editCustomOidEntry(NON_EXISTENT_OID, new CustomOidEntryUpdateRequestDto()));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> customOidEntryService
+                        .editCustomOidEntry(NON_EXISTENT_OID, new CustomOidEntryUpdateRequestDto()));
         CustomOidEntryUpdateRequestDto request = new CustomOidEntryUpdateRequestDto();
         request.setDisplayName("generic2");
         request.setDescription("newDesc");
         RdnAttributeTypeOidPropertiesDto propertiesDto = new RdnAttributeTypeOidPropertiesDto();
         propertiesDto.setCode("G");
         request.setAdditionalProperties(propertiesDto);
-        CustomOidEntryDetailResponseDto genericResponse = customOidEntryService.editCustomOidEntry(genericCustomOidEntry.getOid(), request);
+        CustomOidEntryDetailResponseDto genericResponse = customOidEntryService
+                .editCustomOidEntry(genericCustomOidEntry.getOid(), request);
         Assertions.assertEquals(request.getDisplayName(), genericResponse.getDisplayName());
         Assertions.assertEquals(request.getDescription(), genericResponse.getDescription());
 
@@ -458,16 +510,22 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         CustomOidEntryDetailResponseDto rdnResponse = customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request);
         Assertions.assertEquals(request.getDisplayName(), rdnResponse.getDisplayName());
         Assertions.assertEquals(request.getDescription(), rdnResponse.getDescription());
-        Assertions.assertEquals(propertiesDto.getCode(), ((RdnAttributeTypeOidPropertiesDto) rdnResponse.getAdditionalProperties()).getCode());
+        Assertions
+                .assertEquals(propertiesDto.getCode(),
+                        ((RdnAttributeTypeOidPropertiesDto) rdnResponse.getAdditionalProperties()).getCode());
 
         Assertions.assertDoesNotThrow(() -> customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request));
 
         propertiesDto.setCode("CN");
-        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request));
 
         propertiesDto.setCode("G");
         propertiesDto.setAltCodes(List.of("E"));
-        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request));
     }
 
     @Test
@@ -483,7 +541,9 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(rdnOidEntry.getCode(), rdnRecord.code());
         Assertions.assertEquals(rdnOidEntry.getAltCodes(), rdnRecord.altCodes());
 
-        OidRecord extensionRecord = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION).get(extensionOidEntry.getOid());
+        OidRecord extensionRecord = OidHandler
+                .getOidCache(OidCategory.CERTIFICATE_EXTENSION)
+                .get(extensionOidEntry.getOid());
         Assertions.assertNotNull(extensionRecord);
         Assertions.assertEquals(extensionOidEntry.getDisplayName(), extensionRecord.displayName());
         Assertions.assertEquals(extensionOidEntry.getDefaultCritical(), extensionRecord.defaultCritical());
@@ -502,8 +562,10 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
         request.setDisplayName("extension2");
         request.setDescription("newDesc");
         request.setAdditionalProperties(extensionUpdateProps);
-        CustomOidEntryDetailResponseDto extensionResponse = customOidEntryService.editCustomOidEntry(extensionOidEntryOid, request);
-        CertificateExtensionOidPropertiesDto updatedProps = (CertificateExtensionOidPropertiesDto) extensionResponse.getAdditionalProperties();
+        CustomOidEntryDetailResponseDto extensionResponse = customOidEntryService
+                .editCustomOidEntry(extensionOidEntryOid, request);
+        CertificateExtensionOidPropertiesDto updatedProps = (CertificateExtensionOidPropertiesDto) extensionResponse
+                .getAdditionalProperties();
         Assertions.assertFalse(updatedProps.getDefaultCritical());
         Assertions.assertEquals(ExtensionValueEncoding.OCTET_STRING, updatedProps.getValueEncoding());
         Assertions.assertEquals(request.getDisplayName(), extensionResponse.getDisplayName());

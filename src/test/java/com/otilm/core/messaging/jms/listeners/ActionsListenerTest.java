@@ -16,16 +16,15 @@ import com.otilm.core.service.ApprovalInternalService;
 import com.otilm.core.service.SecretInternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
 import com.otilm.core.util.AuthHelper;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -72,10 +71,11 @@ class ActionsListenerTest {
 
         // Only the failure-path tests read this; lenient() avoids strict-stubbing complaints
         // from happy-path tests that never invoke it.
-        lenient().when(messagingProperties.routingKey()).thenReturn(new MessagingProperties.RoutingKey(
-                "actions", "audit-logs", "event", "notification", "scheduler", "validation",
-                "time-quality.config-request", "time-quality.config", "time-quality.results",
-                "provider.status-poll"));
+        lenient()
+                .when(messagingProperties.routingKey())
+                .thenReturn(new MessagingProperties.RoutingKey("actions", "audit-logs", "event", "notification",
+                        "scheduler", "validation", "time-quality.config-request", "time-quality.config",
+                        "time-quality.results", "provider.status-poll"));
     }
 
     // ==================== No approval needed — direct action ====================
@@ -84,7 +84,8 @@ class ActionsListenerTest {
     void processMessage_certificateIssue_noApprovalNeeded_callsIssueCertificateAction() throws Exception {
         UUID resourceUuid = UUID.randomUUID();
         UUID userUuid = UUID.randomUUID();
-        ActionMessage msg = newMessage(Resource.CERTIFICATE, ResourceAction.ISSUE, resourceUuid, userUuid, null, null, null);
+        ActionMessage msg = newMessage(Resource.CERTIFICATE, ResourceAction.ISSUE, resourceUuid, userUuid, null, null,
+                null);
 
         // No approval profile configured for this resource → falls through to direct action.
         when(approvalProfileRelationRepository.findByResourceUuidAndResource(any(), any()))
@@ -104,8 +105,8 @@ class ActionsListenerTest {
         UUID userUuid = UUID.randomUUID();
         UUID approvalUuid = UUID.randomUUID();
         // hasApproval=true short-circuits the approval-creation branch entirely.
-        ActionMessage msg = newMessage(Resource.SECRET, ResourceAction.ISSUE, resourceUuid, userUuid,
-                approvalUuid, ApprovalStatusEnum.APPROVED, null);
+        ActionMessage msg = newMessage(Resource.SECRET, ResourceAction.ISSUE, resourceUuid, userUuid, approvalUuid,
+                ApprovalStatusEnum.APPROVED, null);
 
         listener.processMessage(msg);
 
@@ -133,20 +134,24 @@ class ActionsListenerTest {
     // ==================== Approval profile present — creates approval ====================
 
     @Test
-    void processMessage_certificateAction_approvalProfileExists_createsApprovalAndCallsApprovalCreated() throws Exception {
+    void processMessage_certificateAction_approvalProfileExists_createsApprovalAndCallsApprovalCreated()
+            throws Exception {
         UUID resourceUuid = UUID.randomUUID();
         UUID userUuid = UUID.randomUUID();
-        ActionMessage msg = newMessage(Resource.CERTIFICATE, ResourceAction.ISSUE, resourceUuid, userUuid, null, null, null);
+        ActionMessage msg = newMessage(Resource.CERTIFICATE, ResourceAction.ISSUE, resourceUuid, userUuid, null, null,
+                null);
 
         stubApprovalProfileRelation();
         Approval createdApproval = new Approval();
         createdApproval.setUuid(UUID.randomUUID());
-        when(approvalInternalService.createApproval(any(), any(), any(), any(), any(), any())).thenReturn(createdApproval);
+        when(approvalInternalService.createApproval(any(), any(), any(), any(), any(), any()))
+                .thenReturn(createdApproval);
 
         listener.processMessage(msg);
 
-        verify(approvalInternalService).createApproval(any(), eq(Resource.CERTIFICATE), eq(ResourceAction.ISSUE),
-                eq(resourceUuid), eq(userUuid), any());
+        verify(approvalInternalService)
+                .createApproval(any(), eq(Resource.CERTIFICATE), eq(ResourceAction.ISSUE), eq(resourceUuid),
+                        eq(userUuid), any());
         verify(clientOperationService).approvalCreatedAction(resourceUuid);
         // The "create approval" branch returns early — direct action must NOT run.
         verify(authHelper, never()).authenticateAsUser(any());
@@ -162,7 +167,8 @@ class ActionsListenerTest {
         stubApprovalProfileRelation();
         Approval createdApproval = new Approval();
         createdApproval.setUuid(UUID.randomUUID());
-        when(approvalInternalService.createApproval(any(), any(), any(), any(), any(), any())).thenReturn(createdApproval);
+        when(approvalInternalService.createApproval(any(), any(), any(), any(), any(), any()))
+                .thenReturn(createdApproval);
 
         listener.processMessage(msg);
 
@@ -171,10 +177,12 @@ class ActionsListenerTest {
     }
 
     @Test
-    void processMessage_approvalCreationFails_producesErrorNotificationAndThrowsMessageHandlingException() throws Exception {
+    void processMessage_approvalCreationFails_producesErrorNotificationAndThrowsMessageHandlingException()
+            throws Exception {
         UUID resourceUuid = UUID.randomUUID();
         UUID userUuid = UUID.randomUUID();
-        ActionMessage msg = newMessage(Resource.CERTIFICATE, ResourceAction.ISSUE, resourceUuid, userUuid, null, null, null);
+        ActionMessage msg = newMessage(Resource.CERTIFICATE, ResourceAction.ISSUE, resourceUuid, userUuid, null, null,
+                null);
 
         stubApprovalProfileRelation();
         when(approvalInternalService.createApproval(any(), any(), any(), any(), any(), any()))
@@ -184,8 +192,8 @@ class ActionsListenerTest {
                 .isInstanceOf(MessageHandlingException.class)
                 .hasMessageContaining("approval creation failed");
 
-        verify(notificationProducer).produceInternalNotificationMessage(eq(Resource.CERTIFICATE), eq(resourceUuid),
-                any(), any(), any());
+        verify(notificationProducer)
+                .produceInternalNotificationMessage(eq(Resource.CERTIFICATE), eq(resourceUuid), any(), any(), any());
     }
 
     // ==================== Certificate action variants (with approval) ====================
@@ -237,28 +245,28 @@ class ActionsListenerTest {
     // ==================== Authentication failure ====================
 
     @Test
-    void processMessage_authenticateAsUserFails_producesErrorNotificationAndThrowsMessageHandlingException() throws Exception {
+    void processMessage_authenticateAsUserFails_producesErrorNotificationAndThrowsMessageHandlingException()
+            throws Exception {
         UUID resourceUuid = UUID.randomUUID();
         UUID userUuid = UUID.randomUUID();
         ActionMessage msg = newMessage(Resource.CERTIFICATE, ResourceAction.ISSUE, resourceUuid, userUuid,
                 UUID.randomUUID(), ApprovalStatusEnum.APPROVED, null);
 
-        doThrow(new RuntimeException("auth blew up"))
-                .when(authHelper).authenticateAsUser(userUuid);
+        doThrow(new RuntimeException("auth blew up")).when(authHelper).authenticateAsUser(userUuid);
 
         assertThatThrownBy(() -> listener.processMessage(msg))
                 .isInstanceOf(MessageHandlingException.class)
                 .hasMessageContaining("Unable to process action");
 
-        verify(notificationProducer).produceInternalNotificationMessage(eq(Resource.CERTIFICATE), eq(resourceUuid),
-                any(), any(), any());
+        verify(notificationProducer)
+                .produceInternalNotificationMessage(eq(Resource.CERTIFICATE), eq(resourceUuid), any(), any(), any());
         verifyNoInteractions(clientOperationService);
     }
 
     // ==================== Helpers ====================
 
     private ActionMessage newMessage(Resource resource, ResourceAction action, UUID resourceUuid, UUID userUuid,
-                                     UUID approvalUuid, ApprovalStatusEnum approvalStatus, Object data) {
+            UUID approvalUuid, ApprovalStatusEnum approvalStatus, Object data) {
         ActionMessage msg = new ActionMessage();
         msg.setResource(resource);
         msg.setResourceAction(action);

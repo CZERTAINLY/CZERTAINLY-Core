@@ -9,11 +9,11 @@ import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.attribute.common.AttributeType;
-import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.v2.content.TextAttributeContentV2;
 import com.otilm.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.content.TextAttributeContentV2;
 import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.TextAttributeContentV3;
@@ -37,17 +37,16 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aCustomAttributeFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aMetaAttributeFilter;
@@ -180,7 +179,12 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
         metadataAttribute.setProperties(metadataAttributeProperties);
         metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
 
-        attributeEngine.updateMetadataAttribute(metadataAttribute, ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discoveryHistory.getUuid()).connector(connector.getUuid()).build());
+        attributeEngine
+                .updateMetadataAttribute(metadataAttribute,
+                        ObjectAttributeContentInfo
+                                .builder(Resource.DISCOVERY, discoveryHistory.getUuid())
+                                .connector(connector.getUuid())
+                                .build());
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
@@ -193,16 +197,18 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
         properties.setLabel("Test custom");
         customAttribute.setProperties(properties);
 
-        List<BaseAttributeContentV3<?>> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
+        List<BaseAttributeContentV3<?>> contentItems = List
+                .of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(customAttribute.getUuid()));
         requestAttribute.setName(customAttribute.getName());
         requestAttribute.setContent(contentItems);
 
         attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.DISCOVERY));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid(), List.of(requestAttribute));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid(),
+                        List.of(requestAttribute));
     }
-
 
     @Test
     void testInsertedData() {
@@ -213,14 +219,18 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
     @Test
     void testInsertedData2() {
         final SearchRequestDto searchRequestDto = new SearchRequestDto();
-        final DiscoveryResponseDto responseDto = discoveryService.listDiscoveries(SecurityFilter.create(), searchRequestDto);
+        final DiscoveryResponseDto responseDto = discoveryService
+                .listDiscoveries(SecurityFilter.create(), searchRequestDto);
         Assertions.assertEquals(4, responseDto.getDiscoveries().size());
     }
 
     @Test
     void testInsertedAttributes() {
-        var customAttrs = attributeEngine.getObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid());
-        var metaAttrs = attributeEngine.getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discoveryHistory.getUuid()).build());
+        var customAttrs = attributeEngine
+                .getObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid());
+        var metaAttrs = attributeEngine
+                .getMetadataAttributesDefinitionContent(
+                        ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discoveryHistory.getUuid()).build());
         Assertions.assertEquals(1, customAttrs.size());
         Assertions.assertEquals(1, metaAttrs.size());
     }
@@ -244,7 +254,9 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
     @Test
     void testFilterDataByStartTime() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(aPropertyFilter(FilterField.DISCOVERY_START_TIME, FilterConditionOperator.GREATER, "2020-05-06T10:10:10.000Z"));
+        filters
+                .add(aPropertyFilter(FilterField.DISCOVERY_START_TIME, FilterConditionOperator.GREATER,
+                        "2020-05-06T10:10:10.000Z"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(2, responseDto.getDiscoveries().size());
     }
@@ -252,7 +264,9 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
     @Test
     void testFilterDataByEndTime() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(aPropertyFilter(FilterField.DISCOVERY_END_TIME, FilterConditionOperator.LESSER, "2020-02-02T10:10:10.000Z"));
+        filters
+                .add(aPropertyFilter(FilterField.DISCOVERY_END_TIME, FilterConditionOperator.LESSER,
+                        "2020-02-02T10:10:10.000Z"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -271,7 +285,8 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
         filters.add(aPropertyFilter(FilterField.DISCOVERY_TOTAL_CERT_DISCOVERED, FilterConditionOperator.GREATER, 10));
         final SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(filters);
-        final DiscoveryResponseDto responseDto = discoveryService.listDiscoveries(SecurityFilter.create(), searchRequestDto);
+        final DiscoveryResponseDto responseDto = discoveryService
+                .listDiscoveries(SecurityFilter.create(), searchRequestDto);
         Assertions.assertEquals(3, responseDto.getDiscoveries().size());
     }
 
@@ -305,7 +320,9 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(aPropertyEqualsFilter(FilterField.DISCOVERY_CONNECTOR_NAME, "connector1"));
         filters.add(aPropertyFilter(FilterField.DISCOVERY_KIND, FilterConditionOperator.STARTS_WITH, "kindTEST"));
-        filters.add(aPropertyFilter(FilterField.DISCOVERY_START_TIME, FilterConditionOperator.LESSER, "2020-02-01T10:10:10.000Z"));
+        filters
+                .add(aPropertyFilter(FilterField.DISCOVERY_START_TIME, FilterConditionOperator.LESSER,
+                        "2020-02-01T10:10:10.000Z"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -313,7 +330,9 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
     @Test
     void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(aMetaAttributeFilter("attributeMeta1", AttributeContentType.TEXT, FilterConditionOperator.CONTAINS, "-meta-"));
+        filters
+                .add(aMetaAttributeFilter("attributeMeta1", AttributeContentType.TEXT, FilterConditionOperator.CONTAINS,
+                        "-meta-"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -321,7 +340,9 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
     @Test
     void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(aCustomAttributeFilter("attributeCustom1", AttributeContentType.TEXT, FilterConditionOperator.CONTAINS, "-custom-"));
+        filters
+                .add(aCustomAttributeFilter("attributeCustom1", AttributeContentType.TEXT,
+                        FilterConditionOperator.CONTAINS, "-custom-"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -332,20 +353,21 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
 
     @Test
     void filterByTotalCertDiscovered_invalidStringValue_throwsValidationException() {
-        List<SearchFilterRequestDto> filters = List.of(
-                aPropertyEqualsFilter(FilterField.DISCOVERY_TOTAL_CERT_DISCOVERED, "not-a-number"));
-        Assertions.assertThrows(ValidationException.class,
-                () -> retrieveTheDiscoveriesBySearch(filters),
-                "Non-numeric value for a NUMBER filter field must throw ValidationException, not NumberFormatException");
+        List<SearchFilterRequestDto> filters = List
+                .of(aPropertyEqualsFilter(FilterField.DISCOVERY_TOTAL_CERT_DISCOVERED, "not-a-number"));
+        Assertions
+                .assertThrows(ValidationException.class, () -> retrieveTheDiscoveriesBySearch(filters),
+                        "Non-numeric value for a NUMBER filter field must throw ValidationException, not NumberFormatException");
     }
 
     @Test
     void filterByTotalCertDiscovered_invalidStringValue_forGreaterThanOperator_throwsValidationException() {
-        List<SearchFilterRequestDto> filters = List.of(
-                aPropertyFilter(FilterField.DISCOVERY_TOTAL_CERT_DISCOVERED, FilterConditionOperator.GREATER, "xyz"));
-        Assertions.assertThrows(ValidationException.class,
-                () -> retrieveTheDiscoveriesBySearch(filters),
-                "Non-numeric value for GREATER on a NUMBER field must throw ValidationException");
+        List<SearchFilterRequestDto> filters = List
+                .of(aPropertyFilter(FilterField.DISCOVERY_TOTAL_CERT_DISCOVERED, FilterConditionOperator.GREATER,
+                        "xyz"));
+        Assertions
+                .assertThrows(ValidationException.class, () -> retrieveTheDiscoveriesBySearch(filters),
+                        "Non-numeric value for GREATER on a NUMBER field must throw ValidationException");
     }
 
     private DiscoveryResponseDto retrieveTheDiscoveriesBySearch(final List<SearchFilterRequestDto> filters) {

@@ -9,13 +9,6 @@ import com.otilm.core.service.writer.CertificateChainWriter;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.LdapUtils;
 import com.otilm.core.util.OcspUtil;
-import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.StringWriter;
@@ -34,9 +27,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.stereotype.Service;
 
 /**
- * <p><b>Transactional contract:</b> the bean carries no class-level {@code @Transactional}. Methods inherit the caller's
+ * <p>
+ * <b>Transactional contract:</b> the bean carries no class-level {@code @Transactional}. Methods inherit the caller's
  * ambient transaction (REQUIRED) or run without one (NOT_SUPPORTED) depending on where they are invoked from.
  */
 @Service
@@ -52,9 +53,7 @@ public class CertificateChainServiceImpl implements CertificateChainService {
     private final CertificateInternalService certificateService;
 
     @Autowired
-    public CertificateChainServiceImpl(
-            CertificateRepository certificateRepository,
-            CertificateChainWriter chainWriter,
+    public CertificateChainServiceImpl(CertificateRepository certificateRepository, CertificateChainWriter chainWriter,
             @Lazy CertificateInternalService certificateService) {
         this.certificateRepository = certificateRepository;
         this.chainWriter = chainWriter;
@@ -81,7 +80,8 @@ public class CertificateChainServiceImpl implements CertificateChainService {
             return;
         }
         boolean issuerInInventory = false;
-        for (Certificate issuer : certificateRepository.findBySubjectDnNormalized(certificate.getIssuerDnNormalized())) {
+        for (Certificate issuer : certificateRepository
+                .findBySubjectDnNormalized(certificate.getIssuerDnNormalized())) {
             X509Certificate issCert = parseOrNull(issuer.getCertificateContent().getContent());
             if (issCert != null && verifySignature(subCert, issCert)) {
                 certificate.setIssuerSerialNumber(issuer.getSerialNumber());
@@ -105,7 +105,9 @@ public class CertificateChainServiceImpl implements CertificateChainService {
                     assert nextInChain != null;
                     previousCertificate.setIssuerCertificateUuid(nextInChain.getUuid());
                     previousCertificate.setIssuerSerialNumber(nextInChain.getSerialNumber());
-                    chainWriter.applyIssuerReference(previousCertificate.getUuid(), nextInChain.getSerialNumber(), nextInChain.getUuid());
+                    chainWriter
+                            .applyIssuerReference(previousCertificate.getUuid(), nextInChain.getSerialNumber(),
+                                    nextInChain.getUuid());
                     previousCertificate = nextInChain;
                     ++downloadedCertificates;
                 } catch (NoSuchAlgorithmException | CertificateException | NotFoundException e) {
@@ -134,7 +136,8 @@ public class CertificateChainServiceImpl implements CertificateChainService {
     @Override
     public boolean completeCertificateChain(Certificate lastCertificate, List<Certificate> certificateChain) {
         try {
-            X509Certificate x509 = CertificateUtil.parseCertificate(lastCertificate.getCertificateContent().getContent());
+            X509Certificate x509 = CertificateUtil
+                    .parseCertificate(lastCertificate.getCertificateContent().getContent());
             if (isSelfSigned(x509, lastCertificate.getUuid())) {
                 return true;
             } else {
@@ -152,13 +155,16 @@ public class CertificateChainServiceImpl implements CertificateChainService {
     }
 
     @Override
-    public Certificate constructCertificateChainFromInventory(Certificate certificate, List<Certificate> certificateChain) {
-        List<String> chainUuidStrings = certificateRepository.findCertificateChainUuids(certificate.getUuid(), certificateChainMaxDepth);
+    public Certificate constructCertificateChainFromInventory(Certificate certificate,
+            List<Certificate> certificateChain) {
+        List<String> chainUuidStrings = certificateRepository
+                .findCertificateChainUuids(certificate.getUuid(), certificateChainMaxDepth);
         if (chainUuidStrings.size() <= 1) {
             return certificate;
         }
 
-        List<UUID> ancestorUuids = chainUuidStrings.subList(1, chainUuidStrings.size())
+        List<UUID> ancestorUuids = chainUuidStrings
+                .subList(1, chainUuidStrings.size())
                 .stream()
                 .map(UUID::fromString)
                 .toList();
@@ -219,8 +225,9 @@ public class CertificateChainServiceImpl implements CertificateChainService {
     }
 
     private X509Certificate getX509(String certificate) throws CertificateException {
-        return CertificateUtil.getX509Certificate(
-                certificate.replace("-----BEGIN CERTIFICATE-----", "")
+        return CertificateUtil
+                .getX509Certificate(certificate
+                        .replace("-----BEGIN CERTIFICATE-----", "")
                         .replace("\r", "")
                         .replace("\n", "")
                         .replace("-----END CERTIFICATE-----", ""));
@@ -235,16 +242,18 @@ public class CertificateChainServiceImpl implements CertificateChainService {
                 if (chainContent.isEmpty()) {
                     chainUrl = null;
                 } else {
-                    logger.info("Certificate {} downloaded from Authority Information Access extension URL {}",
-                            certX509.getSubjectX500Principal().getName(), chainUrl);
+                    logger
+                            .info("Certificate {} downloaded from Authority Information Access extension URL {}",
+                                    certX509.getSubjectX500Principal().getName(), chainUrl);
                     chainCertificates.add(chainContent);
                     certX509 = getX509(chainContent);
                     chainUrl = verifySignature(certX509, certX509) ? null : OcspUtil.getChainFromAia(certX509);
                 }
             }
         } catch (Exception e) {
-            logger.debug("Unable to get the chain of certificate {} from Authority Information Access",
-                    certificate.getUuid(), e);
+            logger
+                    .debug("Unable to get the chain of certificate {} from Authority Information Access",
+                            certificate.getUuid(), e);
         }
         return chainCertificates;
     }
@@ -256,7 +265,9 @@ public class CertificateChainServiceImpl implements CertificateChainService {
 
             if (chainUrl.startsWith("ldap://") || chainUrl.startsWith("ldaps://")) {
                 byte[] certificate = LdapUtils.downloadFromLdap(chainUrl);
-                if (certificate == null) return "";
+                if (certificate == null) {
+                    return "";
+                }
                 cert = (X509Certificate) fac.generateCertificate(new ByteArrayInputStream(certificate));
             } else {
                 URL url = URI.create(chainUrl).toURL();
@@ -267,8 +278,7 @@ public class CertificateChainServiceImpl implements CertificateChainService {
                     cert = (X509Certificate) fac.generateCertificate(in);
                 }
             }
-            try (StringWriter writer = new StringWriter();
-                 JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+            try (StringWriter writer = new StringWriter(); JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
                 pemWriter.writeObject(cert);
                 pemWriter.flush();
                 return writer.toString();

@@ -31,6 +31,9 @@ The important modification are marked with the comment "MODIFICATION"
 
 package com.otilm.core.intune.scepvalidation;
 
+import com.microsoft.aad.adal4j.AuthenticationContext;
+import com.microsoft.aad.adal4j.AuthenticationResult;
+import com.microsoft.aad.adal4j.ClientCredential;
 import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.util.Properties;
@@ -38,117 +41,104 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-
 import javax.naming.ServiceUnavailableException;
 import javax.net.ssl.SSLSocketFactory;
-
-import com.microsoft.aad.adal4j.AuthenticationContext;
-import com.microsoft.aad.adal4j.AuthenticationResult;
-import com.microsoft.aad.adal4j.ClientCredential;
 
 /**
  * Azure Active Directory Authentication Client
  */
-public class ADALClientWrapper 
-{
+public class ADALClientWrapper {
 
     private String authority = "https://login.microsoftonline.com/";
     private ClientCredential credential = null;
     private ExecutorService service = null;
     private AuthenticationContext context = null;
-    
+
     /**
      * Azure Active Directory Authentication Client
+     *
      * @param aadTenant - Azure Active Directory tenant
      * @param credential - Credential to use for authentication
      * @throws IllegalArgumentException
      */
-    public ADALClientWrapper(String aadTenant, ClientCredential credential, Properties props) throws IllegalArgumentException
-    {
-        if(aadTenant == null || aadTenant.isEmpty())
-        {
+    public ADALClientWrapper(String aadTenant, ClientCredential credential, Properties props)
+            throws IllegalArgumentException {
+        if (aadTenant == null || aadTenant.isEmpty()) {
             throw new IllegalArgumentException("The argument 'aadTenant' is missing");
         }
-        
-        if(credential == null)
-        {
-            throw new IllegalArgumentException("The argument 'credential' is missing");    
+
+        if (credential == null) {
+            throw new IllegalArgumentException("The argument 'credential' is missing");
         }
-        
-        if(props != null)
-        {
-            this.authority = props.getProperty("AUTH_AUTHORITY",this.authority);
+
+        if (props != null) {
+            this.authority = props.getProperty("AUTH_AUTHORITY", this.authority);
         }
-        
+
         this.credential = credential;
         this.service = Executors.newFixedThreadPool(1);
-        
-        try 
-        {
+
+        try {
             context = new AuthenticationContext(this.authority + aadTenant, false, service);
-        }
-        catch(MalformedURLException e)
-        {
-            throw new IllegalArgumentException("AUTH_AUTHORITY parameter was not formatted correctly which resulted in a MalformedURLException", e);
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException(
+                    "AUTH_AUTHORITY parameter was not formatted correctly which resulted in a MalformedURLException",
+                    e);
         }
     }
-    
+
     /**
      * Sets the SSL factory to be used on the HTTP client for authentication.
+     *
      * @param factory
      */
-    public void SetSslSocketFactory(SSLSocketFactory factory) throws IllegalArgumentException
-    {
-        if(factory == null)
-        {
+    public void SetSslSocketFactory(SSLSocketFactory factory) throws IllegalArgumentException {
+        if (factory == null) {
             throw new IllegalArgumentException("The argument 'factory' is missing.");
         }
-        
+
         this.context.setSslSocketFactory(factory);
     }
-    
+
     /**
      * Sets the proxy to be used by the ADAL library for any HTTP or HTTPS calls
+     *
      * @param proxy
      */
-    public void SetProxy(Proxy proxy)
-    {
+    public void SetProxy(Proxy proxy) {
         this.context.setProxy(proxy);
     }
-    
+
     /**
      * Gets an access token from AAD for the specified resource using the ClientCredential passed in.
+     *
      * @param resource Resource to get token for.
      * @return
-     * @throws ExecutionException 
+     * @throws ExecutionException
      * @throws IllegalArgumentException
-     * @throws InterruptedException 
-     * @throws ServiceUnavailableException 
+     * @throws InterruptedException
+     * @throws ServiceUnavailableException
      */
-    public AuthenticationResult getAccessTokenFromCredential(String resource) 
-            throws ServiceUnavailableException, InterruptedException, ExecutionException, IllegalArgumentException
-    {
-        if(resource == null || resource.isEmpty())
-        {
+    public AuthenticationResult getAccessTokenFromCredential(String resource)
+            throws ServiceUnavailableException, InterruptedException, ExecutionException, IllegalArgumentException {
+        if (resource == null || resource.isEmpty()) {
             throw new IllegalArgumentException("The argument 'resource' is missing");
         }
-        
+
         AuthenticationResult result = null;
-        
+
         Future<AuthenticationResult> future = context.acquireToken(resource, credential, null);
         result = future.get();
 
-        if (result == null) 
-        {
+        if (result == null) {
             throw new ServiceUnavailableException("Authentication result was null");
         }
-        
+
         return result;
     }
-    
+
     @Override
-    public void finalize()
-    {
+    public void finalize() {
         service.shutdown();
     }
 }

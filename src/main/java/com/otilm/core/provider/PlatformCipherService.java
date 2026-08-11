@@ -4,17 +4,16 @@ import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.interfaces.client.v1.CryptographicOperationsSyncApiClient;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.RsaEncryptionScheme;
 import com.otilm.api.model.connector.cryptography.operations.CipherDataRequestDto;
 import com.otilm.api.model.connector.cryptography.operations.DecryptDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.data.CipherRequestData;
-import com.otilm.api.model.common.enums.cryptography.RsaEncryptionScheme;
 import com.otilm.core.attribute.RsaEncryptionAttributes;
 import com.otilm.core.provider.key.PlatformPrivateKey;
+import java.util.List;
+import javax.crypto.BadPaddingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.crypto.BadPaddingException;
-import java.util.List;
 
 public class PlatformCipherService {
 
@@ -32,16 +31,13 @@ public class PlatformCipherService {
     public List<RequestAttribute> mapCipherAttributesFromCipherAlgorithm(String algorithm) {
         switch (algorithm) {
             case "RSA", "RSA/NONE/PKCS1Padding", "RSA/ECB/PKCS1Padding" -> {
-                return List.of(
-                        RsaEncryptionAttributes.buildRequestEncryptionScheme(RsaEncryptionScheme.PKCS1_v1_5)
-                );
+                return List.of(RsaEncryptionAttributes.buildRequestEncryptionScheme(RsaEncryptionScheme.PKCS1_v1_5));
             }
             case "RSA/NONE/OAEPWithSHA1AndMGF1Padding", "RSA/ECB/OAEPWithSHA-1AndMGF1Padding" -> {
-                return List.of(
-                        RsaEncryptionAttributes.buildRequestEncryptionScheme(RsaEncryptionScheme.OAEP),
-                        RsaEncryptionAttributes.buildRequestOaepHash(DigestAlgorithm.SHA_1),
-                        RsaEncryptionAttributes.buildRequestOaepMgf(true)
-                );
+                return List
+                        .of(RsaEncryptionAttributes.buildRequestEncryptionScheme(RsaEncryptionScheme.OAEP),
+                                RsaEncryptionAttributes.buildRequestOaepHash(DigestAlgorithm.SHA_1),
+                                RsaEncryptionAttributes.buildRequestOaepMgf(true));
             }
             default -> throw new IllegalArgumentException("No cipher attributes mapped for algorithm: " + algorithm);
         }
@@ -55,18 +51,15 @@ public class PlatformCipherService {
         cipherDataRequestDto.setCipherAttributes(cipherAttributes);
         cipherDataRequestDto.setCipherData(List.of(cipherRequestData));
 
-        log.debug("Decrypting data on connector: {} with token instance: {} and key: {}",
-                privateKey.getConnectorDto().getName(),
-                privateKey.getTokenInstanceUuid(),
-                privateKey.getKeyUuid());
+        log
+                .debug("Decrypting data on connector: {} with token instance: {} and key: {}",
+                        privateKey.getConnectorDto().getName(), privateKey.getTokenInstanceUuid(),
+                        privateKey.getKeyUuid());
 
         try {
-            DecryptDataResponseDto responseDto = apiClient.decryptData(
-                    privateKey.getConnectorDto(),
-                    privateKey.getTokenInstanceUuid(),
-                    privateKey.getKeyUuid(),
-                    cipherDataRequestDto
-            );
+            DecryptDataResponseDto responseDto = apiClient
+                    .decryptData(privateKey.getConnectorDto(), privateKey.getTokenInstanceUuid(),
+                            privateKey.getKeyUuid(), cipherDataRequestDto);
             return responseDto.getDecryptedData().get(0).getData();
         } catch (ConnectorException e) {
             throw new BadPaddingException("Failed to decrypt on connector: " + e.getMessage());

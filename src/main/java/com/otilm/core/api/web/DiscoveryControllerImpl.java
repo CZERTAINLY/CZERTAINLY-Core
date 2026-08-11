@@ -1,6 +1,10 @@
 package com.otilm.core.api.web;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.SchedulerException;
 import com.otilm.api.interfaces.core.web.DiscoveryController;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
@@ -21,6 +25,9 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.SchedulerExternalService;
 import com.otilm.core.tasks.DiscoveryCertificateTask;
+import java.net.URI;
+import java.util.List;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,10 +36,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 public class DiscoveryControllerImpl implements DiscoveryController {
@@ -61,29 +64,23 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.DETAIL)
-    public DiscoveryHistoryDetailDto getDiscovery(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public DiscoveryHistoryDetailDto getDiscovery(@LogResource(uuid = true) @PathVariable String uuid)
+            throws NotFoundException {
         return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, affiliatedResource = Resource.CERTIFICATE, operation = Operation.LIST)
-    public DiscoveryCertificateResponseDto getDiscoveryCertificates(
-            @LogResource(uuid = true) String uuid,
-            Boolean newlyDiscovered,
-            int itemsPerPage,
-            int pageNumber
-    ) throws NotFoundException {
-        return discoveryService.getDiscoveryCertificates(
-                SecuredUUID.fromString(uuid),
-                newlyDiscovered,
-                itemsPerPage,
-                pageNumber
-        );
+    public DiscoveryCertificateResponseDto getDiscoveryCertificates(@LogResource(uuid = true) String uuid,
+            Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException {
+        return discoveryService
+                .getDiscoveryCertificates(SecuredUUID.fromString(uuid), newlyDiscovered, itemsPerPage, pageNumber);
     }
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.CREATE)
-    public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         final DiscoveryHistoryDetailDto modal = discoveryService.createDiscovery(request, true);
         discoveryService.runDiscoveryAsync(UUID.fromString(modal.getUuid()));
         URI location = ServletUriComponentsBuilder
@@ -98,7 +95,9 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     @AuditLogged(module = Module.SCHEDULER, resource = Resource.SCHEDULED_JOB, affiliatedResource = Resource.DISCOVERY, operation = Operation.SCHEDULE)
-    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws SchedulerException, ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto)
+            throws SchedulerException, ConnectorException, AlreadyExistException, AttributeException,
+            NotFoundException {
         final DiscoveryDto discoveryDto = scheduleDiscoveryDto.getRequest();
         discoveryService.createDiscovery(discoveryDto, false);
 
@@ -109,7 +108,9 @@ public class DiscoveryControllerImpl implements DiscoveryController {
             jobName = scheduleDiscoveryDto.getJobName();
         }
 
-        ScheduledJobDetailDto scheduledJob = schedulerService.registerScheduledJob(DiscoveryCertificateTask.class, jobName, scheduleDiscoveryDto.getCronExpression(), scheduleDiscoveryDto.isOneTime(), scheduleDiscoveryDto.getRequest());
+        ScheduledJobDetailDto scheduledJob = schedulerService
+                .registerScheduledJob(DiscoveryCertificateTask.class, jobName, scheduleDiscoveryDto.getCronExpression(),
+                        scheduleDiscoveryDto.isOneTime(), scheduleDiscoveryDto.getRequest());
         logger.info("Job {} was registered.", jobName);
 
         // TODO: construct location URI differently without hardcoded path

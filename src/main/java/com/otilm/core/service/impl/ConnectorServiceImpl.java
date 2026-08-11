@@ -1,25 +1,35 @@
 package com.otilm.core.service.impl;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
-import com.otilm.api.model.client.connector.*;
+import com.otilm.api.model.client.connector.ConnectDto;
+import com.otilm.api.model.client.connector.ConnectRequestDto;
+import com.otilm.api.model.client.connector.ConnectorRequestDto;
+import com.otilm.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.common.HealthDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.connector.*;
+import com.otilm.api.model.core.connector.ConnectorApiClientDtoV1;
+import com.otilm.api.model.core.connector.ConnectorDto;
+import com.otilm.api.model.core.connector.ConnectorStatus;
+import com.otilm.api.model.core.connector.FunctionGroupCode;
+import com.otilm.api.model.core.connector.FunctionGroupDto;
 import com.otilm.api.model.core.connector.v2.ConnectInfo;
 import com.otilm.api.model.core.connector.v2.ConnectInfoV1;
 import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.client.ConnectorApiFactory;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
 import com.otilm.core.dao.repository.ConnectorRepository;
@@ -30,10 +40,16 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ConnectorExternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import jakarta.transaction.Transactional;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.*;
 
 @Service("connectorServiceV1")
 @Transactional
@@ -52,7 +68,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     }
 
     @Autowired
-    public void setConnectorInternalServiceV2(com.otilm.core.service.v2.ConnectorInternalService connectorInternalServiceV2) {
+    public void setConnectorInternalServiceV2(
+            com.otilm.core.service.v2.ConnectorInternalService connectorInternalServiceV2) {
         this.connectorInternalServiceV2 = connectorInternalServiceV2;
     }
 
@@ -73,8 +90,13 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
-    public List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) {
-        List<ConnectorDto> connectors = connectorRepository.findUsingSecurityFilter(filter).stream().map(Connector::mapToDto).toList();
+    public List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup,
+            Optional<String> kind, Optional<ConnectorStatus> status) {
+        List<ConnectorDto> connectors = connectorRepository
+                .findUsingSecurityFilter(filter)
+                .stream()
+                .map(Connector::mapToDto)
+                .toList();
         if (functionGroup.isPresent()) {
             connectors = filterByFunctionGroup(connectors, functionGroup.get());
         }
@@ -96,13 +118,13 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     @Override
     public Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException {
-        return connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+        return connectorRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Connector.class, uuid));
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
-    public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    public ConnectorDto createConnector(ConnectorRequestDto request)
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         var requestV2 = new com.otilm.api.model.core.connector.v2.ConnectorRequestDto();
         requestV2.setName(request.getName());
         requestV2.setUrl(request.getUrl());
@@ -119,7 +141,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
-    public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request)
+            throws ConnectorException, AttributeException, NotFoundException {
         var requestV2 = new com.otilm.api.model.core.connector.v2.ConnectorUpdateRequestDto();
         requestV2.setUrl(request.getUrl());
         requestV2.setAuthType(request.getAuthType());
@@ -139,13 +162,15 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
-    public List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
+    public List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids)
+            throws ValidationException, NotFoundException {
         return connectorServiceV2.bulkDeleteConnector(uuids);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
-    public List<BulkActionMessageDto> forceDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
+    public List<BulkActionMessageDto> forceDeleteConnector(List<SecuredUUID> uuids)
+            throws ValidationException, NotFoundException {
         return connectorServiceV2.forceDeleteConnector(uuids);
     }
 
@@ -177,12 +202,15 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
-    public List<ConnectDto> reconnect(SecuredUUID uuid) throws ValidationException, ConnectorException, NotFoundException {
-        var connector = connectorRepository.findByUuid(uuid)
+    public List<ConnectDto> reconnect(SecuredUUID uuid)
+            throws ValidationException, ConnectorException, NotFoundException {
+        var connector = connectorRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         if (connector.getVersion() != ConnectorVersion.V1) {
-            throw new ValidationException("Expected connector version " + ConnectorVersion.V1.getLabel() + " but got " + connector.getVersion().getLabel());
+            throw new ValidationException("Expected connector version " + ConnectorVersion.V1.getLabel() + " but got "
+                    + connector.getVersion().getLabel());
         }
 
         var connectInfo = connectorServiceV2.reconnect(uuid);
@@ -224,35 +252,48 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException, NotFoundException {
-        Connector connector = connectorRepository.findByUuid(uuid)
+    public List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup,
+            String functionGroupType) throws ConnectorException, NotFoundException {
+        Connector connector = connectorRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         validateFunctionGroup(connector, functionGroup);
 
         ConnectorApiClientDtoV1 connectorDto = connector.mapToApiClientDtoV1();
-        return connectorApiFactory.getAttributeApiClient(connectorDto).listAttributeDefinitions(connectorDto, functionGroup, functionGroupType);
+        return connectorApiFactory
+                .getAttributeApiClient(connectorDto)
+                .listAttributeDefinitions(connectorDto, functionGroup, functionGroupType);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttribute> attributes, String functionGroupType) throws ValidationException, ConnectorException, NotFoundException {
-        Connector connector = connectorRepository.findByUuid(uuid)
+    public void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttribute> attributes,
+            String functionGroupType) throws ValidationException, ConnectorException, NotFoundException {
+        Connector connector = connectorRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         validateAttributes(connector, functionGroup, attributes, functionGroupType);
     }
 
-    private void validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttribute> attributes, String functionGroupType) throws ValidationException, ConnectorException {
+    private void validateAttributes(Connector connector, FunctionGroupCode functionGroup,
+            List<RequestAttribute> attributes, String functionGroupType)
+            throws ValidationException, ConnectorException {
         validateFunctionGroup(connector, functionGroup);
         ConnectorApiClientDtoV1 connectorDto = connector.mapToApiClientDtoV1();
-        connectorApiFactory.getAttributeApiClient(connectorDto).validateAttributes(connectorDto, functionGroup, attributes, functionGroupType);
+        connectorApiFactory
+                .getAttributeApiClient(connectorDto)
+                .validateAttributes(connectorDto, functionGroup, attributes, functionGroupType);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttribute> requestAttributes, String functionGroupType) throws ValidationException, ConnectorException, AttributeException, NotFoundException {
-        Connector connector = connectorRepository.findByUuid(uuid)
+    public void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup,
+            List<RequestAttribute> requestAttributes, String functionGroupType)
+            throws ValidationException, ConnectorException, AttributeException, NotFoundException {
+        Connector connector = connectorRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         // validate first by connector
@@ -260,7 +301,9 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
         // get definitions from connector
         ConnectorApiClientDtoV1 connectorDto = connector.mapToApiClientDtoV1();
-        List<BaseAttribute> definitions = connectorApiFactory.getAttributeApiClient(connectorDto).listAttributeDefinitions(connectorDto, functionGroup, functionGroupType);
+        List<BaseAttribute> definitions = connectorApiFactory
+                .getAttributeApiClient(connectorDto)
+                .listAttributeDefinitions(connectorDto, functionGroup, functionGroupType);
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(connector.getUuid(), null, definitions, requestAttributes);
@@ -268,8 +311,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAllAttributesOfConnector(SecuredUUID uuid) throws ConnectorException, NotFoundException {
-        Connector connector = connectorRepository.findByUuid(uuid)
+    public Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAllAttributesOfConnector(SecuredUUID uuid)
+            throws ConnectorException, NotFoundException {
+        Connector connector = connectorRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         ConnectorDto connectorDto = connector.mapToDto();
@@ -277,7 +322,11 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
             Map<String, List<BaseAttribute>> kindsAttribute = new HashMap<>();
             for (String kind : fg.getKinds()) {
-                kindsAttribute.put(kind, connectorApiFactory.getAttributeApiClient(connectorDto).listAttributeDefinitions(connectorDto, fg.getFunctionGroupCode(), kind));
+                kindsAttribute
+                        .put(kind,
+                                connectorApiFactory
+                                        .getAttributeApiClient(connectorDto)
+                                        .listAttributeDefinitions(connectorDto, fg.getFunctionGroupCode(), kind));
             }
             attributes.put(fg.getFunctionGroupCode(), kindsAttribute);
         }
@@ -300,7 +349,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return connectorInternalServiceV2.listResourceObjects(filter, filters, pagination);
     }
 
@@ -318,7 +368,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         }
 
         if (connector2FunctionGroup == null) {
-            throw new ValidationException(ValidationError.create("Connector {} doesn't support function group code {}", connector.getName(), functionGroup));
+            throw new ValidationException(ValidationError
+                    .create("Connector {} doesn't support function group code {}", connector.getName(), functionGroup));
         }
     }
 
@@ -327,7 +378,9 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         for (ConnectorDto connectorDto : connectors) {
             for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
                 if (code == FunctionGroupCode.AUTHORITY_PROVIDER) {
-                    if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
+                    if (Arrays
+                            .asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER)
+                            .contains(fg.getFunctionGroupCode())) {
                         connectorDto.setFunctionGroups(List.of(fg));
                         connectorDtos.add(connectorDto);
                     }

@@ -1,16 +1,7 @@
 package com.otilm.core.config;
 
 import com.otilm.core.util.CertificateUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.AutoConfigureOrder;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered;
-
 import jakarta.annotation.PostConstruct;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -22,6 +13,14 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.AutoConfigureOrder;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 
 @Configuration
 @AutoConfigureOrder(Ordered.HIGHEST_PRECEDENCE)
@@ -35,7 +34,8 @@ public class TrustedCertificatesConfig {
     private TrustManager[] trustManagers;
 
     @PostConstruct
-    public void configureGlobalTrustStore() throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException, KeyManagementException {
+    public void configureGlobalTrustStore() throws KeyStoreException, CertificateException, IOException,
+            NoSuchAlgorithmException, KeyManagementException {
         KeyStore trustStore = loadCacertsKeyStore();
 
         String certString = System.getenv("TRUSTED_CERTIFICATES");
@@ -51,17 +51,18 @@ public class TrustedCertificatesConfig {
             int i = 0;
             for (X509Certificate certificate : certificates) {
                 trustStore.setCertificateEntry("platform-trusted-" + i, certificate);
-                logger.info("Certificate with serial number '{}' and DN '{}' added with alias '{}'",
-                        certificate.getSerialNumber().toString(16),
-                        certificate.getSubjectX500Principal(),
-                        "platform-trusted-" + i);
+                logger
+                        .info("Certificate with serial number '{}' and DN '{}' added with alias '{}'",
+                                certificate.getSerialNumber().toString(16), certificate.getSubjectX500Principal(),
+                                "platform-trusted-" + i);
                 i++;
             }
         } else {
             logger.info("No trusted certificates were provided, continue with default cacerts!");
         }
 
-        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory
+                .getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(trustStore);
 
         SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
@@ -72,7 +73,8 @@ public class TrustedCertificatesConfig {
         SSLContext.setDefault(sslContext);
     }
 
-    private KeyStore loadCacertsKeyStore() throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException {
+    private KeyStore loadCacertsKeyStore()
+            throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException {
         String relativeCacertsPath = "/lib/security/cacerts".replace("/", File.separator);
         String filename = System.getProperty("java.home") + relativeCacertsPath;
 
@@ -87,8 +89,7 @@ public class TrustedCertificatesConfig {
         } catch (Exception e) {
             logger.error("Failed loading cacert in location: {}", filename);
             throw e;
-        }
-        finally {
+        } finally {
             is.close();
         }
 
@@ -103,10 +104,9 @@ public class TrustedCertificatesConfig {
         }
 
         while (trustedCerts.contains(BEGIN_CERTIFICATE)) {
-            String rfcCert = trustedCerts.substring(
-                    trustedCerts.indexOf(BEGIN_CERTIFICATE),
-                    trustedCerts.indexOf(END_CERTIFICATE) + END_CERTIFICATE.length()
-            );
+            String rfcCert = trustedCerts
+                    .substring(trustedCerts.indexOf(BEGIN_CERTIFICATE),
+                            trustedCerts.indexOf(END_CERTIFICATE) + END_CERTIFICATE.length());
 
             try {
                 X509Certificate certificate = CertificateUtil.parseCertificate(rfcCert);

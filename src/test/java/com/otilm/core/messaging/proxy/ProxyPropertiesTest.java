@@ -1,21 +1,19 @@
 package com.otilm.core.messaging.proxy;
 
-import org.junit.jupiter.api.Test;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;
+import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ProxyPropertiesTest {
 
     @Test
     void constructor_withExplicitInstanceId_usesIt() {
-        ProxyProperties props = new ProxyProperties(
-                "exchange", "core", "my-instance",
-                Duration.ofSeconds(30), 1000, "1"
-        );
+        ProxyProperties props = new ProxyProperties("exchange", "core", "my-instance", Duration.ofSeconds(30), 1000,
+                "1");
         assertThat(props.instanceId()).isEqualTo("my-instance");
     }
 
@@ -24,17 +22,11 @@ class ProxyPropertiesTest {
         String expectedHostname = InetAddress.getLocalHost().getHostName();
         if (expectedHostname.contains(".")) {
             // On machines where hostname contains dots (e.g., macOS), expect validation error
-            assertThatThrownBy(() -> new ProxyProperties(
-                    "exchange", "core", null,
-                    Duration.ofSeconds(30), 1000, "1"
-            ))
+            assertThatThrownBy(() -> new ProxyProperties("exchange", "core", null, Duration.ofSeconds(30), 1000, "1"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("must not contain dots");
         } else {
-            ProxyProperties props = new ProxyProperties(
-                    "exchange", "core", null,
-                    Duration.ofSeconds(30), 1000, "1"
-            );
+            ProxyProperties props = new ProxyProperties("exchange", "core", null, Duration.ofSeconds(30), 1000, "1");
             assertThat(props.instanceId()).isEqualTo(expectedHostname);
         }
     }
@@ -44,37 +36,26 @@ class ProxyPropertiesTest {
         String expectedHostname = InetAddress.getLocalHost().getHostName();
         if (expectedHostname.contains(".")) {
             // On machines where hostname contains dots (e.g., macOS), expect validation error
-            assertThatThrownBy(() -> new ProxyProperties(
-                    "exchange", "core", "  ",
-                    Duration.ofSeconds(30), 1000, "1"
-            ))
+            assertThatThrownBy(() -> new ProxyProperties("exchange", "core", "  ", Duration.ofSeconds(30), 1000, "1"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("must not contain dots");
         } else {
-            ProxyProperties props = new ProxyProperties(
-                    "exchange", "core", "  ",
-                    Duration.ofSeconds(30), 1000, "1"
-            );
+            ProxyProperties props = new ProxyProperties("exchange", "core", "  ", Duration.ofSeconds(30), 1000, "1");
             assertThat(props.instanceId()).isEqualTo(expectedHostname);
         }
     }
 
     @Test
     void constructor_withDotsInInstanceId_throwsIllegalArgument() {
-        assertThatThrownBy(() -> new ProxyProperties(
-                "exchange", "core", "core.local",
-                Duration.ofSeconds(30), 1000, "1"
-        ))
+        assertThatThrownBy(
+                () -> new ProxyProperties("exchange", "core", "core.local", Duration.ofSeconds(30), 1000, "1"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("must not contain dots");
     }
 
     @Test
     void constructor_defaults_areApplied() {
-        ProxyProperties props = new ProxyProperties(
-                null, null, "test-instance",
-                null, null, null
-        );
+        ProxyProperties props = new ProxyProperties(null, null, "test-instance", null, null, null);
         assertThat(props.instanceId()).isEqualTo("test-instance");
         assertThat(props.exchange()).isEqualTo("ilm-proxy");
         assertThat(props.responseQueue()).isEqualTo("core");

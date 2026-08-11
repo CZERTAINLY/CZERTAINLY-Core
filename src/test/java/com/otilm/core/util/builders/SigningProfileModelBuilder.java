@@ -21,13 +21,14 @@ public final class SigningProfileModelBuilder {
     private boolean enabled = true;
     private List<SigningProtocol> enabledProtocols = List.of(SigningProtocol.TSP);
     private UUID tspProfileUuid = UUID.fromString("00000000-0000-0000-0000-000000000004");
-    private SigningWorkflow workflow = ManagedTimestampingWorkflowBuilder.aManagedTimestampingWorkflow()
+    private SigningWorkflow workflow = ManagedTimestampingWorkflowBuilder
+            .aManagedTimestampingWorkflow()
             .timeQualityConfigurationUuid(UUID.fromString("00000000-0000-0000-0000-000000000002"))
             .build();
     private SigningSchemeModel signingScheme = new StaticKeyManagedSigning(
             UUID.fromString("00000000-0000-0000-0000-000000000003"), List.of());
-    private SigningRecordPolicyModel recordPolicy = new SigningRecordPolicyModel(
-            true, false, false, false, false, null, false, SigningRecordPersistenceMode.DEFERRED_DURABLE);
+    private SigningRecordPolicyModel recordPolicy = new SigningRecordPolicyModel(true, false, false, false, false, null,
+            false, SigningRecordPersistenceMode.DEFERRED_DURABLE);
 
     public static SigningProfileModelBuilder aSigningProfile() {
         return new SigningProfileModelBuilder();
@@ -89,6 +90,7 @@ public final class SigningProfileModelBuilder {
 
     @SuppressWarnings({"unchecked", "java:S119"})
     public <W extends SigningWorkflow, SM extends SigningSchemeModel> SigningProfileModel<W, SM> build() {
-        return new SigningProfileModel<>(uuid, name, description, version, enabled, enabledProtocols, tspProfileUuid, (W) workflow, (SM) signingScheme, recordPolicy);
+        return new SigningProfileModel<>(uuid, name, description, version, enabled, enabledProtocols, tspProfileUuid,
+                (W) workflow, (SM) signingScheme, recordPolicy);
     }
 }

@@ -1,5 +1,6 @@
 package com.otilm.core.integration.service.compliance;
 
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
@@ -20,15 +21,27 @@ import com.otilm.api.model.core.secret.SecretState;
 import com.otilm.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.otilm.api.model.core.workflows.ConditionItemDto;
 import com.otilm.api.model.core.workflows.ConditionItemRequestDto;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.ComplianceProfileAssociation;
+import com.otilm.core.dao.entity.ComplianceProfileRule;
+import com.otilm.core.dao.entity.CryptographicKey;
+import com.otilm.core.dao.entity.CryptographicKeyItem;
+import com.otilm.core.dao.entity.Secret;
+import com.otilm.core.dao.entity.SecretVersion;
+import com.otilm.core.dao.entity.TokenInstanceReference;
+import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.repository.CryptographicKeyRepository;
+import com.otilm.core.dao.repository.SecretRepository;
+import com.otilm.core.dao.repository.SecretVersionRepository;
+import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
+import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.events.handlers.CertificateUploadedEventHandler;
 import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.messaging.model.CertificateUploadEventMessageData;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.compliance.ComplianceResultDto;
 import com.otilm.core.model.compliance.ComplianceResultProviderRulesDto;
 import com.otilm.core.model.compliance.ComplianceResultRulesDto;
-import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
@@ -39,13 +52,6 @@ import com.otilm.core.service.ComplianceInternalService;
 import com.otilm.core.service.compliance.BaseComplianceTest;
 import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.util.CertificateUtil;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authorization.AuthorizationDeniedException;
-
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
@@ -53,6 +59,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 
 import static org.mockito.Mockito.when;
 
@@ -124,57 +135,65 @@ class ComplianceServiceITest extends BaseComplianceTest {
         v2GroupAssoc.setComplianceGroupUuid(complianceV2Group2Uuid);
         complianceProfileRuleRepository.save(v2GroupAssoc);
 
-        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/compliance".formatted(KIND_V2)))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                  "rules": [
-                                    {
-                                      "uuid": "%s",
-                                      "name": "Rule1",
-                                      "status": "nok"
-                                    },
-                                    {
-                                      "uuid": "%s",
-                                      "name": "Rule2",
-                                      "status": "na"
-                                    }
-                                  ]
-                                }
-                                """.formatted(complianceV2RuleUuid, complianceV2Rule2Uuid)))
-        );
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/compliance".formatted(KIND_V2)))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("""
+                                        {
+                                          "rules": [
+                                            {
+                                              "uuid": "%s",
+                                              "name": "Rule1",
+                                              "status": "nok"
+                                            },
+                                            {
+                                              "uuid": "%s",
+                                              "name": "Rule2",
+                                              "status": "na"
+                                            }
+                                          ]
+                                        }
+                                        """.formatted(complianceV2RuleUuid, complianceV2Rule2Uuid))));
 
-        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v1/complianceProvider/%s/compliance".formatted(KIND_V1)))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                  "status": "nok",
-                                  "rules": [
-                                    {
-                                      "uuid": "%s",
-                                      "name": "Rule1-V1",
-                                      "status": "na"
-                                    }
-                                  ]
-                                }
-                                """.formatted(complianceV1RuleUuid)))
-        );
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/v1/complianceProvider/%s/compliance".formatted(KIND_V1)))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("""
+                                        {
+                                          "status": "nok",
+                                          "rules": [
+                                            {
+                                              "uuid": "%s",
+                                              "name": "Rule1-V1",
+                                              "status": "na"
+                                            }
+                                          ]
+                                        }
+                                        """.formatted(complianceV1RuleUuid))));
 
         // create and persist a certificate subject that belongs to the seeded RA profile
-        var certificateChainInfo = CertificateGeneratorHelper.generateCertificateWithIssuer(KeyAlgorithm.RSA, "CN=Test-Ca", "CN=Test-EndEntity", null);
-        X509Certificate x509Certificate = CertificateUtil.parseCertificate(certificateChainInfo.getCaCertificateBase64Encoded());
+        var certificateChainInfo = CertificateGeneratorHelper
+                .generateCertificateWithIssuer(KeyAlgorithm.RSA, "CN=Test-Ca", "CN=Test-EndEntity", null);
+        X509Certificate x509Certificate = CertificateUtil
+                .parseCertificate(certificateChainInfo.getCaCertificateBase64Encoded());
         String fingerprint = CertificateUtil.getThumbprint(x509Certificate);
-        CertificateUploadEventMessageData eventData = CertificateUploadEventMessageData.builder()
+        CertificateUploadEventMessageData eventData = CertificateUploadEventMessageData
+                .builder()
                 .certificateContent(certificateChainInfo.getCaCertificateBase64Encoded())
                 .build();
         certificateUploadedEventHandler.handleEvent(CertificateUploadedEventHandler.constructEventMessage(eventData));
         x509Certificate = CertificateUtil.parseCertificate(certificateChainInfo.getEndEntityCertificateBase64Encoded());
         String fingerprint2 = CertificateUtil.getThumbprint(x509Certificate);
-        eventData = CertificateUploadEventMessageData.builder()
+        eventData = CertificateUploadEventMessageData
+                .builder()
                 .certificateContent(certificateChainInfo.getEndEntityCertificateBase64Encoded())
                 .build();
         certificateUploadedEventHandler.handleEvent(CertificateUploadedEventHandler.constructEventMessage(eventData));
@@ -185,15 +204,25 @@ class ComplianceServiceITest extends BaseComplianceTest {
 
         // reload certificate and assert compliance result was stored
         Certificate certificate = certificateRepository.findByFingerprint(fingerprint).orElseThrow();
-        ComplianceCheckResultDto complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate.getUuid());
-        Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, complianceCheckResult.getStatus(), "Compliance result status should be Not checked");
-        Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, certificate.getComplianceStatus(), "Compliance status should be Not checked");
+        ComplianceCheckResultDto complianceCheckResult = complianceService
+                .getComplianceCheckResult(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions
+                .assertEquals(ComplianceStatus.NOT_CHECKED, complianceCheckResult.getStatus(),
+                        "Compliance result status should be Not checked");
+        Assertions
+                .assertEquals(ComplianceStatus.NOT_CHECKED, certificate.getComplianceStatus(),
+                        "Compliance status should be Not checked");
 
         Certificate certificate2 = certificateRepository.findByFingerprint(fingerprint2).orElseThrow();
         complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate2.getUuid());
-        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate2.getUuid());
-        Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, complianceCheckResult.getStatus(), "Compliance result status should be Not checked");
-        Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, certificate2.getComplianceStatus(), "Compliance status should be Not checked");
+        complianceCheckResult = complianceService
+                .getComplianceCheckResult(Resource.CERTIFICATE, certificate2.getUuid());
+        Assertions
+                .assertEquals(ComplianceStatus.NOT_CHECKED, complianceCheckResult.getStatus(),
+                        "Compliance result status should be Not checked");
+        Assertions
+                .assertEquals(ComplianceStatus.NOT_CHECKED, certificate2.getComplianceStatus(),
+                        "Compliance status should be Not checked");
 
         ComplianceResultDto complianceResult = new ComplianceResultDto();
         complianceResult.setProviderRules(null);
@@ -207,23 +236,33 @@ class ComplianceServiceITest extends BaseComplianceTest {
 
         // check failed compliance with invalid internal rule and V1 and V2 provider rules
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate.getUuid());
-        Assertions.assertEquals(ComplianceStatus.FAILED, complianceCheckResult.getStatus(), "Compliance result status should be Failed");
+        Assertions
+                .assertEquals(ComplianceStatus.FAILED, complianceCheckResult.getStatus(),
+                        "Compliance result status should be Failed");
         Assertions.assertNotNull(complianceCheckResult.getMessage());
 
         complianceProfileRuleRepository.delete(internalRuleAssoc);
 
         complianceService.checkCompliance(uuids, Resource.CERTIFICATE, null);
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate.getUuid());
-        Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance result status should be Not Compliant");
+        Assertions
+                .assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(),
+                        "Compliance result status should be Not Compliant");
 
         certificate2.setRaProfileUuid(associatedRaProfileUuid);
         certificateRepository.save(certificate2);
         complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate2.getUuid());
-        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate2.getUuid());
-        Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance result status should be Not Compliant");
-        CertificateDetailDto certificate2Dto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate2.getUuid()));
+        complianceCheckResult = complianceService
+                .getComplianceCheckResult(Resource.CERTIFICATE, certificate2.getUuid());
+        Assertions
+                .assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(),
+                        "Compliance result status should be Not Compliant");
+        CertificateDetailDto certificate2Dto = certificateService
+                .getCertificate(SecuredUUID.fromUUID(certificate2.getUuid()));
         // Expect 4 failed rules: 1 internal, 1 v1 provide0r rule, 2 v2 provider rules (one group with two rules)
-        Assertions.assertEquals(3, certificate2Dto.getNonCompliantRules().size(), "There should be 3 non-compliant rules, internal skipped");
+        Assertions
+                .assertEquals(3, certificate2Dto.getNonCompliantRules().size(),
+                        "There should be 3 non-compliant rules, internal skipped");
         Assertions.assertEquals(4, complianceCheckResult.getFailedRules().size(), "There should be 4 failed rules");
 
         complianceService.checkResourceObjectCompliance(Resource.RA_PROFILE, associatedRaProfileUuid);
@@ -250,29 +289,39 @@ class ComplianceServiceITest extends BaseComplianceTest {
         complianceProfileAssociation.setObjectUuid(tokenProfile.getUuid());
         complianceProfileAssociationRepository.save(complianceProfileAssociation);
 
-        CryptographicKey key = cryptographicKeyRepository.findWithAssociationsByUuid(certificate.getKeyUuid()).orElseThrow();
+        CryptographicKey key = cryptographicKeyRepository
+                .findWithAssociationsByUuid(certificate.getKeyUuid())
+                .orElseThrow();
         CryptographicKeyItem keyItem = key.getItems().iterator().next();
 
-        Assertions.assertEquals(key.getUuid(), complianceExternalService.resolveComplianceAuthorizableObject(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid()).getValue(),
-                "A key item must be authorized against its owning key, not its own UUID");
+        Assertions
+                .assertEquals(key.getUuid(),
+                        complianceExternalService
+                                .resolveComplianceAuthorizableObject(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid())
+                                .getValue(),
+                        "A key item must be authorized against its owning key, not its own UUID");
         key.setTokenProfileUuid(tokenProfile.getUuid());
         cryptographicKeyRepository.save(key);
 
-        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/compliance".formatted(KIND_V2)))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                  "rules": []
-                                }
-                                """))
-        );
-
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/compliance".formatted(KIND_V2)))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("""
+                                        {
+                                          "rules": []
+                                        }
+                                        """)));
 
         complianceService.checkCompliance(uuids, Resource.CRYPTOGRAPHIC_KEY, null);
-        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
-        Assertions.assertEquals(ComplianceStatus.NA, complianceCheckResult.getStatus(), "Compliance status should be Not applicable due to incompatible attributes setting");
+        complianceCheckResult = complianceService
+                .getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
+        Assertions
+                .assertEquals(ComplianceStatus.NA, complianceCheckResult.getStatus(),
+                        "Compliance status should be Not applicable due to incompatible attributes setting");
 
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString("7ed00886-e706-11ec-8fea-0242ac120002"));
@@ -283,33 +332,44 @@ class ComplianceServiceITest extends BaseComplianceTest {
         complianceProfileRuleRepository.save(v2RuleAssoc);
 
         complianceService.checkResourceObjectCompliance(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
-        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
-        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus(), "Compliance status should be Compliant");
+        complianceCheckResult = complianceService
+                .getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
+        Assertions
+                .assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus(),
+                        "Compliance status should be Compliant");
 
         complianceService.checkResourceObjectCompliance(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
-        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
-        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus(), "Compliance status should be Compliant");
+        complianceCheckResult = complianceService
+                .getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
+        Assertions
+                .assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus(),
+                        "Compliance status should be Compliant");
 
-        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/compliance".formatted(KIND_V2)))
-                .willReturn(WireMock.aResponse()
-                        .withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                  "rules": [
-                                    {
-                                      "uuid": "%s",
-                                      "name": "RuleKey",
-                                      "status": "nok"
-                                    }
-                                  ]
-                                }
-                                """.formatted(complianceV2RuleKeyUuid)))
-        );
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/compliance".formatted(KIND_V2)))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("""
+                                        {
+                                          "rules": [
+                                            {
+                                              "uuid": "%s",
+                                              "name": "RuleKey",
+                                              "status": "nok"
+                                            }
+                                          ]
+                                        }
+                                        """.formatted(complianceV2RuleKeyUuid))));
 
         complianceService.checkResourceObjectCompliance(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
-        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
-        Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance status should be Not Compliant");
+        complianceCheckResult = complianceService
+                .getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
+        Assertions
+                .assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(),
+                        "Compliance status should be Not Compliant");
     }
 
     @Test
@@ -330,13 +390,19 @@ class ComplianceServiceITest extends BaseComplianceTest {
         secret.setLatestVersion(secretVersion);
         secretRepository.save(secret);
 
-        Assertions.assertDoesNotThrow(() -> complianceExternalService.checkResourceObjectsComplianceValidation(Resource.VAULT_PROFILE, List.of(vaultProfileUuid)));
-        Assertions.assertDoesNotThrow(() -> complianceExternalService.checkResourceObjectsComplianceValidation(Resource.SECRET, List.of(secret.getUuid())));
+        Assertions
+                .assertDoesNotThrow(() -> complianceExternalService
+                        .checkResourceObjectsComplianceValidation(Resource.VAULT_PROFILE, List.of(vaultProfileUuid)));
+        Assertions
+                .assertDoesNotThrow(() -> complianceExternalService
+                        .checkResourceObjectsComplianceValidation(Resource.SECRET, List.of(secret.getUuid())));
         complianceService.checkResourceObjectCompliance(Resource.SECRET, secret.getUuid());
-        ComplianceCheckResultDto complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
+        ComplianceCheckResultDto complianceCheckResult = complianceService
+                .getComplianceCheckResult(Resource.SECRET, secret.getUuid());
         Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
 
-        complianceService.checkCompliance(List.of(SecuredUUID.fromUUID(complianceProfile.getUuid())), Resource.SECRET, null);
+        complianceService
+                .checkCompliance(List.of(SecuredUUID.fromUUID(complianceProfile.getUuid())), Resource.SECRET, null);
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.SECRET, secret.getUuid());
         Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
         OffsetDateTime lastUpdated = complianceCheckResult.getTimestamp();
@@ -346,39 +412,59 @@ class ComplianceServiceITest extends BaseComplianceTest {
         Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus());
         Assertions.assertNotEquals(lastUpdated, complianceCheckResult.getTimestamp());
 
-        Assertions.assertEquals(secret.getUuid(), complianceExternalService.resolveComplianceAuthorizableObject(Resource.SECRET, secret.getUuid()).getValue(),
-                "A secret is authorized against its own UUID");
+        Assertions
+                .assertEquals(secret.getUuid(),
+                        complianceExternalService
+                                .resolveComplianceAuthorizableObject(Resource.SECRET, secret.getUuid())
+                                .getValue(),
+                        "A secret is authorized against its own UUID");
     }
 
     @Test
     void resolveComplianceAuthorizableObjectMapsToOwningAuthorizableObject() {
         UUID certificateUuid = UUID.randomUUID();
-        Assertions.assertEquals(certificateUuid, complianceExternalService.resolveComplianceAuthorizableObject(Resource.CERTIFICATE, certificateUuid).getValue(),
-                "A certificate is authorized against its own UUID");
+        Assertions
+                .assertEquals(certificateUuid,
+                        complianceExternalService
+                                .resolveComplianceAuthorizableObject(Resource.CERTIFICATE, certificateUuid)
+                                .getValue(),
+                        "A certificate is authorized against its own UUID");
 
-        Assertions.assertNull(complianceExternalService.resolveComplianceAuthorizableObject(Resource.CERTIFICATE_REQUEST, UUID.randomUUID()),
-                "A certificate request has no stable owning object; authorization is resource-level (null)");
+        Assertions
+                .assertNull(
+                        complianceExternalService
+                                .resolveComplianceAuthorizableObject(Resource.CERTIFICATE_REQUEST, UUID.randomUUID()),
+                        "A certificate request has no stable owning object; authorization is resource-level (null)");
 
-        Assertions.assertNull(complianceExternalService.resolveComplianceAuthorizableObject(Resource.CRYPTOGRAPHIC_KEY_ITEM, UUID.randomUUID()),
-                "An unknown key item resolves to null (resource-level); the body then throws NotFound post-authorization");
+        Assertions
+                .assertNull(complianceExternalService
+                        .resolveComplianceAuthorizableObject(Resource.CRYPTOGRAPHIC_KEY_ITEM, UUID.randomUUID()),
+                        "An unknown key item resolves to null (resource-level); the body then throws NotFound post-authorization");
 
-        Assertions.assertNull(complianceExternalService.resolveComplianceAuthorizableObject(Resource.CERTIFICATE, null),
-                "A null object UUID resolves to null (resource-level)");
+        Assertions
+                .assertNull(complianceExternalService.resolveComplianceAuthorizableObject(Resource.CERTIFICATE, null),
+                        "A null object UUID resolves to null (resource-level)");
     }
 
     @Test
     void checkResourceObjectsComplianceValidationDeniedWhenOpaRejectsCheckCompliance() {
-        when(opaClient.checkResourceAccess(Mockito.any(),
-                        Mockito.argThat(req -> isRequestFor(req, Resource.COMPLIANCE_PROFILE, ResourceAction.CHECK_COMPLIANCE)), Mockito.any(), Mockito.any()))
+        when(opaClient
+                .checkResourceAccess(Mockito.any(), Mockito
+                        .argThat(
+                                req -> isRequestFor(req, Resource.COMPLIANCE_PROFILE, ResourceAction.CHECK_COMPLIANCE)),
+                        Mockito.any(), Mockito.any()))
                 .thenReturn(OpaResourceAccessResult.unauthorized());
 
         List<UUID> objectUuids = List.of(UUID.randomUUID());
-        Assertions.assertThrows(AuthorizationDeniedException.class,
-                () -> complianceExternalService.checkResourceObjectsComplianceValidation(Resource.CERTIFICATE, objectUuids),
-                "checkResourceObjectsComplianceValidation must enforce COMPLIANCE_PROFILE/CHECK_COMPLIANCE");
+        Assertions
+                .assertThrows(AuthorizationDeniedException.class,
+                        () -> complianceExternalService
+                                .checkResourceObjectsComplianceValidation(Resource.CERTIFICATE, objectUuids),
+                        "checkResourceObjectsComplianceValidation must enforce COMPLIANCE_PROFILE/CHECK_COMPLIANCE");
     }
 
-    private static boolean isRequestFor(OpaRequestedResource requestedResource, Resource resource, ResourceAction action) {
+    private static boolean isRequestFor(OpaRequestedResource requestedResource, Resource resource,
+            ResourceAction action) {
         return requestedResource != null && requestedResource.getProperties() != null
                 && resource.getCode().equals(requestedResource.getProperties().get("name"))
                 && action.getCode().equals(requestedResource.getProperties().get("action"));
@@ -386,20 +472,31 @@ class ComplianceServiceITest extends BaseComplianceTest {
 
     @Test
     void testCertificateRequestComplianceCheckBeforeIssue() throws Exception {
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/authorityProvider/authorities/1l/certificates/issue/attributes"))
-                .willReturn(WireMock.aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("[]").withStatus(200)));
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathEqualTo("/v2/authorityProvider/authorities/1l/certificates/issue/attributes"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("[]")
+                                .withStatus(200)));
 
-        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/authorityProvider/authorities/1l/certificates/issue/attributes/validate"))
-                .willReturn(WireMock.aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("true").withStatus(200)));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathEqualTo(
+                                        "/v2/authorityProvider/authorities/1l/certificates/issue/attributes/validate"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("true")
+                                .withStatus(200)));
 
-        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/authorityProvider/authorities/1l/certificates/issue"))
-                .willReturn(WireMock.aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody("""
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/v2/authorityProvider/authorities/1l/certificates/issue"))
+                        .willReturn(WireMock.aResponse().withHeader("Content-Type", "application/json").withBody("""
                                 {
                                     "certificateData": "TEST-DATA"
                                 }
@@ -412,10 +509,13 @@ class ComplianceServiceITest extends BaseComplianceTest {
         internalRuleAssoc.setInternalRuleUuid(internalCertificateRequestRuleUuid);
         complianceProfileRuleRepository.save(internalRuleAssoc);
 
-        var certificateChainInfo = CertificateGeneratorHelper.generateCertificateWithIssuer(KeyAlgorithm.RSA, "CN=Test-Ca-RSA", "CN=Test-EndEntity-RSA", null);
-        X509Certificate x509Certificate = CertificateUtil.parseCertificate(certificateChainInfo.getEndEntityCertificateBase64Encoded());
+        var certificateChainInfo = CertificateGeneratorHelper
+                .generateCertificateWithIssuer(KeyAlgorithm.RSA, "CN=Test-Ca-RSA", "CN=Test-EndEntity-RSA", null);
+        X509Certificate x509Certificate = CertificateUtil
+                .parseCertificate(certificateChainInfo.getEndEntityCertificateBase64Encoded());
         String fingerprint = CertificateUtil.getThumbprint(x509Certificate);
-        CertificateUploadEventMessageData eventData = CertificateUploadEventMessageData.builder()
+        CertificateUploadEventMessageData eventData = CertificateUploadEventMessageData
+                .builder()
                 .certificateContent(certificateChainInfo.getEndEntityCertificateBase64Encoded())
                 .build();
         certificateUploadedEventHandler.handleEvent(CertificateUploadedEventHandler.constructEventMessage(eventData));
@@ -424,15 +524,23 @@ class ComplianceServiceITest extends BaseComplianceTest {
         certificateRepository.save(certWithRsaKey);
 
         KeyPair certWithRsaKeyPair = certificateChainInfo.getEndEntityCertificateKeyPair();
-        String csr = CertificateGeneratorHelper.generateCsrBase64Der(certWithRsaKeyPair.getPrivate(), certWithRsaKeyPair.getPublic(), "CN=Test-EndEntity-RSA", "SHA256WithRSA");
+        String csr = CertificateGeneratorHelper
+                .generateCsrBase64Der(certWithRsaKeyPair.getPrivate(), certWithRsaKeyPair.getPublic(),
+                        "CN=Test-EndEntity-RSA", "SHA256WithRSA");
         ClientCertificateRenewRequestDto renewRequestDto = new ClientCertificateRenewRequestDto();
         renewRequestDto.setRequest(csr);
-        var response = clientOperationService.renewCertificate(SecuredParentUUID.fromUUID(authorityUuid), SecuredUUID.fromUUID(associatedRaProfileUuid), certWithRsaKey.getUuid().toString(), renewRequestDto);
+        var response = clientOperationService
+                .renewCertificate(SecuredParentUUID.fromUUID(authorityUuid),
+                        SecuredUUID.fromUUID(associatedRaProfileUuid), certWithRsaKey.getUuid().toString(),
+                        renewRequestDto);
 
         Certificate renewedCert = certificateRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
-        Assertions.assertEquals(CertificateState.REQUESTED, renewedCert.getState(), "Certificate should be in REQUESTED state");
+        Assertions
+                .assertEquals(CertificateState.REQUESTED, renewedCert.getState(),
+                        "Certificate should be in REQUESTED state");
 
-        var internalRules = complianceProfileService.getComplianceRules(null, null, Resource.CERTIFICATE_REQUEST, null, null);
+        var internalRules = complianceProfileService
+                .getComplianceRules(null, null, Resource.CERTIFICATE_REQUEST, null, null);
         ConditionItemDto conditionItemDto = internalRules.getFirst().getConditionItems().getFirst();
 
         ConditionItemRequestDto conditionItemRequestDto = new ConditionItemRequestDto();
@@ -446,9 +554,14 @@ class ComplianceServiceITest extends BaseComplianceTest {
         requestDto.setResource(Resource.CERTIFICATE_REQUEST);
         requestDto.setConditionItems(List.of(conditionItemRequestDto));
         complianceProfileService.updateComplianceInternalRule(internalCertificateRequestRuleUuid, requestDto);
-        response = clientOperationService.renewCertificate(SecuredParentUUID.fromUUID(authorityUuid), SecuredUUID.fromUUID(associatedRaProfileUuid), certWithRsaKey.getUuid().toString(), renewRequestDto);
+        response = clientOperationService
+                .renewCertificate(SecuredParentUUID.fromUUID(authorityUuid),
+                        SecuredUUID.fromUUID(associatedRaProfileUuid), certWithRsaKey.getUuid().toString(),
+                        renewRequestDto);
         renewedCert = certificateRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
-        Assertions.assertEquals(CertificateState.REJECTED, renewedCert.getState(), "Certificate should be in REJECTED state");
+        Assertions
+                .assertEquals(CertificateState.REJECTED, renewedCert.getState(),
+                        "Certificate should be in REJECTED state");
     }
 
     @Test
@@ -475,7 +588,8 @@ class ComplianceServiceITest extends BaseComplianceTest {
         // objectUuid only used for logging in implementation; use random
         UUID objectUuid = UUID.randomUUID();
 
-        ComplianceCheckResultDto result = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, objectUuid, complianceResult);
+        ComplianceCheckResultDto result = complianceService
+                .getComplianceCheckResult(Resource.CERTIFICATE, objectUuid, complianceResult);
 
         Assertions.assertNotNull(result);
         // Expect two failed rules: one internal and one provider
@@ -506,7 +620,8 @@ class ComplianceServiceITest extends BaseComplianceTest {
         provider.setNotAvailable(new HashSet<>(List.of(rNotAvailable)));
         complianceResult.setProviderRules(List.of(provider));
 
-        ComplianceCheckResultDto result = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, UUID.randomUUID(), complianceResult);
+        ComplianceCheckResultDto result = complianceService
+                .getComplianceCheckResult(Resource.CERTIFICATE, UUID.randomUUID(), complianceResult);
 
         Assertions.assertEquals(3, result.getFailedRules().size());
 
@@ -525,7 +640,9 @@ class ComplianceServiceITest extends BaseComplianceTest {
         ComplianceResultDto complianceResult = new ComplianceResultDto();
         complianceResult.setProviderRules(null);
         complianceResult.setInternalRules(null);
-        Assertions.assertDoesNotThrow(() -> complianceService.getComplianceCheckResult(Resource.CERTIFICATE, UUID.randomUUID(), complianceResult));
+        Assertions
+                .assertDoesNotThrow(() -> complianceService
+                        .getComplianceCheckResult(Resource.CERTIFICATE, UUID.randomUUID(), complianceResult));
 
         ComplianceResultProviderRulesDto p1 = new ComplianceResultProviderRulesDto();
         p1.setConnectorUuid(connectorV1.getUuid());
@@ -543,7 +660,8 @@ class ComplianceServiceITest extends BaseComplianceTest {
 
         complianceResult.setProviderRules(List.of(p1, p2));
 
-        ComplianceCheckResultDto result = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, UUID.randomUUID(), complianceResult);
+        ComplianceCheckResultDto result = complianceService
+                .getComplianceCheckResult(Resource.CERTIFICATE, UUID.randomUUID(), complianceResult);
 
         // Expect two provider rules present in failed rules
         Set<UUID> found = new HashSet<>();
@@ -558,19 +676,53 @@ class ComplianceServiceITest extends BaseComplianceTest {
     void testCheckComplianceValidation() {
         // check validation of compliance check request
         List<SecuredUUID> uuids = List.of(SecuredUUID.fromUUID(UUID.randomUUID()));
-        Assertions.assertThrows(ValidationException.class, () -> complianceExternalService.checkComplianceValidation(uuids, null, "SOME_TYPE"), "Resource must be specified");
-        Assertions.assertThrows(ValidationException.class, () -> complianceService.checkCompliance(uuids, null, "SOME_TYPE"), "Resource must be specified");
-        Assertions.assertThrows(ValidationException.class, () -> complianceExternalService.checkComplianceValidation(uuids, Resource.NONE, "SOME_TYPE"), "Resource cannot be NONE, has to be compliance subject or has compliance profiles");
-        Assertions.assertThrows(ValidationException.class, () -> complianceService.checkCompliance(uuids, Resource.NONE, "SOME_TYPE"), "Resource cannot be NONE, has to be compliance subject or has compliance profiles");
-        Assertions.assertThrows(ValidationException.class, () -> complianceExternalService.checkComplianceValidation(uuids, Resource.CERTIFICATE, "SOME_TYPE"), "Resource CERTIFICATE support only types from CertificateType enum");
-        Assertions.assertThrows(ValidationException.class, () -> complianceService.checkCompliance(uuids, Resource.CERTIFICATE, "SOME_TYPE"), "Resource CERTIFICATE support only types from CertificateType enum");
-        Assertions.assertThrows(NotFoundException.class, () -> complianceExternalService.checkComplianceValidation(uuids, Resource.CERTIFICATE, CertificateType.X509.getCode()), "No compliance profile found with specified UUID");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceExternalService.checkComplianceValidation(uuids, null, "SOME_TYPE"),
+                        "Resource must be specified");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceService.checkCompliance(uuids, null, "SOME_TYPE"),
+                        "Resource must be specified");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceExternalService.checkComplianceValidation(uuids, Resource.NONE, "SOME_TYPE"),
+                        "Resource cannot be NONE, has to be compliance subject or has compliance profiles");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceService.checkCompliance(uuids, Resource.NONE, "SOME_TYPE"),
+                        "Resource cannot be NONE, has to be compliance subject or has compliance profiles");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceExternalService
+                                .checkComplianceValidation(uuids, Resource.CERTIFICATE, "SOME_TYPE"),
+                        "Resource CERTIFICATE support only types from CertificateType enum");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceService.checkCompliance(uuids, Resource.CERTIFICATE, "SOME_TYPE"),
+                        "Resource CERTIFICATE support only types from CertificateType enum");
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> complianceExternalService
+                                .checkComplianceValidation(uuids, Resource.CERTIFICATE, CertificateType.X509.getCode()),
+                        "No compliance profile found with specified UUID");
 
         // check resource objects compliance validation
         List<UUID> objectUuids = List.of(UUID.randomUUID());
         UUID objectUuid = objectUuids.getFirst();
-        Assertions.assertThrows(ValidationException.class, () -> complianceExternalService.checkResourceObjectsComplianceValidation(Resource.NONE, objectUuids), "Resource cannot be NONE, has to be compliance subject or has compliance profiles");
-        Assertions.assertThrows(ValidationException.class, () -> complianceService.checkResourceObjectCompliance(Resource.NONE, objectUuid), "Resource must be specified");
-        Assertions.assertThrows(NotFoundException.class, () -> complianceExternalService.checkResourceObjectsComplianceValidation(Resource.RA_PROFILE, objectUuids), "No RA Profile found with specified UUID");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceExternalService
+                                .checkResourceObjectsComplianceValidation(Resource.NONE, objectUuids),
+                        "Resource cannot be NONE, has to be compliance subject or has compliance profiles");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> complianceService.checkResourceObjectCompliance(Resource.NONE, objectUuid),
+                        "Resource must be specified");
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> complianceExternalService
+                                .checkResourceObjectsComplianceValidation(Resource.RA_PROFILE, objectUuids),
+                        "No RA Profile found with specified UUID");
     }
 }

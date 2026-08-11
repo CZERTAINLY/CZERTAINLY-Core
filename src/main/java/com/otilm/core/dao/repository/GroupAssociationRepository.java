@@ -2,12 +2,11 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.GroupAssociation;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
-import java.util.List;
-import java.util.UUID;
 
 @Repository
 public interface GroupAssociationRepository extends JpaRepository<GroupAssociation, UUID> {
@@ -21,6 +20,7 @@ public interface GroupAssociationRepository extends JpaRepository<GroupAssociati
     Long deleteByGroupUuid(UUID groupUuid);
 
     Long deleteByResourceAndObjectUuid(Resource resource, UUID objectUuid);
+
     Long deleteByResourceAndObjectUuidIn(Resource resource, List<UUID> objectUuids);
 
     Long deleteByResourceAndObjectUuidAndGroupUuid(Resource resource, UUID objectUuid, UUID groupUuid);

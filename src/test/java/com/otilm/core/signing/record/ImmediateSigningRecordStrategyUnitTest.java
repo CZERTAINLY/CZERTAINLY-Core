@@ -10,11 +10,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.notRecording;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingDisabled;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingEverything;
 import static com.otilm.core.signing.record.SigningRecordInputBuilder.aSigningRecordInput;
+import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,12 +24,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
- * Pure unit test for {@link ImmediateSigningRecordStrategy} over a mocked {@link SigningRecordWriter}.
- * The strategy's job is narrow: every call ticks the intake funnel on the shared ancestor; an empty policy is
- * skipped, otherwise it maps + persists synchronously and counts the persist stage. Unlike the best-effort
- * strategy it has no queue and does not swallow persistence failures — they propagate to the caller, and the
- * failure ticks both the stage-2 {@code persist.failed} and the stage-1 {@code intake.failed{persist_error}}.
- * Persistence wiring (mapper output, columns, transaction) is covered against the real context in
+ * Pure unit test for {@link ImmediateSigningRecordStrategy} over a mocked {@link SigningRecordWriter}. The strategy's
+ * job is narrow: every call ticks the intake funnel on the shared ancestor; an empty policy is skipped, otherwise it
+ * maps + persists synchronously and counts the persist stage. Unlike the best-effort strategy it has no queue and does
+ * not swallow persistence failures — they propagate to the caller, and the failure ticks both the stage-2
+ * {@code persist.failed} and the stage-1 {@code intake.failed{persist_error}}. Persistence wiring (mapper output,
+ * columns, transaction) is covered against the real context in
  * {@link com.otilm.core.integration.signing.record.ImmediateSigningRecordStrategyITest}.
  */
 class ImmediateSigningRecordStrategyUnitTest {
@@ -44,19 +44,15 @@ class ImmediateSigningRecordStrategyUnitTest {
     void setUp() {
         registry = new SimpleMeterRegistry();
         writer = mock(SigningRecordWriter.class);
-        strategy = new ImmediateSigningRecordStrategy(new SigningRecordMetrics(registry), writer, new SigningRecordInputMapper());
+        strategy = new ImmediateSigningRecordStrategy(new SigningRecordMetrics(registry), writer,
+                new SigningRecordInputMapper());
     }
 
     @Test
     void record_countsIntakeSkippedAndDoesNotPersist_whenRecordingDisabled() {
         // given
         var recordingDisabledInput = aSigningRecordInput()
-                .signingProfile(
-                        aSigningProfile()
-                                .withRecordPolicy(
-                                        recordingDisabled()
-                                                .build())
-                                .build())
+                .signingProfile(aSigningProfile().withRecordPolicy(recordingDisabled().build()).build())
                 .build();
 
         // when

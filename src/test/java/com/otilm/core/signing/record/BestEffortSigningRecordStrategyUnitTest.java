@@ -6,17 +6,16 @@ import com.otilm.core.service.writer.signingrecord.SigningRecordWriter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
-import java.util.List;
-
-import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.notRecording;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingDisabled;
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingEverything;
 import static com.otilm.core.signing.record.SigningRecordInputBuilder.aSigningRecordInput;
+import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,13 +29,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Pure unit test for {@link BestEffortSigningRecordStrategy} over a mocked {@link BestEffortSigningRecordQueue}
- * and {@link SigningRecordWriter}. The strategy's job is narrow: every call ticks the intake funnel; an empty
- * policy is skipped, otherwise it maps and dispatches to the right backpressure method (admission is the intake
- * accept, an interrupted block is {@code intake.failed{interrupted}}, an eviction is the standalone
- * {@code best_effort.evicted} post-acceptance loss). The async flush is the stage-2 {@code persist} pair,
- * counting losses without propagating. Queue mechanics — eviction, blocking, batching — are covered against the
- * real queue in {@link BestEffortSigningRecordQueueTest}.
+ * Pure unit test for {@link BestEffortSigningRecordStrategy} over a mocked {@link BestEffortSigningRecordQueue} and
+ * {@link SigningRecordWriter}. The strategy's job is narrow: every call ticks the intake funnel; an empty policy is
+ * skipped, otherwise it maps and dispatches to the right backpressure method (admission is the intake accept, an
+ * interrupted block is {@code intake.failed{interrupted}}, an eviction is the standalone {@code best_effort.evicted}
+ * post-acceptance loss). The async flush is the stage-2 {@code persist} pair, counting losses without propagating.
+ * Queue mechanics — eviction, blocking, batching — are covered against the real queue in
+ * {@link BestEffortSigningRecordQueueTest}.
  */
 class BestEffortSigningRecordStrategyUnitTest {
 
@@ -60,12 +59,7 @@ class BestEffortSigningRecordStrategyUnitTest {
     void record_countsIntakeSkipped_whenRecordingDisabled() {
         // given
         var recordingDisabledInput = aSigningRecordInput()
-                .signingProfile(
-                        aSigningProfile()
-                                .withRecordPolicy(
-                                        recordingDisabled()
-                                                .build())
-                                .build())
+                .signingProfile(aSigningProfile().withRecordPolicy(recordingDisabled().build()).build())
                 .build();
         var strategy = createStrategy(BestEffortBackpressurePolicy.DROP_OLDEST);
 
@@ -82,12 +76,7 @@ class BestEffortSigningRecordStrategyUnitTest {
     void record_enqueuesMetadataOnlyRecord_whenRecordingEnabledButNoContentSelected() {
         // given
         var metadataOnlyInput = aSigningRecordInput()
-                .signingProfile(
-                        aSigningProfile()
-                                .withRecordPolicy(
-                                        notRecording()
-                                                .build())
-                                .build())
+                .signingProfile(aSigningProfile().withRecordPolicy(notRecording().build()).build())
                 .build();
         var strategy = createStrategy(BestEffortBackpressurePolicy.DROP_OLDEST);
 
@@ -192,7 +181,8 @@ class BestEffortSigningRecordStrategyUnitTest {
     }
 
     @Test
-    void drainAndPersistBatch_countsPersistAttemptAndFailureByBatchSizeAndDoesNotThrow_whenInsertFails() throws Exception {
+    void drainAndPersistBatch_countsPersistAttemptAndFailureByBatchSizeAndDoesNotThrow_whenInsertFails()
+            throws Exception {
         // setup
         var strategy = createStrategy(BestEffortBackpressurePolicy.DROP_OLDEST);
 

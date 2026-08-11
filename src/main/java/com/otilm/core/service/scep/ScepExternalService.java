@@ -7,6 +7,7 @@ public interface ScepExternalService {
 
     /**
      * Handle the GET request from the SCEP client
+     *
      * @param scepProfileName Name of the SCEP Profile
      * @param operation SCEP Operation
      * @param message SCEP Message
@@ -16,6 +17,7 @@ public interface ScepExternalService {
 
     /**
      * Handle the POST request from the SCEP client
+     *
      * @param scepProfileName Name of the SCEP Profile
      * @param operation SCEP Operation
      * @param message SCEP Message

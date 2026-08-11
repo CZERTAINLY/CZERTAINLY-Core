@@ -6,17 +6,16 @@ import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.oid.SystemOid;
 import com.otilm.api.model.core.oid.properties.CertificateExtensionOidPropertiesDto;
 import com.otilm.api.model.core.oid.properties.RdnAttributeTypeOidPropertiesDto;
-import org.junit.jupiter.api.Test;
-
 import java.util.Arrays;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Plain unit coverage for the system-OID projection — no Spring context. {@code GET /v1/oids/system}
- * returns system entries shaped exactly like custom ones, so a category that carries typed properties
- * must surface them or the response violates its own required-field contract.
+ * Plain unit coverage for the system-OID projection — no Spring context. {@code GET /v1/oids/system} returns system
+ * entries shaped exactly like custom ones, so a category that carries typed properties must surface them or the
+ * response violates its own required-field contract.
  */
 class CustomOidEntryMapperTest {
 
@@ -43,8 +42,10 @@ class CustomOidEntryMapperTest {
     @Test
     void everySystemCertificateExtensionSurfacesBothRequiredFields() {
         // given — a single missing branch would ship entries that fail their own schema
-        List<SystemOid> extensions = Arrays.stream(SystemOid.values())
-                .filter(e -> e.getCategory() == OidCategory.CERTIFICATE_EXTENSION).toList();
+        List<SystemOid> extensions = Arrays
+                .stream(SystemOid.values())
+                .filter(e -> e.getCategory() == OidCategory.CERTIFICATE_EXTENSION)
+                .toList();
         // Without this the loop below would pass vacuously against an interfaces build that seeds none.
         assertThat(extensions).isNotEmpty();
 
@@ -57,8 +58,8 @@ class CustomOidEntryMapperTest {
             assertThat(dto.getAdditionalProperties())
                     .as("additionalProperties for %s", entry.getOid())
                     .isInstanceOf(CertificateExtensionOidPropertiesDto.class);
-            CertificateExtensionOidPropertiesDto ext =
-                    (CertificateExtensionOidPropertiesDto) dto.getAdditionalProperties();
+            CertificateExtensionOidPropertiesDto ext = (CertificateExtensionOidPropertiesDto) dto
+                    .getAdditionalProperties();
             assertThat(ext.getDefaultCritical()).as("defaultCritical for %s", entry.getOid()).isNotNull();
             assertThat(ext.getValueEncoding()).as("valueEncoding for %s", entry.getOid()).isNotNull();
         }

@@ -6,17 +6,21 @@ import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.CertificateEventHistoryInternalService;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class CertificateStateMachineTest {
 
@@ -38,19 +42,20 @@ class CertificateStateMachineTest {
 
         assertEquals(CertificateState.PENDING_ISSUE, cert.getState());
         verify(certificateRepository).save(cert);
-        verify(eventHistoryService).addEventHistory(eq(cert.getUuid()), eq(CertificateEvent.ISSUE),
-            eq(CertificateEventStatus.SUCCESS), anyString(), eq(""));
+        verify(eventHistoryService)
+                .addEventHistory(eq(cert.getUuid()), eq(CertificateEvent.ISSUE), eq(CertificateEventStatus.SUCCESS),
+                        anyString(), eq(""));
     }
 
     @Test
     void invalidTransitionThrowsInvalidTransitionException() {
         Certificate cert = certWithState(CertificateState.REVOKED);
         InvalidTransitionException ex = assertThrows(InvalidTransitionException.class,
-            () -> sm.transition(cert, CertificateState.ISSUED));
+                () -> sm.transition(cert, CertificateState.ISSUED));
 
         assertEquals(CertificateState.REVOKED, ex.getFromState());
         assertEquals(CertificateState.ISSUED, ex.getToStateAttempted());
-        assertEquals(CertificateState.REVOKED, cert.getState());   // state unchanged after the throw
+        assertEquals(CertificateState.REVOKED, cert.getState()); // state unchanged after the throw
         verify(certificateRepository, never()).save(any());
         verify(eventHistoryService, never()).addEventHistory(any(), any(), any(), anyString(), anyString());
     }
@@ -60,8 +65,8 @@ class CertificateStateMachineTest {
         Certificate cert = certWithState(CertificateState.PENDING_ISSUE);
         sm.transition(cert, CertificateState.FAILED, null, "Connector error");
 
-        verify(eventHistoryService).addEventHistory(eq(cert.getUuid()), any(),
-            eq(CertificateEventStatus.FAILED), anyString(), eq(""));
+        verify(eventHistoryService)
+                .addEventHistory(eq(cert.getUuid()), any(), eq(CertificateEventStatus.FAILED), anyString(), eq(""));
     }
 
     @Test
@@ -71,8 +76,8 @@ class CertificateStateMachineTest {
         sm.transition(cert, CertificateState.ISSUED, null, "Revoke cancelled by operator");
 
         assertEquals(CertificateState.ISSUED, cert.getState());
-        verify(eventHistoryService).addEventHistory(eq(cert.getUuid()), any(),
-            eq(CertificateEventStatus.FAILED), anyString(), eq(""));
+        verify(eventHistoryService)
+                .addEventHistory(eq(cert.getUuid()), any(), eq(CertificateEventStatus.FAILED), anyString(), eq(""));
     }
 
     @Test
@@ -90,8 +95,7 @@ class CertificateStateMachineTest {
         Certificate cert = certWithState(CertificateState.PENDING_ISSUE);
         sm.transition(cert, CertificateState.ISSUED, CertificateEvent.REKEY, null);
 
-        verify(eventHistoryService).addEventHistory(any(), eq(CertificateEvent.REKEY),
-            any(), anyString(), anyString());
+        verify(eventHistoryService).addEventHistory(any(), eq(CertificateEvent.REKEY), any(), anyString(), anyString());
     }
 
     @Test
@@ -102,8 +106,9 @@ class CertificateStateMachineTest {
 
         assertEquals(CertificateState.REVOKED, cert.getState());
         verify(certificateRepository).save(cert);
-        verify(eventHistoryService).addEventHistory(eq(cert.getUuid()), eq(CertificateEvent.REVOKE),
-            eq(CertificateEventStatus.SUCCESS), anyString(), eq(""));
+        verify(eventHistoryService)
+                .addEventHistory(eq(cert.getUuid()), eq(CertificateEvent.REVOKE), eq(CertificateEventStatus.SUCCESS),
+                        anyString(), eq(""));
     }
 
     @Test
@@ -113,8 +118,9 @@ class CertificateStateMachineTest {
         sm.transition(cert, CertificateState.FAILED, null, "Connector rejected the request");
 
         assertEquals(CertificateState.FAILED, cert.getState());
-        verify(eventHistoryService).addEventHistory(eq(cert.getUuid()), eq(CertificateEvent.ISSUE),
-            eq(CertificateEventStatus.FAILED), anyString(), eq(""));
+        verify(eventHistoryService)
+                .addEventHistory(eq(cert.getUuid()), eq(CertificateEvent.ISSUE), eq(CertificateEventStatus.FAILED),
+                        anyString(), eq(""));
     }
 
     @Test
@@ -135,11 +141,13 @@ class CertificateStateMachineTest {
         // The 5-arg overload carries a detail payload (e.g. serialized additionalInformation)
         // into the audit-history entry instead of the default empty detail.
         Certificate cert = certWithState(CertificateState.PENDING_ISSUE);
-        sm.transition(cert, CertificateState.FAILED, CertificateEvent.ISSUE, "boom",
-            "{\"New Certificate UUID\":\"x\"}");
+        sm
+                .transition(cert, CertificateState.FAILED, CertificateEvent.ISSUE, "boom",
+                        "{\"New Certificate UUID\":\"x\"}");
 
-        verify(eventHistoryService).addEventHistory(cert.getUuid(), CertificateEvent.ISSUE,
-            CertificateEventStatus.FAILED, "boom", "{\"New Certificate UUID\":\"x\"}");
+        verify(eventHistoryService)
+                .addEventHistory(cert.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, "boom",
+                        "{\"New Certificate UUID\":\"x\"}");
     }
 
     @Test
@@ -159,7 +167,7 @@ class CertificateStateMachineTest {
         // Validation is not skipped — only the audit. An illegal (from, to) still throws.
         Certificate cert = certWithState(CertificateState.REVOKED);
         assertThrows(InvalidTransitionException.class,
-            () -> sm.transitionAuditedExternally(cert, CertificateState.PENDING_APPROVAL));
+                () -> sm.transitionAuditedExternally(cert, CertificateState.PENDING_APPROVAL));
 
         assertEquals(CertificateState.REVOKED, cert.getState());
         verify(certificateRepository, never()).save(any());

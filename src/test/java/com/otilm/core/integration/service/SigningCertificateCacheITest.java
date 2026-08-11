@@ -10,6 +10,7 @@ import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
+import com.otilm.api.model.core.oid.SystemOid;
 import com.otilm.core.config.cache.CacheConfig;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.Connector;
@@ -29,7 +30,11 @@ import com.otilm.core.service.impl.CertificateServiceImpl;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.mockbeans.ProducerMocks;
-import com.otilm.api.model.core.oid.SystemOid;
+import java.security.KeyPair;
+import java.security.cert.X509Certificate;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,19 +48,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.security.KeyPair;
-import java.security.cert.X509Certificate;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
- * Verifies that {@code getSigningCertificate} maps the entity graph correctly, is cached (second call
- * is a hit), and is evicted by Certificate repository mutations.
+ * Verifies that {@code getSigningCertificate} maps the entity graph correctly, is cached (second call is a hit), and is
+ * evicted by Certificate repository mutations.
  * <p>
  * Must NOT be {@code @Transactional} — afterCommit eviction callbacks need an actual commit to fire.
  */
@@ -145,7 +144,9 @@ class SigningCertificateCacheITest extends BaseSpringBootTest {
 
     @AfterEach
     void clearCache() {
-        if (cache != null) cache.clear();
+        if (cache != null) {
+            cache.clear();
+        }
     }
 
     private Certificate persistSigningCertificate() throws Exception {
@@ -197,14 +198,14 @@ class SigningCertificateCacheITest extends BaseSpringBootTest {
         SigningCertificate second = certificateService.getSigningCertificate(uuid);
 
         Assertions.assertEquals(first, second);
-        verify(certificateRepository, times(1))
-                .findForSigningByUuid(uuid);
+        verify(certificateRepository, times(1)).findForSigningByUuid(uuid);
     }
 
     @Test
     void unknownUuidThrowsNotFound() {
-        Assertions.assertThrows(NotFoundException.class,
-                () -> certificateService.getSigningCertificate(UUID.randomUUID()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> certificateService.getSigningCertificate(UUID.randomUUID()));
     }
 
     @Test

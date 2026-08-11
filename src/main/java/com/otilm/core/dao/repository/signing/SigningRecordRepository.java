@@ -2,12 +2,11 @@ package com.otilm.core.dao.repository.signing;
 
 import com.otilm.core.dao.entity.signing.SigningRecord;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
-import java.util.UUID;
 
 @Repository
 public interface SigningRecordRepository extends SecurityFilterRepository<SigningRecord, UUID> {

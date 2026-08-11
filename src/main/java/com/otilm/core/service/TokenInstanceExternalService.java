@@ -1,6 +1,10 @@
 package com.otilm.core.service;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.cryptography.token.TokenInstanceRequestDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
@@ -8,7 +12,6 @@ import com.otilm.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.otilm.api.model.core.cryptography.token.TokenInstanceDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-
 import java.util.List;
 
 public interface TokenInstanceExternalService {
@@ -25,7 +28,7 @@ public interface TokenInstanceExternalService {
      *
      * @param uuid UUID of the token instance
      * @return Details of the token instance {@Link TokenInstanceDetailDto}
-     * @throws NotFoundException  when the token instance is not found
+     * @throws NotFoundException when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
     TokenInstanceDetailDto getTokenInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException;
@@ -36,28 +39,30 @@ public interface TokenInstanceExternalService {
      * @param request DTO containing the details for creating a new token profile {@Link TokenInstanceRequestDto}
      * @return Detail of the newly created token instance {@Link TokenInstanceDetailDto}
      * @throws AlreadyExistException when the token instance with the same data already exists
-     * @throws ValidationException   When the validation of attributes or other information fails
-     * @throws ConnectorException    when there are issues with connector communication or error from connector
+     * @throws ValidationException When the validation of attributes or other information fails
+     * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException;
+    TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException,
+            ValidationException, ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Update the token instance
      *
-     * @param uuid    UUID of the concerned token instance
+     * @param uuid UUID of the concerned token instance
      * @param request DTO containing the details for updating token instance
      * @return Details of the updated token instance {@Link TokenInstanceDetailDto}
-     * @throws NotFoundException   when the token instance is not found
+     * @throws NotFoundException when the token instance is not found
      * @throws ValidationException When the validation of attributes or other information fails
-     * @throws ConnectorException  when there are issues with connector communication or error from connector
+     * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException;
+    TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request)
+            throws ConnectorException, ValidationException, AttributeException, NotFoundException;
 
     /**
      * Delete a token instance
      *
      * @param uuid UUID of the concerned token instance
-     * @throws NotFoundException  when the token instance is not found
+     * @throws NotFoundException when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
     void deleteTokenInstance(SecuredUUID uuid) throws NotFoundException;
@@ -65,18 +70,19 @@ public interface TokenInstanceExternalService {
     /**
      * Activate a token instance
      *
-     * @param uuid       UUID of the concerned token instance
+     * @param uuid UUID of the concerned token instance
      * @param attributes List of attributes needed for activating the token instance
-     * @throws NotFoundException  when the token instance is not found
+     * @throws NotFoundException when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    void activateTokenInstance(SecuredUUID uuid, List<RequestAttribute> attributes) throws ConnectorException, NotFoundException;
+    void activateTokenInstance(SecuredUUID uuid, List<RequestAttribute> attributes)
+            throws ConnectorException, NotFoundException;
 
     /**
      * Deactivate a token instance
      *
      * @param uuid UUID of the concerned token instance
-     * @throws NotFoundException  when the token instance is not found
+     * @throws NotFoundException when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
     void deactivateTokenInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException;
@@ -93,7 +99,7 @@ public interface TokenInstanceExternalService {
      *
      * @param uuid UUID of the concerned token instance
      * @return Details of the token instance {@Link TokenInstanceDetailDto}
-     * @throws NotFoundException  when the token instance is not found
+     * @throws NotFoundException when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
     TokenInstanceDetailDto reloadStatus(SecuredUUID uuid) throws ConnectorException, NotFoundException;
@@ -101,7 +107,7 @@ public interface TokenInstanceExternalService {
     /**
      * @param uuid UUID of the concerned token instance
      * @return List of Attributes needed to create the token profile
-     * @throws NotFoundException  when the token instance is not found
+     * @throws NotFoundException when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
     List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
@@ -109,8 +115,9 @@ public interface TokenInstanceExternalService {
     /**
      * @param uuid UUID of the concerned token instance
      * @return List of the attributes needed for token instance activation
-     * @throws NotFoundException  when the token instance is not found
+     * @throws NotFoundException when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid)
+            throws ConnectorException, NotFoundException;
 }

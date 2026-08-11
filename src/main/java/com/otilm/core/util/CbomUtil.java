@@ -1,12 +1,10 @@
 package com.otilm.core.util;
 
+import com.otilm.api.exception.ValidationException;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.Optional;
-
 import org.apache.commons.lang3.StringUtils;
-
-import com.otilm.api.exception.ValidationException;
 
 public final class CbomUtil {
     private CbomUtil() {
@@ -14,8 +12,9 @@ public final class CbomUtil {
     }
 
     public static String mustGetSerialNumber(Map<String, Object> content) throws ValidationException {
-        String serialNumber = CbomUtil.getString(content, "serialNumber")
-            .orElseThrow(() -> new ValidationException("serialNumber must not be empty"));
+        String serialNumber = CbomUtil
+                .getString(content, "serialNumber")
+                .orElseThrow(() -> new ValidationException("serialNumber must not be empty"));
         if (StringUtils.isBlank(serialNumber)) {
             throw new ValidationException("serialNumber must not be empty");
         }
@@ -49,7 +48,8 @@ public final class CbomUtil {
             }
         }
 
-        throw new ValidationException("version must be an integer or a numeric string, got type: " + versionObj.getClass().getSimpleName());
+        throw new ValidationException(
+                "version must be an integer or a numeric string, got type: " + versionObj.getClass().getSimpleName());
     }
 
     public static Map<String, Object> getMetadata(Map<String, Object> content) throws ValidationException {
@@ -69,12 +69,13 @@ public final class CbomUtil {
     public static Optional<String> getMetadataComponentName(Map<String, Object> content) {
         try {
             Map<String, Object> metadata = getMetadata(content);
-            return Optional.ofNullable(metadata.get("component"))
-             .filter(Map.class::isInstance)
-             .map(Map.class::cast)
-             .map(m -> m.get("name"))
-             .filter(o -> o != null)
-            .map(String::valueOf);
+            return Optional
+                    .ofNullable(metadata.get("component"))
+                    .filter(Map.class::isInstance)
+                    .map(Map.class::cast)
+                    .map(m -> m.get("name"))
+                    .filter(o -> o != null)
+                    .map(String::valueOf);
         } catch (ValidationException e) {
             return Optional.empty();
         }
@@ -90,10 +91,9 @@ public final class CbomUtil {
         } catch (Exception e) {
             return Optional.empty();
         }
-     }
+    }
 
     public static Optional<String> getString(Map<String, Object> content, String key) {
-        return Optional.ofNullable(content.get(key))
-        .map(Object::toString);
+        return Optional.ofNullable(content.get(key)).map(Object::toString);
     }
 }

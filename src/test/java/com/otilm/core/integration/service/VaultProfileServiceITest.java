@@ -1,5 +1,7 @@
 package com.otilm.core.integration.service;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
@@ -21,9 +23,23 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.secret.SecretState;
-import com.otilm.api.model.core.vaultprofile.*;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.api.model.core.vaultprofile.VaultProfileDetailDto;
+import com.otilm.api.model.core.vaultprofile.VaultProfileDto;
+import com.otilm.api.model.core.vaultprofile.VaultProfileRequestDto;
+import com.otilm.api.model.core.vaultprofile.VaultProfileUpdateRequestDto;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Secret;
+import com.otilm.core.dao.entity.Secret2SyncVaultProfile;
+import com.otilm.core.dao.entity.Secret2SyncVaultProfileId;
+import com.otilm.core.dao.entity.SecretVersion;
+import com.otilm.core.dao.entity.VaultInstance;
+import com.otilm.core.dao.entity.VaultProfile;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.Secret2SyncVaultProfileRepository;
+import com.otilm.core.dao.repository.SecretRepository;
+import com.otilm.core.dao.repository.SecretVersionRepository;
+import com.otilm.core.dao.repository.VaultInstanceRepository;
+import com.otilm.core.dao.repository.VaultProfileRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -32,17 +48,13 @@ import com.otilm.core.service.AttributeExternalService;
 import com.otilm.core.service.VaultProfileExternalService;
 import com.otilm.core.service.VaultProfileInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.List;
-import java.util.UUID;
-
 
 class VaultProfileServiceITest extends BaseSpringBootTest {
 
@@ -81,8 +93,10 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
 
         WireMock.configureFor("localhost", mockServer.port());
 
-        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/vaultProfiles/attributes"))
-                .willReturn(WireMock.okJson("[]")));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/secretProvider/vaultProfiles/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
 
         connector = new Connector();
         connector.setName("testConnector");
@@ -120,22 +134,29 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
     void testCreateVaultProfile() throws NotFoundException, AttributeException, AlreadyExistException {
         VaultProfileRequestDto requestDto = new VaultProfileRequestDto();
         requestDto.setName(vaultProfile.getName());
-        Assertions.assertThrows(AlreadyExistException.class, () -> vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), requestDto));
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> vaultProfileService
+                        .createVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), requestDto));
         requestDto.setName("testProfile2");
         requestDto.setDescription("test description");
         RequestAttributeV3 attribute = new RequestAttributeV3();
         attribute.setName(TEST_CUSTOM_ATTRIBUTE);
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
         requestDto.setCustomAttributes(List.of(attribute));
-        Assertions.assertThrows(NotFoundException.class, () -> vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(UUID.randomUUID()), requestDto));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> vaultProfileService
+                        .createVaultProfile(SecuredParentUUID.fromUUID(UUID.randomUUID()), requestDto));
         var parentUuid = SecuredParentUUID.fromUUID(vaultInstance.getUuid());
-        Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.createVaultProfile(parentUuid, requestDto));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> vaultProfileService.createVaultProfile(parentUuid, requestDto));
 
         vaultInstance.setConnector(connector);
         vaultInstance.setConnectorUuid(connector.getUuid());
         vaultInstance = vaultInstanceRepository.save(vaultInstance);
 
-        VaultProfileDetailDto createdProfile = vaultProfileService.createVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), requestDto);
+        VaultProfileDetailDto createdProfile = vaultProfileService
+                .createVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), requestDto);
         Assertions.assertNotNull(createdProfile);
         Assertions.assertEquals(requestDto.getName(), createdProfile.getName());
         Assertions.assertNotNull(createdProfile.getUuid());
@@ -144,12 +165,20 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(createdProfile.getCustomAttributes());
         Assertions.assertEquals(1, createdProfile.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), createdProfile.getCustomAttributes().getFirst().getName());
-        Assertions.assertEquals("data", ((List<AttributeContent>) createdProfile.getCustomAttributes().getFirst().getContent()).getFirst().getData());
+        Assertions
+                .assertEquals("data",
+                        ((List<AttributeContent>) createdProfile.getCustomAttributes().getFirst().getContent())
+                                .getFirst()
+                                .getData());
     }
 
     @Test
     void testUpdateVaultProfile() throws NotFoundException, AttributeException {
-        Assertions.assertThrows(NotFoundException.class, () -> vaultProfileService.updateVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(UUID.randomUUID()), new VaultProfileUpdateRequestDto()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> vaultProfileService
+                                .updateVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()),
+                                        SecuredUUID.fromUUID(UUID.randomUUID()), new VaultProfileUpdateRequestDto()));
         VaultProfileUpdateRequestDto requestDto = new VaultProfileUpdateRequestDto();
         requestDto.setDescription("new description");
         RequestAttributeV3 attribute = new RequestAttributeV3();
@@ -159,12 +188,16 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
 
         var parentUuid = SecuredParentUUID.fromUUID(vaultInstance.getUuid());
         var securedUuid = SecuredUUID.fromUUID(vaultProfile.getUuid());
-        Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.updateVaultProfile(parentUuid, securedUuid, requestDto));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> vaultProfileService.updateVaultProfile(parentUuid, securedUuid, requestDto));
 
         vaultInstance.setConnector(connector);
         vaultInstance.setConnectorUuid(connector.getUuid());
         vaultInstance = vaultInstanceRepository.save(vaultInstance);
-        VaultProfileDetailDto detailDto = vaultProfileService.updateVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), requestDto);
+        VaultProfileDetailDto detailDto = vaultProfileService
+                .updateVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()),
+                        SecuredUUID.fromUUID(vaultProfile.getUuid()), requestDto);
 
         Assertions.assertNotNull(detailDto);
         Assertions.assertEquals(requestDto.getDescription(), detailDto.getDescription());
@@ -172,13 +205,19 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(detailDto.getCustomAttributes());
         Assertions.assertEquals(1, detailDto.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), detailDto.getCustomAttributes().getFirst().getName());
-        Assertions.assertEquals("data", ((List<AttributeContent>) detailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
+        Assertions
+                .assertEquals("data",
+                        ((List<AttributeContent>) detailDto.getCustomAttributes().getFirst().getContent())
+                                .getFirst()
+                                .getData());
     }
 
     @Test
     void testDeleteVaultProfile() throws NotFoundException {
         SecuredParentUUID vaultUuid = SecuredParentUUID.fromUUID(vaultInstance.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> vaultProfileService.deleteVaultProfile(vaultUuid, SecuredUUID.fromUUID(UUID.randomUUID())));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> vaultProfileService
+                        .deleteVaultProfile(vaultUuid, SecuredUUID.fromUUID(UUID.randomUUID())));
 
         Secret secret = new Secret();
         secret.setName("testSecret");
@@ -200,7 +239,9 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
         secretVersionRepository.save(secretVersion);
 
         SecuredUUID profileUuid = SecuredUUID.fromUUID(vaultProfile.getUuid());
-        Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.deleteVaultProfile(vaultUuid, profileUuid));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> vaultProfileService.deleteVaultProfile(vaultUuid, profileUuid));
 
         VaultProfile vaultProfile2 = new VaultProfile();
         vaultProfile2.setName("testProfile2");
@@ -222,7 +263,9 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
         secret2SyncVaultProfile.setVaultProfile(vaultProfile);
         secret2SyncVaultProfileRepository.save(secret2SyncVaultProfile);
 
-        Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.deleteVaultProfile(vaultUuid, profileUuid));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> vaultProfileService.deleteVaultProfile(vaultUuid, profileUuid));
 
         secret2SyncVaultProfileRepository.delete(secret2SyncVaultProfile);
 
@@ -230,11 +273,16 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
         Assertions.assertNull(vaultProfileRepository.findByUuid(profileUuid).orElse(null));
     }
 
-
     @Test
     void testGetVaultProfile() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> vaultProfileService.getVaultProfileDetails(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(UUID.randomUUID())));
-        VaultProfileDetailDto detailDto = vaultProfileService.getVaultProfileDetails(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> vaultProfileService
+                                .getVaultProfileDetails(SecuredParentUUID.fromUUID(vaultInstance.getUuid()),
+                                        SecuredUUID.fromUUID(UUID.randomUUID())));
+        VaultProfileDetailDto detailDto = vaultProfileService
+                .getVaultProfileDetails(SecuredParentUUID.fromUUID(vaultInstance.getUuid()),
+                        SecuredUUID.fromUUID(vaultProfile.getUuid()));
         Assertions.assertNotNull(detailDto);
         Assertions.assertEquals(vaultProfile.getName(), detailDto.getName());
         Assertions.assertEquals(vaultProfile.getDescription(), detailDto.getDescription());
@@ -244,37 +292,60 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
     @Test
     void testListVaultProfiles() {
         SearchRequestDto searchRequestDto = new SearchRequestDto();
-        searchRequestDto.setFilters(List.of(
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.VAULT_PROFILE_NAME.name(), FilterConditionOperator.CONTAINS, vaultProfile.getName()),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.VAULT_PROFILE_VAULT_INSTANCE.name(), FilterConditionOperator.EQUALS, (java.io.Serializable) List.of(vaultInstance.getName()))
-        ));
-        PaginationResponseDto<VaultProfileDto> profiles = vaultProfileService.listVaultProfiles(searchRequestDto, SecurityFilter.create());
+        searchRequestDto
+                .setFilters(List
+                        .of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY,
+                                FilterField.VAULT_PROFILE_NAME.name(), FilterConditionOperator.CONTAINS,
+                                vaultProfile.getName()),
+                                new SearchFilterRequestDto(FilterFieldSource.PROPERTY,
+                                        FilterField.VAULT_PROFILE_VAULT_INSTANCE.name(), FilterConditionOperator.EQUALS,
+                                        (java.io.Serializable) List.of(vaultInstance.getName()))));
+        PaginationResponseDto<VaultProfileDto> profiles = vaultProfileService
+                .listVaultProfiles(searchRequestDto, SecurityFilter.create());
         Assertions.assertEquals(1, profiles.getItems().size());
         Assertions.assertEquals(vaultProfile.getUuid().toString(), profiles.getItems().getFirst().getUuid());
     }
 
     @Test
     void testEnableVaultProfile() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> vaultProfileService.enableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(UUID.randomUUID())));
-        vaultProfileService.enableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()));
-        VaultProfile updatedProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(vaultProfile.getUuid())).orElseThrow();
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> vaultProfileService
+                                .enableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()),
+                                        SecuredUUID.fromUUID(UUID.randomUUID())));
+        vaultProfileService
+                .enableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()),
+                        SecuredUUID.fromUUID(vaultProfile.getUuid()));
+        VaultProfile updatedProfile = vaultProfileRepository
+                .findByUuid(SecuredUUID.fromUUID(vaultProfile.getUuid()))
+                .orElseThrow();
         Assertions.assertTrue(updatedProfile.isEnabled());
     }
 
     @Test
     void testDisableVaultProfile() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> vaultProfileService.disableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(UUID.randomUUID())));
-        vaultProfileService.disableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()));
-        VaultProfile updatedProfile = vaultProfileRepository.findByUuid(SecuredUUID.fromUUID(vaultProfile.getUuid())).orElseThrow();
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> vaultProfileService
+                                .disableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()),
+                                        SecuredUUID.fromUUID(UUID.randomUUID())));
+        vaultProfileService
+                .disableVaultProfile(SecuredParentUUID.fromUUID(vaultInstance.getUuid()),
+                        SecuredUUID.fromUUID(vaultProfile.getUuid()));
+        VaultProfile updatedProfile = vaultProfileRepository
+                .findByUuid(SecuredUUID.fromUUID(vaultProfile.getUuid()))
+                .orElseThrow();
         Assertions.assertFalse(updatedProfile.isEnabled());
     }
 
     @Test
     void testGetResourceObject() throws NotFoundException {
-        List<NameAndUuidDto> dtos = vaultProfileInternalService.listResourceObjects(SecurityFilter.create(), null, null);
+        List<NameAndUuidDto> dtos = vaultProfileInternalService
+                .listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
 
-        NameAndUuidDto dto = vaultProfileInternalService.getResourceObjectExternal(SecuredUUID.fromUUID(vaultProfile.getUuid()));
+        NameAndUuidDto dto = vaultProfileInternalService
+                .getResourceObjectExternal(SecuredUUID.fromUUID(vaultProfile.getUuid()));
         Assertions.assertEquals(vaultProfile.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(vaultProfile.getName(), dto.getName());
 
@@ -289,10 +360,15 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
         vaultInstanceRepository.save(vaultInstance);
 
         String secretType = SecretType.GENERIC.getCode();
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/secretProvider/secrets/" + secretType + "/attributes"))
-                .willReturn(WireMock.okJson("[{\"uuid\":\"2d648f63-bf0a-4aff-8861-842cb60a77bb\", \"name\":\"testAttribute\", \"type\":\"data\", \"contentType\":\"string\", \"properties\":{\"label\":\"Test Attribute\", \"required\":false, \"readOnly\":false, \"visible\":true}}]")));
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/v1/secretProvider/secrets/" + secretType + "/attributes"))
+                        .willReturn(WireMock
+                                .okJson("[{\"uuid\":\"2d648f63-bf0a-4aff-8861-842cb60a77bb\", \"name\":\"testAttribute\", \"type\":\"data\", \"contentType\":\"string\", \"properties\":{\"label\":\"Test Attribute\", \"required\":false, \"readOnly\":false, \"visible\":true}}]")));
 
-        List<BaseAttribute> attributes = vaultProfileService.listSecretAttributes(SecuredParentUUID.fromUUID(vaultInstance.getUuid()), SecuredUUID.fromUUID(vaultProfile.getUuid()), SecretType.GENERIC);
+        List<BaseAttribute> attributes = vaultProfileService
+                .listSecretAttributes(SecuredParentUUID.fromUUID(vaultInstance.getUuid()),
+                        SecuredUUID.fromUUID(vaultProfile.getUuid()), SecretType.GENERIC);
         Assertions.assertNotNull(attributes);
         Assertions.assertEquals(1, attributes.size());
         Assertions.assertEquals("testAttribute", attributes.getFirst().getName());
@@ -306,7 +382,9 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
 
         var parentUuid = SecuredParentUUID.fromUUID(vaultInstance.getUuid());
         var securedUuid = SecuredUUID.fromUUID(vaultProfile.getUuid());
-        Assertions.assertThrows(ValidationException.class, () -> vaultProfileService.listSecretAttributes(parentUuid, securedUuid, SecretType.GENERIC));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> vaultProfileService.listSecretAttributes(parentUuid, securedUuid, SecretType.GENERIC));
     }
 
     @Test
@@ -314,10 +392,22 @@ class VaultProfileServiceITest extends BaseSpringBootTest {
         var searchableFields = vaultProfileService.getSearchableFieldInformation();
         Assertions.assertNotNull(searchableFields);
         Assertions.assertFalse(searchableFields.isEmpty());
-        var propertyGroup = searchableFields.stream().filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY).findFirst().orElseThrow();
+        var propertyGroup = searchableFields
+                .stream()
+                .filter(g -> g.getFilterFieldSource() == FilterFieldSource.PROPERTY)
+                .findFirst()
+                .orElseThrow();
         Assertions.assertNotNull(propertyGroup);
-        Assertions.assertTrue(propertyGroup.getSearchFieldData().stream().anyMatch(f -> f.getFieldIdentifier().equals(FilterField.VAULT_PROFILE_NAME.name())));
-        Assertions.assertTrue(propertyGroup.getSearchFieldData().stream().anyMatch(f -> f.getFieldIdentifier().equals(FilterField.VAULT_PROFILE_VAULT_INSTANCE.name())));
+        Assertions
+                .assertTrue(propertyGroup
+                        .getSearchFieldData()
+                        .stream()
+                        .anyMatch(f -> f.getFieldIdentifier().equals(FilterField.VAULT_PROFILE_NAME.name())));
+        Assertions
+                .assertTrue(propertyGroup
+                        .getSearchFieldData()
+                        .stream()
+                        .anyMatch(f -> f.getFieldIdentifier().equals(FilterField.VAULT_PROFILE_VAULT_INSTANCE.name())));
     }
 
 }

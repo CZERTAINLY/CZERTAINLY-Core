@@ -16,11 +16,10 @@ import com.otilm.core.model.signing.scheme.ManagedSigning;
 import com.otilm.core.model.signing.scheme.OneTimeKeyManagedSigning;
 import com.otilm.core.model.signing.scheme.StaticKeyManagedSigning;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -108,8 +107,8 @@ class SigningProfileMapperTest {
             version.setCertificateUuid(CERT_UUID);
 
             // when
-            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model =
-                    SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of());
+            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model = SigningProfileMapper
+                    .toManagedTimestampingModel(header, version, List.of(), List.of());
 
             // then
             assertThat(model.uuid()).isEqualTo(PROFILE_UUID);
@@ -141,16 +140,15 @@ class SigningProfileMapperTest {
             version.setCsrTemplateUuid(CSR_TEMPLATE_UUID);
 
             // when
-            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model =
-                    SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of());
+            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model = SigningProfileMapper
+                    .toManagedTimestampingModel(header, version, List.of(), List.of());
 
             // then
-            assertThat(model.signingScheme())
-                    .isInstanceOfSatisfying(OneTimeKeyManagedSigning.class, scheme -> {
-                        assertThat(scheme.raProfileUuid()).isEqualTo(RA_UUID);
-                        assertThat(scheme.tokenProfileUuid()).isEqualTo(TOKEN_UUID);
-                        assertThat(scheme.csrTemplateUuid()).isEqualTo(CSR_TEMPLATE_UUID);
-                    });
+            assertThat(model.signingScheme()).isInstanceOfSatisfying(OneTimeKeyManagedSigning.class, scheme -> {
+                assertThat(scheme.raProfileUuid()).isEqualTo(RA_UUID);
+                assertThat(scheme.tokenProfileUuid()).isEqualTo(TOKEN_UUID);
+                assertThat(scheme.csrTemplateUuid()).isEqualTo(CSR_TEMPLATE_UUID);
+            });
         }
 
         @Test
@@ -161,8 +159,8 @@ class SigningProfileMapperTest {
             SigningProfileVersion version = newStaticKeyTimestampingVersion();
 
             // when
-            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model =
-                    SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of());
+            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model = SigningProfileMapper
+                    .toManagedTimestampingModel(header, version, List.of(), List.of());
 
             // then
             assertThat(model.tspProfileUuid()).isEqualTo(TSP_UUID);
@@ -176,8 +174,8 @@ class SigningProfileMapperTest {
             SigningProfileVersion version = newStaticKeyTimestampingVersion();
 
             // when
-            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model =
-                    SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of());
+            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model = SigningProfileMapper
+                    .toManagedTimestampingModel(header, version, List.of(), List.of());
 
             // then
             assertThat(model.tspProfileUuid()).isNull();
@@ -194,8 +192,8 @@ class SigningProfileMapperTest {
             version.setCertificateUuid(CERT_UUID);
 
             // when
-            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model =
-                    SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of());
+            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model = SigningProfileMapper
+                    .toManagedTimestampingModel(header, version, List.of(), List.of());
 
             // then
             assertThat(model.enabledProtocols()).isEmpty();
@@ -212,8 +210,8 @@ class SigningProfileMapperTest {
             version.setCertificateUuid(CERT_UUID);
 
             // when
-            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model =
-                    SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of());
+            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model = SigningProfileMapper
+                    .toManagedTimestampingModel(header, version, List.of(), List.of());
 
             // then
             assertThat(model.workflow().timeQualityConfigurationUuid()).isNull();
@@ -238,8 +236,8 @@ class SigningProfileMapperTest {
             version.setRecordDtbs(true);
 
             // when
-            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model =
-                    SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of());
+            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model = SigningProfileMapper
+                    .toManagedTimestampingModel(header, version, List.of(), List.of());
 
             // then
             SigningRecordPolicyModel policy = model.recordPolicy();
@@ -263,8 +261,8 @@ class SigningProfileMapperTest {
             version.setRetentionDays(null);
 
             // when
-            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model =
-                    SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of());
+            SigningProfileModel<ManagedTimestampingWorkflow, ManagedSigning> model = SigningProfileMapper
+                    .toManagedTimestampingModel(header, version, List.of(), List.of());
 
             // then
             assertThat(model.recordPolicy().retentionDays()).isNull();
@@ -280,7 +278,8 @@ class SigningProfileMapperTest {
             version.setManagedSigningType(ManagedSigningType.STATIC_KEY);
 
             // when / then
-            assertThatThrownBy(() -> SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of()))
+            assertThatThrownBy(
+                    () -> SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of()))
                     .isInstanceOf(IllegalArgumentException.class);
         }
 
@@ -292,7 +291,8 @@ class SigningProfileMapperTest {
             version.setSigningScheme(SigningScheme.DELEGATED);
 
             // when / then
-            assertThatThrownBy(() -> SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of()))
+            assertThatThrownBy(
+                    () -> SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of()))
                     .isInstanceOf(IllegalArgumentException.class);
         }
 
@@ -305,7 +305,8 @@ class SigningProfileMapperTest {
             version.setManagedSigningType(null);
 
             // when / then
-            assertThatThrownBy(() -> SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of()))
+            assertThatThrownBy(
+                    () -> SigningProfileMapper.toManagedTimestampingModel(header, version, List.of(), List.of()))
                     .isInstanceOf(IllegalStateException.class);
         }
 

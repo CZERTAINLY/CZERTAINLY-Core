@@ -1,5 +1,6 @@
 package com.otilm.core.integration.service;
 
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.trustedcertificate.TrustedCertificateDto;
 import com.otilm.api.model.client.trustedcertificate.TrustedCertificateRequestDto;
@@ -10,55 +11,70 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.TrustedCertificateExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.Base64;
 import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.beans.factory.annotation.Autowired;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
+import static com.github.tomakehurst.wiremock.client.WireMock.delete;
+import static com.github.tomakehurst.wiremock.client.WireMock.deleteRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TrustedCertificateServiceITest extends BaseSpringBootTest {
 
     private static final String TEST_UUID = "abfbc322-29e1-11ed-a261-0242ac120002";
-    private static final String TEST_CERTIFICATE_CONTENT = Base64.getEncoder().encodeToString("test-certificate-content".getBytes());
+    private static final String TEST_CERTIFICATE_CONTENT = Base64
+            .getEncoder()
+            .encodeToString("test-certificate-content".getBytes());
     private static final String TRUSTED_CERTIFICATE_JSON = """
-        {
-            "uuid": "%s",
-            "certificateContent": "%s",
-            "issuer": "CN=Test CA",
-            "san": "DNS:example.com",
-            "serialNumber": "1234567890",
-            "subject": "CN=example.com",
-            "thumbprint": "AB:CD:EF:12:34:56",
-            "notBefore": "2024-01-01T00:00:00",
-            "notAfter": "2025-12-31T23:59:59"
-        }
-        """.formatted(TEST_UUID, TEST_CERTIFICATE_CONTENT);
+            {
+                "uuid": "%s",
+                "certificateContent": "%s",
+                "issuer": "CN=Test CA",
+                "san": "DNS:example.com",
+                "serialNumber": "1234567890",
+                "subject": "CN=example.com",
+                "thumbprint": "AB:CD:EF:12:34:56",
+                "notBefore": "2024-01-01T00:00:00",
+                "notAfter": "2025-12-31T23:59:59"
+            }
+            """.formatted(TEST_UUID, TEST_CERTIFICATE_CONTENT);
 
     private static final String TRUSTED_CERTIFICATE_LIST_JSON = "[" + TRUSTED_CERTIFICATE_JSON + "]";
 
     @RegisterExtension
-    static WireMockExtension wireMockServer = WireMockExtension.newInstance()
-        .options(wireMockConfig().port(WireMockPorts.PROVISIONING_API))
-        .build();
+    static WireMockExtension wireMockServer = WireMockExtension
+            .newInstance()
+            .options(wireMockConfig().port(WireMockPorts.PROVISIONING_API))
+            .build();
 
     @Autowired
     private TrustedCertificateExternalService trustedCertificateService;
 
     @Test
     void testListTrustedCertificates_success() {
-        wireMockServer.stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates"))
-            .willReturn(aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(TRUSTED_CERTIFICATE_LIST_JSON)));
+        wireMockServer
+                .stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(TRUSTED_CERTIFICATE_LIST_JSON)));
 
         List<TrustedCertificateDto> certificates = trustedCertificateService.listTrustedCertificates();
 
@@ -72,11 +88,12 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListTrustedCertificates_emptyList() {
-        wireMockServer.stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates"))
-            .willReturn(aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody("[]")));
+        wireMockServer
+                .stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates"))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("[]")));
 
         List<TrustedCertificateDto> certificates = trustedCertificateService.listTrustedCertificates();
 
@@ -86,24 +103,24 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListTrustedCertificates_apiFails() {
-        wireMockServer.stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates"))
-            .willReturn(aResponse()
-                .withStatus(500)
-                .withBody("Internal Server Error")));
+        wireMockServer
+                .stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates"))
+                        .willReturn(aResponse().withStatus(500).withBody("Internal Server Error")));
 
         ProvisioningException exception = assertThrows(ProvisioningException.class,
-            () -> trustedCertificateService.listTrustedCertificates());
+                () -> trustedCertificateService.listTrustedCertificates());
 
         assertTrue(exception.getMessage().contains("Failed to list trusted certificates"));
     }
 
     @Test
     void testGetTrustedCertificate_success() throws NotFoundException {
-        wireMockServer.stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
-            .willReturn(aResponse()
-                .withStatus(200)
-                .withHeader("Content-Type", "application/json")
-                .withBody(TRUSTED_CERTIFICATE_JSON)));
+        wireMockServer
+                .stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(TRUSTED_CERTIFICATE_JSON)));
 
         TrustedCertificateDto dto = trustedCertificateService.getTrustedCertificate(SecuredUUID.fromString(TEST_UUID));
 
@@ -118,36 +135,35 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetTrustedCertificate_notFound() {
-        wireMockServer.stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
-            .willReturn(aResponse()
-                .withStatus(404)
-                .withBody("Not Found")));
+        wireMockServer
+                .stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
+                        .willReturn(aResponse().withStatus(404).withBody("Not Found")));
 
         assertThrows(NotFoundException.class,
-            () -> trustedCertificateService.getTrustedCertificate(SecuredUUID.fromString(TEST_UUID)));
+                () -> trustedCertificateService.getTrustedCertificate(SecuredUUID.fromString(TEST_UUID)));
     }
 
     @Test
     void testGetTrustedCertificate_apiFails() {
-        wireMockServer.stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
-            .willReturn(aResponse()
-                .withStatus(500)
-                .withBody("Internal Server Error")));
+        wireMockServer
+                .stubFor(get(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
+                        .willReturn(aResponse().withStatus(500).withBody("Internal Server Error")));
 
         var securedUuid = SecuredUUID.fromString(TEST_UUID);
         ProvisioningException exception = assertThrows(ProvisioningException.class,
-            () -> trustedCertificateService.getTrustedCertificate(securedUuid));
+                () -> trustedCertificateService.getTrustedCertificate(securedUuid));
 
         assertTrue(exception.getMessage().contains("Failed to get trusted certificate"));
     }
 
     @Test
     void testCreateTrustedCertificate_success() {
-        wireMockServer.stubFor(post(urlPathEqualTo("/api/v1/trusted-certificates"))
-            .willReturn(aResponse()
-                .withStatus(201)
-                .withHeader("Content-Type", "application/json")
-                .withBody(TRUSTED_CERTIFICATE_JSON)));
+        wireMockServer
+                .stubFor(post(urlPathEqualTo("/api/v1/trusted-certificates"))
+                        .willReturn(aResponse()
+                                .withStatus(201)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(TRUSTED_CERTIFICATE_JSON)));
 
         TrustedCertificateRequestDto request = new TrustedCertificateRequestDto();
         request.setCertificateContent(Base64.getDecoder().decode(TEST_CERTIFICATE_CONTENT));
@@ -159,31 +175,31 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
         assertEquals("CN=Test CA", dto.getIssuer());
         assertEquals("CN=example.com", dto.getSubject());
 
-        wireMockServer.verify(postRequestedFor(urlPathEqualTo("/api/v1/trusted-certificates"))
-            .withHeader("Content-Type", containing("application/json")));
+        wireMockServer
+                .verify(postRequestedFor(urlPathEqualTo("/api/v1/trusted-certificates"))
+                        .withHeader("Content-Type", containing("application/json")));
     }
 
     @Test
     void testCreateTrustedCertificate_apiFails() {
-        wireMockServer.stubFor(post(urlPathEqualTo("/api/v1/trusted-certificates"))
-            .willReturn(aResponse()
-                .withStatus(500)
-                .withBody("Internal Server Error")));
+        wireMockServer
+                .stubFor(post(urlPathEqualTo("/api/v1/trusted-certificates"))
+                        .willReturn(aResponse().withStatus(500).withBody("Internal Server Error")));
 
         TrustedCertificateRequestDto request = new TrustedCertificateRequestDto();
         request.setCertificateContent(Base64.getDecoder().decode(TEST_CERTIFICATE_CONTENT));
 
         ProvisioningException exception = assertThrows(ProvisioningException.class,
-            () -> trustedCertificateService.createTrustedCertificate(request));
+                () -> trustedCertificateService.createTrustedCertificate(request));
 
         assertTrue(exception.getMessage().contains("Failed to create trusted certificate"));
     }
 
     @Test
     void testDeleteTrustedCertificate_success() {
-        wireMockServer.stubFor(delete(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
-            .willReturn(aResponse()
-                .withStatus(204)));
+        wireMockServer
+                .stubFor(delete(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
+                        .willReturn(aResponse().withStatus(204)));
 
         assertDoesNotThrow(() -> trustedCertificateService.deleteTrustedCertificate(SecuredUUID.fromString(TEST_UUID)));
 
@@ -192,25 +208,23 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
 
     @Test
     void testDeleteTrustedCertificate_notFound() {
-        wireMockServer.stubFor(delete(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
-            .willReturn(aResponse()
-                .withStatus(404)
-                .withBody("Not Found")));
+        wireMockServer
+                .stubFor(delete(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
+                        .willReturn(aResponse().withStatus(404).withBody("Not Found")));
 
         assertThrows(NotFoundException.class,
-            () -> trustedCertificateService.deleteTrustedCertificate(SecuredUUID.fromString(TEST_UUID)));
+                () -> trustedCertificateService.deleteTrustedCertificate(SecuredUUID.fromString(TEST_UUID)));
     }
 
     @Test
     void testDeleteTrustedCertificate_apiFails() {
-        wireMockServer.stubFor(delete(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
-            .willReturn(aResponse()
-                .withStatus(500)
-                .withBody("Internal Server Error")));
+        wireMockServer
+                .stubFor(delete(urlPathEqualTo("/api/v1/trusted-certificates/" + TEST_UUID))
+                        .willReturn(aResponse().withStatus(500).withBody("Internal Server Error")));
 
         var securedUuid = SecuredUUID.fromString(TEST_UUID);
         ProvisioningException exception = assertThrows(ProvisioningException.class,
-            () -> trustedCertificateService.deleteTrustedCertificate(securedUuid));
+                () -> trustedCertificateService.deleteTrustedCertificate(securedUuid));
 
         assertTrue(exception.getMessage().contains("Failed to delete trusted certificate"));
     }
@@ -229,12 +243,12 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
         LocalDateTime notBefore = LocalDateTime.of(2024, Month.JANUARY, 1, 0, 0);
         LocalDateTime notAfter = LocalDateTime.of(2025, Month.DECEMBER, 31, 23, 59);
 
-        TrustedCertificateProvisioningDTO a1 = new TrustedCertificateProvisioningDTO(
-                TEST_UUID, contentA1, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", notBefore, notAfter);
-        TrustedCertificateProvisioningDTO a2 = new TrustedCertificateProvisioningDTO(
-                TEST_UUID, contentA2, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", notBefore, notAfter);
-        TrustedCertificateProvisioningDTO b = new TrustedCertificateProvisioningDTO(
-                TEST_UUID, contentB, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", notBefore, notAfter);
+        TrustedCertificateProvisioningDTO a1 = new TrustedCertificateProvisioningDTO(TEST_UUID, contentA1, "CN=CA",
+                "DNS:x", "1", "CN=x", "AB:CD", notBefore, notAfter);
+        TrustedCertificateProvisioningDTO a2 = new TrustedCertificateProvisioningDTO(TEST_UUID, contentA2, "CN=CA",
+                "DNS:x", "1", "CN=x", "AB:CD", notBefore, notAfter);
+        TrustedCertificateProvisioningDTO b = new TrustedCertificateProvisioningDTO(TEST_UUID, contentB, "CN=CA",
+                "DNS:x", "1", "CN=x", "AB:CD", notBefore, notAfter);
 
         assertEquals(a1, a2, "records with structurally identical bytes must compare equal");
         assertEquals(a1.hashCode(), a2.hashCode(), "structural equality requires equal hash codes");
@@ -245,8 +259,8 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
     @Test
     void testProvisioningDTO_equals_detectsNonArrayFieldDifferences() {
         byte[] content = "cert".getBytes();
-        TrustedCertificateProvisioningDTO base = new TrustedCertificateProvisioningDTO(
-                TEST_UUID, content, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", null, null);
+        TrustedCertificateProvisioningDTO base = new TrustedCertificateProvisioningDTO(TEST_UUID, content, "CN=CA",
+                "DNS:x", "1", "CN=x", "AB:CD", null, null);
         TrustedCertificateProvisioningDTO differentUuid = new TrustedCertificateProvisioningDTO(
                 "00000000-0000-0000-0000-000000000000", content, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", null, null);
 
@@ -255,8 +269,8 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
 
     @Test
     void testProvisioningDTO_equals_handlesNullAndForeignTypes() {
-        TrustedCertificateProvisioningDTO dto = new TrustedCertificateProvisioningDTO(
-                TEST_UUID, "cert".getBytes(), "i", "s", "n", "su", "th", null, null);
+        TrustedCertificateProvisioningDTO dto = new TrustedCertificateProvisioningDTO(TEST_UUID, "cert".getBytes(), "i",
+                "s", "n", "su", "th", null, null);
 
         assertNotEquals(null, dto);
         assertNotEquals("not-a-dto", dto);
@@ -265,8 +279,8 @@ class TrustedCertificateServiceITest extends BaseSpringBootTest {
     @Test
     void testProvisioningDTO_toString_rendersByteArrayLengthInsteadOfRawBytes() {
         byte[] content = new byte[1216];
-        TrustedCertificateProvisioningDTO dto = new TrustedCertificateProvisioningDTO(
-                TEST_UUID, content, "CN=CA", "DNS:x", "1", "CN=x", "AB:CD", null, null);
+        TrustedCertificateProvisioningDTO dto = new TrustedCertificateProvisioningDTO(TEST_UUID, content, "CN=CA",
+                "DNS:x", "1", "CN=x", "AB:CD", null, null);
 
         String s = dto.toString();
         assertTrue(s.contains("byte[1216]"), "toString should render the byte[] length, was: " + s);

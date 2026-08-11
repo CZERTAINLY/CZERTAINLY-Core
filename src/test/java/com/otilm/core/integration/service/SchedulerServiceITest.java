@@ -1,6 +1,14 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.EventException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.SchedulerException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.ResponseAttributeV3;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
@@ -16,15 +24,47 @@ import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.discovery.DiscoveryCertificateDto;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.core.other.ResourceEvent;
-import com.otilm.api.model.core.scheduler.*;
+import com.otilm.api.model.core.scheduler.PaginationRequestDto;
+import com.otilm.api.model.core.scheduler.ScheduledJobDetailDto;
+import com.otilm.api.model.core.scheduler.ScheduledJobDto;
+import com.otilm.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
+import com.otilm.api.model.core.scheduler.ScheduledJobsResponseDto;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
-import com.otilm.api.model.core.workflows.*;
+import com.otilm.api.model.core.workflows.ActionDetailDto;
+import com.otilm.api.model.core.workflows.ActionRequestDto;
+import com.otilm.api.model.core.workflows.ConditionDto;
+import com.otilm.api.model.core.workflows.ConditionItemRequestDto;
+import com.otilm.api.model.core.workflows.ConditionRequestDto;
+import com.otilm.api.model.core.workflows.ConditionType;
+import com.otilm.api.model.core.workflows.ExecutionDto;
+import com.otilm.api.model.core.workflows.ExecutionItemRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionType;
+import com.otilm.api.model.core.workflows.RuleDetailDto;
+import com.otilm.api.model.core.workflows.RuleRequestDto;
+import com.otilm.api.model.core.workflows.TriggerDetailDto;
+import com.otilm.api.model.core.workflows.TriggerHistorySummaryDto;
+import com.otilm.api.model.core.workflows.TriggerRequestDto;
+import com.otilm.api.model.core.workflows.TriggerType;
 import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.otilm.api.model.scheduler.UpdateScheduledJob;
 import com.otilm.core.attribute.engine.AttributeEngine;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Connector2FunctionGroup;
+import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.FunctionGroup;
+import com.otilm.core.dao.entity.ScheduledJob;
+import com.otilm.core.dao.entity.ScheduledJobHistory;
+import com.otilm.core.dao.repository.CertificateEventHistoryRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.dao.repository.FunctionGroupRepository;
+import com.otilm.core.dao.repository.ScheduledJobHistoryRepository;
+import com.otilm.core.dao.repository.ScheduledJobsRepository;
 import com.otilm.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.events.data.DiscoveryResult;
@@ -48,26 +88,23 @@ import com.otilm.core.tasks.SystemScheduledJobs;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.WireMockPorts;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 class SchedulerServiceITest extends BaseSpringBootTest {
 
     @RegisterExtension
-    static WireMockExtension schedulerMock = WireMockExtension.newInstance()
+    static WireMockExtension schedulerMock = WireMockExtension
+            .newInstance()
             .options(wireMockConfig().port(WireMockPorts.SCHEDULER))
             .build();
 
@@ -116,7 +153,8 @@ class SchedulerServiceITest extends BaseSpringBootTest {
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
 
     @Test
-    void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, CertificateException, IOException, EventException {
+    void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException,
+            SchedulerException, CertificateException, IOException, EventException {
         // register custom attribute
         CustomAttributeV3 certificateDomainAttr = new CustomAttributeV3();
         certificateDomainAttr.setUuid(UUID.randomUUID().toString());
@@ -162,7 +200,9 @@ class SchedulerServiceITest extends BaseSpringBootTest {
         // create execution
         ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
         executionItemRequest.setFieldSource(FilterFieldSource.CUSTOM);
-        executionItemRequest.setFieldIdentifier("%s|%s".formatted(certificateDomainAttr.getName(), certificateDomainAttr.getContentType().name()));
+        executionItemRequest
+                .setFieldIdentifier("%s|%s"
+                        .formatted(certificateDomainAttr.getName(), certificateDomainAttr.getContentType().name()));
         executionItemRequest.setData("CZ");
 
         ExecutionRequestDto executionRequest = new ExecutionRequestDto();
@@ -270,66 +310,88 @@ class SchedulerServiceITest extends BaseSpringBootTest {
                     "meta": []
                 }
                 """;
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/discoveryProvider/discover"))
-                .willReturn(WireMock.okJson(discoveredCertificatesMockResponse)));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/discoveryProvider/discover"))
+                        .willReturn(WireMock.okJson(discoveredCertificatesMockResponse)));
 
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/discoveryProvider/discover/4bd64640-be29-4e14-aad8-5c0ffa55c5bd"))
-                .willReturn(WireMock.okJson(discoveredCertificatesMockResponse)));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching("/v1/discoveryProvider/discover/4bd64640-be29-4e14-aad8-5c0ffa55c5bd"))
+                        .willReturn(WireMock.okJson(discoveredCertificatesMockResponse)));
 
         schedulerInternalService.runScheduledJob(jobName);
-
 
         List<DiscoveryHistory> discoveries = discoveryRepository.findAll();
         Assertions.assertEquals(1, discoveries.size());
 
         // simulate events
         DiscoveryHistory discovery = discoveries.getFirst();
-        EventMessage eventMessage = CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, new ScheduledJobInfo(scheduledJobEntity.getJobName(), scheduledJobEntity.getUuid(), scheduledJobHistoryRepository.findAll().getFirst().getUuid()));
+        EventMessage eventMessage = CertificateDiscoveredEventHandler
+                .constructEventMessage(discovery.getUuid(), null, new ScheduledJobInfo(scheduledJobEntity.getJobName(),
+                        scheduledJobEntity.getUuid(), scheduledJobHistoryRepository.findAll().getFirst().getUuid()));
         eventListener.processMessage(eventMessage);
-        eventMessage = DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null, eventMessage.getScheduledJobInfo(), new DiscoveryResult(DiscoveryStatus.PROCESSING, null));
+        eventMessage = DiscoveryFinishedEventHandler
+                .constructEventMessage(discovery.getUuid(), null, eventMessage.getScheduledJobInfo(),
+                        new DiscoveryResult(DiscoveryStatus.PROCESSING, null));
         eventListener.processMessage(eventMessage);
 
         discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.COMPLETED, discovery.getStatus());
 
-        ScheduledJobHistory jobHistory = scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(scheduledJobEntity.getUuid());
+        ScheduledJobHistory jobHistory = scheduledJobHistoryRepository
+                .findTopByScheduledJobUuidOrderByJobExecutionDesc(scheduledJobEntity.getUuid());
         Assertions.assertNotNull(jobHistory);
 
-        ScheduledJobHistoryResponseDto jobHistoryResponse = schedulerService.getScheduledJobHistory(SecurityFilter.create(), new PaginationRequestDto(), scheduledJobEntity.getUuid().toString());
+        ScheduledJobHistoryResponseDto jobHistoryResponse = schedulerService
+                .getScheduledJobHistory(SecurityFilter.create(), new PaginationRequestDto(),
+                        scheduledJobEntity.getUuid().toString());
 
         Assertions.assertEquals(1, jobHistoryResponse.getScheduledJobHistory().size());
-        Assertions.assertEquals(SchedulerJobExecutionStatus.SUCCESS, jobHistoryResponse.getScheduledJobHistory().getFirst().getStatus());
+        Assertions
+                .assertEquals(SchedulerJobExecutionStatus.SUCCESS,
+                        jobHistoryResponse.getScheduledJobHistory().getFirst().getStatus());
 
         // assert triggers evaluation
-        TriggerHistorySummaryDto triggerSummary = triggerService.getTriggerHistorySummary(discovery.getUuid().toString());
+        TriggerHistorySummaryDto triggerSummary = triggerService
+                .getTriggerHistorySummary(discovery.getUuid().toString());
         Assertions.assertEquals(4, triggerSummary.getObjectsEvaluated());
         Assertions.assertEquals(2, triggerSummary.getObjectsMatched());
         Assertions.assertEquals(1, triggerSummary.getObjectsIgnored());
 
-        DiscoveryCertificateResponseDto discoveredCertificates = discoveryService.getDiscoveryCertificates(discovery.getSecuredUuid(), null, 10, 1);
+        DiscoveryCertificateResponseDto discoveredCertificates = discoveryService
+                .getDiscoveryCertificates(discovery.getSecuredUuid(), null, 10, 1);
         Assertions.assertEquals(4, discoveredCertificates.getCertificates().size());
 
         boolean matched = false;
         boolean matchedHybrid = false;
         for (DiscoveryCertificateDto discoveryCertificate : discoveredCertificates.getCertificates()) {
             if (discoveryCertificate.getCommonName().endsWith(".cz")) {
-                CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromString(discoveryCertificate.getInventoryUuid()));
+                CertificateDetailDto certificateDetailDto = certificateService
+                        .getCertificate(SecuredUUID.fromString(discoveryCertificate.getInventoryUuid()));
 
                 matched = true;
                 Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
-                Assertions.assertEquals("CZ", ((ResponseAttributeV3) certificateDetailDto.getCustomAttributes().getFirst()).getContent().getFirst().getData());
+                Assertions
+                        .assertEquals("CZ",
+                                ((ResponseAttributeV3) certificateDetailDto.getCustomAttributes().getFirst())
+                                        .getContent()
+                                        .getFirst()
+                                        .getData());
             }
             if (discoveryCertificate.getCommonName().contains("Hybrid")) {
                 matchedHybrid = true;
-                CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromString(discoveryCertificate.getInventoryUuid()));
+                CertificateDetailDto certificateDetailDto = certificateService
+                        .getCertificate(SecuredUUID.fromString(discoveryCertificate.getInventoryUuid()));
                 Assertions.assertNotNull(certificateDetailDto.getAltKey());
             }
         }
@@ -344,14 +406,16 @@ class SchedulerServiceITest extends BaseSpringBootTest {
         final String jobName = "TestDiscoveryScheduled";
         final String cronExpressionUpdate = "0 0/30 * * * ? *";
 
-        schedulerMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/scheduler/create")).willReturn(
-                WireMock.ok()));
-        schedulerMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/scheduler/update")).willReturn(
-                WireMock.ok()));
-        schedulerMock.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/scheduler/" + jobName)).willReturn(
-                WireMock.noContent()));
+        schedulerMock
+                .stubFor(WireMock.post(WireMock.urlPathMatching("/v1/scheduler/create")).willReturn(WireMock.ok()));
+        schedulerMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/scheduler/update")).willReturn(WireMock.ok()));
+        schedulerMock
+                .stubFor(WireMock
+                        .delete(WireMock.urlPathMatching("/v1/scheduler/" + jobName))
+                        .willReturn(WireMock.noContent()));
 
-        ScheduledJobDetailDto jobDetailDto = schedulerService.registerScheduledJob(DiscoveryCertificateTask.class,jobName, "0 0/3 * * * ? *", true, null);
+        ScheduledJobDetailDto jobDetailDto = schedulerService
+                .registerScheduledJob(DiscoveryCertificateTask.class, jobName, "0 0/3 * * * ? *", true, null);
 
         UpdateScheduledJob updateScheduledJob = new UpdateScheduledJob();
         updateScheduledJob.setCronExpression(cronExpressionUpdate);
@@ -378,32 +442,30 @@ class SchedulerServiceITest extends BaseSpringBootTest {
 
         schedulerService.deleteScheduledJob(jobDetailDto.getUuid().toString());
 
-        ScheduledJobsResponseDto listResponse = schedulerService.listScheduledJobs(SecurityFilter.create(), new PaginationRequestDto());
+        ScheduledJobsResponseDto listResponse = schedulerService
+                .listScheduledJobs(SecurityFilter.create(), new PaginationRequestDto());
         Assertions.assertEquals(0, listResponse.getTotalItems());
         Assertions.assertFalse(scheduledJobHistoryRepository.existsByScheduledJobUuid(jobDetailDto.getUuid()));
     }
 
     @Test
     void testSystemScheduledJobsRegistration() throws SchedulerException {
-        schedulerMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/scheduler/create"))
-                .willReturn(WireMock.ok()));
+        schedulerMock
+                .stubFor(WireMock.post(WireMock.urlPathMatching("/v1/scheduler/create")).willReturn(WireMock.ok()));
 
         SystemScheduledJobs systemScheduledJobs = new SystemScheduledJobs();
         systemScheduledJobs.setSchedulerService(schedulerInternalService);
 
         systemScheduledJobs.registerJobs();
 
-        ScheduledJobsResponseDto jobs = schedulerService.listScheduledJobs(
-                SecurityFilter.create(), new PaginationRequestDto());
+        ScheduledJobsResponseDto jobs = schedulerService
+                .listScheduledJobs(SecurityFilter.create(), new PaginationRequestDto());
 
         Assertions.assertEquals(3, jobs.getScheduledJobs().size());
 
-        List<String> jobClassNames = jobs.getScheduledJobs().stream()
-                .map(ScheduledJobDto::getJobName)
-                .toList();
+        List<String> jobClassNames = jobs.getScheduledJobs().stream().map(ScheduledJobDto::getJobName).toList();
 
-        Assertions.assertTrue(jobClassNames.stream()
-                .anyMatch(name -> name.contains(CbomSyncTask.NAME)));
+        Assertions.assertTrue(jobClassNames.stream().anyMatch(name -> name.contains(CbomSyncTask.NAME)));
     }
 
 }

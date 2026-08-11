@@ -12,9 +12,16 @@ import com.otilm.core.service.cmp.message.PkiMessageDumper;
 import com.otilm.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.CryptographyUtil;
+import java.security.cert.X509Certificate;
+import java.util.List;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.cmp.CertConfirmContent;
+import org.bouncycastle.asn1.cmp.CertStatus;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIConfirmContent;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
+import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.DigestAlgorithmIdentifierFinder;
@@ -26,11 +33,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.cert.X509Certificate;
-import java.util.List;
-
 /**
  * Handler for certification confirmation message.
+ *
  * <pre>
  *   type:
  *      {@link PKIBody#TYPE_CERT_CONFIRM}
@@ -89,6 +94,7 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
      *    protection           present
      *      -- bits calculated using MSG_MAC_ALG
      * </pre>
+     *
      * <pre>
      *     CertConfirmContent ::= SEQUENCE OF CertStatus
      *          CertStatus ::= SEQUENCE {
@@ -106,10 +112,9 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
         String msgBodyAsString = PkiMessageDumper.msgTypeAsString(request.getBody().getType());
         if (PKIBody.TYPE_CERT_CONFIRM != request.getBody().getType()) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "confirmation (certConf) message cannot be handled - " +
-                            "unsupported body rawType=" + request.getBody().getType() +
-                            ", type=" + msgBodyAsString +
-                            "; only type=cerfConf is supported");
+                    "confirmation (certConf) message cannot be handled - " + "unsupported body rawType="
+                            + request.getBody().getType() + ", type=" + msgBodyAsString
+                            + "; only type=cerfConf is supported");
         }
 
         CertConfirmContent certConfirmBody = (CertConfirmContent) request.getBody().getContent();
@@ -130,10 +135,9 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
         }
     }
 
-    private void processConfirmation(ASN1OctetString tid, CertStatus certStatus)
-            throws CmpProcessingException {
+    private void processConfirmation(ASN1OctetString tid, CertStatus certStatus) throws CmpProcessingException {
         ASN1OctetString incomingFingerprint = certStatus.getCertHash();
-        //flag if certificate has been found and confirmed
+        // flag if certificate has been found and confirmed
         boolean confirmed = false;
 
         // find related transactions by transactionId
@@ -152,10 +156,10 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
         }
 
         if (!confirmed) {
-            LOG.warn("TID={}, FP={} | certConf fingerprint does not match any certificate in this transaction",
-                    tid, incomingFingerprint);
-            throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
-                    ImplFailureInfo.CMPHANCERTCONF002);
+            LOG
+                    .warn("TID={}, FP={} | certConf fingerprint does not match any certificate in this transaction",
+                            tid, incomingFingerprint);
+            throw new CmpProcessingException(tid, PKIFailureInfo.badCertId, ImplFailureInfo.CMPHANCERTCONF002);
         }
     }
 
@@ -164,11 +168,14 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
 
     private ASN1OctetString getFingerprint(ASN1OctetString tid, Certificate certificate) throws CmpProcessingException {
         try {
-            X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
+            X509Certificate x509Cert = CertificateUtil
+                    .parseCertificate(certificate.getCertificateContent().getContent());
             AlgorithmIdentifier sigAlgId = CryptographyUtil.getAlgorithmIdentifierInstance(x509Cert.getSigAlgName());
             LOG.debug("TID={} | certificate signature algorithm: {}", tid, sigAlgId.getAlgorithm().getId());
             DigestCalculator digester = DIGEST_CALCULATOR_PROVIDER.get(DIGEST_ALG_FINDER.find(sigAlgId));
-            LOG.debug("TID={} | certificate fingerprint algorithm: {}", tid, digester.getAlgorithmIdentifier().getAlgorithm().getId());
+            LOG
+                    .debug("TID={} | certificate fingerprint algorithm: {}", tid,
+                            digester.getAlgorithmIdentifier().getAlgorithm().getId());
             digester.getOutputStream().write(x509Cert.getEncoded());
             return new DEROctetString(digester.getDigest());
         } catch (Exception e) {

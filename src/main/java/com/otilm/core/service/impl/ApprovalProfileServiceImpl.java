@@ -4,11 +4,15 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
-import com.otilm.api.model.client.approvalprofile.*;
+import com.otilm.api.model.client.approvalprofile.ApprovalProfileDetailDto;
+import com.otilm.api.model.client.approvalprofile.ApprovalProfileDto;
+import com.otilm.api.model.client.approvalprofile.ApprovalProfileRequestDto;
+import com.otilm.api.model.client.approvalprofile.ApprovalProfileResponseDto;
+import com.otilm.api.model.client.approvalprofile.ApprovalProfileUpdateRequestDto;
+import com.otilm.api.model.client.approvalprofile.ApprovalStepRequestDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceObjectDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
-import com.otilm.core.dao.entity.*;
 import com.otilm.core.dao.entity.ApprovalProfile;
 import com.otilm.core.dao.entity.ApprovalProfileRelation;
 import com.otilm.core.dao.entity.ApprovalProfileVersion;
@@ -25,6 +29,12 @@ import com.otilm.core.service.ApprovalProfileExternalService;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.util.ApprovalRecipientHelper;
 import com.otilm.core.util.RequestValidatorHelper;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,8 +43,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.*;
 
 @Service
 @Transactional
@@ -58,14 +66,21 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
 
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.LIST)
-    public ApprovalProfileResponseDto listApprovalProfiles(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
+    public ApprovalProfileResponseDto listApprovalProfiles(final SecurityFilter filter,
+            final PaginationRequestDto paginationRequestDto) {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
-        final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-        final List<ApprovalProfile> approvalProfileList = approvalProfileRepository.findUsingSecurityFilter(filter, List.of("approvalProfileRelations"), null, pageable, null);
+        final Pageable pageable = PageRequest
+                .of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
+        final List<ApprovalProfile> approvalProfileList = approvalProfileRepository
+                .findUsingSecurityFilter(filter, List.of("approvalProfileRelations"), null, pageable, null);
 
         final Long maxItems = approvalProfileRepository.countUsingSecurityFilter(filter, null);
         final ApprovalProfileResponseDto responseDto = new ApprovalProfileResponseDto();
-        responseDto.setApprovalProfiles(approvalProfileList.stream().map(approvalProfile -> approvalProfile.getTheLatestApprovalProfileVersion().mapToDto()).toList());
+        responseDto
+                .setApprovalProfiles(approvalProfileList
+                        .stream()
+                        .map(approvalProfile -> approvalProfile.getTheLatestApprovalProfileVersion().mapToDto())
+                        .toList());
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
         responseDto.setPageNumber(paginationRequestDto.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -75,15 +90,22 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
 
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DETAIL)
-    public ApprovalProfileDetailDto getApprovalProfile(final SecuredUUID uuid, final Integer version) throws NotFoundException {
+    public ApprovalProfileDetailDto getApprovalProfile(final SecuredUUID uuid, final Integer version)
+            throws NotFoundException {
         ApprovalProfileDetailDto approvalProfileDetailDto;
         if (version == null) {
-            approvalProfileDetailDto = findApprovalProfileByUuid(uuid).getTheLatestApprovalProfileVersion().mapToDtoWithSteps();
+            approvalProfileDetailDto = findApprovalProfileByUuid(uuid)
+                    .getTheLatestApprovalProfileVersion()
+                    .mapToDtoWithSteps();
         } else {
-            approvalProfileDetailDto = findApprovalProfileByUuid(uuid).getApprovalProfileVersionByVersion(version).mapToDtoWithSteps();
+            approvalProfileDetailDto = findApprovalProfileByUuid(uuid)
+                    .getApprovalProfileVersionByVersion(version)
+                    .mapToDtoWithSteps();
         }
 
-        approvalProfileDetailDto.getApprovalSteps().forEach(approvalStep -> approvalRecipientHelper.fillApprovalStepDto(approvalStep));
+        approvalProfileDetailDto
+                .getApprovalSteps()
+                .forEach(approvalStep -> approvalRecipientHelper.fillApprovalStepDto(approvalStep));
         return approvalProfileDetailDto;
     }
 
@@ -91,8 +113,12 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DELETE)
     public void deleteApprovalProfile(final SecuredUUID uuid) throws NotFoundException, ValidationException {
         final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
-        if (approvalProfile.getApprovalProfileVersions().stream().anyMatch(apv -> (apv.getApprovals() != null && !apv.getApprovals().isEmpty()))) {
-            throw new ValidationException(ValidationError.create("Unable to delete approval profile with existing approvals."));
+        if (approvalProfile
+                .getApprovalProfileVersions()
+                .stream()
+                .anyMatch(apv -> (apv.getApprovals() != null && !apv.getApprovals().isEmpty()))) {
+            throw new ValidationException(
+                    ValidationError.create("Unable to delete approval profile with existing approvals."));
         }
         approvalProfile.getApprovalProfileVersions().forEach(apv -> {
             approvalStepRepository.deleteAll(apv.getApprovalSteps());
@@ -103,12 +129,14 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
 
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.CREATE)
-    public ApprovalProfile createApprovalProfile(final ApprovalProfileRequestDto approvalProfileRequestDto) throws NotFoundException, AlreadyExistException {
+    public ApprovalProfile createApprovalProfile(final ApprovalProfileRequestDto approvalProfileRequestDto)
+            throws NotFoundException, AlreadyExistException {
         if (approvalProfileRequestDto.getExpiry() != null && approvalProfileRequestDto.getExpiry() <= 0) {
             throw new ValidationException("Expiry value (if set) should be greater than 0");
         }
         if (approvalProfileRepository.findByName(approvalProfileRequestDto.getName()).isPresent()) {
-            throw new AlreadyExistException("Approval profile with name " + approvalProfileRequestDto.getName() + " already exists.");
+            throw new AlreadyExistException(
+                    "Approval profile with name " + approvalProfileRequestDto.getName() + " already exists.");
         }
 
         final ApprovalProfile approvalProfile = new ApprovalProfile();
@@ -130,7 +158,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
 
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.UPDATE)
-    public ApprovalProfile editApprovalProfile(final SecuredUUID uuid, final ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException {
+    public ApprovalProfile editApprovalProfile(final SecuredUUID uuid,
+            final ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException {
         if (approvalProfileUpdateRequestDto.getExpiry() != null && approvalProfileUpdateRequestDto.getExpiry() <= 0) {
             throw new ValidationException("Expiry value (if set) should be greater than 0");
         }
@@ -138,7 +167,9 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
         ApprovalProfileVersion latestVersion = approvalProfile.getTheLatestApprovalProfileVersion();
         if (approvalProfileVersionsEqual(latestVersion, approvalProfileUpdateRequestDto)) {
-            logger.debug("Latest version of approval profile {} is same as in request. New version is not created", approvalProfile.getName());
+            logger
+                    .debug("Latest version of approval profile {} is same as in request. New version is not created",
+                            approvalProfile.getName());
             return approvalProfile;
         }
 
@@ -146,7 +177,9 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         boolean createNewVersion = !latestVersion.getApprovals().isEmpty();
         if (createNewVersion) {
             latestVersion = latestVersion.createNewVersionObject();
-            logger.debug("Creating new version of approval profile {} version {}.", approvalProfile.getName(), latestVersion.getVersion());
+            logger
+                    .debug("Creating new version of approval profile {} version {}.", approvalProfile.getName(),
+                            latestVersion.getVersion());
         } else {
             logger.debug("Updating latest version of approval profile {}.", approvalProfile.getName());
 
@@ -160,7 +193,9 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         latestVersion.setExpiry(approvalProfileUpdateRequestDto.getExpiry());
 
         approvalProfileVersionRepository.save(latestVersion);
-        if (createNewVersion) approvalProfile.getApprovalProfileVersions().add(latestVersion);
+        if (createNewVersion) {
+            approvalProfile.getApprovalProfileVersions().add(latestVersion);
+        }
         createApprovalSteps(latestVersion, approvalProfileUpdateRequestDto.getApprovalSteps());
 
         return latestVersion.getApprovalProfile();
@@ -169,7 +204,9 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DETAIL)
     public List<ResourceObjectDto> getAssociations(SecuredUUID approvalProfileUuid) throws NotFoundException {
-        ApprovalProfile approvalProfile = approvalProfileRepository.findByUuid(approvalProfileUuid).orElseThrow(() -> new NotFoundException(ApprovalProfile.class, approvalProfileUuid));
+        ApprovalProfile approvalProfile = approvalProfileRepository
+                .findByUuid(approvalProfileUuid)
+                .orElseThrow(() -> new NotFoundException(ApprovalProfile.class, approvalProfileUuid));
         List<ResourceObjectDto> resourceObjects = new ArrayList<>();
         for (ApprovalProfileRelation relation : approvalProfile.getApprovalProfileRelations()) {
             resourceObjects.add(resourceService.getResourceObject(relation.getResource(), relation.getResourceUuid()));
@@ -179,7 +216,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
 
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.UPDATE)
-    public void associateApprovalProfile(SecuredUUID approvalProfileUUID, Resource resource, UUID associationObjectUuid) throws NotFoundException, AlreadyExistException {
+    public void associateApprovalProfile(SecuredUUID approvalProfileUUID, Resource resource, UUID associationObjectUuid)
+            throws NotFoundException, AlreadyExistException {
         if (!resource.hasApprovalProfiles()) {
             throw new ValidationException(RESOURCE_DOES_NOT_SUPPORT_APPROVAL_PROFILES.formatted(resource.getLabel()));
         }
@@ -192,7 +230,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         resourceService.getResourceObjectInternal(resource, associationObjectUuid);
 
         if (approvalProfileRelationRepository.existsByResourceAndResourceUuid(resource, associationObjectUuid)) {
-            throw new AlreadyExistException("An approval profile is already associated to %s with UUID %s".formatted(resource.getLabel(), associationObjectUuid));
+            throw new AlreadyExistException("An approval profile is already associated to %s with UUID %s"
+                    .formatted(resource.getLabel(), associationObjectUuid));
         }
         ApprovalProfileRelation relation = new ApprovalProfileRelation();
         relation.setResource(resource);
@@ -203,7 +242,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
 
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.UPDATE)
-    public void disassociateApprovalProfile(SecuredUUID approvalProfileUuid, Resource resource, UUID associationObjectUuid) throws NotFoundException {
+    public void disassociateApprovalProfile(SecuredUUID approvalProfileUuid, Resource resource,
+            UUID associationObjectUuid) throws NotFoundException {
         if (!resource.hasApprovalProfiles()) {
             throw new ValidationException(RESOURCE_DOES_NOT_SUPPORT_APPROVAL_PROFILES.formatted(resource.getLabel()));
         }
@@ -211,10 +251,15 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         if (!approvalProfileRepository.existsById(approvalProfileUuid.getValue())) {
             throw new NotFoundException(ApprovalProfile.class, approvalProfileUuid);
         }
-        if (!approvalProfileRelationRepository.existsByApprovalProfileUuidAndResourceAndResourceUuid(approvalProfileUuid.getValue(), resource, associationObjectUuid)) {
-            throw new NotFoundException("Approval profile is not associated to %s with UUID %s".formatted(resource.getLabel(), associationObjectUuid));
+        if (!approvalProfileRelationRepository
+                .existsByApprovalProfileUuidAndResourceAndResourceUuid(approvalProfileUuid.getValue(), resource,
+                        associationObjectUuid)) {
+            throw new NotFoundException("Approval profile is not associated to %s with UUID %s"
+                    .formatted(resource.getLabel(), associationObjectUuid));
         }
-        approvalProfileRelationRepository.deleteByApprovalProfileUuidAndResourceAndResourceUuid(approvalProfileUuid.getValue(), resource, associationObjectUuid);
+        approvalProfileRelationRepository
+                .deleteByApprovalProfileUuidAndResourceAndResourceUuid(approvalProfileUuid.getValue(), resource,
+                        associationObjectUuid);
     }
 
     @Override
@@ -223,13 +268,20 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         if (!resource.hasApprovalProfiles()) {
             throw new ValidationException(RESOURCE_DOES_NOT_SUPPORT_APPROVAL_PROFILES.formatted(resource.getLabel()));
         }
-        List<ApprovalProfileRelation> relations = approvalProfileRelationRepository.findDistinctByResourceAndResourceUuid(resource, associationObjectUuid);
-        return relations.stream().map(r -> r.getApprovalProfile().getTheLatestApprovalProfileVersion().mapToDto()).toList();
+        List<ApprovalProfileRelation> relations = approvalProfileRelationRepository
+                .findDistinctByResourceAndResourceUuid(resource, associationObjectUuid);
+        return relations
+                .stream()
+                .map(r -> r.getApprovalProfile().getTheLatestApprovalProfileVersion().mapToDto())
+                .toList();
     }
 
-    private boolean approvalProfileVersionsEqual(ApprovalProfileVersion latestVersion, ApprovalProfileUpdateRequestDto request) {
+    private boolean approvalProfileVersionsEqual(ApprovalProfileVersion latestVersion,
+            ApprovalProfileUpdateRequestDto request) {
         // check approval profile props
-        if (latestVersion.getApprovalSteps().size() != request.getApprovalSteps().size() || !Objects.equals(latestVersion.getExpiry(), request.getExpiry()) || !StringUtils.equals(latestVersion.getDescription(), request.getDescription())) {
+        if (latestVersion.getApprovalSteps().size() != request.getApprovalSteps().size()
+                || !Objects.equals(latestVersion.getExpiry(), request.getExpiry())
+                || !StringUtils.equals(latestVersion.getDescription(), request.getDescription())) {
             return false;
         }
 
@@ -238,10 +290,16 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         actualSteps.sort(Comparator.comparingInt(ApprovalStep::getOrder));
         for (int i = 0; i < actualSteps.size(); i++) {
             if (!Objects.equals(actualSteps.get(i).getUserUuid(), request.getApprovalSteps().get(i).getUserUuid())
-                    || !Objects.equals(actualSteps.get(i).getGroupUuid(), request.getApprovalSteps().get(i).getGroupUuid())
-                    || !Objects.equals(actualSteps.get(i).getRoleUuid(), request.getApprovalSteps().get(i).getRoleUuid())
-                    || !StringUtils.equals(actualSteps.get(i).getDescription(), request.getApprovalSteps().get(i).getDescription())
-                    || actualSteps.get(i).getRequiredApprovals() != request.getApprovalSteps().get(i).getRequiredApprovals()) {
+                    || !Objects
+                            .equals(actualSteps.get(i).getGroupUuid(), request.getApprovalSteps().get(i).getGroupUuid())
+                    || !Objects
+                            .equals(actualSteps.get(i).getRoleUuid(), request.getApprovalSteps().get(i).getRoleUuid())
+                    || !StringUtils
+                            .equals(actualSteps.get(i).getDescription(),
+                                    request.getApprovalSteps().get(i).getDescription())
+                    || actualSteps
+                            .get(i)
+                            .getRequiredApprovals() != request.getApprovalSteps().get(i).getRequiredApprovals()) {
                 return false;
             }
         }
@@ -249,7 +307,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         return true;
     }
 
-    private void createApprovalSteps(final ApprovalProfileVersion approvalProfileVersion, final List<ApprovalStepRequestDto> approvalStepDtos) throws ValidationException {
+    private void createApprovalSteps(final ApprovalProfileVersion approvalProfileVersion,
+            final List<ApprovalStepRequestDto> approvalStepDtos) throws ValidationException {
         if (approvalStepDtos == null || approvalStepDtos.isEmpty()) {
             throw new ValidationException("Unable to process approval profile without approval steps.");
         }
@@ -282,19 +341,22 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         }
         if (as.getUserUuid() != null) {
             if (isAssignedResponsibleUser) {
-                throw new ValidationException(ValidationError.create("There is forbidden to have more than one assigned user/role/group."));
+                throw new ValidationException(
+                        ValidationError.create("There is forbidden to have more than one assigned user/role/group."));
             }
             isAssignedResponsibleUser = true;
         }
         if (as.getGroupUuid() != null) {
             if (isAssignedResponsibleUser) {
-                throw new ValidationException(ValidationError.create("There is forbidden to have more than one assigned user/role/group."));
+                throw new ValidationException(
+                        ValidationError.create("There is forbidden to have more than one assigned user/role/group."));
             }
             isAssignedResponsibleUser = true;
         }
 
         if (!isAssignedResponsibleUser) {
-            throw new ValidationException(ValidationError.create("There is required to have assigned one of user/role/group."));
+            throw new ValidationException(
+                    ValidationError.create("There is required to have assigned one of user/role/group."));
         }
     }
 
@@ -305,7 +367,6 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
         }
         throw new NotFoundException("Unable to find approval profile with UUID: {}", uuid);
     }
-
 
     // SETTERs
 
@@ -335,7 +396,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
     }
 
     @Autowired
-    public void setApprovalProfileRelationRepository(ApprovalProfileRelationRepository approvalProfileRelationRepository) {
+    public void setApprovalProfileRelationRepository(
+            ApprovalProfileRelationRepository approvalProfileRelationRepository) {
         this.approvalProfileRelationRepository = approvalProfileRelationRepository;
     }
 }

@@ -6,15 +6,19 @@ import com.otilm.core.dao.entity.signing.SigningRecordOutbox;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.SigningRecordPolicyModel;
 import com.otilm.core.signing.record.SigningRecordInput;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
-import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
-import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.*;
+import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.aSigningRecordPolicy;
+import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.notRecording;
+import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.recordingEverything;
 import static com.otilm.core.signing.record.SigningRecordInputBuilder.aSigningRecordInput;
-import static org.junit.jupiter.api.Assertions.*;
+import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class SigningRecordInputMapperTest {
 
@@ -188,10 +192,7 @@ class SigningRecordInputMapperTest {
         var profileVersion = 7;
         var signingTime = Instant.parse("2026-03-01T12:00:00Z");
         var displayName = "my-record";
-        SigningProfileModel<?, ?> profile = aSigningProfile()
-                .withUuid(profileUuid)
-                .withVersion(profileVersion)
-                .build();
+        SigningProfileModel<?, ?> profile = aSigningProfile().withUuid(profileUuid).withVersion(profileVersion).build();
         SigningRecordInput input = aSigningRecordInput()
                 .signingProfile(profile)
                 .signingTime(signingTime)
@@ -335,8 +336,6 @@ class SigningRecordInputMapperTest {
     }
 
     private SigningRecordInput inputWithPolicy(SigningRecordPolicyModel policy) {
-        return aSigningRecordInput()
-                .signingProfile(aSigningProfile().withRecordPolicy(policy).build())
-                .build();
+        return aSigningRecordInput().signingProfile(aSigningProfile().withRecordPolicy(policy).build()).build();
     }
 }

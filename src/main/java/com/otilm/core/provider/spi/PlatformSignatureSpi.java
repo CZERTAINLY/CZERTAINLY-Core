@@ -3,11 +3,15 @@ package com.otilm.core.provider.spi;
 import com.otilm.core.provider.PlatformSignatureService;
 import com.otilm.core.provider.key.PlatformPrivateKey;
 import com.otilm.core.provider.key.PlatformPublicKey;
+import java.io.ByteArrayOutputStream;
+import java.security.InvalidKeyException;
+import java.security.InvalidParameterException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SignatureException;
+import java.security.SignatureSpi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.ByteArrayOutputStream;
-import java.security.*;
 
 public class PlatformSignatureSpi extends SignatureSpi {
 
@@ -33,7 +37,8 @@ public class PlatformSignatureSpi extends SignatureSpi {
             throw new InvalidKeyException("Invalid null private key");
         }
         if (!(privateKey instanceof PlatformPrivateKey)) {
-            throw new InvalidKeyException("Private key must be PlatformPrivateKey. Cannot be" + privateKey.getClass().getName());
+            throw new InvalidKeyException(
+                    "Private key must be PlatformPrivateKey. Cannot be" + privateKey.getClass().getName());
         }
         this.privateKey = (PlatformPrivateKey) privateKey;
         this.isSign = true;
@@ -52,17 +57,15 @@ public class PlatformSignatureSpi extends SignatureSpi {
 
     @Override
     protected byte[] engineSign() throws SignatureException {
-        if (!isSign)
+        if (!isSign) {
             throw new SignatureException("The signature service is not set up for signing");
+        }
 
         byte[] dataToSign;
         dataToSign = buffer.toByteArray();
         buffer = new ByteArrayOutputStream();
 
-        return signatureService.sign(
-                privateKey,
-                dataToSign
-        );
+        return signatureService.sign(privateKey, dataToSign);
     }
 
     @Override
@@ -77,8 +80,9 @@ public class PlatformSignatureSpi extends SignatureSpi {
 
     @Override
     protected boolean engineVerify(byte[] sigBytes) throws SignatureException {
-        if (!isVerify)
+        if (!isVerify) {
             throw new SignatureException("The signature service is not set up for verification");
+        }
 
         byte[] dataToVerify;
         dataToVerify = buffer.toByteArray();

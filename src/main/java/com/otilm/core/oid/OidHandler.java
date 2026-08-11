@@ -1,10 +1,6 @@
 package com.otilm.core.oid;
 
 import com.otilm.api.model.core.oid.OidCategory;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -15,6 +11,8 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OidHandler {
 
@@ -34,32 +32,30 @@ public class OidHandler {
     private static final Map<OidCategory, Map<String, OidRecord>> oidCache = new ConcurrentHashMap<>();
 
     /**
-     * Case-insensitive RDN code/altCode → OID lookup. Rebuilt on every RDN cache mutation and
-     * republished as an immutable snapshot, so readers on hot paths (DN parsing) never iterate
-     * a map another thread may be mutating.
+     * Case-insensitive RDN code/altCode → OID lookup. Rebuilt on every RDN cache mutation and republished as an
+     * immutable snapshot, so readers on hot paths (DN parsing) never iterate a map another thread may be mutating.
      */
-    private static final AtomicReference<Map<String, String>> rdnCodeToOid =
-            new AtomicReference<>(Collections.emptyMap());
+    private static final AtomicReference<Map<String, String>> rdnCodeToOid = new AtomicReference<>(
+            Collections.emptyMap());
 
     /**
-     * Bumped under {@link #WRITE_LOCK} by every publication. Lets a caller that read source data without
-     * holding the lock detect that the registry moved underneath it and abandon its now-stale snapshot,
-     * instead of holding the lock across those reads.
+     * Bumped under {@link #WRITE_LOCK} by every publication. Lets a caller that read source data without holding the
+     * lock detect that the registry moved underneath it and abandon its now-stale snapshot, instead of holding the lock
+     * across those reads.
      */
     private static long generation;
 
     /** Keeps a lasting conflict visible in recent log output without repeating it on every rebuild. */
-    private static final PersistentWarningThrottle conflictWarnings =
-            new PersistentWarningThrottle(Duration.ofHours(1));
+    private static final PersistentWarningThrottle conflictWarnings = new PersistentWarningThrottle(
+            Duration.ofHours(1));
 
     /** Code tokens claimed by more than one OID, republished on every rebuild. See {@link #getRdnCodeConflicts}. */
-    private static final AtomicReference<Map<String, Set<String>>> rdnCodeConflicts =
-            new AtomicReference<>(Map.of());
+    private static final AtomicReference<Map<String, Set<String>>> rdnCodeConflicts = new AtomicReference<>(Map.of());
 
     /**
-     * Serializes writers so that the read-copy-publish of a per-category map and the rebuild of the
-     * derived {@link #rdnCodeToOid} index happen as one unit. A private monitor is used rather than
-     * the {@code OidHandler.class} object so foreign code cannot contend on the same lock.
+     * Serializes writers so that the read-copy-publish of a per-category map and the rebuild of the derived
+     * {@link #rdnCodeToOid} index happen as one unit. A private monitor is used rather than the
+     * {@code OidHandler.class} object so foreign code cannot contend on the same lock.
      */
     private static final Object WRITE_LOCK = new Object();
 
@@ -71,24 +67,26 @@ public class OidHandler {
     }
 
     /**
-     * Replaces every supplied category and rebuilds the derived RDN index once, or publishes nothing if
-     * the registry moved since {@code expectedGeneration} was read.
+     * Replaces every supplied category and rebuilds the derived RDN index once, or publishes nothing if the registry
+     * moved since {@code expectedGeneration} was read.
      *
-     * <p>The guard is what lets a full refresh read its source data without holding {@link #WRITE_LOCK}:
-     * a concurrent single-entry publication bumps the generation, so the refresh abandons a snapshot that
-     * would otherwise clobber a committed mutation. Categories absent from {@code byCategory} are left
-     * untouched — {@code null} means "not loaded" to every reader, so clearing them would break callers
-     * that dereference {@link #getOidCache} directly.
+     * <p>
+     * The guard is what lets a full refresh read its source data without holding {@link #WRITE_LOCK}: a concurrent
+     * single-entry publication bumps the generation, so the refresh abandons a snapshot that would otherwise clobber a
+     * committed mutation. Categories absent from {@code byCategory} are left untouched — {@code null} means "not
+     * loaded" to every reader, so clearing them would break callers that dereference {@link #getOidCache} directly.
      *
      * @return {@code true} when published, {@code false} when abandoned as stale
      */
-    public static boolean cacheAllCategories(long expectedGeneration, Map<OidCategory, Map<String, OidRecord>> byCategory) {
+    public static boolean cacheAllCategories(long expectedGeneration,
+            Map<OidCategory, Map<String, OidRecord>> byCategory) {
         synchronized (WRITE_LOCK) {
             if (generation != expectedGeneration) {
                 return false;
             }
-            byCategory.forEach((category, records) ->
-                    oidCache.put(category, Collections.unmodifiableMap(new HashMap<>(records))));
+            byCategory
+                    .forEach((category, records) -> oidCache
+                            .put(category, Collections.unmodifiableMap(new HashMap<>(records))));
             generation++;
             if (byCategory.containsKey(OidCategory.RDN_ATTRIBUTE_TYPE)) {
                 refreshRdnCodeLookup(OidCategory.RDN_ATTRIBUTE_TYPE);
@@ -97,7 +95,10 @@ public class OidHandler {
         }
     }
 
-    /** The published per-category map, or {@code null} when the category is not loaded. Immutable — see {@link #cacheOidCategory}. */
+    /**
+     * The published per-category map, or {@code null} when the category is not loaded. Immutable — see
+     * {@link #cacheOidCategory}.
+     */
     public static Map<String, OidRecord> getOidCache(OidCategory oidCategory) {
         return oidCache.get(oidCategory);
     }
@@ -133,9 +134,9 @@ public class OidHandler {
     }
 
     /**
-     * The published, immutable, case-insensitive RDN code/altCode → OID snapshot. Capture it once
-     * and reuse it for a whole DN so every RDN of one subject resolves against the same registry
-     * state, rather than re-reading the reference per attribute.
+     * The published, immutable, case-insensitive RDN code/altCode → OID snapshot. Capture it once and reuse it for a
+     * whole DN so every RDN of one subject resolves against the same registry state, rather than re-reading the
+     * reference per attribute.
      */
     public static Map<String, String> getRdnCodeToOidMap() {
         return rdnCodeToOid.get();
@@ -154,17 +155,17 @@ public class OidHandler {
     }
 
     /**
-     * RDN code/altCode → OID, matched case-insensitively so the authoring-time gate and request-time
-     * resolution agree. Codes and alt codes share one flat namespace, so two OIDs can claim the same
-     * token; see {@link #claimToken} for how that is resolved.
+     * RDN code/altCode → OID, matched case-insensitively so the authoring-time gate and request-time resolution agree.
+     * Codes and alt codes share one flat namespace, so two OIDs can claim the same token; see {@link #claimToken} for
+     * how that is resolved.
      */
     public static Map<String, String> getCodeToOidMap() {
         return buildCodeToOid(new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
     }
 
     /**
-     * Builds the code → OID index, recording any contested token into {@code conflicts}. Side-effect
-     * free: publication is the caller's job, so request-path readers cannot race the writer.
+     * Builds the code → OID index, recording any contested token into {@code conflicts}. Side-effect free: publication
+     * is the caller's job, so request-path readers cannot race the writer.
      */
     private static Map<String, String> buildCodeToOid(Map<String, Set<String>> conflicts) {
         Map<String, String> reverseMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -192,46 +193,45 @@ public class OidHandler {
     }
 
     /**
-     * RDN code tokens claimed by more than one OID, mapped to every claimant. Empty when the registry
-     * is unambiguous.
+     * RDN code tokens claimed by more than one OID, mapped to every claimant. Empty when the registry is unambiguous.
      */
     public static Map<String, Set<String>> getRdnCodeConflicts() {
         return rdnCodeConflicts.get();
     }
 
     /**
-     * Publishes the current conflict set, warning when it changes and periodically while it persists.
-     * The registry rebuilds on {@code settings.cache.refresh-interval} (30 s by default), so warning per
-     * rebuild would repeat thousands of times a day, while warning only on change would make silence
-     * mean both "resolved" and "still broken, already reported".
+     * Publishes the current conflict set, warning when it changes and periodically while it persists. The registry
+     * rebuilds on {@code settings.cache.refresh-interval} (30 s by default), so warning per rebuild would repeat
+     * thousands of times a day, while warning only on change would make silence mean both "resolved" and "still broken,
+     * already reported".
      */
     private static void publishRdnCodeConflicts(Map<String, Set<String>> conflicts, Map<String, String> resolved) {
         // Deep-immutable, and case-insensitive like every other code lookup here. Both matter because
         // this is process-wide static state handed out through a public accessor: a mutable claimant set
         // would let a caller corrupt it, and TreeMap(Map) would drop the comparator.
         Map<String, Set<String>> snapshot = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        conflicts.forEach((token, claimants) ->
-                snapshot.put(token, Collections.unmodifiableSortedSet(new TreeSet<>(claimants))));
+        conflicts
+                .forEach((token, claimants) -> snapshot
+                        .put(token, Collections.unmodifiableSortedSet(new TreeSet<>(claimants))));
         Map<String, Set<String>> published = Collections.unmodifiableMap(snapshot);
         Map<String, Set<String>> previous = rdnCodeConflicts.getAndSet(published);
         if (!conflictWarnings.shouldWarn(!published.equals(previous), !published.isEmpty())) {
             return;
         }
-        published.forEach((token, claimants) -> logger.warn(
-                "RDN code '{}' is claimed by OIDs {}; resolving it to {}. Rename the custom OID entry's code "
-                        + "or alt code to remove the ambiguity.", token, claimants, resolved.get(token)));
+        published
+                .forEach((token, claimants) -> logger
+                        .warn("RDN code '{}' is claimed by OIDs {}; resolving it to {}. Rename the custom OID entry's code "
+                                + "or alt code to remove the ambiguity.", token, claimants, resolved.get(token)));
     }
 
     /**
-     * Assigns one code token to an OID, resolving a contest in favour of the operator-registered
-     * entry. A custom OID entry was already resolving that token before its OID became a system OID,
-     * so an upgrade must not silently repoint it; the built-in entry stays reachable by its dotted
-     * OID. Contests between two entries of the same kind keep the lexicographically first OID; determinism is
-     * the guarantee, not any numeric ordering of the arcs.
+     * Assigns one code token to an OID, resolving a contest in favour of the operator-registered entry. A custom OID
+     * entry was already resolving that token before its OID became a system OID, so an upgrade must not silently
+     * repoint it; the built-in entry stays reachable by its dotted OID. Contests between two entries of the same kind
+     * keep the lexicographically first OID; determinism is the guarantee, not any numeric ordering of the arcs.
      */
     private static void claimToken(Map<String, String> reverseMap, Set<String> systemClaimants,
-                                   Map<String, Set<String>> conflicts, String token, String oid,
-                                   boolean candidateIsSystem) {
+            Map<String, Set<String>> conflicts, String token, String oid, boolean candidateIsSystem) {
         String incumbent = reverseMap.get(token);
         if (incumbent == null || incumbent.equals(oid)) {
             reverseMap.put(token, oid);
@@ -253,7 +253,6 @@ public class OidHandler {
         }
         conflicts.computeIfAbsent(token, t -> new TreeSet<>()).addAll(Set.of(incumbent, oid));
     }
-
 
     public static void removeCachedOid(OidCategory category, String oid) {
         synchronized (WRITE_LOCK) {

@@ -1,9 +1,9 @@
 package com.otilm.core.integration.service;
 
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
-import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.core.config.cache.CacheConfig;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
@@ -13,6 +13,13 @@ import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.security.KeyPair;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,29 +32,22 @@ import org.springframework.cache.CacheManager;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.KeyPair;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Stream;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Parity tests ensuring that {@link CertificateInternalService#getCertificateChain(SecuredUUID, boolean)}
- * (DTO path) and {@link CertificateInternalService#getCertificateChainForSigning(UUID, boolean)}
- * (signing hot path) return the same certificate bytes in the same order for every scenario
- * where parity is expected.
+ * Parity tests ensuring that {@link CertificateInternalService#getCertificateChain(SecuredUUID, boolean)} (DTO path)
+ * and {@link CertificateInternalService#getCertificateChainForSigning(UUID, boolean)} (signing hot path) return the
+ * same certificate bytes in the same order for every scenario where parity is expected.
  *
- * <p>The DTO path can mutate state (issuer-DN lookup, AIA fetch, FK updates) via
- * {@code completeCertificateChain} when the chain is incomplete. Parity only holds when there
- * is nothing to repair, so these fixtures link {@code issuerCertificateUuid} explicitly and do
- * not embed AIA URLs. Divergent cases (incomplete chain, unknown UUID) are covered separately.</p>
+ * <p>
+ * The DTO path can mutate state (issuer-DN lookup, AIA fetch, FK updates) via {@code completeCertificateChain} when the
+ * chain is incomplete. Parity only holds when there is nothing to repair, so these fixtures link
+ * {@code issuerCertificateUuid} explicitly and do not embed AIA URLs. Divergent cases (incomplete chain, unknown UUID)
+ * are covered separately.
+ * </p>
  */
 @Transactional
 @Rollback
@@ -93,8 +93,8 @@ class CertificateChainParityITest extends BaseSpringBootTest {
         KeyPair twoRootKp = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
         twoLevelRootX509 = CertificateGeneratorHelper.generateCACertificate(twoRootKp, "CN=Parity-Root-2");
         KeyPair twoLeafKp = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
-        twoLevelLeafX509 = CertificateGeneratorHelper.generateEndEntityCertificate(
-                twoRootKp, twoLevelRootX509, twoLeafKp, "CN=Parity-Leaf-2", null);
+        twoLevelLeafX509 = CertificateGeneratorHelper
+                .generateEndEntityCertificate(twoRootKp, twoLevelRootX509, twoLeafKp, "CN=Parity-Leaf-2", null);
         Certificate twoRoot = persistCertificate(twoLevelRootX509, null);
         twoLevelLeaf = persistCertificate(twoLevelLeafX509, twoRoot.getUuid());
 
@@ -104,8 +104,8 @@ class CertificateChainParityITest extends BaseSpringBootTest {
         KeyPair threeInterKp = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
         threeLevelInterX509 = CertificateGeneratorHelper.generateCACertificate(threeInterKp, "CN=Parity-Inter-3");
         KeyPair threeLeafKp = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.RSA, null);
-        threeLevelLeafX509 = CertificateGeneratorHelper.generateEndEntityCertificate(
-                threeInterKp, threeLevelInterX509, threeLeafKp, "CN=Parity-Leaf-3", null);
+        threeLevelLeafX509 = CertificateGeneratorHelper
+                .generateEndEntityCertificate(threeInterKp, threeLevelInterX509, threeLeafKp, "CN=Parity-Leaf-3", null);
         Certificate threeRoot = persistCertificate(threeLevelRootX509, null);
         Certificate threeInter = persistCertificate(threeLevelInterX509, threeRoot.getUuid());
         threeLevelLeaf = persistCertificate(threeLevelLeafX509, threeInter.getUuid());
@@ -137,10 +137,10 @@ class CertificateChainParityITest extends BaseSpringBootTest {
         return switch (name) {
             case "dto-path" -> (cert, withEnd) -> {
                 var dtos = certificateService.getCertificateChain(cert.getSecuredUuid(), withEnd).getCertificates();
-                if (dtos == null) return List.of();
-                return dtos.stream()
-                        .map(dto -> Base64.getDecoder().decode(dto.getCertificateContent()))
-                        .toList();
+                if (dtos == null) {
+                    return List.of();
+                }
+                return dtos.stream().map(dto -> Base64.getDecoder().decode(dto.getCertificateContent())).toList();
             };
             case "signing-path" -> (cert, withEnd) -> certificateService
                     .getCertificateChainForSigning(cert.getUuid(), withEnd)

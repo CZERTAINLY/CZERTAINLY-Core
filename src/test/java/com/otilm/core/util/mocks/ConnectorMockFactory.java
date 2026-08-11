@@ -5,12 +5,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Spring-managed entry point for starting connector mocks. The mocks themselves are plain WireMock
- * wrappers with a per-test lifecycle (fresh server and random port per start; callers stop them in
- * {@code @AfterEach}), so they cannot be Spring beans — this factory bridges the two worlds by
- * injecting the beans a mock needs at start. It is the only way to start a mock (constructors are
- * package-private), which guarantees the cryptography-provider mock always seeds its function-group
- * reference data consistently with what it advertises.
+ * Spring-managed entry point for starting connector mocks. The mocks themselves are plain WireMock wrappers with a
+ * per-test lifecycle (fresh server and random port per start; callers stop them in {@code @AfterEach}), so they cannot
+ * be Spring beans — this factory bridges the two worlds by injecting the beans a mock needs at start. It is the only
+ * way to start a mock (constructors are package-private), which guarantees the cryptography-provider mock always seeds
+ * its function-group reference data consistently with what it advertises.
  */
 @Component
 public class ConnectorMockFactory {

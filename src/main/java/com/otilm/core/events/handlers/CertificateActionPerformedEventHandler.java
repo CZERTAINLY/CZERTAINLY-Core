@@ -12,17 +12,17 @@ import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.model.auth.ResourceAction;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
 @Component(ResourceEvent.Codes.CERTIFICATE_ACTION_PERFORMED)
 public class CertificateActionPerformedEventHandler extends CertificateEventsHandler {
 
-    protected CertificateActionPerformedEventHandler(CertificateRepository repository, CertificateTriggerEvaluator ruleEvaluator) {
+    protected CertificateActionPerformedEventHandler(CertificateRepository repository,
+            CertificateTriggerEvaluator ruleEvaluator) {
         super(repository, ruleEvaluator);
     }
 
@@ -38,13 +38,20 @@ public class CertificateActionPerformedEventHandler extends CertificateEventsHan
         Certificate certificate = eventContext.getResourceObjects().getFirst();
         Object eventData = eventContext.getResourceObjectsEventData().getFirst();
 
-        List<NotificationRecipient> recipients = NotificationRecipient.buildUsersAndGroupsNotificationRecipients(certificate.getOwner() == null ? null : List.of(certificate.getOwner().getUuid()), certificate.getGroups() == null ? null : certificate.getGroups().stream().map(UniquelyIdentifiedAndAudited::getUuid).toList());
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.CERTIFICATE, certificate.getUuid(), null, recipients, eventData);
+        List<NotificationRecipient> recipients = NotificationRecipient
+                .buildUsersAndGroupsNotificationRecipients(
+                        certificate.getOwner() == null ? null : List.of(certificate.getOwner().getUuid()),
+                        certificate.getGroups() == null
+                                ? null
+                                : certificate.getGroups().stream().map(UniquelyIdentifiedAndAudited::getUuid).toList());
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.CERTIFICATE,
+                certificate.getUuid(), null, recipients, eventData);
         applicationEventPublisher.publishEvent(notificationMessage);
     }
 
     public static EventMessage constructEventMessage(UUID certificateUuid, ResourceAction action) {
-        return new EventMessage(ResourceEvent.CERTIFICATE_ACTION_PERFORMED, Resource.CERTIFICATE, certificateUuid, action);
+        return new EventMessage(ResourceEvent.CERTIFICATE_ACTION_PERFORMED, Resource.CERTIFICATE, certificateUuid,
+                action);
     }
 
 }

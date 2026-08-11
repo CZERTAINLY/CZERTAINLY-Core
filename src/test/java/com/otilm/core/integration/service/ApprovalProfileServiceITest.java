@@ -9,21 +9,28 @@ import com.otilm.api.model.client.approvalprofile.ApprovalProfileResponseDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceObjectDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.ApprovalProfile;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.entity.VaultInstance;
+import com.otilm.core.dao.entity.VaultProfile;
+import com.otilm.core.dao.repository.ApprovalProfileRepository;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.dao.repository.VaultInstanceRepository;
+import com.otilm.core.dao.repository.VaultProfileRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ApprovalInternalService;
 import com.otilm.core.service.ApprovalProfileData;
 import com.otilm.core.service.ApprovalProfileExternalService;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 class ApprovalProfileServiceITest extends ApprovalProfileData {
 
@@ -48,18 +55,19 @@ class ApprovalProfileServiceITest extends ApprovalProfileData {
     @Autowired
     private VaultInstanceRepository vaultInstanceRepository;
 
-
     @Test
     void testCreationOfApprovalProfile() throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
 
-        final Optional<ApprovalProfile> approvalProfileOptional = approvalProfileRepository.findWithVersionsByUuid(approvalProfile.getUuid());
+        final Optional<ApprovalProfile> approvalProfileOptional = approvalProfileRepository
+                .findWithVersionsByUuid(approvalProfile.getUuid());
         Assertions.assertTrue(approvalProfileOptional.isPresent());
 
         final ApprovalProfile approvalProfileDB = approvalProfileOptional.get();
         Assertions.assertEquals(1, approvalProfileDB.getApprovalProfileVersions().size());
 
-        final ApprovalProfileDetailDto approvalProfileVersion = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), null);
+        final ApprovalProfileDetailDto approvalProfileVersion = approvalProfileService
+                .getApprovalProfile(approvalProfile.getSecuredUuid(), null);
         Assertions.assertEquals(1, approvalProfileVersion.getVersion());
         Assertions.assertEquals(10, approvalProfileVersion.getExpiry());
         Assertions.assertEquals(2, approvalProfileVersion.getApprovalSteps().size());
@@ -68,21 +76,27 @@ class ApprovalProfileServiceITest extends ApprovalProfileData {
     @Test
     void testEditApprovalProfile() throws NotFoundException, AlreadyExistException {
         ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        approvalProfile = approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
+        approvalProfile = approvalProfileService
+                .editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
 
         approvalProfileUpdateRequestDto.setExpiry(24);
 
-        approvalInternalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), UUID.randomUUID(), null);
-        approvalProfile = approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
+        approvalInternalService
+                .createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE,
+                        ResourceAction.CREATE, UUID.randomUUID(), UUID.randomUUID(), null);
+        approvalProfile = approvalProfileService
+                .editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
 
-        final Optional<ApprovalProfile> approvalProfileOptional = approvalProfileRepository.findWithVersionsByUuid(approvalProfile.getUuid());
+        final Optional<ApprovalProfile> approvalProfileOptional = approvalProfileRepository
+                .findWithVersionsByUuid(approvalProfile.getUuid());
         Assertions.assertTrue(approvalProfileOptional.isPresent());
 
         final ApprovalProfile approvalProfileDB = approvalProfileOptional.get();
 
         Assertions.assertEquals(2, approvalProfileDB.getApprovalProfileVersions().size());
 
-        final ApprovalProfileDetailDto approvalProfileVersion = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), null);
+        final ApprovalProfileDetailDto approvalProfileVersion = approvalProfileService
+                .getApprovalProfile(approvalProfile.getSecuredUuid(), null);
         Assertions.assertEquals(2, approvalProfileVersion.getVersion());
         Assertions.assertEquals(24, approvalProfileVersion.getExpiry());
         Assertions.assertEquals(3, approvalProfileVersion.getApprovalSteps().size());
@@ -93,7 +107,8 @@ class ApprovalProfileServiceITest extends ApprovalProfileData {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         approvalProfileService.deleteApprovalProfile(approvalProfile.getSecuredUuid());
 
-        final Optional<ApprovalProfile> approvalProfileDBOptional = approvalProfileRepository.findByUuid(SecuredUUID.fromUUID(approvalProfile.getUuid()));
+        final Optional<ApprovalProfile> approvalProfileDBOptional = approvalProfileRepository
+                .findByUuid(SecuredUUID.fromUUID(approvalProfile.getUuid()));
         Assertions.assertFalse(approvalProfileDBOptional.isPresent());
     }
 
@@ -103,19 +118,27 @@ class ApprovalProfileServiceITest extends ApprovalProfileData {
         approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
         approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
 
-        ApprovalProfileResponseDto approvalProfileResponseDto = approvalProfileService.listApprovalProfiles(SecurityFilter.create(), new PaginationRequestDto());
+        ApprovalProfileResponseDto approvalProfileResponseDto = approvalProfileService
+                .listApprovalProfiles(SecurityFilter.create(), new PaginationRequestDto());
         Assertions.assertEquals(1, approvalProfileResponseDto.getApprovalProfiles().size());
     }
 
     @Test
     void testListApprovalProfileDetail() throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        final ApprovalProfileDetailDto approvalProfileDetailDto = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), null);
+        final ApprovalProfileDetailDto approvalProfileDetailDto = approvalProfileService
+                .getApprovalProfile(approvalProfile.getSecuredUuid(), null);
 
         Assertions.assertEquals(approvalProfile.getName(), approvalProfileDetailDto.getName());
-        Assertions.assertEquals(approvalProfile.getTheLatestApprovalProfileVersion().getDescription(), approvalProfileDetailDto.getDescription());
-        Assertions.assertEquals(approvalProfile.getTheLatestApprovalProfileVersion().getVersion(), approvalProfileDetailDto.getVersion());
-        Assertions.assertEquals(approvalProfile.getTheLatestApprovalProfileVersion().getExpiry(), approvalProfileDetailDto.getExpiry());
+        Assertions
+                .assertEquals(approvalProfile.getTheLatestApprovalProfileVersion().getDescription(),
+                        approvalProfileDetailDto.getDescription());
+        Assertions
+                .assertEquals(approvalProfile.getTheLatestApprovalProfileVersion().getVersion(),
+                        approvalProfileDetailDto.getVersion());
+        Assertions
+                .assertEquals(approvalProfile.getTheLatestApprovalProfileVersion().getExpiry(),
+                        approvalProfileDetailDto.getExpiry());
         Assertions.assertEquals(2, approvalProfileDetailDto.getApprovalSteps().size());
     }
 
@@ -129,43 +152,76 @@ class ApprovalProfileServiceITest extends ApprovalProfileData {
         UUID raProfileUuid = raProfile.getUuid();
         SecuredUUID approvalProfileUUID = approvalProfile.getSecuredUuid();
 
-        Assertions.assertThrows(ValidationException.class, () -> approvalProfileService.associateApprovalProfile(approvalProfileUUID, Resource.CERTIFICATE, raProfileUuid));
+        Assertions
+                .assertThrows(ValidationException.class, () -> approvalProfileService
+                        .associateApprovalProfile(approvalProfileUUID, Resource.CERTIFICATE, raProfileUuid));
         SecuredUUID randomUuid = SecuredUUID.fromUUID(UUID.randomUUID());
-        Assertions.assertThrows(NotFoundException.class, () -> approvalProfileService.associateApprovalProfile(randomUuid, Resource.RA_PROFILE, raProfileUuid));
-        Assertions.assertThrows(NotFoundException.class, () -> approvalProfileService.associateApprovalProfile(approvalProfileUUID, Resource.RA_PROFILE, randomUuid.getValue()));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> approvalProfileService
+                        .associateApprovalProfile(randomUuid, Resource.RA_PROFILE, raProfileUuid));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> approvalProfileService
+                        .associateApprovalProfile(approvalProfileUUID, Resource.RA_PROFILE, randomUuid.getValue()));
 
         approvalProfileService.associateApprovalProfile(approvalProfileUUID, Resource.RA_PROFILE, raProfileUuid);
-        approvalProfileService.associateApprovalProfile(approvalProfileUUID, Resource.VAULT_PROFILE, vaultProfile.getUuid());
-        Assertions.assertThrows(AlreadyExistException.class, () -> approvalProfileService.associateApprovalProfile(approvalProfileUUID, Resource.VAULT_PROFILE, vaultProfile.getUuid()));
+        approvalProfileService
+                .associateApprovalProfile(approvalProfileUUID, Resource.VAULT_PROFILE, vaultProfile.getUuid());
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> approvalProfileService
+                        .associateApprovalProfile(approvalProfileUUID, Resource.VAULT_PROFILE, vaultProfile.getUuid()));
 
         List<ResourceObjectDto> resourceObjects = approvalProfileService.getAssociations(approvalProfileUUID);
         Assertions.assertEquals(2, resourceObjects.size());
-        Assertions.assertEquals(raProfileUuid, resourceObjects.stream().filter(ro -> ro.getResource().equals(Resource.RA_PROFILE)).findFirst().get().getObjectUuid());
-        Assertions.assertEquals(vaultProfile.getUuid(), resourceObjects.stream().filter(ro -> ro.getResource().equals(Resource.VAULT_PROFILE)).findFirst().get().getObjectUuid());
+        Assertions
+                .assertEquals(raProfileUuid,
+                        resourceObjects
+                                .stream()
+                                .filter(ro -> ro.getResource().equals(Resource.RA_PROFILE))
+                                .findFirst()
+                                .get()
+                                .getObjectUuid());
+        Assertions
+                .assertEquals(vaultProfile.getUuid(),
+                        resourceObjects
+                                .stream()
+                                .filter(ro -> ro.getResource().equals(Resource.VAULT_PROFILE))
+                                .findFirst()
+                                .get()
+                                .getObjectUuid());
 
-        List<ApprovalProfileDto> approvalProfileDetailDto = approvalProfileService.getAssociatedApprovalProfiles(Resource.RA_PROFILE, raProfileUuid);
+        List<ApprovalProfileDto> approvalProfileDetailDto = approvalProfileService
+                .getAssociatedApprovalProfiles(Resource.RA_PROFILE, raProfileUuid);
         Assertions.assertEquals(1, approvalProfileDetailDto.size());
         Assertions.assertEquals(approvalProfile.getUuid().toString(), approvalProfileDetailDto.getFirst().getUuid());
 
-        approvalProfileDetailDto = approvalProfileService.getAssociatedApprovalProfiles(Resource.VAULT_PROFILE, vaultProfile.getUuid());
+        approvalProfileDetailDto = approvalProfileService
+                .getAssociatedApprovalProfiles(Resource.VAULT_PROFILE, vaultProfile.getUuid());
         Assertions.assertEquals(1, approvalProfileDetailDto.size());
         Assertions.assertEquals(approvalProfile.getUuid().toString(), approvalProfileDetailDto.getFirst().getUuid());
 
-
-        Assertions.assertThrows(ValidationException.class, () -> approvalProfileService.disassociateApprovalProfile(approvalProfileUUID, Resource.CERTIFICATE, raProfileUuid));
-        Assertions.assertThrows(NotFoundException.class, () -> approvalProfileService.disassociateApprovalProfile(randomUuid, Resource.RA_PROFILE, raProfileUuid));
+        Assertions
+                .assertThrows(ValidationException.class, () -> approvalProfileService
+                        .disassociateApprovalProfile(approvalProfileUUID, Resource.CERTIFICATE, raProfileUuid));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> approvalProfileService
+                        .disassociateApprovalProfile(randomUuid, Resource.RA_PROFILE, raProfileUuid));
 
         approvalProfileService.disassociateApprovalProfile(approvalProfileUUID, Resource.RA_PROFILE, raProfileUuid);
-        approvalProfileService.disassociateApprovalProfile(approvalProfileUUID, Resource.VAULT_PROFILE, vaultProfile.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> approvalProfileService.disassociateApprovalProfile(approvalProfileUUID, Resource.RA_PROFILE, raProfileUuid));
+        approvalProfileService
+                .disassociateApprovalProfile(approvalProfileUUID, Resource.VAULT_PROFILE, vaultProfile.getUuid());
+        Assertions
+                .assertThrows(NotFoundException.class, () -> approvalProfileService
+                        .disassociateApprovalProfile(approvalProfileUUID, Resource.RA_PROFILE, raProfileUuid));
 
         resourceObjects = approvalProfileService.getAssociations(approvalProfileUUID);
         Assertions.assertEquals(0, resourceObjects.size());
 
-        approvalProfileDetailDto = approvalProfileService.getAssociatedApprovalProfiles(Resource.RA_PROFILE, raProfileUuid);
+        approvalProfileDetailDto = approvalProfileService
+                .getAssociatedApprovalProfiles(Resource.RA_PROFILE, raProfileUuid);
         Assertions.assertEquals(0, approvalProfileDetailDto.size());
 
-        approvalProfileDetailDto = approvalProfileService.getAssociatedApprovalProfiles(Resource.VAULT_PROFILE, vaultProfile.getUuid());
+        approvalProfileDetailDto = approvalProfileService
+                .getAssociatedApprovalProfiles(Resource.VAULT_PROFILE, vaultProfile.getUuid());
         Assertions.assertEquals(0, approvalProfileDetailDto.size());
 
     }

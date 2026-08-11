@@ -15,14 +15,13 @@ import com.otilm.core.dao.repository.signing.SigningRecordRepository;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.SigningRecordExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,13 +40,15 @@ class SigningRecordStatisticsServiceITest extends BaseSpringBootTest {
 
     /**
      * Two profiles producing six retained records at known offsets from {@code now}:
+     *
      * <pre>
      *   alpha (TIMESTAMPING, MANAGED/STATIC_KEY): svc-tsa @2h TSP, svc-tsa @12h TSP, ci @3d TSP
      *   beta  (TIMESTAMPING, DELEGATED):          svc-tsa @1h CSC_API, &lt;none&gt; @10d TSP, ops @40d TSP
      * </pre>
-     * Offsets sit well clear of the 24h/7d window edges so tiny clock skew never reclassifies a record.
-     * One record is CSC_API under a TIMESTAMPING workflow so the by-protocol breakdown reflects the
-     * persisted protocol column, not a workflow-derived guess (which would report every record as TSP).
+     *
+     * Offsets sit well clear of the 24h/7d window edges so tiny clock skew never reclassifies a record. One record is
+     * CSC_API under a TIMESTAMPING workflow so the by-protocol breakdown reflects the persisted protocol column, not a
+     * workflow-derived guess (which would report every record as TSP).
      */
     @BeforeEach
     void seed() {
@@ -80,9 +81,9 @@ class SigningRecordStatisticsServiceITest extends BaseSpringBootTest {
     void statByProfile_countsByProfileName() {
         SigningRecordStatisticsDto dto = statistics(SigningRecordStatisticsPeriod.LAST_7D);
 
-        assertThat(dto.getStatByProfile()).containsOnly(
-                org.assertj.core.api.Assertions.entry("alpha", 3L),
-                org.assertj.core.api.Assertions.entry("beta", 3L));
+        assertThat(dto.getStatByProfile())
+                .containsOnly(org.assertj.core.api.Assertions.entry("alpha", 3L),
+                        org.assertj.core.api.Assertions.entry("beta", 3L));
     }
 
     @Test
@@ -103,12 +104,12 @@ class SigningRecordStatisticsServiceITest extends BaseSpringBootTest {
         SigningRecordStatisticsDto dto = statistics(SigningRecordStatisticsPeriod.LAST_7D);
 
         assertThat(dto.getStatByWorkflowType()).containsOnly(org.assertj.core.api.Assertions.entry("timestamping", 6L));
-        assertThat(dto.getStatByProtocol()).containsOnly(
-                org.assertj.core.api.Assertions.entry("tsp", 5L),
-                org.assertj.core.api.Assertions.entry("csc_api", 1L));
-        assertThat(dto.getStatByScheme()).containsOnly(
-                org.assertj.core.api.Assertions.entry("managed_static_key", 3L),
-                org.assertj.core.api.Assertions.entry("delegated", 3L));
+        assertThat(dto.getStatByProtocol())
+                .containsOnly(org.assertj.core.api.Assertions.entry("tsp", 5L),
+                        org.assertj.core.api.Assertions.entry("csc_api", 1L));
+        assertThat(dto.getStatByScheme())
+                .containsOnly(org.assertj.core.api.Assertions.entry("managed_static_key", 3L),
+                        org.assertj.core.api.Assertions.entry("delegated", 3L));
     }
 
     @Test
@@ -156,7 +157,7 @@ class SigningRecordStatisticsServiceITest extends BaseSpringBootTest {
     }
 
     private void insertVersion(SigningProfile profile, SigningScheme scheme, ManagedSigningType managedType,
-                               SigningWorkflowType workflowType) {
+            SigningWorkflowType workflowType) {
         SigningProfileVersion version = new SigningProfileVersion();
         version.setSigningProfile(profile);
         version.setVersion(1);
@@ -167,7 +168,7 @@ class SigningRecordStatisticsServiceITest extends BaseSpringBootTest {
     }
 
     private void insertRecord(SigningProfile profile, String requestedByUsername, Instant signingTime,
-                              SigningProtocol protocol) {
+            SigningProtocol protocol) {
         SigningRecord signingRecord = new SigningRecord();
         signingRecord.setSigningProfileUuid(profile.getUuid());
         signingRecord.setSigningProfileVersion(1);

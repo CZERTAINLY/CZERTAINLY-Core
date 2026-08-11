@@ -1,22 +1,32 @@
 package com.otilm.core.dao.entity.workflows;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.workflows.ExecutionItemDto;
 import com.otilm.core.dao.converter.ObjectToJsonConverter;
 import com.otilm.core.dao.entity.UniquelyIdentified;
 import com.otilm.core.dao.entity.notifications.NotificationProfile;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.List;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Setter
@@ -74,10 +84,12 @@ public class ExecutionItem extends UniquelyIdentified {
         } else if (data != null) {
             ObjectMapper mapper = new ObjectMapper()
                     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-            List<BaseAttributeContentV3<?>> contentItems =
-                    mapper.convertValue(data, new TypeReference<>() {
-                    });
-            executionItemDto.setData((Serializable) (contentItems.size() == 1 ? contentItems.getFirst().getData().toString() : contentItems.stream().map(i -> i.getData().toString()).toList()));
+            List<BaseAttributeContentV3<?>> contentItems = mapper.convertValue(data, new TypeReference<>() {
+            });
+            executionItemDto
+                    .setData((Serializable) (contentItems.size() == 1
+                            ? contentItems.getFirst().getData().toString()
+                            : contentItems.stream().map(i -> i.getData().toString()).toList()));
         }
 
         return executionItemDto;

@@ -8,26 +8,25 @@ import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackRequestDto;
 import com.otilm.api.model.client.connector.v2.attribute.AttributeCallbackResponseDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
-import com.otilm.api.model.common.error.ErrorCode;
-import com.otilm.api.model.common.error.ProblemDetailExtended;
 import com.otilm.api.model.common.attribute.common.callback.RequestAttributeCallback;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.common.error.ErrorCode;
+import com.otilm.api.model.common.error.ProblemDetailExtended;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.OutboundSecretContainment;
 import com.otilm.core.attribute.engine.OutboundSecretLeakException;
 import com.otilm.core.client.ConnectorApiFactory;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,8 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 
 /**
- * #1621/#1622 fixes: the dispatcher must invoke the #1624 outbound leak gate with the secrets expanded on this
- * call (F2), and must never forward a raw runtime message from a failed child-definition ingest (F3).
+ * #1621/#1622 fixes: the dispatcher must invoke the #1624 outbound leak gate with the secrets expanded on this call
+ * (F2), and must never forward a raw runtime message from a failed child-definition ingest (F3).
  */
 class NgCallbackDispatcherTest {
 
@@ -71,8 +70,8 @@ class NgCallbackDispatcherTest {
         def.setUuid(UUID.randomUUID().toString());
         def.setName("ngAttr");
         def.setContentType(AttributeContentType.STRING);
-        return new NgCallbackDispatcher.NgDispatchContext(def,
-                ConnectorInterface.AUTHORITY, "v3", List.of(), List.of());
+        return new NgCallbackDispatcher.NgDispatchContext(def, ConnectorInterface.AUTHORITY, "v3", List.of(),
+                List.of());
     }
 
     @Test
@@ -83,8 +82,8 @@ class NgCallbackDispatcherTest {
 
         Set<String> expandedSecrets = new HashSet<>(Set.of("super-secret-token-123"));
 
-        assertThrows(OutboundSecretLeakException.class, () ->
-                dispatcher.dispatchNgCallback(connector, context(), new RequestAttributeCallback(), expandedSecrets));
+        assertThrows(OutboundSecretLeakException.class, () -> dispatcher
+                .dispatchNgCallback(connector, context(), new RequestAttributeCallback(), expandedSecrets));
     }
 
     @Test
@@ -95,35 +94,36 @@ class NgCallbackDispatcherTest {
 
         Set<String> expandedSecrets = new HashSet<>(Set.of("super-secret-token-123"));
 
-        assertDoesNotThrow(() ->
-                dispatcher.dispatchNgCallback(connector, context(), new RequestAttributeCallback(), expandedSecrets));
+        assertDoesNotThrow(() -> dispatcher
+                .dispatchNgCallback(connector, context(), new RequestAttributeCallback(), expandedSecrets));
     }
 
     @Test
     void definitionNotFoundRetry_rebuildsEnvelopeFromRefreshedDefinition() throws Exception {
-        ProblemDetailExtended problem = ProblemDetailExtended.fromErrorCode(
-                ErrorCode.ATTRIBUTE_DEFINITION_NOT_FOUND, "unknown to connector", null, null);
+        ProblemDetailExtended problem = ProblemDetailExtended
+                .fromErrorCode(ErrorCode.ATTRIBUTE_DEFINITION_NOT_FOUND, "unknown to connector", null, null);
         AttributeCallbackResponseDto ok = new AttributeCallbackResponseDto();
         ok.setContent(List.of());
-        Mockito.when(client.callback(any(), any()))
-                .thenThrow(new ConnectorProblemException(problem))
-                .thenReturn(ok);
+        Mockito.when(client.callback(any(), any())).thenThrow(new ConnectorProblemException(problem)).thenReturn(ok);
 
         // The refresh corrects a stale local identity: the retry must send the refreshed uuid/name, not the original.
         DataAttributeV2 refreshed = new DataAttributeV2();
         refreshed.setUuid(UUID.randomUUID().toString());
         refreshed.setName("refreshedName");
         refreshed.setContentType(AttributeContentType.STRING);
-        Mockito.when(definitionResolver.resolveForced(any(), any(), any(), any())).thenReturn((BaseAttribute) refreshed);
+        Mockito
+                .when(definitionResolver.resolveForced(any(), any(), any(), any()))
+                .thenReturn((BaseAttribute) refreshed);
 
         dispatcher.dispatchNgCallback(connector, context(), new RequestAttributeCallback(), new HashSet<>());
 
-        org.mockito.ArgumentCaptor<AttributeCallbackRequestDto> captor =
-                org.mockito.ArgumentCaptor.forClass(AttributeCallbackRequestDto.class);
+        org.mockito.ArgumentCaptor<AttributeCallbackRequestDto> captor = org.mockito.ArgumentCaptor
+                .forClass(AttributeCallbackRequestDto.class);
         Mockito.verify(client, Mockito.times(2)).callback(any(), captor.capture());
         AttributeCallbackRequestDto retried = captor.getAllValues().get(1);
-        org.junit.jupiter.api.Assertions.assertEquals("refreshedName", retried.getAttributeName(),
-                "the retry must dispatch the refreshed definition, not resend the original envelope");
+        org.junit.jupiter.api.Assertions
+                .assertEquals("refreshedName", retried.getAttributeName(),
+                        "the retry must dispatch the refreshed definition, not resend the original envelope");
     }
 
     @Test
@@ -141,20 +141,20 @@ class NgCallbackDispatcherTest {
 
         Set<String> expandedSecrets = new HashSet<>(Set.of("leaked-secret-999"));
 
-        assertThrows(OutboundSecretLeakException.class, () ->
-                dispatcher.dispatchNgCallback(connector, context(), new RequestAttributeCallback(), expandedSecrets));
-        Mockito.verify(attributeEngine, Mockito.never())
-                .updateDataAttributeDefinitions(any(), any(), any());
+        assertThrows(OutboundSecretLeakException.class, () -> dispatcher
+                .dispatchNgCallback(connector, context(), new RequestAttributeCallback(), expandedSecrets));
+        Mockito.verify(attributeEngine, Mockito.never()).updateDataAttributeDefinitions(any(), any(), any());
     }
 
     @Test
     void nullConnectorResponseIsRejectedAsValidationNotNpe() throws Exception {
         // The MQ/proxy transport can return a null body on an empty 2xx (unlike the REST client's requireBody guard).
-        // A null response must surface as a clean ValidationException, not an NPE/500 at the caller's response.getContent().
+        // A null response must surface as a clean ValidationException, not an NPE/500 at the caller's
+        // response.getContent().
         Mockito.when(client.callback(any(), any())).thenReturn(null);
 
-        assertThrows(ValidationException.class, () ->
-                dispatcher.dispatchNgCallback(connector, context(), new RequestAttributeCallback(), new HashSet<>()));
+        assertThrows(ValidationException.class, () -> dispatcher
+                .dispatchNgCallback(connector, context(), new RequestAttributeCallback(), new HashSet<>()));
     }
 
     @Test
@@ -165,11 +165,11 @@ class NgCallbackDispatcherTest {
         def.setUuid(UUID.randomUUID().toString());
         def.setName("ngAttr");
         def.setContentType(AttributeContentType.STRING);
-        NgCallbackDispatcher.NgDispatchContext bad = new NgCallbackDispatcher.NgDispatchContext(
-                def, ConnectorInterface.CRYPTOGRAPHY, null, List.of(), List.of());
+        NgCallbackDispatcher.NgDispatchContext bad = new NgCallbackDispatcher.NgDispatchContext(def,
+                ConnectorInterface.CRYPTOGRAPHY, null, List.of(), List.of());
 
-        assertThrows(ValidationException.class, () ->
-                dispatcher.dispatchNgCallback(connector, bad, new RequestAttributeCallback(), new HashSet<>()));
+        assertThrows(ValidationException.class,
+                () -> dispatcher.dispatchNgCallback(connector, bad, new RequestAttributeCallback(), new HashSet<>()));
         Mockito.verifyNoInteractions(client);
     }
 
@@ -182,11 +182,11 @@ class NgCallbackDispatcherTest {
         def.setUuid(UUID.randomUUID().toString());
         def.setName("ngAttr");
         def.setContentType(AttributeContentType.STRING);
-        NgCallbackDispatcher.NgDispatchContext bothNull = new NgCallbackDispatcher.NgDispatchContext(
-                def, null, null, List.of(), List.of());
+        NgCallbackDispatcher.NgDispatchContext bothNull = new NgCallbackDispatcher.NgDispatchContext(def, null, null,
+                List.of(), List.of());
 
-        assertThrows(ValidationException.class, () ->
-                dispatcher.dispatchNgCallback(connector, bothNull, new RequestAttributeCallback(), new HashSet<>()));
+        assertThrows(ValidationException.class, () -> dispatcher
+                .dispatchNgCallback(connector, bothNull, new RequestAttributeCallback(), new HashSet<>()));
         Mockito.verifyNoInteractions(client);
     }
 
@@ -197,8 +197,8 @@ class NgCallbackDispatcherTest {
         AttributeCallbackResponseDto empty = new AttributeCallbackResponseDto();
         Mockito.when(client.callback(any(), any())).thenReturn(empty);
 
-        assertThrows(ValidationException.class, () ->
-                dispatcher.dispatchNgCallback(connector, context(), new RequestAttributeCallback(), new HashSet<>()));
+        assertThrows(ValidationException.class, () -> dispatcher
+                .dispatchNgCallback(connector, context(), new RequestAttributeCallback(), new HashSet<>()));
         Mockito.verify(attributeEngine, Mockito.never()).updateDataAttributeDefinitions(any(), any(), any());
     }
 
@@ -215,8 +215,8 @@ class NgCallbackDispatcherTest {
         both.setAttributes(List.of(child));
         Mockito.when(client.callback(any(), any())).thenReturn(both);
 
-        assertThrows(ValidationException.class, () ->
-                dispatcher.dispatchNgCallback(connector, context(), new RequestAttributeCallback(), new HashSet<>()));
+        assertThrows(ValidationException.class, () -> dispatcher
+                .dispatchNgCallback(connector, context(), new RequestAttributeCallback(), new HashSet<>()));
         Mockito.verify(attributeEngine, Mockito.never()).updateDataAttributeDefinitions(any(), any(), any());
     }
 
@@ -229,12 +229,14 @@ class NgCallbackDispatcherTest {
         child.setContentType(AttributeContentType.STRING);
         response.setAttributes(List.of(child));
         Mockito.when(client.callback(any(), any())).thenReturn(response);
-        Mockito.doThrow(new org.springframework.dao.DataIntegrityViolationException(
+        Mockito
+                .doThrow(new org.springframework.dao.DataIntegrityViolationException(
                         "ERROR: duplicate key value violates unique constraint \"attribute_definition_uq\""))
-                .when(attributeEngine).updateDataAttributeDefinitions(any(), any(), any());
+                .when(attributeEngine)
+                .updateDataAttributeDefinitions(any(), any(), any());
 
-        ValidationException thrown = assertThrows(ValidationException.class, () ->
-                dispatcher.dispatchNgCallback(connector, context(), new RequestAttributeCallback(), new HashSet<>()));
+        ValidationException thrown = assertThrows(ValidationException.class, () -> dispatcher
+                .dispatchNgCallback(connector, context(), new RequestAttributeCallback(), new HashSet<>()));
 
         String message = String.valueOf(thrown.getMessage());
         assertFalse(message.contains("duplicate key"), "raw SQL fragment must not reach the wire");

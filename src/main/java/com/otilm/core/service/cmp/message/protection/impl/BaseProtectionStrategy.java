@@ -8,7 +8,8 @@ public abstract class BaseProtectionStrategy {
     protected final ConfigurationContext configuration;
     protected final AlgorithmIdentifier headerProtectionAlgorithm;
 
-    protected BaseProtectionStrategy(ConfigurationContext configuration, AlgorithmIdentifier headerProtectionAlgorithm) {
+    protected BaseProtectionStrategy(ConfigurationContext configuration,
+            AlgorithmIdentifier headerProtectionAlgorithm) {
         this.configuration = configuration;
         this.headerProtectionAlgorithm = headerProtectionAlgorithm;
     }

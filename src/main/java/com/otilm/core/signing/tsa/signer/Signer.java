@@ -4,16 +4,14 @@ import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 
 /**
- * Signs a byte array and returns the raw signature bytes.
- * The bytes passed are the DER-encoded SignedAttributes as produced
- * by BouncyCastle's SignerInfoGenerator — i.e. the DTBS for the timestamp token.
+ * Signs a byte array and returns the raw signature bytes. The bytes passed are the DER-encoded SignedAttributes as
+ * produced by BouncyCastle's SignerInfoGenerator — i.e. the DTBS for the timestamp token.
  */
 public interface Signer {
 
     /**
-     * The signature algorithm this signer uses, e.g. SHA256withRSA.
-     * Required so the formatting can configure the content signer and
-     * derive the content digest algorithm for the timestamp token generator.
+     * The signature algorithm this signer uses, e.g. SHA256withRSA. Required so the formatting can configure the
+     * content signer and derive the content digest algorithm for the timestamp token generator.
      */
     SignatureAlgorithm getSignatureAlgorithm();
 

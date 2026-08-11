@@ -13,19 +13,22 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
-import com.otilm.api.model.core.secret.*;
+import com.otilm.api.model.core.secret.SecretDetailDto;
+import com.otilm.api.model.core.secret.SecretDto;
+import com.otilm.api.model.core.secret.SecretRequestDto;
+import com.otilm.api.model.core.secret.SecretUpdateObjectsDto;
+import com.otilm.api.model.core.secret.SecretUpdateRequestDto;
+import com.otilm.api.model.core.secret.SecretVersionDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.SecretExternalService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.util.List;
 import java.util.UUID;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class SecretManagementControllerImpl implements SecretManagementController {
@@ -63,25 +66,32 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.GET_CONTENT)
-    public SecretContent getSecretContent(@LogResource(uuid = true) UUID uuid) throws NotFoundException, ConnectorException, AttributeException {
+    public SecretContent getSecretContent(@LogResource(uuid = true) UUID uuid)
+            throws NotFoundException, ConnectorException, AttributeException {
         return secretService.getSecretContent(uuid);
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.CREATE, affiliatedResource = Resource.VAULT)
-    public SecretDetailDto createSecret(SecretRequestDto secretRequest, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, UUID vaultUuid) throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
-        return secretService.createSecret(secretRequest, SecuredParentUUID.fromUUID(vaultProfileUuid), SecuredUUID.fromUUID(vaultUuid));
+    public SecretDetailDto createSecret(SecretRequestDto secretRequest,
+            @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, UUID vaultUuid)
+            throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
+        return secretService
+                .createSecret(secretRequest, SecuredParentUUID.fromUUID(vaultProfileUuid),
+                        SecuredUUID.fromUUID(vaultUuid));
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.UPDATE)
-    public SecretDetailDto updateSecret(@LogResource(uuid = true) UUID uuid, SecretUpdateRequestDto secretRequest) throws NotFoundException, AttributeException, ConnectorException {
+    public SecretDetailDto updateSecret(@LogResource(uuid = true) UUID uuid, SecretUpdateRequestDto secretRequest)
+            throws NotFoundException, AttributeException, ConnectorException {
         return secretService.updateSecret(uuid, secretRequest);
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.DELETE)
-    public void deleteSecret(@LogResource(uuid = true) UUID uuid, boolean deleteInVaults) throws NotFoundException, ConnectorException, AttributeException {
+    public void deleteSecret(@LogResource(uuid = true) UUID uuid, boolean deleteInVaults)
+            throws NotFoundException, ConnectorException, AttributeException {
         secretService.deleteSecret(uuid, deleteInVaults);
     }
 
@@ -99,19 +109,25 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.ASSOCIATE)
-    public void addVaultProfileToSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, List<RequestAttribute> createSecretAttributes) throws NotFoundException, ConnectorException, AttributeException {
+    public void addVaultProfileToSecret(@LogResource(uuid = true) UUID uuid,
+            @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid,
+            List<RequestAttribute> createSecretAttributes)
+            throws NotFoundException, ConnectorException, AttributeException {
         secretService.addVaultProfileToSecret(uuid, vaultProfileUuid, createSecretAttributes);
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.DISASSOCIATE)
-    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, boolean deleteInVault) throws NotFoundException, ConnectorException, AttributeException {
+    public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid,
+            @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, boolean deleteInVault)
+            throws NotFoundException, ConnectorException, AttributeException {
         secretService.removeVaultProfileFromSecret(uuid, vaultProfileUuid, deleteInVault);
     }
 
     @Override
     @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.UPDATE)
-    public void updateSecretObjects(@LogResource(uuid = true) UUID uuid, SecretUpdateObjectsDto request) throws NotFoundException, ConnectorException, AttributeException {
+    public void updateSecretObjects(@LogResource(uuid = true) UUID uuid, SecretUpdateObjectsDto request)
+            throws NotFoundException, ConnectorException, AttributeException {
         secretService.updateSecretObjects(uuid, request);
     }
 }

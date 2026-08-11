@@ -4,13 +4,12 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
+import java.util.List;
+import java.util.Map;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Map;
 
 import static com.otilm.core.util.builders.MappedDataAttributeV3Builder.aMappedDataAttribute;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,9 +21,9 @@ class CsrAttrsEncoderTest {
     @Test
     void encodesRdnTargetsAsBareOids() throws Exception {
         // given — two RDN-mapped attributes (CN, O)
-        var definitions = List.of(
-                aMappedDataAttribute().withName("cn").mappingRdn("CN").build(),
-                aMappedDataAttribute().withName("o").mappingRdn("O").build());
+        var definitions = List
+                .of(aMappedDataAttribute().withName("cn").mappingRdn("CN").build(),
+                        aMappedDataAttribute().withName("o").mappingRdn("O").build());
 
         // when
         ASN1Sequence csrAttrs = encodeToSequence(definitions, CODE_TO_OID);
@@ -62,9 +61,9 @@ class CsrAttrsEncoderTest {
     @Test
     void dedupesDuplicateRdnOids() throws Exception {
         // given — two attributes mapping to the same RDN (CN)
-        var definitions = List.of(
-                aMappedDataAttribute().withName("cn1").mappingRdn("CN").build(),
-                aMappedDataAttribute().withName("cn2").mappingRdn("CN").build());
+        var definitions = List
+                .of(aMappedDataAttribute().withName("cn1").mappingRdn("CN").build(),
+                        aMappedDataAttribute().withName("cn2").mappingRdn("CN").build());
 
         // when
         ASN1Sequence csrAttrs = encodeToSequence(definitions, CODE_TO_OID);
@@ -105,8 +104,8 @@ class CsrAttrsEncoderTest {
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
-    private static ASN1Sequence encodeToSequence(List<? extends BaseAttribute> definitions, Map<String, String> codeToOid)
-            throws Exception {
+    private static ASN1Sequence encodeToSequence(List<? extends BaseAttribute> definitions,
+            Map<String, String> codeToOid) throws Exception {
         return (ASN1Sequence) ASN1Primitive.fromByteArray(CsrAttrsEncoder.encode(definitions, codeToOid));
     }
 }

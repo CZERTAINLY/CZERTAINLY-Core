@@ -25,16 +25,15 @@ import com.otilm.core.service.AttributeExternalService;
 import com.otilm.core.service.ResourceExternalService;
 import com.otilm.core.util.converter.AttributeContentTypeConverter;
 import com.otilm.core.util.converter.ResourceCodeConverter;
+import java.net.URI;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 public class CustomAttributeControllerImpl implements CustomAttributeController {
@@ -67,13 +66,15 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DETAIL)
-    public CustomAttributeDefinitionDetailDto getCustomAttribute(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public CustomAttributeDefinitionDetailDto getCustomAttribute(@LogResource(uuid = true) String uuid)
+            throws NotFoundException {
         return attributeService.getCustomAttribute(UUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.CREATE)
-    public ResponseEntity<CustomAttributeDefinitionDetailDto> createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, AttributeException {
+    public ResponseEntity<CustomAttributeDefinitionDetailDto> createCustomAttribute(
+            CustomAttributeCreateRequestDto request) throws AlreadyExistException, AttributeException {
         CustomAttributeDefinitionDetailDto definitionDetailDto = attributeService.createCustomAttribute(request);
 
         URI location = ServletUriComponentsBuilder
@@ -86,7 +87,8 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE)
-    public CustomAttributeDefinitionDetailDto editCustomAttribute(@LogResource(uuid = true) String uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException, AttributeException {
+    public CustomAttributeDefinitionDetailDto editCustomAttribute(@LogResource(uuid = true) String uuid,
+            CustomAttributeUpdateRequestDto request) throws NotFoundException, AttributeException {
         return attributeService.editCustomAttribute(UUID.fromString(uuid), request);
     }
 
@@ -128,13 +130,15 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE_ATTRIBUTE_RESOURCES)
-    public void updateResources(@LogResource(uuid = true) String uuid, List<Resource> resources) throws NotFoundException {
+    public void updateResources(@LogResource(uuid = true) String uuid, List<Resource> resources)
+            throws NotFoundException {
         attributeService.updateResources(UUID.fromString(uuid), resources);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
-    public List<CustomAttribute> getResourceCustomAttributes(@LogResource(resource = true, affiliated = true) Resource resource) {
+    public List<CustomAttribute> getResourceCustomAttributes(
+            @LogResource(resource = true, affiliated = true) Resource resource) {
         return attributeService.getResourceAttributes(SecurityFilter.create(), resource);
     }
 
@@ -149,15 +153,11 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     public List<ResponseAttribute> updateAttributeContentForResource(
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,
-            @LogResource(uuid = true) String attributeUuid,
-            List<AttributeContent> request
-    ) throws NotFoundException, AttributeException {
-        return resourceService.updateAttributeContentForObject(
-                SecuredResource.fromResource(resourceName),
-                SecuredUUID.fromString(objectUuid),
-                UUID.fromString(attributeUuid),
-                request
-        );
+            @LogResource(uuid = true) String attributeUuid, List<AttributeContent> request)
+            throws NotFoundException, AttributeException {
+        return resourceService
+                .updateAttributeContentForObject(SecuredResource.fromResource(resourceName),
+                        SecuredUUID.fromString(objectUuid), UUID.fromString(attributeUuid), request);
     }
 
     @Override
@@ -165,13 +165,9 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     public List<ResponseAttribute> deleteAttributeContentForResource(
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,
-            @LogResource(uuid = true) String attributeUuid
-    ) throws NotFoundException, AttributeException {
-        return resourceService.updateAttributeContentForObject(
-                SecuredResource.fromResource(resourceName),
-                SecuredUUID.fromString(objectUuid),
-                UUID.fromString(attributeUuid),
-                null
-        );
+            @LogResource(uuid = true) String attributeUuid) throws NotFoundException, AttributeException {
+        return resourceService
+                .updateAttributeContentForObject(SecuredResource.fromResource(resourceName),
+                        SecuredUUID.fromString(objectUuid), UUID.fromString(attributeUuid), null);
     }
 }

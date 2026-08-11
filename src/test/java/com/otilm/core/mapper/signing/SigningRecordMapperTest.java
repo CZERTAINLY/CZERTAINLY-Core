@@ -8,11 +8,10 @@ import com.otilm.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.otilm.core.dao.entity.signing.SigningProfile;
 import com.otilm.core.dao.entity.signing.SigningRecord;
 import com.otilm.core.dao.entity.signing.SigningRecordOutbox;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,8 +81,8 @@ class SigningRecordMapperTest {
     }
 
     /**
-     * A {@link SigningRecord} with the minimum the DTO mappers dereference: a non-null profile association
-     * (via the composite key) and a {@code created} audit timestamp.
+     * A {@link SigningRecord} with the minimum the DTO mappers dereference: a non-null profile association (via the
+     * composite key) and a {@code created} audit timestamp.
      */
     private static SigningRecord aPersistedRecord() {
         SigningProfile profile = new SigningProfile();

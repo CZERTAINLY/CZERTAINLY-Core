@@ -1,17 +1,40 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
-import com.otilm.api.model.core.cryptography.key.*;
+import com.otilm.api.model.core.cryptography.key.KeyAssociationDto;
+import com.otilm.api.model.core.cryptography.key.KeyDetailDto;
+import com.otilm.api.model.core.cryptography.key.KeyDto;
+import com.otilm.api.model.core.cryptography.key.KeyItemDetailDto;
+import com.otilm.api.model.core.cryptography.key.KeyItemDto;
 import com.otilm.core.util.DtoMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.ConstraintMode;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.proxy.HibernateProxy;
-
-import java.io.Serializable;
-import java.util.*;
 
 @Getter
 @Setter
@@ -44,11 +67,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     private UUID tokenInstanceReferenceUuid;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "group_association",
-            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)),
-            inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
-    )
+    @JoinTable(name = "group_association", joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)), inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false))
     @SQLJoinTableRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
@@ -74,12 +93,16 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     public void setTokenProfile(TokenProfile tokenProfile) {
         this.tokenProfile = tokenProfile;
-        if (tokenProfile != null) this.tokenProfileUuid = tokenProfile.getUuid();
+        if (tokenProfile != null) {
+            this.tokenProfileUuid = tokenProfile.getUuid();
+        }
     }
 
     public void setTokenInstanceReference(TokenInstanceReference tokenInstanceReference) {
         this.tokenInstanceReference = tokenInstanceReference;
-        if (tokenInstanceReference != null) this.tokenInstanceReferenceUuid = tokenInstanceReference.getUuid();
+        if (tokenInstanceReference != null) {
+            this.tokenInstanceReferenceUuid = tokenInstanceReference.getUuid();
+        }
     }
 
     // Get the list of items for the key
@@ -100,8 +123,8 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     }
 
     /**
-     * Lightweight variant of {@link #mapToDto()} for use in chain responses.
-     * Omits {@code associations} to avoid initializing the lazy {@code certificates} and {@code altCertificates} collections.
+     * Lightweight variant of {@link #mapToDto()} for use in chain responses. Omits {@code associations} to avoid
+     * initializing the lazy {@code certificates} and {@code altCertificates} collections.
      */
     public KeyDto mapToChainDto() {
         return buildKeyDto();
@@ -140,7 +163,8 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         if (items.isEmpty()) {
             return ComplianceStatus.NOT_CHECKED;
         }
-        List<ComplianceStatus> statuses = items.stream()
+        List<ComplianceStatus> statuses = items
+                .stream()
                 .map(CryptographicKeyItem::getComplianceStatus)
                 .filter(Objects::nonNull)
                 .toList();
@@ -209,17 +233,31 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        if (!(o instanceof CryptographicKey that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        if (!(o instanceof CryptographicKey that)) {
+            return false;
+        }
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

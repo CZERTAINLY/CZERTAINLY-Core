@@ -38,11 +38,8 @@ public class OpaObjectAccessResult {
 
     @Override
     public String toString() {
-        return 
-                "allowedObjects=%s, forbiddenObjects=%s, actionAllowedForGroupOfObjects=%b".formatted(
-                String.join(",", this.allowedObjects),
-                String.join(",", this.forbiddenObjects),
-                actionAllowedForGroupOfObjects
-        );
+        return "allowedObjects=%s, forbiddenObjects=%s, actionAllowedForGroupOfObjects=%b"
+                .formatted(String.join(",", this.allowedObjects), String.join(",", this.forbiddenObjects),
+                        actionAllowedForGroupOfObjects);
     }
 }

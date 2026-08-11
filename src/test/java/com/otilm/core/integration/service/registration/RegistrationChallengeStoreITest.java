@@ -10,8 +10,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Boots the full context so {@code SecretsUtil}'s static encryption key is injected from
- * {@code secrets.encryption.key} in the test {@code application.yml}.
+ * Boots the full context so {@code SecretsUtil}'s static encryption key is injected from {@code secrets.encryption.key}
+ * in the test {@code application.yml}.
  */
 class RegistrationChallengeStoreITest extends BaseSpringBootTest {
 
@@ -62,7 +62,6 @@ class RegistrationChallengeStoreITest extends BaseSpringBootTest {
     @Test
     void resolvePlaintextRejectsUnpopulatedRow() {
         CertificateRegistrationAuthorization row = new CertificateRegistrationAuthorization();
-        assertThatThrownBy(() -> challengeStore.resolvePlaintext(row))
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> challengeStore.resolvePlaintext(row)).isInstanceOf(IllegalStateException.class);
     }
 }

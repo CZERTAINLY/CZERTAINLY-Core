@@ -29,12 +29,14 @@ public class ConnectorRegistrationControllerImpl implements ConnectorRegistratio
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.REGISTER)
-    public UuidDto register(@RequestBody ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    public UuidDto register(@RequestBody ConnectorRequestDto request)
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         return connectorRegistrationService.registerConnector(request);
     }
 
     @Override
-    public ConnectorDetailDto register(com.otilm.api.model.core.connector.v2.ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    public ConnectorDetailDto register(com.otilm.api.model.core.connector.v2.ConnectorRequestDto request)
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         return connectorRegistrationService.registerConnectorV2(request);
     }
 }

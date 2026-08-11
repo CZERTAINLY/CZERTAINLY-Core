@@ -1,20 +1,29 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.otilm.api.model.core.enums.CertificateProtocol;
 import com.otilm.core.dao.entity.acme.AcmeAccount;
 import com.otilm.core.dao.entity.acme.AcmeProfile;
 import com.otilm.core.dao.entity.cmp.CmpProfile;
 import com.otilm.core.dao.entity.scep.ScepProfile;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.ConstraintMode;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import java.io.Serializable;
+import java.util.Objects;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.proxy.HibernateProxy;
-
-import java.io.Serializable;
-import java.util.Objects;
-import java.util.UUID;
 
 @Entity
 @Getter
@@ -65,23 +74,37 @@ public class CertificateProtocolAssociation extends UniquelyIdentified implement
 
     public void setCertificate(Certificate certificate) {
         this.certificate = certificate;
-        if(certificate != null) certificateUuid = certificate.getUuid();
+        if (certificate != null) {
+            certificateUuid = certificate.getUuid();
+        }
     }
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         CertificateProtocolAssociation that = (CertificateProtocolAssociation) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 
 }

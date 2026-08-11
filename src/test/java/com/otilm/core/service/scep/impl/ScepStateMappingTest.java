@@ -7,20 +7,20 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Pure unit test for {@link ScepServiceImpl#pkiStatusForCertState(CertificateState)}.
- * Verifies the SCEP {@link PkiStatus} produced for every {@link CertificateState}, including
- * the {@code PENDING_ISSUE} and {@code PENDING_REVOKE} states a connector can drive a cert into
- * by returning {@code 202 Accepted} on issue/revoke (operation accepted, completion is
- * asynchronous).
+ * Pure unit test for {@link ScepServiceImpl#pkiStatusForCertState(CertificateState)}. Verifies the SCEP
+ * {@link PkiStatus} produced for every {@link CertificateState}, including the {@code PENDING_ISSUE} and
+ * {@code PENDING_REVOKE} states a connector can drive a cert into by returning {@code 202 Accepted} on issue/revoke
+ * (operation accepted, completion is asynchronous).
  *
- * <p>Regression guard: any future change that accidentally maps a non-terminal state to
- * something other than {@link PkiStatus#PENDING} (for example a NullPointerException
- * downstream) will fail this test.</p>
+ * <p>
+ * Regression guard: any future change that accidentally maps a non-terminal state to something other than
+ * {@link PkiStatus#PENDING} (for example a NullPointerException downstream) will fail this test.
+ * </p>
  */
 class ScepStateMappingTest {
 
     // RFC 8894 §3.3.2 — pkiStatus values
-    //   0 = SUCCESS, 2 = FAILURE, 3 = PENDING
+    // 0 = SUCCESS, 2 = FAILURE, 3 = PENDING
 
     @Test
     void issued_maps_to_success() {

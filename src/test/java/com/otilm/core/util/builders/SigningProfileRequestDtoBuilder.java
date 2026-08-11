@@ -1,14 +1,32 @@
 package com.otilm.core.util.builders;
 
-import com.otilm.api.model.client.attribute.*;
+import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV2;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
+import com.otilm.api.model.client.attribute.ResponseAttribute;
+import com.otilm.api.model.client.attribute.ResponseAttributeV2;
+import com.otilm.api.model.client.attribute.ResponseAttributeV3;
 import com.otilm.api.model.client.signing.profile.SigningProfileDto;
 import com.otilm.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.otilm.api.model.client.signing.profile.record.SigningRecordPolicyRequestDto;
-import com.otilm.api.model.client.signing.profile.scheme.*;
-import com.otilm.api.model.client.signing.profile.workflow.*;
+import com.otilm.api.model.client.signing.profile.scheme.DelegatedSigningDto;
+import com.otilm.api.model.client.signing.profile.scheme.DelegatedSigningRequestDto;
+import com.otilm.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningDto;
+import com.otilm.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningRequestDto;
+import com.otilm.api.model.client.signing.profile.scheme.SigningSchemeDto;
+import com.otilm.api.model.client.signing.profile.scheme.SigningSchemeRequestDto;
+import com.otilm.api.model.client.signing.profile.scheme.StaticKeyManagedSigningDto;
+import com.otilm.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
+import com.otilm.api.model.client.signing.profile.workflow.ContentSigningWorkflowDto;
+import com.otilm.api.model.client.signing.profile.workflow.ContentSigningWorkflowRequestDto;
+import com.otilm.api.model.client.signing.profile.workflow.RawSigningWorkflowDto;
+import com.otilm.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
+import com.otilm.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
+import com.otilm.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
+import com.otilm.api.model.client.signing.profile.workflow.WorkflowDto;
+import com.otilm.api.model.client.signing.profile.workflow.WorkflowRequestDto;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
-
 import java.util.List;
 import java.util.UUID;
 
@@ -78,18 +96,22 @@ public class SigningProfileRequestDtoBuilder {
         return withStaticKeyManagedSigning(certificateUuid, RsaSignatureScheme.PKCS1_v1_5, DigestAlgorithm.SHA_256);
     }
 
-    public SigningProfileRequestDtoBuilder withStaticKeyManagedSigning(UUID certificateUuid, RsaSignatureScheme scheme, DigestAlgorithm digest) {
-        return withStaticKeyManagedSigning(certificateUuid, RsaSignatureAttributesBuilder.rsaSignatureAttributes().withScheme(scheme).withDigest(digest).build());
+    public SigningProfileRequestDtoBuilder withStaticKeyManagedSigning(UUID certificateUuid, RsaSignatureScheme scheme,
+            DigestAlgorithm digest) {
+        return withStaticKeyManagedSigning(certificateUuid,
+                RsaSignatureAttributesBuilder.rsaSignatureAttributes().withScheme(scheme).withDigest(digest).build());
     }
 
-    public SigningProfileRequestDtoBuilder withStaticKeyManagedSigning(UUID certificateUuid, List<RequestAttribute> signingOperationAttributes) {
+    public SigningProfileRequestDtoBuilder withStaticKeyManagedSigning(UUID certificateUuid,
+            List<RequestAttribute> signingOperationAttributes) {
         StaticKeyManagedSigningRequestDto s = new StaticKeyManagedSigningRequestDto();
         s.setCertificateUuid(certificateUuid);
         s.setSigningOperationAttributes(signingOperationAttributes);
         return withScheme(s);
     }
 
-    public SigningProfileRequestDtoBuilder withOneTimeKeyManagedSigning(UUID raProfileUuid, UUID csrTemplateUuid, UUID tokenProfileUuid) {
+    public SigningProfileRequestDtoBuilder withOneTimeKeyManagedSigning(UUID raProfileUuid, UUID csrTemplateUuid,
+            UUID tokenProfileUuid) {
         OneTimeKeyManagedSigningRequestDto scheme = new OneTimeKeyManagedSigningRequestDto();
         scheme.setRaProfileUuid(raProfileUuid);
         scheme.setCsrTemplateUuid(csrTemplateUuid);
@@ -112,7 +134,10 @@ public class SigningProfileRequestDtoBuilder {
     }
 
     public SigningProfileRequestDtoBuilder withTimestamping(UUID signatureFormattingConnectorUuid) {
-        return withTimestamping(TimestampingWorkflowRequestDtoBuilder.aTimestampingWorkflow().withSignatureFormattingConnector(signatureFormattingConnectorUuid).build());
+        return withTimestamping(TimestampingWorkflowRequestDtoBuilder
+                .aTimestampingWorkflow()
+                .withSignatureFormattingConnector(signatureFormattingConnectorUuid)
+                .build());
     }
 
     public SigningProfileRequestDtoBuilder withTimestamping(TimestampingWorkflowRequestDto workflow) {
@@ -161,17 +186,25 @@ public class SigningProfileRequestDtoBuilder {
             case ContentSigningWorkflowDto c -> {
                 ContentSigningWorkflowRequestDto req = new ContentSigningWorkflowRequestDto();
                 if (c.getSignatureFormattingConnector() != null) {
-                    req.setSignatureFormattingConnectorUuid(UUID.fromString(c.getSignatureFormattingConnector().getUuid()));
+                    req
+                            .setSignatureFormattingConnectorUuid(
+                                    UUID.fromString(c.getSignatureFormattingConnector().getUuid()));
                 }
-                req.setSignatureFormattingConnectorAttributes(requestAttributesFromResponse(c.getSignatureFormattingConnectorAttributes()));
+                req
+                        .setSignatureFormattingConnectorAttributes(
+                                requestAttributesFromResponse(c.getSignatureFormattingConnectorAttributes()));
                 yield req;
             }
             case TimestampingWorkflowDto t -> {
                 TimestampingWorkflowRequestDto req = new TimestampingWorkflowRequestDto();
                 if (t.getSignatureFormattingConnector() != null) {
-                    req.setSignatureFormattingConnectorUuid(UUID.fromString(t.getSignatureFormattingConnector().getUuid()));
+                    req
+                            .setSignatureFormattingConnectorUuid(
+                                    UUID.fromString(t.getSignatureFormattingConnector().getUuid()));
                 }
-                req.setSignatureFormattingConnectorAttributes(requestAttributesFromResponse(t.getSignatureFormattingConnectorAttributes()));
+                req
+                        .setSignatureFormattingConnectorAttributes(
+                                requestAttributesFromResponse(t.getSignatureFormattingConnectorAttributes()));
                 req.setQualifiedTimestamp(t.getQualifiedTimestamp());
                 if (t.getTimeQualityConfiguration() != null) {
                     req.setTimeQualityConfigurationUuid(UUID.fromString(t.getTimeQualityConfiguration().getUuid()));
@@ -187,8 +220,9 @@ public class SigningProfileRequestDtoBuilder {
     }
 
     private static List<RequestAttribute> requestAttributesFromResponse(List<ResponseAttribute> attrs) {
-        if (attrs == null)
+        if (attrs == null) {
             return null;
+        }
         return attrs.stream().map(SigningProfileRequestDtoBuilder::requestAttributeFromResponse).toList();
     }
 

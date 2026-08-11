@@ -5,20 +5,18 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-
 @Getter
 @Setter
 @Entity
-@Table(name = "time_quality_configuration",
-       uniqueConstraints = @UniqueConstraint(columnNames = "name"))
+@Table(name = "time_quality_configuration", uniqueConstraints = @UniqueConstraint(columnNames = "name"))
 public class TimeQualityConfiguration extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "name", nullable = false)

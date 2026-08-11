@@ -16,11 +16,13 @@ import com.otilm.core.events.handlers.CertificateNotCompliantEventHandler;
 import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.service.handler.ComplianceProfileRuleHandler;
 import com.otilm.core.service.handler.ComplianceSubjectHandler;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 @Getter
 public class ComplianceCheckContext {
@@ -40,7 +42,9 @@ public class ComplianceCheckContext {
 
     private final EventProducer eventProducer;
 
-    public ComplianceCheckContext(Resource resource, IPlatformEnum typeEnum, ComplianceProfileRuleHandler ruleHandler, Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> subjectHandlers, ConnectorApiFactory connectorApiFactory, EventProducer eventProducer) {
+    public ComplianceCheckContext(Resource resource, IPlatformEnum typeEnum, ComplianceProfileRuleHandler ruleHandler,
+            Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> subjectHandlers,
+            ConnectorApiFactory connectorApiFactory, EventProducer eventProducer) {
         this.resource = resource;
         this.typeEnum = typeEnum;
         this.ruleHandler = ruleHandler;
@@ -49,23 +53,32 @@ public class ComplianceCheckContext {
         this.eventProducer = eventProducer;
     }
 
-    public void addComplianceProfile(ComplianceProfile complianceProfile, Map<Resource, Set<ComplianceSubject>> complianceSubjects) {
-        if (complianceProfile.getComplianceRules().isEmpty() || complianceSubjects == null || complianceSubjects.isEmpty()) {
+    public void addComplianceProfile(ComplianceProfile complianceProfile,
+            Map<Resource, Set<ComplianceSubject>> complianceSubjects) {
+        if (complianceProfile.getComplianceRules().isEmpty() || complianceSubjects == null
+                || complianceSubjects.isEmpty()) {
             return;
         }
 
-        ComplianceCheckProfileContext profileContext = profilesContextMap.computeIfAbsent(complianceProfile.getUuid(), uuid -> new ComplianceCheckProfileContext(complianceProfile.getName(), complianceSubjects));
+        ComplianceCheckProfileContext profileContext = profilesContextMap
+                .computeIfAbsent(complianceProfile.getUuid(),
+                        uuid -> new ComplianceCheckProfileContext(complianceProfile.getName(), complianceSubjects));
         for (ComplianceProfileRule profileRule : complianceProfile.getComplianceRules()) {
             // skip rules that do not match the resource and type
             if (skipProfileRule(profileRule, null)) {
                 continue;
             }
 
-            String providerKey = profileRule.getInternalRuleUuid() != null ? null : "%s|%s".formatted(profileRule.getConnectorUuid(), profileRule.getKind());
+            String providerKey = profileRule.getInternalRuleUuid() != null
+                    ? null
+                    : "%s|%s".formatted(profileRule.getConnectorUuid(), profileRule.getKind());
             profileContext.addProfileRule(providerKey, profileRule);
             // load compliance providers context
             if (providerKey != null) {
-                ComplianceCheckProviderContext providerContext = providersContextMap.computeIfAbsent(providerKey, k -> new ComplianceCheckProviderContext(profileRule.getConnector(), profileRule.getKind(), ruleHandler, connectorApiFactory));
+                ComplianceCheckProviderContext providerContext = providersContextMap
+                        .computeIfAbsent(providerKey,
+                                k -> new ComplianceCheckProviderContext(profileRule.getConnector(),
+                                        profileRule.getKind(), ruleHandler, connectorApiFactory));
                 if (profileRule.getComplianceRuleUuid() != null) {
                     providerContext.getRulesBatchRequestDto().getRuleUuids().add(profileRule.getComplianceRuleUuid());
                 } else {
@@ -76,16 +89,25 @@ public class ComplianceCheckContext {
     }
 
     public void performComplianceCheck() {
-        logger.debug("Starting performComplianceCheck for {} profiles and {} providers", profilesContextMap.size(), providersContextMap.size());
+        logger
+                .debug("Starting performComplianceCheck for {} profiles and {} providers", profilesContextMap.size(),
+                        providersContextMap.size());
         for (ComplianceCheckProfileContext profileContext : profilesContextMap.values()) {
-            for (Map.Entry<Resource, Set<ComplianceSubject>> resourceObjects : profileContext.getComplianceSubjects().entrySet()) {
-                ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler = subjectHandlers.get(resourceObjects.getKey());
+            for (Map.Entry<Resource, Set<ComplianceSubject>> resourceObjects : profileContext
+                    .getComplianceSubjects()
+                    .entrySet()) {
+                ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler = subjectHandlers
+                        .get(resourceObjects.getKey());
                 for (var subject : resourceObjects.getValue()) {
                     try {
                         subjectHandler.initSubjectComplianceResult(subject);
-                        performSubjectComplianceCheck(profileContext, subjectHandler, resourceObjects.getKey(), subject);
+                        performSubjectComplianceCheck(profileContext, subjectHandler, resourceObjects.getKey(),
+                                subject);
                     } catch (Exception e) {
-                        logger.warn("Error checking compliance of {} with UUID {} by profile {}: {}", resourceObjects.getKey().getLabel(), subject.getUuid(), profileContext.getName(), e.getMessage());
+                        logger
+                                .warn("Error checking compliance of {} with UUID {} by profile {}: {}",
+                                        resourceObjects.getKey().getLabel(), subject.getUuid(),
+                                        profileContext.getName(), e.getMessage());
                         subjectHandler.finalizeComplianceCheck(subject.getUuid(), e.getMessage());
                     }
                 }
@@ -98,15 +120,21 @@ public class ComplianceCheckContext {
                 UUID subjectUuid = subjectContext.getComplianceSubject().getUuid();
                 ComplianceStatus originalStatus = subjectContext.getComplianceSubject().getComplianceStatus();
                 ComplianceStatus newStatus = subjectHandler.finalizeComplianceCheck(subjectUuid, null);
-                if (subjectHandler.getResource() == Resource.CERTIFICATE && originalStatus != ComplianceStatus.NOK && newStatus == ComplianceStatus.NOK) {
-                    eventProducer.produceMessage(CertificateNotCompliantEventHandler.constructEventMessages(subjectUuid));
+                if (subjectHandler.getResource() == Resource.CERTIFICATE && originalStatus != ComplianceStatus.NOK
+                        && newStatus == ComplianceStatus.NOK) {
+                    eventProducer
+                            .produceMessage(CertificateNotCompliantEventHandler.constructEventMessages(subjectUuid));
                 }
-                logger.debug("{} {} compliance check finalized with result: {}", subjectHandler.getResource().getLabel(), subjectUuid, newStatus.getLabel());
+                logger
+                        .debug("{} {} compliance check finalized with result: {}",
+                                subjectHandler.getResource().getLabel(), subjectUuid, newStatus.getLabel());
             }
         }
     }
 
-    private void performSubjectComplianceCheck(ComplianceCheckProfileContext profileContext, ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler, Resource resource, ComplianceSubject subject) throws ConnectorException, RuleException {
+    private void performSubjectComplianceCheck(ComplianceCheckProfileContext profileContext,
+            ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler, Resource resource,
+            ComplianceSubject subject) throws ConnectorException, RuleException {
         for (ComplianceProfileRule profileRule : profileContext.getInternalRules()) {
             // skip rules that do not match the resource and type
             if (skipProfileRule(profileRule, resource)) {
@@ -126,13 +154,20 @@ public class ComplianceCheckContext {
                     continue;
                 }
 
-                // add rule to compliance check request, if returns non-null status, it means the rule is not available or not applicable. In case of null, the rule will be checked by the provider.
+                // add rule to compliance check request, if returns non-null status, it means the rule is not available
+                // or not applicable. In case of null, the rule will be checked by the provider.
                 ComplianceRuleStatus ruleStatus = providerContext.addProviderRuleToCheck(profileRule);
-                subjectHandler.addProviderRuleResult(subject.getUuid(), providerRules.getKey(), providerContext.getConnectorUuid(), providerContext.getKind(), profileRule.getComplianceRuleUuid(), profileRule.getComplianceGroupUuid(), ruleStatus);
+                subjectHandler
+                        .addProviderRuleResult(subject.getUuid(), providerRules.getKey(),
+                                providerContext.getConnectorUuid(), providerContext.getKind(),
+                                profileRule.getComplianceRuleUuid(), profileRule.getComplianceGroupUuid(), ruleStatus);
             }
             ComplianceResponseDto complianceResponse = providerContext.executeComplianceCheck();
             for (ComplianceResponseRuleDto responseRule : complianceResponse.getRules()) {
-                subjectHandler.addProviderRuleResult(subject.getUuid(), providerRules.getKey(), providerContext.getConnectorUuid(), providerContext.getKind(), responseRule.getUuid(), null, responseRule.getStatus());
+                subjectHandler
+                        .addProviderRuleResult(subject.getUuid(), providerRules.getKey(),
+                                providerContext.getConnectorUuid(), providerContext.getKind(), responseRule.getUuid(),
+                                null, responseRule.getStatus());
             }
         }
     }
@@ -141,7 +176,8 @@ public class ComplianceCheckContext {
         if (subjectResource != null && profileRule.getResource() != subjectResource) {
             return true;
         }
-        return (resource != null && resource != profileRule.getResource()) || (typeEnum != null && !typeEnum.name().equals(profileRule.getType()));
+        return (resource != null && resource != profileRule.getResource())
+                || (typeEnum != null && !typeEnum.name().equals(profileRule.getType()));
     }
 
 }

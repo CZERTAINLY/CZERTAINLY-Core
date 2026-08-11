@@ -34,44 +34,40 @@ package com.otilm.core.intune.carequest;
 /**
  * CARevocationRequest - Class defining a Certificate Authority Request.
  */
-public class CARevocationRequest 
-{
-	public String requestContext;
-	public String serialNumber;
-	public String issuerName;
-	public String caConfiguration;
-	
-	/**
-	 * Default Constructor
-	 */
-	public CARevocationRequest()
-	{
-		
-	}
-	
-	/**
-	 * CARevocationRequest Constructor
+public class CARevocationRequest {
+    public String requestContext;
+    public String serialNumber;
+    public String issuerName;
+    public String caConfiguration;
+
+    /**
+     * Default Constructor
+     */
+    public CARevocationRequest() {
+
+    }
+
+    /**
+     * CARevocationRequest Constructor
+     *
      * @param requestContext
      * @param serialNumber
      * @param issuerName
      * @param caConfig
      * @throws IllegalArgumentException
-	 */
-	public CARevocationRequest(String requestContext, String serialNumber, String issuerName, String caConfig)
-	{
-        if(requestContext == null)
-        {
-            throw new IllegalArgumentException("The argument 'requestContext' may not be 'null'"); 
+     */
+    public CARevocationRequest(String requestContext, String serialNumber, String issuerName, String caConfig) {
+        if (requestContext == null) {
+            throw new IllegalArgumentException("The argument 'requestContext' may not be 'null'");
         }
-        
-        if(serialNumber == null)
-        {
-            throw new IllegalArgumentException("The argument 'serialNumber' may not be 'null'"); 
+
+        if (serialNumber == null) {
+            throw new IllegalArgumentException("The argument 'serialNumber' may not be 'null'");
         }
-		
-		this.requestContext = requestContext;
-		this.serialNumber = serialNumber;
-		this.issuerName = issuerName;
-		this.caConfiguration = caConfig;
-	}
+
+        this.requestContext = requestContext;
+        this.serialNumber = serialNumber;
+        this.issuerName = issuerName;
+        this.caConfiguration = caConfig;
+    }
 }

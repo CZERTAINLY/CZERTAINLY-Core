@@ -17,9 +17,9 @@ public class SigningRecordMapper {
     }
 
     /**
-     * Copies a staged {@link SigningRecordOutbox} row into the {@link SigningRecord} the outbox drainer persists.
-     * This is a straight field copy under the row's own UUID — the record-policy toggles were already applied
-     * when the row was staged, so no content gating happens here.
+     * Copies a staged {@link SigningRecordOutbox} row into the {@link SigningRecord} the outbox drainer persists. This
+     * is a straight field copy under the row's own UUID — the record-policy toggles were already applied when the row
+     * was staged, so no content gating happens here.
      */
     public static SigningRecord toRecord(SigningRecordOutbox outbox) {
         SigningRecord signingRecord = new SigningRecord();
@@ -47,8 +47,9 @@ public class SigningRecordMapper {
         Instant signingTime = signingRecord.getSigningTime();
         dto.setSigningTime(signingTime);
         if (signingRecord.getRequestedByUuid() != null) {
-            dto.setRequestedBy(new NameAndUuidDto(
-                    signingRecord.getRequestedByUuid().toString(), signingRecord.getRequestedByUsername()));
+            dto
+                    .setRequestedBy(new NameAndUuidDto(signingRecord.getRequestedByUuid().toString(),
+                            signingRecord.getRequestedByUsername()));
         }
         OffsetDateTime createdAt = signingRecord.getCreated();
         dto.setCreatedAt(createdAt.toInstant());
@@ -77,15 +78,15 @@ public class SigningRecordMapper {
 
     /**
      * Builds the {@link SigningProfileListDto} for a record's detail view. The version is pinned to the
-     * {@code signingProfileVersion} captured when the record was produced — not the profile's current latest
-     * version — so the DTO reflects the profile state that actually produced this signature.
+     * {@code signingProfileVersion} captured when the record was produced — not the profile's current latest version —
+     * so the DTO reflects the profile state that actually produced this signature.
      */
     private static SigningProfileListDto toSigningProfileListDto(SigningRecord signingRecord) {
         SigningProfile profile = signingRecord.getSigningProfile();
         if (profile == null) {
-            throw new IllegalStateException(
-                    "SigningRecord " + signingRecord.getUuid() + " has no signing profile; signing_profile_uuid is NOT NULL "
-                            + "and SigningRecordDto.signingProfile is required, so this association must be present.");
+            throw new IllegalStateException("SigningRecord " + signingRecord.getUuid()
+                    + " has no signing profile; signing_profile_uuid is NOT NULL "
+                    + "and SigningRecordDto.signingProfile is required, so this association must be present.");
         }
         SigningProfileListDto dto = SigningProfileMapper.toListDto(profile);
         dto.setVersion(signingRecord.getSigningProfileVersion());

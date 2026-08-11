@@ -1,20 +1,30 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateEventHistoryDto;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.core.util.DtoMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Getter
 @Setter
@@ -23,7 +33,10 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 @Entity
 @Table(name = "certificate_event_history")
-public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateEventHistoryDto> {
+public class CertificateEventHistory extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<CertificateEventHistoryDto> {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "event")
@@ -33,10 +46,10 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
     @Column(name = "status")
     private CertificateEventStatus status;
 
-    @Column(name="message", columnDefinition = "TEXT")
+    @Column(name = "message", columnDefinition = "TEXT")
     private String message;
 
-    @Column(name="additional_information", columnDefinition = "TEXT")
+    @Column(name = "additional_information", columnDefinition = "TEXT")
     private String additionalInformation;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -48,14 +61,15 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
     private UUID certificateUuid;
 
     @Override
-    public CertificateEventHistoryDto mapToDto(){
+    public CertificateEventHistoryDto mapToDto() {
         CertificateEventHistoryDto certificateEventHistoryDto = new CertificateEventHistoryDto();
         certificateEventHistoryDto.setCertificateUuid(certificate.getUuid().toString());
         certificateEventHistoryDto.setEvent(event);
         try {
-            certificateEventHistoryDto.setAdditionalInformation(
-                    new ObjectMapper().readValue(additionalInformation, new TypeReference<>() {})
-            );
+            certificateEventHistoryDto
+                    .setAdditionalInformation(
+                            new ObjectMapper().readValue(additionalInformation, new TypeReference<>() {
+                            }));
         } catch (JsonProcessingException | IllegalArgumentException e) {
             certificateEventHistoryDto.setAdditionalInformation(null);
         }
@@ -74,17 +88,29 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         CertificateEventHistory that = (CertificateEventHistory) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

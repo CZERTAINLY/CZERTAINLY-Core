@@ -77,6 +77,7 @@ public final class TspProfileModelBuilder {
 
     public TspProfileModel build() {
         return new TspProfileModel(uuid, name, description, enabled, defaultSigningProfileUuid,
-                defaultSigningProfileName, customAttributes, allowedAuthenticationMethods, basicCredentials, vaultProfileUuid);
+                defaultSigningProfileName, customAttributes, allowedAuthenticationMethods, basicCredentials,
+                vaultProfileUuid);
     }
 }

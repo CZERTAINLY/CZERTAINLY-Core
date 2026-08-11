@@ -21,16 +21,15 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CertificateExternalService;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.EventListener;
-
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -166,9 +165,7 @@ class UpdateTrustedCaMarkITest extends BaseSpringBootTest {
     }
 
     private void verifyNoEventPublished() {
-        assertThat(eventCaptor.getEvents())
-                .as("Expected no CertificateValidationEvent to be published")
-                .isEmpty();
+        assertThat(eventCaptor.getEvents()).as("Expected no CertificateValidationEvent to be published").isEmpty();
     }
 
     @Test
@@ -286,8 +283,7 @@ class UpdateTrustedCaMarkITest extends BaseSpringBootTest {
 
         // when / then
         UUID caUuid = ca.getUuid();
-        assertThatThrownBy(() -> callUpdateTrustedCa(caUuid, true))
-                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> callUpdateTrustedCa(caUuid, true)).isInstanceOf(ValidationException.class);
         verifyNoEventPublished();
     }
 
@@ -301,8 +297,7 @@ class UpdateTrustedCaMarkITest extends BaseSpringBootTest {
 
         // when / then
         UUID certUuid = cert.getUuid();
-        assertThatThrownBy(() -> callUpdateTrustedCa(certUuid, true))
-                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> callUpdateTrustedCa(certUuid, true)).isInstanceOf(ValidationException.class);
         verifyNoEventPublished();
     }
 
@@ -360,7 +355,7 @@ class UpdateTrustedCaMarkITest extends BaseSpringBootTest {
         // given
         RaProfile disabledRp = buildRaProfile(false);
         Certificate ca = buildCaWithRaProfile(disabledRp);
-        Certificate child = buildEligibleCert(ca);  // child has no RA profile → eligible
+        Certificate child = buildEligibleCert(ca); // child has no RA profile → eligible
 
         // when
         callUpdateTrustedCa(ca.getUuid(), true);
@@ -388,7 +383,7 @@ class UpdateTrustedCaMarkITest extends BaseSpringBootTest {
         // given — platform disabled; CA and child both inherit platform (no RA profile)
         setPlatformValidationEnabled(false);
         Certificate ca = buildCa();
-        buildEligibleCert(ca);  // has no RA profile → inherits platform → excluded
+        buildEligibleCert(ca); // has no RA profile → inherits platform → excluded
 
         // when
         callUpdateTrustedCa(ca.getUuid(), true);

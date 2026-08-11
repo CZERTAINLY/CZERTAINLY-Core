@@ -17,10 +17,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for the challenge password gate {@link ScepServiceImpl#validateChallengePassword}.
- * A renewal PKCSReq carries no challengePassword attribute (RFC 8894 §3.3.1.2) — it authenticates
- * with the existing certificate's key instead — so the gate must tolerate an absent request
- * password for an authenticated renewal and reject it otherwise, never dereference it blindly.
+ * Unit tests for the challenge password gate {@link ScepServiceImpl#validateChallengePassword}. A renewal PKCSReq
+ * carries no challengePassword attribute (RFC 8894 §3.3.1.2) — it authenticates with the existing certificate's key
+ * instead — so the gate must tolerate an absent request password for an authenticated renewal and reject it otherwise,
+ * never dereference it blindly.
  */
 class ScepServiceImplChallengePasswordTest {
 
@@ -46,15 +46,14 @@ class ScepServiceImplChallengePasswordTest {
     }
 
     /**
-     * The waiver covers an absent password — including a present-but-empty attribute, which clients (and
-     * our own jscep guide) are commonly configured to send on renewal. A password carrying a value is
-     * accepted only when it matches.
+     * The waiver covers an absent password — including a present-but-empty attribute, which clients (and our own jscep
+     * guide) are commonly configured to send on renewal. A password carrying a value is accepted only when it matches.
      */
     @ParameterizedTest(name = "request password [{0}], authenticated renewal {1}")
-    @CsvSource(nullValues = "NULL", value = {
-            "mysecretpassword, false",  // matches PROFILE_PASSWORD on an initial enrollment
-            "NULL,             true",   // renewal omits the attribute
-            "'',               true"    // renewal sends the attribute empty
+    @CsvSource(nullValues = "NULL", value = {"mysecretpassword, false", // matches PROFILE_PASSWORD on an initial
+                                                                        // enrollment
+            "NULL,             true", // renewal omits the attribute
+            "'',               true" // renewal sends the attribute empty
     })
     void acceptedChallengePassword(String requestChallengePassword, boolean authenticatedRenewal) {
         when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
@@ -63,15 +62,14 @@ class ScepServiceImplChallengePasswordTest {
     }
 
     /**
-     * A wrong password is rejected whether or not the request is a renewal: the waiver never silently
-     * accepts a supplied credential that does not match. An empty attribute is rejected wherever the
-     * shared secret is actually required.
+     * A wrong password is rejected whether or not the request is a renewal: the waiver never silently accepts a
+     * supplied credential that does not match. An empty attribute is rejected wherever the shared secret is actually
+     * required.
      */
     @ParameterizedTest(name = "request password [{0}], authenticated renewal {1}")
-    @CsvSource(nullValues = "NULL", value = {
-            "wrong, false",  // wrong password on an initial enrollment
-            "wrong, true",   // wrong password on an otherwise authenticated renewal
-            "'',    false"   // empty attribute where the shared secret is required
+    @CsvSource(nullValues = "NULL", value = {"wrong, false", // wrong password on an initial enrollment
+            "wrong, true", // wrong password on an otherwise authenticated renewal
+            "'',    false" // empty attribute where the shared secret is required
     })
     void rejectedChallengePassword(String requestChallengePassword, boolean authenticatedRenewal) {
         when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
@@ -82,15 +80,14 @@ class ScepServiceImplChallengePasswordTest {
     }
 
     /**
-     * The reported crash (issue #1887): a renewal-style PKCSReq without a challengePassword against a
-     * profile that has one configured must yield a SCEP rejection, not a {@code NullPointerException}.
+     * The reported crash (issue #1887): a renewal-style PKCSReq without a challengePassword against a profile that has
+     * one configured must yield a SCEP rejection, not a {@code NullPointerException}.
      */
     @Test
     void absentRequestPassword_notARenewal_rejectedWithBadMessageCheck() {
         when(profile.getChallengePassword()).thenReturn(PROFILE_PASSWORD);
 
-        ScepException thrown = assertThrows(ScepException.class,
-                () -> service.validateChallengePassword(null, false));
+        ScepException thrown = assertThrows(ScepException.class, () -> service.validateChallengePassword(null, false));
         assertEquals(FailInfo.BAD_MESSAGE_CHECK, thrown.getFailInfo());
     }
 }

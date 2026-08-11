@@ -1,5 +1,7 @@
 package com.otilm.core.integration.service;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
@@ -28,16 +30,13 @@ import com.otilm.core.dao.repository.notifications.NotificationProfileVersionRep
 import com.otilm.core.service.NotificationInstanceExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.List;
-import java.util.UUID;
 
 class NotificationInstanceServiceITest extends BaseSpringBootTest {
 
@@ -76,9 +75,18 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
 
         WireMock.configureFor("localhost", mockServer.port());
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping")).willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/validate")).willReturn(WireMock.ok()));
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes")).willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/validate"))
+                        .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
 
         connector = new Connector();
         connector.setName("notificationInstanceConnector");
@@ -116,7 +124,8 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateNotificationInstance() throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException {
+    void testCreateNotificationInstance()
+            throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException {
         NotificationInstanceRequestDto requestDto = new NotificationInstanceRequestDto();
         requestDto.setName("test");
         requestDto.setDescription("description");
@@ -125,19 +134,19 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
         requestDto.setAttributes(List.of());
         requestDto.setAttributeMappings(List.of());
 
-        mockServer.stubFor(WireMock.post(
-                        WireMock.urlPathMatching("/v1/notificationProvider/notifications"))
-                .willReturn(WireMock.okJson("""
-                        {
-                            "uuid": "%s",
-                            "name": "%s",
-                            "attributes": []
-                        }
-                        """.formatted(UUID.randomUUID(), requestDto.getName())
-                ))
-        );
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/notificationProvider/notifications"))
+                        .willReturn(WireMock.okJson("""
+                                {
+                                    "uuid": "%s",
+                                    "name": "%s",
+                                    "attributes": []
+                                }
+                                """.formatted(UUID.randomUUID(), requestDto.getName()))));
 
-        NotificationInstanceDto notificationInstanceDto = notificationInstanceService.createNotificationInstance(requestDto);
+        NotificationInstanceDto notificationInstanceDto = notificationInstanceService
+                .createNotificationInstance(requestDto);
 
         // Verify the notification instance was created successfully
         Assertions.assertNotNull(notificationInstanceDto);
@@ -153,7 +162,9 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
         requestDto.setAttributes(List.of());
         requestDto.setAttributeMappings(List.of());
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> notificationInstanceService.createNotificationInstance(requestDto));
+        Assertions
+                .assertThrows(AlreadyExistException.class,
+                        () -> notificationInstanceService.createNotificationInstance(requestDto));
     }
 
     @Test
@@ -163,19 +174,21 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
         requestDto.setAttributes(List.of());
         requestDto.setAttributeMappings(List.of());
 
-        mockServer.stubFor(WireMock.put(
-                        WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
-                .willReturn(WireMock.okJson("""
-                        {
-                            "uuid": "%s",
-                            "name": "%s",
-                            "attributes": []
-                        }
-                        """.formatted(UUID.randomUUID(), EXISTING_NIR_NAME)
-                ))
-        );
+        mockServer
+                .stubFor(WireMock
+                        .put(WireMock
+                                .urlPathMatching(
+                                        "/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
+                        .willReturn(WireMock.okJson("""
+                                {
+                                    "uuid": "%s",
+                                    "name": "%s",
+                                    "attributes": []
+                                }
+                                """.formatted(UUID.randomUUID(), EXISTING_NIR_NAME))));
 
-        NotificationInstanceDto notificationInstanceDto = notificationInstanceService.editNotificationInstance(UUID.fromString(EXISTING_NIR_UUID), requestDto);
+        NotificationInstanceDto notificationInstanceDto = notificationInstanceService
+                .editNotificationInstance(UUID.fromString(EXISTING_NIR_UUID), requestDto);
 
         // Verify the notification instance was updated successfully
         Assertions.assertNotNull(notificationInstanceDto);
@@ -189,22 +202,30 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
         requestDto.setAttributes(List.of());
         requestDto.setAttributeMappings(List.of());
 
-        Assertions.assertThrows(NotFoundException.class, () -> notificationInstanceService.editNotificationInstance(UUID.randomUUID(), requestDto));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> notificationInstanceService.editNotificationInstance(UUID.randomUUID(), requestDto));
     }
 
     @Test
     void testDeleteNotificationInstance() {
-        mockServer.stubFor(WireMock.delete(
-                        WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
-                .willReturn(WireMock.ok())
-        );
+        mockServer
+                .stubFor(WireMock
+                        .delete(WireMock
+                                .urlPathMatching(
+                                        "/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
+                        .willReturn(WireMock.ok()));
 
-        Assertions.assertDoesNotThrow(() -> notificationInstanceService.deleteNotificationInstance(UUID.fromString(EXISTING_NIR_UUID)));
+        Assertions
+                .assertDoesNotThrow(() -> notificationInstanceService
+                        .deleteNotificationInstance(UUID.fromString(EXISTING_NIR_UUID)));
     }
 
     @Test
     void testDeleteNonExistingNotificationInstance() {
-        Assertions.assertThrows(NotFoundException.class, () -> notificationInstanceService.deleteNotificationInstance(UUID.randomUUID()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> notificationInstanceService.deleteNotificationInstance(UUID.randomUUID()));
     }
 
     @Test
@@ -219,19 +240,21 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetNotificationInstance() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock.get(
-                        WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
-                .willReturn(WireMock.okJson("""
-                        {
-                            "uuid": "%s",
-                            "name": "%s",
-                            "attributes": []
-                        }
-                        """.formatted(UUID.fromString(EXISTING_NIR_UUID), EXISTING_NIR_NAME)
-                ))
-        );
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
+                        .willReturn(WireMock.okJson("""
+                                {
+                                    "uuid": "%s",
+                                    "name": "%s",
+                                    "attributes": []
+                                }
+                                """.formatted(UUID.fromString(EXISTING_NIR_UUID), EXISTING_NIR_NAME))));
 
-        NotificationInstanceDto notificationInstanceDto = notificationInstanceService.getNotificationInstance(UUID.fromString(EXISTING_NIR_UUID));
+        NotificationInstanceDto notificationInstanceDto = notificationInstanceService
+                .getNotificationInstance(UUID.fromString(EXISTING_NIR_UUID));
 
         // Verify the notification instance was retrieved successfully
         Assertions.assertNotNull(notificationInstanceDto);
@@ -241,12 +264,15 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetNonExistingNotificationInstance() {
-        Assertions.assertThrows(NotFoundException.class, () -> notificationInstanceService.getNotificationInstance(UUID.randomUUID()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> notificationInstanceService.getNotificationInstance(UUID.randomUUID()));
     }
 
     @Test
     void testListMappingAttributes() throws ConnectorException, NotFoundException {
-        List<DataAttribute> attributes = notificationInstanceService.listMappingAttributes(connector.getUuid().toString(), TEST_CONNECTOR_KIND);
+        List<DataAttribute> attributes = notificationInstanceService
+                .listMappingAttributes(connector.getUuid().toString(), TEST_CONNECTOR_KIND);
 
         // Verify the mapping attributes were retrieved successfully
         Assertions.assertNotNull(attributes);
@@ -255,11 +281,15 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetOrphanedNotificationInstance() throws ConnectorException, NotFoundException {
-        mockServer.stubFor(WireMock.get(
-                        WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
-                .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
+                        .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
 
-        NotificationInstanceDto dto = notificationInstanceService.getNotificationInstance(UUID.fromString(EXISTING_NIR_UUID));
+        NotificationInstanceDto dto = notificationInstanceService
+                .getNotificationInstance(UUID.fromString(EXISTING_NIR_UUID));
 
         Assertions.assertNotNull(dto);
         Assertions.assertTrue(dto.getName().contains("(Orphaned)"));
@@ -286,14 +316,24 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
         version2.setInternalNotification(false);
         notificationProfileVersionRepository.save(version2);
 
-        mockServer.stubFor(WireMock.delete(
-                        WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
-                .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
+        mockServer
+                .stubFor(WireMock
+                        .delete(WireMock
+                                .urlPathMatching(
+                                        "/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
+                        .willReturn(WireMock.aResponse().withStatus(404).withBody("Not Found")));
 
-        Assertions.assertDoesNotThrow(() -> notificationInstanceService.deleteNotificationInstance(UUID.fromString(EXISTING_NIR_UUID)));
-        Assertions.assertFalse(notificationInstanceReferenceRepository.findByUuid(UUID.fromString(EXISTING_NIR_UUID)).isPresent());
+        Assertions
+                .assertDoesNotThrow(() -> notificationInstanceService
+                        .deleteNotificationInstance(UUID.fromString(EXISTING_NIR_UUID)));
+        Assertions
+                .assertFalse(notificationInstanceReferenceRepository
+                        .findByUuid(UUID.fromString(EXISTING_NIR_UUID))
+                        .isPresent());
 
-        NotificationProfileVersion reloaded = notificationProfileVersionRepository.findById(version2.getUuid()).orElseThrow();
+        NotificationProfileVersion reloaded = notificationProfileVersionRepository
+                .findById(version2.getUuid())
+                .orElseThrow();
         Assertions.assertNull(reloaded.getNotificationInstanceRefUuid());
     }
 
@@ -312,12 +352,16 @@ class NotificationInstanceServiceITest extends BaseSpringBootTest {
         version.setNotificationInstanceRefUuid(uuid);
         notificationProfileVersionRepository.save(version);
 
-        mockServer.stubFor(WireMock.delete(
-                        WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .delete(WireMock
+                                .urlPathMatching(
+                                        "/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
+                        .willReturn(WireMock.ok()));
 
-        ValidationException ex = Assertions.assertThrows(ValidationException.class,
-                () -> notificationInstanceService.deleteNotificationInstance(uuid));
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> notificationInstanceService.deleteNotificationInstance(uuid));
         Assertions.assertTrue(ex.getMessage().contains("BlockingProfile"));
     }
 

@@ -12,9 +12,11 @@ import java.util.UUID;
 
 public interface ApprovalExternalService {
 
-    ApprovalResponseDto listApprovals(final SecurityFilter securityFilter, final PaginationRequestDto paginationRequestDto);
+    ApprovalResponseDto listApprovals(final SecurityFilter securityFilter,
+            final PaginationRequestDto paginationRequestDto);
 
-    ApprovalResponseDto listApprovalsByObject(final SecurityFilter securityFilter, final Resource resource, final UUID objectUuid, final PaginationRequestDto paginationRequestDto);
+    ApprovalResponseDto listApprovalsByObject(final SecurityFilter securityFilter, final Resource resource,
+            final UUID objectUuid, final PaginationRequestDto paginationRequestDto);
 
     ApprovalResponseDto listUserApprovals(final boolean withHistory, final PaginationRequestDto paginationRequestDto);
 

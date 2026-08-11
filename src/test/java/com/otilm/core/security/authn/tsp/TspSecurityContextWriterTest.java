@@ -5,6 +5,8 @@ import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.util.AuthHelper;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -14,9 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doThrow;

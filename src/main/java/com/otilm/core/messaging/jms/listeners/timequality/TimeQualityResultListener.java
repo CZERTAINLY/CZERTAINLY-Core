@@ -6,14 +6,13 @@ import com.otilm.core.messaging.jms.listeners.MessageProcessor;
 import com.otilm.core.signing.tsa.timequality.NtpServerResult;
 import com.otilm.core.signing.tsa.timequality.TimeQualityRegister;
 import com.otilm.core.signing.tsa.timequality.TimeQualityResult;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Component
 @Slf4j
@@ -28,7 +27,9 @@ public class TimeQualityResultListener implements MessageProcessor<TimeQualityRe
     @Override
     public void processMessage(TimeQualityResultMessage message) {
         if (!timeQualityConfigurationRepository.existsById(message.getConfigurationId())) {
-            log.warn("Received time quality result for unknown configuration ID={}, dropping", message.getConfigurationId());
+            log
+                    .warn("Received time quality result for unknown configuration ID={}, dropping",
+                            message.getConfigurationId());
             return;
         }
 
@@ -38,19 +39,15 @@ public class TimeQualityResultListener implements MessageProcessor<TimeQualityRe
 
     private TimeQualityResult toRecord(TimeQualityResultMessage message) {
         var servers = message.getMeasurements() != null
-                ? message.getMeasurements().stream()
-                        .map(m -> new NtpServerResult(m.getHost(), m.isReachable(), m.getOffsetMs(), m.getRttMs(), m.getStratum(), m.getPrecisionMs()))
+                ? message
+                        .getMeasurements()
+                        .stream()
+                        .map(m -> new NtpServerResult(m.getHost(), m.isReachable(), m.getOffsetMs(), m.getRttMs(),
+                                m.getStratum(), m.getPrecisionMs()))
                         .toList()
                 : List.<NtpServerResult>of();
-        return new TimeQualityResult(
-                message.getConfigurationId(),
-                message.getName(),
-                message.getTimestamp(),
-                message.getStatus(),
-                message.getMeasuredDriftMs(),
-                message.getReachableServers(),
-                message.getReason(),
-                message.getLeapSecondWarning(),
-                servers);
+        return new TimeQualityResult(message.getConfigurationId(), message.getName(), message.getTimestamp(),
+                message.getStatus(), message.getMeasuredDriftMs(), message.getReachableServers(), message.getReason(),
+                message.getLeapSecondWarning(), servers);
     }
 }

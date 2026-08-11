@@ -1,12 +1,10 @@
 package com.otilm.core.security.authn;
 
+import java.util.Collection;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 
-import java.util.Collection;
-
 public class PlatformAuthenticationToken extends AbstractAuthenticationToken {
-
 
     private final PlatformUserDetails principal;
 
@@ -18,12 +16,8 @@ public class PlatformAuthenticationToken extends AbstractAuthenticationToken {
         this(principal, "", principal.getAuthorities(), true);
     }
 
-    protected PlatformAuthenticationToken(
-            PlatformUserDetails principal,
-            String credentials,
-            Collection<? extends GrantedAuthority> authorities,
-            Boolean isAuthenticated
-    ) {
+    protected PlatformAuthenticationToken(PlatformUserDetails principal, String credentials,
+            Collection<? extends GrantedAuthority> authorities, Boolean isAuthenticated) {
         super(authorities);
         this.principal = principal;
         this.credentials = credentials;
@@ -47,7 +41,10 @@ public class PlatformAuthenticationToken extends AbstractAuthenticationToken {
 
     @Override
     public void setAuthenticated(boolean isAuthenticated) throws IllegalArgumentException {
-        if (isAuthenticated) throw new IllegalArgumentException("Once created, PlatformAuthenticationToken.isAuthenticated can't be set to true.");
+        if (isAuthenticated) {
+            throw new IllegalArgumentException(
+                    "Once created, PlatformAuthenticationToken.isAuthenticated can't be set to true.");
+        }
         this.isAuthenticated = false;
     }
 

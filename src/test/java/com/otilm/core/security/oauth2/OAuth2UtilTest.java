@@ -1,6 +1,8 @@
 package com.otilm.core.security.oauth2;
 
-
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.nimbusds.jose.JOSEException;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
@@ -8,9 +10,14 @@ import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.OAuth2Constants;
 import com.otilm.core.util.OAuth2Util;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.nimbusds.jose.JOSEException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,16 +29,9 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.session.Session;
 
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class OAuth2UtilTest {
@@ -43,20 +43,31 @@ class OAuth2UtilTest {
         KeyPair keyPair = generator.generateKeyPair();
 
         OAuth2ProviderSettingsDto providerSettingsDto = new OAuth2ProviderSettingsDto();
-        OAuth2AccessToken accessTokenCorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "expected", ""), Instant.now(), Instant.now().plusMillis(200));
-        OAuth2AccessToken accessTokenIncorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "unexpected", ""), Instant.now(), Instant.now().plusMillis(200));
-
+        OAuth2AccessToken accessTokenCorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER,
+                OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "expected", ""), Instant.now(),
+                Instant.now().plusMillis(200));
+        OAuth2AccessToken accessTokenIncorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER,
+                OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "unexpected", ""), Instant.now(),
+                Instant.now().plusMillis(200));
 
         providerSettingsDto.setAudiences(List.of("expected"));
-        Assertions.assertDoesNotThrow(() -> OAuth2Util.validateAudiences(accessTokenCorrectAudience, providerSettingsDto));
+        Assertions
+                .assertDoesNotThrow(
+                        () -> OAuth2Util.validateAudiences(accessTokenCorrectAudience, providerSettingsDto));
 
         providerSettingsDto.setAudiences(List.of("expected", "other"));
-        Assertions.assertDoesNotThrow(() -> OAuth2Util.validateAudiences(accessTokenCorrectAudience, providerSettingsDto));
+        Assertions
+                .assertDoesNotThrow(
+                        () -> OAuth2Util.validateAudiences(accessTokenCorrectAudience, providerSettingsDto));
 
-        Assertions.assertThrows(PlatformAuthenticationException.class, () -> OAuth2Util.validateAudiences(accessTokenIncorrectAudience, providerSettingsDto));
+        Assertions
+                .assertThrows(PlatformAuthenticationException.class,
+                        () -> OAuth2Util.validateAudiences(accessTokenIncorrectAudience, providerSettingsDto));
 
         providerSettingsDto.setAudiences(new ArrayList<>());
-        Assertions.assertDoesNotThrow(() -> OAuth2Util.validateAudiences(accessTokenIncorrectAudience, providerSettingsDto));
+        Assertions
+                .assertDoesNotThrow(
+                        () -> OAuth2Util.validateAudiences(accessTokenIncorrectAudience, providerSettingsDto));
 
     }
 
@@ -92,34 +103,35 @@ class OAuth2UtilTest {
 
         // Mock static SettingsCache
         try (MockedStatic<SettingsCache> settingsCacheMock = mockStatic(SettingsCache.class)) {
-            settingsCacheMock.when(() -> SettingsCache.getSettings(SettingsSection.AUTHENTICATION))
+            settingsCacheMock
+                    .when(() -> SettingsCache.getSettings(SettingsSection.AUTHENTICATION))
                     .thenReturn(authSettings);
             // Not mocked endpoint
             SecurityContext springSecurityContext = session.getAttribute("SPRING_SECURITY_CONTEXT");
             Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(springSecurityContext));
 
             WireMock.configureFor("localhost", mockServer.port());
-            mockServer.stubFor(
-                    WireMock.get(WireMock.urlPathEqualTo("/"))
+            mockServer
+                    .stubFor(WireMock
+                            .get(WireMock.urlPathEqualTo("/"))
                             .withQueryParam("id_token_hint", WireMock.matching(".*"))
-                            .willReturn(WireMock.aResponse().withStatus(200))
-            );
+                            .willReturn(WireMock.aResponse().withStatus(200)));
             // Mocked endpoint
             Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(springSecurityContext));
 
-            mockServer.stubFor(
-                    WireMock.get(WireMock.urlPathEqualTo("/"))
+            mockServer
+                    .stubFor(WireMock
+                            .get(WireMock.urlPathEqualTo("/"))
                             .withQueryParam("id_token_hint", WireMock.matching(".*"))
-                            .willReturn(WireMock.aResponse().withStatus(500))
-            );
+                            .willReturn(WireMock.aResponse().withStatus(500)));
             // Mocked endpoint 500
             Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(springSecurityContext));
 
-            mockServer.stubFor(
-                    WireMock.get(WireMock.urlPathEqualTo("/"))
+            mockServer
+                    .stubFor(WireMock
+                            .get(WireMock.urlPathEqualTo("/"))
                             .withQueryParam("id_token_hint", WireMock.matching(".*"))
-                            .willReturn(WireMock.aResponse().withStatus(404))
-            );
+                            .willReturn(WireMock.aResponse().withStatus(404)));
             // Mocked endpoint 404
             Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(springSecurityContext));
         }
@@ -127,51 +139,66 @@ class OAuth2UtilTest {
     }
 
     @Test
-    void testGetAllClaimsAvailable_UserInfoClaimsOverrideAccessTokenClaims() throws NoSuchAlgorithmException, JOSEException {
+    void testGetAllClaimsAvailable_UserInfoClaimsOverrideAccessTokenClaims()
+            throws NoSuchAlgorithmException, JOSEException {
         String accessToken = createAccessToken("from-token");
         WireMockServer mockServer = new WireMockServer(0);
         mockServer.start();
         try {
             WireMock.configureFor("localhost", mockServer.port());
-            mockServer.stubFor(
-                    WireMock.get(WireMock.urlPathEqualTo("/userinfo"))
-                            .willReturn(WireMock.okJson("{\"%s\":\"from-userinfo\",\"email\":\"user@example.com\"}"
-                                    .formatted(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME)))
-            );
+            mockServer
+                    .stubFor(WireMock
+                            .get(WireMock.urlPathEqualTo("/userinfo"))
+                            .willReturn(WireMock
+                                    .okJson("{\"%s\":\"from-userinfo\",\"email\":\"user@example.com\"}"
+                                            .formatted(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME))));
 
-            Map<String, Object> claims = OAuth2Util.getAllClaimsAvailable(
-                    providerWithUserInfoUrl("http://localhost:" + mockServer.port() + "/userinfo"), accessToken, null);
+            Map<String, Object> claims = OAuth2Util
+                    .getAllClaimsAvailable(
+                            providerWithUserInfoUrl("http://localhost:" + mockServer.port() + "/userinfo"), accessToken,
+                            null);
 
             Assertions.assertEquals("from-userinfo", claims.get(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME));
             Assertions.assertEquals("user@example.com", claims.get("email"));
-            mockServer.verify(WireMock.exactly(1), WireMock.getRequestedFor(WireMock.urlPathEqualTo("/userinfo"))
-                    .withHeader("Authorization", WireMock.equalTo("Bearer " + accessToken))
-                    .withHeader("Accept", WireMock.containing("application/json")));
+            mockServer
+                    .verify(WireMock.exactly(1),
+                            WireMock
+                                    .getRequestedFor(WireMock.urlPathEqualTo("/userinfo"))
+                                    .withHeader("Authorization", WireMock.equalTo("Bearer " + accessToken))
+                                    .withHeader("Accept", WireMock.containing("application/json")));
         } finally {
             mockServer.stop();
         }
     }
 
     @Test
-    void testGetAllClaimsAvailable_UserInfoFailureFallsBackToAccessTokenClaims() throws NoSuchAlgorithmException, JOSEException {
+    void testGetAllClaimsAvailable_UserInfoFailureFallsBackToAccessTokenClaims()
+            throws NoSuchAlgorithmException, JOSEException {
         String accessToken = createAccessToken("from-token");
         WireMockServer mockServer = new WireMockServer(0);
         mockServer.start();
         try {
             WireMock.configureFor("localhost", mockServer.port());
-            OAuth2ProviderSettingsDto provider = providerWithUserInfoUrl("http://localhost:" + mockServer.port() + "/userinfo");
+            OAuth2ProviderSettingsDto provider = providerWithUserInfoUrl(
+                    "http://localhost:" + mockServer.port() + "/userinfo");
 
-            mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/userinfo"))
-                    .willReturn(WireMock.aResponse().withStatus(500)));
+            mockServer
+                    .stubFor(WireMock
+                            .get(WireMock.urlPathEqualTo("/userinfo"))
+                            .willReturn(WireMock.aResponse().withStatus(500)));
             Map<String, Object> claims = OAuth2Util.getAllClaimsAvailable(provider, accessToken, null);
             Assertions.assertEquals("from-token", claims.get(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME));
             mockServer.verify(WireMock.exactly(1), WireMock.getRequestedFor(WireMock.urlPathEqualTo("/userinfo")));
 
             mockServer.resetRequests();
-            mockServer.stubFor(WireMock.get(WireMock.urlPathEqualTo("/userinfo"))
-                    .willReturn(WireMock.aResponse().withStatus(400)
-                            .withHeader("Content-Type", "application/json")
-                            .withBody("{\"error\":\"invalid_token\"}")));
+            mockServer
+                    .stubFor(WireMock
+                            .get(WireMock.urlPathEqualTo("/userinfo"))
+                            .willReturn(WireMock
+                                    .aResponse()
+                                    .withStatus(400)
+                                    .withHeader("Content-Type", "application/json")
+                                    .withBody("{\"error\":\"invalid_token\"}")));
             claims = OAuth2Util.getAllClaimsAvailable(provider, accessToken, null);
             Assertions.assertEquals("from-token", claims.get(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME));
             mockServer.verify(WireMock.exactly(1), WireMock.getRequestedFor(WireMock.urlPathEqualTo("/userinfo")));

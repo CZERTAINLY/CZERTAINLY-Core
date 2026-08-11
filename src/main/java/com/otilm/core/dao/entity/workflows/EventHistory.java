@@ -4,14 +4,17 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.workflows.EventStatus;
 import com.otilm.core.dao.entity.UniquelyIdentified;
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.proxy.HibernateProxy;
 
 @Entity
 @Table(name = "event_history")
@@ -42,12 +45,24 @@ public class EventHistory extends UniquelyIdentified {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        if (!(o instanceof EventHistory that)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
+        if (!(o instanceof EventHistory that)) {
+            return false;
+        }
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 

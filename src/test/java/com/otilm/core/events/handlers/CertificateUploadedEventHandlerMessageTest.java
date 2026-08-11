@@ -6,12 +6,11 @@ import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,16 +43,18 @@ class CertificateUploadedEventHandlerMessageTest {
     }
 
     private CertificateUploadEventMessageData uploadData() {
-        return CertificateUploadEventMessageData.builder()
+        return CertificateUploadEventMessageData
+                .builder()
                 .certificateContent("cert-content")
                 .customAttributes(List.of())
                 .build();
     }
 
     private void authenticateAs(UUID userUuid, String username) {
-        AuthenticationInfo info =
-                new AuthenticationInfo(AuthMethod.USER_PROXY, userUuid.toString(), username, List.of());
-        SecurityContextHolder.getContext()
+        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, userUuid.toString(), username,
+                List.of());
+        SecurityContextHolder
+                .getContext()
                 .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(info)));
     }
 }

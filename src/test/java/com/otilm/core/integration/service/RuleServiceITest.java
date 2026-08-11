@@ -5,19 +5,38 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
-import com.otilm.api.model.core.workflows.*;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
+import com.otilm.api.model.core.workflows.ActionDetailDto;
+import com.otilm.api.model.core.workflows.ActionDto;
+import com.otilm.api.model.core.workflows.ActionRequestDto;
+import com.otilm.api.model.core.workflows.ConditionDto;
+import com.otilm.api.model.core.workflows.ConditionItemRequestDto;
+import com.otilm.api.model.core.workflows.ConditionRequestDto;
+import com.otilm.api.model.core.workflows.ConditionType;
+import com.otilm.api.model.core.workflows.ExecutionDto;
+import com.otilm.api.model.core.workflows.ExecutionItemRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionType;
+import com.otilm.api.model.core.workflows.RuleDetailDto;
+import com.otilm.api.model.core.workflows.RuleRequestDto;
+import com.otilm.api.model.core.workflows.TriggerDetailDto;
+import com.otilm.api.model.core.workflows.TriggerRequestDto;
+import com.otilm.api.model.core.workflows.TriggerType;
+import com.otilm.api.model.core.workflows.UpdateActionRequestDto;
+import com.otilm.api.model.core.workflows.UpdateConditionRequestDto;
+import com.otilm.api.model.core.workflows.UpdateExecutionRequestDto;
+import com.otilm.api.model.core.workflows.UpdateRuleRequestDto;
+import com.otilm.api.model.core.workflows.UpdateTriggerRequestDto;
 import com.otilm.core.service.ActionExternalService;
 import com.otilm.core.service.RuleExternalService;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.List;
 
 class RuleServiceITest extends BaseSpringBootTest {
 
@@ -35,7 +54,6 @@ class RuleServiceITest extends BaseSpringBootTest {
 
     ExecutionDto executionDto;
     ExecutionItemRequestDto executionItemRequestDto;
-
 
     @BeforeEach
     void setUp() throws AlreadyExistException, NotFoundException {
@@ -64,7 +82,6 @@ class RuleServiceITest extends BaseSpringBootTest {
         executionDto = actionService.createExecution(executionRequestDto);
     }
 
-
     @Test
     void testRule() throws NotFoundException, AlreadyExistException {
         RuleRequestDto ruleRequestDto = new RuleRequestDto();
@@ -80,7 +97,9 @@ class RuleServiceITest extends BaseSpringBootTest {
         updateRuleRequestDto.setName("name");
         updateRuleRequestDto.setDescription("description");
         updateRuleRequestDto.setConditionsUuids(ruleRequestDto.getConditionsUuids());
-        Assertions.assertEquals("description", ruleService.updateRule(ruleDetailDto.getUuid(), updateRuleRequestDto).getDescription());
+        Assertions
+                .assertEquals("description",
+                        ruleService.updateRule(ruleDetailDto.getUuid(), updateRuleRequestDto).getDescription());
 
         Assertions.assertNotNull(ruleService.getRule(ruleDetailDto.getUuid()));
 
@@ -108,13 +127,19 @@ class RuleServiceITest extends BaseSpringBootTest {
         updateConditionGroupRequestDto.setName("name");
         updateConditionGroupRequestDto.setDescription("description");
         updateConditionGroupRequestDto.setItems(conditionRequestDto.getItems());
-        Assertions.assertEquals("description", ruleService.updateCondition(conditionGroupDetailDto.getUuid(), updateConditionGroupRequestDto).getDescription());
+        Assertions
+                .assertEquals("description",
+                        ruleService
+                                .updateCondition(conditionGroupDetailDto.getUuid(), updateConditionGroupRequestDto)
+                                .getDescription());
 
         Assertions.assertNotNull(ruleService.getCondition(conditionGroupDetailDto.getUuid()));
 
         Assertions.assertNotEquals(0, ruleService.listConditions(null).size());
         ruleService.deleteCondition(conditionGroupDetailDto.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> ruleService.getCondition(conditionGroupDetailDto.getUuid()));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> ruleService.getCondition(conditionGroupDetailDto.getUuid()));
     }
 
     @Test
@@ -143,7 +168,11 @@ class RuleServiceITest extends BaseSpringBootTest {
         updateTriggerRequestDto.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
         updateTriggerRequestDto.setResource(Resource.CERTIFICATE);
         updateTriggerRequestDto.setActionsUuids(triggerRequestDto.getActionsUuids());
-        Assertions.assertEquals("description", triggerService.updateTrigger(triggerDetailDto.getUuid(), updateTriggerRequestDto).getDescription());
+        Assertions
+                .assertEquals("description",
+                        triggerService
+                                .updateTrigger(triggerDetailDto.getUuid(), updateTriggerRequestDto)
+                                .getDescription());
 
         Assertions.assertNotNull(triggerService.getTrigger(triggerDetailDto.getUuid()));
 
@@ -154,7 +183,6 @@ class RuleServiceITest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> triggerService.getTrigger(triggerDetailDto.getUuid()));
 
     }
-
 
     @Test
     void testExecution() throws NotFoundException, AlreadyExistException {
@@ -171,7 +199,8 @@ class RuleServiceITest extends BaseSpringBootTest {
         updateActionGroupRequestDto.setName("name");
         updateActionGroupRequestDto.setDescription("description");
         updateActionGroupRequestDto.setItems(executionRequestDto.getItems());
-        ExecutionDto updatedExecution = actionService.updateExecution(executionDto2.getUuid(), updateActionGroupRequestDto);
+        ExecutionDto updatedExecution = actionService
+                .updateExecution(executionDto2.getUuid(), updateActionGroupRequestDto);
         Assertions.assertEquals("description", updatedExecution.getDescription());
         Assertions.assertEquals(executionDto2.getName(), updatedExecution.getName());
 
@@ -202,13 +231,19 @@ class RuleServiceITest extends BaseSpringBootTest {
         update.setItems(List.of(conditionItemRequestDto));
 
         update.setName("CondA");
-        Assertions.assertDoesNotThrow(() -> ruleService.updateCondition(condA.getUuid(), update), "Updating with same name should succeed");
+        Assertions
+                .assertDoesNotThrow(() -> ruleService.updateCondition(condA.getUuid(), update),
+                        "Updating with same name should succeed");
 
         update.setName("CondC");
-        Assertions.assertEquals("CondC", ruleService.updateCondition(condA.getUuid(), update).getName(), "Name should change to the new value");
+        Assertions
+                .assertEquals("CondC", ruleService.updateCondition(condA.getUuid(), update).getName(),
+                        "Name should change to the new value");
 
         update.setName("CondB");
-        Assertions.assertThrows(AlreadyExistException.class, () -> ruleService.updateCondition(condA.getUuid(), update), "Updating with another object's name should fail");
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> ruleService.updateCondition(condA.getUuid(), update),
+                        "Updating with another object's name should fail");
     }
 
     @Test
@@ -229,13 +264,19 @@ class RuleServiceITest extends BaseSpringBootTest {
         update.setConditionsUuids(List.of(conditionDto.getUuid()));
 
         update.setName("RuleA");
-        Assertions.assertDoesNotThrow(() -> ruleService.updateRule(ruleA.getUuid(), update), "Updating with same name should succeed");
+        Assertions
+                .assertDoesNotThrow(() -> ruleService.updateRule(ruleA.getUuid(), update),
+                        "Updating with same name should succeed");
 
         update.setName("RuleC");
-        Assertions.assertEquals("RuleC", ruleService.updateRule(ruleA.getUuid(), update).getName(), "Name should change to the new value");
+        Assertions
+                .assertEquals("RuleC", ruleService.updateRule(ruleA.getUuid(), update).getName(),
+                        "Name should change to the new value");
 
         update.setName("RuleB");
-        Assertions.assertThrows(AlreadyExistException.class, () -> ruleService.updateRule(ruleA.getUuid(), update), "Updating with another object's name should fail");
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> ruleService.updateRule(ruleA.getUuid(), update),
+                        "Updating with another object's name should fail");
     }
 
     @Test
@@ -258,13 +299,19 @@ class RuleServiceITest extends BaseSpringBootTest {
         update.setItems(List.of(executionItemRequestDto));
 
         update.setName("ExecA");
-        Assertions.assertDoesNotThrow(() -> actionService.updateExecution(execA.getUuid(), update), "Updating with same name should succeed");
+        Assertions
+                .assertDoesNotThrow(() -> actionService.updateExecution(execA.getUuid(), update),
+                        "Updating with same name should succeed");
 
         update.setName("ExecC");
-        Assertions.assertEquals("ExecC", actionService.updateExecution(execA.getUuid(), update).getName(), "Name should change to the new value");
+        Assertions
+                .assertEquals("ExecC", actionService.updateExecution(execA.getUuid(), update).getName(),
+                        "Name should change to the new value");
 
         update.setName("ExecB");
-        Assertions.assertThrows(AlreadyExistException.class, () -> actionService.updateExecution(execA.getUuid(), update), "Updating with another object's name should fail");
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> actionService.updateExecution(execA.getUuid(), update),
+                        "Updating with another object's name should fail");
     }
 
     @Test
@@ -285,13 +332,19 @@ class RuleServiceITest extends BaseSpringBootTest {
         update.setExecutionsUuids(List.of(executionDto.getUuid()));
 
         update.setName("ActionA");
-        Assertions.assertDoesNotThrow(() -> actionService.updateAction(actionA.getUuid(), update), "Updating with same name should succeed");
+        Assertions
+                .assertDoesNotThrow(() -> actionService.updateAction(actionA.getUuid(), update),
+                        "Updating with same name should succeed");
 
         update.setName("ActionC");
-        Assertions.assertEquals("ActionC", actionService.updateAction(actionA.getUuid(), update).getName(), "Name should change to the new value");
+        Assertions
+                .assertEquals("ActionC", actionService.updateAction(actionA.getUuid(), update).getName(),
+                        "Name should change to the new value");
 
         update.setName("ActionB");
-        Assertions.assertThrows(AlreadyExistException.class, () -> actionService.updateAction(actionA.getUuid(), update), "Updating with another object's name should fail");
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> actionService.updateAction(actionA.getUuid(), update),
+                        "Updating with another object's name should fail");
     }
 
     @Test
@@ -325,13 +378,20 @@ class RuleServiceITest extends BaseSpringBootTest {
         update.setActionsUuids(List.of(action.getUuid()));
 
         update.setName("TriggerA");
-        Assertions.assertDoesNotThrow(() -> triggerService.updateTrigger(triggerA.getUuid(), update), "Updating with same name should succeed");
+        Assertions
+                .assertDoesNotThrow(() -> triggerService.updateTrigger(triggerA.getUuid(), update),
+                        "Updating with same name should succeed");
 
         update.setName("TriggerC");
-        Assertions.assertEquals("TriggerC", triggerService.updateTrigger(triggerA.getUuid(), update).getName(), "Name should change to the new value");
+        Assertions
+                .assertEquals("TriggerC", triggerService.updateTrigger(triggerA.getUuid(), update).getName(),
+                        "Name should change to the new value");
 
         update.setName("TriggerB");
-        Assertions.assertThrows(AlreadyExistException.class, () -> triggerService.updateTrigger(triggerA.getUuid(), update), "Updating with another object's name should fail");
+        Assertions
+                .assertThrows(AlreadyExistException.class,
+                        () -> triggerService.updateTrigger(triggerA.getUuid(), update),
+                        "Updating with another object's name should fail");
     }
 
 }

@@ -14,14 +14,13 @@ import com.otilm.core.events.EventContext;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.service.registration.RegistrationChallengeStore;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.context.ApplicationEventPublisher;
-
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -33,11 +32,12 @@ import static org.mockito.Mockito.when;
 
 class CertificateRegisteredEventHandlerTest {
 
-    private final CertificateRegistrationAuthorizationRepository authorizationRepository =
-            mock(CertificateRegistrationAuthorizationRepository.class);
+    private final CertificateRegistrationAuthorizationRepository authorizationRepository = mock(
+            CertificateRegistrationAuthorizationRepository.class);
     private final RegistrationChallengeStore challengeStore = mock(RegistrationChallengeStore.class);
     private final CertificateRegisteredEventHandler handler = new CertificateRegisteredEventHandler(
-            mock(CertificateRepository.class), mock(CertificateTriggerEvaluator.class), challengeStore, authorizationRepository);
+            mock(CertificateRepository.class), mock(CertificateTriggerEvaluator.class), challengeStore,
+            authorizationRepository);
 
     @Test
     void getEventDataResolvesCredentialAndDeadlineAndKeepsCredentialOutOfToString() {
@@ -57,7 +57,8 @@ class CertificateRegisteredEventHandlerTest {
         assertEquals("s3cret-challenge", data.getCredential(), "credential is recovered for external delivery");
         assertNotNull(data.getCompletionDeadline(), "completion deadline comes from the authorization");
         assertEquals("CN=device-7", data.getSubjectDn());
-        assertFalse(data.toString().contains("s3cret-challenge"), "credential must not leak via the event-data toString");
+        assertFalse(data.toString().contains("s3cret-challenge"),
+                "credential must not leak via the event-data toString");
     }
 
     @Test
@@ -92,8 +93,10 @@ class CertificateRegisteredEventHandlerTest {
         full.setCompletionDeadline(ZonedDateTime.parse("2026-08-01T00:00:00Z"));
         full.setCredential("s3cret-challenge");
 
-        EventMessage eventMessage = new EventMessage(ResourceEvent.CERTIFICATE_REGISTERED, Resource.CERTIFICATE, certUuid, null);
-        EventContext<Certificate> ctx = new EventContext<>(eventMessage, mock(CertificateTriggerEvaluator.class), certificate, full);
+        EventMessage eventMessage = new EventMessage(ResourceEvent.CERTIFICATE_REGISTERED, Resource.CERTIFICATE,
+                certUuid, null);
+        EventContext<Certificate> ctx = new EventContext<>(eventMessage, mock(CertificateTriggerEvaluator.class),
+                certificate, full);
 
         handler.sendFollowUpEventsNotifications(ctx);
 

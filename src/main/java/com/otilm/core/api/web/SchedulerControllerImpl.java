@@ -31,13 +31,15 @@ public class SchedulerControllerImpl implements SchedulerController {
 
     @Override
     @AuditLogged(module = Module.SCHEDULER, resource = Resource.SCHEDULED_JOB, operation = Operation.DETAIL)
-    public ScheduledJobDetailDto getScheduledJobDetail(@LogResource(uuid = true) final String uuid) throws NotFoundException {
+    public ScheduledJobDetailDto getScheduledJobDetail(@LogResource(uuid = true) final String uuid)
+            throws NotFoundException {
         return schedulerService.getScheduledJobDetail(uuid);
     }
 
     @Override
     @AuditLogged(module = Module.SCHEDULER, resource = Resource.SCHEDULED_JOB, operation = Operation.UPDATE)
-    public ScheduledJobDetailDto updateScheduledJob(@LogResource(uuid = true) String uuid, UpdateScheduledJob request) throws NotFoundException, SchedulerException {
+    public ScheduledJobDetailDto updateScheduledJob(@LogResource(uuid = true) String uuid, UpdateScheduledJob request)
+            throws NotFoundException, SchedulerException {
         return schedulerService.updateScheduledJob(uuid, request);
     }
 
@@ -49,7 +51,8 @@ public class SchedulerControllerImpl implements SchedulerController {
 
     @Override
     @AuditLogged(module = Module.SCHEDULER, resource = Resource.SCHEDULED_JOB, operation = Operation.HISTORY)
-    public ScheduledJobHistoryResponseDto getScheduledJobHistory(final PaginationRequestDto pagination, @LogResource(uuid = true) String uuid) {
+    public ScheduledJobHistoryResponseDto getScheduledJobHistory(final PaginationRequestDto pagination,
+            @LogResource(uuid = true) String uuid) {
         return schedulerService.getScheduledJobHistory(SecurityFilter.create(), pagination, uuid);
     }
 
@@ -61,7 +64,8 @@ public class SchedulerControllerImpl implements SchedulerController {
 
     @Override
     @AuditLogged(module = Module.SCHEDULER, resource = Resource.SCHEDULED_JOB, operation = Operation.DISABLE)
-    public void disableScheduledJob(@LogResource(uuid = true) String uuid) throws SchedulerException, NotFoundException {
+    public void disableScheduledJob(@LogResource(uuid = true) String uuid)
+            throws SchedulerException, NotFoundException {
         schedulerService.disableScheduledJob(uuid);
     }
 

@@ -4,12 +4,11 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.writer.CertificateChainWriter;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.time.OffsetDateTime;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

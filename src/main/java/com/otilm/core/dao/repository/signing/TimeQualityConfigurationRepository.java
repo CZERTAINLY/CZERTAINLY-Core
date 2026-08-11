@@ -2,12 +2,11 @@ package com.otilm.core.dao.repository.signing;
 
 import com.otilm.core.dao.entity.signing.TimeQualityConfiguration;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TimeQualityConfigurationRepository extends SecurityFilterRepository<TimeQualityConfiguration, UUID> {

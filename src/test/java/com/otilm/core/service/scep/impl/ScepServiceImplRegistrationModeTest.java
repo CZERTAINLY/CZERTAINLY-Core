@@ -5,9 +5,9 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.oid.OidCategory;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.api.model.core.scep.FailInfo;
 import com.otilm.api.model.core.scep.PkiStatus;
-import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
@@ -26,27 +26,6 @@ import com.otilm.core.service.scep.message.ScepRequest;
 import com.otilm.core.service.scep.message.ScepResponse;
 import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.util.CertificateUtil;
-import org.bouncycastle.asn1.DERPrintableString;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.ExtensionsGenerator;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
-import org.mockito.Mockito;
-import org.springframework.test.util.ReflectionTestUtils;
-
 import java.lang.reflect.UndeclaredThrowableException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -57,6 +36,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.bouncycastle.asn1.DERPrintableString;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.mockito.Mockito;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -99,14 +98,16 @@ class ScepServiceImplRegistrationModeTest {
         savedRdnCache = existing == null ? null : new HashMap<>(existing);
 
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
     }
 
     @AfterAll
     static void restoreRdnCache() {
-        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
-                savedRdnCache != null ? savedRdnCache : new HashMap<>());
+        OidHandler
+                .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
+                        savedRdnCache != null ? savedRdnCache : new HashMap<>());
     }
 
     @BeforeEach
@@ -134,7 +135,8 @@ class ScepServiceImplRegistrationModeTest {
         ReflectionTestUtils.setField(service, "certificateRepository", certificateRepository);
         ReflectionTestUtils.setField(service, "certificateEventHistoryService", eventHistoryService);
         ReflectionTestUtils.setField(service, "scepTransactionRepository", scepTransactionRepository);
-        ReflectionTestUtils.setField(service, "registrationAuthorizationRepository", registrationAuthorizationRepository);
+        ReflectionTestUtils
+                .setField(service, "registrationAuthorizationRepository", registrationAuthorizationRepository);
         ReflectionTestUtils.setField(service, "registrationChallengeStore", registrationChallengeStore);
         ReflectionTestUtils.setField(service, "clientOperationExternalService", clientOperationExternalService);
         ReflectionTestUtils.setField(service, "certificateService", certificateService);
@@ -181,8 +183,9 @@ class ScepServiceImplRegistrationModeTest {
         ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "matchRegistration", request));
 
         Assertions.assertEquals(REGISTRATION_REJECTION, ex.getMessage());
-        verify(eventHistoryService).addEventHistory(eq(CANDIDATE_UUID), eq(CertificateEvent.ISSUE),
-                eq(CertificateEventStatus.FAILED), anyString(), anyString());
+        verify(eventHistoryService)
+                .addEventHistory(eq(CANDIDATE_UUID), eq(CertificateEvent.ISSUE), eq(CertificateEventStatus.FAILED),
+                        anyString(), anyString());
     }
 
     @Test
@@ -205,8 +208,9 @@ class ScepServiceImplRegistrationModeTest {
         ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request, matched);
 
         Assertions.assertEquals(PkiStatus.PENDING, response.getPkiStatus());
-        verify(clientOperationExternalService).issueExistingCertificate(any(), any(), eq(matched.getUuid().toString()),
-                Mockito.argThat(dto -> CHALLENGE.equals(dto.getAuthorizationSecret())));
+        verify(clientOperationExternalService)
+                .issueExistingCertificate(any(), any(), eq(matched.getUuid().toString()),
+                        Mockito.argThat(dto -> CHALLENGE.equals(dto.getAuthorizationSecret())));
         verify(scepRegistrationTrackingWriter).recordPollMapping(eq("tx-1"), eq(matched.getUuid()), any());
         verify(scepRegistrationTrackingWriter).recordProtocolAttribution(eq(matched.getUuid()), any());
     }
@@ -218,7 +222,8 @@ class ScepServiceImplRegistrationModeTest {
         when(clientOperationExternalService.issueExistingCertificate(any(), any(), anyString(), any()))
                 .thenThrow(new ValidationException("The certificate registration challenge is invalid."));
 
-        ScepException ex = scepRejection(() -> ReflectionTestUtils.invokeMethod(service, "completeRegistration", request, matched));
+        ScepException ex = scepRejection(
+                () -> ReflectionTestUtils.invokeMethod(service, "completeRegistration", request, matched));
 
         Assertions.assertEquals(REGISTRATION_REJECTION, ex.getMessage());
         Assertions.assertEquals(FailInfo.BAD_MESSAGE_CHECK, ex.getFailInfo());
@@ -230,7 +235,8 @@ class ScepServiceImplRegistrationModeTest {
         ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
         when(request.getTransactionId()).thenReturn("tx-2");
         doThrow(new RuntimeException("association failed"))
-                .when(scepRegistrationTrackingWriter).recordProtocolAttribution(any(), any());
+                .when(scepRegistrationTrackingWriter)
+                .recordProtocolAttribution(any(), any());
 
         ScepResponse response = ReflectionTestUtils.invokeMethod(service, "completeRegistration", request, matched);
 
@@ -243,14 +249,17 @@ class ScepServiceImplRegistrationModeTest {
         when(profile.getChallengeSource()).thenReturn(ProtocolChallengeSource.PROTOCOL_DEFAULT);
         when(profile.getChallengePassword()).thenReturn("profile-password");
 
-        Assertions.assertEquals("profile-password", ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", (Object) null));
+        Assertions
+                .assertEquals("profile-password",
+                        ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", (Object) null));
     }
 
     @Test
     void envelopePasswordIsThePresentedChallengeOnEnrolment() throws Exception {
         ScepRequest request = scepRequest("CN=device-1", CHALLENGE);
 
-        Assertions.assertEquals(CHALLENGE, ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
+        Assertions
+                .assertEquals(CHALLENGE, ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
     }
 
     @Test
@@ -259,20 +268,24 @@ class ScepServiceImplRegistrationModeTest {
         when(request.getTransactionId()).thenReturn("tx-3");
         ScepTransaction transaction = new ScepTransaction();
         transaction.setCertificateUuid(CANDIDATE_UUID);
-        when(scepTransactionRepository.findByTransactionIdAndScepProfile("tx-3", profile)).thenReturn(Optional.of(transaction));
+        when(scepTransactionRepository.findByTransactionIdAndScepProfile("tx-3", profile))
+                .thenReturn(Optional.of(transaction));
         CertificateRegistrationAuthorization authorization = new CertificateRegistrationAuthorization();
         when(registrationAuthorizationRepository.findByCertificateUuid(CANDIDATE_UUID))
                 .thenReturn(Optional.of(authorization));
         when(registrationChallengeStore.resolvePlaintext(authorization)).thenReturn("stored-challenge");
 
-        Assertions.assertEquals("stored-challenge", ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
+        Assertions
+                .assertEquals("stored-challenge",
+                        ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
     }
 
     @Test
     void envelopePasswordIsNullForUnknownPollTransaction() {
         ScepRequest request = mock(ScepRequest.class);
         when(request.getTransactionId()).thenReturn("tx-unknown");
-        when(scepTransactionRepository.findByTransactionIdAndScepProfile("tx-unknown", profile)).thenReturn(Optional.empty());
+        when(scepTransactionRepository.findByTransactionIdAndScepProfile("tx-unknown", profile))
+                .thenReturn(Optional.empty());
 
         Assertions.assertNull(ReflectionTestUtils.invokeMethod(service, "resolveEnvelopePassword", request));
     }
@@ -301,19 +314,22 @@ class ScepServiceImplRegistrationModeTest {
     }
 
     /**
-     * Builds the CSR and the {@link ScepRequest} stub from the same challenge argument, so the CSR
-     * content and the presented challenge cannot diverge: {@code null} yields a CSR without the
-     * challengePassword attribute AND a null presented challenge, a wrong value is embedded and
-     * presented as that wrong value.
+     * Builds the CSR and the {@link ScepRequest} stub from the same challenge argument, so the CSR content and the
+     * presented challenge cannot diverge: {@code null} yields a CSR without the challengePassword attribute AND a null
+     * presented challenge, a wrong value is embedded and presented as that wrong value.
      */
-    private static ScepRequest scepRequest(String subjectDn, String challengePassword, String... dnsSans) throws Exception {
-        JcaPKCS10CertificationRequestBuilder builder =
-                new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn), keyPair.getPublic());
+    private static ScepRequest scepRequest(String subjectDn, String challengePassword, String... dnsSans)
+            throws Exception {
+        JcaPKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
+                keyPair.getPublic());
         if (challengePassword != null) {
-            builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_challengePassword, new DERPrintableString(challengePassword));
+            builder
+                    .addAttribute(PKCSObjectIdentifiers.pkcs_9_at_challengePassword,
+                            new DERPrintableString(challengePassword));
         }
         if (dnsSans.length > 0) {
-            GeneralName[] names = Arrays.stream(dnsSans)
+            GeneralName[] names = Arrays
+                    .stream(dnsSans)
                     .map(dns -> new GeneralName(GeneralName.dNSName, dns))
                     .toArray(GeneralName[]::new);
             ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();

@@ -1,8 +1,12 @@
 package com.otilm.core.service.impl;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
-import com.otilm.core.client.ConnectorApiFactory;
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
@@ -16,6 +20,7 @@ import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.dao.entity.TokenProfile_;
@@ -32,6 +37,11 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.TokenProfileExternalService;
 import com.otilm.core.service.TokenProfileInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,18 +50,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
 @Service(Resource.Codes.TOKEN_PROFILE)
 @Transactional
 public class TokenProfileServiceImpl implements TokenProfileExternalService, TokenProfileInternalService {
 
     private static final Logger logger = LoggerFactory.getLogger(TokenProfileServiceImpl.class);
-
 
     // --------------------------------------------------------------------------------
     // Services & API Clients
@@ -108,21 +111,23 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
         this.authorizationEnforcer = authorizationEnforcer;
     }
 
-    //-------------------------------------------------------------------------------------
-    //Service Implementations
-    //-------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------
+    // Service Implementations
+    // -------------------------------------------------------------------------------------
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.LIST)
     public List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled, SecurityFilter filter) {
         logger.info("Listing token profiles");
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
         if (enabled.isEmpty()) {
-            return tokenProfileRepository.findUsingSecurityFilter(filter)
+            return tokenProfileRepository
+                    .findUsingSecurityFilter(filter)
                     .stream()
                     .map(TokenProfile::mapToDto)
                     .collect(Collectors.toList());
         } else {
-            return tokenProfileRepository.findUsingSecurityFilter(filter, enabled.get())
+            return tokenProfileRepository
+                    .findUsingSecurityFilter(filter, enabled.get())
                     .stream()
                     .map(TokenProfile::mapToDto)
                     .collect(Collectors.toList());
@@ -131,19 +136,29 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public TokenProfileDetailDto getTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException {
+    public TokenProfileDetailDto getTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid)
+            throws NotFoundException {
         logger.info("Getting token profile with uuid: {}", uuid);
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         TokenProfileDetailDto dto = tokenProfile.mapToDetailDto();
-        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid()));
-        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid()).connector(tokenProfile.getTokenInstanceReference().getConnectorUuid()).build()));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .getObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid()));
+        dto
+                .setAttributes(attributeEngine
+                        .getObjectDataAttributesContent(ObjectAttributeContentInfo
+                                .builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid())
+                                .connector(tokenProfile.getTokenInstanceReference().getConnectorUuid())
+                                .build()));
         logger.debug("Token profile detail: {}", dto);
         return dto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
+    public TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid,
+            AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException,
+            AttributeException, NotFoundException {
         logger.info("Creating token profile with name: {}", request.getName());
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("Token Profile name must not be empty"));
@@ -154,7 +169,9 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
             throw new AlreadyExistException(TokenProfile.class, request.getName());
         }
 
-        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.findByUuid(tokenInstanceUuid).orElseThrow(() -> new NotFoundException(TokenInstanceReferenceRepository.class, tokenInstanceUuid));
+        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository
+                .findByUuid(tokenInstanceUuid)
+                .orElseThrow(() -> new NotFoundException(TokenInstanceReferenceRepository.class, tokenInstanceUuid));
 
         logger.debug("Validating the custom and data attributes for the new token profile");
         attributeEngine.validateCustomAttributesContent(Resource.TOKEN_PROFILE, request.getCustomAttributes());
@@ -164,18 +181,29 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
         tokenProfileRepository.save(tokenProfile);
 
         TokenProfileDetailDto tokenProfileDetailDto = tokenProfile.mapToDetailDto();
-        tokenProfileDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getCustomAttributes()));
-        tokenProfileDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid()).connector(tokenInstanceReference.getConnectorUuid()).build(), request.getAttributes()));
+        tokenProfileDetailDto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid(),
+                                request.getCustomAttributes()));
+        tokenProfileDetailDto
+                .setAttributes(attributeEngine
+                        .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                .builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid())
+                                .connector(tokenInstanceReference.getConnectorUuid())
+                                .build(), request.getAttributes()));
 
         return tokenProfileDetailDto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
+    public TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid,
+            EditTokenProfileRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         logger.info("Editing token profile with uuid: {}", uuid);
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
-        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.findByUuid(tokenInstanceUuid).orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, tokenInstanceUuid));
+        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository
+                .findByUuid(tokenInstanceUuid)
+                .orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, tokenInstanceUuid));
 
         attributeEngine.validateCustomAttributesContent(Resource.TOKEN_PROFILE, request.getCustomAttributes());
         mergeAndValidateAttributes(tokenInstanceReference, request.getAttributes());
@@ -184,8 +212,16 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
         tokenProfileRepository.save(tokenProfile);
 
         TokenProfileDetailDto tokenProfileDetailDto = tokenProfile.mapToDetailDto();
-        tokenProfileDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getCustomAttributes()));
-        tokenProfileDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid()).connector(tokenInstanceReference.getConnectorUuid()).build(), request.getAttributes()));
+        tokenProfileDetailDto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid(),
+                                request.getCustomAttributes()));
+        tokenProfileDetailDto
+                .setAttributes(attributeEngine
+                        .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                .builder(Resource.TOKEN_PROFILE, tokenProfile.getUuid())
+                                .connector(tokenInstanceReference.getConnectorUuid())
+                                .build(), request.getAttributes()));
 
         return tokenProfileDetailDto;
     }
@@ -278,7 +314,8 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, List<KeyUsage> usages) throws NotFoundException {
+    public void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid,
+            List<KeyUsage> usages) throws NotFoundException {
         TokenProfile tokenProfile = getTokenProfileEntity(tokenProfileUuid);
         tokenProfile.setUsage(usages);
         tokenProfileRepository.save(tokenProfile);
@@ -293,13 +330,15 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DETAIL)
     public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
         TokenProfile profile = getTokenProfileEntity(objectUuid);
-        authorizationEnforcer.enforce(Resource.TOKEN, ResourceAction.DETAIL, profile.getTokenInstanceReference().getSecuredUuid());
+        authorizationEnforcer
+                .enforce(Resource.TOKEN, ResourceAction.DETAIL, profile.getTokenInstanceReference().getSecuredUuid());
         return new NameAndUuidDto(profile.getUuid(), profile.getName());
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return tokenProfileRepository.listResourceObjects(filter, TokenProfile_.name);
     }
 
@@ -311,29 +350,40 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
             return;
         }
         // Parent Permission evaluation - Token Instance
-        authorizationEnforcer.enforce(Resource.TOKEN, ResourceAction.DETAIL, profile.getTokenInstanceReference().getSecuredUuid());
+        authorizationEnforcer
+                .enforce(Resource.TOKEN, ResourceAction.DETAIL, profile.getTokenInstanceReference().getSecuredUuid());
 
     }
 
-    private void mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttribute> attributes) throws ConnectorException, AttributeException, NotFoundException {
-        logger.debug("Merging and validating attributes for token instance: {}. Request Attributes: {}", tokenInstanceRef, attributes);
+    private void mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException {
+        logger
+                .debug("Merging and validating attributes for token instance: {}. Request Attributes: {}",
+                        tokenInstanceRef, attributes);
         if (tokenInstanceRef.getConnector() == null) {
             throw new ValidationException(ValidationError.create("Connector of the Entity is not available / deleted"));
         }
 
-        ApiClientConnectorInfo connectorDto = connectorService.getConnectorForApiClient(tokenInstanceRef.getConnectorUuid());
+        ApiClientConnectorInfo connectorDto = connectorService
+                .getConnectorForApiClient(tokenInstanceRef.getConnectorUuid());
 
         // validate first by connector
-        connectorApiFactory.getTokenInstanceApiClient(connectorDto).validateTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
+        connectorApiFactory
+                .getTokenInstanceApiClient(connectorDto)
+                .validateTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
 
         // list definitions
-        List<BaseAttribute> definitions = connectorApiFactory.getTokenInstanceApiClient(connectorDto).listTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
+        List<BaseAttribute> definitions = connectorApiFactory
+                .getTokenInstanceApiClient(connectorDto)
+                .listTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
 
         // validate and update definitions with attribute engine
-        attributeEngine.validateUpdateDataAttributes(tokenInstanceRef.getConnectorUuid(), null, definitions, attributes);
+        attributeEngine
+                .validateUpdateDataAttributes(tokenInstanceRef.getConnectorUuid(), null, definitions, attributes);
     }
 
-    private TokenProfile createTokenProfile(AddTokenProfileRequestDto request, TokenInstanceReference tokenInstanceReference) {
+    private TokenProfile createTokenProfile(AddTokenProfileRequestDto request,
+            TokenInstanceReference tokenInstanceReference) {
         TokenProfile entity = new TokenProfile();
         entity.setName(request.getName());
         entity.setDescription(request.getDescription());
@@ -341,22 +391,32 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
         entity.setTokenInstanceName(tokenInstanceReference.getName());
         entity.setTokenInstanceReference(tokenInstanceReference);
         entity.setTokenInstanceReferenceUuid(tokenInstanceReference.getUuid());
-        if(request.getUsage() != null) entity.setUsage(request.getUsage());
+        if (request.getUsage() != null) {
+            entity.setUsage(request.getUsage());
+        }
         return entity;
     }
 
-    private void updateTokenProfile(TokenProfile entity, TokenInstanceReference tokenInstanceReference, EditTokenProfileRequestDto request) {
-        if (request.getDescription() != null) entity.setDescription(request.getDescription());
+    private void updateTokenProfile(TokenProfile entity, TokenInstanceReference tokenInstanceReference,
+            EditTokenProfileRequestDto request) {
+        if (request.getDescription() != null) {
+            entity.setDescription(request.getDescription());
+        }
         entity.setTokenInstanceReference(tokenInstanceReference);
-        if (request.getEnabled() != null) entity.setEnabled(request.getEnabled());
+        if (request.getEnabled() != null) {
+            entity.setEnabled(request.getEnabled());
+        }
         entity.setTokenInstanceName(tokenInstanceReference.getName());
-        if(request.getUsage() != null) entity.setUsage(request.getUsage());
+        if (request.getUsage() != null) {
+            entity.setUsage(request.getUsage());
+        }
     }
 
     private void deleteProfileInternal(SecuredUUID uuid, boolean throwWhenAssociated) throws NotFoundException {
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() != null) {
-            throw new ValidationException(ValidationError.create("Token Profile has associated Token Instance. Use the token instance scoped API to delete the Token Profile."));
+            throw new ValidationException(ValidationError
+                    .create("Token Profile has associated Token Instance. Use the token instance scoped API to delete the Token Profile."));
         }
         validateNoDependentObjects(tokenProfile);
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
@@ -367,9 +427,9 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
             tokenProfileRepository.flush();
         } catch (DataIntegrityViolationException e) {
             // The aborted transaction cannot be re-queried for the dependency counts.
-            throw new ValidationException(ValidationError.create(
-                    "Cannot delete Token Profile {}: dependent Key(s) or Signing Profile(s) were created concurrently. Retry to see current dependencies.",
-                    tokenProfile.getName()));
+            throw new ValidationException(ValidationError
+                    .create("Cannot delete Token Profile {}: dependent Key(s) or Signing Profile(s) were created concurrently. Retry to see current dependencies.",
+                            tokenProfile.getName()));
         }
     }
 
@@ -381,25 +441,29 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
             blockers.add(keyCount + " dependent Key(s)");
         }
 
-        List<String> latestVersionNames = signingProfileVersionRepository.findSigningProfileNamesUsingTokenProfileInLatestVersion(tokenProfile.getUuid());
+        List<String> latestVersionNames = signingProfileVersionRepository
+                .findSigningProfileNamesUsingTokenProfileInLatestVersion(tokenProfile.getUuid());
         if (!latestVersionNames.isEmpty()) {
             blockers.add("dependent Signing Profile(s): " + String.join(", ", latestVersionNames));
         }
 
         // Superseded versions are retained for audit and cannot be edited, so these references
         // can only be released by deleting the Signing Profile itself.
-        List<String> supersededOnlyNames = new ArrayList<>(signingProfileVersionRepository.findDistinctSigningProfileNamesByTokenProfileUuid(tokenProfile.getUuid()));
+        List<String> supersededOnlyNames = new ArrayList<>(signingProfileVersionRepository
+                .findDistinctSigningProfileNamesByTokenProfileUuid(tokenProfile.getUuid()));
         supersededOnlyNames.removeAll(latestVersionNames);
         if (!supersededOnlyNames.isEmpty()) {
-            blockers.add("Signing Profile(s) referencing it only in superseded versions (released only by deleting the Signing Profile): "
-                    + String.join(", ", supersededOnlyNames));
+            blockers
+                    .add("Signing Profile(s) referencing it only in superseded versions (released only by deleting the Signing Profile): "
+                            + String.join(", ", supersededOnlyNames));
         }
 
         if (!blockers.isEmpty()) {
             // Single placeholder: sequential {} substitution would garble the message when the
             // profile name itself contains a literal "{}".
-            throw new ValidationException(ValidationError.create(
-                    "Cannot delete Token Profile {}", tokenProfile.getName() + ": " + String.join("; ", blockers)));
+            throw new ValidationException(ValidationError
+                    .create("Cannot delete Token Profile {}",
+                            tokenProfile.getName() + ": " + String.join("; ", blockers)));
         }
     }
 
@@ -417,7 +481,8 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
 
     @Override
     public TokenProfile getTokenProfileEntity(SecuredUUID uuid) throws NotFoundException {
-        return tokenProfileRepository.findByUuid(uuid)
+        return tokenProfileRepository
+                .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenProfile.class, uuid));
     }
 }

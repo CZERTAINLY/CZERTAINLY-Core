@@ -9,11 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 class SigningRecordStrategyFactoryTest {
 
     private final ImmediateSigningRecordStrategy immediate = Mockito.mock(ImmediateSigningRecordStrategy.class);
-    private final DeferredDurableSigningRecordStrategy deferredDurable = Mockito.mock(DeferredDurableSigningRecordStrategy.class);
+    private final DeferredDurableSigningRecordStrategy deferredDurable = Mockito
+            .mock(DeferredDurableSigningRecordStrategy.class);
     private final BestEffortSigningRecordStrategy bestEffort = Mockito.mock(BestEffortSigningRecordStrategy.class);
 
-    private final SigningRecordStrategyFactory factory =
-            new SigningRecordStrategyFactory(immediate, deferredDurable, bestEffort);
+    private final SigningRecordStrategyFactory factory = new SigningRecordStrategyFactory(immediate, deferredDurable,
+            bestEffort);
 
     @Test
     void returnsImmediateForImmediateMode() {

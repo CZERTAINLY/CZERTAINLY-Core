@@ -1,18 +1,40 @@
 package com.otilm.core.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.jwk.JWK;
+import com.nimbusds.jose.jwk.JWKSet;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.AuditLogOutput;
 import com.otilm.api.model.core.other.ResourceEvent;
-import com.otilm.api.model.core.settings.*;
-import com.otilm.core.attribute.engine.AttributeEngine;
-import com.otilm.core.certificate.request.DefaultRequestAttributeSet;
-import com.otilm.core.util.AttributeDefinitionUtils;
-import com.otilm.api.model.core.settings.authentication.*;
+import com.otilm.api.model.core.settings.CertificateRegistrationSettingsDto;
+import com.otilm.api.model.core.settings.CertificateRegistrationSettingsUpdateDto;
+import com.otilm.api.model.core.settings.CertificateRequestAttributesSettingsDto;
+import com.otilm.api.model.core.settings.CertificateRequestAttributesSettingsUpdateDto;
+import com.otilm.api.model.core.settings.CertificateSettingsDto;
+import com.otilm.api.model.core.settings.CertificateValidationSettingsDto;
+import com.otilm.api.model.core.settings.CertificateValidationSettingsUpdateDto;
+import com.otilm.api.model.core.settings.EventSettingsDto;
+import com.otilm.api.model.core.settings.EventsSettingsDto;
+import com.otilm.api.model.core.settings.PlatformSettingsDto;
+import com.otilm.api.model.core.settings.PlatformSettingsUpdateDto;
+import com.otilm.api.model.core.settings.SettingsSection;
+import com.otilm.api.model.core.settings.SettingsSectionCategory;
+import com.otilm.api.model.core.settings.UtilsSettingsDto;
+import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
+import com.otilm.api.model.core.settings.authentication.JwkDto;
+import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
+import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.otilm.api.model.core.settings.logging.AuditLoggingSettingsDto;
 import com.otilm.api.model.core.settings.logging.LoggingSettingsDto;
 import com.otilm.api.model.core.settings.logging.ResourceLoggingSettingsDto;
+import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.certificate.request.DefaultRequestAttributeSet;
 import com.otilm.core.dao.entity.Setting;
 import com.otilm.core.dao.repository.SettingRepository;
 import com.otilm.core.model.auth.ResourceAction;
@@ -22,16 +44,29 @@ import com.otilm.core.service.SettingInternalService;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.registration.CertificateRegistrationDefaults;
+import com.otilm.core.settings.SettingsCache;
+import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
-import com.otilm.core.settings.SettingsCache;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.jwk.JWK;
-import com.nimbusds.jose.jwk.JWKSet;
 import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,13 +74,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.*;
-import java.text.ParseException;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 @Service("settingService")
 @Transactional
@@ -136,7 +164,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         platformSettings.setUtils(utilsSettingsDto);
 
         // Certificates
-        Map<String, Setting> certificateSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+        Map<String, Setting> certificateSettings = mappedSettings
+                .get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
         CertificateSettingsDto certificateSettingsDto = new CertificateSettingsDto();
         CertificateValidationSettingsDto defaultValidationSettings = new CertificateValidationSettingsDto();
         defaultValidationSettings.setEnabled(true);
@@ -145,9 +174,13 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
 
         if (certificateSettings != null && certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME) != null) {
             try {
-                certificateSettingsDto.setValidation(objectMapper.readValue(certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME).getValue(), CertificateValidationSettingsDto.class));
+                certificateSettingsDto
+                        .setValidation(objectMapper
+                                .readValue(certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME).getValue(),
+                                        CertificateValidationSettingsDto.class));
             } catch (JsonProcessingException e) {
-                logger.warn("Cannot deserialize platform certificates validation settings. Returning default settings.");
+                logger
+                        .warn("Cannot deserialize platform certificates validation settings. Returning default settings.");
                 certificateSettingsDto.setValidation(defaultValidationSettings);
             }
         } else {
@@ -161,9 +194,13 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         defaultRegistrationSettings.setMaxFailedAttempts(CertificateRegistrationDefaults.MAX_FAILED_ATTEMPTS);
         if (certificateSettings != null && certificateSettings.get(CERTIFICATES_REGISTRATION_SETTINGS_NAME) != null) {
             try {
-                certificateSettingsDto.setRegistration(objectMapper.readValue(certificateSettings.get(CERTIFICATES_REGISTRATION_SETTINGS_NAME).getValue(), CertificateRegistrationSettingsDto.class));
+                certificateSettingsDto
+                        .setRegistration(objectMapper
+                                .readValue(certificateSettings.get(CERTIFICATES_REGISTRATION_SETTINGS_NAME).getValue(),
+                                        CertificateRegistrationSettingsDto.class));
             } catch (JsonProcessingException e) {
-                logger.warn("Cannot deserialize platform certificates registration settings. Returning default settings.");
+                logger
+                        .warn("Cannot deserialize platform certificates registration settings. Returning default settings.");
                 certificateSettingsDto.setRegistration(defaultRegistrationSettings);
             }
         } else {
@@ -186,13 +223,20 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         return setting;
     }
 
-    private CertificateRequestAttributesSettingsDto readRequestAttributesSettings(Map<String, Setting> certificateSettings) {
+    private CertificateRequestAttributesSettingsDto readRequestAttributesSettings(
+            Map<String, Setting> certificateSettings) {
         CertificateRequestAttributesSettingsDto dto = new CertificateRequestAttributesSettingsDto();
-        Setting definitions = certificateSettings == null ? null : certificateSettings.get(DefaultRequestAttributeSet.SETTING_NAME);
+        Setting definitions = certificateSettings == null
+                ? null
+                : certificateSettings.get(DefaultRequestAttributeSet.SETTING_NAME);
         // resolve() seeds the built-in default set (CsrAttributes) when nothing has been stored yet.
-        dto.setRequestAttributes(DefaultRequestAttributeSet.resolve(definitions == null ? null : definitions.getValue()));
+        dto
+                .setRequestAttributes(
+                        DefaultRequestAttributeSet.resolve(definitions == null ? null : definitions.getValue()));
 
-        Setting strict = certificateSettings == null ? null : certificateSettings.get(DefaultRequestAttributeSet.STRICT_SETTING_NAME);
+        Setting strict = certificateSettings == null
+                ? null
+                : certificateSettings.get(DefaultRequestAttributeSet.STRICT_SETTING_NAME);
         if (strict != null && strict.getValue() != null && !strict.getValue().isBlank()) {
             dto.setExternalCsrValidationStrict(Boolean.valueOf(strict.getValue().trim()));
         }
@@ -218,10 +262,13 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
     }
 
     // Auxiliary services: utils service and cbom repository
-    private void updateUtilsSettings(PlatformSettingsUpdateDto platformSettings, Map<String, Map<String, Setting>> mappedSettings) {
+    private void updateUtilsSettings(PlatformSettingsUpdateDto platformSettings,
+            Map<String, Map<String, Setting>> mappedSettings) {
         Setting utilSetting;
-        Map<String, Setting> platformUtilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
-        if (platformUtilsSettings == null || (utilSetting = platformUtilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
+        Map<String, Setting> platformUtilsSettings = mappedSettings
+                .get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
+        if (platformUtilsSettings == null
+                || (utilSetting = platformUtilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
             utilSetting = new Setting();
             utilSetting.setSection(SettingsSection.PLATFORM);
             utilSetting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
@@ -232,7 +279,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         settingRepository.save(utilSetting);
 
         Setting cbomRepositorySetting;
-        if (platformUtilsSettings == null || (cbomRepositorySetting = platformUtilsSettings.get(CBOM_REPOSITORY_URL_NAME)) == null) {
+        if (platformUtilsSettings == null
+                || (cbomRepositorySetting = platformUtilsSettings.get(CBOM_REPOSITORY_URL_NAME)) == null) {
             cbomRepositorySetting = new Setting();
             cbomRepositorySetting.setSection(SettingsSection.PLATFORM);
             cbomRepositorySetting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
@@ -243,12 +291,15 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         settingRepository.save(cbomRepositorySetting);
     }
 
-    private void updateCertificateSettings(PlatformSettingsUpdateDto platformSettings, Map<String, Map<String, Setting>> mappedSettings) {
-        Map<String, Setting> certificateSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+    private void updateCertificateSettings(PlatformSettingsUpdateDto platformSettings,
+            Map<String, Map<String, Setting>> mappedSettings) {
+        Map<String, Setting> certificateSettings = mappedSettings
+                .get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
 
         CertificateValidationSettingsUpdateDto validation = platformSettings.getCertificates().getValidation();
         if (validation != null) {
-            Setting certificatesValidationSetting = certificateSetting(certificateSettings, CERTIFICATES_VALIDATION_SETTINGS_NAME);
+            Setting certificatesValidationSetting = certificateSetting(certificateSettings,
+                    CERTIFICATES_VALIDATION_SETTINGS_NAME);
             try {
                 // Set null values for validation disabled
                 if (!validation.isEnabled()) {
@@ -263,22 +314,29 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             settingRepository.save(certificatesValidationSetting);
         }
 
-        CertificateRequestAttributesSettingsUpdateDto requestAttributes = platformSettings.getCertificates().getRequestAttributes();
+        CertificateRequestAttributesSettingsUpdateDto requestAttributes = platformSettings
+                .getCertificates()
+                .getRequestAttributes();
         if (requestAttributes != null) {
             AttributeEngine.validateRequestAttributeDefinitions(requestAttributes.getRequestAttributes());
-            Setting definitionsSetting = certificateSetting(certificateSettings, DefaultRequestAttributeSet.SETTING_NAME);
+            Setting definitionsSetting = certificateSetting(certificateSettings,
+                    DefaultRequestAttributeSet.SETTING_NAME);
             definitionsSetting.setValue(AttributeDefinitionUtils.serialize(requestAttributes.getRequestAttributes()));
             settingRepository.save(definitionsSetting);
 
-            Setting strictSetting = certificateSetting(certificateSettings, DefaultRequestAttributeSet.STRICT_SETTING_NAME);
-            strictSetting.setValue(requestAttributes.getExternalCsrValidationStrict() == null
-                    ? null : requestAttributes.getExternalCsrValidationStrict().toString());
+            Setting strictSetting = certificateSetting(certificateSettings,
+                    DefaultRequestAttributeSet.STRICT_SETTING_NAME);
+            strictSetting
+                    .setValue(requestAttributes.getExternalCsrValidationStrict() == null
+                            ? null
+                            : requestAttributes.getExternalCsrValidationStrict().toString());
             settingRepository.save(strictSetting);
         }
 
         CertificateRegistrationSettingsUpdateDto registration = platformSettings.getCertificates().getRegistration();
         if (registration != null) {
-            Setting registrationSetting = certificateSetting(certificateSettings, CERTIFICATES_REGISTRATION_SETTINGS_NAME);
+            Setting registrationSetting = certificateSetting(certificateSettings,
+                    CERTIFICATES_REGISTRATION_SETTINGS_NAME);
             try {
                 registrationSetting.setValue(objectMapper.writeValueAsString(registration));
             } catch (JsonProcessingException e) {
@@ -317,7 +375,9 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateEventsSettings(EventsSettingsDto eventsSettingsDto) throws NotFoundException {
         for (ResourceEvent event : eventsSettingsDto.getEventsMapping().keySet()) {
-            triggerService.createTriggerAssociations(event, null, null, eventsSettingsDto.getEventsMapping().get(event), true);
+            triggerService
+                    .createTriggerAssociations(event, null, null, eventsSettingsDto.getEventsMapping().get(event),
+                            true);
         }
 
         settingsCache.cacheSettings(SettingsSection.EVENTS, eventsSettingsDto);
@@ -326,7 +386,9 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateEventSettings(EventSettingsDto eventSettingsDto) throws NotFoundException {
-        triggerService.createTriggerAssociations(eventSettingsDto.getEvent(), null, null, eventSettingsDto.getTriggerUuids(), true);
+        triggerService
+                .createTriggerAssociations(eventSettingsDto.getEvent(), null, null, eventSettingsDto.getTriggerUuids(),
+                        true);
         settingsCache.cacheSettings(SettingsSection.EVENTS, getEventsSettings());
     }
 
@@ -388,7 +450,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         // audit logging
         Setting setting;
         Map<String, Setting> auditLoggingSettings = mappedSettings.get(SettingsSectionCategory.AUDIT_LOGGING.getCode());
-        if (auditLoggingSettings == null || (setting = auditLoggingSettings.get(LOGGING_AUDIT_LOG_OUTPUT_NAME)) == null) {
+        if (auditLoggingSettings == null
+                || (setting = auditLoggingSettings.get(LOGGING_AUDIT_LOG_OUTPUT_NAME)) == null) {
             setting = new Setting();
             setting.setSection(SettingsSection.LOGGING);
             setting.setCategory(SettingsSectionCategory.AUDIT_LOGGING.getCode());
@@ -397,7 +460,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         setting.setValue(loggingSettingsDto.getAuditLogs().getOutput().toString());
         settingRepository.save(setting);
 
-        if (auditLoggingSettings == null || (setting = auditLoggingSettings.get(LOGGING_AUDIT_LOG_VERBOSE_NAME)) == null) {
+        if (auditLoggingSettings == null
+                || (setting = auditLoggingSettings.get(LOGGING_AUDIT_LOG_VERBOSE_NAME)) == null) {
             setting = new Setting();
             setting.setSection(SettingsSection.LOGGING);
             setting.setCategory(SettingsSectionCategory.AUDIT_LOGGING.getCode());
@@ -413,7 +477,11 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             setting.setName(LOGGING_RESOURCES_NAME);
         }
         try {
-            setting.setValue(mapper.writeValueAsString(mapper.convertValue(loggingSettingsDto.getAuditLogs(), ResourceLoggingSettingsDto.class)));
+            setting
+                    .setValue(mapper
+                            .writeValueAsString(mapper
+                                    .convertValue(loggingSettingsDto.getAuditLogs(),
+                                            ResourceLoggingSettingsDto.class)));
             settingRepository.save(setting);
         } catch (JsonProcessingException e) {
             throw new ValidationException("Cannot serialize audit logging resources settings: " + e.getMessage());
@@ -442,18 +510,25 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
     public AuthenticationSettingsDto getAuthenticationSettings(boolean withClientSecret) {
         AuthenticationSettingsDto authenticationSettings = new AuthenticationSettingsDto();
 
-        List<Setting> oauth2ProviderSettings = settingRepository.findBySectionAndCategory(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
+        List<Setting> oauth2ProviderSettings = settingRepository
+                .findBySectionAndCategory(SettingsSection.AUTHENTICATION,
+                        SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         for (Setting oauth2Provider : oauth2ProviderSettings) {
             OAuth2ProviderSettingsDto oAuth2ProviderSettings;
             try {
-                oAuth2ProviderSettings = objectMapper.readValue(oauth2Provider.getValue(), OAuth2ProviderSettingsDto.class);
-                if (!withClientSecret) oAuth2ProviderSettings.setClientSecret(null);
+                oAuth2ProviderSettings = objectMapper
+                        .readValue(oauth2Provider.getValue(), OAuth2ProviderSettingsDto.class);
+                if (!withClientSecret) {
+                    oAuth2ProviderSettings.setClientSecret(null);
+                }
             } catch (JsonProcessingException e) {
                 throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(oauth2Provider.getName()));
             }
             authenticationSettings.getOAuth2Providers().put(oauth2Provider.getName(), oAuth2ProviderSettings);
         }
-        Setting disableLocalhostSetting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, null, AUTHENTICATION_DISABLE_LOCALHOST_NAME);
+        Setting disableLocalhostSetting = settingRepository
+                .findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, null,
+                        AUTHENTICATION_DISABLE_LOCALHOST_NAME);
         if (disableLocalhostSetting != null) {
             authenticationSettings.setDisableLocalhostUser(Boolean.parseBoolean(disableLocalhostSetting.getValue()));
         }
@@ -464,7 +539,9 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateAuthenticationSettings(AuthenticationSettingsUpdateDto authenticationSettingsDto) {
-        Setting disableLocalhostSetting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, null, AUTHENTICATION_DISABLE_LOCALHOST_NAME);
+        Setting disableLocalhostSetting = settingRepository
+                .findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, null,
+                        AUTHENTICATION_DISABLE_LOCALHOST_NAME);
         if (disableLocalhostSetting == null) {
             disableLocalhostSetting = new Setting();
             disableLocalhostSetting.setSection(SettingsSection.AUTHENTICATION);
@@ -478,7 +555,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             for (OAuth2ProviderSettingsDto providerDto : authenticationSettingsDto.getOAuth2Providers()) {
                 if (providerDto.getIssuerUrl() != null && !issuerUrls.add(providerDto.getIssuerUrl())) {
                     throw new ValidationException(
-                            "Multiple OAuth2 providers in the request use issuer URL '%s'. Issuer URLs must be unique across providers.".formatted(providerDto.getIssuerUrl()));
+                            "Multiple OAuth2 providers in the request use issuer URL '%s'. Issuer URLs must be unique across providers."
+                                    .formatted(providerDto.getIssuerUrl()));
                 }
             }
 
@@ -489,24 +567,31 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             }
 
             settingRepository.lockOAuth2ProviderWrites();
-            settingRepository.deleteBySectionAndCategory(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
+            settingRepository
+                    .deleteBySectionAndCategory(SettingsSection.AUTHENTICATION,
+                            SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
 
             for (OAuth2ProviderSettingsDto providerDto : authenticationSettingsDto.getOAuth2Providers()) {
                 persistOAuth2Provider(providerDto.getName(), providerDto);
             }
         }
-        cacheAfterCommit(() -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
+        cacheAfterCommit(
+                () -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public OAuth2ProviderSettingsResponseDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret) {
-        Setting setting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        Setting setting = settingRepository
+                .findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION,
+                        SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
         OAuth2ProviderSettingsResponseDto settingsDto = null;
         if (setting != null) {
             try {
                 settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsResponseDto.class);
-                if (!withClientSecret) settingsDto.setClientSecret(null);
+                if (!withClientSecret) {
+                    settingsDto.setClientSecret(null);
+                }
             } catch (JsonProcessingException e) {
                 throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(providerName));
             }
@@ -526,11 +611,14 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         validateIssuerUniqueness(providerName, settingsDto.getIssuerUrl());
 
         persistOAuth2Provider(providerName, settingsDto);
-        cacheAfterCommit(() -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
+        cacheAfterCommit(
+                () -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
     }
 
     private void persistOAuth2Provider(String providerName, OAuth2ProviderSettingsUpdateDto settingsDto) {
-        Setting settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        Setting settingForRegistrationId = settingRepository
+                .findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION,
+                        SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
         boolean isNewProvider = settingForRegistrationId == null;
 
         Setting setting = isNewProvider ? new Setting() : settingForRegistrationId;
@@ -540,7 +628,9 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
 
         // if request does not contain client secret, keep old one
         if (settingsDto.getClientSecret() != null && !settingsDto.getClientSecret().isEmpty()) {
-            settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
+            settingsDto
+                    .setClientSecret(SecretsUtil
+                            .encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
         } else if (!isNewProvider) {
             OAuth2ProviderSettingsDto storedProviderSettings;
             try {
@@ -562,7 +652,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             }
             setting.setValue(objectMapper.writeValueAsString(fullSettingsDto));
         } catch (JsonProcessingException e) {
-            throw new ValidationException("Cannot serialize OAuth2 provider settings for provider '%s'.".formatted(providerName));
+            throw new ValidationException(
+                    "Cannot serialize OAuth2 provider settings for provider '%s'.".formatted(providerName));
         }
         settingRepository.save(setting);
     }
@@ -572,9 +663,12 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
     public void removeOAuth2Provider(String providerName) {
         settingRepository.lockOAuth2ProviderWrites();
 
-        Long deleted = settingRepository.deleteBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        Long deleted = settingRepository
+                .deleteBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION,
+                        SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
         if (deleted > 0) {
-            cacheAfterCommit(() -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
+            cacheAfterCommit(
+                    () -> settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true)));
         }
     }
 
@@ -582,10 +676,13 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         if (issuerUrl == null) {
             return;
         }
-        for (Map.Entry<String, OAuth2ProviderSettingsDto> entry : getAuthenticationSettings(true).getOAuth2Providers().entrySet()) {
+        for (Map.Entry<String, OAuth2ProviderSettingsDto> entry : getAuthenticationSettings(true)
+                .getOAuth2Providers()
+                .entrySet()) {
             if (!entry.getKey().equals(providerName) && issuerUrl.equals(entry.getValue().getIssuerUrl())) {
                 throw new ValidationException(
-                        "OAuth2 provider '%s' already uses issuer URL '%s'. Issuer URLs must be unique across providers.".formatted(entry.getKey(), issuerUrl));
+                        "OAuth2 provider '%s' already uses issuer URL '%s'. Issuer URLs must be unique across providers."
+                                .formatted(entry.getKey(), issuerUrl));
             }
         }
     }
@@ -594,19 +691,24 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         var mapping = new HashMap<String, Map<String, Setting>>();
 
         for (Setting setting : settings) {
-            Map<String, Setting> categorySettings = mapping.computeIfAbsent(setting.getCategory(), k -> new HashMap<>());
+            Map<String, Setting> categorySettings = mapping
+                    .computeIfAbsent(setting.getCategory(), k -> new HashMap<>());
             categorySettings.put(setting.getName(), setting);
         }
 
         return mapping;
     }
 
-    private void validateOAuth2ProviderSettings(OAuth2ProviderSettingsUpdateDto settingsDto, boolean checkAvailability) {
-        if (settingsDto.getJwkSet() == null && settingsDto.getJwkSetUrl() == null)
+    private void validateOAuth2ProviderSettings(OAuth2ProviderSettingsUpdateDto settingsDto,
+            boolean checkAvailability) {
+        if (settingsDto.getJwkSet() == null && settingsDto.getJwkSetUrl() == null) {
             throw new ValidationException("Missing JWK Set URL or encoded JWK Set.");
+        }
         checkJwkSetValidity(settingsDto);
         if (checkAvailability) {
-            for (String urlString : List.of(settingsDto.getJwkSetUrl(), settingsDto.getAuthorizationUrl(), settingsDto.getTokenUrl(), settingsDto.getLogoutUrl())) {
+            for (String urlString : List
+                    .of(settingsDto.getJwkSetUrl(), settingsDto.getAuthorizationUrl(), settingsDto.getTokenUrl(),
+                            settingsDto.getLogoutUrl())) {
                 URL url;
                 try {
                     url = new URI(urlString).toURL();
@@ -616,7 +718,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
                         throw new ValidationException("URL %s is could not be reached.");
                     }
                 } catch (IOException | URISyntaxException e) {
-                    throw new ValidationException("Could not verify if URL %s is reachable: %s".formatted(urlString, e.getCause().toString()));
+                    throw new ValidationException("Could not verify if URL %s is reachable: %s"
+                            .formatted(urlString, e.getCause().toString()));
                 }
             }
         }
@@ -667,7 +770,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
                     default -> publicKeyBytes = new byte[0];
                 }
             } catch (JOSEException e) {
-                throw new ValidationException("Could not convert %s key with KID %s to Public key".formatted(jwk.getKeyType().getValue(), jwk.getKeyID()));
+                throw new ValidationException("Could not convert %s key with KID %s to Public key"
+                        .formatted(jwk.getKeyType().getValue(), jwk.getKeyID()));
             }
 
             jwkDto.setPublicKey(Base64.getEncoder().encodeToString(publicKeyBytes));

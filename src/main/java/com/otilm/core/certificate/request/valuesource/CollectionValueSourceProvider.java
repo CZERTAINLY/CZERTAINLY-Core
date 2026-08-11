@@ -8,7 +8,8 @@ import java.util.List;
 /**
  * SPI for resolving the selectable options of a Core-side value-source binding.
  *
- * <p>A value-source binding ({@link com.otilm.core.dao.entity.RaProfileValueSourceBinding}) attaches a
+ * <p>
+ * A value-source binding ({@link com.otilm.core.dao.entity.RaProfileValueSourceBinding}) attaches a
  * {@link ValueSourceType} (and an optional {@code collectionRef} + cascading {@link SourceParam} filters) onto a
  * request-attribute definition. At request-rendering time the platform must turn that binding into a concrete set of
  * options the operator can pick from (e.g. a list of CMDB servers, a static enumeration). This interface is the
@@ -25,7 +26,7 @@ public interface CollectionValueSourceProvider {
      * Resolves the selectable options for a bound value source.
      *
      * @param collectionRef reference to a registered collection/source (may be {@code null} for self-contained sources)
-     * @param params        cascading dependency filters scoping the source by other attributes' values (never {@code null})
+     * @param params cascading dependency filters scoping the source by other attributes' values (never {@code null})
      * @return the ordered, selectable options
      */
     List<CollectionValueOption> resolveOptions(String collectionRef, List<SourceParam> params);

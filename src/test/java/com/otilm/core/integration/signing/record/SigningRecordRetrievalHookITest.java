@@ -12,20 +12,18 @@ import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.dao.repository.signing.SigningRecordRepository;
 import com.otilm.core.signing.record.SigningRecordRetrievalHook;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SigningRecordRetrievalHookITest extends BaseSpringBootTest {
 
@@ -41,7 +39,8 @@ class SigningRecordRetrievalHookITest extends BaseSpringBootTest {
     private PlatformTransactionManager txm;
 
     @Test
-    void onSignedDocumentServed_stampsRetrievedAtAndDeletesRecord_whenDeleteAfterRetrievalEnabled() throws NotFoundException {
+    void onSignedDocumentServed_stampsRetrievedAtAndDeletesRecord_whenDeleteAfterRetrievalEnabled()
+            throws NotFoundException {
         // given
         SigningProfile profile = insertProfileWithDeleteAfterRetrieval();
         SigningRecord signingRecord = insertRecord(profile);
@@ -55,7 +54,8 @@ class SigningRecordRetrievalHookITest extends BaseSpringBootTest {
     }
 
     @Test
-    void onSignedDocumentServed_stampsRetrievedAtAndKeepsRecord_whenDeleteAfterRetrievalDisabled() throws NotFoundException {
+    void onSignedDocumentServed_stampsRetrievedAtAndKeepsRecord_whenDeleteAfterRetrievalDisabled()
+            throws NotFoundException {
         // given
         SigningProfile profile = insertProfileWithoutDeleteAfterRetrieval();
         SigningRecord signingRecord = insertRecord(profile);
@@ -94,8 +94,8 @@ class SigningRecordRetrievalHookITest extends BaseSpringBootTest {
     }
 
     /**
-     * Runs the hook inside an ambient transaction (it is {@code @Transactional(MANDATORY)}) and re-throws the
-     * checked {@link NotFoundException} transparently, so callers can assert on it without unwrapping the
+     * Runs the hook inside an ambient transaction (it is {@code @Transactional(MANDATORY)}) and re-throws the checked
+     * {@link NotFoundException} transparently, so callers can assert on it without unwrapping the
      * {@link TransactionTemplate} carrier.
      */
     private void serveSignedDocumentInTransaction(UUID recordUuid) throws NotFoundException {
@@ -117,8 +117,8 @@ class SigningRecordRetrievalHookITest extends BaseSpringBootTest {
 
     /**
      * Serves the document and reads back the retrieved-at stamp within the same ambient transaction. The
-     * delete-after-retrieval path removes the row in an {@code afterCommit} hook, so the stamp is only
-     * observable before the transaction commits.
+     * delete-after-retrieval path removes the row in an {@code afterCommit} hook, so the stamp is only observable
+     * before the transaction commits.
      */
     private Instant serveSignedDocumentAndReadStampInTransaction(UUID recordUuid) throws NotFoundException {
         try {

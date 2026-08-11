@@ -5,9 +5,8 @@ import com.otilm.api.model.common.attribute.v2.InfoAttributeV2;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static com.otilm.core.util.builders.MappedDataAttributeV3Builder.aMappedDataAttribute;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,8 +20,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 class IssuanceDefinitionResolverTest {
 
-    private final RaProfileCertificateRequestAttributeService requestAttributeService =
-            mock(RaProfileCertificateRequestAttributeService.class);
+    private final RaProfileCertificateRequestAttributeService requestAttributeService = mock(
+            RaProfileCertificateRequestAttributeService.class);
     private final IssuanceDefinitionResolver resolver = new IssuanceDefinitionResolver(requestAttributeService);
 
     @Test
@@ -37,7 +36,8 @@ class IssuanceDefinitionResolverTest {
         // when
         List<DataAttributeV3> resolved = resolver.resolve(raProfile);
 
-        // then — the projection consumes the configured set; non-v3 definitions cannot carry a fieldMapping and are dropped
+        // then — the projection consumes the configured set; non-v3 definitions cannot carry a fieldMapping and are
+        // dropped
         assertThat(resolved).containsExactly(department);
     }
 
@@ -67,7 +67,8 @@ class IssuanceDefinitionResolverTest {
         raProfile.setName("empty-profile");
         doReturn(List.of()).when(requestAttributeService).resolveIssueAttributeSet(raProfile);
 
-        // when / then — the empty resolved set skips the default-set fallback and fails loudly; the default set is never consulted
+        // when / then — the empty resolved set skips the default-set fallback and fails loudly; the default set is
+        // never consulted
         assertThatThrownBy(() -> resolver.resolve(raProfile))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("empty-profile")

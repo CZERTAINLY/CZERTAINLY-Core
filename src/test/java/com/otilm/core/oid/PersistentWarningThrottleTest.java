@@ -1,14 +1,13 @@
 package com.otilm.core.oid;
 
-import org.junit.jupiter.api.Test;
-
 import java.time.Duration;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pure unit coverage for the warning-repeat policy — no Spring context, no clock manipulation: an
- * interval of zero stands in for "the repeat window has elapsed", and a long interval for "it has not".
+ * Pure unit coverage for the warning-repeat policy — no Spring context, no clock manipulation: an interval of zero
+ * stands in for "the repeat window has elapsed", and a long interval for "it has not".
  */
 class PersistentWarningThrottleTest {
 

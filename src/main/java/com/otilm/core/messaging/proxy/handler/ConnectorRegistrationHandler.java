@@ -13,9 +13,10 @@ import org.springframework.stereotype.Component;
 /**
  * Handler for connector registration messages from proxy instances.
  *
- * <p>Registration messages are fire-and-forget: the proxy sends the request
- * and does not wait for a response. This handler converts the message to
- * a ConnectorRequestDto and delegates to ConnectorRegistrationExternalService.</p>
+ * <p>
+ * Registration messages are fire-and-forget: the proxy sends the request and does not wait for a response. This handler
+ * converts the message to a ConnectorRequestDto and delegates to ConnectorRegistrationExternalService.
+ * </p>
  */
 @Slf4j
 @Component
@@ -40,22 +41,22 @@ public class ConnectorRegistrationHandler implements MessageTypeResponseHandler 
     public void handleResponse(ProxyMessage message) {
         ConnectorRegistrationRequest regReq = message.getConnectorRegistrationRequest();
         if (regReq == null) {
-            log.warn("Received connector registration message with no registration data: proxyId={}",
-                    message.getProxyId());
+            log
+                    .warn("Received connector registration message with no registration data: proxyId={}",
+                            message.getProxyId());
             return;
         }
 
-        log.info("Processing connector registration from proxy: name={} url={} proxyCode={}",
-                regReq.getName(), regReq.getUrl(), regReq.getProxyCode());
+        log
+                .info("Processing connector registration from proxy: name={} url={} proxyCode={}", regReq.getName(),
+                        regReq.getUrl(), regReq.getProxyCode());
 
         try {
             ConnectorRequestDto dto = toConnectorRequestDto(regReq);
             var result = connectorRegistrationService.registerConnector(dto);
-            log.info("Connector registered successfully: name={} uuid={}",
-                    regReq.getName(), result.getUuid());
+            log.info("Connector registered successfully: name={} uuid={}", regReq.getName(), result.getUuid());
         } catch (Exception e) {
-            log.error("Failed to register connector: name={} error={}",
-                    regReq.getName(), e.getMessage(), e);
+            log.error("Failed to register connector: name={} error={}", regReq.getName(), e.getMessage(), e);
         }
     }
 

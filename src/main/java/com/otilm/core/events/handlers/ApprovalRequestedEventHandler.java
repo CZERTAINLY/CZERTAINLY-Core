@@ -19,13 +19,12 @@ import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.util.AuthHelper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
 @Component(ResourceEvent.Codes.APPROVAL_REQUESTED)
@@ -41,7 +40,9 @@ public class ApprovalRequestedEventHandler extends EventHandler<Approval> {
         ApprovalProfile approvalProfile = approval.getApprovalProfileVersion().getApprovalProfile();
         ApprovalStepDto approvalStepDto = objectMapper.convertValue(eventMessageData, ApprovalStepDto.class);
 
-        return EventDataBuilder.getApprovalRequestedEventData(approval, approvalProfile, approvalStepDto, authHelper.getUserUsername(approval.getCreatorUuid().toString()));
+        return EventDataBuilder
+                .getApprovalRequestedEventData(approval, approvalProfile, approvalStepDto,
+                        authHelper.getUserUsername(approval.getCreatorUuid().toString()));
     }
 
     @Override
@@ -49,25 +50,38 @@ public class ApprovalRequestedEventHandler extends EventHandler<Approval> {
         Approval approval = eventContext.getResourceObjects().getFirst();
         ApprovalEventData eventData = (ApprovalEventData) eventContext.getResourceObjectsEventData().getFirst();
 
-        List<NotificationRecipient> recipients = List.of(new NotificationRecipient(eventData.getRecipientType(), eventData.getRecipientUuid()));
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.APPROVAL, approval.getUuid(), null, recipients, eventData);
+        List<NotificationRecipient> recipients = List
+                .of(new NotificationRecipient(eventData.getRecipientType(), eventData.getRecipientUuid()));
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.APPROVAL,
+                approval.getUuid(), null, recipients, eventData);
         applicationEventPublisher.publishEvent(notificationMessage);
 
         // produce only for certificates for now until refactoring and uniting of event history for all resources
         if (approval.getResource() == Resource.CERTIFICATE) {
             ApprovalStepDto approvalStepDto = objectMapper.convertValue(eventContext.getData(), ApprovalStepDto.class);
-            ApprovalStep firstApprovalStep = approval.getApprovalProfileVersion().getApprovalSteps().stream().min(Comparator.comparing(ApprovalStep::getOrder)).orElse(null);
+            ApprovalStep firstApprovalStep = approval
+                    .getApprovalProfileVersion()
+                    .getApprovalSteps()
+                    .stream()
+                    .min(Comparator.comparing(ApprovalStep::getOrder))
+                    .orElse(null);
             // add history record only for approval request for first step
             if (firstApprovalStep != null && firstApprovalStep.getUuid().equals(approvalStepDto.getUuid())) {
-                applicationEventPublisher.publishEvent(new UpdateCertificateHistoryEvent(approval.getObjectUuid(), CertificateEvent.APPROVAL_REQUEST, CertificateEventStatus.SUCCESS, "Approval requested for action %s with approval profile %s".formatted(approval.getAction().getCode(), approval.getApprovalProfileVersion().getApprovalProfile().getName()), null));
+                applicationEventPublisher
+                        .publishEvent(new UpdateCertificateHistoryEvent(approval.getObjectUuid(),
+                                CertificateEvent.APPROVAL_REQUEST, CertificateEventStatus.SUCCESS,
+                                "Approval requested for action %s with approval profile %s"
+                                        .formatted(approval.getAction().getCode(),
+                                                approval.getApprovalProfileVersion().getApprovalProfile().getName()),
+                                null));
             }
         }
     }
 
     /**
      * Falls back to the acting user. Callers that already know the requester should use
-     * {@link #constructEventMessage(UUID, ApprovalStepDto, UUID)} — the first step is produced on the
-     * actions-listener thread, which has no SecurityContext.
+     * {@link #constructEventMessage(UUID, ApprovalStepDto, UUID)} — the first step is produced on the actions-listener
+     * thread, which has no SecurityContext.
      */
     public static EventMessage constructEventMessage(UUID approvalUuid, ApprovalStepDto approvalStepDto) {
         return constructEventMessage(approvalUuid, approvalStepDto, AuthHelper.getActingUserUuidOrNull());
@@ -77,8 +91,9 @@ public class ApprovalRequestedEventHandler extends EventHandler<Approval> {
      * Carries the requester so the certificate history row published by {@link #sendFollowUpEventsNotifications} names
      * them; that row is written on a JMS listener thread with no SecurityContext of its own.
      */
-    public static EventMessage constructEventMessage(UUID approvalUuid, ApprovalStepDto approvalStepDto, UUID requesterUuid) {
-        return new EventMessage(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid,
-                null, null, approvalStepDto, requesterUuid, null);
+    public static EventMessage constructEventMessage(UUID approvalUuid, ApprovalStepDto approvalStepDto,
+            UUID requesterUuid) {
+        return new EventMessage(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid, null, null,
+                approvalStepDto, requesterUuid, null);
     }
 }

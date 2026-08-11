@@ -1,5 +1,14 @@
 package com.otilm.core.integration.service.acme;
 
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.JWSObjectJSON;
+import com.nimbusds.jose.JWSSigner;
+import com.nimbusds.jose.Payload;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.otilm.api.exception.AcmeProblemDocumentException;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.core.acme.AccountStatus;
@@ -37,15 +46,12 @@ import com.otilm.core.service.acme.AcmeExternalService;
 import com.otilm.core.util.AcmeCommonHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateTestUtil;
-import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSHeader;
-import com.nimbusds.jose.JWSObjectJSON;
-import com.nimbusds.jose.JWSSigner;
-import com.nimbusds.jose.Payload;
-import com.nimbusds.jose.crypto.RSASSASigner;
-import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import java.net.URI;
+import java.security.KeyPair;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.Date;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -53,20 +59,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.URI;
-import java.security.KeyPair;
-import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 /**
- * ACME `finalizeOrder` must pre-validate request attributes synchronously in `validateCSR`, so a policy violation surfaces immediately as {@link Problem#BAD_CSR}.
+ * ACME `finalizeOrder` must pre-validate request attributes synchronously in `validateCSR`, so a policy violation
+ * surfaces immediately as {@link Problem#BAD_CSR}.
  */
 @Transactional
 class AcmeFinalizeRequestAttributeValidationITest extends BaseSpringBootTest {
@@ -194,13 +194,15 @@ class AcmeFinalizeRequestAttributeValidationITest extends BaseSpringBootTest {
         // given — pre-validation (validateCSR) rejects the CSR with a request-attribute policy violation
         var violationDetail = "CSR is missing required request attribute 'commonName'";
         doThrow(new RequestAttributePolicyViolationException(violationDetail, List.of()))
-                .when(protocolRequestAttributeValidator).validate(Mockito.any(), Mockito.any());
+                .when(protocolRequestAttributeValidator)
+                .validate(Mockito.any(), Mockito.any());
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
         String finalizeRequestJson = buildFinalizeRequestJSON(requestUri, baseUri);
 
         // when / then — the violation surfaces immediately as BAD_CSR carrying only the safe detail
-        assertThatThrownBy(() -> acmeService.finalizeOrder(ACME_PROFILE_NAME, ORDER_ID_VALID, finalizeRequestJson, requestUri, false))
+        assertThatThrownBy(() -> acmeService
+                .finalizeOrder(ACME_PROFILE_NAME, ORDER_ID_VALID, finalizeRequestJson, requestUri, false))
                 .isInstanceOfSatisfying(AcmeProblemDocumentException.class, ex -> {
                     assertThat(ex.getProblemDocument().getType()).isEqualTo(Problem.BAD_CSR.getType());
                     assertThat(ex.getMessage())
@@ -220,53 +222,49 @@ class AcmeFinalizeRequestAttributeValidationITest extends BaseSpringBootTest {
     private String buildFinalizeRequestJSON(URI requestUri, String baseUri) throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(
                 "{\"csr\":\"MIICdjCCAV4CAQIwADCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALeJvx7JWbwzobWL74KyHz0FjPqt0R5iOaOxiYqpfMY-ZVhMBkS0FqnCBQzMn5BkHukdx7HsIMkJ-sM01HVHJaRpgpf1zeTyRQjY7ESDikRL_1Ekxi6Sgf5unzB35aP2EBxiAaomG610HjpqSfGtOzEf12hy4jkcC446TT8nE9dm6CBf7XAoq9vXxXRjnAgdkr62yIzanXedDwdcNyk5EiiRWQXwW-L5Pex5808ip2gmE5Al5SPUiv8eDCq02QVDJ8Ln4UPYkxL1b6RMlfEgKLsGEZX0e-FC0w_fiBN48zrvHxqM2fdU7Ae8pRDwUOClYOxDkrvDv60RGikLlQZ45FcCAwEAAaAxMC8GCSqGSIb3DQEJDjEiMCAwHgYDVR0RBBcwFYITZGViaWFuMTAuYWNtZS5sb2NhbDANBgkqhkiG9w0BAQsFAAOCAQEAHlO0ZuPuYEtplU0gEUj88Yi1MWkrElx0JoTk7qonRsufu_Y2P_u-RrkWOzM3VJ08lNz90L_mnc8NOONMl_WlYWBywbUMsGar4Y_1x0ySOEdp5fg87rxY1b2jbSL7tPe4OV7yAebdCEzzXXBi3Ay9NoJAhwNONjyRp92vqT5-MWMXQyZvdcUMM38l6aNc9jof3EluNbgO7nWSle6MQJJvlEYwXx7ZPvvgxMfrRa-Yc_aWS7w25MSAODKKwvIivGn5q_owfd5AozYp0pymiLLbvAWhYVWL_-bGvJ13xpyfNPnGJIdwcY8zgikYPyBfbRmPyKJLPI4QnWz8GsWGiaUgjA\"}"));
-        jwsObjectJSON.sign(
-                new JWSHeader.Builder(JWSAlgorithm.RS256)
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
                         .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
                         .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(),
-                rsa2048Signer
-        );
+                        .build(), rsa2048Signer);
         return jwsObjectJSON.serializeFlattened();
     }
 
     private void mockAcmeRolePermissions() {
-        OpaResourceAccessResult resourceAccessAllowed = new OpaResourceAccessResult(true, List.of("AllResourcesAllowed"));
+        OpaResourceAccessResult resourceAccessAllowed = new OpaResourceAccessResult(true,
+                List.of("AllResourcesAllowed"));
         OpaResourceAccessResult resourceAccessNotAllowed = new OpaResourceAccessResult(false, List.of());
 
-        when(
-                opaClient.checkResourceAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())
-        ).thenReturn(resourceAccessNotAllowed);
+        when(opaClient.checkResourceAccess(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(resourceAccessNotAllowed);
 
-        when(
-                opaClient.checkResourceAccess(Mockito.any(), Mockito.argThat(req ->
-                        req != null && req.getProperties().containsKey(Resource.ACME_ACCOUNT.getCode())
-                ), Mockito.any(), Mockito.any())
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(Mockito.any(), Mockito
+                        .argThat(
+                                req -> req != null && req.getProperties().containsKey(Resource.ACME_ACCOUNT.getCode())),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        Mockito.any(),
-                        Mockito.argThat(req -> isRequestForResourceAction(req, Resource.ACME_PROFILE, ResourceAction.DETAIL)),
-                        Mockito.any(),
-                        Mockito.any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(Mockito.any(), Mockito
+                        .argThat(req -> isRequestForResourceAction(req, Resource.ACME_PROFILE, ResourceAction.DETAIL)),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(resourceAccessAllowed);
 
-        when(
-                opaClient.checkResourceAccess(
-                        Mockito.any(),
-                        Mockito.argThat(req -> isRequestForResourceAction(req, Resource.RA_PROFILE, ResourceAction.DETAIL)),
-                        Mockito.any(),
-                        Mockito.any()
-                )
-        ).thenReturn(resourceAccessAllowed);
+        when(opaClient
+                .checkResourceAccess(Mockito.any(), Mockito
+                        .argThat(req -> isRequestForResourceAction(req, Resource.RA_PROFILE, ResourceAction.DETAIL)),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(resourceAccessAllowed);
     }
 
-    private static boolean isRequestForResourceAction(OpaRequestedResource requestedResource, Resource resource, ResourceAction resourceAction) {
-        return requestedResource != null && requestedResource.getProperties() != null &&
-                (requestedResource.getProperties().containsKey("name") && requestedResource.getProperties().get("name").equals(resource.getCode())) &&
-                (requestedResource.getProperties().containsKey("action") && requestedResource.getProperties().get("action").equals(resourceAction.getCode()));
+    private static boolean isRequestForResourceAction(OpaRequestedResource requestedResource, Resource resource,
+            ResourceAction resourceAction) {
+        return requestedResource != null && requestedResource.getProperties() != null
+                && (requestedResource.getProperties().containsKey("name")
+                        && requestedResource.getProperties().get("name").equals(resource.getCode()))
+                && (requestedResource.getProperties().containsKey("action")
+                        && requestedResource.getProperties().get("action").equals(resourceAction.getCode()));
     }
 }

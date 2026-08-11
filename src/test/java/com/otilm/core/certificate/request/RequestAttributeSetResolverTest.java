@@ -2,16 +2,15 @@ package com.otilm.core.certificate.request;
 
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
+import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.mapping.SourceParam;
 import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
-import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
 import com.otilm.core.certificate.request.RequestAttributeSetResolver.ValueSourceBindingSpec;
+import java.util.List;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,8 +33,8 @@ class RequestAttributeSetResolverTest {
         @Test
         void staticOnlyIgnoresConnectorSet() {
             // given / when
-            List<BaseAttribute> result = RequestAttributeSetResolver.merge(
-                    List.of(def("u1", "a")), List.of(def("u2", "b")), AttributeSetMergeMode.STATIC_ONLY);
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .merge(List.of(def("u1", "a")), List.of(def("u2", "b")), AttributeSetMergeMode.STATIC_ONLY);
 
             // then
             assertThat(result).extracting(BaseAttribute::getName).containsExactly("a");
@@ -44,8 +43,8 @@ class RequestAttributeSetResolverTest {
         @Test
         void connectorOnlyIgnoresStaticSet() {
             // given / when
-            List<BaseAttribute> result = RequestAttributeSetResolver.merge(
-                    List.of(def("u1", "a")), List.of(def("u2", "b")), AttributeSetMergeMode.CONNECTOR_ONLY);
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .merge(List.of(def("u1", "a")), List.of(def("u2", "b")), AttributeSetMergeMode.CONNECTOR_ONLY);
 
             // then
             assertThat(result).extracting(BaseAttribute::getName).containsExactly("b");
@@ -60,13 +59,13 @@ class RequestAttributeSetResolverTest {
             DataAttributeV3 connectorOnly = def("c-only", "connector-only");
 
             // when
-            List<BaseAttribute> result = RequestAttributeSetResolver.merge(
-                    List.of(staticConflict, staticOnly),
-                    List.of(connectorConflict, connectorOnly),
-                    AttributeSetMergeMode.MERGE);
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .merge(List.of(staticConflict, staticOnly), List.of(connectorConflict, connectorOnly),
+                            AttributeSetMergeMode.MERGE);
 
             // then: connector definitions first (connector order), then static-only definitions
-            assertThat(result).extracting(BaseAttribute::getName)
+            assertThat(result)
+                    .extracting(BaseAttribute::getName)
                     .containsExactly("connector-name", "connector-only", "static-only");
         }
 
@@ -77,8 +76,8 @@ class RequestAttributeSetResolverTest {
             DataAttributeV3 connectorByName = def(null, "shared-name");
 
             // when
-            List<BaseAttribute> result = RequestAttributeSetResolver.merge(
-                    List.of(staticByName), List.of(connectorByName), AttributeSetMergeMode.MERGE);
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .merge(List.of(staticByName), List.of(connectorByName), AttributeSetMergeMode.MERGE);
 
             // then: de-duplicated by the name fallback key; connector wins
             assertThat(result).hasSize(1);
@@ -92,8 +91,8 @@ class RequestAttributeSetResolverTest {
             DataAttributeV3 connectorBlank = def("", "shared-name");
 
             // when
-            List<BaseAttribute> result = RequestAttributeSetResolver.merge(
-                    List.of(staticBlank), List.of(connectorBlank), AttributeSetMergeMode.MERGE);
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .merge(List.of(staticBlank), List.of(connectorBlank), AttributeSetMergeMode.MERGE);
 
             // then
             assertThat(result).hasSize(1);
@@ -103,8 +102,8 @@ class RequestAttributeSetResolverTest {
         @Test
         void nullModeDefaultsToStaticOnly() {
             // given / when
-            List<BaseAttribute> result = RequestAttributeSetResolver.merge(
-                    List.of(def("u1", "a")), List.of(def("u2", "b")), null);
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .merge(List.of(def("u1", "a")), List.of(def("u2", "b")), null);
 
             // then
             assertThat(result).hasSize(1);
@@ -113,8 +112,10 @@ class RequestAttributeSetResolverTest {
         @Test
         void nullSetsTreatedAsEmpty() {
             assertThat(RequestAttributeSetResolver.merge(null, null, AttributeSetMergeMode.MERGE)).isEmpty();
-            assertThat(RequestAttributeSetResolver.merge(List.of(def("u1", "a")), null, AttributeSetMergeMode.MERGE)).hasSize(1);
-            assertThat(RequestAttributeSetResolver.merge(null, List.of(def("u2", "b")), AttributeSetMergeMode.MERGE)).hasSize(1);
+            assertThat(RequestAttributeSetResolver.merge(List.of(def("u1", "a")), null, AttributeSetMergeMode.MERGE))
+                    .hasSize(1);
+            assertThat(RequestAttributeSetResolver.merge(null, List.of(def("u2", "b")), AttributeSetMergeMode.MERGE))
+                    .hasSize(1);
         }
     }
 
@@ -142,11 +143,12 @@ class RequestAttributeSetResolverTest {
         void bindingByUuidSetsValueSource() {
             // given
             DataAttributeV3 connector = def("u1", "server");
-            ValueSourceBindingSpec binding = new ValueSourceBindingSpec(
-                    "u1", null, ValueSourceType.STATIC_LIST, "cmdb.servers", List.of());
+            ValueSourceBindingSpec binding = new ValueSourceBindingSpec("u1", null, ValueSourceType.STATIC_LIST,
+                    "cmdb.servers", List.of());
 
             // when
-            List<BaseAttribute> result = RequestAttributeSetResolver.applyValueSourceBindings(List.of(connector), List.of(binding));
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .applyValueSourceBindings(List.of(connector), List.of(binding));
 
             // then
             DataAttributeV3 out = (DataAttributeV3) result.get(0);
@@ -159,11 +161,12 @@ class RequestAttributeSetResolverTest {
             // given: the connector rotated the attribute UUID, so the binding's UUID no longer matches;
             // it must still bind via the attribute name fallback rather than silently dropping the value source
             DataAttributeV3 connector = def("changed-uuid", "server");
-            ValueSourceBindingSpec binding = new ValueSourceBindingSpec(
-                    "old-uuid", "server", ValueSourceType.CONNECTOR_CALLBACK, null, List.of());
+            ValueSourceBindingSpec binding = new ValueSourceBindingSpec("old-uuid", "server",
+                    ValueSourceType.CONNECTOR_CALLBACK, null, List.of());
 
             // when
-            List<BaseAttribute> result = RequestAttributeSetResolver.applyValueSourceBindings(List.of(connector), List.of(binding));
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .applyValueSourceBindings(List.of(connector), List.of(binding));
 
             // then
             DataAttributeV3 out = (DataAttributeV3) result.get(0);
@@ -177,22 +180,26 @@ class RequestAttributeSetResolverTest {
             DataAttributeV3 connector = def("u1", "server");
             SourceParam param = new SourceParam();
             param.setAttributeName("datacenter");
-            ValueSourceBindingSpec binding = new ValueSourceBindingSpec(
-                    "u1", null, ValueSourceType.STATIC_LIST, null, List.of(param));
+            ValueSourceBindingSpec binding = new ValueSourceBindingSpec("u1", null, ValueSourceType.STATIC_LIST, null,
+                    List.of(param));
 
             // when
-            List<BaseAttribute> result = RequestAttributeSetResolver.applyValueSourceBindings(List.of(connector), List.of(binding));
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .applyValueSourceBindings(List.of(connector), List.of(binding));
 
             // then
             DataAttributeV3 out = (DataAttributeV3) result.get(0);
-            assertThat(out.getValueSource().getParams()).extracting(SourceParam::getAttributeName).containsExactly("datacenter");
+            assertThat(out.getValueSource().getParams())
+                    .extracting(SourceParam::getAttributeName)
+                    .containsExactly("datacenter");
         }
 
         @Test
         void noBindingLeavesDefinitionUntouched() {
             // given / when
             DataAttributeV3 connector = def("u1", "server");
-            List<BaseAttribute> result = RequestAttributeSetResolver.applyValueSourceBindings(List.of(connector), List.of());
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .applyValueSourceBindings(List.of(connector), List.of());
 
             // then
             assertThat(((DataAttributeV3) result.get(0)).getValueSource()).isNull();
@@ -202,11 +209,12 @@ class RequestAttributeSetResolverTest {
         void unmatchedBindingLeavesDefinitionUntouched() {
             // given: a binding that matches neither the UUID nor the name
             DataAttributeV3 connector = def("u1", "server");
-            ValueSourceBindingSpec mismatch = new ValueSourceBindingSpec(
-                    "other", "other", ValueSourceType.STATIC_LIST, "x", List.of());
+            ValueSourceBindingSpec mismatch = new ValueSourceBindingSpec("other", "other", ValueSourceType.STATIC_LIST,
+                    "x", List.of());
 
             // when
-            List<BaseAttribute> result = RequestAttributeSetResolver.applyValueSourceBindings(List.of(connector), List.of(mismatch));
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .applyValueSourceBindings(List.of(connector), List.of(mismatch));
 
             // then
             assertThat(((DataAttributeV3) result.get(0)).getValueSource()).isNull();

@@ -3,45 +3,95 @@ package com.otilm.core.integration.attribute;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
-import com.otilm.api.model.client.attribute.*;
+import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV2;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
+import com.otilm.api.model.client.attribute.ResponseAttribute;
+import com.otilm.api.model.client.attribute.ResponseAttributeV3;
+import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.metadata.MetadataResponseDto;
-import com.otilm.api.model.common.attribute.common.*;
+import com.otilm.api.model.common.attribute.common.AttributeContent;
+import com.otilm.api.model.common.attribute.common.AttributeType;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.CustomAttribute;
+import com.otilm.api.model.common.attribute.common.DataAttribute;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.common.callback.AttributeCallback;
 import com.otilm.api.model.common.attribute.common.constraint.BaseAttributeConstraint;
 import com.otilm.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.common.content.data.FileAttributeContentData;
-import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
-import com.otilm.api.model.common.attribute.v2.*;
-import com.otilm.api.model.common.attribute.v2.content.*;
 import com.otilm.api.model.common.attribute.common.content.data.CodeBlockAttributeContentData;
+import com.otilm.api.model.common.attribute.common.content.data.FileAttributeContentData;
 import com.otilm.api.model.common.attribute.common.content.data.ProgrammingLanguageEnum;
+import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.otilm.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.otilm.api.model.common.attribute.v2.content.CodeBlockAttributeContentV2;
+import com.otilm.api.model.common.attribute.v2.content.DateAttributeContentV2;
+import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.GroupAttributeV3;
 import com.otilm.api.model.common.attribute.v3.MetadataAttributeV3;
-import com.otilm.api.model.common.attribute.v3.content.*;
+import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.BooleanAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.CodeBlockAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.DateAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.DateTimeAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.FileAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.FloatAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.IntegerAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.ObjectAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.ResourceObjectContent;
+import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.TextAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.TimeAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSimpleContentData;
+import com.otilm.api.model.common.attribute.v3.mapping.ExtensionMappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.FieldMapping;
+import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
+import com.otilm.api.model.common.attribute.v3.mapping.MappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
+import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.SanMappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.ValueSource;
+import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
 import com.otilm.api.model.core.auth.AttributeResource;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
+import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.connector.ConnectorStatus;
-import com.otilm.api.model.client.connector.v2.ConnectorVersion;
+import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
-import com.otilm.api.model.common.attribute.v3.mapping.*;
-import com.otilm.api.model.core.certificate.GeneralNameType;
-import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.AttributeOperation;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.AttributeContentItem;
+import com.otilm.core.dao.entity.AttributeDefinition;
+import com.otilm.core.dao.entity.AttributeRelation;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.OwnerAssociation;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.repository.AttributeContent2ObjectRepository;
+import com.otilm.core.dao.repository.AttributeContentItemRepository;
+import com.otilm.core.dao.repository.AttributeDefinitionRepository;
+import com.otilm.core.dao.repository.AttributeRelationRepository;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.OwnerAssociationRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -51,18 +101,6 @@ import com.otilm.core.util.BaseSpringBootTest;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceContext;
-import org.hibernate.SessionFactory;
-import org.hibernate.stat.Statistics;
-import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.function.Executable;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.time.LocalDate;
@@ -79,6 +117,22 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class AttributeEngineITest extends BaseSpringBootTest {
 
@@ -206,28 +260,50 @@ class AttributeEngineITest extends BaseSpringBootTest {
         resourceAttribute.setProperties(properties);
         List<DataAttributeV3> attributes = List.of(resourceAttribute);
         UUID connectorUuid = connectorAuthority.getUuid();
-        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes));
+        Assertions
+                .assertThrows(AttributeException.class,
+                        () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes));
         properties.setResource(AttributeResource.AUTHORITY);
-        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes));
+        Assertions
+                .assertThrows(AttributeException.class,
+                        () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes));
         resourceAttribute.setAttributeCallback(new AttributeCallback());
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes));
+        Assertions
+                .assertDoesNotThrow(
+                        () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes));
     }
-
 
     @Test
     void testMetaContents() {
-        var mappedMetadata = attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).build());
+        var mappedMetadata = attributeEngine
+                .getMappedMetadataContent(
+                        ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).build());
         Assertions.assertEquals(3, mappedMetadata.size());
     }
 
     @Test
     void testMetadataContentReplacement() throws AttributeException {
 
-        networkDiscoveryMeta.setContent(List.of(new StringAttributeContentV3("localhost:1443"), new StringAttributeContentV3("localhost:2443"), new StringAttributeContentV3("localhost:3443")));
+        networkDiscoveryMeta
+                .setContent(List
+                        .of(new StringAttributeContentV3("localhost:1443"),
+                                new StringAttributeContentV3("localhost:2443"),
+                                new StringAttributeContentV3("localhost:3443")));
 
-        attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).source(Resource.DISCOVERY, networkDiscoveryUuid).build());
-        var mappedMetadata = attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).build());
-        Optional<MetadataResponseDto> metadataResponseDto = mappedMetadata.stream().filter(m -> m.getConnectorUuid().equals(connectorDiscovery.getUuid().toString())).findFirst();
+        attributeEngine
+                .updateMetadataAttribute(networkDiscoveryMeta,
+                        ObjectAttributeContentInfo
+                                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                .connector(connectorDiscovery.getUuid())
+                                .source(Resource.DISCOVERY, networkDiscoveryUuid)
+                                .build());
+        var mappedMetadata = attributeEngine
+                .getMappedMetadataContent(
+                        ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).build());
+        Optional<MetadataResponseDto> metadataResponseDto = mappedMetadata
+                .stream()
+                .filter(m -> m.getConnectorUuid().equals(connectorDiscovery.getUuid().toString()))
+                .findFirst();
         Assertions.assertTrue(metadataResponseDto.isPresent());
         Assertions.assertEquals(4, metadataResponseDto.get().getItems().getFirst().getContent().size());
 
@@ -235,13 +311,26 @@ class AttributeEngineITest extends BaseSpringBootTest {
         List<BaseAttributeContentV3<?>> contentV3s = new ArrayList<>();
         contentV3s.add(new StringAttributeContentV3("TEST", "TEST"));
         networkDiscoveryMeta.setContent(contentV3s);
-        attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).source(Resource.DISCOVERY, networkDiscoveryUuid).build());
-        mappedMetadata = attributeEngine.getMappedMetadataContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).build());
-        metadataResponseDto = mappedMetadata.stream().filter(m -> m.getConnectorUuid().equals(connectorDiscovery.getUuid().toString())).findFirst();
+        attributeEngine
+                .updateMetadataAttribute(networkDiscoveryMeta,
+                        ObjectAttributeContentInfo
+                                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                .connector(connectorDiscovery.getUuid())
+                                .source(Resource.DISCOVERY, networkDiscoveryUuid)
+                                .build());
+        mappedMetadata = attributeEngine
+                .getMappedMetadataContent(
+                        ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).build());
+        metadataResponseDto = mappedMetadata
+                .stream()
+                .filter(m -> m.getConnectorUuid().equals(connectorDiscovery.getUuid().toString()))
+                .findFirst();
         Assertions.assertTrue(metadataResponseDto.isPresent());
         Assertions.assertEquals(3, mappedMetadata.size());
         Assertions.assertEquals(1, metadataResponseDto.get().getItems().getFirst().getContent().size());
-        Assertions.assertEquals("TEST", metadataResponseDto.get().getItems().getFirst().getContent().getFirst().getReference());
+        Assertions
+                .assertEquals("TEST",
+                        metadataResponseDto.get().getItems().getFirst().getContent().getFirst().getReference());
     }
 
     @Test
@@ -257,20 +346,42 @@ class AttributeEngineITest extends BaseSpringBootTest {
         expirationDateAttributeDto.setContent(List.of(new DateAttributeContentV3(LocalDate.now())));
 
         List<RequestAttribute> departmentAttributeDtoList = List.of(departmentAttributeDto);
-        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, departmentAttributeDtoList), "Custom attribute content should not be updated to resource not assigned");
-        List<RequestAttribute> departmentExpirationDateList = List.of(departmentAttributeDto, expirationDateAttributeDto);
-        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, departmentExpirationDateList), "Read-only attribute content should not be able to be changed");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> attributeEngine
+                                .validateCustomAttributesContent(Resource.CONNECTOR, departmentAttributeDtoList),
+                        "Custom attribute content should not be updated to resource not assigned");
+        List<RequestAttribute> departmentExpirationDateList = List
+                .of(departmentAttributeDto, expirationDateAttributeDto);
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> attributeEngine
+                                .validateCustomAttributesContent(Resource.CERTIFICATE, departmentExpirationDateList),
+                        "Read-only attribute content should not be able to be changed");
 
         expirationDateAttributeDto.setContent(List.of(new IntegerAttributeContentV3(100)));
-        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, departmentExpirationDateList), "Mismatch between content types");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> attributeEngine
+                                .validateCustomAttributesContent(Resource.CERTIFICATE, departmentExpirationDateList),
+                        "Mismatch between content types");
 
         expirationDateAttributeDto.setContent(List.of(new DateAttributeContentV3(LocalDate.EPOCH)));
         List<RequestAttribute> expirationDateAttributeDtoList = List.of(expirationDateAttributeDto);
-        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, expirationDateAttributeDtoList), "Missing content for required custom attribute");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> attributeEngine
+                                .validateCustomAttributesContent(Resource.CERTIFICATE, expirationDateAttributeDtoList),
+                        "Missing content for required custom attribute");
 
         // the following should not throw any exception, we cannot update read-only attributes
         UUID certificateUuid = certificate.getUuid();
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificateUuid, departmentExpirationDateList), "Read-only attribute content should not be able to be changed");
+        Assertions
+                .assertDoesNotThrow(
+                        () -> attributeEngine
+                                .updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificateUuid,
+                                        departmentExpirationDateList),
+                        "Read-only attribute content should not be able to be changed");
     }
 
     @Test
@@ -287,13 +398,20 @@ class AttributeEngineITest extends BaseSpringBootTest {
         customProps.setExtensibleList(true);
         extensibleListAttribute.setProperties(customProps);
 
-        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)), "Extensible list attribute should be a list attribute");
+        Assertions
+                .assertThrows(AttributeException.class, () -> attributeEngine
+                        .updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)),
+                        "Extensible list attribute should be a list attribute");
 
         customProps.setList(true);
         customProps.setExtensibleList(false);
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)), "Not extensible list attribute does not need to have content");
+        Assertions
+                .assertDoesNotThrow(() -> attributeEngine
+                        .updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE)),
+                        "Not extensible list attribute does not need to have content");
 
-        extensibleListAttribute.setContent(List.of(new StringAttributeContentV3("data1"), new StringAttributeContentV3("data2")));
+        extensibleListAttribute
+                .setContent(List.of(new StringAttributeContentV3("data1"), new StringAttributeContentV3("data2")));
         attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE));
 
         RequestAttributeV3 strictListAttributeDto = new RequestAttributeV3();
@@ -306,15 +424,30 @@ class AttributeEngineITest extends BaseSpringBootTest {
 
         UUID certificateUuid = certificate.getUuid();
         UUID finalDefinitionUuid2 = definitionUuid;
-        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid2, attributeName, invalidOption), "Content not in predefined options should not be accepted for not extensible list attribute");
+        Assertions
+                .assertThrows(AttributeException.class,
+                        () -> attributeEngine
+                                .updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid,
+                                        finalDefinitionUuid2, attributeName, invalidOption),
+                        "Content not in predefined options should not be accepted for not extensible list attribute");
 
         List<AttributeContent> validContent = List.of(new StringAttributeContentV3("data1"));
         UUID finalDefinitionUuid = definitionUuid;
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid, attributeName, validContent), "Valid content should be accepted for not extensible list attribute");
+        Assertions
+                .assertDoesNotThrow(
+                        () -> attributeEngine
+                                .updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid,
+                                        finalDefinitionUuid, attributeName, validContent),
+                        "Valid content should be accepted for not extensible list attribute");
 
         List<AttributeContent> validContentV2 = List.of(new StringAttributeContentV2("data1"));
         UUID finalDefinitionUuid1 = definitionUuid;
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid1, attributeName, validContentV2), "Valid content in v2 should be accepted for not extensible list attribute");
+        Assertions
+                .assertDoesNotThrow(
+                        () -> attributeEngine
+                                .updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid,
+                                        finalDefinitionUuid1, attributeName, validContentV2),
+                        "Valid content in v2 should be accepted for not extensible list attribute");
 
         extensibleListAttribute.setContentType(AttributeContentType.CODEBLOCK);
         CodeBlockAttributeContentV3 attributeContent = new CodeBlockAttributeContentV3();
@@ -328,11 +461,21 @@ class AttributeEngineITest extends BaseSpringBootTest {
         strictListAttributeDto.setUuid(definitionUuid);
         strictListAttributeDto.setContent(List.of(attributeContent));
         UUID finalDefinitionUuid3 = definitionUuid;
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for not extensible list attribute");
+        Assertions
+                .assertDoesNotThrow(
+                        () -> attributeEngine
+                                .updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid,
+                                        finalDefinitionUuid3, attributeName, List.of(attributeContent)),
+                        "Valid code block content should be accepted for not extensible list attribute");
 
         customProps.setProtectionLevel(ProtectionLevel.ENCRYPTED);
         attributeEngine.updateCustomAttributeDefinition(extensibleListAttribute, List.of(Resource.CERTIFICATE));
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid, finalDefinitionUuid3, attributeName, List.of(attributeContent)), "Valid code block content should be accepted for not extensible list attribute with encrypted protection level");
+        Assertions
+                .assertDoesNotThrow(
+                        () -> attributeEngine
+                                .updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificateUuid,
+                                        finalDefinitionUuid3, attributeName, List.of(attributeContent)),
+                        "Valid code block content should be accepted for not extensible list attribute with encrypted protection level");
 
         DataAttributeV2 dataAttributeV2 = new DataAttributeV2();
         dataAttributeV2.setUuid(UUID.randomUUID().toString());
@@ -349,17 +492,28 @@ class AttributeEngineITest extends BaseSpringBootTest {
         RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2();
         requestAttributeV2.setUuid(UUID.fromString(dataAttributeV2.getUuid()));
         requestAttributeV2.setName(dataAttributeV2.getName());
-        // For this test, BaseAttributeContentV2 is used instead of StringAttributeContentV2 because v2 is missing discriminator, and therefore it will not be deserialized to StringAttributeContentV2 from JSON in request
+        // For this test, BaseAttributeContentV2 is used instead of StringAttributeContentV2 because v2 is missing
+        // discriminator, and therefore it will not be deserialized to StringAttributeContentV2 from JSON in request
         BaseAttributeContentV2<String> stringContentV2 = new BaseAttributeContentV2<>();
         stringContentV2.setReference("data");
         stringContentV2.setData("data");
         requestAttributeV2.setContent(List.of(stringContentV2));
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificateUuid).build(), List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
+        Assertions
+                .assertDoesNotThrow(() -> attributeEngine
+                        .updateObjectDataAttributesContent(
+                                ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificateUuid).build(),
+                                List.of(requestAttributeV2)),
+                        "Valid content should be accepted for not extensible list v2 attribute");
 
         dataProps.setList(false);
         attributeEngine.updateDataAttributeDefinitions(null, null, List.of(dataAttributeV2));
         stringContentV2.setData("data2");
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificateUuid).build(), List.of(requestAttributeV2)), "Valid content should be accepted for not extensible list v2 attribute");
+        Assertions
+                .assertDoesNotThrow(() -> attributeEngine
+                        .updateObjectDataAttributesContent(
+                                ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificateUuid).build(),
+                                List.of(requestAttributeV2)),
+                        "Valid content should be accepted for not extensible list v2 attribute");
 
     }
 
@@ -384,7 +538,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
 
         Assertions.assertNotNull(v3.getContent(), "v3 options must survive for the response");
         Assertions.assertEquals("team-a", ((StringAttributeContentV3) v3.getContent().get(0)).getData());
-        AttributeDefinition def3 = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(null, UUID.fromString(v3.getUuid())).orElseThrow();
+        AttributeDefinition def3 = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(null, UUID.fromString(v3.getUuid()))
+                .orElseThrow();
         Assertions.assertNull(def3.getDefinition().getContent(), "v3 definition must be stored without options");
 
         DataAttributeV2 v2 = new DataAttributeV2();
@@ -403,7 +559,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
 
         Assertions.assertNotNull(v2.getContent(), "v2 options must survive for the response");
         Assertions.assertEquals("team-b", ((StringAttributeContentV2) v2.getContent().get(0)).getData());
-        AttributeDefinition def2 = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(null, UUID.fromString(v2.getUuid())).orElseThrow();
+        AttributeDefinition def2 = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(null, UUID.fromString(v2.getUuid()))
+                .orElseThrow();
         Assertions.assertNull(def2.getDefinition().getContent(), "v2 definition must be stored without options");
     }
 
@@ -424,8 +582,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
         props.setReadOnly(false);
         unsupported.setProperties(props);
 
-        Assertions.assertThrows(IllegalStateException.class,
-                () -> attributeEngine.updateDataAttributeDefinitions(null, null, List.of(unsupported)));
+        Assertions
+                .assertThrows(IllegalStateException.class,
+                        () -> attributeEngine.updateDataAttributeDefinitions(null, null, List.of(unsupported)));
     }
 
     @Test
@@ -451,10 +610,12 @@ class AttributeEngineITest extends BaseSpringBootTest {
         requestAttribute.setContent(null);
 
         UUID certificateUuid = certificate.getUuid();
-        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectDataAttributesContent(
-                        ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificateUuid).build(),
-                        List.of(requestAttribute)),
-                "null content for a non-required attribute must be a no-op, not an NPE");
+        Assertions
+                .assertDoesNotThrow(() -> attributeEngine
+                        .updateObjectDataAttributesContent(
+                                ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificateUuid).build(),
+                                List.of(requestAttribute)),
+                        "null content for a non-required attribute must be a no-op, not an NPE");
     }
 
     @Test
@@ -489,18 +650,34 @@ class AttributeEngineITest extends BaseSpringBootTest {
         requestAttributeV3.setName(dataAttributeV3.getName());
         requestAttributeV3.setContent(List.of(new StringAttributeContentV3("data-request3")));
 
-        List<DataAttribute> attributes = attributeEngine.getDataAttributesByContent(connectorAuthority.getUuid(), List.of(requestAttributeV2, requestAttributeV3));
+        List<DataAttribute> attributes = attributeEngine
+                .getDataAttributesByContent(connectorAuthority.getUuid(),
+                        List.of(requestAttributeV2, requestAttributeV3));
         Assertions.assertEquals(2, attributes.size());
         Assertions.assertEquals(dataAttributeV2.getUuid(), attributes.getFirst().getUuid());
         Assertions.assertEquals(requestAttributeV2.getContent(), attributes.getFirst().getContent());
         Assertions.assertEquals(dataAttributeV3.getUuid(), attributes.getLast().getUuid());
         Assertions.assertEquals(requestAttributeV3.getContent(), attributes.getLast().getContent());
 
-        AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(dataAttributeV2.getUuid())).orElseThrow();
-        Assertions.assertEquals(dataAttributeV2.getContent().getFirst().getData(), ((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).getFirst().getData());
+        AttributeDefinition attributeDefinition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(dataAttributeV2.getUuid()))
+                .orElseThrow();
+        Assertions
+                .assertEquals(dataAttributeV2.getContent().getFirst().getData(),
+                        ((List<AttributeContent>) attributeDefinition.getDefinition().getContent())
+                                .getFirst()
+                                .getData());
 
-        AttributeDefinition attributeDefinition3 = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(dataAttributeV3.getUuid())).orElseThrow();
-        Assertions.assertEquals(dataAttributeV3.getContent().getFirst().getData(), ((List<AttributeContent>) attributeDefinition3.getDefinition().getContent()).getFirst().getData());
+        AttributeDefinition attributeDefinition3 = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(dataAttributeV3.getUuid()))
+                .orElseThrow();
+        Assertions
+                .assertEquals(dataAttributeV3.getContent().getFirst().getData(),
+                        ((List<AttributeContent>) attributeDefinition3.getDefinition().getContent())
+                                .getFirst()
+                                .getData());
     }
 
     @Test
@@ -509,14 +686,29 @@ class AttributeEngineITest extends BaseSpringBootTest {
         properties.setProtectionLevel(ProtectionLevel.ENCRYPTED);
         attributeEngine.updateCustomAttributeDefinition(expirationDateCustomAttribute, List.of(Resource.CERTIFICATE));
 
-        List<CustomAttribute> customAttributes = attributeEngine.getCustomAttributesByResource(Resource.CERTIFICATE, SecurityResourceFilter.create());
+        List<CustomAttribute> customAttributes = attributeEngine
+                .getCustomAttributesByResource(Resource.CERTIFICATE, SecurityResourceFilter.create());
         Assertions.assertEquals(3, customAttributes.size());
-        Assertions.assertTrue(customAttributes.stream().anyMatch(attr -> attr.getUuid().equals(departmentCustomAttribute.getUuid())));
-        Assertions.assertTrue(customAttributes.stream().anyMatch(attr -> attr.getUuid().equals(orderNoCustomAttribute.getUuid())));
-        Assertions.assertTrue(customAttributes.stream().anyMatch(attr -> attr.getUuid().equals(expirationDateCustomAttribute.getUuid())));
+        Assertions
+                .assertTrue(customAttributes
+                        .stream()
+                        .anyMatch(attr -> attr.getUuid().equals(departmentCustomAttribute.getUuid())));
+        Assertions
+                .assertTrue(customAttributes
+                        .stream()
+                        .anyMatch(attr -> attr.getUuid().equals(orderNoCustomAttribute.getUuid())));
+        Assertions
+                .assertTrue(customAttributes
+                        .stream()
+                        .anyMatch(attr -> attr.getUuid().equals(expirationDateCustomAttribute.getUuid())));
 
-        AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(null, UUID.fromString(expirationDateCustomAttribute.getUuid())).orElseThrow();
-        Assertions.assertNull(((List<AttributeContent>) attributeDefinition.getDefinition().getContent()).getFirst().getData());
+        AttributeDefinition attributeDefinition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(null, UUID.fromString(expirationDateCustomAttribute.getUuid()))
+                .orElseThrow();
+        Assertions
+                .assertNull(((List<AttributeContent>) attributeDefinition.getDefinition().getContent())
+                        .getFirst()
+                        .getData());
     }
 
     @Test
@@ -529,7 +721,8 @@ class AttributeEngineITest extends BaseSpringBootTest {
         dataAttributeV2.setProperties(properties);
         dataAttributeV2.setContent(List.of(new StringAttributeContentV2("data")));
         dataAttributeV2.setContentType(AttributeContentType.STRING);
-        List<ResponseAttribute> responseAttributes = AttributeEngine.getResponseAttributesFromBaseAttributes(List.of(departmentCustomAttribute, dataAttributeV2));
+        List<ResponseAttribute> responseAttributes = AttributeEngine
+                .getResponseAttributesFromBaseAttributes(List.of(departmentCustomAttribute, dataAttributeV2));
         Assertions.assertEquals(2, responseAttributes.size());
         Assertions.assertEquals(departmentCustomAttribute.getContent(), responseAttributes.getFirst().getContent());
         Assertions.assertEquals(dataAttributeV2.getContent(), responseAttributes.getLast().getContent());
@@ -562,29 +755,37 @@ class AttributeEngineITest extends BaseSpringBootTest {
         requestAttribute.setContent(List.of(new StringAttributeContentV2("bad content")));
 
         List<RequestAttribute> requestAttributeList = List.of(requestAttribute);
-        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
+        Assertions
+                .assertThrows(ValidationException.class, () -> attributeEngine
+                        .validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
 
         CodeBlockAttributeContentV2 attributeContent = new CodeBlockAttributeContentV2();
         attributeContent.setData(new CodeBlockAttributeContentData(null, ""));
         requestAttribute.setContent(List.of(attributeContent));
-        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
+        Assertions
+                .assertThrows(ValidationException.class, () -> attributeEngine
+                        .validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
 
         attributeContent.setData(new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "abc"));
         requestAttribute.setContent(List.of(attributeContent));
-        Assertions.assertDoesNotThrow(() -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
+        Assertions
+                .assertDoesNotThrow(() -> attributeEngine
+                        .validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
     }
 
     @Test
     void testDeleteAllObjectAttributeContent() throws NotFoundException, CertificateException, IOException {
         attributeEngine.deleteObjectAttributeContent(Resource.CERTIFICATE, certificate.getUuid());
-        CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
+        CertificateDetailDto certificateDetailDto = certificateService
+                .getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
 
         Assertions.assertTrue(certificateDetailDto.getMetadata().isEmpty());
         Assertions.assertTrue(certificateDetailDto.getCustomAttributes().isEmpty());
     }
 
     @Test
-    void testDeleteObjectCustomAttributesContent() throws NotFoundException, CertificateException, IOException, AttributeException {
+    void testDeleteObjectCustomAttributesContent()
+            throws NotFoundException, CertificateException, IOException, AttributeException {
         RequestAttributeV3 departmentAttributeDto = new RequestAttributeV3();
         departmentAttributeDto.setUuid(UUID.fromString(departmentCustomAttribute.getUuid()));
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
@@ -594,30 +795,43 @@ class AttributeEngineITest extends BaseSpringBootTest {
         orderNoAttributeDto.setUuid(UUID.fromString(orderNoCustomAttribute.getUuid()));
         orderNoAttributeDto.setName(orderNoCustomAttribute.getName());
         orderNoAttributeDto.setContent(List.of(new FloatAttributeContentV3(555f)));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto, orderNoAttributeDto));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(),
+                        List.of(departmentAttributeDto, orderNoAttributeDto));
 
-        SecurityResourceFilter filter = new SecurityResourceFilter(List.of(departmentCustomAttribute.getUuid()), List.of(), true);
+        SecurityResourceFilter filter = new SecurityResourceFilter(List.of(departmentCustomAttribute.getUuid()),
+                List.of(), true);
         attributeEngine.deleteObjectAllowedCustomAttributeContent(filter, Resource.CERTIFICATE, certificate.getUuid());
-        CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
+        CertificateDetailDto certificateDetailDto = certificateService
+                .getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
         Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
-        Assertions.assertEquals(orderNoCustomAttribute.getUuid(), certificateDetailDto.getCustomAttributes().getFirst().getUuid().toString());
+        Assertions
+                .assertEquals(orderNoCustomAttribute.getUuid(),
+                        certificateDetailDto.getCustomAttributes().getFirst().getUuid().toString());
 
-        filter = new SecurityResourceFilter(List.of(), List.of(expirationDateCustomAttribute.getUuid(), orderNoCustomAttribute.getUuid()), false);
+        filter = new SecurityResourceFilter(List.of(),
+                List.of(expirationDateCustomAttribute.getUuid(), orderNoCustomAttribute.getUuid()), false);
         attributeEngine.deleteObjectAllowedCustomAttributeContent(filter, Resource.CERTIFICATE, certificate.getUuid());
         certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
         Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
-        Assertions.assertEquals(orderNoCustomAttribute.getUuid(), certificateDetailDto.getCustomAttributes().getFirst().getUuid().toString());
+        Assertions
+                .assertEquals(orderNoCustomAttribute.getUuid(),
+                        certificateDetailDto.getCustomAttributes().getFirst().getUuid().toString());
     }
 
     @Test
     void testDeleteDefinitionAttributeContent() throws NotFoundException, CertificateException, IOException {
-        attributeEngine.deleteAttributeDefinition(AttributeType.CUSTOM, UUID.fromString(departmentCustomAttribute.getUuid()));
-        CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
+        attributeEngine
+                .deleteAttributeDefinition(AttributeType.CUSTOM, UUID.fromString(departmentCustomAttribute.getUuid()));
+        CertificateDetailDto certificateDetailDto = certificateService
+                .getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
 
         Assertions.assertEquals(3, certificateDetailDto.getMetadata().size());
         Assertions.assertTrue(certificateDetailDto.getCustomAttributes().isEmpty());
 
-        attributeEngine.deleteAttributeDefinition(AttributeType.META, connectorDiscovery.getUuid(), UUID.fromString(networkDiscoveryMeta.getUuid()), networkDiscoveryMeta.getName());
+        attributeEngine
+                .deleteAttributeDefinition(AttributeType.META, connectorDiscovery.getUuid(),
+                        UUID.fromString(networkDiscoveryMeta.getUuid()), networkDiscoveryMeta.getName());
 
         Assertions.assertFalse(certificateDetailDto.getMetadata().isEmpty());
         Assertions.assertTrue(certificateDetailDto.getCustomAttributes().isEmpty());
@@ -662,14 +876,18 @@ class AttributeEngineITest extends BaseSpringBootTest {
         expirationDateCustomAttribute.setProperties(customProps3);
 
         attributeEngine.updateCustomAttributeDefinition(orderNoCustomAttribute, List.of(Resource.CERTIFICATE));
-        attributeEngine.updateCustomAttributeDefinition(departmentCustomAttribute, List.of(Resource.CERTIFICATE, Resource.AUTHORITY));
+        attributeEngine
+                .updateCustomAttributeDefinition(departmentCustomAttribute,
+                        List.of(Resource.CERTIFICATE, Resource.AUTHORITY));
         attributeEngine.updateCustomAttributeDefinition(expirationDateCustomAttribute, List.of(Resource.CERTIFICATE));
 
         RequestAttributeV3 departmentAttributeDto = new RequestAttributeV3();
         departmentAttributeDto.setUuid(UUID.fromString(departmentCustomAttribute.getUuid()));
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
         departmentAttributeDto.setContent(List.of(new StringAttributeContentV3("Sales")));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(),
+                        List.of(departmentAttributeDto));
     }
 
     @Test
@@ -691,18 +909,40 @@ class AttributeEngineITest extends BaseSpringBootTest {
         requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
         requestAttribute.setName(dataAttribute.getName());
         requestAttribute.setContent(List.of(new StringAttributeContentV3("data_value")));
-        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).build(), List.of(requestAttribute));
+        attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, certificate.getUuid())
+                        .connector(connectorDiscovery.getUuid())
+                        .build(), List.of(requestAttribute));
 
         // Verify it exists
-        Assertions.assertFalse(attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorDiscovery.getUuid(), UUID.fromString(dataAttribute.getUuid()), dataAttribute.getName()).isEmpty());
-        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
+        Assertions
+                .assertFalse(attributeDefinitionRepository
+                        .findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA,
+                                connectorDiscovery.getUuid(), UUID.fromString(dataAttribute.getUuid()),
+                                dataAttribute.getName())
+                        .isEmpty());
+        Assertions
+                .assertFalse(attributeContent2ObjectRepository
+                        .getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(),
+                                Resource.CERTIFICATE, certificate.getUuid(), null)
+                        .isEmpty());
 
         // Delete connector attribute definitions content
         attributeEngine.deleteConnectorAttributeDefinitionsContent(connectorDiscovery.getUuid());
 
         // Verify it's gone
-        Assertions.assertTrue(attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorDiscovery.getUuid(), UUID.fromString(dataAttribute.getUuid()), dataAttribute.getName()).isEmpty());
-        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
+        Assertions
+                .assertTrue(attributeDefinitionRepository
+                        .findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA,
+                                connectorDiscovery.getUuid(), UUID.fromString(dataAttribute.getUuid()),
+                                dataAttribute.getName())
+                        .isEmpty());
+        Assertions
+                .assertTrue(attributeContent2ObjectRepository
+                        .getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(),
+                                Resource.CERTIFICATE, certificate.getUuid(), null)
+                        .isEmpty());
     }
 
     @Test
@@ -717,12 +957,23 @@ class AttributeEngineITest extends BaseSpringBootTest {
 
         attributeEngine.updateDataAttributeDefinitions(connectorDiscovery.getUuid(), null, List.of(groupAttribute));
 
-        Assertions.assertTrue(attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.GROUP, connectorDiscovery.getUuid(), UUID.fromString(groupAttribute.getUuid()), groupAttribute.getName()).isPresent());
+        Assertions
+                .assertTrue(attributeDefinitionRepository
+                        .findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.GROUP,
+                                connectorDiscovery.getUuid(), UUID.fromString(groupAttribute.getUuid()),
+                                groupAttribute.getName())
+                        .isPresent());
 
         attributeEngine.deleteConnectorAttributeDefinitionsContent(connectorDiscovery.getUuid());
 
-        Assertions.assertTrue(attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.GROUP, connectorDiscovery.getUuid(), UUID.fromString(groupAttribute.getUuid()), groupAttribute.getName()).isEmpty(),
-                "GROUP attribute definitions must be removed with the connector, otherwise deleting the connector violates fk_attribute_definition_connector");
+        Assertions
+                .assertTrue(
+                        attributeDefinitionRepository
+                                .findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.GROUP,
+                                        connectorDiscovery.getUuid(), UUID.fromString(groupAttribute.getUuid()),
+                                        groupAttribute.getName())
+                                .isEmpty(),
+                        "GROUP attribute definitions must be removed with the connector, otherwise deleting the connector violates fk_attribute_definition_connector");
     }
 
     @Test
@@ -741,19 +992,41 @@ class AttributeEngineITest extends BaseSpringBootTest {
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
         departmentAttributeDto.setContent(List.of(new StringAttributeContentV3("Sales")));
 
-        attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate2.getUuid(), List.of(departmentAttributeDto));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(),
+                        List.of(departmentAttributeDto));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate2.getUuid(),
+                        List.of(departmentAttributeDto));
 
         // Verify content exists
-        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(), null, null).isEmpty());
-        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate2.getUuid(), null, null).isEmpty());
+        Assertions
+                .assertFalse(attributeContent2ObjectRepository
+                        .getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE,
+                                certificate.getUuid(), null, null)
+                        .isEmpty());
+        Assertions
+                .assertFalse(attributeContent2ObjectRepository
+                        .getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE,
+                                certificate2.getUuid(), null, null)
+                        .isEmpty());
 
         // Bulk delete
-        attributeEngine.bulkDeleteObjectAttributeContent(Resource.CERTIFICATE, List.of(certificate.getUuid(), certificate2.getUuid()));
+        attributeEngine
+                .bulkDeleteObjectAttributeContent(Resource.CERTIFICATE,
+                        List.of(certificate.getUuid(), certificate2.getUuid()));
 
         // Verify content is gone
-        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(), null, null).isEmpty());
-        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate2.getUuid(), null, null).isEmpty());
+        Assertions
+                .assertTrue(attributeContent2ObjectRepository
+                        .getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE,
+                                certificate.getUuid(), null, null)
+                        .isEmpty());
+        Assertions
+                .assertTrue(attributeContent2ObjectRepository
+                        .getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE,
+                                certificate2.getUuid(), null, null)
+                        .isEmpty());
     }
 
     @Test
@@ -770,21 +1043,36 @@ class AttributeEngineITest extends BaseSpringBootTest {
 
         attributeEngine.updateDataAttributeDefinitions(connectorDiscovery.getUuid(), null, List.of(dataAttribute));
 
-        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).build();
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo
+                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                .connector(connectorDiscovery.getUuid())
+                .build();
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
         requestAttribute.setName(dataAttribute.getName());
         requestAttribute.setContent(List.of(new StringAttributeContentV3("data_value")));
-        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).build(), List.of(requestAttribute));
+        attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, certificate.getUuid())
+                        .connector(connectorDiscovery.getUuid())
+                        .build(), List.of(requestAttribute));
 
         // Verify content exists
-        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
+        Assertions
+                .assertFalse(attributeContent2ObjectRepository
+                        .getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(),
+                                Resource.CERTIFICATE, certificate.getUuid(), null)
+                        .isEmpty());
 
         // Delete object attributes content
         attributeEngine.deleteObjectAttributesContent(AttributeType.DATA, contentInfo);
 
         // Verify content is gone
-        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
+        Assertions
+                .assertTrue(attributeContent2ObjectRepository
+                        .getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorDiscovery.getUuid(),
+                                Resource.CERTIFICATE, certificate.getUuid(), null)
+                        .isEmpty());
     }
 
     @Test
@@ -803,33 +1091,53 @@ class AttributeEngineITest extends BaseSpringBootTest {
         String purpose = "testPurpose";
         attributeEngine.updateDataAttributeDefinitions(connectorDiscovery.getUuid(), operation, List.of(dataAttribute));
 
-        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).operation(operation).purpose(purpose).build();
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo
+                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                .connector(connectorDiscovery.getUuid())
+                .operation(operation)
+                .purpose(purpose)
+                .build();
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
         requestAttribute.setName(dataAttribute.getName());
         requestAttribute.setContent(List.of(new StringAttributeContentV3("op_purp_value")));
-        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).operation(operation).purpose(purpose).build(), List.of(requestAttribute));
+        attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, certificate.getUuid())
+                        .connector(connectorDiscovery.getUuid())
+                        .operation(operation)
+                        .purpose(purpose)
+                        .build(), List.of(requestAttribute));
 
         // Verify content exists
-        Assertions.assertFalse(attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
+        Assertions
+                .assertFalse(attributeContent2ObjectRepository
+                        .getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation,
+                                purpose, Resource.CERTIFICATE, certificate.getUuid(), null)
+                        .isEmpty());
 
         // Delete operation object attributes content with purpose
         attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, contentInfo);
 
         // Verify content is gone
-        Assertions.assertTrue(attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation, purpose, Resource.CERTIFICATE, certificate.getUuid(), null).isEmpty());
+        Assertions
+                .assertTrue(attributeContent2ObjectRepository
+                        .getObjectDataAttributesContent(AttributeType.DATA, connectorDiscovery.getUuid(), operation,
+                                purpose, Resource.CERTIFICATE, certificate.getUuid(), null)
+                        .isEmpty());
     }
 
     /**
-     * Verifies that {@code getObjectCustomAttributesContent} correctly filters results when a non-null {@code allowedDefinitionUuids}
-     * or {@code forbiddenDefinitionUuids} list is provided, and that passing {@code null} for both returns all attributes.
+     * Verifies that {@code getObjectCustomAttributesContent} correctly filters results when a non-null
+     * {@code allowedDefinitionUuids} or {@code forbiddenDefinitionUuids} list is provided, and that passing
+     * {@code null} for both returns all attributes.
      */
     @Test
     void testGetObjectCustomAttributesContentFiltering() throws AttributeException, NotFoundException {
         // Assign content to both department and orderNo custom attributes on the certificate.
         // (expirationDateCustomAttribute is read-only and already has content from setup, but its
-        //  content is assigned to Resource.CERTIFICATE via loadCustomAttributesData so all three
-        //  definitions are linked. We assign runtime content only to the two non-read-only ones.)
+        // content is assigned to Resource.CERTIFICATE via loadCustomAttributesData so all three
+        // definitions are linked. We assign runtime content only to the two non-read-only ones.)
         RequestAttributeV3 dept = new RequestAttributeV3();
         dept.setUuid(UUID.fromString(departmentCustomAttribute.getUuid()));
         dept.setName(departmentCustomAttribute.getName());
@@ -840,28 +1148,31 @@ class AttributeEngineITest extends BaseSpringBootTest {
         orderNo.setName(orderNoCustomAttribute.getName());
         orderNo.setContent(List.of(new FloatAttributeContentV3(42f)));
 
-        attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(dept, orderNo));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(),
+                        List.of(dept, orderNo));
 
         UUID deptUuid = UUID.fromString(departmentCustomAttribute.getUuid());
         UUID orderUuid = UUID.fromString(orderNoCustomAttribute.getUuid());
 
         // ── null / null → returns all stored attributes ──────────────────────
-        var all = attributeContent2ObjectRepository.getObjectCustomAttributesContent(
-                AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(), null, null);
+        var all = attributeContent2ObjectRepository
+                .getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(),
+                        null, null);
         Assertions.assertTrue(all.size() >= 2, "null/null filter must return all attributes (got " + all.size() + ")");
 
         // ── allowedDefinitionUuids = [dept] → only dept is returned ──────────
-        var allowed = attributeContent2ObjectRepository.getObjectCustomAttributesContent(
-                AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(),
-                List.of(deptUuid), null);
+        var allowed = attributeContent2ObjectRepository
+                .getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(),
+                        List.of(deptUuid), null);
         Assertions.assertEquals(1, allowed.size(), "allow-list with only dept UUID must return exactly one attribute");
-        Assertions.assertEquals(deptUuid, allowed.getFirst().uuid(),
-                "the returned attribute must be the department one");
+        Assertions
+                .assertEquals(deptUuid, allowed.getFirst().uuid(), "the returned attribute must be the department one");
 
         // ── forbiddenDefinitionUuids = [dept] → dept is excluded ─────────────
-        var forbidden = attributeContent2ObjectRepository.getObjectCustomAttributesContent(
-                AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(),
-                null, List.of(deptUuid));
+        var forbidden = attributeContent2ObjectRepository
+                .getObjectCustomAttributesContent(AttributeType.CUSTOM, Resource.CERTIFICATE, certificate.getUuid(),
+                        null, List.of(deptUuid));
         boolean containsDept = forbidden.stream().anyMatch(c -> deptUuid.equals(c.uuid()));
         Assertions.assertFalse(containsDept, "deny-list must not return the department attribute");
         boolean containsOrderNo = forbidden.stream().anyMatch(c -> orderUuid.equals(c.uuid()));
@@ -874,7 +1185,8 @@ class AttributeEngineITest extends BaseSpringBootTest {
         requestAttributeV2.setContent(List.of(new DateAttributeContentV2(LocalDate.now())));
         RequestAttributeV3 requestAttributeV3 = new RequestAttributeV3();
         requestAttributeV3.setContent(List.of(new StringAttributeContentV3("STR")));
-        List<ResponseAttribute> responseAttributes = AttributeEngine.getResponseAttributesFromRequestAttributes(List.of(requestAttributeV2, requestAttributeV3));
+        List<ResponseAttribute> responseAttributes = AttributeEngine
+                .getResponseAttributesFromRequestAttributes(List.of(requestAttributeV2, requestAttributeV3));
         Assertions.assertEquals(2, responseAttributes.size());
         Assertions.assertNotNull(responseAttributes.getFirst().getContent());
         Assertions.assertNotNull(responseAttributes.getLast().getContent());
@@ -883,7 +1195,8 @@ class AttributeEngineITest extends BaseSpringBootTest {
 
     @Test
     void testNotUpdatingAttributeDefinitionWhenLoading() {
-        AttributeDefinition attributeDefinition = getAttributeDefinition("name", "label", AttributeType.CUSTOM, departmentCustomAttribute);
+        AttributeDefinition attributeDefinition = getAttributeDefinition("name", "label", AttributeType.CUSTOM,
+                departmentCustomAttribute);
         LocalDateTime updatedAt = attributeDefinition.getUpdatedAt();
 
         AttributeRelation attributeRelation = new AttributeRelation();
@@ -892,22 +1205,32 @@ class AttributeEngineITest extends BaseSpringBootTest {
         attributeRelationRepository.save(attributeRelation);
 
         attributeEngine.getCustomAttributesByResource(attributeRelation.getResource(), SecurityResourceFilter.create());
-        attributeDefinition = attributeDefinitionRepository.findByAttributeUuid(attributeDefinition.getAttributeUuid()).get();
-        Assertions.assertEquals(updatedAt.truncatedTo(ChronoUnit.MILLIS), attributeDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MILLIS));
+        attributeDefinition = attributeDefinitionRepository
+                .findByAttributeUuid(attributeDefinition.getAttributeUuid())
+                .get();
+        Assertions
+                .assertEquals(updatedAt.truncatedTo(ChronoUnit.MILLIS),
+                        attributeDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MILLIS));
 
         DataAttributeV2 dataAttribute = new DataAttributeV2();
         dataAttribute.setContentType(AttributeContentType.STRING);
         dataAttribute.setContent(List.of(new BaseAttributeContentV2<>("ref", "data")));
-        AttributeDefinition attributeDataDefinition = getAttributeDefinition("nameData", "labelData", AttributeType.DATA, dataAttribute);
+        AttributeDefinition attributeDataDefinition = getAttributeDefinition("nameData", "labelData",
+                AttributeType.DATA, dataAttribute);
         LocalDateTime updatedAtData = attributeDataDefinition.getUpdatedAt();
 
         attributeEngine.getDataAttributeDefinition(null, attributeDataDefinition.getName());
-        attributeDataDefinition = attributeDefinitionRepository.findByAttributeUuid(attributeDataDefinition.getAttributeUuid()).get();
-        Assertions.assertEquals(updatedAtData.truncatedTo(ChronoUnit.MILLIS), attributeDataDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MILLIS));
+        attributeDataDefinition = attributeDefinitionRepository
+                .findByAttributeUuid(attributeDataDefinition.getAttributeUuid())
+                .get();
+        Assertions
+                .assertEquals(updatedAtData.truncatedTo(ChronoUnit.MILLIS),
+                        attributeDataDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MILLIS));
     }
 
     @NotNull
-    private AttributeDefinition getAttributeDefinition(String name, String label, AttributeType attributeType, BaseAttribute definition) {
+    private AttributeDefinition getAttributeDefinition(String name, String label, AttributeType attributeType,
+            BaseAttribute definition) {
         AttributeDefinition attributeDefinition = new AttributeDefinition();
         attributeDefinition.setName(name);
         attributeDefinition.setAttributeUuid(UUID.randomUUID());
@@ -932,7 +1255,13 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metaProps1.setGlobal(true);
         networkDiscoveryMeta.setProperties(metaProps1);
         networkDiscoveryMeta.setContent(List.of(new StringAttributeContentV3("localhost:0443")));
-        attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorDiscovery.getUuid()).source(Resource.DISCOVERY, networkDiscoveryUuid).build());
+        attributeEngine
+                .updateMetadataAttribute(networkDiscoveryMeta,
+                        ObjectAttributeContentInfo
+                                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                .connector(connectorDiscovery.getUuid())
+                                .source(Resource.DISCOVERY, networkDiscoveryUuid)
+                                .build());
 
         MetadataAttributeV2 authorityDiscoveryMeta = new MetadataAttributeV2();
         authorityDiscoveryMeta.setName("username");
@@ -945,7 +1274,13 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metaProps2.setVisible(true);
         authorityDiscoveryMeta.setProperties(metaProps2);
         authorityDiscoveryMeta.setContent(List.of(new StringAttributeContentV2("tst-username")));
-        attributeEngine.updateMetadataAttribute(authorityDiscoveryMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).source(Resource.DISCOVERY, authorityDiscoveryUuid).build());
+        attributeEngine
+                .updateMetadataAttribute(authorityDiscoveryMeta,
+                        ObjectAttributeContentInfo
+                                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                .connector(connectorAuthority.getUuid())
+                                .source(Resource.DISCOVERY, authorityDiscoveryUuid)
+                                .build());
 
         MetadataAttributeV2 authorityIssueMeta = new MetadataAttributeV2();
         authorityIssueMeta.setUuid("b42ab690-60fd-11ed-9b6a-0242ac120002");
@@ -958,7 +1293,12 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metaProps3.setVisible(true);
         metaProps3.setLabel("EJBCA Username");
         authorityIssueMeta.setProperties(metaProps3);
-        attributeEngine.updateMetadataAttribute(authorityIssueMeta, ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build());
+        attributeEngine
+                .updateMetadataAttribute(authorityIssueMeta,
+                        ObjectAttributeContentInfo
+                                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                .connector(connectorAuthority.getUuid())
+                                .build());
     }
 
     @Test
@@ -976,18 +1316,23 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metadataAttribute.setContent(List.of(new StringAttributeContentV3("replay-value")));
 
         // Act
-        AttributeDefinition attributeDefinition = attributeEngine.updateMetadataAttributeDefinition(metadataAttribute, connectorAuthority.getUuid());
+        AttributeDefinition attributeDefinition = attributeEngine
+                .updateMetadataAttributeDefinition(metadataAttribute, connectorAuthority.getUuid());
 
         // Assert: the caller's object must keep its content for later use (e.g. register->issue replay)
         Assertions.assertEquals(1, metadataAttribute.getContent().size());
-        Assertions.assertEquals("replay-value", ((StringAttributeContentV3) metadataAttribute.getContent().getFirst()).getData());
+        Assertions
+                .assertEquals("replay-value",
+                        ((StringAttributeContentV3) metadataAttribute.getContent().getFirst()).getData());
 
         // Assert: the persisted definition must not carry content
         MetadataAttributeV3 storedDefinition = (MetadataAttributeV3) attributeDefinition.getDefinition();
         Assertions.assertTrue(storedDefinition.getContent().isEmpty());
 
         // Assert: reloading from the DB confirms the stripped copy (not the mutated caller object) was actually flushed
-        AttributeDefinition reloaded = attributeDefinitionRepository.findByAttributeUuid(attributeDefinition.getAttributeUuid()).orElseThrow();
+        AttributeDefinition reloaded = attributeDefinitionRepository
+                .findByAttributeUuid(attributeDefinition.getAttributeUuid())
+                .orElseThrow();
         MetadataAttributeV3 reloadedDefinition = (MetadataAttributeV3) reloaded.getDefinition();
         Assertions.assertTrue(reloadedDefinition.getContent().isEmpty());
     }
@@ -1026,7 +1371,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
             assertThat(attributeDefinitionUpdateCount(statistics))
                     .as("changing the label must persist an UPDATE on the definition row")
                     .isEqualTo(1);
-            AttributeDefinition reloaded = attributeDefinitionRepository.findByAttributeUuid(attributeUuid).orElseThrow();
+            AttributeDefinition reloaded = attributeDefinitionRepository
+                    .findByAttributeUuid(attributeUuid)
+                    .orElseThrow();
             assertThat(reloaded.getLabel()).isEqualTo("Skip Fix Meta (changed)");
         } finally {
             statistics.setStatisticsEnabled(statisticsWereEnabled);
@@ -1102,25 +1449,51 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metadataAttribute.setProperties(props);
         metadataAttribute.setContent(List.of(new StringAttributeContentV3("sensitive-meta-value")));
 
-        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build();
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo
+                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                .connector(connectorAuthority.getUuid())
+                .build();
         attributeEngine.updateMetadataAttribute(metadataAttribute, contentInfo);
 
-        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(metadataAttribute.getUuid())).orElseThrow();
-        Assertions.assertEquals(ProtectionLevel.ENCRYPTED, definition.getProtectionLevel(), "declared metadata protection level must be persisted on the definition");
+        AttributeDefinition definition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(metadataAttribute.getUuid()))
+                .orElseThrow();
+        Assertions
+                .assertEquals(ProtectionLevel.ENCRYPTED, definition.getProtectionLevel(),
+                        "declared metadata protection level must be persisted on the definition");
 
-        AttributeContentItem contentItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).getFirst();
-        Assertions.assertNotNull(contentItem.getEncryptedData(), "metadata content declared ENCRYPTED must be encrypted at rest");
-        Assertions.assertNull(contentItem.getJson().getData(), "stored json must be the encrypted-content placeholder, not plaintext");
+        AttributeContentItem contentItem = attributeContentItemRepository
+                .findByAttributeDefinitionUuid(definition.getUuid())
+                .getFirst();
+        Assertions
+                .assertNotNull(contentItem.getEncryptedData(),
+                        "metadata content declared ENCRYPTED must be encrypted at rest");
+        Assertions
+                .assertNull(contentItem.getJson().getData(),
+                        "stored json must be the encrypted-content placeholder, not plaintext");
 
-        MetadataAttribute readAttribute = attributeEngine.getMetadataAttributesDefinitionContent(contentInfo).stream()
-                .filter(a -> a.getName().equals(metadataAttribute.getName())).findFirst().orElseThrow();
+        MetadataAttribute readAttribute = attributeEngine
+                .getMetadataAttributesDefinitionContent(contentInfo)
+                .stream()
+                .filter(a -> a.getName().equals(metadataAttribute.getName()))
+                .findFirst()
+                .orElseThrow();
         List<AttributeContent> readContent = readAttribute.getContent();
-        Assertions.assertEquals("sensitive-meta-value", readContent.getFirst().getData(), "definition content read must return the decrypted value");
+        Assertions
+                .assertEquals("sensitive-meta-value", readContent.getFirst().getData(),
+                        "definition content read must return the decrypted value");
 
-        var mappedItem = attributeEngine.getMappedMetadataContent(contentInfo).stream()
+        var mappedItem = attributeEngine
+                .getMappedMetadataContent(contentInfo)
+                .stream()
                 .flatMap(dto -> dto.getItems().stream())
-                .filter(item -> item.getName().equals(metadataAttribute.getName())).findFirst().orElseThrow();
-        Assertions.assertEquals("sensitive-meta-value", mappedItem.getContent().getFirst().getData(), "mapped metadata read must return the decrypted value");
+                .filter(item -> item.getName().equals(metadataAttribute.getName()))
+                .findFirst()
+                .orElseThrow();
+        Assertions
+                .assertEquals("sensitive-meta-value", mappedItem.getContent().getFirst().getData(),
+                        "mapped metadata read must return the decrypted value");
     }
 
     @Test
@@ -1139,13 +1512,23 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metadataAttribute.setProperties(props);
         metadataAttribute.setContent(List.of(new StringAttributeContentV3("previously-plaintext")));
 
-        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build();
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo
+                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                .connector(connectorAuthority.getUuid())
+                .build();
         attributeEngine.updateMetadataAttribute(metadataAttribute, contentInfo);
 
-        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(metadataAttribute.getUuid())).orElseThrow();
-        Assertions.assertEquals(ProtectionLevel.NONE, ((MetadataAttribute) definition.getDefinition()).getProperties().getProtectionLevel(),
-                "persisted definition must carry the normalized protection level, not the declared null");
-        AttributeContentItem plaintextItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).getFirst();
+        AttributeDefinition definition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(metadataAttribute.getUuid()))
+                .orElseThrow();
+        Assertions
+                .assertEquals(ProtectionLevel.NONE,
+                        ((MetadataAttribute) definition.getDefinition()).getProperties().getProtectionLevel(),
+                        "persisted definition must carry the normalized protection level, not the declared null");
+        AttributeContentItem plaintextItem = attributeContentItemRepository
+                .findByAttributeDefinitionUuid(definition.getUuid())
+                .getFirst();
         Assertions.assertNull(plaintextItem.getEncryptedData());
         Assertions.assertEquals("previously-plaintext", plaintextItem.getJson().getData());
 
@@ -1154,21 +1537,35 @@ class AttributeEngineITest extends BaseSpringBootTest {
         attributeEngine.updateMetadataAttributeDefinition(metadataAttribute, connectorAuthority.getUuid());
 
         // then: the definition carries the new level and already-stored plaintext is encrypted
-        definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(metadataAttribute.getUuid())).orElseThrow();
+        definition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(metadataAttribute.getUuid()))
+                .orElseThrow();
         Assertions.assertEquals(ProtectionLevel.ENCRYPTED, definition.getProtectionLevel());
-        AttributeContentItem healedItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).getFirst();
-        Assertions.assertNotNull(healedItem.getEncryptedData(), "already-stored plaintext must be encrypted on protection-level upgrade");
-        Assertions.assertNull(healedItem.getJson().getData(), "plaintext json must be replaced by the encrypted-content placeholder");
+        AttributeContentItem healedItem = attributeContentItemRepository
+                .findByAttributeDefinitionUuid(definition.getUuid())
+                .getFirst();
+        Assertions
+                .assertNotNull(healedItem.getEncryptedData(),
+                        "already-stored plaintext must be encrypted on protection-level upgrade");
+        Assertions
+                .assertNull(healedItem.getJson().getData(),
+                        "plaintext json must be replaced by the encrypted-content placeholder");
 
         // and: the value still reads back decrypted
-        MetadataAttribute readAttribute = attributeEngine.getMetadataAttributesDefinitionContent(contentInfo).stream()
-                .filter(a -> a.getName().equals(metadataAttribute.getName())).findFirst().orElseThrow();
+        MetadataAttribute readAttribute = attributeEngine
+                .getMetadataAttributesDefinitionContent(contentInfo)
+                .stream()
+                .filter(a -> a.getName().equals(metadataAttribute.getName()))
+                .findFirst()
+                .orElseThrow();
         List<AttributeContent> readContent = readAttribute.getContent();
         Assertions.assertEquals("previously-plaintext", readContent.getFirst().getData());
     }
 
     @Test
-    void updateMetadataAttributeDefinition_encryptsExistingContentWithVersionAwarePlaceholderForV2() throws AttributeException {
+    void updateMetadataAttributeDefinition_encryptsExistingContentWithVersionAwarePlaceholderForV2()
+            throws AttributeException {
         // given: a version 2 metadata attribute registered without protection — plaintext at rest
         MetadataAttributeV2 metadataAttribute = new MetadataAttributeV2();
         metadataAttribute.setUuid(UUID.randomUUID().toString());
@@ -1181,7 +1578,10 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metadataAttribute.setProperties(props);
         metadataAttribute.setContent(List.of(new StringAttributeContentV2("v2-plaintext")));
 
-        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build();
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo
+                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                .connector(connectorAuthority.getUuid())
+                .build();
         attributeEngine.updateMetadataAttribute(metadataAttribute, contentInfo);
 
         // when: the connector re-registers the same metadata declaring ENCRYPTED
@@ -1189,22 +1589,33 @@ class AttributeEngineITest extends BaseSpringBootTest {
         attributeEngine.updateMetadataAttributeDefinition(metadataAttribute, connectorAuthority.getUuid());
 
         // then: the placeholder matches the definition version instead of being hard-coded to v3
-        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(metadataAttribute.getUuid())).orElseThrow();
-        AttributeContentItem healedItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).getFirst();
+        AttributeDefinition definition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(metadataAttribute.getUuid()))
+                .orElseThrow();
+        AttributeContentItem healedItem = attributeContentItemRepository
+                .findByAttributeDefinitionUuid(definition.getUuid())
+                .getFirst();
         Assertions.assertNotNull(healedItem.getEncryptedData());
-        Assertions.assertInstanceOf(BaseAttributeContentV2.class, healedItem.getJson(),
-                "encrypted-content placeholder of a v2 definition must be a v2 content item");
+        Assertions
+                .assertInstanceOf(BaseAttributeContentV2.class, healedItem.getJson(),
+                        "encrypted-content placeholder of a v2 definition must be a v2 content item");
         Assertions.assertNull(healedItem.getJson().getData());
 
         // and: the value still reads back decrypted
-        MetadataAttribute readAttribute = attributeEngine.getMetadataAttributesDefinitionContent(contentInfo).stream()
-                .filter(a -> a.getName().equals(metadataAttribute.getName())).findFirst().orElseThrow();
+        MetadataAttribute readAttribute = attributeEngine
+                .getMetadataAttributesDefinitionContent(contentInfo)
+                .stream()
+                .filter(a -> a.getName().equals(metadataAttribute.getName()))
+                .findFirst()
+                .orElseThrow();
         List<AttributeContent> readContent = readAttribute.getContent();
         Assertions.assertEquals("v2-plaintext", readContent.getFirst().getData());
     }
 
     @Test
-    void updateMetadataAttributeDefinition_decryptsExistingContentOnProtectionLevelDowngrade() throws AttributeException {
+    void updateMetadataAttributeDefinition_decryptsExistingContentOnProtectionLevelDowngrade()
+            throws AttributeException {
         // given: metadata registered as ENCRYPTED with stored content
         MetadataAttributeV3 metadataAttribute = new MetadataAttributeV3();
         metadataAttribute.setUuid(UUID.randomUUID().toString());
@@ -1218,7 +1629,10 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metadataAttribute.setProperties(props);
         metadataAttribute.setContent(List.of(new StringAttributeContentV3("protected-then-plain")));
 
-        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build();
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo
+                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                .connector(connectorAuthority.getUuid())
+                .build();
         attributeEngine.updateMetadataAttribute(metadataAttribute, contentInfo);
 
         // when: the connector re-registers the same metadata declaring NONE
@@ -1226,15 +1640,28 @@ class AttributeEngineITest extends BaseSpringBootTest {
         attributeEngine.updateMetadataAttributeDefinition(metadataAttribute, connectorAuthority.getUuid());
 
         // then: the definition carries the new level and stored content is decrypted in place
-        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(metadataAttribute.getUuid())).orElseThrow();
+        AttributeDefinition definition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(metadataAttribute.getUuid()))
+                .orElseThrow();
         Assertions.assertEquals(ProtectionLevel.NONE, definition.getProtectionLevel());
-        AttributeContentItem downgradedItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).getFirst();
-        Assertions.assertNull(downgradedItem.getEncryptedData(), "ciphertext must be cleared on protection-level downgrade");
-        Assertions.assertEquals("protected-then-plain", downgradedItem.getJson().getData(), "stored json must hold the decrypted value");
+        AttributeContentItem downgradedItem = attributeContentItemRepository
+                .findByAttributeDefinitionUuid(definition.getUuid())
+                .getFirst();
+        Assertions
+                .assertNull(downgradedItem.getEncryptedData(),
+                        "ciphertext must be cleared on protection-level downgrade");
+        Assertions
+                .assertEquals("protected-then-plain", downgradedItem.getJson().getData(),
+                        "stored json must hold the decrypted value");
 
         // and: the value still reads back
-        MetadataAttribute readAttribute = attributeEngine.getMetadataAttributesDefinitionContent(contentInfo).stream()
-                .filter(a -> a.getName().equals(metadataAttribute.getName())).findFirst().orElseThrow();
+        MetadataAttribute readAttribute = attributeEngine
+                .getMetadataAttributesDefinitionContent(contentInfo)
+                .stream()
+                .filter(a -> a.getName().equals(metadataAttribute.getName()))
+                .findFirst()
+                .orElseThrow();
         List<AttributeContent> readContent = readAttribute.getContent();
         Assertions.assertEquals("protected-then-plain", readContent.getFirst().getData());
     }
@@ -1254,18 +1681,28 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metadataAttribute.setContent(List.of(new StringAttributeContentV3("same-encrypted-value")));
 
         // the same encrypted metadata registered repeatedly for the same object must not accumulate rows
-        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build();
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo
+                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                .connector(connectorAuthority.getUuid())
+                .build();
         attributeEngine.updateMetadataAttribute(metadataAttribute, contentInfo);
         attributeEngine.updateMetadataAttribute(metadataAttribute, contentInfo);
 
-        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(metadataAttribute.getUuid())).orElseThrow();
-        Assertions.assertEquals(1, attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).size(),
-                "re-registering identical encrypted content must reuse the existing content item");
+        AttributeDefinition definition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(metadataAttribute.getUuid()))
+                .orElseThrow();
+        Assertions
+                .assertEquals(1,
+                        attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).size(),
+                        "re-registering identical encrypted content must reuse the existing content item");
 
         // different content must still create a second item
         metadataAttribute.setContent(List.of(new StringAttributeContentV3("different-encrypted-value")));
         attributeEngine.updateMetadataAttribute(metadataAttribute, contentInfo);
-        Assertions.assertEquals(2, attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).size());
+        Assertions
+                .assertEquals(2,
+                        attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).size());
     }
 
     @Test
@@ -1282,20 +1719,36 @@ class AttributeEngineITest extends BaseSpringBootTest {
         metadataAttribute.setProperties(props);
         metadataAttribute.setContent(List.of(new StringAttributeContentV3("will-be-corrupted")));
 
-        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build();
+        ObjectAttributeContentInfo contentInfo = ObjectAttributeContentInfo
+                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                .connector(connectorAuthority.getUuid())
+                .build();
         attributeEngine.updateMetadataAttribute(metadataAttribute, contentInfo);
 
-        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(metadataAttribute.getUuid())).orElseThrow();
-        AttributeContentItem contentItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).getFirst();
+        AttributeDefinition definition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(metadataAttribute.getUuid()))
+                .orElseThrow();
+        AttributeContentItem contentItem = attributeContentItemRepository
+                .findByAttributeDefinitionUuid(definition.getUuid())
+                .getFirst();
         contentItem.setEncryptedData("not-a-valid-secret");
         attributeContentItemRepository.save(contentItem);
 
-        // a single undecryptable ciphertext must not fail the whole read; the item degrades to the placeholder and is skipped
-        List<MetadataAttribute> definitionContent = Assertions.assertDoesNotThrow(() -> attributeEngine.getMetadataAttributesDefinitionContent(contentInfo));
-        Assertions.assertTrue(definitionContent.stream().noneMatch(a -> a.getName().equals(metadataAttribute.getName())));
+        // a single undecryptable ciphertext must not fail the whole read; the item degrades to the placeholder and is
+        // skipped
+        List<MetadataAttribute> definitionContent = Assertions
+                .assertDoesNotThrow(() -> attributeEngine.getMetadataAttributesDefinitionContent(contentInfo));
+        Assertions
+                .assertTrue(definitionContent.stream().noneMatch(a -> a.getName().equals(metadataAttribute.getName())));
 
-        List<MetadataResponseDto> mappedMetadata = Assertions.assertDoesNotThrow(() -> attributeEngine.getMappedMetadataContent(contentInfo));
-        Assertions.assertTrue(mappedMetadata.stream().flatMap(dto -> dto.getItems().stream()).noneMatch(item -> item.getName().equals(metadataAttribute.getName())));
+        List<MetadataResponseDto> mappedMetadata = Assertions
+                .assertDoesNotThrow(() -> attributeEngine.getMappedMetadataContent(contentInfo));
+        Assertions
+                .assertTrue(mappedMetadata
+                        .stream()
+                        .flatMap(dto -> dto.getItems().stream())
+                        .noneMatch(item -> item.getName().equals(metadataAttribute.getName())));
     }
 
     @Test
@@ -1316,24 +1769,42 @@ class AttributeEngineITest extends BaseSpringBootTest {
         requestAttribute.setName(secretAttribute.getName());
         requestAttribute.setContentType(secretAttribute.getContentType());
         requestAttribute.setContent(List.of(new StringAttributeContentV3("encrypted-at-rest")));
-        attributeEngine.updateObjectDataAttributesContent(
-                ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build(),
-                List.of(requestAttribute));
+        attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, certificate.getUuid())
+                        .connector(connectorAuthority.getUuid())
+                        .build(), List.of(requestAttribute));
 
-        DataAttribute readAttribute = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connectorAuthority.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid()).stream()
-                .filter(a -> a.getName().equals(secretAttribute.getName())).findFirst().orElseThrow();
+        DataAttribute readAttribute = attributeEngine
+                .getDefinitionObjectAttributeContent(AttributeType.DATA, connectorAuthority.getUuid(), null,
+                        Resource.CERTIFICATE, certificate.getUuid())
+                .stream()
+                .filter(a -> a.getName().equals(secretAttribute.getName()))
+                .findFirst()
+                .orElseThrow();
         List<AttributeContent> readContent = readAttribute.getContent();
-        Assertions.assertEquals("encrypted-at-rest", readContent.getFirst().getData(), "definition object content read must return the decrypted value");
+        Assertions
+                .assertEquals("encrypted-at-rest", readContent.getFirst().getData(),
+                        "definition object content read must return the decrypted value");
 
         // an undecryptable ciphertext must not fail the read or surface the null-data placeholder
-        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(), UUID.fromString(secretAttribute.getUuid())).orElseThrow();
-        AttributeContentItem contentItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definition.getUuid()).getFirst();
+        AttributeDefinition definition = attributeDefinitionRepository
+                .findByConnectorUuidAndAttributeUuid(connectorAuthority.getUuid(),
+                        UUID.fromString(secretAttribute.getUuid()))
+                .orElseThrow();
+        AttributeContentItem contentItem = attributeContentItemRepository
+                .findByAttributeDefinitionUuid(definition.getUuid())
+                .getFirst();
         contentItem.setEncryptedData("not-a-valid-secret");
         attributeContentItemRepository.save(contentItem);
 
-        List<DataAttribute> degradedRead = Assertions.assertDoesNotThrow(() -> attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connectorAuthority.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid()));
-        Assertions.assertTrue(degradedRead.stream().noneMatch(a -> a.getName().equals(secretAttribute.getName())),
-                "the item with undecryptable ciphertext must be skipped, not returned with null data");
+        List<DataAttribute> degradedRead = Assertions
+                .assertDoesNotThrow(() -> attributeEngine
+                        .getDefinitionObjectAttributeContent(AttributeType.DATA, connectorAuthority.getUuid(), null,
+                                Resource.CERTIFICATE, certificate.getUuid()));
+        Assertions
+                .assertTrue(degradedRead.stream().noneMatch(a -> a.getName().equals(secretAttribute.getName())),
+                        "the item with undecryptable ciphertext must be skipped, not returned with null data");
     }
 
     @Test
@@ -1361,7 +1832,8 @@ class AttributeEngineITest extends BaseSpringBootTest {
         requestAttribute.setContent(List.of(new StringAttributeContentV2("testValue")));
 
         // Act
-        List<ResponseAttribute> responseAttributes = attributeEngine.getRequestDataAttributesContent(List.of(dataAttribute), List.of(requestAttribute));
+        List<ResponseAttribute> responseAttributes = attributeEngine
+                .getRequestDataAttributesContent(List.of(dataAttribute), List.of(requestAttribute));
 
         // Assert
         Assertions.assertEquals(1, responseAttributes.size());
@@ -1373,31 +1845,42 @@ class AttributeEngineITest extends BaseSpringBootTest {
 
     @Test
     void testAttributeEncryption() throws AttributeException, NotFoundException {
-        testAttributeEncryption(AttributeContentType.STRING, new StringAttributeContentV3("sensitiveData"), "sensitiveData");
+        testAttributeEncryption(AttributeContentType.STRING, new StringAttributeContentV3("sensitiveData"),
+                "sensitiveData");
         testAttributeEncryption(AttributeContentType.INTEGER, new IntegerAttributeContentV3(1), 1);
         testAttributeEncryption(AttributeContentType.TEXT, new TextAttributeContentV3("text"), "text");
-        testAttributeEncryption(AttributeContentType.DATE, new DateAttributeContentV3(LocalDate.of(2024, Month.JANUARY, 1)), LocalDate.of(2024, Month.JANUARY, 1));
-        testAttributeEncryption(AttributeContentType.TIME, new TimeAttributeContentV3(LocalTime.of(12, 0)), LocalTime.of(12, 0));
-        testAttributeEncryption(AttributeContentType.DATETIME, new DateTimeAttributeContentV3(ZonedDateTime.parse("2024-01-01T12:00:00+00:00")), ZonedDateTime.parse("2024-01-01T12:00:00+00:00"));
+        testAttributeEncryption(AttributeContentType.DATE,
+                new DateAttributeContentV3(LocalDate.of(2024, Month.JANUARY, 1)), LocalDate.of(2024, Month.JANUARY, 1));
+        testAttributeEncryption(AttributeContentType.TIME, new TimeAttributeContentV3(LocalTime.of(12, 0)),
+                LocalTime.of(12, 0));
+        testAttributeEncryption(AttributeContentType.DATETIME,
+                new DateTimeAttributeContentV3(ZonedDateTime.parse("2024-01-01T12:00:00+00:00")),
+                ZonedDateTime.parse("2024-01-01T12:00:00+00:00"));
         FileAttributeContentData fileAttributeContentData = new FileAttributeContentData();
         fileAttributeContentData.setContent("test");
         fileAttributeContentData.setFileName("filename.txt");
         fileAttributeContentData.setMimeType("text/plain");
-        testAttributeEncryption(AttributeContentType.FILE, new FileAttributeContentV3("filename.txt", fileAttributeContentData), fileAttributeContentData);
+        testAttributeEncryption(AttributeContentType.FILE,
+                new FileAttributeContentV3("filename.txt", fileAttributeContentData), fileAttributeContentData);
         testAttributeEncryption(AttributeContentType.FLOAT, new FloatAttributeContentV3(1.5f), 1.5f);
-        testAttributeEncryption(AttributeContentType.OBJECT, new ObjectAttributeContentV3("{\"key\":\"value\"}"), "{\"key\":\"value\"}");
-        CodeBlockAttributeContentData codeBlockAttributeContentData = new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "print('Hello, World!')");
-        testAttributeEncryption(AttributeContentType.CODEBLOCK, new CodeBlockAttributeContentV3("ref", codeBlockAttributeContentData), codeBlockAttributeContentData);
+        testAttributeEncryption(AttributeContentType.OBJECT, new ObjectAttributeContentV3("{\"key\":\"value\"}"),
+                "{\"key\":\"value\"}");
+        CodeBlockAttributeContentData codeBlockAttributeContentData = new CodeBlockAttributeContentData(
+                ProgrammingLanguageEnum.PYTHON, "print('Hello, World!')");
+        testAttributeEncryption(AttributeContentType.CODEBLOCK,
+                new CodeBlockAttributeContentV3("ref", codeBlockAttributeContentData), codeBlockAttributeContentData);
         testAttributeEncryption(AttributeContentType.BOOLEAN, new BooleanAttributeContentV3(true), true);
-        ResourceSimpleContentData resourceObjectContentData = new ResourceSimpleContentData(AttributeResource.AUTHORITY);
+        ResourceSimpleContentData resourceObjectContentData = new ResourceSimpleContentData(
+                AttributeResource.AUTHORITY);
         resourceObjectContentData.setAttributes(List.of(new ResponseAttributeV3()));
         resourceObjectContentData.setUuid(UUID.randomUUID().toString());
         resourceObjectContentData.setName("name");
-        testAttributeEncryption(AttributeContentType.RESOURCE, new ResourceObjectContent("ref", resourceObjectContentData), resourceObjectContentData);
+        testAttributeEncryption(AttributeContentType.RESOURCE,
+                new ResourceObjectContent("ref", resourceObjectContentData), resourceObjectContentData);
     }
 
-
-    private void testAttributeEncryption(AttributeContentType contentType, BaseAttributeContentV3<?> contentV3, Object data) throws AttributeException, NotFoundException {
+    private void testAttributeEncryption(AttributeContentType contentType, BaseAttributeContentV3<?> contentV3,
+            Object data) throws AttributeException, NotFoundException {
         DataAttributeV3 secretAttribute = new DataAttributeV3();
         secretAttribute.setUuid(UUID.randomUUID().toString());
         secretAttribute.setName("secretAttribute");
@@ -1415,27 +1898,37 @@ class AttributeEngineITest extends BaseSpringBootTest {
         requestAttribute.setName(secretAttribute.getName());
         requestAttribute.setContentType(secretAttribute.getContentType());
         requestAttribute.setContent(List.of(contentV3));
-        List<ResponseAttribute> responseAttributes = attributeEngine.updateObjectDataAttributesContent(
-                ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build(),
-                List.of(requestAttribute)
-        );
+        List<ResponseAttribute> responseAttributes = attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, certificate.getUuid())
+                        .connector(connectorAuthority.getUuid())
+                        .build(), List.of(requestAttribute));
         Assertions.assertEquals(1, responseAttributes.size());
         ResponseAttributeV3 responseAttribute = (ResponseAttributeV3) responseAttributes.getFirst();
         Assertions.assertNotNull(responseAttribute.getContent().getFirst().getData());
-        UUID definitionUuid = attributeDefinitionRepository.findByAttributeUuid(UUID.fromString(secretAttribute.getUuid())).orElseThrow().getUuid();
-        AttributeContentItem attributeContentItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definitionUuid).getFirst();
+        UUID definitionUuid = attributeDefinitionRepository
+                .findByAttributeUuid(UUID.fromString(secretAttribute.getUuid()))
+                .orElseThrow()
+                .getUuid();
+        AttributeContentItem attributeContentItem = attributeContentItemRepository
+                .findByAttributeDefinitionUuid(definitionUuid)
+                .getFirst();
         Assertions.assertNotEquals(contentV3, attributeContentItem.getJson());
         Assertions.assertNotNull(attributeContentItem.getEncryptedData());
 
         // Decrypt check
-        List<RequestAttribute> decryptedAttributes = attributeEngine.getRequestObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.CERTIFICATE, certificate.getUuid()).connector(connectorAuthority.getUuid()).build());
+        List<RequestAttribute> decryptedAttributes = attributeEngine
+                .getRequestObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, certificate.getUuid())
+                        .connector(connectorAuthority.getUuid())
+                        .build());
         List<BaseAttributeContentV3<?>> content1 = decryptedAttributes.getFirst().getContent();
         Assertions.assertEquals(data, content1.getFirst().getData());
     }
 
-
     @Test
-    void validateRequestDataAttributesThrowsValidationExceptionForMissingRequiredAttributes() throws AttributeException {
+    void validateRequestDataAttributesThrowsValidationExceptionForMissingRequiredAttributes()
+            throws AttributeException {
         // Arrange
         DataAttributeV2 requiredAttribute = new DataAttributeV2();
         requiredAttribute.setUuid(UUID.randomUUID().toString());
@@ -1465,7 +1958,8 @@ class AttributeEngineITest extends BaseSpringBootTest {
 
         // Act
         List<RequestAttribute> requestAttributeList = List.of(requestAttribute);
-        Executable executable = () -> AttributeEngine.validateRequestDataAttributes(requiredAttributeList, requestAttributeList, true);
+        Executable executable = () -> AttributeEngine
+                .validateRequestDataAttributes(requiredAttributeList, requestAttributeList, true);
 
         // Assert
         Assertions.assertThrows(ValidationException.class, executable);
@@ -1474,10 +1968,17 @@ class AttributeEngineITest extends BaseSpringBootTest {
 
         requestAttribute.setUuid(UUID.fromString(requiredAttribute.getUuid()));
         requestAttribute.setName(requiredAttribute.getName());
-        Assertions.assertDoesNotThrow(() -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList, requestAttributeList));
+        Assertions
+                .assertDoesNotThrow(() -> attributeEngine
+                        .validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList,
+                                requestAttributeList));
 
         requestAttribute.setContent(List.of(new StringAttributeContentV2("value123")));
-        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList, requestAttributeList));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> attributeEngine
+                                .validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList,
+                                        requestAttributeList));
 
     }
 
@@ -1508,7 +2009,8 @@ class AttributeEngineITest extends BaseSpringBootTest {
         validAttribute.setAttributeCallback(new AttributeCallback());
         attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(validAttribute));
 
-        DataAttribute dataAttribute = attributeEngine.getDataAttributeDefinition(connectorAuthority.getUuid(), validAttribute.getName());
+        DataAttribute dataAttribute = attributeEngine
+                .getDataAttributeDefinition(connectorAuthority.getUuid(), validAttribute.getName());
         Assertions.assertNotNull(dataAttribute.getAttributeCallback());
         Assertions.assertNull(dataAttribute.getConstraints());
     }
@@ -1540,7 +2042,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
         requestAttribute.setContent(List.of(new StringAttributeContentV2("validValue")));
 
         // Act & Assert
-        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestDataAttributes(validAttributeList, List.of(requestAttribute), true));
+        Assertions
+                .assertDoesNotThrow(() -> AttributeEngine
+                        .validateRequestDataAttributes(validAttributeList, List.of(requestAttribute), true));
     }
 
     @Test
@@ -1557,7 +2061,10 @@ class AttributeEngineITest extends BaseSpringBootTest {
         attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttribute));
 
         // Create relation for DATA attribute so it's found by the query
-        AttributeDefinition dataAttrDef = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorAuthority.getUuid(), dataAttribute.getName()).orElseThrow();
+        AttributeDefinition dataAttrDef = attributeDefinitionRepository
+                .findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorAuthority.getUuid(),
+                        dataAttribute.getName())
+                .orElseThrow();
         AttributeRelation dataRelation = new AttributeRelation();
         dataRelation.setAttributeDefinition(dataAttrDef);
         dataRelation.setResource(Resource.CERTIFICATE);
@@ -1566,15 +2073,25 @@ class AttributeEngineITest extends BaseSpringBootTest {
         // Metadata already loaded in setUp via loadMetadata()
 
         // Act
-        List<SearchFieldDataByGroupDto> searchableFields = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, false);
+        List<SearchFieldDataByGroupDto> searchableFields = attributeEngine
+                .getResourceSearchableFields(Resource.CERTIFICATE, false);
 
         // Assert
         Assertions.assertNotNull(searchableFields);
         Assertions.assertFalse(searchableFields.isEmpty());
 
-        var customFields = searchableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.CUSTOM).toList();
-        var dataFields = searchableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.DATA).toList();
-        var metaFields = searchableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.META).toList();
+        var customFields = searchableFields
+                .stream()
+                .filter(f -> f.getFilterFieldSource() == FilterFieldSource.CUSTOM)
+                .toList();
+        var dataFields = searchableFields
+                .stream()
+                .filter(f -> f.getFilterFieldSource() == FilterFieldSource.DATA)
+                .toList();
+        var metaFields = searchableFields
+                .stream()
+                .filter(f -> f.getFilterFieldSource() == FilterFieldSource.META)
+                .toList();
 
         Assertions.assertFalse(customFields.isEmpty());
         Assertions.assertEquals(1, customFields.size());
@@ -1598,21 +2115,34 @@ class AttributeEngineITest extends BaseSpringBootTest {
         attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttribute));
 
         // Create relation for DATA attribute so it's found by the query
-        AttributeDefinition dataAttrDef = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorAuthority.getUuid(), dataAttribute.getName()).orElseThrow();
+        AttributeDefinition dataAttrDef = attributeDefinitionRepository
+                .findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorAuthority.getUuid(),
+                        dataAttribute.getName())
+                .orElseThrow();
         AttributeRelation dataRelation = new AttributeRelation();
         dataRelation.setAttributeDefinition(dataAttrDef);
         dataRelation.setResource(Resource.CERTIFICATE);
         attributeRelationRepository.save(dataRelation);
 
         // Act
-        List<SearchFieldDataByGroupDto> settableFields = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, true);
+        List<SearchFieldDataByGroupDto> settableFields = attributeEngine
+                .getResourceSearchableFields(Resource.CERTIFICATE, true);
 
         // Assert
         Assertions.assertNotNull(settableFields);
 
-        var customFields = settableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.CUSTOM).toList();
-        var dataFields = settableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.DATA).toList();
-        var metaFields = settableFields.stream().filter(f -> f.getFilterFieldSource() == FilterFieldSource.META).toList();
+        var customFields = settableFields
+                .stream()
+                .filter(f -> f.getFilterFieldSource() == FilterFieldSource.CUSTOM)
+                .toList();
+        var dataFields = settableFields
+                .stream()
+                .filter(f -> f.getFilterFieldSource() == FilterFieldSource.DATA)
+                .toList();
+        var metaFields = settableFields
+                .stream()
+                .filter(f -> f.getFilterFieldSource() == FilterFieldSource.META)
+                .toList();
 
         Assertions.assertFalse(customFields.isEmpty());
         Assertions.assertEquals(1, customFields.size());
@@ -1652,10 +2182,11 @@ class AttributeEngineITest extends BaseSpringBootTest {
             // Re-seed OID entries that field-mapping tests depend on. The OID cache is loaded from DB
             // on Spring context startup; entries added here are not in the DB, so they must be
             // explicitly placed in the cache each time setUp() runs (before each test).
-            ensureOidCached(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3", OidRecord.builder().displayName("Common Name").code("CN").altCodes(List.of()).build());
-            ensureOidCached(OidCategory.CERTIFICATE_EXTENSION, REGISTERED_EXTENSION_OID, OidRecord.builder().displayName("Test Extension").build());
+            ensureOidCached(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                    OidRecord.builder().displayName("Common Name").code("CN").altCodes(List.of()).build());
+            ensureOidCached(OidCategory.CERTIFICATE_EXTENSION, REGISTERED_EXTENSION_OID,
+                    OidRecord.builder().displayName("Test Extension").build());
         }
-
 
         // ── validateFieldMapping / validateMappedField ────────────────────────────
 
@@ -1668,8 +2199,11 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fm);
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
             Assertions.assertTrue(ex.getMessage().contains("fieldMapping.objectType is required"), ex::getMessage);
         }
 
@@ -1682,8 +2216,11 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fm);
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
             Assertions.assertTrue(ex.getMessage().contains("fieldMapping.fields must not be empty"), ex::getMessage);
         }
 
@@ -1693,8 +2230,11 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(rdnField(null)));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
             Assertions.assertTrue(ex.getMessage().contains("fieldMapping RDN field is missing rdn"), ex::getMessage);
         }
 
@@ -1704,8 +2244,11 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(rdnField("UNKNOWNCODE")));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
             Assertions.assertTrue(ex.getMessage().contains("is not a known RDN code"), ex::getMessage);
         }
 
@@ -1715,8 +2258,10 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(rdnField("CN")));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            Assertions.assertDoesNotThrow(
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            Assertions
+                    .assertDoesNotThrow(() -> attributeEngine
+                            .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                    List.of(attr)));
         }
 
         @Test
@@ -1725,8 +2270,10 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(rdnField("1.2.840.113549.1.9.1")));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            Assertions.assertDoesNotThrow(
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            Assertions
+                    .assertDoesNotThrow(() -> attributeEngine
+                            .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                    List.of(attr)));
         }
 
         @Test
@@ -1738,9 +2285,14 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(san));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
-            Assertions.assertTrue(ex.getMessage().contains("fieldMapping SAN field is missing generalNameType"), ex::getMessage);
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
+            Assertions
+                    .assertTrue(ex.getMessage().contains("fieldMapping SAN field is missing generalNameType"),
+                            ex::getMessage);
         }
 
         @Test
@@ -1753,9 +2305,14 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(san));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
-            Assertions.assertTrue(ex.getMessage().contains("is missing otherNameOid or it is not a valid OID"), ex::getMessage);
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
+            Assertions
+                    .assertTrue(ex.getMessage().contains("is missing otherNameOid or it is not a valid OID"),
+                            ex::getMessage);
         }
 
         @Test
@@ -1768,9 +2325,14 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(san));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
-            Assertions.assertTrue(ex.getMessage().contains("is missing otherNameOid or it is not a valid OID"), ex::getMessage);
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
+            Assertions
+                    .assertTrue(ex.getMessage().contains("is missing otherNameOid or it is not a valid OID"),
+                            ex::getMessage);
         }
 
         @Test
@@ -1783,8 +2345,10 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(san));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            Assertions.assertDoesNotThrow(
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            Assertions
+                    .assertDoesNotThrow(() -> attributeEngine
+                            .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                    List.of(attr)));
         }
 
         @Test
@@ -1796,8 +2360,10 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(san));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            Assertions.assertDoesNotThrow(
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            Assertions
+                    .assertDoesNotThrow(() -> attributeEngine
+                            .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                    List.of(attr)));
         }
 
         @Test
@@ -1809,9 +2375,14 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(ext));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
-            Assertions.assertTrue(ex.getMessage().contains("fieldMapping EXTENSION field is missing extensionOid"), ex::getMessage);
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
+            Assertions
+                    .assertTrue(ex.getMessage().contains("fieldMapping EXTENSION field is missing extensionOid"),
+                            ex::getMessage);
         }
 
         @Test
@@ -1823,21 +2394,30 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(ext));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
             Assertions.assertTrue(ex.getMessage().contains("is not registered in the OID registry"), ex::getMessage);
         }
 
         @Test
         void testFieldMapping_extensionField_duplicateOidInOneMapping_throws() {
             DataAttributeV3 attr = fieldMappingAttribute("fm_ext_dup_oid");
-            attr.setFieldMapping(fieldMappingWith(extensionField(REGISTERED_EXTENSION_OID), extensionField(REGISTERED_EXTENSION_OID)));
+            attr
+                    .setFieldMapping(fieldMappingWith(extensionField(REGISTERED_EXTENSION_OID),
+                            extensionField(REGISTERED_EXTENSION_OID)));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
-            Assertions.assertTrue(ex.getMessage().contains(REGISTERED_EXTENSION_OID)
-                    && ex.getMessage().contains("more than once"), ex::getMessage);
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
+            Assertions
+                    .assertTrue(ex.getMessage().contains(REGISTERED_EXTENSION_OID)
+                            && ex.getMessage().contains("more than once"), ex::getMessage);
         }
 
         @Test
@@ -1849,8 +2429,10 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(ext));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            Assertions.assertDoesNotThrow(
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
+            Assertions
+                    .assertDoesNotThrow(() -> attributeEngine
+                            .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                    List.of(attr)));
         }
 
         // ── contentType must be STRING for fieldMapping attributes ────────────────
@@ -1862,9 +2444,16 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(rdnField("CN")));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE, List.of(attr)));
-            Assertions.assertTrue(ex.getMessage().contains("fieldMapping is only valid for attributes with STRING or TEXT content type"), ex::getMessage);
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine
+                                    .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.CERTIFICATE_ISSUE,
+                                            List.of(attr)));
+            Assertions
+                    .assertTrue(ex
+                            .getMessage()
+                            .contains("fieldMapping is only valid for attributes with STRING or TEXT content type"),
+                            ex::getMessage);
         }
 
         // ── fieldMapping validated regardless of operation ───────────────────────
@@ -1881,8 +2470,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fm);
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(attr)));
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(attr)));
             Assertions.assertTrue(ex.getMessage().contains("fieldMapping.objectType is required"), ex::getMessage);
         }
 
@@ -1894,8 +2484,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fieldMappingWith(rdnField("CN")));
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            Assertions.assertDoesNotThrow(
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(attr)));
+            Assertions
+                    .assertDoesNotThrow(
+                            () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(attr)));
         }
 
         @Test
@@ -1907,8 +2498,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setFieldMapping(fm);
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, AttributeOperation.SIGN, List.of(attr)));
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class, () -> attributeEngine
+                            .updateDataAttributeDefinitions(connectorUuid, AttributeOperation.SIGN, List.of(attr)));
             Assertions.assertTrue(ex.getMessage().contains("fieldMapping.objectType is required"), ex::getMessage);
         }
 
@@ -1931,8 +2523,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setValueSource(valueSource);
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            Assertions.assertDoesNotThrow(
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(attr)));
+            Assertions
+                    .assertDoesNotThrow(
+                            () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(attr)));
         }
 
         @Test
@@ -1952,8 +2545,9 @@ class AttributeEngineITest extends BaseSpringBootTest {
             attr.setValueSource(valueSource);
 
             UUID connectorUuid = connectorAuthority.getUuid();
-            AttributeException ex = Assertions.assertThrows(AttributeException.class,
-                    () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(attr)));
+            AttributeException ex = Assertions
+                    .assertThrows(AttributeException.class,
+                            () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(attr)));
             Assertions.assertTrue(ex.getMessage().contains("missing callback"), ex::getMessage);
         }
 

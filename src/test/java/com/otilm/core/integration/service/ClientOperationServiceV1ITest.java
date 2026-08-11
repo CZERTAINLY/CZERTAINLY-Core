@@ -1,20 +1,22 @@
 package com.otilm.core.integration.service;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.authority.ClientAddEndEntityRequestDto;
+import com.otilm.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.otilm.api.model.client.authority.LegacyClientCertificateRevocationDto;
 import com.otilm.api.model.client.authority.LegacyClientCertificateSignRequestDto;
-import com.otilm.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.NameAndIdDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
-import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
-import com.otilm.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
+import com.otilm.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.core.attribute.engine.AttributeEngine;
@@ -31,11 +33,6 @@ import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.service.ClientOperationExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import org.junit.jupiter.api.*;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
@@ -46,6 +43,11 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
 
@@ -75,7 +77,6 @@ public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
         this.attributeEngine = attributeEngine;
     }
 
-
     @BeforeEach
     public void setUp() throws GeneralSecurityException, IOException, NotFoundException, AttributeException {
         mockServer = new WireMockServer(0);
@@ -84,7 +85,7 @@ public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         Connector connector = new Connector();
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setVersion(ConnectorVersion.V1);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
@@ -122,8 +123,14 @@ public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
 
         raProfile = raProfileRepository.save(raProfile);
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2(UUID.fromString(attribute.getUuid()), "endEntityProfile", AttributeContentType.OBJECT, List.of(contentMap)));
-        attributeEngine.updateObjectDataAttributesContent(ObjectAttributeContentInfo.builder(Resource.RA_PROFILE, raProfile.getUuid()).connector(connector.getUuid()).build(), requestAttributes);
+        requestAttributes
+                .add(new RequestAttributeV2(UUID.fromString(attribute.getUuid()), "endEntityProfile",
+                        AttributeContentType.OBJECT, List.of(contentMap)));
+        attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.RA_PROFILE, raProfile.getUuid())
+                        .connector(connector.getUuid())
+                        .build(), requestAttributes);
 
         CertificateContent certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
@@ -153,9 +160,12 @@ public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
     @Test
     void testIssueCertificate() throws CertificateException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/issue"))
-                .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/issue"))
+                        .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         LegacyClientCertificateSignRequestDto request = new LegacyClientCertificateSignRequestDto();
         Assertions.assertDoesNotThrow(() -> clientOperationService.issueCertificate(RA_PROFILE_NAME, request));
@@ -163,14 +173,19 @@ public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
 
     @Test
     void testIssueCertificate_nonexistentEntity() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate("wrong-name", null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationService.issueCertificate("wrong-name", null));
     }
 
     @Test
     void testRevokeCertificate() {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/revoke"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/revoke"))
+                        .willReturn(WireMock.ok()));
 
         LegacyClientCertificateRevocationDto request = new LegacyClientCertificateRevocationDto();
         Assertions.assertDoesNotThrow(() -> clientOperationService.revokeCertificate(RA_PROFILE_NAME, request));
@@ -178,14 +193,19 @@ public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
 
     @Test
     void testRevokeCertificate_nonexistentEntity() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificate("wrong-name", null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationService.revokeCertificate("wrong-name", null));
     }
 
     @Test
     void testListEntities() {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
+                        .willReturn(WireMock.ok()));
 
         Assertions.assertDoesNotThrow(() -> clientOperationService.listEntities(RA_PROFILE_NAME));
     }
@@ -197,11 +217,16 @@ public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
 
     @Test
     void testAddEntity() {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
+                        .willReturn(WireMock.ok()));
 
-        Assertions.assertDoesNotThrow(() -> clientOperationService.addEndEntity(RA_PROFILE_NAME, new ClientAddEndEntityRequestDto()));
+        Assertions
+                .assertDoesNotThrow(
+                        () -> clientOperationService.addEndEntity(RA_PROFILE_NAME, new ClientAddEndEntityRequestDto()));
     }
 
     @Test
@@ -211,9 +236,12 @@ public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
 
     @Test
     void testGetEntity() {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
+                        .willReturn(WireMock.ok()));
 
         Assertions.assertDoesNotThrow(() -> clientOperationService.getEndEntity(RA_PROFILE_NAME, "testEndEntity"));
     }
@@ -225,44 +253,62 @@ public class ClientOperationServiceV1ITest extends BaseSpringBootTest {
 
     @Test
     void testEditEntity() {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
+                        .willReturn(WireMock.ok()));
 
         ClientEditEndEntityRequestDto request = new ClientEditEndEntityRequestDto();
-        Assertions.assertDoesNotThrow(() -> clientOperationService.editEndEntity(RA_PROFILE_NAME, "testEndEntity", request));
+        Assertions
+                .assertDoesNotThrow(
+                        () -> clientOperationService.editEndEntity(RA_PROFILE_NAME, "testEndEntity", request));
     }
 
     @Test
     void testEditEntity_nonexistentEntity() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.editEndEntity("wrong-name", null, null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationService.editEndEntity("wrong-name", null, null));
     }
 
     @Test
     void testRevokeAndDeleteEndEntity() {
-        mockServer.stubFor(WireMock
-                .delete(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .delete(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
+                        .willReturn(WireMock.ok()));
 
-        Assertions.assertDoesNotThrow(() -> clientOperationService.revokeAndDeleteEndEntity(RA_PROFILE_NAME, "testEndEntity"));
+        Assertions
+                .assertDoesNotThrow(
+                        () -> clientOperationService.revokeAndDeleteEndEntity(RA_PROFILE_NAME, "testEndEntity"));
     }
 
     @Test
     void testRevokeAndDeleteEndEntity_nonexistentEntity() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeAndDeleteEndEntity("wrong-name", null));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> clientOperationService.revokeAndDeleteEndEntity("wrong-name", null));
     }
 
     @Test
     void testResetPassword() {
-        mockServer.stubFor(WireMock
-                .put(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+/resetPassword"))
-                .willReturn(WireMock.ok()));
+        mockServer
+                .stubFor(WireMock
+                        .put(WireMock
+                                .urlPathMatching(
+                                        "/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+/resetPassword"))
+                        .willReturn(WireMock.ok()));
 
         Assertions.assertDoesNotThrow(() -> clientOperationService.resetPassword(RA_PROFILE_NAME, "testEndEntity"));
     }
 
     @Test
     void testResetPassword_nonexistentEntity() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.resetPassword("wrong-name", null));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> clientOperationService.resetPassword("wrong-name", null));
     }
 }

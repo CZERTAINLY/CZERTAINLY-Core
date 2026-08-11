@@ -1,32 +1,27 @@
 package com.otilm.core.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.naming.Context;
-import javax.naming.NamingEnumeration;
-import javax.naming.directory.*;
-import javax.naming.ldap.InitialLdapContext;
-import javax.naming.ldap.LdapContext;
 import java.util.Hashtable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.naming.Context;
+import javax.naming.NamingEnumeration;
+import javax.naming.directory.Attributes;
+import javax.naming.directory.SearchControls;
+import javax.naming.directory.SearchResult;
+import javax.naming.ldap.InitialLdapContext;
+import javax.naming.ldap.LdapContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LdapUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(LdapUtils.class);
 
     /**
-     * Regular expression to match LDAP or LDAPS URI components with optional host
-     * group 1: Protocol (ldap or ldaps)
-     * group 2: Userinfo (optional)
-     * group 3: Username (optional)
-     * group 4: Password (optional)
-     * group 5: Host (optional)
-     * group 7: Port (optional)
-     * group 9: Base DN (optional)
-     * group 11: Attributes (optional)
-     * group 13: Fragment (optional)
+     * Regular expression to match LDAP or LDAPS URI components with optional host group 1: Protocol (ldap or ldaps)
+     * group 2: Userinfo (optional) group 3: Username (optional) group 4: Password (optional) group 5: Host (optional)
+     * group 7: Port (optional) group 9: Base DN (optional) group 11: Attributes (optional) group 13: Fragment
+     * (optional)
      */
     public static final String LDAP_URL_REGEX = "^(ldap|ldaps)://(([^/?#]+):([^/?#]+)@)?([^/?#:]*)?(:([0-9]+))?(/([^?#]*))?(\\?([^#]*))?(#(.*))?$";
 

@@ -1,5 +1,6 @@
 package com.otilm.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.connector.ConnectorSummaryDto;
 import com.otilm.api.model.core.proxy.ProxyDto;
@@ -7,14 +8,13 @@ import com.otilm.api.model.core.proxy.ProxyListDto;
 import com.otilm.api.model.core.proxy.ProxyStatus;
 import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
-import org.hibernate.proxy.HibernateProxy;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.OffsetDateTime;
@@ -22,6 +22,11 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -29,7 +34,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "proxy")
-public class Proxy extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ProxyDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+public class Proxy extends UniquelyIdentifiedAndAudited
+        implements
+            Serializable,
+            DtoMapper<ProxyDto>,
+            ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Serial
     private static final long serialVersionUID = 4728391023847102938L;
@@ -64,9 +73,12 @@ public class Proxy extends UniquelyIdentifiedAndAudited implements Serializable,
         dto.setCode(this.code);
         dto.setStatus(this.status);
         dto.setLastActivity(this.lastActivity);
-        dto.setConnectors(this.connectors.stream()
-            .map(c -> new ConnectorSummaryDto(c.getUuid().toString(), c.getName(), c.getUrl(), c.getStatus()))
-            .collect(Collectors.toList()));
+        dto
+                .setConnectors(this.connectors
+                        .stream()
+                        .map(c -> new ConnectorSummaryDto(c.getUuid().toString(), c.getName(), c.getUrl(),
+                                c.getStatus()))
+                        .collect(Collectors.toList()));
         return dto;
     }
 
@@ -98,17 +110,29 @@ public class Proxy extends UniquelyIdentifiedAndAudited implements Serializable,
 
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        Class<?> oEffectiveClass = o instanceof HibernateProxy
+                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+                : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) {
+            return false;
+        }
         Proxy proxy = (Proxy) o;
         return getUuid() != null && Objects.equals(getUuid(), proxy.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy
+                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
     }
 }

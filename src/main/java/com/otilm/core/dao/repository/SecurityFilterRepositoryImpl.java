@@ -17,19 +17,37 @@ import com.otilm.core.util.FilterPredicatesBuilder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.TypedQuery;
-import jakarta.persistence.criteria.*;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaDelete;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.FetchParent;
+import jakarta.persistence.criteria.From;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.SingularAttribute;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.StringTokenizer;
+import java.util.UUID;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 
-import java.util.*;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-
-public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, ID> implements SecurityFilterRepository<T, ID> {
+public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, ID>
+        implements
+            SecurityFilterRepository<T, ID> {
 
     private final JpaEntityInformation<T, ?> entityInformation;
     private final EntityManager entityManager;
@@ -45,7 +63,8 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public Optional<T> findByUuid(SecuredUUID uuid, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
+    public Optional<T> findByUuid(SecuredUUID uuid,
+            BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
         try {
             Class<T> entity = this.entityInformation.getJavaType();
             CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -76,33 +95,48 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public List<T> findUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+    public List<T> findUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
         final CriteriaQuery<T> cr = createCriteriaBuilder(filter, fetchAssociations, additionalWhereClause, null);
         return entityManager.createQuery(cr).getResultList();
     }
 
     @Override
-    public List<T> findUsingSecurityFilter(final SecurityFilter filter, List<String> fetchAssociations, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+    public List<T> findUsingSecurityFilter(final SecurityFilter filter, List<String> fetchAssociations,
+            final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
+            final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final CriteriaQuery<T> cr = createCriteriaBuilder(filter, fetchAssociations, additionalWhereClause, order);
         if (p != null) {
-            return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
+            return entityManager
+                    .createQuery(cr)
+                    .setFirstResult((int) p.getOffset())
+                    .setMaxResults(p.getPageSize())
+                    .getResultList();
         } else {
             return entityManager.createQuery(cr).getResultList();
         }
     }
 
     @Override
-    public List<UUID> findUuidsUsingSecurityFilter(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+    public List<UUID> findUuidsUsingSecurityFilter(final SecurityFilter filter,
+            final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
+            final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final CriteriaQuery<UUID> cr = createCriteriaBuilderUuid(filter, additionalWhereClause, order);
         if (p != null) {
-            return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
+            return entityManager
+                    .createQuery(cr)
+                    .setFirstResult((int) p.getOffset())
+                    .setMaxResults(p.getPageSize())
+                    .getResultList();
         } else {
             return entityManager.createQuery(cr).getResultList();
         }
     }
 
     @Override
-    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute<?, ?> join, SingularAttribute<?, ?> groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupByExpression, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute<?, ?> join,
+            SingularAttribute<?, ?> groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupByExpression,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<AggregateResultDto> cr = cb.createQuery(AggregateResultDto.class);
@@ -121,7 +155,13 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
         cr = predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
 
-        return entityManager.createQuery(cr).getResultList().stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), i -> i.aggregation().longValue()));
+        return entityManager
+                .createQuery(cr)
+                .getResultList()
+                .stream()
+                .collect(Collectors
+                        .toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(),
+                                i -> i.aggregation().longValue()));
     }
 
     @Override
@@ -130,14 +170,16 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public Long countUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+    public Long countUsingSecurityFilter(SecurityFilter filter,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
         CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause);
         List<Long> crlist = entityManager.createQuery(cr).getResultList();
         return crlist.get(0);
     }
 
     @Override
-    public Integer deleteUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaDelete<T>, Predicate> additionalWhereClause) {
+    public Integer deleteUsingSecurityFilter(SecurityFilter filter,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaDelete<T>, Predicate> additionalWhereClause) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaDelete<T> cd = cb.createCriteriaDelete(entity);
@@ -153,23 +195,33 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter,
+            SingularAttribute<T, String> nameAttribute) {
         return listResourceObjects(securityFilter, nameAttribute, null);
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
-        CriteriaQuery<NameAndUuidDto> query = createResourceObjectsQuery(securityFilter, nameAttribute, additionalWhereClause);
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter,
+            SingularAttribute<T, String> nameAttribute,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+        CriteriaQuery<NameAndUuidDto> query = createResourceObjectsQuery(securityFilter, nameAttribute,
+                additionalWhereClause);
 
         return entityManager.createQuery(query).getResultList();
     }
 
-    private CriteriaQuery<NameAndUuidDto> createResourceObjectsQuery(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
-        BiFunction<Root<T>, CriteriaBuilder, Expression<String>> factory = nameAttribute == null ? null : (root, cb) -> root.get(nameAttribute);
+    private CriteriaQuery<NameAndUuidDto> createResourceObjectsQuery(SecurityFilter securityFilter,
+            SingularAttribute<T, String> nameAttribute,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+        BiFunction<Root<T>, CriteriaBuilder, Expression<String>> factory = nameAttribute == null
+                ? null
+                : (root, cb) -> root.get(nameAttribute);
         return createResourceObjectsQuery(securityFilter, factory, additionalWhereClause);
     }
 
-    private CriteriaQuery<NameAndUuidDto> createResourceObjectsQuery(SecurityFilter securityFilter, BiFunction<Root<T>, CriteriaBuilder, Expression<String>> nameExpressionFactory, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+    private CriteriaQuery<NameAndUuidDto> createResourceObjectsQuery(SecurityFilter securityFilter,
+            BiFunction<Root<T>, CriteriaBuilder, Expression<String>> nameExpressionFactory,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<NameAndUuidDto> query = cb.createQuery(NameAndUuidDto.class);
@@ -195,8 +247,12 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, PaginationRequestDto page) {
-        CriteriaQuery<NameAndUuidDto> criteriaQuery = createResourceObjectsQuery(securityFilter, nameAttribute, additionalWhereClause);
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter,
+            SingularAttribute<T, String> nameAttribute,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
+            PaginationRequestDto page) {
+        CriteriaQuery<NameAndUuidDto> criteriaQuery = createResourceObjectsQuery(securityFilter, nameAttribute,
+                additionalWhereClause);
 
         TypedQuery<NameAndUuidDto> query = entityManager.createQuery(criteriaQuery);
         if (page != null) {
@@ -207,8 +263,12 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, BiFunction<Root<T>, CriteriaBuilder, Expression<String>> nameExpressionFactory, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, PaginationRequestDto page) {
-        CriteriaQuery<NameAndUuidDto> criteriaQuery = createResourceObjectsQuery(securityFilter, nameExpressionFactory, additionalWhereClause);
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter,
+            BiFunction<Root<T>, CriteriaBuilder, Expression<String>> nameExpressionFactory,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
+            PaginationRequestDto page) {
+        CriteriaQuery<NameAndUuidDto> criteriaQuery = createResourceObjectsQuery(securityFilter, nameExpressionFactory,
+                additionalWhereClause);
 
         TypedQuery<NameAndUuidDto> query = entityManager.createQuery(criteriaQuery);
         if (page != null) {
@@ -219,7 +279,8 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public NameAndUuidDto findResourceObject(UUID uuid, BiFunction<Root<T>, CriteriaBuilder, Expression<String>> nameExpressionFactory) throws NotFoundException {
+    public NameAndUuidDto findResourceObject(UUID uuid,
+            BiFunction<Root<T>, CriteriaBuilder, Expression<String>> nameExpressionFactory) throws NotFoundException {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<NameAndUuidDto> query = cb.createQuery(NameAndUuidDto.class);
@@ -229,15 +290,21 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
                 ? cb.nullLiteral(String.class)
                 : nameExpressionFactory.apply(root, cb);
 
-        query.select(cb.construct(NameAndUuidDto.class, root.get("uuid"), nameExpression))
+        query
+                .select(cb.construct(NameAndUuidDto.class, root.get("uuid"), nameExpression))
                 .where(cb.equal(root.get("uuid"), uuid));
 
-        return entityManager.createQuery(query).getResultList().stream().findFirst()
+        return entityManager
+                .createQuery(query)
+                .getResultList()
+                .stream()
+                .findFirst()
                 .orElseThrow(() -> new NotFoundException(this.entityInformation.getJavaType(), uuid));
     }
 
     @Override
-    public NameAndUuidDto findResourceObject(UUID uuid, SingularAttribute<T, String> nameAttribute) throws NotFoundException {
+    public NameAndUuidDto findResourceObject(UUID uuid, SingularAttribute<T, String> nameAttribute)
+            throws NotFoundException {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<NameAndUuidDto> query = cb.createQuery(NameAndUuidDto.class);
@@ -247,18 +314,21 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
                 ? cb.nullLiteral(String.class)
                 : root.get(nameAttribute);
 
-        query.select(
-                cb.construct(
-                        NameAndUuidDto.class,
-                        root.get("uuid"),
-                        nameExpression
-                )
-        ).where(cb.equal(root.get("uuid"), uuid));
+        query
+                .select(cb.construct(NameAndUuidDto.class, root.get("uuid"), nameExpression))
+                .where(cb.equal(root.get("uuid"), uuid));
 
-        return entityManager.createQuery(query).getResultList().stream().findFirst().orElseThrow(() -> new NotFoundException(this.entityInformation.getJavaType(), uuid));
+        return entityManager
+                .createQuery(query)
+                .getResultList()
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException(this.entityInformation.getJavaType(), uuid));
     }
 
-    private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, List<String> fetchAssociations, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+    private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, List<String> fetchAssociations,
+            final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
+            final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final CriteriaQuery<T> cr = cb.createQuery(entity);
@@ -276,7 +346,9 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
 
-    private CriteriaQuery<UUID> createCriteriaBuilderUuid(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+    private CriteriaQuery<UUID> createCriteriaBuilderUuid(final SecurityFilter filter,
+            final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
+            final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final CriteriaQuery<UUID> cr = cb.createQuery(UUID.class);
@@ -292,7 +364,8 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
 
-    private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+    private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter,
+            final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaQuery<Long> cr = cb.createQuery(Long.class);
@@ -310,7 +383,9 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             final StringTokenizer stz = new StringTokenizer(fetchAssociation, ".");
             while (stz.hasMoreTokens()) {
                 String associationName = stz.nextToken();
-                associationFullName = associationFullName == null ? associationName : associationFullName + "." + associationName;
+                associationFullName = associationFullName == null
+                        ? associationName
+                        : associationFullName + "." + associationName;
                 if (fetchedAssociationsMap.get(associationFullName) == null) {
                     fetch = fetch.fetch(associationName, JoinType.LEFT);
                     fetchedAssociationsMap.put(associationFullName, fetch);
@@ -321,26 +396,33 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         }
     }
 
-    private List<Predicate> getPredicates(SecurityFilter filter, Predicate additionalWhereClause, Root<T> root, CriteriaBuilder cb) {
+    private List<Predicate> getPredicates(SecurityFilter filter, Predicate additionalWhereClause, Root<T> root,
+            CriteriaBuilder cb) {
         List<Predicate> predicates = new ArrayList<>();
         if (additionalWhereClause != null) {
             predicates.add(additionalWhereClause);
         }
 
         if (filter.getParentResourceFilter() != null && filter.getParentRefProperty() == null) {
-            throw new ValidationException(ValidationError.create("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource()));
+            throw new ValidationException(ValidationError
+                    .create("Unknown parent ref property to filter by parent resource "
+                            + filter.getParentResourceFilter().getResource()));
         }
 
-        Predicate resourceFilterPredicate = getPredicateBySecurityResourceFilter(root, filter.getResourceFilter(), "uuid");
-        Predicate parentResourceFilterPredicate = getPredicateBySecurityResourceFilter(root, filter.getParentResourceFilter(), filter.getParentRefProperty());
+        Predicate resourceFilterPredicate = getPredicateBySecurityResourceFilter(root, filter.getResourceFilter(),
+                "uuid");
+        Predicate parentResourceFilterPredicate = getPredicateBySecurityResourceFilter(root,
+                filter.getParentResourceFilter(), filter.getParentRefProperty());
 
-        // no predicates from security filter means user can retrieve all objects and it is not necessary to evaluate groups and owner associations
+        // no predicates from security filter means user can retrieve all objects and it is not necessary to evaluate
+        // groups and owner associations
         if (resourceFilterPredicate == null && parentResourceFilterPredicate == null) {
             return predicates;
         }
 
         // init object permissions predicates from resource security filters
-        List<Predicate> objectAccessPredicates = initObjectAccessPredicates(resourceFilterPredicate, parentResourceFilterPredicate, cb);
+        List<Predicate> objectAccessPredicates = initObjectAccessPredicates(resourceFilterPredicate,
+                parentResourceFilterPredicate, cb);
 
         // add owner and group based object access permissions
         getObjectGroupOwnerAccessPredicates(objectAccessPredicates, filter, root, cb);
@@ -349,12 +431,17 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         objectAccessPredicates = objectAccessPredicates.stream().filter(Objects::nonNull).toList();
 
         if (!objectAccessPredicates.isEmpty()) {
-            predicates.add(objectAccessPredicates.size() == 1 ? objectAccessPredicates.getFirst() : cb.or(objectAccessPredicates.toArray(new Predicate[0])));
+            predicates
+                    .add(objectAccessPredicates.size() == 1
+                            ? objectAccessPredicates.getFirst()
+                            : cb.or(objectAccessPredicates.toArray(new Predicate[0])));
         }
         return predicates;
     }
 
-    private List<Predicate> getPredicates(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb, CriteriaQuery<?> cr) {
+    private List<Predicate> getPredicates(SecurityFilter filter,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Root<T> root,
+            CriteriaBuilder cb, CriteriaQuery<?> cr) {
         Predicate additionalWhereClausePredicate = null;
         if (additionalWhereClause != null) {
             additionalWhereClausePredicate = additionalWhereClause.apply(root, cb, cr);
@@ -363,7 +450,8 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return getPredicates(filter, additionalWhereClausePredicate, root, cb);
     }
 
-    private List<Predicate> initObjectAccessPredicates(Predicate resourceFilterPredicate, Predicate parentResourceFilterPredicate, CriteriaBuilder cb) {
+    private List<Predicate> initObjectAccessPredicates(Predicate resourceFilterPredicate,
+            Predicate parentResourceFilterPredicate, CriteriaBuilder cb) {
         List<Predicate> objectAccessPredicates = new ArrayList<>();
         if (resourceFilterPredicate != null && parentResourceFilterPredicate != null) {
             objectAccessPredicates.add(cb.and(resourceFilterPredicate, parentResourceFilterPredicate));
@@ -376,28 +464,38 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return objectAccessPredicates;
     }
 
-    private void getObjectGroupOwnerAccessPredicates(List<Predicate> objectAccessPredicates, SecurityFilter filter, Root<T> root, CriteriaBuilder cb) {
+    private void getObjectGroupOwnerAccessPredicates(List<Predicate> objectAccessPredicates, SecurityFilter filter,
+            Root<T> root, CriteriaBuilder cb) {
         if (filter.getResourceFilter() != null) {
             // check for group membership predicate
             if (filter.getResourceFilter().getResource().hasGroups()
-                    && (filter.getResourceFilter().getResourceAction() == ResourceAction.LIST || filter.getResourceFilter().getResourceAction() == ResourceAction.DETAIL)) {
-                objectAccessPredicates.add(getPredicateBySecurityResourceFilter(root, filter.getGroupMembersFilter(), "groups.uuid"));
+                    && (filter.getResourceFilter().getResourceAction() == ResourceAction.LIST
+                            || filter.getResourceFilter().getResourceAction() == ResourceAction.DETAIL)) {
+                objectAccessPredicates
+                        .add(getPredicateBySecurityResourceFilter(root, filter.getGroupMembersFilter(), "groups.uuid"));
             }
             // check for owner association predicate
             if (filter.getResourceFilter().getResource().hasOwner()) {
                 try {
                     NameAndUuidDto userInformation = AuthHelper.getUserIdentification();
-                    String ownerAttributePath = root.getJavaType().equals(CryptographicKeyItem.class) ? "%s.owner".formatted(CryptographicKeyItem_.key.getName()) : "owner";
+                    String ownerAttributePath = root.getJavaType().equals(CryptographicKeyItem.class)
+                            ? "%s.owner".formatted(CryptographicKeyItem_.key.getName())
+                            : "owner";
                     Join fromOwner = FilterPredicatesBuilder.prepareJoin(root, ownerAttributePath);
-                    objectAccessPredicates.add(cb.equal(FilterPredicatesBuilder.prepareExpression(fromOwner, "ownerUsername"), userInformation.getName()));
+                    objectAccessPredicates
+                            .add(cb
+                                    .equal(FilterPredicatesBuilder.prepareExpression(fromOwner, "ownerUsername"),
+                                            userInformation.getName()));
                 } catch (ValidationException e) {
-                    // cannot apply filter predicate for anonymous user but anonymous user should not have access here anyway and anyway will be filtered out by SecurityFilter with no permissions
+                    // cannot apply filter predicate for anonymous user but anonymous user should not have access here
+                    // anyway and anyway will be filtered out by SecurityFilter with no permissions
                 }
             }
         }
     }
 
-    private Predicate getPredicateBySecurityResourceFilter(Root<T> root, SecurityResourceFilter resourceFilter, String attributeName) {
+    private Predicate getPredicateBySecurityResourceFilter(Root<T> root, SecurityResourceFilter resourceFilter,
+            String attributeName) {
         Predicate predicate = null;
         if (root.getJavaType().equals(CryptographicKeyItem.class)) {
             attributeName = "%s.%s".formatted(CryptographicKeyItem_.key.getName(), attributeName);
@@ -406,14 +504,20 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         if (resourceFilter != null) {
             From from = root;
             if (attributeName.contains(".")) {
-                from = FilterPredicatesBuilder.prepareJoin(root, attributeName.substring(0, attributeName.lastIndexOf(".")));
+                from = FilterPredicatesBuilder
+                        .prepareJoin(root, attributeName.substring(0, attributeName.lastIndexOf(".")));
                 attributeName = attributeName.substring(attributeName.lastIndexOf(".") + 1);
             }
             if (resourceFilter.areOnlySpecificObjectsAllowed()) {
-                predicate = FilterPredicatesBuilder.prepareExpression(from, attributeName).in(resourceFilter.getAllowedObjects());
+                predicate = FilterPredicatesBuilder
+                        .prepareExpression(from, attributeName)
+                        .in(resourceFilter.getAllowedObjects());
             } else {
                 if (!resourceFilter.getForbiddenObjects().isEmpty()) {
-                    predicate = FilterPredicatesBuilder.prepareExpression(from, attributeName).in(resourceFilter.getForbiddenObjects()).not();
+                    predicate = FilterPredicatesBuilder
+                            .prepareExpression(from, attributeName)
+                            .in(resourceFilter.getForbiddenObjects())
+                            .not();
                 }
             }
         }

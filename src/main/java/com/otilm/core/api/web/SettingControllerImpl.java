@@ -5,7 +5,11 @@ import com.otilm.api.interfaces.core.web.SettingController;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
-import com.otilm.api.model.core.settings.*;
+import com.otilm.api.model.core.settings.EventSettingsDto;
+import com.otilm.api.model.core.settings.EventsSettingsDto;
+import com.otilm.api.model.core.settings.PlatformSettingsDto;
+import com.otilm.api.model.core.settings.PlatformSettingsUpdateDto;
+import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
@@ -79,13 +83,15 @@ public class SettingControllerImpl implements SettingController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, affiliatedResource = Resource.AUTHENTICATION_PROVIDER, operation = Operation.DETAIL, name = "authentication")
-    public OAuth2ProviderSettingsResponseDto getOAuth2ProviderSettings(@LogResource(name = true, affiliated = true) String providerName) {
+    public OAuth2ProviderSettingsResponseDto getOAuth2ProviderSettings(
+            @LogResource(name = true, affiliated = true) String providerName) {
         return settingService.getOAuth2ProviderSettings(providerName, false);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, affiliatedResource = Resource.AUTHENTICATION_PROVIDER, operation = Operation.UPDATE, name = "authentication")
-    public void updateOAuth2ProviderSettings(@LogResource(name = true, affiliated = true) String providerName, OAuth2ProviderSettingsUpdateDto oauth2SettingsDto) {
+    public void updateOAuth2ProviderSettings(@LogResource(name = true, affiliated = true) String providerName,
+            OAuth2ProviderSettingsUpdateDto oauth2SettingsDto) {
         settingService.updateOAuth2ProviderSettings(providerName, oauth2SettingsDto);
     }
 

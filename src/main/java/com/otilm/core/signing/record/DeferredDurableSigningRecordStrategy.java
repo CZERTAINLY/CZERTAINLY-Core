@@ -6,9 +6,9 @@ import com.otilm.core.service.writer.signingrecord.SigningRecordWriter;
 import org.springframework.stereotype.Component;
 
 /**
- * {@code DEFERRED_DURABLE} mode: stages the record into {@code signing_record_outbox} in the caller's
- * transaction, so it is durable the moment the signing operation commits. The asynchronous copy out into
- * {@code signing_record} is owned by {@link SigningRecordOutboxDrainer} via the writer's drain methods.
+ * {@code DEFERRED_DURABLE} mode: stages the record into {@code signing_record_outbox} in the caller's transaction, so
+ * it is durable the moment the signing operation commits. The asynchronous copy out into {@code signing_record} is
+ * owned by {@link SigningRecordOutboxDrainer} via the writer's drain methods.
  */
 @Component
 public class DeferredDurableSigningRecordStrategy extends AbstractSigningRecordStrategy {
@@ -16,9 +16,8 @@ public class DeferredDurableSigningRecordStrategy extends AbstractSigningRecordS
     private final SigningRecordWriter writer;
     private final SigningRecordInputMapper mapper;
 
-    public DeferredDurableSigningRecordStrategy(SigningRecordMetrics metrics,
-                                                SigningRecordWriter writer,
-                                                SigningRecordInputMapper mapper) {
+    public DeferredDurableSigningRecordStrategy(SigningRecordMetrics metrics, SigningRecordWriter writer,
+            SigningRecordInputMapper mapper) {
         super(metrics);
         this.writer = writer;
         this.mapper = mapper;

@@ -1,19 +1,5 @@
 package com.otilm.core.integration.tasks;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
-
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
 import com.otilm.api.exception.CbomRepositoryException;
 import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.otilm.core.api.ScheduledJobSkippedException;
@@ -22,6 +8,19 @@ import com.otilm.core.service.impl.CbomServiceImpl;
 import com.otilm.core.tasks.CbomSyncTask;
 import com.otilm.core.tasks.ScheduledJobInfo;
 import com.otilm.core.util.BaseSpringBootTest;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class CbomSyncTaskITest extends BaseSpringBootTest {
 
@@ -30,7 +29,6 @@ class CbomSyncTaskITest extends BaseSpringBootTest {
 
     @Autowired
     private CbomSyncTask cbomSyncTask;
-
 
     @Test
     void testPerformJob_Success() throws Exception {
@@ -65,9 +63,8 @@ class CbomSyncTaskITest extends BaseSpringBootTest {
         Mockito.when(cbomService.isCbomRepositoryClientConfigured()).thenReturn(false);
 
         Object triggerObject = new Object();
-        assertThrows(ScheduledJobSkippedException.class, () ->
-            cbomSyncTask.performJob(scheduledJobInfo, triggerObject)
-        );
+        assertThrows(ScheduledJobSkippedException.class,
+                () -> cbomSyncTask.performJob(scheduledJobInfo, triggerObject));
 
         Mockito.verify(cbomService, Mockito.times(1)).isCbomRepositoryClientConfigured();
         Mockito.verify(cbomService, Mockito.times(0)).sync();
@@ -94,20 +91,19 @@ class CbomSyncTaskITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testPerformJob_WhenSyncThrowsCbomRepositoryExceptionWith503_ThrowsScheduledJobSkippedException() throws CbomRepositoryException {
+    void testPerformJob_WhenSyncThrowsCbomRepositoryExceptionWith503_ThrowsScheduledJobSkippedException()
+            throws CbomRepositoryException {
         // Arrange
         when(cbomService.isCbomRepositoryClientConfigured()).thenReturn(true);
-        
+
         ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
         CbomRepositoryException cbomException = new CbomRepositoryException(problemDetail);
-        
+
         when(cbomService.sync()).thenThrow(cbomException);
 
         // Act & Assert
-        assertThrows(ScheduledJobSkippedException.class, () -> 
-            cbomSyncTask.performJob(null, null)
-        );
-        
+        assertThrows(ScheduledJobSkippedException.class, () -> cbomSyncTask.performJob(null, null));
+
         verify(cbomService).sync();
     }
 

@@ -1,6 +1,14 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
@@ -22,32 +30,34 @@ import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
-import com.otilm.api.model.core.vault.*;
+import com.otilm.api.model.core.vault.VaultInstanceDetailDto;
+import com.otilm.api.model.core.vault.VaultInstanceDto;
+import com.otilm.api.model.core.vault.VaultInstanceRequestDto;
+import com.otilm.api.model.core.vault.VaultInstanceUpdateRequestDto;
+import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
 import com.otilm.core.dao.entity.VaultInstance;
 import com.otilm.core.dao.entity.VaultProfile;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.repository.AttributeDefinitionRepository;
+import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.VaultInstanceRepository;
+import com.otilm.core.dao.repository.VaultProfileRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.AttributeExternalService;
 import com.otilm.core.service.VaultInstanceExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
+import java.io.Serializable;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.otilm.core.dao.entity.Connector;
 import org.springframework.http.HttpStatus;
-
-import java.io.Serializable;
-import java.util.List;
-import java.util.UUID;
 
 class VaultInstanceServiceITest extends BaseSpringBootTest {
 
@@ -72,21 +82,19 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
     private WireMockServer mockServer;
     private ConnectorInterfaceEntity interfaceEntity;
 
-
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
-        mockServer.stubFor(
-                WireMock.get(WireMock.urlPathMatching("/v1/secretProvider/vaults/attributes"))
-                        .willReturn(WireMock.okJson("[]"))
-        );
-        mockServer.stubFor(
-                WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/vaults"))
-                        .willReturn(WireMock.ok())
-        );
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/secretProvider/vaults/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(
+                        WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/vaults")).willReturn(WireMock.ok()));
 
         connector = new Connector();
         connector.setName("testConnector");
@@ -123,7 +131,8 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testListAttributes() throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
+    void testListAttributes()
+            throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
         GroupAttributeV3 groupAttributeV3 = new GroupAttributeV3();
         groupAttributeV3.setName("test");
         groupAttributeV3.setUuid(UUID.randomUUID().toString());
@@ -137,10 +146,14 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
         dataAttributeV3.setProperties(properties);
         dataAttributeV3.setAttributeCallback(new AttributeCallback());
 
-        mockServer.stubFor(
-                WireMock.get(WireMock.urlPathMatching("/v1/secretProvider/vaults/attributes"))
-                        .willReturn(WireMock.jsonResponse(new ObjectMapper().writeValueAsString(List.of(groupAttributeV3, dataAttributeV3)), HttpStatus.OK.value()))
-        );
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/secretProvider/vaults/attributes"))
+                        .willReturn(WireMock
+                                .jsonResponse(
+                                        new ObjectMapper()
+                                                .writeValueAsString(List.of(groupAttributeV3, dataAttributeV3)),
+                                        HttpStatus.OK.value())));
         List<BaseAttribute> attributes = vaultInstanceService.listVaultInstanceAttributes(connector.getUuid());
         Assertions.assertNotNull(attributes);
         Assertions.assertEquals(2, attributes.size());
@@ -150,7 +163,8 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateVaultInstance() throws ConnectorException, NotFoundException, AttributeException, AlreadyExistException {
+    void testCreateVaultInstance()
+            throws ConnectorException, NotFoundException, AttributeException, AlreadyExistException {
         VaultInstanceRequestDto requestDto = new VaultInstanceRequestDto();
         requestDto.setName(vaultInstance.getName());
         requestDto.setConnectorUuid(connector.getUuid());
@@ -160,7 +174,8 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
         requestDto.setCustomAttributes(List.of(attribute));
         requestDto.setDescription("description");
-        Assertions.assertThrows(AlreadyExistException.class, () -> vaultInstanceService.createVaultInstance(requestDto));
+        Assertions
+                .assertThrows(AlreadyExistException.class, () -> vaultInstanceService.createVaultInstance(requestDto));
         requestDto.setName("test2");
         Assertions.assertThrows(ValidationException.class, () -> vaultInstanceService.createVaultInstance(requestDto));
         requestDto.setInterfaceUuid(interfaceEntity.getUuid());
@@ -170,11 +185,17 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(vaultInstanceDetailDto.getUuid());
         Assertions.assertEquals(requestDto.getDescription(), vaultInstanceDetailDto.getDescription());
         Assertions.assertNotNull(vaultInstanceDetailDto.getConnector());
-        Assertions.assertEquals(requestDto.getConnectorUuid().toString(), vaultInstanceDetailDto.getConnector().getUuid());
+        Assertions
+                .assertEquals(requestDto.getConnectorUuid().toString(),
+                        vaultInstanceDetailDto.getConnector().getUuid());
         Assertions.assertNotNull(vaultInstanceDetailDto.getCustomAttributes());
         Assertions.assertEquals(1, vaultInstanceDetailDto.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), vaultInstanceDetailDto.getCustomAttributes().getFirst().getName());
-        Assertions.assertEquals("data", ((List<AttributeContent>) vaultInstanceDetailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
+        Assertions
+                .assertEquals("data",
+                        ((List<AttributeContent>) vaultInstanceDetailDto.getCustomAttributes().getFirst().getContent())
+                                .getFirst()
+                                .getData());
     }
 
     @AfterEach
@@ -184,22 +205,30 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetVaultInstance() throws ConnectorException, NotFoundException, AttributeException {
-        Assertions.assertThrows(NotFoundException.class, () -> vaultInstanceService.getVaultInstance(UUID.randomUUID()));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> vaultInstanceService.getVaultInstance(UUID.randomUUID()));
         VaultInstanceDetailDto vaultInstanceDetailDto = vaultInstanceService.getVaultInstance(vaultInstance.getUuid());
         Assertions.assertNotNull(vaultInstanceDetailDto);
         Assertions.assertEquals(vaultInstance.getName(), vaultInstanceDetailDto.getName());
         Assertions.assertEquals(vaultInstance.getDescription(), vaultInstanceDetailDto.getDescription());
-        Assertions.assertEquals(vaultInstance.getConnectorUuid().toString(), vaultInstanceDetailDto.getConnector().getUuid());
+        Assertions
+                .assertEquals(vaultInstance.getConnectorUuid().toString(),
+                        vaultInstanceDetailDto.getConnector().getUuid());
     }
 
     @Test
     void testListVaultInstances() {
         SearchRequestDto searchRequestDto = new SearchRequestDto();
-        searchRequestDto.setFilters(List.of(
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.VAULT_INSTANCE_CONNECTOR_NAME.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(connector.getName())),
-                new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.VAULT_INSTANCE_NAME.name(), FilterConditionOperator.EQUALS, vaultInstance.getName())
-        ));
-        PaginationResponseDto<VaultInstanceDto> vaultInstanceListResponseDto = vaultInstanceService.listVaultInstances(searchRequestDto, SecurityFilter.create());
+        searchRequestDto
+                .setFilters(List
+                        .of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY,
+                                FilterField.VAULT_INSTANCE_CONNECTOR_NAME.name(), FilterConditionOperator.EQUALS,
+                                (Serializable) List.of(connector.getName())),
+                                new SearchFilterRequestDto(FilterFieldSource.PROPERTY,
+                                        FilterField.VAULT_INSTANCE_NAME.name(), FilterConditionOperator.EQUALS,
+                                        vaultInstance.getName())));
+        PaginationResponseDto<VaultInstanceDto> vaultInstanceListResponseDto = vaultInstanceService
+                .listVaultInstances(searchRequestDto, SecurityFilter.create());
         Assertions.assertNotNull(vaultInstanceListResponseDto);
         Assertions.assertEquals(1, vaultInstanceListResponseDto.getTotalItems());
         Assertions.assertEquals(1, vaultInstanceListResponseDto.getItems().size());
@@ -209,33 +238,45 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
     @Test
     void testDeleteVaultInstance() throws NotFoundException {
         UUID vaultInstanceUuid = vaultInstance.getUuid();
-        Assertions.assertThrows(ValidationException.class, () -> vaultInstanceService.deleteVaultInstance(vaultInstanceUuid));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> vaultInstanceService.deleteVaultInstance(vaultInstanceUuid));
         vaultProfileRepository.deleteAll();
         vaultInstanceService.deleteVaultInstance(vaultInstanceUuid);
-        Assertions.assertThrows(NotFoundException.class, () -> vaultInstanceService.getVaultInstance(vaultInstanceUuid));
+        Assertions
+                .assertThrows(NotFoundException.class, () -> vaultInstanceService.getVaultInstance(vaultInstanceUuid));
     }
 
     @Test
     void testUpdateVaultInstance() throws NotFoundException, AttributeException, ConnectorException {
         VaultInstanceUpdateRequestDto requestDto = new VaultInstanceUpdateRequestDto();
-        Assertions.assertThrows(NotFoundException.class, () -> vaultInstanceService.updateVaultInstance(UUID.randomUUID(), requestDto));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> vaultInstanceService.updateVaultInstance(UUID.randomUUID(), requestDto));
         requestDto.setDescription("new description");
         RequestAttributeV3 attribute = new RequestAttributeV3();
         attribute.setName(TEST_CUSTOM_ATTRIBUTE);
         attribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
         requestDto.setCustomAttributes(List.of(attribute));
-        VaultInstanceDetailDto vaultInstanceDetailDto = vaultInstanceService.updateVaultInstance(vaultInstance.getUuid(), requestDto);
+        VaultInstanceDetailDto vaultInstanceDetailDto = vaultInstanceService
+                .updateVaultInstance(vaultInstance.getUuid(), requestDto);
         Assertions.assertNotNull(vaultInstanceDetailDto);
         Assertions.assertEquals(requestDto.getDescription(), vaultInstanceDetailDto.getDescription());
         Assertions.assertEquals(1, vaultInstanceDetailDto.getCustomAttributes().size());
         Assertions.assertEquals(attribute.getName(), vaultInstanceDetailDto.getCustomAttributes().getFirst().getName());
-        Assertions.assertEquals("data", ((List<AttributeContent>) vaultInstanceDetailDto.getCustomAttributes().getFirst().getContent()).getFirst().getData());
+        Assertions
+                .assertEquals("data",
+                        ((List<AttributeContent>) vaultInstanceDetailDto.getCustomAttributes().getFirst().getContent())
+                                .getFirst()
+                                .getData());
     }
 
     @Test
     void testListVaultProfileAttributes_notFound() {
         SecuredUUID nonExistentUuid = SecuredUUID.fromUUID(UUID.randomUUID());
-        Assertions.assertThrows(NotFoundException.class, () -> vaultInstanceService.listVaultProfileAttributes(nonExistentUuid));
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> vaultInstanceService.listVaultProfileAttributes(nonExistentUuid));
     }
 
     @Test
@@ -250,7 +291,8 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void testListVaultProfileAttributes() throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
+    void testListVaultProfileAttributes()
+            throws ConnectorException, NotFoundException, AttributeException, JsonProcessingException {
         DataAttributeV3 profileAttribute = new DataAttributeV3();
         profileAttribute.setName("profileAttr");
         profileAttribute.setUuid(UUID.randomUUID().toString());
@@ -259,12 +301,15 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
         properties.setLabel("Profile Attribute Label");
         profileAttribute.setProperties(properties);
 
-        mockServer.stubFor(
-                WireMock.post(WireMock.urlPathMatching("/v1/secretProvider/vaultProfiles/attributes"))
-                        .willReturn(WireMock.jsonResponse(new ObjectMapper().writeValueAsString(List.of(profileAttribute)), HttpStatus.OK.value()))
-        );
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/secretProvider/vaultProfiles/attributes"))
+                        .willReturn(WireMock
+                                .jsonResponse(new ObjectMapper().writeValueAsString(List.of(profileAttribute)),
+                                        HttpStatus.OK.value())));
 
-        List<BaseAttribute> attributes = vaultInstanceService.listVaultProfileAttributes(SecuredUUID.fromUUID(vaultInstance.getUuid()));
+        List<BaseAttribute> attributes = vaultInstanceService
+                .listVaultProfileAttributes(SecuredUUID.fromUUID(vaultInstance.getUuid()));
         Assertions.assertNotNull(attributes);
         Assertions.assertEquals(1, attributes.size());
         Assertions.assertEquals(profileAttribute.getName(), attributes.getFirst().getName());
@@ -272,16 +317,32 @@ class VaultInstanceServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetSearchableFieldInformation() {
-        List<SearchFieldDataByGroupDto> searchableFieldInformation = vaultInstanceService.getSearchableFieldInformation();
+        List<SearchFieldDataByGroupDto> searchableFieldInformation = vaultInstanceService
+                .getSearchableFieldInformation();
         Assertions.assertNotNull(searchableFieldInformation);
-        Assertions.assertEquals(1, searchableFieldInformation.stream().filter(s -> s.getFilterFieldSource() == FilterFieldSource.CUSTOM).count());
-        SearchFieldDataDto connectorNameSearchData = searchableFieldInformation.stream().filter(s -> s.getFilterFieldSource() == FilterFieldSource.PROPERTY)
-                .map(SearchFieldDataByGroupDto::getSearchFieldData).flatMap(List::stream)
-                .filter(s -> s.getFieldIdentifier().equals(FilterField.VAULT_INSTANCE_CONNECTOR_NAME.name())).findFirst().get();
+        Assertions
+                .assertEquals(1,
+                        searchableFieldInformation
+                                .stream()
+                                .filter(s -> s.getFilterFieldSource() == FilterFieldSource.CUSTOM)
+                                .count());
+        SearchFieldDataDto connectorNameSearchData = searchableFieldInformation
+                .stream()
+                .filter(s -> s.getFilterFieldSource() == FilterFieldSource.PROPERTY)
+                .map(SearchFieldDataByGroupDto::getSearchFieldData)
+                .flatMap(List::stream)
+                .filter(s -> s.getFieldIdentifier().equals(FilterField.VAULT_INSTANCE_CONNECTOR_NAME.name()))
+                .findFirst()
+                .get();
         Assertions.assertEquals(connector.getName(), ((List<String>) connectorNameSearchData.getValue()).getFirst());
-        SearchFieldDataDto nameSearchData = searchableFieldInformation.stream().filter(s -> s.getFilterFieldSource() == FilterFieldSource.PROPERTY)
-                .map(SearchFieldDataByGroupDto::getSearchFieldData).flatMap(List::stream)
-                .filter(s -> s.getFieldIdentifier().equals(FilterField.VAULT_INSTANCE_NAME.name())).findFirst().get();
+        SearchFieldDataDto nameSearchData = searchableFieldInformation
+                .stream()
+                .filter(s -> s.getFilterFieldSource() == FilterFieldSource.PROPERTY)
+                .map(SearchFieldDataByGroupDto::getSearchFieldData)
+                .flatMap(List::stream)
+                .filter(s -> s.getFieldIdentifier().equals(FilterField.VAULT_INSTANCE_NAME.name()))
+                .findFirst()
+                .get();
         Assertions.assertNotNull(nameSearchData);
     }
 

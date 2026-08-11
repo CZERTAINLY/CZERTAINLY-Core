@@ -1,12 +1,13 @@
 package com.otilm.core.messaging.jms.configuration;
 
-import com.azure.identity.ClientSecretCredentialBuilder;
 import com.azure.core.credential.TokenCredential;
+import com.azure.identity.ClientSecretCredentialBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.jms.ConnectionFactory;
 import org.apache.qpid.jms.JmsConnectionExtensions;
 import org.apache.qpid.jms.JmsConnectionFactory;
+import org.messaginghub.pooled.jms.JmsPoolConnectionFactory;
 import org.slf4j.Logger;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +15,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.jms.annotation.EnableJms;
 import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
-import org.messaginghub.pooled.jms.JmsPoolConnectionFactory;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
@@ -28,7 +28,8 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 @EnableJms
 @Configuration
-@EnableConfigurationProperties({MessagingProperties.class, MessagingConcurrencyProperties.class, StatusPollProperties.class})
+@EnableConfigurationProperties({MessagingProperties.class, MessagingConcurrencyProperties.class,
+        StatusPollProperties.class})
 public class JmsConfig {
     private static final Logger logger = getLogger(JmsConfig.class);
 
@@ -88,7 +89,9 @@ public class JmsConfig {
         }
 
         // RabbitMQ - standard username/password authentication
-        logger.info("Connecting to RabbitMQ broker: {} with vhost: {}", props.getEffectiveBrokerUrl(), props.virtualHost());
+        logger
+                .info("Connecting to RabbitMQ broker: {} with vhost: {}", props.getEffectiveBrokerUrl(),
+                        props.virtualHost());
         factory.setUsername(props.username());
         factory.setPassword(props.password());
 
@@ -106,14 +109,12 @@ public class JmsConfig {
                     .clientSecret(props.aadAuth().clientSecret())
                     .build();
 
-            AadTokenProvider tokenProvider = new AadTokenProvider(credential, props.aadAuth().tokenRefreshInterval(), props.aadAuth().tokenGettingTimeout());
+            AadTokenProvider tokenProvider = new AadTokenProvider(credential, props.aadAuth().tokenRefreshInterval(),
+                    props.aadAuth().tokenGettingTimeout());
 
             // ServiceBus requires "$jwt" username for OAuth2 token authentication
             factory.setUsername("$jwt");
-            factory.setExtension(
-                    JmsConnectionExtensions.PASSWORD_OVERRIDE.toString(),
-                    tokenProvider
-            );
+            factory.setExtension(JmsConnectionExtensions.PASSWORD_OVERRIDE.toString(), tokenProvider);
         } else {
             // SAS (Shared Access Signature) token authentication
             logger.info("Connecting to Azure ServiceBus: {} using SAS authentication", props.getEffectiveBrokerUrl());
@@ -123,10 +124,8 @@ public class JmsConfig {
     }
 
     @Bean
-    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(
-            ConnectionFactory connectionFactory,
-            MessageConverter messageConverter,
-            MessagingProperties messagingProperties) {
+    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(ConnectionFactory connectionFactory,
+            MessageConverter messageConverter, MessagingProperties messagingProperties) {
         DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(messageConverter);
@@ -162,18 +161,22 @@ public class JmsConfig {
             backOff.setMaxElapsedTime(listener.maxElapsedTime());
         }
 
-        logger.info("JMS listener recovery using exponential backoff: initialInterval={}ms, multiplier={}, maxInterval={}ms, maxElapsedTime={}",
-                initialInterval, multiplier, maxInterval,
-                listener != null && listener.maxElapsedTime() != null ? listener.maxElapsedTime() + "ms" : "unlimited");
+        logger
+                .info("JMS listener recovery using exponential backoff: initialInterval={}ms, multiplier={}, maxInterval={}ms, maxElapsedTime={}",
+                        initialInterval, multiplier, maxInterval,
+                        listener != null && listener.maxElapsedTime() != null
+                                ? listener.maxElapsedTime() + "ms"
+                                : "unlimited");
         return backOff;
     }
 
     @Bean
     public MessageConverter messageConverter(Jackson2ObjectMapperBuilder objectMapperBuilder) {
-        ObjectMapper objectMapper = objectMapperBuilder.createXmlMapper(false)
-            .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-            .build()
-            .findAndRegisterModules();
+        ObjectMapper objectMapper = objectMapperBuilder
+                .createXmlMapper(false)
+                .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .build()
+                .findAndRegisterModules();
 
         MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
         converter.setObjectMapper(objectMapper);
@@ -184,7 +187,7 @@ public class JmsConfig {
 
     @Bean(destroyMethod = "stop")
     public JmsPoolConnectionFactory producerConnectionFactory(ConnectionFactory connectionFactory,
-                                                               MessagingProperties messagingProperties) {
+            MessagingProperties messagingProperties) {
         // JmsPoolConnectionFactory manages connection/session lifecycle independently of
         // Spring's shared-connection mechanism. On connection failure (e.g. amqp:connection:forced),
         // the pool auto-evicts the dead connection and provides a fresh one on the next borrow —
@@ -207,17 +210,17 @@ public class JmsConfig {
         pool.setMaxSessionsPerConnection(poolConfig.maxSessionsPerConnection());
         pool.setUseAnonymousProducers(poolConfig.useAnonymousProducers());
         pool.start();
-        logger.info("Started JMS producer connection pool: maxConnections={}, connectionIdleTimeout={}ms, connectionCheckInterval={}ms, maxSessionsPerConnection={}, useAnonymousProducers={}",
-                poolConfig.maxConnections(), poolConfig.connectionIdleTimeout(),
-                poolConfig.connectionCheckInterval(), poolConfig.maxSessionsPerConnection(),
-                poolConfig.useAnonymousProducers());
+        logger
+                .info("Started JMS producer connection pool: maxConnections={}, connectionIdleTimeout={}ms, connectionCheckInterval={}ms, maxSessionsPerConnection={}, useAnonymousProducers={}",
+                        poolConfig.maxConnections(), poolConfig.connectionIdleTimeout(),
+                        poolConfig.connectionCheckInterval(), poolConfig.maxSessionsPerConnection(),
+                        poolConfig.useAnonymousProducers());
         return pool;
     }
 
     @Bean
     public JmsTemplate jmsTemplate(JmsPoolConnectionFactory producerConnectionFactory,
-                                   MessageConverter messageConverter,
-                                   MessagingProperties messagingProperties) {
+            MessageConverter messageConverter, MessagingProperties messagingProperties) {
         JmsTemplate template = new JmsTemplate(producerConnectionFactory);
         template.setMessageConverter(messageConverter);
         if (messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS) {

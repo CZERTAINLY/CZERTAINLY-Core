@@ -9,6 +9,7 @@ public interface EnumExternalService {
 
     /**
      * Get platform enums
+     *
      * @return map of platform enums and their items
      */
     Map<PlatformEnum, Map<String, EnumItemDto>> getPlatformEnums();

@@ -13,15 +13,15 @@ import java.util.Date;
 import java.util.UUID;
 
 /**
- * Builds an in-memory {@link Certificate} entity; tests override only the fields whose values drive the
- * assertion under test. Persistence goes through {@code CertificateRepository}, not this builder — the
- * builder never touches the database.
+ * Builds an in-memory {@link Certificate} entity; tests override only the fields whose values drive the assertion under
+ * test. Persistence goes through {@code CertificateRepository}, not this builder — the builder never touches the
+ * database.
  * <p>
- * Defaults match a bare {@code new Certificate()}: every field is left unset. Unlike most builders this one
- * carries no "valid defaults", because these service tests deliberately exercise the whole certificate
- * lifecycle — issued, pending, not-yet-issued, revoked — and rely on absent identity (null {@code commonName}
- * renders as the empty-name placeholder) and absent {@code state}. A field is written only when its
- * {@code withXxx} is called, so building with no overrides is behaviourally identical to {@code new Certificate()}.
+ * Defaults match a bare {@code new Certificate()}: every field is left unset. Unlike most builders this one carries no
+ * "valid defaults", because these service tests deliberately exercise the whole certificate lifecycle — issued,
+ * pending, not-yet-issued, revoked — and rely on absent identity (null {@code commonName} renders as the empty-name
+ * placeholder) and absent {@code state}. A field is written only when its {@code withXxx} is called, so building with
+ * no overrides is behaviourally identical to {@code new Certificate()}.
  */
 public class CertificateBuilder {
 
@@ -182,31 +182,81 @@ public class CertificateBuilder {
 
     public Certificate build() {
         Certificate certificate = new Certificate();
-        if (uuid != null) certificate.setUuid(uuid);
-        if (commonName != null) certificate.setCommonName(commonName);
-        if (serialNumber != null) certificate.setSerialNumber(serialNumber);
-        if (fingerprint != null) certificate.setFingerprint(fingerprint);
-        if (publicKeyFingerprint != null) certificate.setPublicKeyFingerprint(publicKeyFingerprint);
-        if (subjectDn != null) certificate.setSubjectDn(subjectDn);
-        if (subjectDnNormalized != null) certificate.setSubjectDnNormalized(subjectDnNormalized);
-        if (issuerDn != null) certificate.setIssuerDn(issuerDn);
-        if (issuerDnNormalized != null) certificate.setIssuerDnNormalized(issuerDnNormalized);
-        if (issuerSerialNumber != null) certificate.setIssuerSerialNumber(issuerSerialNumber);
-        if (issuerCertificateUuid != null) certificate.setIssuerCertificateUuid(issuerCertificateUuid);
-        if (state != null) certificate.setState(state);
-        if (validationStatus != null) certificate.setValidationStatus(validationStatus);
-        if (subjectType != null) certificate.setSubjectType(subjectType);
-        if (notBefore != null) certificate.setNotBefore(notBefore);
-        if (archived != null) certificate.setArchived(archived);
-        if (certificateContent != null) certificate.setCertificateContent(certificateContent);
-        if (certificateContentId != null) certificate.setCertificateContentId(certificateContentId);
-        if (raProfile != null) certificate.setRaProfile(raProfile);
-        if (key != null) certificate.setKey(key);
-        if (keyUuid != null) certificate.setKeyUuid(keyUuid);
-        if (altKey != null) certificate.setAltKey(altKey);
-        if (altKeyUuid != null) certificate.setAltKeyUuid(altKeyUuid);
-        if (certificateRequest != null) certificate.setCertificateRequest(certificateRequest);
-        if (certificateRequestUuid != null) certificate.setCertificateRequestUuid(certificateRequestUuid);
+        if (uuid != null) {
+            certificate.setUuid(uuid);
+        }
+        if (commonName != null) {
+            certificate.setCommonName(commonName);
+        }
+        if (serialNumber != null) {
+            certificate.setSerialNumber(serialNumber);
+        }
+        if (fingerprint != null) {
+            certificate.setFingerprint(fingerprint);
+        }
+        if (publicKeyFingerprint != null) {
+            certificate.setPublicKeyFingerprint(publicKeyFingerprint);
+        }
+        if (subjectDn != null) {
+            certificate.setSubjectDn(subjectDn);
+        }
+        if (subjectDnNormalized != null) {
+            certificate.setSubjectDnNormalized(subjectDnNormalized);
+        }
+        if (issuerDn != null) {
+            certificate.setIssuerDn(issuerDn);
+        }
+        if (issuerDnNormalized != null) {
+            certificate.setIssuerDnNormalized(issuerDnNormalized);
+        }
+        if (issuerSerialNumber != null) {
+            certificate.setIssuerSerialNumber(issuerSerialNumber);
+        }
+        if (issuerCertificateUuid != null) {
+            certificate.setIssuerCertificateUuid(issuerCertificateUuid);
+        }
+        if (state != null) {
+            certificate.setState(state);
+        }
+        if (validationStatus != null) {
+            certificate.setValidationStatus(validationStatus);
+        }
+        if (subjectType != null) {
+            certificate.setSubjectType(subjectType);
+        }
+        if (notBefore != null) {
+            certificate.setNotBefore(notBefore);
+        }
+        if (archived != null) {
+            certificate.setArchived(archived);
+        }
+        if (certificateContent != null) {
+            certificate.setCertificateContent(certificateContent);
+        }
+        if (certificateContentId != null) {
+            certificate.setCertificateContentId(certificateContentId);
+        }
+        if (raProfile != null) {
+            certificate.setRaProfile(raProfile);
+        }
+        if (key != null) {
+            certificate.setKey(key);
+        }
+        if (keyUuid != null) {
+            certificate.setKeyUuid(keyUuid);
+        }
+        if (altKey != null) {
+            certificate.setAltKey(altKey);
+        }
+        if (altKeyUuid != null) {
+            certificate.setAltKeyUuid(altKeyUuid);
+        }
+        if (certificateRequest != null) {
+            certificate.setCertificateRequest(certificateRequest);
+        }
+        if (certificateRequestUuid != null) {
+            certificate.setCertificateRequestUuid(certificateRequestUuid);
+        }
         return certificate;
     }
 }

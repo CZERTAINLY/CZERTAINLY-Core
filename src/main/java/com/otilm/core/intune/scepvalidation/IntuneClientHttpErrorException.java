@@ -30,39 +30,35 @@ The important modification are marked with the comment "MODIFICATION"
 */
 package com.otilm.core.intune.scepvalidation;
 
-import java.util.UUID;
-
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.UUID;
 import org.apache.hc.core5.http.message.StatusLine;
 
-public class IntuneClientHttpErrorException extends IntuneClientException
-{
+public class IntuneClientHttpErrorException extends IntuneClientException {
 
     private static final long serialVersionUID = -2909995512671260231L;
-    
+
     private UUID activityId = null;
     private StatusLine statusLine = null;
-    //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
+    // MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of
+    // org.json.JSONObject
     private JsonNode response = null;
-    
-    public int getStatusCode()
-    {
+
+    public int getStatusCode() {
         return this.statusLine.getStatusCode();
     }
-    
-    public JsonNode getResponse()
-    {
+
+    public JsonNode getResponse() {
         return this.response;
     }
-    
-    public UUID getActivityId()
-    {
+
+    public UUID getActivityId() {
         return this.activityId;
     }
-    
-    public IntuneClientHttpErrorException(StatusLine statusLine, JsonNode response, UUID activityId)
-    {
-        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
+
+    public IntuneClientHttpErrorException(StatusLine statusLine, JsonNode response, UUID activityId) {
+        // MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of
+        // org.json.JSONObject
         super(response.toString());
         this.activityId = activityId;
         this.statusLine = statusLine;

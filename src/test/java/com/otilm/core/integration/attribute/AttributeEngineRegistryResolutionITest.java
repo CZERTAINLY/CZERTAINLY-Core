@@ -1,28 +1,27 @@
 package com.otilm.core.integration.attribute;
 
 import com.otilm.api.exception.AttributeException;
+import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.attribute.common.DataAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.core.connector.ConnectorStatus;
-import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.List;
-import java.util.UUID;
-
 /**
- * #1622 N1/C6 — UUID-first resolution must return the row the caller referenced, and the legacy name-only
- * accessor must never 500 when two {@code operation=null} rows share a name. The two-row state is created via
- * the engine's own ingest path (registry/callback ingest writes {@code operation=null}).
+ * #1622 N1/C6 — UUID-first resolution must return the row the caller referenced, and the legacy name-only accessor must
+ * never 500 when two {@code operation=null} rows share a name. The two-row state is created via the engine's own ingest
+ * path (registry/callback ingest writes {@code operation=null}).
  */
 class AttributeEngineRegistryResolutionITest extends BaseSpringBootTest {
 
@@ -62,12 +61,18 @@ class AttributeEngineRegistryResolutionITest extends BaseSpringBootTest {
         String name = "shared";
 
         // Both ingests write operation=null (the registry/callback ingest path), manufacturing the C6 state.
-        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(dataAttr(uuidA, name, AttributeContentType.STRING)));
-        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(dataAttr(uuidB, name, AttributeContentType.INTEGER)));
+        attributeEngine
+                .updateDataAttributeDefinitions(connectorUuid, null,
+                        List.of(dataAttr(uuidA, name, AttributeContentType.STRING)));
+        attributeEngine
+                .updateDataAttributeDefinitions(connectorUuid, null,
+                        List.of(dataAttr(uuidB, name, AttributeContentType.INTEGER)));
 
         DataAttribute resolvedB = attributeEngine.getDataAttributeDefinitionStrict(connectorUuid, uuidB, name);
         Assertions.assertNotNull(resolvedB);
-        Assertions.assertEquals(AttributeContentType.INTEGER, resolvedB.getContentType(), "must return the row whose attributeUuid == uuidB");
+        Assertions
+                .assertEquals(AttributeContentType.INTEGER, resolvedB.getContentType(),
+                        "must return the row whose attributeUuid == uuidB");
         Assertions.assertEquals(uuidB.toString(), resolvedB.getUuid());
 
         DataAttribute resolvedA = attributeEngine.getDataAttributeDefinitionStrict(connectorUuid, uuidA, name);
@@ -79,12 +84,17 @@ class AttributeEngineRegistryResolutionITest extends BaseSpringBootTest {
     void legacyNameOnlyAccessor_doesNotThrowOnDuplicateNames() throws AttributeException {
         UUID connectorUuid = connector.getUuid();
         String name = "shared";
-        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.STRING)));
-        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.INTEGER)));
+        attributeEngine
+                .updateDataAttributeDefinitions(connectorUuid, null,
+                        List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.STRING)));
+        attributeEngine
+                .updateDataAttributeDefinitions(connectorUuid, null,
+                        List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.INTEGER)));
 
         // The legacy Optional finder would throw IncorrectResultSizeDataAccessException here; the deterministic
         // list-finder route must return a row instead.
-        DataAttribute resolved = Assertions.assertDoesNotThrow(() -> attributeEngine.getDataAttributeDefinition(connectorUuid, name));
+        DataAttribute resolved = Assertions
+                .assertDoesNotThrow(() -> attributeEngine.getDataAttributeDefinition(connectorUuid, name));
         Assertions.assertNotNull(resolved);
     }
 
@@ -92,8 +102,10 @@ class AttributeEngineRegistryResolutionITest extends BaseSpringBootTest {
     void strictAccessorWithNullName_returnsNull_doesNotThrow() {
         // A referenced uuid with a null name cannot match the (attributeUuid, name) key; must return null, not
         // NPE on List.of(null) (which would surface as a 500).
-        Assertions.assertNull(Assertions.assertDoesNotThrow(
-                () -> attributeEngine.getDataAttributeDefinitionStrict(connector.getUuid(), UUID.randomUUID(), null)));
+        Assertions
+                .assertNull(Assertions
+                        .assertDoesNotThrow(() -> attributeEngine
+                                .getDataAttributeDefinitionStrict(connector.getUuid(), UUID.randomUUID(), null)));
     }
 
     @Test
@@ -102,11 +114,15 @@ class AttributeEngineRegistryResolutionITest extends BaseSpringBootTest {
         // strict accessor must degrade to deterministic name-only selection rather than NPE on List.of(null) (500).
         UUID connectorUuid = connector.getUuid();
         String name = "shared";
-        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.STRING)));
-        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.INTEGER)));
+        attributeEngine
+                .updateDataAttributeDefinitions(connectorUuid, null,
+                        List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.STRING)));
+        attributeEngine
+                .updateDataAttributeDefinitions(connectorUuid, null,
+                        List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.INTEGER)));
 
-        DataAttribute resolved = Assertions.assertDoesNotThrow(
-                () -> attributeEngine.getDataAttributeDefinitionStrict(connectorUuid, null, name));
+        DataAttribute resolved = Assertions
+                .assertDoesNotThrow(() -> attributeEngine.getDataAttributeDefinitionStrict(connectorUuid, null, name));
         Assertions.assertNotNull(resolved);
     }
 
@@ -114,8 +130,12 @@ class AttributeEngineRegistryResolutionITest extends BaseSpringBootTest {
     void legacyNameOnlyAccessor_tiebreakIsStableAcrossCalls() throws AttributeException {
         UUID connectorUuid = connector.getUuid();
         String name = "shared";
-        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.STRING)));
-        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.INTEGER)));
+        attributeEngine
+                .updateDataAttributeDefinitions(connectorUuid, null,
+                        List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.STRING)));
+        attributeEngine
+                .updateDataAttributeDefinitions(connectorUuid, null,
+                        List.of(dataAttr(UUID.randomUUID(), name, AttributeContentType.INTEGER)));
 
         DataAttribute first = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
         DataAttribute second = attributeEngine.getDataAttributeDefinition(connectorUuid, name);

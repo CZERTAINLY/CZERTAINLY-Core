@@ -1,8 +1,8 @@
 package com.otilm.core.integration.client;
 
 import com.otilm.api.interfaces.client.v2.AttributesSyncApiClient;
-import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
+import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.repository.ConnectorRepository;

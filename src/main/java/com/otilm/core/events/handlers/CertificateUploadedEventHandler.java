@@ -30,19 +30,18 @@ import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.X509ObjectToString;
-import org.bouncycastle.asn1.x509.Extension;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Objects;
+import org.bouncycastle.asn1.x509.Extension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component(ResourceEvent.Codes.CERTIFICATE_UPLOADED)
 public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
@@ -55,14 +54,14 @@ public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
     private AttributeEngine attributeEngine;
     private TriggerHistoryRepository triggerHistoryRepository;
 
-
     @Autowired
     public void setTriggerHistoryRepository(TriggerHistoryRepository triggerHistoryRepository) {
         this.triggerHistoryRepository = triggerHistoryRepository;
     }
 
     @Autowired
-    public void setCertificateEventHistoryService(CertificateEventHistoryInternalService certificateEventHistoryService) {
+    public void setCertificateEventHistoryService(
+            CertificateEventHistoryInternalService certificateEventHistoryService) {
         this.certificateEventHistoryService = certificateEventHistoryService;
     }
 
@@ -76,8 +75,8 @@ public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
         this.attributeEngine = attributeEngine;
     }
 
-
-    protected CertificateUploadedEventHandler(CertificateRepository repository, TriggerEvaluator<Certificate> triggerEvaluator) {
+    protected CertificateUploadedEventHandler(CertificateRepository repository,
+            TriggerEvaluator<Certificate> triggerEvaluator) {
         super(repository, triggerEvaluator);
         this.certificateRepository = repository;
     }
@@ -87,13 +86,13 @@ public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
      * the only channel carrying the uploader to the audited writes.
      * <p>
      * This also widens authorization: the listener authenticates for the whole {@link #handleEvent} call, so trigger
-     * evaluation and the attribute engine's permission filters run as the uploader rather than unauthenticated.
-     * Nothing here is {@code @ExternalAuthorization}-gated, so an upload cannot newly be denied, and trigger actions
-     * still use the association owner's permissions via {@code handleUser}.
+     * evaluation and the attribute engine's permission filters run as the uploader rather than unauthenticated. Nothing
+     * here is {@code @ExternalAuthorization}-gated, so an upload cannot newly be denied, and trigger actions still use
+     * the association owner's permissions via {@code handleUser}.
      */
     public static EventMessage constructEventMessage(CertificateUploadEventMessageData data) {
-        return new EventMessage(ResourceEvent.CERTIFICATE_UPLOADED, Resource.CERTIFICATE, null,
-                null, null, data, AuthHelper.getActingUserUuidOrNull(), null);
+        return new EventMessage(ResourceEvent.CERTIFICATE_UPLOADED, Resource.CERTIFICATE, null, null, null, data,
+                AuthHelper.getActingUserUuidOrNull(), null);
     }
 
     @Override
@@ -113,13 +112,16 @@ public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
     public void handleEvent(EventMessage eventMessage) throws EventException {
         EventContext<Certificate> context = prepareContext(eventMessage);
         EventHistory eventHistory = createEventHistory(ResourceEvent.CERTIFICATE_UPLOADED, null, null);
-        CertificateUploadEventMessageData eventMessageData = objectMapper.convertValue(eventMessage.getData(), CertificateUploadEventMessageData.class);
+        CertificateUploadEventMessageData eventMessageData = objectMapper
+                .convertValue(eventMessage.getData(), CertificateUploadEventMessageData.class);
 
         X509Certificate x509Certificate;
         try {
             x509Certificate = CertificateUtil.parseCertificate(eventMessageData.certificateContent());
         } catch (CertificateException e) {
-            logger.error("Unable to parse certificate {} from uploaded certificate: {}", eventMessageData.certificateContent(), e.getMessage());
+            logger
+                    .error("Unable to parse certificate {} from uploaded certificate: {}",
+                            eventMessageData.certificateContent(), e.getMessage());
             saveEventHistory(eventHistory, EventStatus.FAILED);
             return;
         }
@@ -127,7 +129,9 @@ public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
         try {
             fingerprint = CertificateUtil.getThumbprint(x509Certificate);
         } catch (NoSuchAlgorithmException | CertificateEncodingException e) {
-            logger.error("Unable to calculate fingerprint for certificate {}: {}", eventMessageData.certificateContent(), e.getMessage());
+            logger
+                    .error("Unable to calculate fingerprint for certificate {}: {}",
+                            eventMessageData.certificateContent(), e.getMessage());
             saveEventHistory(eventHistory, EventStatus.FAILED);
             return;
         }
@@ -140,23 +144,32 @@ public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
         CertificateUtil.prepareIssuedCertificate(certificate, x509Certificate);
         certificate.setFingerprint(fingerprint);
         CertificateEventData eventData = (CertificateEventData) getEventData(certificate, eventMessageData);
-        // Always a non-null list, even if the request omitted custom attributes entirely: a real Java null passed down to the
-        // evaluator means "this caller doesn't support pending-attribute evaluation", which would wrongly make CUSTOM EMPTY
+        // Always a non-null list, even if the request omitted custom attributes entirely: a real Java null passed down
+        // to the
+        // evaluator means "this caller doesn't support pending-attribute evaluation", which would wrongly make CUSTOM
+        // EMPTY
         // conditions fail to match on an unpersisted certificate (no UUID) instead of correctly evaluating to true.
-        List<RequestAttribute> pendingCustomAttributes = Objects.requireNonNullElse(eventMessageData.customAttributes(), List.of());
+        List<RequestAttribute> pendingCustomAttributes = Objects
+                .requireNonNullElse(eventMessageData.customAttributes(), List.of());
         try {
-            if (evaluateIgnoreTriggers(context, context.getPlatformTriggers(), certificate, eventData, eventHistory, pendingCustomAttributes)) {
+            if (evaluateIgnoreTriggers(context, context.getPlatformTriggers(), certificate, eventData, eventHistory,
+                    pendingCustomAttributes)) {
                 saveEventHistory(eventHistory, EventStatus.FINISHED);
                 return;
             }
             saveCertificate(certificate, fingerprint, x509Certificate);
             eventData.setCertificateUuid(certificate.getUuid());
             // Retroactively link trigger histories of the ignore triggers to the certificate
-            triggerHistoryRepository.updateObjectUuidAndObjectResource(certificate.getUuid(), Resource.CERTIFICATE, eventHistory.getUuid());
+            triggerHistoryRepository
+                    .updateObjectUuidAndObjectResource(certificate.getUuid(), Resource.CERTIFICATE,
+                            eventHistory.getUuid());
 
-            evaluateTriggers(context, context.getPlatformTriggers(), certificate, eventData, eventHistory, pendingCustomAttributes);
+            evaluateTriggers(context, context.getPlatformTriggers(), certificate, eventData, eventHistory,
+                    pendingCustomAttributes);
         } catch (Exception e) {
-            logger.error("Unable to process triggers for {} object {}. Message: {}", context.getResource().getLabel(), certificate.toStringShort(), e.getMessage());
+            logger
+                    .error("Unable to process triggers for {} object {}. Message: {}", context.getResource().getLabel(),
+                            certificate.toStringShort(), e.getMessage());
             saveEventHistory(eventHistory, EventStatus.FAILED);
             return;
         }
@@ -165,19 +178,26 @@ public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
 
         if (eventMessageData.customAttributes() != null && !eventMessageData.customAttributes().isEmpty()) {
             try {
-                attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), eventMessageData.customAttributes());
+                attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(),
+                                eventMessageData.customAttributes());
             } catch (NotFoundException | AttributeException e) {
-                logger.error("Error updating custom attributes for certificate {}: {}", certificate.getUuid(), e.getMessage());
+                logger
+                        .error("Error updating custom attributes for certificate {}: {}", certificate.getUuid(),
+                                e.getMessage());
             }
         }
 
-        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
+        certificateEventHistoryService
+                .addEventHistory(certificate.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS,
+                        "Certificate uploaded", "");
         applicationEventPublisher.publishEvent(new CertificateValidationEvent(certificate.getUuid()));
         sendFollowUpEventsNotifications(context);
     }
 
     private void saveCertificate(Certificate certificate, String fingerprint, X509Certificate x509Certificate) {
-        CertificateContent certificateContent = certificateService.checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Certificate));
+        CertificateContent certificateContent = certificateService
+                .checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Certificate));
         certificate.setCertificateContent(certificateContent);
         certificate.setCertificateContentId(certificateContent.getId());
 
@@ -190,7 +210,9 @@ public class CertificateUploadedEventHandler extends EventHandler<Certificate> {
     protected void sendFollowUpEventsNotifications(EventContext<Certificate> eventContext) {
         final Certificate certificate = eventContext.getResourceObjects().getFirst();
         final Object eventData = getEventData(certificate, eventContext.getData());
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.CERTIFICATE, certificate.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(certificate.getUserUuid()), eventData);
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.CERTIFICATE,
+                certificate.getUuid(), null,
+                NotificationRecipient.buildUserNotificationRecipient(certificate.getUserUuid()), eventData);
         applicationEventPublisher.publishEvent(notificationMessage);
     }
 }

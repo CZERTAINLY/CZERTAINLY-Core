@@ -1,27 +1,26 @@
 package com.otilm.core.service.impl;
 
+import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.events.handlers.discovery.DiscoveredCertificateImport;
-import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.writer.DiscoveryCertificateContentWriter;
 import com.otilm.core.util.CertificateUtil;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,7 +35,8 @@ import static org.mockito.Mockito.when;
  * discovery, and two discoveries racing on the same certificate cannot be forced deterministically. Stubbing the
  * repository is what makes the branch reachable at all.
  *
- * <p>What matters is which UUID the loser returns. Returning the one it generated locally instead of the winner's
+ * <p>
+ * What matters is which UUID the loser returns. Returning the one it generated locally instead of the winner's
  * committed row would leave the keys and metadata written afterwards pointing at a certificate that does not exist.
  */
 class CertificateServiceImplDiscoveredImportTest {
@@ -60,14 +60,16 @@ class CertificateServiceImplDiscoveredImportTest {
         savedRdnCache = existing == null ? null : new HashMap<>(existing);
 
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
     }
 
     @AfterAll
     static void restoreRdnCache() {
-        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
-                savedRdnCache != null ? savedRdnCache : new HashMap<>());
+        OidHandler
+                .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
+                        savedRdnCache != null ? savedRdnCache : new HashMap<>());
     }
 
     @BeforeEach

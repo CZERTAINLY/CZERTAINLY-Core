@@ -2,19 +2,18 @@ package com.otilm.core.service.impl;
 
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.logging.enums.OperationResult;
+import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.authz.UnauthenticatedEndpoint;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.service.v2.OAuth2LoginExternalService;
 import com.otilm.core.settings.SettingsCache;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.net.URI;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 public class OAuth2LoginServiceImpl implements OAuth2LoginExternalService {
@@ -27,13 +26,10 @@ public class OAuth2LoginServiceImpl implements OAuth2LoginExternalService {
     }
 
     private boolean isOAuth2ProviderValid(OAuth2ProviderSettingsDto settingsDto) {
-        return (settingsDto.getClientId() != null) &&
-                (settingsDto.getClientSecret() != null) &&
-                (settingsDto.getAuthorizationUrl() != null) &&
-                (settingsDto.getTokenUrl() != null) &&
-                (settingsDto.getJwkSetUrl() != null || settingsDto.getJwkSet() != null) &&
-                (settingsDto.getLogoutUrl() != null) &&
-                (settingsDto.getPostLogoutUrl() != null);
+        return (settingsDto.getClientId() != null) && (settingsDto.getClientSecret() != null)
+                && (settingsDto.getAuthorizationUrl() != null) && (settingsDto.getTokenUrl() != null)
+                && (settingsDto.getJwkSetUrl() != null || settingsDto.getJwkSet() != null)
+                && (settingsDto.getLogoutUrl() != null) && (settingsDto.getPostLogoutUrl() != null);
     }
 
     @Override
@@ -43,7 +39,10 @@ public class OAuth2LoginServiceImpl implements OAuth2LoginExternalService {
         if (authenticationSettings.getOAuth2Providers() == null) {
             return List.of();
         }
-        return authenticationSettings.getOAuth2Providers().values().stream()
+        return authenticationSettings
+                .getOAuth2Providers()
+                .values()
+                .stream()
                 .filter(this::isOAuth2ProviderValid)
                 .toList();
     }
@@ -74,7 +73,8 @@ public class OAuth2LoginServiceImpl implements OAuth2LoginExternalService {
             if (uri.isAbsolute() || uri.getHost() != null) {
                 return null;
             }
-            return uri.getPath() + (uri.getQuery() != null ? "?" + uri.getQuery() : "") + (uri.getFragment() != null ? "#" + uri.getFragment() : "");
+            return uri.getPath() + (uri.getQuery() != null ? "?" + uri.getQuery() : "")
+                    + (uri.getFragment() != null ? "#" + uri.getFragment() : "");
         } catch (IllegalArgumentException e) {
             return null;
         }
@@ -85,7 +85,8 @@ public class OAuth2LoginServiceImpl implements OAuth2LoginExternalService {
     public OAuth2ProviderSettingsDto resolveProviderOrThrow(String providerName, String sessionAccessToken) {
         OAuth2ProviderSettingsDto providerSettings = getOAuth2ProviderSettings(providerName);
         if (providerSettings == null) {
-            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(providerName);
+            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow"
+                    .formatted(providerName);
             auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, sessionAccessToken);
             throw new PlatformAuthenticationException(message);
         }

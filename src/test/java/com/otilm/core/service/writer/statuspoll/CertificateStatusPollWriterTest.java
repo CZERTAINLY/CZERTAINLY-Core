@@ -2,14 +2,13 @@ package com.otilm.core.service.writer.statuspoll;
 
 import com.otilm.core.dao.repository.CertificateStatusPollRepository;
 import com.otilm.core.service.handler.authority.CertificateOperation;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.time.OffsetDateTime;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,7 +17,8 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class CertificateStatusPollWriterTest {
 
-    @Mock private CertificateStatusPollRepository pollRepository;
+    @Mock
+    private CertificateStatusPollRepository pollRepository;
 
     private CertificateStatusPollWriter writer;
 

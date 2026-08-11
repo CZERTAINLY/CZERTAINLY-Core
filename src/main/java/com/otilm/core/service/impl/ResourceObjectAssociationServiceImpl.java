@@ -17,14 +17,18 @@ import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.util.AuthHelper;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.*;
 
 @Service
 @Transactional
@@ -68,7 +72,8 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
 
     @Override
     public void addGroup(Resource resource, UUID objectUuid, UUID groupUuid) throws NotFoundException {
-        if (groupUuid != null && !groupAssociationRepository.existsByResourceAndObjectUuidAndGroupUuid(resource, objectUuid, groupUuid)) {
+        if (groupUuid != null && !groupAssociationRepository
+                .existsByResourceAndObjectUuidAndGroupUuid(resource, objectUuid, groupUuid)) {
             createGroupAssociation(resource, objectUuid, groupUuid);
             logger.debug("Added group {} association to {} with UUID {}", groupUuid, resource.getLabel(), objectUuid);
         }
@@ -76,7 +81,8 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
 
     @Override
     public List<UUID> getGroupUuids(Resource resource, UUID objectUuid) {
-        List<GroupAssociation> groupAssociations = groupAssociationRepository.findByResourceAndObjectUuid(resource, objectUuid);
+        List<GroupAssociation> groupAssociations = groupAssociationRepository
+                .findByResourceAndObjectUuid(resource, objectUuid);
         return groupAssociations.stream().map(GroupAssociation::getGroupUuid).toList();
     }
 
@@ -89,7 +95,9 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
             for (UUID groupUuid : groupUuids) {
                 groups.add(createGroupAssociation(resource, objectUuid, groupUuid));
             }
-            logger.debug("Added {} group associations to {} with UUID {}", groupUuids.size(), resource.getLabel(), objectUuid);
+            logger
+                    .debug("Added {} group associations to {} with UUID {}", groupUuids.size(), resource.getLabel(),
+                            objectUuid);
         }
 
         return groups;
@@ -98,7 +106,8 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     @Override
     public void removeGroup(Resource resource, UUID objectUuid, UUID groupUuid) {
         if (groupUuid != null) {
-            Long associationsDeleted = groupAssociationRepository.deleteByResourceAndObjectUuidAndGroupUuid(resource, objectUuid, groupUuid);
+            Long associationsDeleted = groupAssociationRepository
+                    .deleteByResourceAndObjectUuidAndGroupUuid(resource, objectUuid, groupUuid);
             if (associationsDeleted == 0) {
                 logger.debug("Group {} not associated to {} with UUID {}", groupUuid, resource.getLabel(), objectUuid);
             } else {
@@ -117,14 +126,18 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
 
     @Override
     public NameAndUuidDto getOwner(Resource resource, UUID objectUuid) {
-        OwnerAssociation ownerAssociation = ownerAssociationRepository.findByResourceAndObjectUuid(resource, objectUuid);
-        return ownerAssociation == null ? null : new NameAndUuidDto(ownerAssociation.getOwnerUuid().toString(), ownerAssociation.getOwnerUsername());
+        OwnerAssociation ownerAssociation = ownerAssociationRepository
+                .findByResourceAndObjectUuid(resource, objectUuid);
+        return ownerAssociation == null
+                ? null
+                : new NameAndUuidDto(ownerAssociation.getOwnerUuid().toString(), ownerAssociation.getOwnerUsername());
     }
 
     @Override
     public NameAndUuidDto setOwner(Resource resource, UUID objectUuid, UUID ownerUuid) throws NotFoundException {
         String ownerUsername = null;
-        OwnerAssociation ownerAssociation = ownerAssociationRepository.findByResourceAndObjectUuid(resource, objectUuid);
+        OwnerAssociation ownerAssociation = ownerAssociationRepository
+                .findByResourceAndObjectUuid(resource, objectUuid);
         if (ownerUuid == null) {
             if (ownerAssociation != null) {
                 ownerAssociationRepository.delete(ownerAssociation);
@@ -141,7 +154,9 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
                     ownerAssociation.setOwnerUsername(ownerUsername);
                     ownerAssociationRepository.save(ownerAssociation);
                 }
-                logger.debug("Added owner {} association to {} with UUID {}", ownerUsername, resource.getLabel(), objectUuid);
+                logger
+                        .debug("Added owner {} association to {} with UUID {}", ownerUsername, resource.getLabel(),
+                                objectUuid);
             }
         }
 
@@ -152,9 +167,12 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     public void setOwnerFromProfile(Resource resource, UUID objectUuid) {
         try {
             UserProfileDto userProfileDto = AuthHelper.getUserProfile();
-            setOwner(resource, objectUuid, UUID.fromString(userProfileDto.getUser().getUuid()), userProfileDto.getUser().getUsername());
+            setOwner(resource, objectUuid, UUID.fromString(userProfileDto.getUser().getUuid()),
+                    userProfileDto.getUser().getUsername());
         } catch (Exception e) {
-            logger.warn("Unable to set owner for {} {} to logged user: {}", resource.getLabel(), objectUuid, e.getMessage());
+            logger
+                    .warn("Unable to set owner for {} {} to logged user: {}", resource.getLabel(), objectUuid,
+                            e.getMessage());
         }
     }
 
@@ -184,11 +202,14 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     // transaction: transaction-less callers do not get one opened around the call, and a caller's
     // active transaction is suspended for the duration of the call rather than joined.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public NameAndUuidDto getRecipientObjectInfo(RecipientType recipientType, UUID recipientUuid) throws NotFoundException {
+    public NameAndUuidDto getRecipientObjectInfo(RecipientType recipientType, UUID recipientUuid)
+            throws NotFoundException {
         String name = switch (recipientType) {
             case USER -> getUserUsername(recipientUuid);
             case GROUP -> {
-                Group group = groupRepository.findByUuid(recipientUuid).orElseThrow(() -> new NotFoundException(Group.class, recipientUuid));
+                Group group = groupRepository
+                        .findByUuid(recipientUuid)
+                        .orElseThrow(() -> new NotFoundException(Group.class, recipientUuid));
                 yield group.getName();
             }
             case ROLE -> getRoleName(recipientUuid);
@@ -209,7 +230,8 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     }
 
     private void setOwner(Resource resource, UUID objectUuid, UUID ownerUuid, String ownerUsername) {
-        OwnerAssociation ownerAssociation = ownerAssociationRepository.findByResourceAndObjectUuid(resource, objectUuid);
+        OwnerAssociation ownerAssociation = ownerAssociationRepository
+                .findByResourceAndObjectUuid(resource, objectUuid);
         if (ownerUuid == null) {
             if (ownerAssociation != null) {
                 ownerAssociationRepository.delete(ownerAssociation);
@@ -225,12 +247,15 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
                 ownerAssociationRepository.save(ownerAssociation);
             }
 
-            logger.debug("Added owner {} association to {} with UUID {}", ownerUsername, resource.getLabel(), objectUuid);
+            logger
+                    .debug("Added owner {} association to {} with UUID {}", ownerUsername, resource.getLabel(),
+                            objectUuid);
         }
     }
 
     private void removeOwner(Resource resource, UUID objectUuid) {
-        Long associationsDeleted = ownerAssociationRepository.deleteByResourceAndObjectUuidAndOwnerUuidNotNull(resource, objectUuid);
+        Long associationsDeleted = ownerAssociationRepository
+                .deleteByResourceAndObjectUuidAndOwnerUuidNotNull(resource, objectUuid);
         if (associationsDeleted == 0) {
             logger.debug("Owner not associated to {} with UUID {}", resource.getLabel(), objectUuid);
         } else {
@@ -239,7 +264,8 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     }
 
     private void removeOwner(Resource resource, List<UUID> objectUuids) {
-        Long associationsDeleted = ownerAssociationRepository.deleteByResourceAndObjectUuidInAndOwnerUuidNotNull(resource, objectUuids);
+        Long associationsDeleted = ownerAssociationRepository
+                .deleteByResourceAndObjectUuidInAndOwnerUuidNotNull(resource, objectUuids);
         if (associationsDeleted == 0) {
             logger.debug("Owner not associated to {} for any of the UUIDs {}", resource.getLabel(), objectUuids);
         } else {
@@ -248,7 +274,9 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     }
 
     private Group createGroupAssociation(Resource resource, UUID objectUuid, UUID groupUuid) throws NotFoundException {
-        Group group = groupRepository.findByUuid(groupUuid).orElseThrow(() -> new NotFoundException(Group.class, groupUuid));
+        Group group = groupRepository
+                .findByUuid(groupUuid)
+                .orElseThrow(() -> new NotFoundException(Group.class, groupUuid));
 
         GroupAssociation association = new GroupAssociation();
         association.setResource(resource);

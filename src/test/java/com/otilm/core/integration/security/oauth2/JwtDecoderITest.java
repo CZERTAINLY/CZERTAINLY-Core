@@ -1,5 +1,12 @@
 package com.otilm.core.integration.security.oauth2;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.PlainJWT;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.SettingsSectionCategory;
@@ -15,14 +22,21 @@ import com.otilm.core.security.oauth2.OAuth2TestUtil;
 import com.otilm.core.service.SettingExternalService;
 import com.otilm.core.settings.AuthenticationSettingsSnapshot;
 import com.otilm.core.util.BaseSpringBootTest;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
-import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.PlainJWT;
-import org.junit.jupiter.api.*;
+import java.math.BigInteger;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.RSAPublicKey;
+import java.util.Base64;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.ResponseEntity;
@@ -30,13 +44,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-
-import java.math.BigInteger;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.interfaces.RSAPublicKey;
-import java.util.*;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 
@@ -70,7 +77,6 @@ class JwtDecoderITest extends BaseSpringBootTest {
 
     String jwkSetJson;
 
-
     @BeforeEach
     void setUp() throws NoSuchAlgorithmException, JsonProcessingException, JOSEException {
         mockServer = new WireMockServer(8082);
@@ -81,31 +87,39 @@ class JwtDecoderITest extends BaseSpringBootTest {
         generator.initialize(2048);
         keyPair = generator.generateKeyPair();
 
-        mockServer.stubFor(WireMock.get("/realms/platform-realm/.well-known/openid-configuration")
-                .willReturn(aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(String.format("""
-                                {
-                                  "issuer": "%s",
-                                  "authorization_endpoint": "%s/protocol/openid-connect/auth",
-                                  "token_endpoint": "%s/protocol/openid-connect/token",
-                                  "jwks_uri": "%s/protocol/openid-connect/certs",
-                                  "grant_types_supported": ["authorization_code", "implicit", "refresh_token"]
-                                }
-                                """, ISSUER_URL, ISSUER_URL, ISSUER_URL, ISSUER_URL))));
+        mockServer
+                .stubFor(WireMock
+                        .get("/realms/platform-realm/.well-known/openid-configuration")
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(String.format("""
+                                        {
+                                          "issuer": "%s",
+                                          "authorization_endpoint": "%s/protocol/openid-connect/auth",
+                                          "token_endpoint": "%s/protocol/openid-connect/token",
+                                          "jwks_uri": "%s/protocol/openid-connect/certs",
+                                          "grant_types_supported": ["authorization_code", "implicit", "refresh_token"]
+                                        }
+                                        """, ISSUER_URL, ISSUER_URL, ISSUER_URL, ISSUER_URL))));
 
         jwkSetJson = "{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) keyPair.getPublic()) + "]}";
 
-        mockServer.stubFor(WireMock.get("/realms/platform-realm/protocol/openid-connect/certs")
-                .willReturn(aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(jwkSetJson)));
+        mockServer
+                .stubFor(WireMock
+                        .get("/realms/platform-realm/protocol/openid-connect/certs")
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(jwkSetJson)));
 
-        mockServer.stubFor(WireMock.get("/api/oauth2/provider/jwkSet")
-                .willReturn(aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(jwkSetJson)));
-
+        mockServer
+                .stubFor(WireMock
+                        .get("/api/oauth2/provider/jwkSet")
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(jwkSetJson)));
 
         providerSettings = new OAuth2ProviderSettingsUpdateDto();
         providerSettings.setIssuerUrl(ISSUER_URL);
@@ -129,7 +143,8 @@ class JwtDecoderITest extends BaseSpringBootTest {
         Assertions.assertNull(jwtDecoder.decode(tokenValue));
 
         AuthenticationInfo authenticationInfo = AuthenticationInfo.getAnonymousAuthenticationInfo();
-        PlatformAnonymousToken authentication = new PlatformAnonymousToken(UUID.randomUUID().toString(), authenticationInfo, authenticationInfo.getAuthorities());
+        PlatformAnonymousToken authentication = new PlatformAnonymousToken(UUID.randomUUID().toString(),
+                authenticationInfo, authenticationInfo.getAuthorities());
         SecurityContext emptyContext = SecurityContextHolder.createEmptyContext();
         emptyContext.setAuthentication(authentication);
         SecurityContextHolder.setContext(emptyContext);
@@ -150,14 +165,16 @@ class JwtDecoderITest extends BaseSpringBootTest {
         AuthenticationSettingsSnapshot published = AuthenticationSnapshotRequestHolder.get();
         Assertions.assertNotNull(jwt);
         Assertions.assertNotNull(published);
-        Assertions.assertEquals(ISSUER_URL, published.settings().getOAuth2Providers().get(PROVIDER_NAME).getIssuerUrl());
+        Assertions
+                .assertEquals(ISSUER_URL, published.settings().getOAuth2Providers().get(PROVIDER_NAME).getIssuerUrl());
     }
 
     @Test
     void testNullIssuer() throws JOSEException {
         SecurityContextHolder.clearContext();
         String token = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, null, null);
-        Exception exception = Assertions.assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(token));
+        Exception exception = Assertions
+                .assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(token));
         Assertions.assertTrue(exception.getMessage().contains("Issuer URI is not present in JWT."));
     }
 
@@ -165,19 +182,26 @@ class JwtDecoderITest extends BaseSpringBootTest {
     void testNoOauth2Provider() {
         settingService.removeOAuth2Provider(PROVIDER_NAME);
         SecurityContextHolder.clearContext();
-        Exception exception = Assertions.assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Exception exception = Assertions
+                .assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
         Assertions.assertTrue(exception.getMessage().contains("No OAuth2 Provider with issuer URI"));
     }
 
     @Test
     void testMalformedOAuth2ProviderSettings() {
-        Setting setting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), PROVIDER_NAME);
+        Setting setting = settingRepository
+                .findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION,
+                        SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), PROVIDER_NAME);
         setting.setValue("WRONG-DATA");
         settingRepository.save(setting);
 
         providerSettings.setClientSecret(null);
-        Assertions.assertThrows(ValidationException.class, () -> settingService.getOAuth2ProviderSettings(PROVIDER_NAME, false));
-        Assertions.assertThrows(ValidationException.class, () -> settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> settingService.getOAuth2ProviderSettings(PROVIDER_NAME, false));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings));
     }
 
     @Test
@@ -185,7 +209,8 @@ class JwtDecoderITest extends BaseSpringBootTest {
         SecurityContextHolder.clearContext();
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
 
-        String almostExpiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE, "");
+        String almostExpiredToken = OAuth2TestUtil
+                .createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE, "");
         // Test if 30 s skew is added to the time and therefore the token should be successfully validated
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(almostExpiredToken));
     }
@@ -197,7 +222,8 @@ class JwtDecoderITest extends BaseSpringBootTest {
 
         SecurityContextHolder.clearContext();
         String expiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE, "");
-        Exception exception = Assertions.assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
+        Exception exception = Assertions
+                .assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
         Assertions.assertTrue(exception.getMessage().contains("Jwt expired"));
     }
 
@@ -215,7 +241,8 @@ class JwtDecoderITest extends BaseSpringBootTest {
         providerSettings.setAudiences(List.of("different-audience"));
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
         SecurityContextHolder.clearContext();
-        Exception exception = Assertions.assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Exception exception = Assertions
+                .assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
         Assertions.assertTrue(exception.getMessage().contains("The aud claim is not valid"));
     }
 
@@ -237,15 +264,20 @@ class JwtDecoderITest extends BaseSpringBootTest {
         generator.initialize(2048);
         KeyPair invalidKeyPair = generator.generateKeyPair();
 
-        String invalidJwkSetJson = "{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) invalidKeyPair.getPublic()) + "]}";
+        String invalidJwkSetJson = "{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) invalidKeyPair.getPublic())
+                + "]}";
 
-        mockServer.stubFor(WireMock.get("/realms/platform-realm/protocol/openid-connect/certs")
-                .willReturn(aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(invalidJwkSetJson)));
+        mockServer
+                .stubFor(WireMock
+                        .get("/realms/platform-realm/protocol/openid-connect/certs")
+                        .willReturn(aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody(invalidJwkSetJson)));
 
         SecurityContextHolder.clearContext();
-        Exception exception = Assertions.assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Exception exception = Assertions
+                .assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
         Assertions.assertTrue(exception.getMessage().contains("Invalid signature"));
     }
 
@@ -270,7 +302,8 @@ class JwtDecoderITest extends BaseSpringBootTest {
                 .build();
 
         tokenValue = new PlainJWT(claimsSet).serialize();
-        Exception exception = Assertions.assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Exception exception = Assertions
+                .assertThrows(PlatformAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
         Assertions.assertTrue(exception.getMessage().contains("Token is not an instance of Signed JWT"));
     }
 

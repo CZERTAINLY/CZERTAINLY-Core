@@ -9,14 +9,13 @@ import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
 public class ApprovalRecipientHelper {
@@ -47,7 +46,7 @@ public class ApprovalRecipientHelper {
     }
 
     public String getUsername(String userUuid) {
-        if(userNames == null) {
+        if (userNames == null) {
             loadUsers();
         }
 
@@ -55,7 +54,7 @@ public class ApprovalRecipientHelper {
     }
 
     public String getRoleName(String roleUuid) {
-        if(roleNames == null) {
+        if (roleNames == null) {
             loadRoles();
         }
 
@@ -63,7 +62,7 @@ public class ApprovalRecipientHelper {
     }
 
     public String getGroupName(String groupUuid) {
-        if(groupNames == null) {
+        if (groupNames == null) {
             loadGroups();
         }
 
@@ -71,12 +70,13 @@ public class ApprovalRecipientHelper {
     }
 
     public void fillApprovalStepDto(ApprovalStepDto approvalStep) {
-        if (approvalStep.getUserUuid() != null)
+        if (approvalStep.getUserUuid() != null) {
             approvalStep.setUsername(getUsername(approvalStep.getUserUuid().toString()));
-        else if (approvalStep.getRoleUuid() != null)
+        } else if (approvalStep.getRoleUuid() != null) {
             approvalStep.setRoleName(getRoleName(approvalStep.getRoleUuid().toString()));
-        else if (approvalStep.getGroupUuid() != null)
+        } else if (approvalStep.getGroupUuid() != null) {
             approvalStep.setGroupName(getGroupName(approvalStep.getGroupUuid().toString()));
+        }
     }
 
     public void fillApprovalDetailStepDto(ApprovalDetailStepDto approvalStep) {
@@ -88,9 +88,12 @@ public class ApprovalRecipientHelper {
 
     private void loadUsers() {
         try {
-            this.userNames = this.userManagementApiClient.getUsers().getData().stream().collect(Collectors.toMap(UserDto::getUuid, UserDto::getUsername));
-        }
-        catch (Exception e) {
+            this.userNames = this.userManagementApiClient
+                    .getUsers()
+                    .getData()
+                    .stream()
+                    .collect(Collectors.toMap(UserDto::getUuid, UserDto::getUsername));
+        } catch (Exception e) {
             logger.error("Failed to load usernames from Auth service: {}", e.getMessage());
             this.userNames = new HashMap<>();
         }
@@ -98,16 +101,22 @@ public class ApprovalRecipientHelper {
 
     private void loadRoles() {
         try {
-            this.roleNames = this.roleManagementApiClient.getRoles().getData().stream().collect(Collectors.toMap(RoleDto::getUuid, RoleDto::getName));
-        }
-        catch (Exception e) {
+            this.roleNames = this.roleManagementApiClient
+                    .getRoles()
+                    .getData()
+                    .stream()
+                    .collect(Collectors.toMap(RoleDto::getUuid, RoleDto::getName));
+        } catch (Exception e) {
             logger.error("Failed to load role names from Auth service: {}", e.getMessage());
             this.roleNames = new HashMap<>();
         }
     }
 
     private void loadGroups() {
-        this.groupNames = this.groupRepository.findAll().stream().collect(Collectors.toMap(g -> g.getUuid().toString(), Group::getName));
+        this.groupNames = this.groupRepository
+                .findAll()
+                .stream()
+                .collect(Collectors.toMap(g -> g.getUuid().toString(), Group::getName));
     }
 
 }

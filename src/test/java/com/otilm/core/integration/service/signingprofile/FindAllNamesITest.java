@@ -5,10 +5,9 @@ import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.core.service.signingprofile.SigningProfileTestBase;
+import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 class FindAllNamesITest extends SigningProfileTestBase {
 

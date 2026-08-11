@@ -8,14 +8,13 @@ import com.otilm.core.security.authn.PlatformAnonymousToken;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -78,8 +77,8 @@ class AuthHelperTest {
         Authentication original = mock(Authentication.class);
         SecurityContextHolder.getContext().setAuthentication(original);
 
-        assertThrows(IllegalStateException.class, () ->
-                authHelper.runAsSystem(AuthHelper.ATTRIBUTE_CONTENT_RESOLVER_USERNAME, () -> {
+        assertThrows(IllegalStateException.class,
+                () -> authHelper.runAsSystem(AuthHelper.ATTRIBUTE_CONTENT_RESOLVER_USERNAME, () -> {
                     throw new IllegalStateException("boom");
                 }));
 
@@ -99,10 +98,12 @@ class AuthHelperTest {
             return null;
         });
 
-        assertEquals(ActorType.CORE, during[0].type(), "authorization must run under the system actor during the action");
+        assertEquals(ActorType.CORE, during[0].type(),
+                "authorization must run under the system actor during the action");
         assertNull(during[0].uuid(), "no caller uuid may linger in the actor MDC during the elevated window");
         ActorRecord after = LoggingHelper.getActorInfo();
-        assertEquals(ActorType.USER, after.type(), "caller's actor type must be restored, not left as the system identity");
+        assertEquals(ActorType.USER, after.type(),
+                "caller's actor type must be restored, not left as the system identity");
         assertEquals("operator-jane", after.name(), "caller's actor name must be restored");
         assertEquals(callerUuid, after.uuid().toString(), "caller's actor uuid must be restored, not left stale");
     }
@@ -114,8 +115,10 @@ class AuthHelperTest {
     @Test
     void getActingUserUuidOrNull_returnsNullForAnonymousPrincipal() {
         AuthenticationInfo anonymous = AuthenticationInfo.getAnonymousAuthenticationInfo();
-        SecurityContextHolder.getContext().setAuthentication(new PlatformAnonymousToken(
-                UUID.randomUUID().toString(), new PlatformUserDetails(anonymous), anonymous.getAuthorities()));
+        SecurityContextHolder
+                .getContext()
+                .setAuthentication(new PlatformAnonymousToken(UUID.randomUUID().toString(),
+                        new PlatformUserDetails(anonymous), anonymous.getAuthorities()));
 
         assertNull(AuthHelper.getActingUserUuidOrNull());
     }
@@ -130,9 +133,10 @@ class AuthHelperTest {
     @Test
     void getActingUserUuidOrNull_returnsTheAuthenticatedUsersUuid() {
         UUID userUuid = UUID.randomUUID();
-        SecurityContextHolder.getContext().setAuthentication(new PlatformAuthenticationToken(
-                new PlatformUserDetails(new AuthenticationInfo(
-                        AuthMethod.USER_PROXY, userUuid.toString(), "operator", List.of()))));
+        SecurityContextHolder
+                .getContext()
+                .setAuthentication(new PlatformAuthenticationToken(new PlatformUserDetails(
+                        new AuthenticationInfo(AuthMethod.USER_PROXY, userUuid.toString(), "operator", List.of()))));
 
         assertEquals(userUuid, AuthHelper.getActingUserUuidOrNull());
     }

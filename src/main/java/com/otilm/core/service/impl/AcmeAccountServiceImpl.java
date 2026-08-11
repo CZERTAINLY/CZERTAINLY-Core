@@ -22,17 +22,15 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.AcmeAccountExternalService;
 import com.otilm.core.service.AcmeAccountInternalService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import jakarta.transaction.Transactional;
-
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service(Resource.Codes.ACME_ACCOUNT)
 @Transactional
@@ -140,7 +138,8 @@ public class AcmeAccountServiceImpl implements AcmeAccountExternalService, AcmeA
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.LIST, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.LIST)
     public List<AcmeAccountListResponseDto> listAcmeAccounts(SecurityFilter filter) {
         filter.setParentRefProperty("acmeProfileUuid");
-        return acmeAccountRepository.findUsingSecurityFilter(filter)
+        return acmeAccountRepository
+                .findUsingSecurityFilter(filter)
                 .stream()
                 .map(AcmeAccount::mapToDtoForUiSimple)
                 .collect(Collectors.toList());
@@ -148,7 +147,8 @@ public class AcmeAccountServiceImpl implements AcmeAccountExternalService, AcmeA
 
     @Override
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DETAIL, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
-    public AcmeAccountResponseDto getAcmeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
+    public AcmeAccountResponseDto getAcmeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid)
+            throws NotFoundException {
         AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
 
         Integer invalidatedExpiredOrders = acmeOrderRepository.invalidateExpiredOrders(acmeAccount, new Date());
@@ -159,8 +159,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountExternalService, AcmeA
     }
 
     private AcmeAccount getAcmeAccountEntity(SecuredUUID uuid) throws NotFoundException {
-        return acmeAccountRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(AcmeAccount.class, uuid));
+        return acmeAccountRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(AcmeAccount.class, uuid));
     }
 
     public void revokeAccount(SecuredUUID uuid) throws NotFoundException {
@@ -182,12 +181,14 @@ public class AcmeAccountServiceImpl implements AcmeAccountExternalService, AcmeA
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DETAIL)
     public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(objectUuid);
-        authorizationEnforcer.enforce(Resource.ACME_PROFILE, ResourceAction.DETAIL, account.getAcmeProfile().getSecuredUuid());
+        authorizationEnforcer
+                .enforce(Resource.ACME_PROFILE, ResourceAction.DETAIL, account.getAcmeProfile().getSecuredUuid());
         return new NameAndUuidDto(account.getUuid(), account.getAccountId());
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         return acmeAccountRepository.listResourceObjects(filter, AcmeAccount_.accountId);
     }
 

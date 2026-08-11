@@ -25,9 +25,10 @@ public class CustomHttpServletResponseWrapper extends HttpServletResponseWrapper
     public ServletOutputStream getOutputStream() throws IOException {
         return servletStream;
     }
+
     public PrintWriter getWriter() throws IOException {
         String encoding = getCharacterEncoding();
-        if ( encoding != null ) {
+        if (encoding != null) {
             return new PrintWriter(new OutputStreamWriter(servletStream, encoding));
         } else {
             return new PrintWriter(new OutputStreamWriter(servletStream));

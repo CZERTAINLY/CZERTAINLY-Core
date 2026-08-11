@@ -1,21 +1,27 @@
 package com.otilm.core.security.oauth2;
 
-import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.otilm.core.security.authn.PlatformAuthenticationException;
-import com.otilm.core.util.OAuth2Util;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import org.junit.jupiter.api.Test;
-
+import com.otilm.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.otilm.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.otilm.core.security.authn.PlatformAuthenticationException;
+import com.otilm.core.util.OAuth2Util;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OAuth2UsernameResolutionTest {
 
@@ -51,8 +57,7 @@ class OAuth2UsernameResolutionTest {
     void unconfigured_preferredUsernameAloneIsNotAccepted() {
         Map<String, Object> claims = Map.of("preferred_username", "alice");
         OAuth2ProviderSettingsDto provider = providerWithClaim(null);
-        assertThrows(PlatformAuthenticationException.class,
-                () -> OAuth2Util.resolveUsername(provider, claims));
+        assertThrows(PlatformAuthenticationException.class, () -> OAuth2Util.resolveUsername(provider, claims));
     }
 
     @Test
@@ -70,21 +75,18 @@ class OAuth2UsernameResolutionTest {
     @Test
     void nonStringClaimValue_throws() {
         Map<String, Object> claims = Map.of("username", List.of("bob"));
-        assertThrows(PlatformAuthenticationException.class,
-                () -> OAuth2Util.resolveUsername(null, claims));
+        assertThrows(PlatformAuthenticationException.class, () -> OAuth2Util.resolveUsername(null, claims));
     }
 
     @Test
     void nullClaimsMap_throwsDomainException() {
-        assertThrows(PlatformAuthenticationException.class,
-                () -> OAuth2Util.resolveUsername(null, null));
+        assertThrows(PlatformAuthenticationException.class, () -> OAuth2Util.resolveUsername(null, null));
     }
 
     @Test
     void blankClaimValue_throws() {
         Map<String, Object> claims = Map.of("username", "   ");
-        assertThrows(PlatformAuthenticationException.class,
-                () -> OAuth2Util.resolveUsername(null, claims));
+        assertThrows(PlatformAuthenticationException.class, () -> OAuth2Util.resolveUsername(null, claims));
     }
 
     @Test
@@ -126,8 +128,8 @@ class OAuth2UsernameResolutionTest {
     @Test
     void getAllClaimsAvailable_normalizesConfiguredClaimIntoUsernameKey() throws Exception {
         String token = signedJwtWithClaims(Map.of("preferred_username", "alice", "username", "bob"));
-        Map<String, Object> claims = OAuth2Util.getAllClaimsAvailable(
-                providerWithClaim("preferred_username"), token, null);
+        Map<String, Object> claims = OAuth2Util
+                .getAllClaimsAvailable(providerWithClaim("preferred_username"), token, null);
         assertEquals("alice", claims.get("username"));
     }
 
@@ -165,8 +167,8 @@ class OAuth2UsernameResolutionTest {
 
     @Test
     void findProviderByIssuer_uniqueMatch() {
-        AuthenticationSettingsDto settings = settingsWithProviders(
-                providerWithIssuer("a", "https://issuer-a"), providerWithIssuer("b", "https://issuer-b"));
+        AuthenticationSettingsDto settings = settingsWithProviders(providerWithIssuer("a", "https://issuer-a"),
+                providerWithIssuer("b", "https://issuer-b"));
         assertEquals("a", OAuth2Util.findProviderByIssuer(settings, "https://issuer-a").getName());
     }
 
@@ -180,8 +182,8 @@ class OAuth2UsernameResolutionTest {
 
     @Test
     void findProviderByIssuer_ambiguousMatch_throws() {
-        AuthenticationSettingsDto settings = settingsWithProviders(
-                providerWithIssuer("a", "https://issuer-a"), providerWithIssuer("b", "https://issuer-a"));
+        AuthenticationSettingsDto settings = settingsWithProviders(providerWithIssuer("a", "https://issuer-a"),
+                providerWithIssuer("b", "https://issuer-a"));
         assertThrows(PlatformAuthenticationException.class,
                 () -> OAuth2Util.findProviderByIssuer(settings, "https://issuer-a"));
     }

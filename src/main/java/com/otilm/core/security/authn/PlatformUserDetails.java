@@ -2,10 +2,9 @@ package com.otilm.core.security.authn;
 
 import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
+import java.io.Serializable;
 import lombok.Getter;
 import org.springframework.security.core.userdetails.User;
-
-import java.io.Serializable;
 
 @Getter
 public class PlatformUserDetails extends User implements Serializable {

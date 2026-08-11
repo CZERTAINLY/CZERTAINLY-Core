@@ -13,20 +13,19 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.TimeQualityConfigurationExternalService;
 import com.otilm.core.service.TimeQualityConfigurationInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 
-import java.time.Duration;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests verifying that the TQC cache is correctly populated on lookup
- * and evicted after mutations that change the configuration's observable state.
+ * Integration tests verifying that the TQC cache is correctly populated on lookup and evicted after mutations that
+ * change the configuration's observable state.
  */
 class TimeQualityConfigurationCacheITest extends BaseSpringBootTest {
 
@@ -81,12 +80,12 @@ class TimeQualityConfigurationCacheITest extends BaseSpringBootTest {
     @Test
     void secondLookupReturnsCachedInstance() throws NotFoundException {
         // given - populate cache on first call
-        TimeQualityConfigurationModel first =
-                timeQualityConfigurationInternalService.getTimeQualityConfigurationModel(config.getUuid());
+        TimeQualityConfigurationModel first = timeQualityConfigurationInternalService
+                .getTimeQualityConfigurationModel(config.getUuid());
 
         // when - second call for the same UUID
-        TimeQualityConfigurationModel second =
-                timeQualityConfigurationInternalService.getTimeQualityConfigurationModel(config.getUuid());
+        TimeQualityConfigurationModel second = timeQualityConfigurationInternalService
+                .getTimeQualityConfigurationModel(config.getUuid());
 
         // then - the same Java object is returned, proving no second DB round-trip was made
         assertThat(second).isSameAs(first);
@@ -101,8 +100,7 @@ class TimeQualityConfigurationCacheITest extends BaseSpringBootTest {
 
         // when - configuration is updated
         TimeQualityConfigurationRequestDto request = buildUpdateRequest("test-tqc-updated");
-        timeQualityConfigurationService.updateTimeQualityConfiguration(
-                SecuredUUID.fromUUID(config.getUuid()), request);
+        timeQualityConfigurationService.updateTimeQualityConfiguration(SecuredUUID.fromUUID(config.getUuid()), request);
 
         // then - stale entry is gone
         assertThat(cache.get(config.getUuid(), TimeQualityConfigurationModel.class)).isNull();
@@ -116,8 +114,7 @@ class TimeQualityConfigurationCacheITest extends BaseSpringBootTest {
         assertThat(cache.get(config.getUuid(), TimeQualityConfigurationModel.class)).isNotNull();
 
         // when - configuration is deleted
-        timeQualityConfigurationService.deleteTimeQualityConfiguration(
-                SecuredUUID.fromUUID(config.getUuid()));
+        timeQualityConfigurationService.deleteTimeQualityConfiguration(SecuredUUID.fromUUID(config.getUuid()));
 
         // then - stale entry is gone
         assertThat(cache.get(config.getUuid(), TimeQualityConfigurationModel.class)).isNull();
@@ -146,9 +143,9 @@ class TimeQualityConfigurationCacheITest extends BaseSpringBootTest {
         assertThat(cache.get(second.getUuid(), TimeQualityConfigurationModel.class)).isNotNull();
 
         // when
-        List<BulkActionMessageDto> errors = timeQualityConfigurationService.bulkDeleteTimeQualityConfigurations(
-                List.of(SecuredUUID.fromUUID(config.getUuid()),
-                        SecuredUUID.fromUUID(second.getUuid())));
+        List<BulkActionMessageDto> errors = timeQualityConfigurationService
+                .bulkDeleteTimeQualityConfigurations(
+                        List.of(SecuredUUID.fromUUID(config.getUuid()), SecuredUUID.fromUUID(second.getUuid())));
         assertThat(errors).isEmpty();
 
         // then - both entries are evicted

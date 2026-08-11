@@ -5,10 +5,9 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
-import org.junit.jupiter.api.Test;
-
 import java.security.cert.CertificateException;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -19,7 +18,8 @@ import static org.mockito.Mockito.when;
 
 class ProtocolRequestAttributeValidatorTest {
 
-    private final RaProfileCertificateRequestAttributeService svc = mock(RaProfileCertificateRequestAttributeService.class);
+    private final RaProfileCertificateRequestAttributeService svc = mock(
+            RaProfileCertificateRequestAttributeService.class);
     private final ProtocolRequestAttributeValidator validator = new ProtocolRequestAttributeValidator(svc);
 
     @Test

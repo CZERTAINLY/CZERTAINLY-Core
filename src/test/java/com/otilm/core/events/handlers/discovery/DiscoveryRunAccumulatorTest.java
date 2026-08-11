@@ -1,9 +1,8 @@
 package com.otilm.core.events.handlers.discovery;
 
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,8 +27,9 @@ class DiscoveryRunAccumulatorTest {
     @Test
     void countsARolledBackGroupOncePerCertificateNotPerRow() {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
-        accumulator.accept(new GroupImportResult(
-                CONTENT_A, List.of(rolledBack(rowA), rolledBack(rowB)), List.of(), false));
+        accumulator
+                .accept(new GroupImportResult(CONTENT_A, List.of(rolledBack(rowA), rolledBack(rowB)), List.of(),
+                        false));
 
         assertThat(accumulator.counts().inventoryGaps())
                 .as("one certificate on two hosts is one certificate")
@@ -49,16 +49,15 @@ class DiscoveryRunAccumulatorTest {
     @Test
     void reclassifiesImportedToKeyAssociationFailed() {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
-        accumulator.accept(new GroupImportResult(
-                CONTENT_A,
-                List.of(imported(rowA), imported(rowB)),
-                List.of(KeyQueueEntry.of(null, false, certA, List.of(rowA, rowB))),
-                true));
+        accumulator
+                .accept(new GroupImportResult(CONTENT_A, List.of(imported(rowA), imported(rowB)),
+                        List.of(KeyQueueEntry.of(null, false, certA, List.of(rowA, rowB))), true));
 
         accumulator.failKeyAssociation(certA, "the cryptographic key service rejected the key");
 
-        assertThat(accumulator.results()).allSatisfy(result ->
-                assertThat(result.outcome()).isEqualTo(DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED));
+        assertThat(accumulator.results())
+                .allSatisfy(result -> assertThat(result.outcome())
+                        .isEqualTo(DiscoveryCertificateOutcome.KEY_ASSOCIATION_FAILED));
         assertThat(accumulator.counts().keyGaps()).isEqualTo(1);
         assertThat(accumulator.counts().inventoryGaps()).isZero();
     }
@@ -66,11 +65,9 @@ class DiscoveryRunAccumulatorTest {
     @Test
     void aggregatesBothKeyFailuresOfOneCertificateIntoOneReason() {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
-        accumulator.accept(new GroupImportResult(
-                CONTENT_A,
-                List.of(imported(rowA)),
-                List.of(KeyQueueEntry.of(null, false, certA, List.of(rowA))),
-                true));
+        accumulator
+                .accept(new GroupImportResult(CONTENT_A, List.of(imported(rowA)),
+                        List.of(KeyQueueEntry.of(null, false, certA, List.of(rowA))), true));
 
         accumulator.failKeyAssociation(certA, "primary key failed");
         accumulator.failKeyAssociation(certA, "alternative key failed");
@@ -78,8 +75,11 @@ class DiscoveryRunAccumulatorTest {
         assertThat(accumulator.counts().keyGaps())
                 .as("one certificate, one gap, however many of its keys failed")
                 .isEqualTo(1);
-        assertThat(accumulator.results()).singleElement().satisfies(result ->
-                assertThat(result.detail()).contains("primary key failed").contains("alternative key failed"));
+        assertThat(accumulator.results())
+                .singleElement()
+                .satisfies(result -> assertThat(result.detail())
+                        .contains("primary key failed")
+                        .contains("alternative key failed"));
     }
 
     @Test
@@ -100,11 +100,9 @@ class DiscoveryRunAccumulatorTest {
     @Test
     void ignoresKeyEntriesFromAGroupThatDidNotCommit() {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
-        accumulator.accept(new GroupImportResult(
-                CONTENT_A,
-                List.of(rolledBack(rowA)),
-                List.of(KeyQueueEntry.of(null, false, certA, List.of(rowA))),
-                false));
+        accumulator
+                .accept(new GroupImportResult(CONTENT_A, List.of(rolledBack(rowA)),
+                        List.of(KeyQueueEntry.of(null, false, certA, List.of(rowA))), false));
 
         accumulator.failKeyAssociation(certA, "the key was queued by a transaction that rolled back");
 
@@ -116,27 +114,27 @@ class DiscoveryRunAccumulatorTest {
     @Test
     void countsNotAttemptedAndBookkeepingFailuresSeparately() {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
-        accumulator.accept(new GroupImportResult(
-                CONTENT_A,
-                List.of(new DiscoveryCertificateResult(rowA, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
-                        "the import was interrupted before it began")),
-                List.of(), false));
+        accumulator
+                .accept(new GroupImportResult(CONTENT_A,
+                        List
+                                .of(new DiscoveryCertificateResult(rowA, DiscoveryCertificateOutcome.NOT_ATTEMPTED,
+                                        "the import was interrupted before it began")),
+                        List.of(), false));
         accumulator.recordBookkeepingFailure();
 
         DiscoveryRunCounts counts = accumulator.counts();
         assertThat(counts.notAttempted()).isEqualTo(1);
         assertThat(counts.bookkeepingFailures()).isEqualTo(1);
-        assertThat(counts.inventoryGaps())
-                .as("never attempted is not the same as lost")
-                .isZero();
+        assertThat(counts.inventoryGaps()).as("never attempted is not the same as lost").isZero();
         assertThat(counts.allClear()).isFalse();
     }
 
     @Test
     void countsAnUnattemptedGroupOncePerCertificateNotPerRow() {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
-        accumulator.accept(new GroupImportResult(CONTENT_A, List.of(notAttempted(rowA), notAttempted(rowB)),
-                List.of(), false));
+        accumulator
+                .accept(new GroupImportResult(CONTENT_A, List.of(notAttempted(rowA), notAttempted(rowB)), List.of(),
+                        false));
 
         assertThat(accumulator.counts().notAttempted())
                 .as("the status message says certificate(s) for this count too, so rows would make it lie")

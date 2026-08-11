@@ -4,22 +4,23 @@ import com.otilm.api.clients.mq.model.ProxyMessage;
 import com.otilm.api.model.core.proxy.ProxyStatus;
 import com.otilm.core.dao.entity.Proxy;
 import com.otilm.core.dao.repository.ProxyRepository;
+import java.time.Instant;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Instant;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link HealthCheckHandler}.
- * Tests health check message handling and proxy status updates.
+ * Unit tests for {@link HealthCheckHandler}. Tests health check message handling and proxy status updates.
  */
 @ExtendWith(MockitoExtension.class)
 class HealthCheckHandlerTest {
@@ -42,7 +43,8 @@ class HealthCheckHandlerTest {
 
         when(proxyRepository.findByCode("proxy-001")).thenReturn(Optional.of(proxy));
 
-        ProxyMessage message = ProxyMessage.builder()
+        ProxyMessage message = ProxyMessage
+                .builder()
                 .proxyId("proxy-001")
                 .messageType("health.check")
                 .timestamp(Instant.now())
@@ -60,7 +62,8 @@ class HealthCheckHandlerTest {
     void handleResponse_withUnknownProxy_logsWarningWithoutError() {
         when(proxyRepository.findByCode("unknown-proxy")).thenReturn(Optional.empty());
 
-        ProxyMessage message = ProxyMessage.builder()
+        ProxyMessage message = ProxyMessage
+                .builder()
                 .proxyId("unknown-proxy")
                 .messageType("health.check")
                 .timestamp(Instant.now())
@@ -74,7 +77,8 @@ class HealthCheckHandlerTest {
 
     @Test
     void handleResponse_withNullProxyId_skipsRepositoryLookup() {
-        ProxyMessage message = ProxyMessage.builder()
+        ProxyMessage message = ProxyMessage
+                .builder()
                 .proxyId(null)
                 .messageType("health.check")
                 .timestamp(Instant.now())
@@ -88,7 +92,8 @@ class HealthCheckHandlerTest {
 
     @Test
     void handleResponse_withBlankProxyId_skipsRepositoryLookup() {
-        ProxyMessage message = ProxyMessage.builder()
+        ProxyMessage message = ProxyMessage
+                .builder()
                 .proxyId("   ")
                 .messageType("health.check")
                 .timestamp(Instant.now())
@@ -107,7 +112,8 @@ class HealthCheckHandlerTest {
 
         when(proxyRepository.findByCode("proxy-001")).thenReturn(Optional.of(proxy));
 
-        ProxyMessage message = ProxyMessage.builder()
+        ProxyMessage message = ProxyMessage
+                .builder()
                 .proxyId("proxy-001")
                 .messageType("health.check")
                 .timestamp(null)

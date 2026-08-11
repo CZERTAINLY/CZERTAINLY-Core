@@ -1,10 +1,21 @@
 package com.otilm.core.service.impl;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.NotSupportedException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.auth.RoleRequestDto;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
-import com.otilm.api.model.core.auth.*;
+import com.otilm.api.model.core.auth.ObjectPermissionsDto;
+import com.otilm.api.model.core.auth.ObjectPermissionsRequestDto;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.auth.ResourcePermissionsDto;
+import com.otilm.api.model.core.auth.RoleDetailDto;
+import com.otilm.api.model.core.auth.RoleDto;
+import com.otilm.api.model.core.auth.RolePermissionsRequestDto;
+import com.otilm.api.model.core.auth.SubjectPermissionsDto;
+import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.model.auth.ResourceAction;
@@ -17,11 +28,10 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.RoleManagementExternalService;
 import com.otilm.core.service.RoleManagementInternalService;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service(Resource.Codes.ROLE)
 @Transactional
@@ -62,7 +72,9 @@ public class RoleManagementServiceImpl implements RoleManagementExternalService,
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.DETAIL)
     public RoleDetailDto getRole(String roleUuid) {
         RoleDetailDto dto = roleManagementApiClient.getRoleDetail(roleUuid);
-        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.ROLE, UUID.fromString(roleUuid)));
+        dto
+                .setCustomAttributes(
+                        attributeEngine.getObjectCustomAttributesContent(Resource.ROLE, UUID.fromString(roleUuid)));
         return dto;
     }
 
@@ -76,13 +88,17 @@ public class RoleManagementServiceImpl implements RoleManagementExternalService,
         requestDto.setEmail(request.getEmail());
         requestDto.setSystemRole(false);
         RoleDetailDto dto = roleManagementApiClient.createRole(requestDto);
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ROLE, UUID.fromString(dto.getUuid()), request.getCustomAttributes()));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.ROLE, UUID.fromString(dto.getUuid()),
+                                request.getCustomAttributes()));
         return dto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
-    public RoleDetailDto updateRole(String roleUuid, RoleRequestDto request) throws NotFoundException, AttributeException {
+    public RoleDetailDto updateRole(String roleUuid, RoleRequestDto request)
+            throws NotFoundException, AttributeException {
         attributeEngine.validateCustomAttributesContent(Resource.ROLE, request.getCustomAttributes());
         com.otilm.api.model.core.auth.RoleRequestDto requestDto = new com.otilm.api.model.core.auth.RoleRequestDto();
         requestDto.setName(request.getName());
@@ -90,7 +106,10 @@ public class RoleManagementServiceImpl implements RoleManagementExternalService,
         requestDto.setEmail(request.getEmail());
         requestDto.setSystemRole(false);
         RoleDetailDto dto = roleManagementApiClient.updateRole(roleUuid, requestDto);
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ROLE, UUID.fromString(dto.getUuid()), request.getCustomAttributes()));
+        dto
+                .setCustomAttributes(attributeEngine
+                        .updateObjectCustomAttributesContent(Resource.ROLE, UUID.fromString(dto.getUuid()),
+                                request.getCustomAttributes()));
         authenticationCache.evictAll();
         return dto;
     }
@@ -132,7 +151,8 @@ public class RoleManagementServiceImpl implements RoleManagementExternalService,
 
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
-    public void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsRequestDto> request) {
+    public void addResourcePermissionObjects(String roleUuid, String resourceUuid,
+            List<ObjectPermissionsRequestDto> request) {
         checkSystemRole(roleUuid);
         roleManagementApiClient.addResourcePermissionObjects(roleUuid, resourceUuid, request);
         authenticationCache.evictAll();
@@ -140,7 +160,8 @@ public class RoleManagementServiceImpl implements RoleManagementExternalService,
 
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
-    public void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, ObjectPermissionsRequestDto request) {
+    public void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid,
+            ObjectPermissionsRequestDto request) {
         checkSystemRole(roleUuid);
         roleManagementApiClient.updateResourcePermissionObjects(roleUuid, resourceUuid, objectUuid, request);
         authenticationCache.evictAll();
@@ -181,9 +202,9 @@ public class RoleManagementServiceImpl implements RoleManagementExternalService,
         return getResourceObjectInternal(objectUuid.getValue());
     }
 
-
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
         throw new NotSupportedException("Listing of resource objects is not supported for resource roles.");
     }
 

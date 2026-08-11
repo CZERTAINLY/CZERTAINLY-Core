@@ -1,9 +1,15 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.NotSupportedException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.ResponseAttribute;
-import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.client.attribute.ResponseAttributeV3;
+import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.callback.AttributeCallback;
 import com.otilm.api.model.common.attribute.common.callback.AttributeCallbackMapping;
@@ -29,8 +35,22 @@ import com.otilm.api.model.core.other.ResourceDto;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.other.ResourceEventDto;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
-import com.otilm.core.dao.entity.*;
-import com.otilm.core.dao.repository.*;
+import com.otilm.core.dao.entity.AttributeContent2Object;
+import com.otilm.core.dao.entity.AttributeContentItem;
+import com.otilm.core.dao.entity.AttributeDefinition;
+import com.otilm.core.dao.entity.AttributeRelation;
+import com.otilm.core.dao.entity.AuthorityInstanceReference;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.repository.AttributeContent2ObjectRepository;
+import com.otilm.core.dao.repository.AttributeContentItemRepository;
+import com.otilm.core.dao.repository.AttributeDefinitionRepository;
+import com.otilm.core.dao.repository.AttributeRelationRepository;
+import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecuredResource;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -43,21 +63,19 @@ import com.otilm.core.service.ResourceExternalService;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
 import jakarta.transaction.Transactional;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authorization.AuthorizationDeniedException;
-
-import java.io.Serializable;
-import java.util.*;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -111,40 +129,39 @@ class ResourceServiceITest extends BaseSpringBootTest {
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
-        WireMock.stubFor(
-                WireMock.get(WireMock.urlPathEqualTo("/auth/users"))
-                        .willReturn(WireMock.aResponse()
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/auth/users"))
+                        .willReturn(WireMock
+                                .aResponse()
                                 .withHeader("Content-Type", "application/json")
                                 .withBody( // UserWithPaginationDto
                                         """
-                                        {
-                                            "currentPage": 1,
-                                            "pageSize": 2,
-                                            "totalPages": 1,
-                                            "totalCount": 2,
-                                            "hasPrevious": 0,
-                                            "hasNext": 0,
-                                            "data": [
                                                 {
-                                                    "uuid": "mock-user-uuid",
-                                                    "username": "mockUser",
-                                                    "groups": [],
-                                                    "enabled": true,
-                                                    "systemUser": false
-                                                },
-                                                {
-                                                    "uuid": "mock-user-uuid-2",
-                                                    "username": "mockUser2",
-                                                    "groups": [],
-                                                    "enabled": true,
-                                                    "systemUser": false
+                                                    "currentPage": 1,
+                                                    "pageSize": 2,
+                                                    "totalPages": 1,
+                                                    "totalCount": 2,
+                                                    "hasPrevious": 0,
+                                                    "hasNext": 0,
+                                                    "data": [
+                                                        {
+                                                            "uuid": "mock-user-uuid",
+                                                            "username": "mockUser",
+                                                            "groups": [],
+                                                            "enabled": true,
+                                                            "systemUser": false
+                                                        },
+                                                        {
+                                                            "uuid": "mock-user-uuid-2",
+                                                            "username": "mockUser2",
+                                                            "groups": [],
+                                                            "enabled": true,
+                                                            "systemUser": false
+                                                        }
+                                                    ]
                                                 }
-                                            ]
-                                        }
-                                        """
-                                )
-                        )
-        );
+                                                """)));
 
         certificate = createCertificate(UUID.fromString(CERTIFICATE_UUID), "123456", "123456789", "testCertificate");
 
@@ -201,41 +218,38 @@ class ResourceServiceITest extends BaseSpringBootTest {
         // Assert the expected results
         Assertions.assertNotNull(resources);
         Assertions.assertFalse(resources.isEmpty(), "Resource list should not be empty");
-        Assertions.assertTrue(resources.stream().anyMatch(
-                resource -> resource.getResource().getCode().equals(Resource.Codes.CERTIFICATE)),
-                "Resource list should contain CERTIFICATE resource");
+        Assertions
+                .assertTrue(resources
+                        .stream()
+                        .anyMatch(resource -> resource.getResource().getCode().equals(Resource.Codes.CERTIFICATE)),
+                        "Resource list should contain CERTIFICATE resource");
     }
 
     @Test
     void testGetResourceObjects() {
-        List<Resource> resources = List.of(
-                Resource.ACME_PROFILE,
-                Resource.AUTHORITY,
-                Resource.ATTRIBUTE,
-                Resource.COMPLIANCE_PROFILE,
-                Resource.CONNECTOR,
-                Resource.CERTIFICATE,
-                Resource.CREDENTIAL,
-                Resource.ENTITY,
-                Resource.GROUP,
-                Resource.LOCATION,
-                Resource.RA_PROFILE,
-                Resource.SCEP_PROFILE,
-                Resource.TOKEN_PROFILE,
-                Resource.TOKEN,
-                Resource.USER,
-                Resource.CMP_PROFILE
-        );
+        List<Resource> resources = List
+                .of(Resource.ACME_PROFILE, Resource.AUTHORITY, Resource.ATTRIBUTE, Resource.COMPLIANCE_PROFILE,
+                        Resource.CONNECTOR, Resource.CERTIFICATE, Resource.CREDENTIAL, Resource.ENTITY, Resource.GROUP,
+                        Resource.LOCATION, Resource.RA_PROFILE, Resource.SCEP_PROFILE, Resource.TOKEN_PROFILE,
+                        Resource.TOKEN, Resource.USER, Resource.CMP_PROFILE);
 
         for (Resource resource : resources) {
             // Call the method to test and check that it does not throw an exception
-            Assertions.assertDoesNotThrow(() -> resourceInternalService.getResourceObjectsInternal(resource, null, null), "Should not throw exception for resource: " + resource);
+            Assertions
+                    .assertDoesNotThrow(() -> resourceInternalService.getResourceObjectsInternal(resource, null, null),
+                            "Should not throw exception for resource: " + resource);
         }
 
         // Throw NotFoundException for unsupported resource
         Resource unsupportedResource = Resource.ROLE;
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceInternalService.getResourceObjectsInternal(unsupportedResource, null, null), "Should throw NotSupportedException for unsupported resource: " + unsupportedResource);
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceInternalService.getResourceObjectsInternal(Resource.RULE, null, null), "Should throw NotSupportedException for unsupported resource: " + Resource.RULE);
+        Assertions
+                .assertThrows(NotSupportedException.class,
+                        () -> resourceInternalService.getResourceObjectsInternal(unsupportedResource, null, null),
+                        "Should throw NotSupportedException for unsupported resource: " + unsupportedResource);
+        Assertions
+                .assertThrows(NotSupportedException.class,
+                        () -> resourceInternalService.getResourceObjectsInternal(Resource.RULE, null, null),
+                        "Should throw NotSupportedException for unsupported resource: " + Resource.RULE);
     }
 
     @Test
@@ -256,28 +270,30 @@ class ResourceServiceITest extends BaseSpringBootTest {
         scopedAccess.setActionAllowedForGroupOfObjects(false);
         scopedAccess.setAllowedObjects(List.of(inScopeUuid.toString()));
         scopedAccess.setForbiddenObjects(List.of());
-        when(
-                opaClient.checkObjectAccess(
-                        any(),
+        when(opaClient
+                .checkObjectAccess(any(),
                         argThat(req -> isObjectAccessRequestForResource(req, Resource.RA_PROFILE, ResourceAction.LIST)),
-                        any(),
-                        any()
-                )
-        ).thenReturn(scopedAccess);
+                        any(), any()))
+                .thenReturn(scopedAccess);
 
-        List<NameAndUuidDto> objects = resourceService.getResourceObjects(
-                SecuredResource.fromResource(Resource.RA_PROFILE), SecurityFilter.create(), null, null);
+        List<NameAndUuidDto> objects = resourceService
+                .getResourceObjects(SecuredResource.fromResource(Resource.RA_PROFILE), SecurityFilter.create(), null,
+                        null);
 
         Assertions.assertNotNull(objects);
         Assertions.assertEquals(1, objects.size(), "Listing must be narrowed to the single in-scope RA profile");
-        Assertions.assertEquals(inScopeUuid.toString(), objects.getFirst().getUuid(),
-                "Only the in-scope RA profile must be returned");
+        Assertions
+                .assertEquals(inScopeUuid.toString(), objects.getFirst().getUuid(),
+                        "Only the in-scope RA profile must be returned");
     }
 
-    private static boolean isObjectAccessRequestForResource(OpaRequestedResource requestedResource, Resource resource, ResourceAction action) {
-        return requestedResource != null && requestedResource.getProperties() != null &&
-                (requestedResource.getProperties().containsKey("name") && requestedResource.getProperties().get("name").equals(resource.getCode())) &&
-                (requestedResource.getProperties().containsKey("action") && requestedResource.getProperties().get("action").equals(action.getCode()));
+    private static boolean isObjectAccessRequestForResource(OpaRequestedResource requestedResource, Resource resource,
+            ResourceAction action) {
+        return requestedResource != null && requestedResource.getProperties() != null
+                && (requestedResource.getProperties().containsKey("name")
+                        && requestedResource.getProperties().get("name").equals(resource.getCode()))
+                && (requestedResource.getProperties().containsKey("action")
+                        && requestedResource.getProperties().get("action").equals(action.getCode()));
     }
 
     @Test
@@ -285,54 +301,51 @@ class ResourceServiceITest extends BaseSpringBootTest {
         SecuredUUID certificateUuid = SecuredUUID.fromString(CERTIFICATE_UUID);
         UUID attributeUuid = UUID.fromString(ATTRIBUTE_UUID);
         List<BaseAttributeContentV3<?>> request = List.of(new StringAttributeContentV3("test3"));
-        List<ResponseAttribute> responseAttributes = resourceService.updateAttributeContentForObject(
-                SecuredResource.fromResource(Resource.CERTIFICATE),
-                certificateUuid,
-                attributeUuid,
-                request
-        );
+        List<ResponseAttribute> responseAttributes = resourceService
+                .updateAttributeContentForObject(SecuredResource.fromResource(Resource.CERTIFICATE), certificateUuid,
+                        attributeUuid, request);
 
-        Assertions.assertEquals("test3", ((ResponseAttributeV3) responseAttributes.getFirst()).getContent().getFirst().getData());
+        Assertions
+                .assertEquals("test3",
+                        ((ResponseAttributeV3) responseAttributes.getFirst()).getContent().getFirst().getData());
 
         List<BaseAttributeContentV2<?>> requestV2 = List.of(new StringAttributeContentV2("test2"));
-        responseAttributes = resourceService.updateAttributeContentForObject(
-                SecuredResource.fromResource(Resource.CERTIFICATE),
-                certificateUuid,
-                attributeUuid,
-                requestV2
-        );
+        responseAttributes = resourceService
+                .updateAttributeContentForObject(SecuredResource.fromResource(Resource.CERTIFICATE), certificateUuid,
+                        attributeUuid, requestV2);
 
-        Assertions.assertEquals("test2", ((ResponseAttributeV3) responseAttributes.getFirst()).getContent().getFirst().getData());
+        Assertions
+                .assertEquals("test2",
+                        ((ResponseAttributeV3) responseAttributes.getFirst()).getContent().getFirst().getData());
 
         // Should throw NotSupported
         SecuredResource attributeResource = SecuredResource.fromResource(Resource.ATTRIBUTE);
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.updateAttributeContentForObject(
-                attributeResource,
-                certificateUuid,
-                attributeUuid,
-                request
-        ));
+        Assertions
+                .assertThrows(NotSupportedException.class, () -> resourceService
+                        .updateAttributeContentForObject(attributeResource, certificateUuid, attributeUuid, request));
 
         SecuredResource ruleResource = SecuredResource.fromResource(Resource.RULE);
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.updateAttributeContentForObject(
-                ruleResource,
-                certificateUuid,
-                attributeUuid,
-                request
-        ));
+        Assertions
+                .assertThrows(NotSupportedException.class, () -> resourceService
+                        .updateAttributeContentForObject(ruleResource, certificateUuid, attributeUuid, request));
     }
 
     @Test
     void testListResourceRuleFilterFields() throws NotFoundException {
         // Resource without filter fields and attributes should return empty list
-        List<SearchFieldDataByGroupDto> filterFields = resourceService.listResourceRuleFilterFields(Resource.USER, false);
+        List<SearchFieldDataByGroupDto> filterFields = resourceService
+                .listResourceRuleFilterFields(Resource.USER, false);
         Assertions.assertNotNull(filterFields);
-        Assertions.assertTrue(filterFields.isEmpty(), "Filter fields list should be empty for resource: " + Resource.USER);
+        Assertions
+                .assertTrue(filterFields.isEmpty(),
+                        "Filter fields list should be empty for resource: " + Resource.USER);
 
         // Resource == CERTIFICATE should return non-empty list
         filterFields = resourceService.listResourceRuleFilterFields(Resource.CERTIFICATE, false);
         Assertions.assertNotNull(filterFields);
-        Assertions.assertFalse(filterFields.isEmpty(), "Filter fields list should not be empty for resource: " + Resource.CERTIFICATE);
+        Assertions
+                .assertFalse(filterFields.isEmpty(),
+                        "Filter fields list should not be empty for resource: " + Resource.CERTIFICATE);
     }
 
     @Test
@@ -343,9 +356,15 @@ class ResourceServiceITest extends BaseSpringBootTest {
         // Assert the expected results
         Assertions.assertNotNull(events);
         Assertions.assertFalse(events.isEmpty(), "Resource event list should not be empty");
-        Assertions.assertTrue(events.stream().anyMatch(
-                event -> event.getEvent().getCode().equals(ResourceEvent.CERTIFICATE_DISCOVERED.getCode())),
-                "Resource event list should contain CERTIFICATE_DISCOVERED event");
+        Assertions
+                .assertTrue(
+                        events
+                                .stream()
+                                .anyMatch(event -> event
+                                        .getEvent()
+                                        .getCode()
+                                        .equals(ResourceEvent.CERTIFICATE_DISCOVERED.getCode())),
+                        "Resource event list should contain CERTIFICATE_DISCOVERED event");
     }
 
     @Test
@@ -356,20 +375,24 @@ class ResourceServiceITest extends BaseSpringBootTest {
         // Assert the expected results
         Assertions.assertNotNull(events);
         Assertions.assertFalse(events.isEmpty(), "Resource event map should not be empty");
-        Assertions.assertTrue(events.keySet().stream().anyMatch(
-                event -> event.getCode().equals(ResourceEvent.CERTIFICATE_DISCOVERED.getCode())),
-                "Resource event map should contain CERTIFICATE_DISCOVERED event");
+        Assertions
+                .assertTrue(events
+                        .keySet()
+                        .stream()
+                        .anyMatch(event -> event.getCode().equals(ResourceEvent.CERTIFICATE_DISCOVERED.getCode())),
+                        "Resource event map should contain CERTIFICATE_DISCOVERED event");
     }
 
     @Test
     @Transactional
-    void testLoadResourceObjectContentDataFromDataAttributes() throws NotFoundException, AttributeException, ConnectorException {
+    void testLoadResourceObjectContentDataFromDataAttributes()
+            throws NotFoundException, AttributeException, ConnectorException {
         DataAttributeV3 nonResourceAttribute = new DataAttributeV3();
         nonResourceAttribute.setName("name");
         nonResourceAttribute.setContentType(AttributeContentType.DATE);
 
         Certificate certificate1 = createCertificate(UUID.randomUUID(), "1234567", "1234567890", "testCertificate1");
-        
+
         DataAttributeV3 resourceAttribute = new DataAttributeV3();
         resourceAttribute.setContentType(AttributeContentType.RESOURCE);
         resourceAttribute.setName("resource");
@@ -377,7 +400,8 @@ class ResourceServiceITest extends BaseSpringBootTest {
         data.setUuid(certificate.getUuid().toString());
         ResourceCertificateContentData data2 = new ResourceCertificateContentData();
         data2.setUuid(certificate1.getUuid().toString());
-        resourceAttribute.setContent(List.of(new ResourceObjectContent("ref", data), new ResourceObjectContent("ref2", data2)));
+        resourceAttribute
+                .setContent(List.of(new ResourceObjectContent("ref", data), new ResourceObjectContent("ref2", data2)));
         DataAttributeProperties properties = new DataAttributeProperties();
         resourceAttribute.setProperties(properties);
         properties.setResource(AttributeResource.CERTIFICATE);
@@ -385,7 +409,10 @@ class ResourceServiceITest extends BaseSpringBootTest {
         resourceInternalService.loadResourceObjectContentData(List.of(nonResourceAttribute, resourceAttribute));
         Assertions.assertNull(nonResourceAttribute.getContent());
         Assertions.assertEquals(2, resourceAttribute.getContent().size());
-        ResourceCertificateContentData dataWithResource = (ResourceCertificateContentData) resourceAttribute.getContent().getFirst().getData();
+        ResourceCertificateContentData dataWithResource = (ResourceCertificateContentData) resourceAttribute
+                .getContent()
+                .getFirst()
+                .getData();
         Assertions.assertEquals(certificate.getContentData(), dataWithResource.getContent());
         Assertions.assertEquals(AttributeResource.CERTIFICATE, dataWithResource.getResource());
         Assertions.assertEquals(certificate.getCommonName(), dataWithResource.getName());
@@ -411,7 +438,8 @@ class ResourceServiceITest extends BaseSpringBootTest {
         resourceInternalService.loadResourceObjectContentData(null, requestAttributeCallback, authorityMap);
         Assertions.assertNull(requestAttributeCallback.getBody());
         AttributeCallback attributeCallback = new AttributeCallback();
-        resourceInternalService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
+        resourceInternalService
+                .loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
         Assertions.assertNull(requestAttributeCallback.getBody());
         AttributeCallbackMapping stringMapping = new AttributeCallbackMapping();
         stringMapping.setAttributeContentType(AttributeContentType.STRING);
@@ -423,105 +451,128 @@ class ResourceServiceITest extends BaseSpringBootTest {
 
         Map<String, Serializable> body = new HashMap<>();
 
-        body.put(resourceMapping.getTo(), (Serializable) Map.of("uuid", authorityInstance.getUuid().toString(), "name", authorityInstance.getName()));
+        body
+                .put(resourceMapping.getTo(), (Serializable) Map
+                        .of("uuid", authorityInstance.getUuid().toString(), "name", authorityInstance.getName()));
         requestAttributeCallback.setBody(body);
-        resourceInternalService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
+        resourceInternalService
+                .loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
         assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
-        Assertions.assertEquals("name", ((ResourceSimpleContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo())).getAttributes().getFirst().getName());
+        Assertions
+                .assertEquals("name",
+                        ((ResourceSimpleContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo()))
+                                .getAttributes()
+                                .getFirst()
+                                .getName());
 
-
-        body.put(resourceMapping.getTo(), (Serializable) List.of(Map.of("uuid", authorityInstance.getUuid().toString(), "name", authorityInstance.getName())));
+        body
+                .put(resourceMapping.getTo(),
+                        (Serializable) List
+                                .of(Map
+                                        .of("uuid", authorityInstance.getUuid().toString(), "name",
+                                                authorityInstance.getName())));
         requestAttributeCallback.setBody(body);
-        resourceInternalService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
+        resourceInternalService
+                .loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
         assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
-        Assertions.assertEquals("name", ((ResourceSimpleContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo())).getAttributes().getFirst().getName());
-
+        Assertions
+                .assertEquals("name",
+                        ((ResourceSimpleContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo()))
+                                .getAttributes()
+                                .getFirst()
+                                .getName());
 
         body.put(resourceMapping.getTo(), (Serializable) Map.of("name", authorityInstance.getName()));
         requestAttributeCallback.setBody(body);
-        Assertions.assertThrows(ValidationException.class, () -> resourceInternalService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap));
+        Assertions
+                .assertThrows(ValidationException.class, () -> resourceInternalService
+                        .loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap));
 
         body.put(resourceMapping.getTo(), (Serializable) List.of(Map.of("name", authorityInstance.getName())));
         requestAttributeCallback.setBody(body);
-        Assertions.assertThrows(ValidationException.class, () -> resourceInternalService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap));
+        Assertions
+                .assertThrows(ValidationException.class, () -> resourceInternalService
+                        .loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap));
 
         body.put(resourceMapping.getTo(), 1);
         requestAttributeCallback.setBody(body);
-        Assertions.assertThrows(ValidationException.class, () -> resourceInternalService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap));
+        Assertions
+                .assertThrows(ValidationException.class, () -> resourceInternalService
+                        .loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap));
 
         body.put(resourceMapping.getTo(), "notUuid");
         requestAttributeCallback.setBody(body);
-        Assertions.assertThrows(ValidationException.class, () -> resourceInternalService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap));
+        Assertions
+                .assertThrows(ValidationException.class, () -> resourceInternalService
+                        .loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap));
 
         body.put(resourceMapping.getTo(), authorityInstance.getUuid().toString());
         requestAttributeCallback.setBody(body);
-        resourceInternalService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
+        resourceInternalService
+                .loadResourceObjectContentData(attributeCallback, requestAttributeCallback, authorityMap);
         assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
 
     }
 
     @Test
-    void  testGetResourceWithAuthorization() throws NotFoundException {
+    void testGetResourceWithAuthorization() throws NotFoundException {
         forbidGetResourceWithAuthorization();
-        List<Resource> allowedResources = List.of(
-                Resource.ACME_PROFILE,
-                Resource.AUTHORITY,
-                Resource.ATTRIBUTE,
-                Resource.COMPLIANCE_PROFILE,
-                Resource.CONNECTOR,
-                Resource.CERTIFICATE,
-                Resource.CREDENTIAL,
-                Resource.ENTITY,
-                Resource.GROUP,
-                Resource.LOCATION,
-                Resource.SCEP_PROFILE,
-                Resource.TOKEN_PROFILE,
-                Resource.TOKEN,
-                Resource.CMP_PROFILE
-        );
+        List<Resource> allowedResources = List
+                .of(Resource.ACME_PROFILE, Resource.AUTHORITY, Resource.ATTRIBUTE, Resource.COMPLIANCE_PROFILE,
+                        Resource.CONNECTOR, Resource.CERTIFICATE, Resource.CREDENTIAL, Resource.ENTITY, Resource.GROUP,
+                        Resource.LOCATION, Resource.SCEP_PROFILE, Resource.TOKEN_PROFILE, Resource.TOKEN,
+                        Resource.CMP_PROFILE);
 
-        List<Resource> notAllowedResources = List.of(
-                Resource.RA_PROFILE,
-                Resource.SECRET
-        );
+        List<Resource> notAllowedResources = List.of(Resource.RA_PROFILE, Resource.SECRET);
 
         UUID objectUuid = UUID.randomUUID();
         for (Resource resource : allowedResources) {
-            Assertions.assertThrows(NotFoundException.class, () -> resourceInternalService.getResourceObject(resource, objectUuid));
-            Assertions.assertThrows(NotFoundException.class, () -> resourceInternalService.getResourceObjectInternal(resource, objectUuid));
+            Assertions
+                    .assertThrows(NotFoundException.class,
+                            () -> resourceInternalService.getResourceObject(resource, objectUuid));
+            Assertions
+                    .assertThrows(NotFoundException.class,
+                            () -> resourceInternalService.getResourceObjectInternal(resource, objectUuid));
         }
 
         for (Resource resource : notAllowedResources) {
-            Assertions.assertThrows(AuthorizationDeniedException.class, () -> resourceInternalService.getResourceObject(resource, objectUuid));
-            Assertions.assertThrows(NotFoundException.class, () -> resourceInternalService.getResourceObjectInternal(resource, objectUuid));
+            Assertions
+                    .assertThrows(AuthorizationDeniedException.class,
+                            () -> resourceInternalService.getResourceObject(resource, objectUuid));
+            Assertions
+                    .assertThrows(NotFoundException.class,
+                            () -> resourceInternalService.getResourceObjectInternal(resource, objectUuid));
         }
     }
 
     void forbidGetResourceWithAuthorization() {
         OpaResourceAccessResult resourceAccessNotAllowed = new OpaResourceAccessResult(false, List.of());
 
-        when(
-                opaClient.checkResourceAccess(any(),
-                        argThat(req -> isRequestForResourceAction(req, Resource.RA_PROFILE)), any(), any())
-        ).thenReturn(resourceAccessNotAllowed);
+        when(opaClient
+                .checkResourceAccess(any(), argThat(req -> isRequestForResourceAction(req, Resource.RA_PROFILE)), any(),
+                        any()))
+                .thenReturn(resourceAccessNotAllowed);
 
-        when(
-                opaClient.checkResourceAccess(any(),  argThat(req ->
-                        isRequestForResourceAction(req, Resource.SECRET)
-                ), any(), any())
-        ).thenReturn(resourceAccessNotAllowed);
+        when(opaClient
+                .checkResourceAccess(any(), argThat(req -> isRequestForResourceAction(req, Resource.SECRET)), any(),
+                        any()))
+                .thenReturn(resourceAccessNotAllowed);
 
     }
 
     private static boolean isRequestForResourceAction(OpaRequestedResource requestedResource, Resource resource) {
-        return requestedResource != null && requestedResource.getProperties() != null &&
-                (requestedResource.getProperties().containsKey("name") && requestedResource.getProperties().get("name").equals(resource.getCode())) &&
-                (requestedResource.getProperties().containsKey("action") && requestedResource.getProperties().get("action").equals(ResourceAction.DETAIL.getCode()));
+        return requestedResource != null && requestedResource.getProperties() != null
+                && (requestedResource.getProperties().containsKey("name")
+                        && requestedResource.getProperties().get("name").equals(resource.getCode()))
+                && (requestedResource.getProperties().containsKey("action")
+                        && requestedResource.getProperties().get("action").equals(ResourceAction.DETAIL.getCode()));
     }
 
-
-    private static void assertCorrectBodyData(RequestAttributeCallback requestAttributeCallback, AttributeCallbackMapping resourceMapping, AuthorityInstanceReference authorityInstance) {
-        ResourceSimpleContentData data = (ResourceSimpleContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo());
+    private static void assertCorrectBodyData(RequestAttributeCallback requestAttributeCallback,
+            AttributeCallbackMapping resourceMapping, AuthorityInstanceReference authorityInstance) {
+        ResourceSimpleContentData data = (ResourceSimpleContentData) requestAttributeCallback
+                .getBody()
+                .get(resourceMapping.getTo());
         Assertions.assertEquals(authorityInstance.getUuid().toString(), data.getUuid());
         List<ResponseAttribute> attributes = data.getAttributes();
         Assertions.assertEquals(1, attributes.size());

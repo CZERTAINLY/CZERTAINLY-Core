@@ -1,6 +1,9 @@
 package com.otilm.core.integration.service;
 
-import com.otilm.api.exception.*;
+import com.otilm.api.exception.AlreadyExistException;
+import com.otilm.api.exception.AttributeException;
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.notification.NotificationProfileDetailDto;
 import com.otilm.api.model.client.notification.NotificationProfileRequestDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
@@ -13,24 +16,41 @@ import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
-import com.otilm.api.model.core.workflows.*;
+import com.otilm.api.model.core.workflows.ActionDetailDto;
+import com.otilm.api.model.core.workflows.ActionDto;
+import com.otilm.api.model.core.workflows.ActionRequestDto;
+import com.otilm.api.model.core.workflows.ConditionDto;
+import com.otilm.api.model.core.workflows.ConditionItemRequestDto;
+import com.otilm.api.model.core.workflows.ConditionRequestDto;
+import com.otilm.api.model.core.workflows.ConditionType;
+import com.otilm.api.model.core.workflows.ExecutionDto;
+import com.otilm.api.model.core.workflows.ExecutionItemRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionRequestDto;
+import com.otilm.api.model.core.workflows.ExecutionType;
+import com.otilm.api.model.core.workflows.RuleDto;
+import com.otilm.api.model.core.workflows.RuleRequestDto;
+import com.otilm.api.model.core.workflows.TriggerDetailDto;
+import com.otilm.api.model.core.workflows.TriggerDto;
+import com.otilm.api.model.core.workflows.TriggerRequestDto;
+import com.otilm.api.model.core.workflows.TriggerType;
+import com.otilm.api.model.core.workflows.UpdateActionRequestDto;
+import com.otilm.api.model.core.workflows.UpdateTriggerRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.enums.FilterField;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.service.ActionExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.service.RuleExternalService;
-import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.springframework.security.access.AccessDeniedException;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import org.springframework.security.access.AccessDeniedException;
 
 @SuppressWarnings("java:S5778")
 class TriggerServiceITest extends BaseSpringBootTest {
@@ -77,7 +97,8 @@ class TriggerServiceITest extends BaseSpringBootTest {
     void createTriggerAssociationsRequiresUpdatePermission() throws NotFoundException, AlreadyExistException {
         ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
         executionItemRequest.setFieldSource(FilterFieldSource.CUSTOM);
-        executionItemRequest.setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
+        executionItemRequest
+                .setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
         executionItemRequest.setData("CZ");
 
         ExecutionRequestDto executionRequest = new ExecutionRequestDto();
@@ -93,17 +114,18 @@ class TriggerServiceITest extends BaseSpringBootTest {
         actionRequest.setExecutionsUuids(List.of(execution.getUuid()));
         ActionDetailDto action = actionService.createAction(actionRequest);
 
-        TriggerDto trigger = createTrigger(Resource.CERTIFICATE, ResourceEvent.CERTIFICATE_DISCOVERED, List.of(), List.of(action.getUuid()));
+        TriggerDto trigger = createTrigger(Resource.CERTIFICATE, ResourceEvent.CERTIFICATE_DISCOVERED, List.of(),
+                List.of(action.getUuid()));
         denyResourceAccess(Resource.TRIGGER, ResourceAction.UPDATE);
 
         List<UUID> triggerUuids = List.of(UUID.fromString(trigger.getUuid()));
         UUID associationObjectUuid = UUID.randomUUID();
 
-        Assertions.assertThrows(
-                AccessDeniedException.class,
-                () -> triggerService.createTriggerAssociations(
-                        ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, associationObjectUuid, triggerUuids, true)
-        );
+        Assertions
+                .assertThrows(AccessDeniedException.class,
+                        () -> triggerService
+                                .createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE,
+                                        associationObjectUuid, triggerUuids, true));
     }
 
     @Test
@@ -113,18 +135,25 @@ class TriggerServiceITest extends BaseSpringBootTest {
         triggerRequest.setType(TriggerType.EVENT);
         triggerRequest.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
 
-        Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without name should fail");
+        Assertions
+                .assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest),
+                        "Creating trigger without name should fail");
 
         triggerRequest.setName("DiscoveryCertificatesCategorization");
-        Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without resource should fail");
+        Assertions
+                .assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest),
+                        "Creating trigger without resource should fail");
 
         triggerRequest.setResource(Resource.CERTIFICATE);
-        Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without actions should fail");
+        Assertions
+                .assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest),
+                        "Creating trigger without actions should fail");
 
         // create execution
         ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
         executionItemRequest.setFieldSource(FilterFieldSource.CUSTOM);
-        executionItemRequest.setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
+        executionItemRequest
+                .setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
         executionItemRequest.setData("CZ");
 
         ExecutionRequestDto executionRequest = new ExecutionRequestDto();
@@ -143,7 +172,9 @@ class TriggerServiceITest extends BaseSpringBootTest {
 
         triggerRequest.setActionsUuids(List.of(action.getUuid()));
         triggerRequest.setIgnoreTrigger(true);
-        Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating ignore trigger with actions should fail");
+        Assertions
+                .assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest),
+                        "Creating ignore trigger with actions should fail");
 
         triggerRequest.setIgnoreTrigger(false);
         TriggerDetailDto triggerDetailDto = triggerService.createTrigger(triggerRequest);
@@ -152,7 +183,9 @@ class TriggerServiceITest extends BaseSpringBootTest {
         update.setType(TriggerType.EVENT);
         update.setResource(Resource.CERTIFICATE);
 
-        Assertions.assertThrows(ValidationException.class, () -> triggerService.updateTrigger(triggerDetailDto.getUuid(), update));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> triggerService.updateTrigger(triggerDetailDto.getUuid(), update));
 
         // create execution with send notification type
         executionItemRequest = new ExecutionItemRequestDto();
@@ -174,13 +207,19 @@ class TriggerServiceITest extends BaseSpringBootTest {
     @Test
     void testWorkflowsResourcesValidation() throws AlreadyExistException, NotFoundException {
         // check validation of rules & conditions
-        Assertions.assertThrows(ValidationException.class, () -> createCondition(Resource.ANY, ConditionType.CHECK_FIELD), "Cannot create condition of check field for Any resource");
+        Assertions
+                .assertThrows(ValidationException.class, () -> createCondition(Resource.ANY, ConditionType.CHECK_FIELD),
+                        "Cannot create condition of check field for Any resource");
         ConditionDto conditionCert = createCondition(Resource.CERTIFICATE, ConditionType.CHECK_FIELD);
         ConditionDto conditionDisc = createCondition(Resource.DISCOVERY, ConditionType.CHECK_FIELD);
         Assertions.assertEquals(1, ruleService.listConditions(Resource.CERTIFICATE).size());
         Assertions.assertEquals(2, ruleService.listConditions(Resource.ANY).size());
 
-        Assertions.assertThrows(ValidationException.class, () -> createRule(Resource.CERTIFICATE, List.of(conditionCert.getUuid(), conditionDisc.getUuid())), "Cannot create rule with mixed resources");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> createRule(Resource.CERTIFICATE,
+                                List.of(conditionCert.getUuid(), conditionDisc.getUuid())),
+                        "Cannot create rule with mixed resources");
         RuleDto ruleCert = createRule(Resource.CERTIFICATE, List.of(conditionCert.getUuid()));
         RuleDto ruleDisc = createRule(Resource.DISCOVERY, List.of(conditionDisc.getUuid()));
         RuleDto ruleMixed = createRule(Resource.ANY, List.of(conditionCert.getUuid(), conditionDisc.getUuid()));
@@ -188,39 +227,73 @@ class TriggerServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(3, ruleService.listRules(Resource.ANY).size());
 
         // check validation of actions & executions
-        Assertions.assertThrows(ValidationException.class, () -> createExecution(Resource.ANY, ExecutionType.SET_FIELD), "Cannot create condition of set field for Any resource");
+        Assertions
+                .assertThrows(ValidationException.class, () -> createExecution(Resource.ANY, ExecutionType.SET_FIELD),
+                        "Cannot create condition of set field for Any resource");
         ExecutionDto executionCert = createExecution(Resource.CERTIFICATE, ExecutionType.SET_FIELD);
         ExecutionDto executionDisc = createExecution(Resource.DISCOVERY, ExecutionType.SET_FIELD);
         ExecutionDto executionAny = createExecution(Resource.ANY, ExecutionType.SEND_NOTIFICATION);
         Assertions.assertEquals(2, actionService.listExecutions(Resource.CERTIFICATE).size());
         Assertions.assertEquals(3, actionService.listExecutions(Resource.ANY).size());
 
-        Assertions.assertThrows(ValidationException.class, () -> createAction(Resource.CERTIFICATE, List.of(executionCert.getUuid(), executionDisc.getUuid(), executionAny.getUuid())), "Cannot create action with mixed resources");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> createAction(Resource.CERTIFICATE,
+                                List.of(executionCert.getUuid(), executionDisc.getUuid(), executionAny.getUuid())),
+                        "Cannot create action with mixed resources");
         ActionDto actionCert = createAction(Resource.CERTIFICATE, List.of(executionCert.getUuid()));
         ActionDto actionDisc = createAction(Resource.DISCOVERY, List.of(executionDisc.getUuid()));
-        ActionDto actionMixed = createAction(Resource.ANY, List.of(executionCert.getUuid(), executionDisc.getUuid(), executionAny.getUuid()));
+        ActionDto actionMixed = createAction(Resource.ANY,
+                List.of(executionCert.getUuid(), executionDisc.getUuid(), executionAny.getUuid()));
         ActionDto actionAny = createAction(Resource.ANY, List.of(executionAny.getUuid()));
         Assertions.assertEquals(3, actionService.listActions(Resource.CERTIFICATE).size());
         Assertions.assertEquals(4, actionService.listActions(Resource.ANY).size());
 
         // check validation of triggers
-        Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.ANY, null, null, null), "Creating trigger with resource Any should fail");
-        Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.CERTIFICATE, ResourceEvent.APPROVAL_CLOSED, null, null), "Creating trigger with mismatching resource of trigger and event should fail");
-        Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.CERTIFICATE, null, List.of(ruleCert.getUuid(), ruleDisc.getUuid()), List.of(actionCert.getUuid(), actionDisc.getUuid())), "Creating trigger with mismatching resource of rules should fail");
-        Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.CERTIFICATE, null, List.of(ruleCert.getUuid(), ruleMixed.getUuid()), List.of(actionCert.getUuid(), actionDisc.getUuid())), "Creating trigger with mismatching resource of rules should fail");
-        Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.CERTIFICATE, null, List.of(ruleCert.getUuid()), List.of(actionCert.getUuid(), actionDisc.getUuid())), "Creating trigger with mismatching resource of actions should fail");
-        Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.CERTIFICATE, ResourceEvent.CERTIFICATE_STATUS_CHANGED, List.of(ruleCert.getUuid()), List.of(actionCert.getUuid(), actionMixed.getUuid())));
+        Assertions
+                .assertThrows(ValidationException.class, () -> createTrigger(Resource.ANY, null, null, null),
+                        "Creating trigger with resource Any should fail");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> createTrigger(Resource.CERTIFICATE, ResourceEvent.APPROVAL_CLOSED, null, null),
+                        "Creating trigger with mismatching resource of trigger and event should fail");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> createTrigger(Resource.CERTIFICATE, null, List.of(ruleCert.getUuid(), ruleDisc.getUuid()),
+                                List.of(actionCert.getUuid(), actionDisc.getUuid())),
+                        "Creating trigger with mismatching resource of rules should fail");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> createTrigger(Resource.CERTIFICATE, null,
+                                List.of(ruleCert.getUuid(), ruleMixed.getUuid()),
+                                List.of(actionCert.getUuid(), actionDisc.getUuid())),
+                        "Creating trigger with mismatching resource of rules should fail");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> createTrigger(Resource.CERTIFICATE, null, List.of(ruleCert.getUuid()),
+                                List.of(actionCert.getUuid(), actionDisc.getUuid())),
+                        "Creating trigger with mismatching resource of actions should fail");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> createTrigger(Resource.CERTIFICATE, ResourceEvent.CERTIFICATE_STATUS_CHANGED,
+                                List.of(ruleCert.getUuid()), List.of(actionCert.getUuid(), actionMixed.getUuid())));
 
-        final TriggerDto triggerWithEvent = createTrigger(Resource.CERTIFICATE, ResourceEvent.CERTIFICATE_STATUS_CHANGED, List.of(ruleCert.getUuid()), List.of(actionCert.getUuid(), actionAny.getUuid()));
-        Assertions.assertThrows(ValidationException.class,
-                () -> triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_EXPIRING, null, null, List.of(UUID.fromString(triggerWithEvent.getUuid())), true),
-                "Creating trigger association with mismatching event should fail");
+        final TriggerDto triggerWithEvent = createTrigger(Resource.CERTIFICATE,
+                ResourceEvent.CERTIFICATE_STATUS_CHANGED, List.of(ruleCert.getUuid()),
+                List.of(actionCert.getUuid(), actionAny.getUuid()));
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> triggerService
+                                .createTriggerAssociations(ResourceEvent.CERTIFICATE_EXPIRING, null, null,
+                                        List.of(UUID.fromString(triggerWithEvent.getUuid())), true),
+                        "Creating trigger association with mismatching event should fail");
     }
 
     private ConditionDto createCondition(Resource resource, ConditionType type) throws AlreadyExistException {
         ConditionItemRequestDto conditionItemRequestDto = new ConditionItemRequestDto();
         conditionItemRequestDto.setFieldSource(FilterFieldSource.CUSTOM);
-        conditionItemRequestDto.setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
+        conditionItemRequestDto
+                .setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
         conditionItemRequestDto.setOperator(FilterConditionOperator.EQUALS);
         conditionItemRequestDto.setValue("CZ");
 
@@ -233,7 +306,8 @@ class TriggerServiceITest extends BaseSpringBootTest {
         return ruleService.createCondition(conditionRequestDto);
     }
 
-    private RuleDto createRule(Resource resource, List<String> conditionsUuids) throws NotFoundException, AlreadyExistException {
+    private RuleDto createRule(Resource resource, List<String> conditionsUuids)
+            throws NotFoundException, AlreadyExistException {
         RuleRequestDto ruleRequestDto = new RuleRequestDto();
         ruleRequestDto.setName("Test-%s-rule".formatted(resource.getCode()));
         ruleRequestDto.setResource(resource);
@@ -242,11 +316,13 @@ class TriggerServiceITest extends BaseSpringBootTest {
         return ruleService.createRule(ruleRequestDto);
     }
 
-    private ExecutionDto createExecution(Resource resource, ExecutionType type) throws NotFoundException, AlreadyExistException {
+    private ExecutionDto createExecution(Resource resource, ExecutionType type)
+            throws NotFoundException, AlreadyExistException {
         ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
         if (type == ExecutionType.SET_FIELD) {
             executionItemRequest.setFieldSource(FilterFieldSource.CUSTOM);
-            executionItemRequest.setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
+            executionItemRequest
+                    .setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
             executionItemRequest.setData("CZ");
         } else {
             executionItemRequest.setNotificationProfileUuid(notificationProfile.getUuid());
@@ -261,7 +337,8 @@ class TriggerServiceITest extends BaseSpringBootTest {
         return actionService.createExecution(executionRequest);
     }
 
-    private ActionDto createAction(Resource resource, List<String> executionsUuids) throws NotFoundException, AlreadyExistException {
+    private ActionDto createAction(Resource resource, List<String> executionsUuids)
+            throws NotFoundException, AlreadyExistException {
         ActionRequestDto actionRequest = new ActionRequestDto();
         actionRequest.setName("Test-%s-action-%s".formatted(resource.getCode(), UUID.randomUUID().toString()));
         actionRequest.setResource(resource);
@@ -280,35 +357,51 @@ class TriggerServiceITest extends BaseSpringBootTest {
     @Test
     void testCertificateUploadedEventTriggerCompatibility() throws AlreadyExistException, NotFoundException {
         // property field with no fieldResource/joinAttributes — should be accepted
-        TriggerDetailDto compatibleTrigger = createIgnoreTriggerForUploadedEvent(
-                "CompatibleUploadTrigger", FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), CertificateState.ISSUED.getCode());
-        Assertions.assertDoesNotThrow(
-                () -> triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null, List.of(UUID.fromString(compatibleTrigger.getUuid())), false),
-                "Trigger with PROPERTY field and no fieldResource should be accepted for CERTIFICATE_UPLOADED event");
+        TriggerDetailDto compatibleTrigger = createIgnoreTriggerForUploadedEvent("CompatibleUploadTrigger",
+                FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), CertificateState.ISSUED.getCode());
+        Assertions
+                .assertDoesNotThrow(
+                        () -> triggerService
+                                .createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null,
+                                        List.of(UUID.fromString(compatibleTrigger.getUuid())), false),
+                        "Trigger with PROPERTY field and no fieldResource should be accepted for CERTIFICATE_UPLOADED event");
 
         // PROPERTY field that references another resource (RA_PROFILE_NAME has fieldResource) — should be rejected
         TriggerDetailDto incompatiblePropertyTrigger = createIgnoreTriggerForUploadedEvent(
-                "IncompatiblePropertyUploadTrigger", FilterFieldSource.PROPERTY, FilterField.RA_PROFILE_NAME.name(), "some-profile");
-        Assertions.assertThrows(ValidationException.class,
-                () -> triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null, List.of(UUID.fromString(incompatiblePropertyTrigger.getUuid())), false),
-                "Trigger with PROPERTY field that has fieldResource should be rejected for CERTIFICATE_UPLOADED event");
+                "IncompatiblePropertyUploadTrigger", FilterFieldSource.PROPERTY, FilterField.RA_PROFILE_NAME.name(),
+                "some-profile");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> triggerService
+                                .createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null,
+                                        List.of(UUID.fromString(incompatiblePropertyTrigger.getUuid())), false),
+                        "Trigger with PROPERTY field that has fieldResource should be rejected for CERTIFICATE_UPLOADED event");
 
         // CUSTOM field source — should be accepted, evaluated against the upload request payload rather than the DB
-        TriggerDetailDto customAttributeTrigger = createIgnoreTriggerForUploadedEvent(
-                "CustomAttributeUploadTrigger", FilterFieldSource.CUSTOM, "%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()), "CZ");
-        Assertions.assertDoesNotThrow(
-                () -> triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null, List.of(UUID.fromString(customAttributeTrigger.getUuid())), false),
-                "Trigger with CUSTOM field source should be accepted for CERTIFICATE_UPLOADED event");
+        TriggerDetailDto customAttributeTrigger = createIgnoreTriggerForUploadedEvent("CustomAttributeUploadTrigger",
+                FilterFieldSource.CUSTOM, "%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()),
+                "CZ");
+        Assertions
+                .assertDoesNotThrow(
+                        () -> triggerService
+                                .createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null,
+                                        List.of(UUID.fromString(customAttributeTrigger.getUuid())), false),
+                        "Trigger with CUSTOM field source should be accepted for CERTIFICATE_UPLOADED event");
 
         // META field source — should still be rejected, there is no request-time source for metadata
-        TriggerDetailDto metaAttributeTrigger = createIgnoreTriggerForUploadedEvent(
-                "MetaAttributeUploadTrigger", FilterFieldSource.META, "%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()), "CZ");
-        Assertions.assertThrows(ValidationException.class,
-                () -> triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null, List.of(UUID.fromString(metaAttributeTrigger.getUuid())), false),
-                "Trigger with META field source should be rejected for CERTIFICATE_UPLOADED event");
+        TriggerDetailDto metaAttributeTrigger = createIgnoreTriggerForUploadedEvent("MetaAttributeUploadTrigger",
+                FilterFieldSource.META, "%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()),
+                "CZ");
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> triggerService
+                                .createTriggerAssociations(ResourceEvent.CERTIFICATE_UPLOADED, null, null,
+                                        List.of(UUID.fromString(metaAttributeTrigger.getUuid())), false),
+                        "Trigger with META field source should be rejected for CERTIFICATE_UPLOADED event");
     }
 
-    private TriggerDetailDto createIgnoreTriggerForUploadedEvent(String name, FilterFieldSource fieldSource, String fieldIdentifier, String value) throws AlreadyExistException, NotFoundException {
+    private TriggerDetailDto createIgnoreTriggerForUploadedEvent(String name, FilterFieldSource fieldSource,
+            String fieldIdentifier, String value) throws AlreadyExistException, NotFoundException {
         ConditionItemRequestDto item = new ConditionItemRequestDto();
         item.setFieldSource(fieldSource);
         item.setFieldIdentifier(fieldIdentifier);
@@ -338,7 +431,8 @@ class TriggerServiceITest extends BaseSpringBootTest {
         return triggerService.createTrigger(triggerRequest);
     }
 
-    private TriggerDto createTrigger(Resource resource, ResourceEvent event, List<String> rulesUuids, List<String> actionsUuids) throws NotFoundException, AlreadyExistException {
+    private TriggerDto createTrigger(Resource resource, ResourceEvent event, List<String> rulesUuids,
+            List<String> actionsUuids) throws NotFoundException, AlreadyExistException {
         TriggerRequestDto triggerRequest = new TriggerRequestDto();
         triggerRequest.setName("Test-%s-trigger".formatted(resource.getCode()));
         triggerRequest.setResource(resource);

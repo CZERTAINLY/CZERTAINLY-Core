@@ -5,12 +5,11 @@ import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

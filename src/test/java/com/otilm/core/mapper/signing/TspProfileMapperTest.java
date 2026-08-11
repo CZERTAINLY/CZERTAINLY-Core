@@ -13,12 +13,11 @@ import com.otilm.core.dao.entity.signing.TspProfile;
 import com.otilm.core.dao.entity.signing.TspProfileBasicCredential;
 import com.otilm.core.model.signing.TspProfileModel;
 import com.otilm.core.model.signing.TspProfileModel.BasicCredentialRef;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -30,12 +29,8 @@ class TspProfileMapperTest {
 
     private static final String BASE_URL = "http://localhost/api";
     private static final String TSP_PROFILE_NAME = "tsp-profile-x";
-    private static final String EXPECTED_SIGNING_URL =
-            BASE_URL + "/v1/protocols/tsp/" + TSP_PROFILE_NAME;
+    private static final String EXPECTED_SIGNING_URL = BASE_URL + "/v1/protocols/tsp/" + TSP_PROFILE_NAME;
     private static final Map<UUID, String> FINGERPRINTS_BY_SECRET = Map.of();
-
-
-
 
     // ── toDto ─────────────────────────────────────────────────────────────────
 
@@ -100,8 +95,7 @@ class TspProfileMapperTest {
             var vaultProfileName = "basic-creds";
             var vaultProfileDescription = "creds for prod";
             var vaultProfileEnabled = true;
-            VaultProfile vaultProfile = newVaultProfile(
-                    vaultProfileName, vaultProfileDescription, vaultProfileEnabled,
+            VaultProfile vaultProfile = newVaultProfile(vaultProfileName, vaultProfileDescription, vaultProfileEnabled,
                     newVaultInstance(vaultInstanceUuid, vaultInstanceName));
             TspProfile profile = newTspProfile("desc", true, null);
             profile.setVaultProfile(vaultProfile);
@@ -176,7 +170,8 @@ class TspProfileMapperTest {
             var enabled = true;
             var defaultSigningProfileName = "signing-profile-x";
             List<ResponseAttribute> customAttributes = List.of(mock(ResponseAttribute.class));
-            TspProfile profile = newTspProfile(description, enabled, newSigningProfile(defaultSigningProfileName, true));
+            TspProfile profile = newTspProfile(description, enabled,
+                    newSigningProfile(defaultSigningProfileName, true));
 
             // when
             TspProfileModel model = TspProfileMapper.toModel(profile, customAttributes, FINGERPRINTS_BY_SECRET);
@@ -309,7 +304,9 @@ class TspProfileMapperTest {
             TspProfile profile = newTspProfile("desc", true, newSigningProfile(name, enabled));
 
             // when
-            SimplifiedSigningProfileDto simple = TspProfileMapper.toDto(profile, List.of(), BASE_URL).getDefaultSigningProfile();
+            SimplifiedSigningProfileDto simple = TspProfileMapper
+                    .toDto(profile, List.of(), BASE_URL)
+                    .getDefaultSigningProfile();
 
             // then
             assertThat(simple.getUuid()).isEqualTo(SIGNING_PROFILE_UUID.toString());
@@ -345,7 +342,9 @@ class TspProfileMapperTest {
     }
 
     private static BasicCredentialRef credentialOf(TspProfileModel model, String username) {
-        return model.basicCredentials().stream()
+        return model
+                .basicCredentials()
+                .stream()
                 .filter(ref -> username.equals(ref.username()))
                 .findFirst()
                 .orElseThrow();
@@ -358,7 +357,8 @@ class TspProfileMapperTest {
         return vaultInstance;
     }
 
-    private static VaultProfile newVaultProfile(String name, String description, boolean enabled, VaultInstance vaultInstance) {
+    private static VaultProfile newVaultProfile(String name, String description, boolean enabled,
+            VaultInstance vaultInstance) {
         VaultProfile vaultProfile = new VaultProfile();
         vaultProfile.setUuid(UUID.randomUUID());
         vaultProfile.setName(name);

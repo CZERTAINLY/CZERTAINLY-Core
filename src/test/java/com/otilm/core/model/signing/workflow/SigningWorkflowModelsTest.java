@@ -3,10 +3,9 @@ package com.otilm.core.model.signing.workflow;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -16,11 +15,8 @@ class SigningWorkflowModelsTest {
 
     @Test
     void delegatedTimestampingWorkflow_reportsTimestampingType_andExposesFields() {
-        DelegatedTimestampingWorkflow wf = new DelegatedTimestampingWorkflow(
-                "1.2.3",
-                List.of("1.2.3", "1.2.4"),
-                List.of(DigestAlgorithm.SHA_256),
-                Boolean.TRUE);
+        DelegatedTimestampingWorkflow wf = new DelegatedTimestampingWorkflow("1.2.3", List.of("1.2.3", "1.2.4"),
+                List.of(DigestAlgorithm.SHA_256), Boolean.TRUE);
 
         assertEquals(SigningWorkflowType.TIMESTAMPING, wf.getWorkflowType());
         assertEquals("1.2.3", wf.defaultPolicyId());

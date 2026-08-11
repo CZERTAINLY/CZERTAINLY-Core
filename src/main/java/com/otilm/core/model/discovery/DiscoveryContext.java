@@ -5,11 +5,10 @@ import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.core.connector.ConnectorDto;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.DiscoveryHistory;
-import lombok.Getter;
-import lombok.Setter;
-
 import java.util.List;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 @Setter
@@ -27,7 +26,8 @@ public class DiscoveryContext {
 
     private List<MetadataAttribute> metadata;
 
-    public DiscoveryContext(UUID loggedUserUuid, ConnectorDto connectorDto, DiscoveryHistory discoveryHistory, List<DataAttribute> dataAttributes) {
+    public DiscoveryContext(UUID loggedUserUuid, ConnectorDto connectorDto, DiscoveryHistory discoveryHistory,
+            List<DataAttribute> dataAttributes) {
         this.loggedUserUuid = loggedUserUuid;
         this.connectorDto = connectorDto;
         this.discoveryHistory = discoveryHistory;

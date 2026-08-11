@@ -15,12 +15,11 @@ import com.otilm.api.model.core.settings.logging.ResourceLoggingSettingsDto;
 import com.otilm.core.settings.SettingsCache;
 import com.otilm.core.util.NullUtil;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.MDC;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.MDC;
 
 public class LoggingHelper {
 
@@ -59,7 +58,8 @@ public class LoggingHelper {
             return new ActorRecord(ActorType.CORE, AuthMethod.NONE, null, null);
         } else {
             String authMethod = MDC.get(LOG_ACTOR_AUTH_METHOD);
-            return ActorRecord.builder()
+            return ActorRecord
+                    .builder()
                     .type(ActorType.valueOf(actor))
                     .authMethod(authMethod == null ? AuthMethod.NONE : AuthMethod.valueOf(authMethod))
                     .uuid(NullUtil.parseUuidOrNull(MDC.get(LOG_ACTOR_UUID)))
@@ -79,7 +79,8 @@ public class LoggingHelper {
     public static SourceRecord getSourceInfo() {
         String method = MDC.get(LOG_SOURCE_METHOD);
         if (method != null) {
-            return SourceRecord.builder()
+            return SourceRecord
+                    .builder()
                     .method(method)
                     .path(MDC.get(LOG_SOURCE_PATH))
                     .contentType(MDC.get(LOG_SOURCE_CONTENT_TYPE))
@@ -95,12 +96,18 @@ public class LoggingHelper {
         if (affiliated) {
             String resource = MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE);
             if (resource != null) {
-                resourceRecord = new ResourceRecord(Resource.valueOf(resource), List.of(new ResourceObjectIdentity(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_UUID)))));
+                resourceRecord = new ResourceRecord(Resource.valueOf(resource),
+                        List
+                                .of(new ResourceObjectIdentity(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME),
+                                        NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_UUID)))));
             }
         } else {
             String resource = MDC.get(LOG_AUDIT_RESOURCE);
             if (resource != null) {
-                resourceRecord = new ResourceRecord(Resource.valueOf(resource), List.of(new ResourceObjectIdentity(MDC.get(LOG_AUDIT_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_RESOURCE_UUID)))));
+                resourceRecord = new ResourceRecord(Resource.valueOf(resource),
+                        List
+                                .of(new ResourceObjectIdentity(MDC.get(LOG_AUDIT_RESOURCE_NAME),
+                                        NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_RESOURCE_UUID)))));
             }
         }
 
@@ -135,9 +142,15 @@ public class LoggingHelper {
     }
 
     public static void putActorInfoWhenNull(ActorType actorType, String actorUuid, String actorName) {
-        if (actorType != null) MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
-        if (actorUuid != null) MDC.put(LoggingHelper.LOG_ACTOR_UUID, actorUuid);
-        if (actorName != null) MDC.put(LoggingHelper.LOG_ACTOR_NAME, actorName);
+        if (actorType != null) {
+            MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
+        }
+        if (actorUuid != null) {
+            MDC.put(LoggingHelper.LOG_ACTOR_UUID, actorUuid);
+        }
+        if (actorName != null) {
+            MDC.put(LoggingHelper.LOG_ACTOR_NAME, actorName);
+        }
     }
 
     /**
@@ -152,8 +165,8 @@ public class LoggingHelper {
     }
 
     /**
-     * Captures the actor attribution MDC keys so a scoped elevation can restore the caller's attribution afterwards.
-     * A key absent from the snapshot maps to {@code null} — {@link #restoreActorInfo} removes it on restore, so an
+     * Captures the actor attribution MDC keys so a scoped elevation can restore the caller's attribution afterwards. A
+     * key absent from the snapshot maps to {@code null} — {@link #restoreActorInfo} removes it on restore, so an
      * actor-less caller is returned to the actor-less state rather than retaining an elevated actor.
      */
     public static Map<String, String> snapshotActorInfo() {
@@ -176,22 +189,33 @@ public class LoggingHelper {
         }
     }
 
-    public static void putLogResourceInfo(Resource resource, boolean affiliated, String resourceUuid, String resourceName) {
+    public static void putLogResourceInfo(Resource resource, boolean affiliated, String resourceUuid,
+            String resourceName) {
         if (affiliated) {
             MDC.put(LoggingHelper.LOG_AUDIT_AFFILIATED_RESOURCE, resource.name());
-            if (resourceUuid != null) MDC.put(LoggingHelper.LOG_AUDIT_AFFILIATED_RESOURCE_UUID, resourceUuid);
-            if (resourceName != null) MDC.put(LoggingHelper.LOG_AUDIT_AFFILIATED_RESOURCE_NAME, resourceName);
+            if (resourceUuid != null) {
+                MDC.put(LoggingHelper.LOG_AUDIT_AFFILIATED_RESOURCE_UUID, resourceUuid);
+            }
+            if (resourceName != null) {
+                MDC.put(LoggingHelper.LOG_AUDIT_AFFILIATED_RESOURCE_NAME, resourceName);
+            }
         } else {
             MDC.put(LoggingHelper.LOG_AUDIT_RESOURCE, resource.name());
-            if (resourceUuid != null) MDC.put(LoggingHelper.LOG_AUDIT_RESOURCE_UUID, resourceUuid);
-            if (resourceName != null) MDC.put(LoggingHelper.LOG_AUDIT_RESOURCE_NAME, resourceName);
+            if (resourceUuid != null) {
+                MDC.put(LoggingHelper.LOG_AUDIT_RESOURCE_UUID, resourceUuid);
+            }
+            if (resourceName != null) {
+                MDC.put(LoggingHelper.LOG_AUDIT_RESOURCE_NAME, resourceName);
+            }
         }
     }
 
     // Method to handle extracting the client IP, even if behind proxies
     private static String getClientIPAddress(HttpServletRequest request) {
         String ipAddress = null;
-        List<String> proxyHeaders = List.of("X-Forwarded-For", "HTTP_X_FORWARDED_FOR", "Proxy-Client-IP", "WL-Proxy-Client-IP", "HTTP_CLIENT_IP");
+        List<String> proxyHeaders = List
+                .of("X-Forwarded-For", "HTTP_X_FORWARDED_FOR", "Proxy-Client-IP", "WL-Proxy-Client-IP",
+                        "HTTP_CLIENT_IP");
 
         for (String proxyHeader : proxyHeaders) {
             ipAddress = request.getHeader(proxyHeader);
@@ -213,12 +237,16 @@ public class LoggingHelper {
 
     /**
      * Method to format object identities for CSV format
+     *
      * @param items object identities to convert
      * @return list of object identities formatted as [{name;uuid};{name;uuid};...;{name:uuid}]
      */
     public static String formatResourceObjectForCsv(List<ResourceObjectIdentity> items) {
-        if (items == null || items.isEmpty()) return "";
-        String result = items.stream()
+        if (items == null || items.isEmpty()) {
+            return "";
+        }
+        String result = items
+                .stream()
                 .map(i -> String.format("{%s;%s}", i.name(), i.uuid() == null ? null : i.uuid().toString()))
                 .collect(Collectors.joining(";"));
         return "[%s]".formatted(result);
@@ -226,10 +254,12 @@ public class LoggingHelper {
 
     public static boolean isLogFilteredBasedOnModuleAndResource(boolean audited, Module module, Resource resource) {
         ResourceLoggingSettingsDto settings = getLoggingSettings(audited);
-        if (settings.getIgnoredModules().contains(module) || (!settings.isLogAllModules() && !settings.getLoggedModules().contains(module))) {
+        if (settings.getIgnoredModules().contains(module)
+                || (!settings.isLogAllModules() && !settings.getLoggedModules().contains(module))) {
             return true;
         }
-        return settings.getIgnoredResources().contains(resource) || (!settings.isLogAllResources() && !settings.getLoggedResources().contains(resource));
+        return settings.getIgnoredResources().contains(resource)
+                || (!settings.isLogAllResources() && !settings.getLoggedResources().contains(resource));
     }
 
     private static ResourceLoggingSettingsDto getLoggingSettings(boolean audited) {

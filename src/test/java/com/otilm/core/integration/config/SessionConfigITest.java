@@ -7,6 +7,9 @@ import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
 import com.otilm.core.util.BaseSpringBootTestNoAuth;
 import com.otilm.core.util.SessionTableHelper;
 import jakarta.servlet.http.Cookie;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,10 +24,6 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
@@ -45,8 +44,8 @@ class SessionConfigITest extends BaseSpringBootTestNoAuth {
     MockMvc mvc;
 
     /**
-     * Spy on the real JDBC-backed repository so that the {@code SessionRepositoryFilter} exercises the actual implementation
-     * while still allowing {@link Mockito#verify} assertions.
+     * Spy on the real JDBC-backed repository so that the {@code SessionRepositoryFilter} exercises the actual
+     * implementation while still allowing {@link Mockito#verify} assertions.
      */
     @MockitoSpyBean
     JdbcIndexedSessionRepository sessionRepository;
@@ -61,15 +60,9 @@ class SessionConfigITest extends BaseSpringBootTestNoAuth {
     void setUp() {
         SessionTableHelper.createSessionTables(jdbcTemplate);
 
-        AuthenticationInfo authInfo = new AuthenticationInfo(
-                AuthMethod.CERTIFICATE,
-                UUID.randomUUID().toString(),
-                "session-test-user",
-                List.of()
-        );
-        Mockito.lenient()
-                .when(authenticationClient.authenticateSystemUser(Mockito.any()))
-                .thenReturn(authInfo);
+        AuthenticationInfo authInfo = new AuthenticationInfo(AuthMethod.CERTIFICATE, UUID.randomUUID().toString(),
+                "session-test-user", List.of());
+        Mockito.lenient().when(authenticationClient.authenticateSystemUser(Mockito.any())).thenReturn(authInfo);
     }
 
     @AfterEach
@@ -83,18 +76,18 @@ class SessionConfigITest extends BaseSpringBootTestNoAuth {
     }
 
     /**
-     * For API endpoints the {@code session-id} cookie must be forwarded to the session repository so that existing sessions can be resumed.
+     * For API endpoints the {@code session-id} cookie must be forwarded to the session repository so that existing
+     * sessions can be resumed.
      */
     @Test
     void request_resolvesIncomingSessionCookie() throws Exception {
-        mvc.perform(
-                post(NON_TSP_URL)
+        mvc
+                .perform(post(NON_TSP_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}")
                         .cookie(sessionCookie(UUID.randomUUID().toString())));
 
-        Mockito.verify(sessionRepository, Mockito.atLeastOnce())
-                .findById(Mockito.anyString());
+        Mockito.verify(sessionRepository, Mockito.atLeastOnce()).findById(Mockito.anyString());
     }
 
 }

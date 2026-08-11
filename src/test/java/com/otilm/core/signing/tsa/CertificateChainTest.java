@@ -1,13 +1,12 @@
 package com.otilm.core.signing.tsa;
 
 import com.otilm.core.util.CertificateTestUtil;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

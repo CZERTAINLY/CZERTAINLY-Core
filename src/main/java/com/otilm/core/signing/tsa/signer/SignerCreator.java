@@ -4,8 +4,8 @@ import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 
 /**
- * Creates a {@link Signer} for a specific type of signing scheme.
- * Each implementation handles one scheme type and declares support via {@link #supports}.
+ * Creates a {@link Signer} for a specific type of signing scheme. Each implementation handles one scheme type and
+ * declares support via {@link #supports}.
  */
 public interface SignerCreator {
 
