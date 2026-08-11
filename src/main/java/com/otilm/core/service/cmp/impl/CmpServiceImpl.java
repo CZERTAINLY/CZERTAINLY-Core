@@ -349,6 +349,14 @@ public class CmpServiceImpl implements CmpExternalService {
     private PKIMessage buildProcessingErrorResponse(ConfigurationContext configuration, PKIMessage pkiRequest,
             CmpBaseException e) {
         PKIBody errorBody = e.toPKIBody();
+        // In registration mode the response MAC is keyed by the matched registration's challenge. A rejection
+        // raised before any registration matched (unresolved senderKID, wrong state, wrong MAC) has no such
+        // key; protecting with the empty shared secret would produce a MAC anyone can reproduce, so the error
+        // is returned unprotected (RFC 4210 permits it). A post-match rejection still carries the challenge and
+        // is protected below.
+        if (configuration.isRegistrationMode() && configuration.getMatchedChallenge() == null) {
+            return PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), errorBody);
+        }
         try {
             return new PkiMessageBuilder(configuration)
                     .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(pkiRequest))

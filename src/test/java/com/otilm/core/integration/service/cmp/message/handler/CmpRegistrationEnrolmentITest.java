@@ -77,6 +77,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -380,6 +381,19 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
         CertificateRegistrationAuthorization authorization =
                 authorizationRepository.findByCertificateUuid(registration.getUuid()).orElseThrow();
         assertEquals(1, authorization.getFailedAttempts(), "the failed attempt survives the rejection");
+    }
+
+    @Test
+    void aPreMatchRegistrationRejectionIsReturnedUnprotected() throws Exception {
+        Certificate registration = seedRegistration(SUBJECT_DN, null, CertificateState.REGISTERED);
+
+        // Wrong MAC: rejected before any challenge matches, so registration mode has no key. Protecting the
+        // error with the empty shared secret would yield a MAC anyone could reproduce, so it must be unprotected.
+        ResponseEntity<byte[]> response = post(irMessage(SUBJECT_DN, null, "wrong-challenge", registration.getUuid()));
+
+        PKIMessage error = PKIMessage.getInstance(response.getBody());
+        assertNull(error.getProtection(), "a pre-match registration rejection must not carry an empty-key MAC");
+        assertEquals(CmpRegistrationResolver.REGISTRATION_REJECTION, failText(response.getBody()));
     }
 
     @Test
