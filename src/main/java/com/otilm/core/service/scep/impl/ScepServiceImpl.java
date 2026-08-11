@@ -1037,8 +1037,10 @@ public class ScepServiceImpl implements ScepExternalService {
                                         c.getSubjectAlternativeNames()))
                                 .toList());
         // The wire carries only the generic rejection, so these lines are the operator's whole diagnostic
-        // surface: they must name the identity the matcher actually compared.
-        String csrSubject = scepRequest.getPkcs10Request().getSubject().toString();
+        // surface: they must name the identity the matcher actually compared. A SAN-only enrolment has no
+        // subject, rendered as the empty string rather than dereferenced.
+        X500Name csrSubjectDn = scepRequest.getPkcs10Request().getSubject();
+        String csrSubject = csrSubjectDn == null ? "" : csrSubjectDn.toString();
         switch (result.outcome()) {
             case MATCHED -> {
                 return candidates
