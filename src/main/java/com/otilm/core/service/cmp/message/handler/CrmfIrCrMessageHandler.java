@@ -8,7 +8,6 @@ import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
 import com.otilm.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.api.model.core.certificate.CertificateEvent;
-import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.cmp.CmpTransactionState;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
 import com.otilm.api.model.core.v2.ClientCertificateDataResponseDto;
@@ -17,17 +16,14 @@ import com.otilm.core.certificate.request.RequestAttributePolicyViolationExcepti
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.model.auth.CertificateProtocolInfo;
-import com.otilm.core.model.request.CrmfCertificateRequest;
 import com.otilm.core.security.authz.SecuredParentUUID;
-import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
+import com.otilm.core.service.cmp.registration.CmpRegistrationIdentityVerifier;
 import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
-import com.otilm.core.service.registration.RegistrationIdentityMatcher;
 import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
-import com.otilm.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.*;
@@ -75,7 +71,7 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
 
     private ClientOperationInternalService clientOperationService;
     private ClientOperationExternalService clientOperationExternalService;
-    private CertificateEventHistoryInternalService certificateEventHistoryService;
+    private CmpRegistrationIdentityVerifier registrationIdentityVerifier;
     private CertificateInternalService certificateService;
 
     @Autowired
@@ -94,8 +90,8 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
     }
 
     @Autowired
-    public void setCertificateEventHistoryService(CertificateEventHistoryInternalService certificateEventHistoryService) {
-        this.certificateEventHistoryService = certificateEventHistoryService;
+    public void setRegistrationIdentityVerifier(CmpRegistrationIdentityVerifier registrationIdentityVerifier) {
+        this.registrationIdentityVerifier = registrationIdentityVerifier;
     }
 
     /**
@@ -155,7 +151,7 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
         if (matched == null) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
         }
-        verifyRegistrationIdentity(crmf, matched, tid);
+        registrationIdentityVerifier.verify(crmf, matched, CertificateEvent.ISSUE, tid);
 
         try {
             ClientCertificateIssueRequestDto dto = new ClientCertificateIssueRequestDto();
@@ -190,31 +186,6 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
         } catch (Exception e) {
             logger.warn("Failed to apply CMP protocol associations to completed registration {}: {}",
                     matched.getUuid(), e.getMessage());
-        }
-    }
-
-    private void verifyRegistrationIdentity(CertReqMessages crmf, Certificate matched, ASN1OctetString tid) throws CmpBaseException {
-        try {
-            CrmfCertificateRequest parsed = new CrmfCertificateRequest(crmf.getEncoded());
-            RegistrationIdentityMatcher.MatchResult result = RegistrationIdentityMatcher.match(
-                    parsed.getSubject(),
-                    CertificateUtil.getSAN(parsed),
-                    List.of(new RegistrationIdentityMatcher.Candidate(
-                            matched.getUuid(), matched.getSubjectDn(), matched.getSubjectAlternativeNames())));
-            if (result.outcome() != RegistrationIdentityMatcher.Outcome.MATCHED) {
-                // The candidate is already resolved from the senderKID, so any identity mismatch is attributable —
-                // record it against that certificate (server-side only; the wire still carries the single generic
-                // rejection). A single candidate can only yield SAN_MISMATCH (subject matched, SANs differ) or
-                // NO_MATCH (subject differs); AMBIGUOUS cannot occur.
-                String reason = result.outcome() == RegistrationIdentityMatcher.Outcome.SAN_MISMATCH
-                        ? "CMP enrolment subject alternative names do not match the registered ones"
-                        : "CMP enrolment subject does not match the registered identity";
-                certificateEventHistoryService.addEventHistory(matched.getUuid(), CertificateEvent.ISSUE,
-                        CertificateEventStatus.FAILED, reason, "");
-                throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
-            }
-        } catch (CertificateRequestException | IOException e) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
         }
     }
 
