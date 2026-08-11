@@ -233,7 +233,6 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
         edit.setVariant(CmpProfileVariant.V2);
         edit.setRequestProtectionMethod(ProtectionMethod.SHARED_SECRET);
         edit.setResponseProtectionMethod(ProtectionMethod.SHARED_SECRET);
-        // challengeSource omitted -> keep the stored CERTIFICATE_REGISTRATION
 
         CmpProfileDetailDto edited = cmpProfileService.editCmpProfile(SecuredUUID.fromString(created.getUuid()), edit);
 

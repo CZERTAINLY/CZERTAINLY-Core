@@ -61,7 +61,6 @@ class CmpRegistrationResolverTest {
         return certificate;
     }
 
-    /** Makes the gate invoke the predicate with the stored plaintext and return its result. */
     private Answer<Boolean> gateRunsPredicateWith(String plaintext) {
         return invocation -> {
             Predicate<String> predicate = invocation.getArgument(2);

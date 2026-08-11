@@ -31,6 +31,7 @@ import com.otilm.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.*;
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,7 +61,7 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             PKIBody.TYPE_INIT_REQ,          // ir       [0]  CertReqMessages,       --Initialization Req
             PKIBody.TYPE_CERT_REQ);         // cr       [2]  CertReqMessages,       --Certification Req
 
-    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CrmfIrCrMessageHandler.class);
+    private static final Logger logger = org.slf4j.LoggerFactory.getLogger(CrmfIrCrMessageHandler.class);
 
     private ClientOperationInternalService clientOperationService;
     private ClientOperationExternalService clientOperationExternalService;

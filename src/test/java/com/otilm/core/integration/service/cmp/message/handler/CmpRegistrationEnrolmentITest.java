@@ -42,6 +42,7 @@ import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.mockbeans.PollMocks;
 import com.github.tomakehurst.wiremock.WireMockServer;
+import org.bouncycastle.asn1.cmp.ErrorMsgContent;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -61,6 +62,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.time.OffsetDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -206,7 +208,7 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
 
     private int failInfo(byte[] responseBytes) {
         PKIMessage response = PKIMessage.getInstance(responseBytes);
-        return ((org.bouncycastle.asn1.cmp.ErrorMsgContent) response.getBody().getContent())
+        return ((ErrorMsgContent) response.getBody().getContent())
                 .getPKIStatusInfo().getFailInfo().intValue();
     }
 
@@ -219,7 +221,7 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
     private Certificate seedIssuedCertificate() throws Exception {
         KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
         var holder = CmpTestUtil.makeV3Certificate(BigInteger.valueOf(System.nanoTime()), keyPair, "CN=issued", keyPair, "CN=issued");
-        String content = java.util.Base64.getEncoder().encodeToString(holder.getEncoded());
+        String content = Base64.getEncoder().encodeToString(holder.getEncoded());
         CertificateContent certificateContent = certificateContentRepository.saveAndFlush(
                 CmpEntityUtil.createCertContent(CertificateUtil.getThumbprint(content.getBytes()), content));
         Certificate persisted = CmpEntityUtil.createCertificate(holder.getSerialNumber(), CertificateState.ISSUED, certificateContent);

@@ -104,9 +104,9 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
     static boolean matchesMac(PKIMessage message, byte[] passwordAsBytes) throws NoSuchAlgorithmException, NoSuchProviderException, IOException, InvalidKeyException {
         PKIHeader header = message.getHeader();
         PBMParameter pbmParameter = PBMParameter.getInstance(
-                header.getProtectionAlg().getParameters());      // -- PBMParameter
-        byte[] salt = pbmParameter.getSalt().getOctets();        // --    salt (octetstring)
-        AlgorithmIdentifier owf = pbmParameter.getOwf();         // --    owf  (algIdentifier)
+                header.getProtectionAlg().getParameters());
+        byte[] salt = pbmParameter.getSalt().getOctets();
+        AlgorithmIdentifier owf = pbmParameter.getOwf();
         // The salted secret is the input to the first iteration; the output of the final iteration
         // (called "BASEKEY", size "H") forms the symmetric key.
         byte[] basekey = new byte[passwordAsBytes.length + salt.length];
