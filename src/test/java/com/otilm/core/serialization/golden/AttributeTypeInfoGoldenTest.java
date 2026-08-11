@@ -45,15 +45,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins the JSON shape of every polymorphic {@code @JsonTypeInfo} hierarchy the platform puts on the wire.
+ * Pins every polymorphic {@code @JsonTypeInfo} hierarchy: the discriminator's property name, emitted value and
+ * placement are three independently breakable wire contracts shared with ~40 connector repositories.
  * <p>
- * These are the highest-risk types in the Jackson 3 migration. A polymorphic type's discriminator has three
- * independently breakable properties — the property <b>name</b>, the emitted <b>value</b>, and its <b>placement</b> in
- * the object — and every one of them is a wire contract shared with ~40 connector repositories. All the hierarchies
- * here use {@code As.EXISTING_PROPERTY} with {@code visible = true}, meaning the discriminator is a real field that
- * Jackson must both write and populate on read; that arrangement is more fragile than a synthetic property, because a
- * change in Jackson's handling can silently produce a document with no discriminator at all, which then deserializes to
- * the {@code defaultImpl} instead of failing.
+ * All the hierarchies here use {@code As.EXISTING_PROPERTY} with {@code visible = true}, so the discriminator is a real
+ * field Jackson must both write and populate. That is more fragile than a synthetic property: a document that loses its
+ * discriminator deserializes to the {@code defaultImpl} instead of failing.
  */
 class AttributeTypeInfoGoldenTest {
 
@@ -62,10 +59,9 @@ class AttributeTypeInfoGoldenTest {
     private final ObjectMapper mapper = GoldenMappers.web();
 
     /**
-     * One golden per {@code BaseAttributeContentV3} subtype, asserting the {@code contentType} discriminator and the
-     * rendering of the payload the subtype wraps. The scalar-rendering half matters as much as the discriminator: the
-     * date/time subtypes are the ones that would flip to numeric timestamps if the {@code JavaTimeModule} or the
-     * {@code WRITE_DATES_AS_TIMESTAMPS} setting were lost in the upgrade.
+     * One golden per {@code BaseAttributeContentV3} subtype. The payload rendering matters as much as the
+     * discriminator: the date/time subtypes are the ones that flip to numeric timestamps if the {@code JavaTimeModule}
+     * or {@code WRITE_DATES_AS_TIMESTAMPS} setting is lost.
      */
     @ParameterizedTest(name = "contentType discriminator: {1}")
     @MethodSource("contentV3Subtypes")
@@ -117,10 +113,9 @@ class AttributeTypeInfoGoldenTest {
     }
 
     /**
-     * One golden per {@code ResourceObjectContentData} subtype. This hierarchy is unusual in that four distinct
-     * discriminator values (AUTHORITY, ENTITY, LOCATION, CREDENTIAL) all map to the same {@code
-     * ResourceSimpleContentData} class, so the emitted value comes from the instance's {@code resource} field rather
-     * than from the subtype registration — pinning each one separately is what proves the mapping did not collapse.
+     * One golden per {@code ResourceObjectContentData} subtype. Four discriminator values (AUTHORITY, ENTITY, LOCATION,
+     * CREDENTIAL) map to the same {@code ResourceSimpleContentData} class, so the emitted value comes from the
+     * instance's {@code resource} field rather than from the subtype registration.
      */
     @ParameterizedTest(name = "resource discriminator: {1}")
     @MethodSource("resourceContentDataSubtypes")
@@ -152,17 +147,14 @@ class AttributeTypeInfoGoldenTest {
                                         simpleResource(AttributeResource.CREDENTIAL,
                                                 "6f1a4d3c-0000-4000-8000-000000000004", "Connector Credential")),
                         Arguments.of("certificate", "certificates", certificateResource()),
-                        // Deliberately left with a null content: a populated one is a leak shape that
-                        // OutboundSecretContainment refuses outright, and is covered by SecretContainmentGoldenTest.
+                        // Null content deliberately: a populated one is a leak shape covered by
+                        // SecretContainmentGoldenTest.
                         Arguments
                                 .of("secret", "secrets", new ResourceSecretContentData(
                                         "6f1a4d3c-0000-4000-8000-000000000006", "Vault Secret", null)));
     }
 
-    /**
-     * The uuid is passed in rather than derived from the enum, so that the committed goldens stay valid when
-     * {@code AttributeResource} gains or reorders constants.
-     */
+    /** The uuid is passed in rather than derived, so goldens survive {@code AttributeResource} gaining constants. */
     private static ResourceSimpleContentData simpleResource(AttributeResource resource, String uuid, String name) {
         return new ResourceSimpleContentData(resource, uuid, name, null);
     }
@@ -176,9 +168,8 @@ class AttributeTypeInfoGoldenTest {
 
     /**
      * One golden per {@code BaseAttributeV2} subtype. The {@code type} discriminator carries a {@code defaultImpl} of
-     * {@code DataAttributeV2}, which is the dangerous part: if Jackson 3 stopped emitting the discriminator, reads
-     * would not fail loudly — every attribute would quietly deserialize as a data attribute, and a metadata or custom
-     * attribute would lose its identity somewhere deep inside the platform rather than at the parse boundary.
+     * {@code DataAttributeV2}, so a lost discriminator would not fail the read — every attribute would quietly
+     * deserialize as a data attribute and lose its identity deep inside the platform rather than at the parse boundary.
      */
     @ParameterizedTest(name = "type discriminator: {0}")
     @MethodSource("attributeV2Subtypes")
@@ -192,22 +183,13 @@ class AttributeTypeInfoGoldenTest {
     }
 
     /**
-     * Read the serialized attribute back through {@code BaseAttribute} and require the original class.
+     * Reads the attribute back and requires the original class, since the failure mode above is a read-side one that
+     * writing the discriminator cannot detect.
      * <p>
-     * Without this, the surrounding test would only prove the discriminator was <i>written</i> — and weakly, since the
-     * expected value comes from the same {@code getCode()} the serializer calls. The failure mode described above is a
-     * <i>read</i>-side one, and only deserializing can detect it.
-     * <p>
-     * The base type here is {@code BaseAttribute}, not {@code BaseAttributeV2}, and that distinction is itself a
-     * finding worth recording. {@code BaseAttributeV2} carries a {@code @JsonSubTypes} list naming
-     * {@code DataAttributeV2} and friends, but none of them actually extend it — they extend
-     * {@code DataAttribute extends BaseAttribute}. Those registrations are therefore vestigial, and deserializing
-     * through {@code BaseAttributeV2} fails outright with an unresolvable type id. The live read path is
-     * {@code BaseAttribute}, handled by the hand-written {@code BaseAttributeDeserializer}, which ignores
-     * {@code @JsonSubTypes} entirely and switches on the {@code version} and {@code type} fields by hand.
-     * <p>
-     * So this assertion covers the deserializer that actually runs in production — one written against Jackson 2 APIs
-     * the upgrade must rewrite — rather than an annotation arrangement that never resolves anything.
+     * The base type is {@code BaseAttribute}, not {@code BaseAttributeV2}: the latter's {@code @JsonSubTypes} list
+     * names classes that do not extend it, so deserializing through it fails with an unresolvable type id. The live
+     * read path is the hand-written {@code BaseAttributeDeserializer}, which ignores {@code @JsonSubTypes} and switches
+     * on {@code version} and {@code type} by hand.
      */
     private void assertResolvesBackToItsOwnSubtype(Object attribute) {
         try {
@@ -216,9 +198,8 @@ class AttributeTypeInfoGoldenTest {
 
             assertThat(reread)
                     .describedAs("%s did not resolve back to its own subtype; BaseAttributeDeserializer switches on "
-                            + "the 'version' and 'type' fields by hand, so either field changing shape silently "
-                            + "produces the wrong attribute class rather than an error",
-                            attribute.getClass().getSimpleName())
+                            + "'version' and 'type' by hand, so either changing shape yields the wrong class rather "
+                            + "than an error", attribute.getClass().getSimpleName())
                     .isInstanceOf(attribute.getClass());
         } catch (Exception e) {
             throw new IllegalStateException("Attribute did not survive a polymorphic round trip", e);
@@ -261,20 +242,13 @@ class AttributeTypeInfoGoldenTest {
     }
 
     /**
-     * Pins the fact that concrete attribute classes serialize through Jackson's ordinary bean serializer, <i>not</i>
-     * through the hand-written {@code BaseAttributeSerializer} their base class registers.
+     * Concrete attribute classes serialize through Jackson's ordinary bean serializer: {@code BaseAttribute} declares
+     * {@code @JsonSerialize(using = BaseAttributeSerializer.class)}, but every subclass re-declares a bare
+     * {@code @JsonSerialize}, cancelling the inherited {@code using}.
      * <p>
-     * {@code BaseAttribute} declares {@code @JsonSerialize(using = BaseAttributeSerializer.class)}, but every concrete
-     * subclass re-declares a bare {@code @JsonSerialize}, which cancels the inherited {@code using}. The custom
-     * serializer is therefore dormant on all of them — and it is not merely redundant, it is incompatible: it writes
-     * fields in a different order ({@code type} and {@code version} first), emits every field unconditionally including
-     * nulls, and implements no type-id handling at all, so it throws outright if it is ever reached for a type that
-     * participates in polymorphic typing.
-     * <p>
-     * This makes annotation-cancellation semantics load-bearing. If a Jackson 3 port changed how a bare
-     * {@code @JsonSerialize} interacts with an inherited one, the dormant serializer would wake up and every attribute
-     * in the platform would change field order and start carrying explicit nulls — or fail to serialize. Asserting the
-     * field order is what detects that, because field order is where the two serializers differ most visibly.
+     * That makes annotation-cancellation semantics load-bearing. Were the dormant serializer to wake up, every
+     * attribute would change field order ({@code type} and {@code version} first), start carrying explicit nulls, or
+     * fail outright, since it implements no type-id handling. Field order is where the two differ most visibly.
      */
     @Test
     void concreteAttributesUseTheBeanSerializerNotTheDormantHandWrittenOne() {
@@ -287,20 +261,18 @@ class AttributeTypeInfoGoldenTest {
 
         JsonNode tree = mapper.valueToTree(sparse);
         assertThat(tree.has("description"))
-                .describedAs("the bean serializer honours NON_NULL, so an unset field is absent; the hand-written "
-                        + "serializer would have emitted it as an explicit null")
+                .describedAs("the bean serializer honours NON_NULL; the hand-written one would emit an explicit null")
                 .isFalse();
         assertThat(tree.fieldNames())
                 .toIterable()
-                .describedAs("field order distinguishes the two serializers: the hand-written one leads with 'type' "
-                        + "and 'version', the bean serializer follows declaration order")
+                .describedAs("the hand-written serializer leads with 'type' and 'version', the bean serializer "
+                        + "follows declaration order")
                 .startsWith("name", "version", "type");
     }
 
     /**
-     * Assert the discriminator is a real, top-level property of the serialized object carrying the expected value.
-     * Reading the tree rather than substring-matching the JSON is what makes this an assertion about placement: a
-     * discriminator nested one level deeper, or emitted as a wrapper, would still contain the same text.
+     * Reads the tree rather than substring-matching the JSON, so this asserts placement too: a discriminator nested a
+     * level deeper would still contain the same text.
      */
     private void assertDiscriminator(Object value, String property, String expectedValue) {
         JsonNode tree = mapper.valueToTree(value);
@@ -310,8 +282,8 @@ class AttributeTypeInfoGoldenTest {
                         value.getClass().getSimpleName())
                 .isTrue();
         assertThat(tree.has(property))
-                .describedAs("%s lost its '%s' discriminator property; consumers would fall back to the defaultImpl "
-                        + "instead of failing", value.getClass().getSimpleName(), property)
+                .describedAs("%s lost its '%s' discriminator; consumers would fall back to the defaultImpl instead "
+                        + "of failing", value.getClass().getSimpleName(), property)
                 .isTrue();
         assertThat(tree.get(property).asText())
                 .describedAs("%s emitted an unexpected '%s' discriminator value", value.getClass().getSimpleName(),

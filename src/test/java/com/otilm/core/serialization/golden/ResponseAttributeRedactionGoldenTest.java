@@ -19,25 +19,15 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins the redaction performed by {@code ResponseAttributeSerializer}, the hand-written serializer that strips secret
- * material out of API responses.
+ * Pins the redaction performed by {@code ResponseAttributeSerializer}, the platform's primary secret redaction. Unlike
+ * the class-level {@code @JsonSerialize} on {@code BaseAttribute} — which every subclass cancels, leaving it dormant —
+ * this one is declared on the {@code ResponseAttributeV2.content} <i>field</i>, so it is live on every v2 response
+ * attribute the platform emits.
  * <p>
- * This is the platform's <b>primary</b> secret redaction, and it is easy to overlook. Unlike the class-level
- * {@code @JsonSerialize} on {@code BaseAttribute} — which every concrete subclass cancels, leaving it dormant — this
- * one is declared on a <i>field</i>, {@code ResponseAttributeV2.content}. Property-level annotations are not subject to
- * that cancellation, so it is unconditionally live on every v2 response attribute the platform emits.
- * <p>
- * What it does is nulls the {@code data} of secret content before it reaches the wire, keyed on the attribute's
- * {@code contentType}: {@code SECRET} strips the secret directly, {@code CREDENTIAL} descends into the credential's own
- * attributes and strips each nested secret. Everything else passes through untouched. That means a secret is kept out
- * of an API response by a {@code contentType} string comparison inside hand-written serializer code — not by any
- * annotation, and not by {@code OutboundSecretContainment}, which guards a different path entirely.
- * <p>
- * It is written against Jackson 2 internals that Jackson 3 reworks: {@code StdSerializer},
- * {@code JsonGenerator.getCurrentValue()} to reach back to the enclosing bean, a privately constructed
- * {@code ObjectMapper}, and the checked {@code IOException} contract. It cannot survive the upgrade unmodified, and if
- * a rewrite silently stopped firing, secrets would flow into API responses with every test still green. These goldens
- * are what would catch that.
+ * It nulls the {@code data} of secret content keyed on the attribute's {@code contentType}: {@code SECRET} strips
+ * directly, {@code CREDENTIAL} descends into the credential's own attributes, everything else passes through. A secret
+ * is therefore kept off the wire by a string comparison in hand-written Jackson 2 code — not by an annotation, and not
+ * by {@code OutboundSecretContainment}, which guards a different path.
  */
 class ResponseAttributeRedactionGoldenTest {
 
@@ -46,14 +36,9 @@ class ResponseAttributeRedactionGoldenTest {
     private final ObjectMapper mapper = GoldenMappers.web();
 
     /**
-     * The {@code SECRET} branch. Redaction works by nulling the content's {@code data}, and because
-     * {@code SecretAttributeContentV2} is {@code @JsonInclude(NON_NULL)} the nulled field then disappears from the
-     * output entirely — so the wire shows a content entry carrying only its {@code reference}. The entry itself
-     * survives, which is deliberate: consumers still learn a secret attribute exists, just not its value.
-     * <p>
-     * Note the two-step nature of that outcome: the serializer nulls, and the inclusion setting removes. Only the first
-     * step is the redaction. If Jackson 3 changed inclusion handling the key could come back as an explicit null —
-     * still safe — but the shape would change, and this golden is what would surface it.
+     * The {@code SECRET} branch. Two steps produce the outcome and only the first is the redaction: the serializer
+     * nulls the {@code data}, then {@code @JsonInclude(NON_NULL)} removes the key. The content entry itself survives
+     * deliberately, so consumers still learn a secret attribute exists.
      */
     @Test
     void secretContentIsRedactedOutOfTheWireEntirely() {
@@ -76,9 +61,8 @@ class ResponseAttributeRedactionGoldenTest {
     }
 
     /**
-     * The {@code CREDENTIAL} branch, which is the subtler one: the secret is not at the top level but nested inside the
-     * credential's own attribute list, and the serializer has to walk into it. A rewrite that handled the flat
-     * {@code SECRET} case but missed this nesting would leak.
+     * The {@code CREDENTIAL} branch, where the secret is nested inside the credential's own attribute list rather than
+     * at the top level: a rewrite handling the flat case but missing the nesting would leak.
      */
     @Test
     void secretsNestedInsideCredentialContentAreAlsoRedacted() {
@@ -104,14 +88,13 @@ class ResponseAttributeRedactionGoldenTest {
         GoldenJson.assertMatchesGolden("redaction-response-attribute-credential", mapper, attribute);
 
         assertThat(serialized(attribute))
-                .describedAs("a secret nested inside credential content must be redacted too, not just a top-level one")
+                .describedAs("a secret nested inside credential content must be redacted too")
                 .doesNotContain(SECRET_VALUE);
     }
 
     /**
-     * The pass-through branch, and the negative control for the two above. Without it, the redaction tests would still
-     * pass if the serializer degenerated into dropping or nulling <i>every</i> content regardless of type — which would
-     * be a data-loss bug rather than a leak, and equally worth catching.
+     * The negative control for the two above: without it, they would still pass if the serializer degenerated into
+     * nulling every content regardless of type — data loss rather than a leak, but equally worth catching.
      */
     @Test
     void nonSecretContentPassesThroughUnredacted() {
@@ -127,10 +110,10 @@ class ResponseAttributeRedactionGoldenTest {
     }
 
     /**
-     * The serializer reaches the enclosing attribute through {@code JsonGenerator.getCurrentValue()} in order to read
-     * its {@code contentType}, then branches on a null check before comparing. Pinning the null-contentType path keeps
-     * that guard honest: if the upgrade broke the back-reference, {@code contentType} would read as null here and every
-     * attribute would silently take this unredacted branch — including the secret-bearing ones.
+     * The serializer reads the enclosing attribute's {@code contentType} through
+     * {@code JsonGenerator.getCurrentValue()}, then null-checks it before comparing. If the upgrade broke that
+     * back-reference, {@code contentType} would read as null and every attribute — including secret-bearing ones —
+     * would take this unredacted branch.
      */
     @Test
     void aNullContentTypeTakesTheUnredactedBranchWhichIsWhyTheBackReferenceMatters() {
