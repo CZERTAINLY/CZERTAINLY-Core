@@ -9,10 +9,14 @@ import com.otilm.api.interfaces.core.web.DiscoveryController;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
+import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDetailDto;
+import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.common.UuidDto;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.discovery.DiscoveryItemDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.scheduler.ScheduleDiscoveryDto;
@@ -31,10 +35,12 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
@@ -64,7 +70,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.DETAIL)
-    public DiscoveryHistoryDetailDto getDiscovery(@LogResource(uuid = true) @PathVariable String uuid)
+    public DiscoveryDetailDto getDiscovery(@LogResource(uuid = true) @PathVariable String uuid)
             throws NotFoundException {
         return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
     }
@@ -82,7 +88,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.CREATE)
     public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
             throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        final DiscoveryHistoryDetailDto modal = discoveryService.createDiscovery(request, true);
+        final DiscoveryDetailDto modal = discoveryService.createDiscovery(request, true);
         discoveryService.runDiscoveryAsync(UUID.fromString(modal.getUuid()));
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -143,6 +149,61 @@ public class DiscoveryControllerImpl implements DiscoveryController {
             operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return discoveryService.getSearchableFieldInformationByGroup();
+    }
+
+    /*
+     * Discovery v2, not implemented yet. These seven exist because DiscoveryController declares them abstract, so this
+     * class does not compile without them; they answer 501 rather than nothing, so a caller reaching one gets an answer
+     * it can act on. OmniTrustILM/core#1964 replaces every one.
+     *
+     * Deliberately carrying neither @AuditLogged nor authorization annotations: there is no operation to audit and no
+     * resource to check while the body does nothing. Authentication still applies -- SecurityConfig authenticates every
+     * request -- but the resource-level authorization these need, and the action catalogue AuthResourceSynchronizer
+     * pushes for them, belong to #1964 along with the behaviour. The checked exceptions stay on the signatures so
+     * filling them in later does not change the contract.
+     */
+
+    @Override
+    public PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(String uuid, Resource resource,
+            Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException {
+        throw notImplemented();
+    }
+
+    @Override
+    public void stopDiscovery(String uuid) throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    @Override
+    public void resumeDiscovery(String uuid) throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    @Override
+    public void cancelDiscovery(String uuid) throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    @Override
+    public List<DiscoverySupportedResourceDto> listDiscoveryResources(String connectorUuid) throws NotFoundException {
+        throw notImplemented();
+    }
+
+    @Override
+    public List<BaseAttribute> getDiscoveryAttributes(String connectorUuid)
+            throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    @Override
+    public List<BaseAttribute> getDiscoveryResourceAttributes(String connectorUuid, Resource resource)
+            throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    private static ResponseStatusException notImplemented() {
+        return new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
+                "Discovery v2 is not implemented by this deployment yet");
     }
 
 }

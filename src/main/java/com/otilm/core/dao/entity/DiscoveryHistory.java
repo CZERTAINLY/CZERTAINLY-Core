@@ -1,8 +1,8 @@
 package com.otilm.core.dao.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDetailDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDto;
+import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
+import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.util.DtoMapper;
@@ -43,7 +43,7 @@ import org.hibernate.proxy.HibernateProxy;
 public class DiscoveryHistory extends UniquelyIdentifiedAndAudited
         implements
             Serializable,
-            DtoMapper<DiscoveryHistoryDetailDto> {
+            DtoMapper<DiscoveryDetailDto> {
 
     @Serial
     private static final long serialVersionUID = 571684590427678474L;
@@ -103,8 +103,8 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited
     private List<Trigger> triggers = new ArrayList<>();
 
     @Override
-    public DiscoveryHistoryDetailDto mapToDto() {
-        DiscoveryHistoryDetailDto dto = new DiscoveryHistoryDetailDto();
+    public DiscoveryDetailDto mapToDto() {
+        DiscoveryDetailDto dto = new DiscoveryDetailDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setEndTime(endTime);
@@ -121,8 +121,8 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited
         return dto;
     }
 
-    public DiscoveryHistoryDto mapToListDto() {
-        DiscoveryHistoryDto dto = new DiscoveryHistoryDto();
+    public DiscoveryListDto mapToListDto() {
+        DiscoveryListDto dto = new DiscoveryListDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setEndTime(endTime);
