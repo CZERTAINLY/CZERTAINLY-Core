@@ -201,7 +201,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void registrationSourcePersistsWithoutSharedSecret() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void registrationSourcePersistsWithoutSharedSecret()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         CmpProfileDto dto = cmpProfileService.createCmpProfile(registrationCreateRequest("RegCreate"));
 
         Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
@@ -211,7 +212,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void switchingToRegistrationSourceClearsStoredSecret() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void switchingToRegistrationSourceClearsStoredSecret()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         CmpProfileRequestDto create = new CmpProfileRequestDto();
         create.setName("SwitchToReg");
         create.setVariant(CmpProfileVariant.V2);
@@ -234,7 +236,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void omittedChallengeSourceKeepsStoredSource() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void omittedChallengeSourceKeepsStoredSource()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         CmpProfileDto created = cmpProfileService.createCmpProfile(registrationCreateRequest("KeepReg"));
 
         CmpProfileEditRequestDto edit = new CmpProfileEditRequestDto();
@@ -248,7 +251,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void newProfileDefaultsToProtocolDefaultChallengeSource() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+    void newProfileDefaultsToProtocolDefaultChallengeSource()
+            throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         CmpProfileRequestDto request = new CmpProfileRequestDto();
         request.setName("DefaultChallengeSource");
         request.setVariant(CmpProfileVariant.V2);
@@ -280,7 +284,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
 
         request.setName("Test2");
-        ProtocolCertificateAssociationsRequestDto certificateAssociations = new ProtocolCertificateAssociationsRequestDto();
+        ProtocolCertificateAssociationsRequestDto certificateAssociations =
+                new ProtocolCertificateAssociationsRequestDto();
         certificateAssociations.setOwnerUuid(UUID.randomUUID());
         certificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
         certificateAssociations.setCustomAttributes(List.of(domainAttrRequestAttribute));
@@ -310,7 +315,8 @@ class CmpProfileServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
         Assertions.assertNull(dto.getCertificateAssociations());
 
-        ProtocolCertificateAssociationsRequestDto protocolCertificateAssociationsDto = new ProtocolCertificateAssociationsRequestDto();
+        ProtocolCertificateAssociationsRequestDto protocolCertificateAssociationsDto =
+                new ProtocolCertificateAssociationsRequestDto();
         protocolCertificateAssociationsDto.setOwnerUuid(UUID.randomUUID());
         request.setCertificateAssociations(protocolCertificateAssociationsDto);
         dto = cmpProfileService.editCmpProfile(cmpProfile.getSecuredUuid(), request);
