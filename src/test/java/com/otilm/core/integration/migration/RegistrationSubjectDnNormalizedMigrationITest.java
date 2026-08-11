@@ -10,6 +10,11 @@ import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.util.CertificateUtil;
 import db.migration.V202608071000__RegistrationSubjectDnNormalizedMigration;
+import java.sql.Connection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import javax.sql.DataSource;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,21 +24,18 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RegistrationSubjectDnNormalizedMigrationITest extends BaseMigrationTest {
 
-    @Autowired DataSource dataSource;
-    @Autowired CertificateRepository certificateRepository;
-    @Autowired CustomOidEntryRepository customOidEntryRepository;
+    @Autowired
+    DataSource dataSource;
+    @Autowired
+    CertificateRepository certificateRepository;
+    @Autowired
+    CustomOidEntryRepository customOidEntryRepository;
 
     // OidHandler is process-wide static state; seedRdnOidRegistry writes into it, so each test
     // snapshots the RDN category and restores it afterward rather than leaking a custom code into
@@ -66,8 +68,8 @@ class RegistrationSubjectDnNormalizedMigrationITest extends BaseMigrationTest {
         Certificate registeredUnparseable = persist(CertificateState.REGISTERED, "not-a-dn", null);
         Certificate issuedUntouched = persist(CertificateState.ISSUED, "CN=device-3", null);
         String existingNormalized = CertificateUtil.normalizeStoredSubjectDn("CN=already-normalized");
-        Certificate registeredAlreadyNormalized =
-                persist(CertificateState.REGISTERED, "CN=already-normalized", existingNormalized);
+        Certificate registeredAlreadyNormalized = persist(CertificateState.REGISTERED, "CN=already-normalized",
+                existingNormalized);
 
         runMigration();
 

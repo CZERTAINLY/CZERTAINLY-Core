@@ -10,14 +10,13 @@ import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-
-import java.time.OffsetDateTime;
-import java.util.UUID;
 
 import static com.otilm.core.util.builders.CertificateBuilder.aCertificate;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,8 +71,9 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
         Certificate underOtherProfile = persistCertificate(CertificateState.REGISTERED, otherRaProfileUuid);
         persistAuthorizationFor(underOtherProfile.getUuid(), RegistrationState.ACTIVE);
 
-        assertThat(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
-                raProfileUuid, CertificateUtil.normalizeStoredSubjectDn("CN=lookup-subject")))
+        assertThat(certificateRepository
+                .findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(raProfileUuid,
+                        CertificateUtil.normalizeStoredSubjectDn("CN=lookup-subject")))
                 .extracting(Certificate::getUuid)
                 .containsExactly(match.getUuid());
     }
@@ -86,8 +86,9 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
         Certificate otherSubject = persistCertificate(CertificateState.REGISTERED, raProfileUuid, "CN=other-subject");
         persistAuthorizationFor(otherSubject.getUuid(), RegistrationState.ACTIVE);
 
-        assertThat(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
-                raProfileUuid, CertificateUtil.normalizeStoredSubjectDn("CN=lookup-subject")))
+        assertThat(certificateRepository
+                .findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(raProfileUuid,
+                        CertificateUtil.normalizeStoredSubjectDn("CN=lookup-subject")))
                 .extracting(Certificate::getUuid)
                 .containsExactly(match.getUuid());
     }
@@ -98,8 +99,9 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
         Certificate sanOnly = persistCertificate(CertificateState.REGISTERED, raProfileUuid, null);
         persistAuthorizationFor(sanOnly.getUuid(), RegistrationState.ACTIVE);
 
-        assertThat(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
-                raProfileUuid, ""))
+        assertThat(certificateRepository
+                .findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(raProfileUuid,
+                        ""))
                 .extracting(Certificate::getUuid)
                 .containsExactly(sanOnly.getUuid());
     }
@@ -136,8 +138,9 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
     void findByCertificateUuidReturnsThePersistedRow() {
         UUID persistedUuid = persistAuthorization().getUuid();
 
-        CertificateRegistrationAuthorization found =
-                authorizationRepository.findByCertificateUuid(certificateUuid).orElseThrow();
+        CertificateRegistrationAuthorization found = authorizationRepository
+                .findByCertificateUuid(certificateUuid)
+                .orElseThrow();
 
         assertThat(found.getUuid()).isEqualTo(persistedUuid);
         assertThat(found.getCertificateUuid()).isEqualTo(certificateUuid);
@@ -149,8 +152,8 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
         persistAuthorization();
 
         // SELECT ... FOR UPDATE requires an active transaction.
-        CertificateRegistrationAuthorization locked = new TransactionTemplate(transactionManager).execute(
-                status -> authorizationRepository.findAndLockByCertificateUuid(certificateUuid).orElseThrow());
+        CertificateRegistrationAuthorization locked = new TransactionTemplate(transactionManager)
+                .execute(status -> authorizationRepository.findAndLockByCertificateUuid(certificateUuid).orElseThrow());
 
         assertThat(locked).isNotNull();
         assertThat(locked.getCertificateUuid()).isEqualTo(certificateUuid);
@@ -161,8 +164,8 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
         persistAuthorization();
 
         // The @Modifying delete needs an ambient transaction; the repository carries none by convention.
-        new TransactionTemplate(transactionManager).executeWithoutResult(
-                status -> authorizationRepository.deleteByCertificateUuid(certificateUuid));
+        new TransactionTemplate(transactionManager)
+                .executeWithoutResult(status -> authorizationRepository.deleteByCertificateUuid(certificateUuid));
 
         assertThat(authorizationRepository.findByCertificateUuid(certificateUuid)).isEmpty();
     }

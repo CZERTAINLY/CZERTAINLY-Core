@@ -1025,15 +1025,17 @@ public class ScepServiceImpl implements ScepExternalService {
             logger.info("SCEP registration enrolment rejected: unable to read the CSR identity", e);
             throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
         }
-        List<Certificate> candidates =
-                certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
-                        raProfile.getUuid(), CertificateUtil.normalizeSubjectDn(scepRequest.getPkcs10Request().getSubject()));
-        RegistrationIdentityMatcher.MatchResult result = RegistrationIdentityMatcher.match(
-                scepRequest.getPkcs10Request().getSubject(),
-                csrSans,
-                candidates.stream()
-                        .map(c -> new RegistrationIdentityMatcher.Candidate(c.getUuid(), c.getSubjectDn(), c.getSubjectAlternativeNames()))
-                        .toList());
+        List<Certificate> candidates = certificateRepository
+                .findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
+                        raProfile.getUuid(),
+                        CertificateUtil.normalizeSubjectDn(scepRequest.getPkcs10Request().getSubject()));
+        RegistrationIdentityMatcher.MatchResult result = RegistrationIdentityMatcher
+                .match(scepRequest.getPkcs10Request().getSubject(), csrSans,
+                        candidates
+                                .stream()
+                                .map(c -> new RegistrationIdentityMatcher.Candidate(c.getUuid(), c.getSubjectDn(),
+                                        c.getSubjectAlternativeNames()))
+                                .toList());
         // The wire carries only the generic rejection, so these lines are the operator's whole diagnostic
         // surface: they must name the identity the matcher actually compared.
         String csrSubject = scepRequest.getPkcs10Request().getSubject().toString();
@@ -1054,11 +1056,17 @@ public class ScepServiceImpl implements ScepExternalService {
                         .info("SCEP registration enrolment rejected: SAN mismatch with registration {} (CSR subject={}, CSR SANs={})",
                                 result.certificateUuid(), csrSubject, csrSans);
             }
+            case AMBIGUOUS -> logger
+                    .info("SCEP registration enrolment rejected: several registrations match the CSR identity (CSR subject={}, CSR SANs={})",
+                            csrSubject, csrSans);
+            case NO_MATCH -> logger
+                    .info("SCEP registration enrolment rejected: no registration matches the CSR identity (CSR subject={}, CSR SANs={}, {} REGISTERED candidate(s) with an active authorization under RA profile {})",
+                            csrSubject, csrSans, candidates.size(), raProfile.getName());
             case AMBIGUOUS -> logger.info(
                     "SCEP registration enrolment rejected: several registrations match the CSR identity (CSR subject={}, CSR SANs={})",
                     csrSubject, csrSans);
             case NO_MATCH -> logger.info(
-                    "SCEP registration enrolment rejected: no registration matches the CSR identity (CSR subject={}, CSR SANs={}, {} REGISTERED candidate(s) with an active authorization under RA profile {})",
+                    "SCEP registration enrolment rejected: no registration matches the CSR identity (CSR subject={}, CSR SANs={}, {} subject-matching REGISTERED candidate(s) with an active authorization under RA profile {})",
                     csrSubject, csrSans, candidates.size(), raProfile.getName());
         }
         throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);

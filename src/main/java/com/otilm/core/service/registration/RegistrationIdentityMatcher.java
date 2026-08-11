@@ -1,11 +1,6 @@
 package com.otilm.core.service.registration;
 
 import com.otilm.core.util.CertificateUtil;
-import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.util.encoders.Hex;
-
 import com.otilm.core.util.PlatformX500NameStyle;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,19 +10,18 @@ import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.util.encoders.Hex;
 
 /**
  * Pure matching kernel binding a protocol enrolment to a pre-registered certificate. Subjects compare by their
- * {@link PlatformX500NameStyle#NORMALIZED} rendering, which neutralizes RDN order, attribute-name case and
- * spacing but deliberately preserves attribute-value case — the enrolment must present the identity exactly
- * as registered. SAN sets compare as maps of value lists canonicalized per type — IP addresses reduced to
- * their octets (so the CSR's hex rendering equals a registration's decoded text and equivalent forms agree),
- * DNS names lowercased (they are case-insensitive), duplicates dropped, order removed, and empty buckets
- * dropped — so representation differences that do not change the identity do not defeat the match.
+ * {@link PlatformX500NameStyle#NORMALIZED} rendering, which neutralizes RDN order, attribute-name case and spacing but
+ * deliberately preserves attribute-value case — the enrolment must present the identity exactly as registered. SAN sets
+ * compare as maps of value lists canonicalized per type — IP addresses reduced to their octets (so the CSR's hex
+ * rendering equals a registration's decoded text and equivalent forms agree), DNS names lowercased (they are
+ * case-insensitive), duplicates dropped, order removed, and empty buckets dropped — so representation differences that
+ * do not change the identity do not defeat the match.
  *
  * <p>
  * The kernel never checks the challenge — the caller verifies it against the single matched registration, keeping
@@ -83,7 +77,8 @@ public final class RegistrationIdentityMatcher {
      * registration matches a SAN-only enrolment through SAN equality. A candidate whose stored DN is present but does
      * not parse is skipped — one malformed row must not block the others.
      */
-    public static MatchResult match(X500Name csrSubject, Map<String, List<String>> csrSans, List<Candidate> candidates) {
+    public static MatchResult match(X500Name csrSubject, Map<String, List<String>> csrSans,
+            List<Candidate> candidates) {
         String normalizedCsrSubject = CertificateUtil.normalizeSubjectDn(csrSubject);
         Map<String, List<String>> normalizedCsrSans = normalizeSans(csrSans);
 

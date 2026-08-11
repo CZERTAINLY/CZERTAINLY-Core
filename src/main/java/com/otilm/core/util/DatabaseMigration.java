@@ -8,9 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.zip.CRC32;
 
 /**
- * Helper class for calculating checksums of files.
- * And for storing the checksums of the Java-based migrations.
- * Inspired by <a href="https://github.com/zaunerc/flyway-checksum-tool">flyway-checksum-tool</a>
+ * Helper class for calculating checksums of files. And for storing the checksums of the Java-based migrations. Inspired
+ * by <a href="https://github.com/zaunerc/flyway-checksum-tool">flyway-checksum-tool</a>
  */
 public class DatabaseMigration {
 
@@ -24,11 +23,12 @@ public class DatabaseMigration {
         final File file = new File(filePath);
         final CRC32 crc32 = new CRC32();
 
-        try (FileReader fileReader = new FileReader(file); BufferedReader bufferedReader = new BufferedReader(fileReader, 4096)) {
+        try (FileReader fileReader = new FileReader(file);
+                BufferedReader bufferedReader = new BufferedReader(fileReader, 4096)) {
             String line;
             boolean firstLineProcessed = false;
             while ((line = bufferedReader.readLine()) != null) {
-                if(!firstLineProcessed) {
+                if (!firstLineProcessed) {
                     line = filterBomFromString(line);
                     firstLineProcessed = true;
                 }
@@ -48,33 +48,49 @@ public class DatabaseMigration {
      */
     @SuppressWarnings("java:S115")
     public enum JavaMigrationChecksums {
-        V202206151000__AttributeChanges(595685930, true),
-        V202209211100__Access_Control(-2127987777, true),
-        V202211031400__AttributeV2Changes(-691194104, true),
-        V202211141030__AttributeV2TablesAndMigration(-1479676999, true),
-        V202301311500__PublicKeyMigration(-761670493, true),
-        V202303211718__Scep_Roles(-285333526, true),
-        V202303230830__AttributeContentJsonMigration(1077049851, true),
-        V202308050825__UpdateAcmeScepRolesPermissions(414709752, true),
-        V202311071500__IssuerAndSubjectDnMigration(-1352440028, true),
-        V202402171510__UpdateAndOptimizeAttributesModelMigration(-1671016899, true),
-        V202404021100__CreateCmpUserAndPermissions(-264892945, true),
-        V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(-305812276, true),
-        V202408231055__DuplicateCertificates(-1714171989, true),
-        V202411141900__CreateLocalhostUserAndPermissions(1923994081, true),
-        V202501281511__LinkKeysToCertificates(-1169157739, true),
-        V202501281641__DuplicateCertificateContents(492594371, true),
-        V202505211440__ChangeConditionValueForNotAfterAndNotBefore(-529789813, true),
-        V202506131400__NotificationSettingsToEventSettings(1970609093, true),
-        V202507311051__MigrateToComplianceProfilesV2(404080942, true),
-        V202508130940__CertificateRelations(-1359523966, true),
-        V202508261555__EnumCollectionsColumnsBitmask(-1617046736, true),
-        V202508281320__UniqueCryptographicKeyItemFingerprint(2020026258, true),
-        V202509041555__CertificateRequestEntityBitmask(1876867908, true),
-        V202509191412__LogRecordsRefactor(79840308, true),
-        V202604011901__BackfillExtendedKeyUsageCritical(-1003930180, true),
-        V202607031200__CreateAttributeContentResolverUserAndPermissions(1703465896, false),
-        V202608071000__RegistrationSubjectDnNormalizedMigration(-549160225);
+        V202206151000__AttributeChanges(595685930, true), V202209211100__Access_Control(-2127987777,
+                true), V202211031400__AttributeV2Changes(-691194104,
+                        true), V202211141030__AttributeV2TablesAndMigration(-1479676999,
+                                true), V202301311500__PublicKeyMigration(-761670493, true), V202303211718__Scep_Roles(
+                                        -285333526, true), V202303230830__AttributeContentJsonMigration(1077049851,
+                                                true), V202308050825__UpdateAcmeScepRolesPermissions(414709752,
+                                                        true), V202311071500__IssuerAndSubjectDnMigration(-1352440028,
+                                                                true), V202402171510__UpdateAndOptimizeAttributesModelMigration(
+                                                                        -1671016899,
+                                                                        true), V202404021100__CreateCmpUserAndPermissions(
+                                                                                -264892945,
+                                                                                true), V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(
+                                                                                        -305812276,
+                                                                                        true), V202408231055__DuplicateCertificates(
+                                                                                                -1714171989,
+                                                                                                true), V202411141900__CreateLocalhostUserAndPermissions(
+                                                                                                        1923994081,
+                                                                                                        true), V202501281511__LinkKeysToCertificates(
+                                                                                                                -1169157739,
+                                                                                                                true), V202501281641__DuplicateCertificateContents(
+                                                                                                                        492594371,
+                                                                                                                        true), V202505211440__ChangeConditionValueForNotAfterAndNotBefore(
+                                                                                                                                -529789813,
+                                                                                                                                true), V202506131400__NotificationSettingsToEventSettings(
+                                                                                                                                        1970609093,
+                                                                                                                                        true), V202507311051__MigrateToComplianceProfilesV2(
+                                                                                                                                                404080942,
+                                                                                                                                                true), V202508130940__CertificateRelations(
+                                                                                                                                                        -1359523966,
+                                                                                                                                                        true), V202508261555__EnumCollectionsColumnsBitmask(
+                                                                                                                                                                -1617046736,
+                                                                                                                                                                true), V202508281320__UniqueCryptographicKeyItemFingerprint(
+                                                                                                                                                                        2020026258,
+                                                                                                                                                                        true), V202509041555__CertificateRequestEntityBitmask(
+                                                                                                                                                                                1876867908,
+                                                                                                                                                                                true), V202509191412__LogRecordsRefactor(
+                                                                                                                                                                                        79840308,
+                                                                                                                                                                                        true), V202604011901__BackfillExtendedKeyUsageCritical(
+                                                                                                                                                                                                -1003930180,
+                                                                                                                                                                                                true), V202607031200__CreateAttributeContentResolverUserAndPermissions(
+                                                                                                                                                                                                        1703465896,
+                                                                                                                                                                                                        false), V202608071000__RegistrationSubjectDnNormalizedMigration(
+                                                                                                                                                                                                                -549160225);
 
         private final int checksum;
 
@@ -102,6 +118,7 @@ public class DatabaseMigration {
 
     /**
      * Determine if this char is a UTF-8 Byte Order Mark
+     *
      * @param c The char to check
      * @return Whether this char is a UTF-8 Byte Order Mark
      */
@@ -111,6 +128,7 @@ public class DatabaseMigration {
 
     /**
      * Removes the UTF-8 Byte Order Mark from the start of a string if present.
+     *
      * @param s The string
      * @return The string without a Byte Order Mark at the start
      */

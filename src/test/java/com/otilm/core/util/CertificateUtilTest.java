@@ -416,15 +416,13 @@ class CertificateUtilTest {
 
     @Test
     void normalizeStoredSubjectDnNeutralizesRdnOrderAndAttributeNameCase() {
-        assertEquals(
-                CertificateUtil.normalizeStoredSubjectDn("CN=device-7, O=Acme"),
+        assertEquals(CertificateUtil.normalizeStoredSubjectDn("CN=device-7, O=Acme"),
                 CertificateUtil.normalizeStoredSubjectDn("o=Acme, cn=device-7"));
     }
 
     @Test
     void normalizeStoredSubjectDnPreservesAttributeValueCase() {
-        assertNotEquals(
-                CertificateUtil.normalizeStoredSubjectDn("CN=Device-7"),
+        assertNotEquals(CertificateUtil.normalizeStoredSubjectDn("CN=Device-7"),
                 CertificateUtil.normalizeStoredSubjectDn("CN=device-7"));
     }
 

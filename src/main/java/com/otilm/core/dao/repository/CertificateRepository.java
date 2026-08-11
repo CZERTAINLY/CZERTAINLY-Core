@@ -200,10 +200,10 @@ public interface CertificateRepository
     List<UUID> findStalePendingIssueWithoutPollRow(@Param("threshold") OffsetDateTime threshold, Pageable pageable);
 
     /**
-     * The pre-registrations a protocol enrolment presenting the given normalized subject can complete under
-     * the RA profile: REGISTERED placeholders whose registration authorization is ACTIVE, prefiltered by the
-     * stored normalized subject so the identity match receives only same-subject candidates. Registrations
-     * without a challenge have no authorization row and are excluded — they cannot authenticate an enrolment.
+     * The pre-registrations a protocol enrolment presenting the given normalized subject can complete under the RA
+     * profile: REGISTERED placeholders whose registration authorization is ACTIVE, prefiltered by the stored normalized
+     * subject so the identity match receives only same-subject candidates. Registrations without a challenge have no
+     * authorization row and are excluded — they cannot authenticate an enrolment.
      */
     @Query("""
             SELECT c FROM Certificate c
@@ -214,8 +214,7 @@ public interface CertificateRepository
                     AND EXISTS (SELECT 1 FROM CertificateRegistrationAuthorization a
                         WHERE a.certificateUuid = c.uuid
                             AND a.state = ?#{T(com.otilm.core.dao.entity.RegistrationState).ACTIVE})
-            """
-    )
+            """)
     List<Certificate> findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
             @Param("raProfileUuid") UUID raProfileUuid, @Param("subjectDnNormalized") String subjectDnNormalized);
 
