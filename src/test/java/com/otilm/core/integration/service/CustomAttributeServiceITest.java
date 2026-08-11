@@ -114,6 +114,7 @@ class CustomAttributeServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(attribute.getUuid(), attributes.getFirst().getUuid());
         Assertions.assertEquals(attribute.getName(), attributes.getFirst().getName());
         Assertions.assertEquals(attribute.getProperties().getLabel(), attributes.getFirst().getLabel());
+        Assertions.assertEquals(attribute.getProperties().isRequired(), attributes.getFirst().isRequired());
     }
 
     @Test
