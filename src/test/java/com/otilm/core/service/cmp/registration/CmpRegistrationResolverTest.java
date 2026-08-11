@@ -11,17 +11,16 @@ import com.otilm.core.dao.entity.cmp.CmpTransaction;
 import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.registration.RegistrationChallengeGate;
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Predicate;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.function.Predicate;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -64,8 +63,9 @@ class CmpRegistrationResolverTest {
 
     @Test
     void followupBoundToTheAuthenticatedRegistrationPasses() {
-        Assertions.assertDoesNotThrow(() ->
-                resolver.requireTransactionBinding(registeredCertificate(), transactionFor(CERT_UUID), TID));
+        Assertions
+                .assertDoesNotThrow(() -> resolver
+                        .requireTransactionBinding(registeredCertificate(), transactionFor(CERT_UUID), TID));
     }
 
     @Test
@@ -74,8 +74,9 @@ class CmpRegistrationResolverTest {
         when(certificateRelationRepository.existsById(new CertificateRelationId(successorUuid, CERT_UUID)))
                 .thenReturn(true);
 
-        Assertions.assertDoesNotThrow(() ->
-                resolver.requireTransactionBinding(registeredCertificate(), transactionFor(successorUuid), TID));
+        Assertions
+                .assertDoesNotThrow(() -> resolver
+                        .requireTransactionBinding(registeredCertificate(), transactionFor(successorUuid), TID));
     }
 
     @Test
@@ -85,20 +86,24 @@ class CmpRegistrationResolverTest {
         Certificate matched = registeredCertificate();
         // The not-bound type is load-bearing: the service's transaction error handling spares the named
         // transaction only for this rejection.
-        CmpTransactionNotBoundException ex = Assertions.assertThrows(CmpTransactionNotBoundException.class, () ->
-                resolver.requireTransactionBinding(matched, transaction, TID));
+        CmpTransactionNotBoundException ex = Assertions
+                .assertThrows(CmpTransactionNotBoundException.class,
+                        () -> resolver.requireTransactionBinding(matched, transaction, TID));
 
-        Assertions.assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
+        Assertions
+                .assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
     }
 
     @Test
     void followupWithoutAMatchedRegistrationRejectsGenerically() {
         CmpTransaction transaction = transactionFor(CERT_UUID);
 
-        CmpTransactionNotBoundException ex = Assertions.assertThrows(CmpTransactionNotBoundException.class, () ->
-                resolver.requireTransactionBinding(null, transaction, TID));
+        CmpTransactionNotBoundException ex = Assertions
+                .assertThrows(CmpTransactionNotBoundException.class,
+                        () -> resolver.requireTransactionBinding(null, transaction, TID));
 
-        Assertions.assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
+        Assertions
+                .assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
         verifyNoInteractions(certificateRelationRepository);
     }
 
@@ -124,11 +129,13 @@ class CmpRegistrationResolverTest {
     @Test
     void matchedRequestReturnsCertificateAndCapturedChallenge() {
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(registeredCertificate()));
-        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any())).thenAnswer(gateRunsPredicateWith(CHALLENGE));
+        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any()))
+                .thenAnswer(gateRunsPredicateWith(CHALLENGE));
 
-        CmpRegistrationResolver.RegistrationMacResolution resolution = Assertions.assertDoesNotThrow(() ->
-                resolver.resolveAndVerify(raProfile, senderKid(CERT_UUID.toString()), CertificateEvent.ISSUE,
-                        password -> new String(password, StandardCharsets.UTF_8).equals(CHALLENGE), TID));
+        CmpRegistrationResolver.RegistrationMacResolution resolution = Assertions
+                .assertDoesNotThrow(() -> resolver
+                        .resolveAndVerify(raProfile, senderKid(CERT_UUID.toString()), CertificateEvent.ISSUE,
+                                password -> new String(password, StandardCharsets.UTF_8).equals(CHALLENGE), TID));
 
         Assertions.assertEquals(CERT_UUID, resolution.certificate().getUuid());
         Assertions.assertEquals(CHALLENGE, resolution.challenge());
@@ -137,14 +144,16 @@ class CmpRegistrationResolverTest {
     @Test
     void wrongMacRejectsGenericallyWithoutMatch() {
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(registeredCertificate()));
-        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any())).thenAnswer(gateRunsPredicateWith(CHALLENGE));
+        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any()))
+                .thenAnswer(gateRunsPredicateWith(CHALLENGE));
 
         ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
-        CmpProcessingException ex = Assertions.assertThrows(CmpProcessingException.class, () ->
-                resolver.resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE,
-                        password -> false, TID));
+        CmpProcessingException ex = Assertions
+                .assertThrows(CmpProcessingException.class, () -> resolver
+                        .resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> false, TID));
 
-        Assertions.assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
+        Assertions
+                .assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
     }
 
     @Test
@@ -154,10 +163,12 @@ class CmpRegistrationResolverTest {
                 .thenThrow(new ValidationException("locked"));
 
         ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
-        CmpProcessingException ex = Assertions.assertThrows(CmpProcessingException.class, () ->
-                resolver.resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
+        CmpProcessingException ex = Assertions
+                .assertThrows(CmpProcessingException.class, () -> resolver
+                        .resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
 
-        Assertions.assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
+        Assertions
+                .assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
     }
 
     @Test
@@ -166,17 +177,20 @@ class CmpRegistrationResolverTest {
         when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any())).thenReturn(false);
 
         ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
-        CmpProcessingException ex = Assertions.assertThrows(CmpProcessingException.class, () ->
-                resolver.resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
+        CmpProcessingException ex = Assertions
+                .assertThrows(CmpProcessingException.class, () -> resolver
+                        .resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
 
-        Assertions.assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
+        Assertions
+                .assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
     }
 
     @Test
     void unparseableSenderKidRejectsBeforeAnyGateCall() {
         ASN1OctetString senderKid = senderKid("not-a-uuid");
-        Assertions.assertThrows(CmpProcessingException.class, () ->
-                resolver.resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
+        Assertions
+                .assertThrows(CmpProcessingException.class, () -> resolver
+                        .resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
 
         verifyNoInteractions(gate);
     }
@@ -188,8 +202,9 @@ class CmpRegistrationResolverTest {
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(otherProfileCertificate));
 
         ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
-        Assertions.assertThrows(CmpProcessingException.class, () ->
-                resolver.resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
+        Assertions
+                .assertThrows(CmpProcessingException.class, () -> resolver
+                        .resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
 
         verifyNoInteractions(gate);
     }
@@ -201,8 +216,9 @@ class CmpRegistrationResolverTest {
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(issued));
 
         ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
-        Assertions.assertThrows(CmpProcessingException.class, () ->
-                resolver.resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
+        Assertions
+                .assertThrows(CmpProcessingException.class, () -> resolver
+                        .resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
 
         verifyNoInteractions(gate);
     }
@@ -212,11 +228,13 @@ class CmpRegistrationResolverTest {
         Certificate issued = registeredCertificate();
         issued.setState(CertificateState.ISSUED);
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(issued));
-        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.REKEY), any())).thenAnswer(gateRunsPredicateWith(CHALLENGE));
+        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.REKEY), any()))
+                .thenAnswer(gateRunsPredicateWith(CHALLENGE));
 
-        CmpRegistrationResolver.RegistrationMacResolution resolution = Assertions.assertDoesNotThrow(() ->
-                resolver.resolveAndVerify(raProfile, senderKid(CERT_UUID.toString()), CertificateEvent.REKEY,
-                        password -> new String(password, StandardCharsets.UTF_8).equals(CHALLENGE), TID));
+        CmpRegistrationResolver.RegistrationMacResolution resolution = Assertions
+                .assertDoesNotThrow(() -> resolver
+                        .resolveAndVerify(raProfile, senderKid(CERT_UUID.toString()), CertificateEvent.REKEY,
+                                password -> new String(password, StandardCharsets.UTF_8).equals(CHALLENGE), TID));
 
         Assertions.assertEquals(CERT_UUID, resolution.certificate().getUuid());
     }
@@ -227,8 +245,9 @@ class CmpRegistrationResolverTest {
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(registeredCertificate()));
 
         ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
-        Assertions.assertThrows(CmpProcessingException.class, () ->
-                resolver.resolveAndVerify(raProfile, senderKid, CertificateEvent.REKEY, password -> true, TID));
+        Assertions
+                .assertThrows(CmpProcessingException.class, () -> resolver
+                        .resolveAndVerify(raProfile, senderKid, CertificateEvent.REKEY, password -> true, TID));
 
         verifyNoInteractions(gate);
     }
@@ -240,11 +259,13 @@ class CmpRegistrationResolverTest {
         Certificate issued = registeredCertificate();
         issued.setState(CertificateState.ISSUED);
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(issued));
-        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any())).thenAnswer(gateRunsPredicateWith(CHALLENGE));
+        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any()))
+                .thenAnswer(gateRunsPredicateWith(CHALLENGE));
 
-        CmpRegistrationResolver.RegistrationMacResolution resolution = Assertions.assertDoesNotThrow(() ->
-                resolver.resolveAndVerifyFollowup(raProfile, senderKid(CERT_UUID.toString()),
-                        password -> new String(password, StandardCharsets.UTF_8).equals(CHALLENGE), TID));
+        CmpRegistrationResolver.RegistrationMacResolution resolution = Assertions
+                .assertDoesNotThrow(() -> resolver
+                        .resolveAndVerifyFollowup(raProfile, senderKid(CERT_UUID.toString()),
+                                password -> new String(password, StandardCharsets.UTF_8).equals(CHALLENGE), TID));
 
         Assertions.assertEquals(CERT_UUID, resolution.certificate().getUuid());
         Assertions.assertEquals(CHALLENGE, resolution.challenge());
@@ -255,13 +276,16 @@ class CmpRegistrationResolverTest {
         Certificate issued = registeredCertificate();
         issued.setState(CertificateState.ISSUED);
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(issued));
-        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any())).thenAnswer(gateRunsPredicateWith(CHALLENGE));
+        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any()))
+                .thenAnswer(gateRunsPredicateWith(CHALLENGE));
 
         ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
-        CmpProcessingException ex = Assertions.assertThrows(CmpProcessingException.class, () ->
-                resolver.resolveAndVerifyFollowup(raProfile, senderKid, password -> false, TID));
+        CmpProcessingException ex = Assertions
+                .assertThrows(CmpProcessingException.class,
+                        () -> resolver.resolveAndVerifyFollowup(raProfile, senderKid, password -> false, TID));
 
-        Assertions.assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
+        Assertions
+                .assertTrue(ex.getMessage().contains(CmpRegistrationResolver.REGISTRATION_REJECTION), ex.getMessage());
     }
 
     @Test
@@ -272,8 +296,9 @@ class CmpRegistrationResolverTest {
         when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(other));
 
         ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
-        Assertions.assertThrows(CmpProcessingException.class, () ->
-                resolver.resolveAndVerifyFollowup(raProfile, senderKid, password -> true, TID));
+        Assertions
+                .assertThrows(CmpProcessingException.class,
+                        () -> resolver.resolveAndVerifyFollowup(raProfile, senderKid, password -> true, TID));
 
         verifyNoInteractions(gate);
     }

@@ -90,14 +90,14 @@ class PollFeatureTest {
         setField("pollFeatureTimeout", 0);
         UUID certUuid = UUID.randomUUID();
         Certificate cert = certificateInState(certUuid, CertificateState.REGISTERED);
-        when(certificateService.getCertificateEntity(any(SecuredUUID.class)))
-                .thenReturn(cert);
+        when(certificateService.getCertificateEntity(any(SecuredUUID.class))).thenReturn(cert);
 
-        PollResult result = pollFeature.pollCertificate(
-                new DEROctetString(new byte[]{1}), "01", certUuid.toString(), CertificateState.ISSUED);
+        PollResult result = pollFeature
+                .pollCertificate(new DEROctetString(new byte[]{1}), "01", certUuid.toString(), CertificateState.ISSUED);
 
-        assertThat(result).isInstanceOfSatisfying(PollResult.StillPending.class,
-                sp -> assertThat(sp.currentState()).isEqualTo(CertificateState.REGISTERED));
+        assertThat(result)
+                .isInstanceOfSatisfying(PollResult.StillPending.class,
+                        sp -> assertThat(sp.currentState()).isEqualTo(CertificateState.REGISTERED));
     }
 
     @Test

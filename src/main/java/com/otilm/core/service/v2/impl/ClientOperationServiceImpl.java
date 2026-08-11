@@ -1833,7 +1833,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         // challenge rejects the caller synchronously and the secret never rides the ActionMessage. No-op when the
         // certificate carries no registration authorization.
         String presentedSecret = request != null ? request.getAuthorizationSecret() : null;
-        boolean challengeAuthorized = registrationChallengeGate.verify(certificate.getUuid(), presentedSecret, CertificateEvent.ISSUE);
+        boolean challengeAuthorized = registrationChallengeGate
+                .verify(certificate.getUuid(), presentedSecret, CertificateEvent.ISSUE);
 
         // A presented secret must verify. Falling back to the caller's permission when no ACTIVE
         // authorization exists (never created, closed, or raced away between a protocol match and this
@@ -1927,8 +1928,9 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         // challenge; a wrong or missing secret is denied (and counted) before any successor exists. A verified
         // challenge lets the authorization follow the successor (copied below). A certificate with no
         // authorization row, or a CLOSED one, renews without challenge verification.
-        boolean challengeAuthorized = registrationChallengeGate.verify(oldCertificate.getUuid(),
-                request != null ? request.getAuthorizationSecret() : null, CertificateEvent.RENEW);
+        boolean challengeAuthorized = registrationChallengeGate
+                .verify(oldCertificate.getUuid(), request != null ? request.getAuthorizationSecret() : null,
+                        CertificateEvent.RENEW);
 
         // CSR decision making
         CertificateRequest certificateRequest;
@@ -2153,8 +2155,9 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
         // Self-service gate, symmetric with renew: a certificate with a live registration authorization rekeys
         // only against its challenge, and a verified challenge lets the authorization follow the successor.
-        boolean challengeAuthorized = registrationChallengeGate.verify(oldCertificate.getUuid(),
-                request != null ? request.getAuthorizationSecret() : null, CertificateEvent.REKEY);
+        boolean challengeAuthorized = registrationChallengeGate
+                .verify(oldCertificate.getUuid(), request != null ? request.getAuthorizationSecret() : null,
+                        CertificateEvent.REKEY);
 
         // CSR decision making
         ClientCertificateRequestDto certificateRequestDto = new ClientCertificateRequestDto();

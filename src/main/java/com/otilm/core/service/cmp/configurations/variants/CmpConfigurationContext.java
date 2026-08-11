@@ -17,17 +17,15 @@ import com.otilm.core.service.cmp.message.protection.impl.PasswordBasedMacProtec
 import com.otilm.core.service.cmp.message.protection.impl.SingatureBaseProtectionStrategy;
 import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
 import com.otilm.core.util.CertificateUtil;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.function.Predicate;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.x509.GeneralName;
-
-import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.function.Predicate;
 
 public class CmpConfigurationContext implements ConfigurationContext {
 
@@ -44,17 +42,14 @@ public class CmpConfigurationContext implements ConfigurationContext {
     private String matchedChallenge;
 
     public CmpConfigurationContext(CmpProfile cmpProfile, RaProfile raProfile, PKIMessage pkiRequest,
-                                   CertificateKeyService certificateKeyServiceImpl,
-                                   List<RequestAttribute> issueAttributes,
-                                   List<RequestAttribute> revokeAttributes) {
+            CertificateKeyService certificateKeyServiceImpl, List<RequestAttribute> issueAttributes,
+            List<RequestAttribute> revokeAttributes) {
         this(cmpProfile, raProfile, pkiRequest, certificateKeyServiceImpl, issueAttributes, revokeAttributes, null);
     }
 
     public CmpConfigurationContext(CmpProfile cmpProfile, RaProfile raProfile, PKIMessage pkiRequest,
-                                   CertificateKeyService certificateKeyServiceImpl,
-                                   List<RequestAttribute> issueAttributes,
-                                   List<RequestAttribute> revokeAttributes,
-                                   CmpRegistrationResolver registrationResolver) {
+            CertificateKeyService certificateKeyServiceImpl, List<RequestAttribute> issueAttributes,
+            List<RequestAttribute> revokeAttributes, CmpRegistrationResolver registrationResolver) {
         this.requestMessage = pkiRequest;
         this.cmpProfile = cmpProfile;
         this.raProfile = raProfile;
@@ -145,7 +140,8 @@ public class CmpConfigurationContext implements ConfigurationContext {
     }
 
     @Override
-    public void verifyRegistrationMacProtection(PKIMessage message, Predicate<byte[]> macMatches) throws CmpBaseException {
+    public void verifyRegistrationMacProtection(PKIMessage message, Predicate<byte[]> macMatches)
+            throws CmpBaseException {
         ASN1OctetString tid = message.getHeader().getTransactionID();
         if (registrationResolver == null) {
             throw new CmpConfigurationException(tid, PKIFailureInfo.systemFailure,
@@ -156,20 +152,20 @@ public class CmpConfigurationContext implements ConfigurationContext {
         this.matchedChallenge = resolution.challenge();
     }
 
-    private CmpRegistrationResolver.RegistrationMacResolution resolveRegistrationMac(
-            PKIMessage message, Predicate<byte[]> macMatches, ASN1OctetString tid) throws CmpBaseException {
+    private CmpRegistrationResolver.RegistrationMacResolution resolveRegistrationMac(PKIMessage message,
+            Predicate<byte[]> macMatches, ASN1OctetString tid) throws CmpBaseException {
         return switch (message.getBody().getType()) {
             // Enrolment / rekey: strict certificate-state check (a REGISTERED placeholder for ir/cr, the
             // already-issued certificate for kur).
-            case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ ->
-                    registrationResolver.resolveAndVerify(raProfile, getSenderKID(), CertificateEvent.ISSUE, macMatches, tid);
-            case PKIBody.TYPE_KEY_UPDATE_REQ ->
-                    registrationResolver.resolveAndVerify(raProfile, getSenderKID(), CertificateEvent.REKEY, macMatches, tid);
+            case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ -> registrationResolver
+                    .resolveAndVerify(raProfile, getSenderKID(), CertificateEvent.ISSUE, macMatches, tid);
+            case PKIBody.TYPE_KEY_UPDATE_REQ -> registrationResolver
+                    .resolveAndVerify(raProfile, getSenderKID(), CertificateEvent.REKEY, macMatches, tid);
             // Async follow-ups of a registration exchange: the certificate has moved past REGISTERED by the time
             // the client polls, so the state is not constrained — the MAC is still verified against the
             // registration's surviving challenge and the response keyed by it.
             case PKIBody.TYPE_POLL_REQ, PKIBody.TYPE_CERT_CONFIRM ->
-                    registrationResolver.resolveAndVerifyFollowup(raProfile, getSenderKID(), macMatches, tid);
+                registrationResolver.resolveAndVerifyFollowup(raProfile, getSenderKID(), macMatches, tid);
             // Any other MAC body (e.g. a revocation) is not authenticated by a registration challenge.
             default -> throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     CmpRegistrationResolver.REGISTRATION_REJECTION);

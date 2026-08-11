@@ -24,24 +24,23 @@ import com.otilm.core.service.cmp.registration.CmpRegistrationIdentityVerifier;
 import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
 import com.otilm.core.service.v2.ClientOperationExternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
-import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.cmp.*;
-import org.bouncycastle.asn1.crmf.*;
-import org.slf4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.Base64;
 import java.util.List;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.crmf.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
+import org.slf4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * <p>
@@ -140,16 +139,17 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
     }
 
     /**
-     * Completes the pre-registration the MAC resolved to (protection validation already verified the MAC and
-     * stashed the match on the context): the CRMF identity must exactly equal the registration, and issuance
-     * runs through the register→issue completion with the registration challenge as the authorization secret.
-     * Every rejection reuses the single generic wire message.
+     * Completes the pre-registration the MAC resolved to (protection validation already verified the MAC and stashed
+     * the match on the context): the CRMF identity must exactly equal the registration, and issuance runs through the
+     * register→issue completion with the registration challenge as the authorization secret. Every rejection reuses the
+     * single generic wire message.
      */
     private ClientCertificateDataResponseDto completeRegistration(CertReqMessages crmf,
-                                                                  ConfigurationContext configuration, ASN1OctetString tid) throws CmpBaseException {
+            ConfigurationContext configuration, ASN1OctetString tid) throws CmpBaseException {
         Certificate matched = configuration.getMatchedRegistration();
         if (matched == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
+                    CmpRegistrationResolver.REGISTRATION_REJECTION);
         }
         registrationIdentityVerifier.verify(crmf, matched, CertificateEvent.ISSUE, tid);
 
@@ -159,33 +159,35 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             dto.setFormat(CertificateRequestFormat.CRMF);
             dto.setAuthorizationSecret(configuration.getMatchedChallenge());
             RaProfile raProfile = configuration.getRaProfile();
-            ClientCertificateDataResponseDto response = clientOperationExternalService.issueExistingCertificate(
-                    SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                    raProfile.getSecuredUuid(),
-                    matched.getUuid().toString(),
-                    dto);
+            ClientCertificateDataResponseDto response = clientOperationExternalService
+                    .issueExistingCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                            raProfile.getSecuredUuid(), matched.getUuid().toString(), dto);
             applyProtocolAssociationBestEffort(matched, configuration);
             return response;
         } catch (ValidationException | NotFoundException e) {
             // Challenge/gate denial, or the registration raced away (cert/RA profile gone mid-flight): both
             // mean "no active registration to complete" — surface the single generic rejection, detail logged.
-            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck, CmpRegistrationResolver.REGISTRATION_REJECTION);
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
+                    CmpRegistrationResolver.REGISTRATION_REJECTION);
         } catch (IOException e) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure, "cannot complete certificate registration", e);
+            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
+                    "cannot complete certificate registration", e);
         }
     }
 
     /**
-     * The completion is committed and its ISSUE action enqueued, so an association failure must not fail the
-     * enrolment (the registration would no longer match a retry). Best-effort, logged.
+     * The completion is committed and its ISSUE action enqueued, so an association failure must not fail the enrolment
+     * (the registration would no longer match a retry). Best-effort, logged.
      */
     private void applyProtocolAssociationBestEffort(Certificate matched, ConfigurationContext configuration) {
         try {
-            certificateService.applyProtocolAssociations(matched.getUuid(),
-                    CertificateProtocolInfo.Cmp(configuration.getCmpProfile().getUuid()));
+            certificateService
+                    .applyProtocolAssociations(matched.getUuid(),
+                            CertificateProtocolInfo.Cmp(configuration.getCmpProfile().getUuid()));
         } catch (Exception e) {
-            logger.warn("Failed to apply CMP protocol associations to completed registration {}: {}",
-                    matched.getUuid(), e.getMessage());
+            logger
+                    .warn("Failed to apply CMP protocol associations to completed registration {}: {}",
+                            matched.getUuid(), e.getMessage());
         }
     }
 

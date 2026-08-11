@@ -87,10 +87,8 @@ class ProtectionValidatorTest {
 
     /** A message with neither protection bits nor a protectionAlg; the body is irrelevant to the check under test. */
     private static PKIMessage unprotectedMessage() {
-        PKIHeader header = new PKIHeaderBuilder(PKIHeader.CMP_2000,
-                new GeneralName(new X500Name("CN=user")), new GeneralName(new X500Name("CN=ca")))
-                .setTransactionID(TID.getOctets())
-                .build();
+        PKIHeader header = new PKIHeaderBuilder(PKIHeader.CMP_2000, new GeneralName(new X500Name("CN=user")),
+                new GeneralName(new X500Name("CN=ca"))).setTransactionID(TID.getOctets()).build();
         return new PKIMessage(header, new PKIBody(PKIBody.TYPE_CONFIRM, new PKIConfirmContent()));
     }
 

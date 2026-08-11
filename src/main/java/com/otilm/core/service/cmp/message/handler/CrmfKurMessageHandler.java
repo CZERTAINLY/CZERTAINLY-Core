@@ -151,21 +151,17 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
             }
             RaProfile raProfile = configuration.getRaProfile();
             // -- (1)certification request (ask for issue)
-            return clientOperationService.rekeyCertificate(
-                    SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                    raProfile.getSecuredUuid(),
-                    certificateUUID,
-                    dtoBuilder.build());
+            return clientOperationService
+                    .rekeyCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                            raProfile.getSecuredUuid(), certificateUUID, dtoBuilder.build());
         } catch (ValidationException e) {
             // Gate/completion denial (e.g. the authorization expired or locked between the protection-layer
             // MAC check and this re-gate) — surface the single generic rejection, as ir/cr does.
             throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     CmpRegistrationResolver.REGISTRATION_REJECTION);
-        } catch (NotFoundException | CertificateException | IOException |
-                 NoSuchAlgorithmException | InvalidKeyException | CertificateOperationException |
-                 CertificateRequestException e) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "cannot re-key certificate", e);
+        } catch (NotFoundException | CertificateException | IOException | NoSuchAlgorithmException | InvalidKeyException
+                | CertificateOperationException | CertificateRequestException e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure, "cannot re-key certificate", e);
         }
         // CrmfMessageHandler get certificate in sync manner (via polling ...)
     }

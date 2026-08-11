@@ -1,9 +1,12 @@
 package com.otilm.core.integration.service.cmp.message.handler;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
+import com.otilm.api.model.core.certificate.CertificateRelationType;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.cmp.CmpProfileVariant;
+import com.otilm.api.model.core.cmp.CmpTransactionState;
 import com.otilm.api.model.core.cmp.ProtectionMethod;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
@@ -14,12 +17,10 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.CertificateEventHistory;
 import com.otilm.core.dao.entity.CertificateRegistrationAuthorization;
+import com.otilm.core.dao.entity.CertificateRelation;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
 import com.otilm.core.dao.entity.FunctionGroup;
-import com.otilm.api.model.core.certificate.CertificateRelationType;
-import com.otilm.api.model.core.cmp.CmpTransactionState;
-import com.otilm.core.dao.entity.CertificateRelation;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.RegistrationState;
 import com.otilm.core.dao.entity.cmp.CmpProfile;
@@ -37,17 +38,24 @@ import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.cmp.CmpProfileRepository;
 import com.otilm.core.dao.repository.cmp.CmpTransactionRepository;
 import com.otilm.core.service.cmp.CmpEntityUtil;
+import com.otilm.core.service.cmp.CmpExternalService;
 import com.otilm.core.service.cmp.CmpTestUtil;
 import com.otilm.core.service.cmp.message.handler.PollFeature;
 import com.otilm.core.service.cmp.message.handler.PollResult;
-import com.otilm.core.service.cmp.CmpExternalService;
 import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
 import com.otilm.core.service.registration.RegistrationChallengeStore;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.mockbeans.PollMocks;
-import com.github.tomakehurst.wiremock.WireMockServer;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.time.OffsetDateTime;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.cmp.ErrorMsgContent;
 import org.bouncycastle.asn1.cmp.PKIBody;
@@ -66,15 +74,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyPair;
-import java.time.OffsetDateTime;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -83,10 +82,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 /**
- * End-to-end CMP registration-mode enrolment through {@link CmpExternalService#handlePost}: a real
- * MAC-protected PKIMessage whose senderKID references a pre-registration and whose MAC key is the
- * registration challenge. Drives the full path (header/body/protection validation, where the registration
- * gate lives, then the ir/cr and kur handlers) rather than a handler in isolation.
+ * End-to-end CMP registration-mode enrolment through {@link CmpExternalService#handlePost}: a real MAC-protected
+ * PKIMessage whose senderKID references a pre-registration and whose MAC key is the registration challenge. Drives the
+ * full path (header/body/protection validation, where the registration gate lives, then the ir/cr and kur handlers)
+ * rather than a handler in isolation.
  */
 // Deliberately NOT @Transactional: the completion runs issueExistingCertificate with NOT_SUPPORTED, which
 // would suspend a spanning test transaction still holding the protection-layer gate's row lock and
@@ -98,22 +97,38 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
     private static final String SUBJECT_DN = "CN=device-1";
     private static final String CHALLENGE = "cmp-registration-challenge";
 
-    @Autowired private CmpExternalService cmpService;
-    @Autowired private CmpProfileRepository cmpProfileRepository;
-    @Autowired private RaProfileRepository raProfileRepository;
-    @Autowired private CertificateRepository certificateRepository;
-    @Autowired private CertificateContentRepository certificateContentRepository;
-    @Autowired private ConnectorRepository connectorRepository;
-    @Autowired private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
-    @Autowired private FunctionGroupRepository functionGroupRepository;
-    @Autowired private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
-    @Autowired private CertificateRegistrationAuthorizationRepository authorizationRepository;
-    @Autowired private CertificateRelationRepository certificateRelationRepository;
-    @Autowired private CmpTransactionRepository cmpTransactionRepository;
-    @Autowired private CertificateEventHistoryRepository eventHistoryRepository;
-    @Autowired private RegistrationChallengeStore registrationChallengeStore;
-    @Autowired private PollFeature pollFeature;
-    @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired
+    private CmpExternalService cmpService;
+    @Autowired
+    private CmpProfileRepository cmpProfileRepository;
+    @Autowired
+    private RaProfileRepository raProfileRepository;
+    @Autowired
+    private CertificateRepository certificateRepository;
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
+    @Autowired
+    private ConnectorRepository connectorRepository;
+    @Autowired
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    @Autowired
+    private FunctionGroupRepository functionGroupRepository;
+    @Autowired
+    private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
+    @Autowired
+    private CertificateRegistrationAuthorizationRepository authorizationRepository;
+    @Autowired
+    private CertificateRelationRepository certificateRelationRepository;
+    @Autowired
+    private CmpTransactionRepository cmpTransactionRepository;
+    @Autowired
+    private CertificateEventHistoryRepository eventHistoryRepository;
+    @Autowired
+    private RegistrationChallengeStore registrationChallengeStore;
+    @Autowired
+    private PollFeature pollFeature;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     private WireMockServer mockServer;
     private RaProfile raProfile;
@@ -203,37 +218,45 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
         return cmpService.handlePost(PROFILE_NAME, message.getEncoded());
     }
 
-    private PKIMessage irMessage(String subjectDn, List<String> dnsSans, String challenge, UUID senderKid) throws Exception {
+    private PKIMessage irMessage(String subjectDn, List<String> dnsSans, String challenge, UUID senderKid)
+            throws Exception {
         KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
-        PKIBody body = CmpTestUtil.createRegistrationCrmfBody(keyPair, 0L, PKIBody.TYPE_INIT_REQ, subjectDn, dnsSans, null);
-        return CmpTestUtil.createMacBasedMessageWithSenderKid(
-                "0102030405060708", challenge, body,
-                senderKid.toString().getBytes(StandardCharsets.UTF_8)).toASN1Structure();
+        PKIBody body = CmpTestUtil
+                .createRegistrationCrmfBody(keyPair, 0L, PKIBody.TYPE_INIT_REQ, subjectDn, dnsSans, null);
+        return CmpTestUtil
+                .createMacBasedMessageWithSenderKid("0102030405060708", challenge, body,
+                        senderKid.toString().getBytes(StandardCharsets.UTF_8))
+                .toASN1Structure();
     }
 
     /** Distinct from the enrolment tid so a follow-up test's transaction cannot collide with an ir's. */
     private static final String FOLLOWUP_TID = "1112131415161718";
 
     private CmpTransaction storeTransaction(Certificate certificate, Integer originalRequestBodyType) {
-        CmpTransaction transaction = CmpEntityUtil.createTransaction(
-                FOLLOWUP_TID, certificate, cmpProfile, CmpTransactionState.CERT_ISSUED);
+        CmpTransaction transaction = CmpEntityUtil
+                .createTransaction(FOLLOWUP_TID, certificate, cmpProfile, CmpTransactionState.CERT_ISSUED);
         transaction.setOriginalRequestBodyType(originalRequestBodyType);
         return cmpTransactionRepository.saveAndFlush(transaction);
     }
 
     private PKIMessage pollMessage(UUID senderKid) throws Exception {
         PKIBody body = new PKIBody(PKIBody.TYPE_POLL_REQ, new PollReqContent(new ASN1Integer(0L)));
-        return CmpTestUtil.createMacBasedMessageWithSenderKid(FOLLOWUP_TID, CHALLENGE, body,
-                senderKid.toString().getBytes(StandardCharsets.UTF_8)).toASN1Structure();
+        return CmpTestUtil
+                .createMacBasedMessageWithSenderKid(FOLLOWUP_TID, CHALLENGE, body,
+                        senderKid.toString().getBytes(StandardCharsets.UTF_8))
+                .toASN1Structure();
     }
 
     private PKIMessage certConfMessage(UUID senderKid) throws Exception {
         KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
-        PKIBody body = CmpTestUtil.createCertConfBody(
-                CmpTestUtil.makeV3Certificate(BigInteger.ONE, keyPair, "CN=confirmed", keyPair, "CN=confirmed"),
-                BigInteger.ZERO);
-        return CmpTestUtil.createMacBasedMessageWithSenderKid(FOLLOWUP_TID, CHALLENGE, body,
-                senderKid.toString().getBytes(StandardCharsets.UTF_8)).toASN1Structure();
+        PKIBody body = CmpTestUtil
+                .createCertConfBody(
+                        CmpTestUtil.makeV3Certificate(BigInteger.ONE, keyPair, "CN=confirmed", keyPair, "CN=confirmed"),
+                        BigInteger.ZERO);
+        return CmpTestUtil
+                .createMacBasedMessageWithSenderKid(FOLLOWUP_TID, CHALLENGE, body,
+                        senderKid.toString().getBytes(StandardCharsets.UTF_8))
+                .toASN1Structure();
     }
 
     private void recordSuccessorRelation(Certificate successor, Certificate predecessor) {
@@ -300,28 +323,32 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
     private String failText(byte[] responseBytes) {
         PKIMessage response = PKIMessage.getInstance(responseBytes);
         return ((org.bouncycastle.asn1.cmp.ErrorMsgContent) response.getBody().getContent())
-                .getPKIStatusInfo().getStatusString().getStringAtUTF8(0).getString();
+                .getPKIStatusInfo()
+                .getStatusString()
+                .getStringAtUTF8(0)
+                .getString();
     }
 
     private int failInfo(byte[] responseBytes) {
         PKIMessage response = PKIMessage.getInstance(responseBytes);
-        return ((ErrorMsgContent) response.getBody().getContent())
-                .getPKIStatusInfo().getFailInfo().intValue();
+        return ((ErrorMsgContent) response.getBody().getContent()).getPKIStatusInfo().getFailInfo().intValue();
     }
 
     /**
-     * The issued certificate the poll returns once issuance finishes. Persists a backing row so the
-     * dispatcher's by-UUID chain lookup resolves, but returns a detached twin carrying a plain (non-proxy)
-     * CertificateContent, so response-building can read the content without the seeding session (the test is
-     * not transactional).
+     * The issued certificate the poll returns once issuance finishes. Persists a backing row so the dispatcher's
+     * by-UUID chain lookup resolves, but returns a detached twin carrying a plain (non-proxy) CertificateContent, so
+     * response-building can read the content without the seeding session (the test is not transactional).
      */
     private Certificate seedIssuedCertificate() throws Exception {
         KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
-        var holder = CmpTestUtil.makeV3Certificate(BigInteger.valueOf(System.nanoTime()), keyPair, "CN=issued", keyPair, "CN=issued");
+        var holder = CmpTestUtil
+                .makeV3Certificate(BigInteger.valueOf(System.nanoTime()), keyPair, "CN=issued", keyPair, "CN=issued");
         String content = Base64.getEncoder().encodeToString(holder.getEncoded());
-        CertificateContent certificateContent = certificateContentRepository.saveAndFlush(
-                CmpEntityUtil.createCertContent(CertificateUtil.getThumbprint(content.getBytes()), content));
-        Certificate persisted = CmpEntityUtil.createCertificate(holder.getSerialNumber(), CertificateState.ISSUED, certificateContent);
+        CertificateContent certificateContent = certificateContentRepository
+                .saveAndFlush(
+                        CmpEntityUtil.createCertContent(CertificateUtil.getThumbprint(content.getBytes()), content));
+        Certificate persisted = CmpEntityUtil
+                .createCertificate(holder.getSerialNumber(), CertificateState.ISSUED, certificateContent);
         persisted.setRaProfile(raProfile);
         persisted.setRaProfileUuid(raProfile.getUuid());
         persisted = certificateRepository.saveAndFlush(persisted);
@@ -339,11 +366,13 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
 
     @Test
     void matchingEnrolmentCompletesTheRegistration() throws Exception {
-        Certificate registration = seedRegistration(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")), CertificateState.REGISTERED);
+        Certificate registration = seedRegistration(SUBJECT_DN, Map.of("dNSName", List.of("device-1.example")),
+                CertificateState.REGISTERED);
         given(pollFeature.pollCertificate(any(), any(), any(), any()))
                 .willReturn(new PollResult.Reached(seedIssuedCertificate()));
 
-        ResponseEntity<byte[]> response = post(irMessage(SUBJECT_DN, List.of("device-1.example"), CHALLENGE, registration.getUuid()));
+        ResponseEntity<byte[]> response = post(
+                irMessage(SUBJECT_DN, List.of("device-1.example"), CHALLENGE, registration.getUuid()));
 
         assertNotNull(response.getBody());
         // A read transaction so the lazy protocolAssociation can load (the test is not transactional).
@@ -361,9 +390,10 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
         // an empty key. It is rejected at protection validation, never reaching the revocation handler.
         seedRegistration(SUBJECT_DN, null, CertificateState.REGISTERED);
         PKIBody revocation = CmpTestUtil.createRevocationBody(BigInteger.valueOf(0xC0FFEEL));
-        PKIMessage message = CmpTestUtil.createMacBasedMessageWithSenderKid(
-                "0102030405060708", "anything", revocation,
-                UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8)).toASN1Structure();
+        PKIMessage message = CmpTestUtil
+                .createMacBasedMessageWithSenderKid("0102030405060708", "anything", revocation,
+                        UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8))
+                .toASN1Structure();
 
         ResponseEntity<byte[]> response = post(message);
 
@@ -378,8 +408,9 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
 
         assertEquals(PKIFailureInfo.badMessageCheck, failInfo(response.getBody()));
         assertEquals(CmpRegistrationResolver.REGISTRATION_REJECTION, failText(response.getBody()));
-        CertificateRegistrationAuthorization authorization =
-                authorizationRepository.findByCertificateUuid(registration.getUuid()).orElseThrow();
+        CertificateRegistrationAuthorization authorization = authorizationRepository
+                .findByCertificateUuid(registration.getUuid())
+                .orElseThrow();
         assertEquals(1, authorization.getFailedAttempts(), "the failed attempt survives the rejection");
     }
 
@@ -410,15 +441,21 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
 
     @Test
     void sanMismatchIsRejectedAndRecordedOnTheRegistration() throws Exception {
-        Certificate registration = seedRegistration(SUBJECT_DN, Map.of("dNSName", List.of("registered.example")), CertificateState.REGISTERED);
+        Certificate registration = seedRegistration(SUBJECT_DN, Map.of("dNSName", List.of("registered.example")),
+                CertificateState.REGISTERED);
 
-        ResponseEntity<byte[]> response = post(irMessage(SUBJECT_DN, List.of("other.example"), CHALLENGE, registration.getUuid()));
+        ResponseEntity<byte[]> response = post(
+                irMessage(SUBJECT_DN, List.of("other.example"), CHALLENGE, registration.getUuid()));
 
         assertEquals(CmpRegistrationResolver.REGISTRATION_REJECTION, failText(response.getBody()));
-        List<CertificateEventHistory> history = eventHistoryRepository.findByCertificateOrderByCreatedDesc(
-                certificateRepository.findByUuid(registration.getUuid()).orElseThrow());
-        assertTrue(history.stream().anyMatch(e -> e.getStatus() == CertificateEventStatus.FAILED
-                        && e.getMessage().contains("subject alternative names")),
+        List<CertificateEventHistory> history = eventHistoryRepository
+                .findByCertificateOrderByCreatedDesc(
+                        certificateRepository.findByUuid(registration.getUuid()).orElseThrow());
+        assertTrue(
+                history
+                        .stream()
+                        .anyMatch(e -> e.getStatus() == CertificateEventStatus.FAILED
+                                && e.getMessage().contains("subject alternative names")),
                 "the SAN mismatch is recorded on the matched registration");
     }
 
@@ -429,10 +466,14 @@ class CmpRegistrationEnrolmentITest extends BaseSpringBootTest {
         ResponseEntity<byte[]> response = post(irMessage("CN=someone-else", null, CHALLENGE, registration.getUuid()));
 
         assertEquals(CmpRegistrationResolver.REGISTRATION_REJECTION, failText(response.getBody()));
-        List<CertificateEventHistory> history = eventHistoryRepository.findByCertificateOrderByCreatedDesc(
-                certificateRepository.findByUuid(registration.getUuid()).orElseThrow());
-        assertTrue(history.stream().anyMatch(e -> e.getStatus() == CertificateEventStatus.FAILED
-                        && e.getMessage().contains("subject does not match")),
+        List<CertificateEventHistory> history = eventHistoryRepository
+                .findByCertificateOrderByCreatedDesc(
+                        certificateRepository.findByUuid(registration.getUuid()).orElseThrow());
+        assertTrue(
+                history
+                        .stream()
+                        .anyMatch(e -> e.getStatus() == CertificateEventStatus.FAILED
+                                && e.getMessage().contains("subject does not match")),
                 "the subject mismatch is recorded on the matched registration");
     }
 }

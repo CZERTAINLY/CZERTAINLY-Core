@@ -512,23 +512,23 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
     }
 
     /**
-     * Rules of the certificate-registration challenge source: the per-registration challenge is the MAC key,
-     * so the profile stores no shared secret; MAC/shared-secret request protection exists only on the V2
-     * variant (V2_3GPP forces signature both ways, V3 is unsupported), so registration mode requires V2 and
-     * shared-secret request protection.
+     * Rules of the certificate-registration challenge source: the per-registration challenge is the MAC key, so the
+     * profile stores no shared secret; MAC/shared-secret request protection exists only on the V2 variant (V2_3GPP
+     * forces signature both ways, V3 is unsupported), so registration mode requires V2 and shared-secret request
+     * protection.
      */
     private static void validateRegistrationChallengeSource(CmpProfileRequestDto request) {
         if (request.getVariant() != CmpProfileVariant.V2) {
-            throw new ValidationException(ValidationError.create(
-                    "Certificate registration challenge source requires the CMP v2 variant"));
+            throw new ValidationException(
+                    ValidationError.create("Certificate registration challenge source requires the CMP v2 variant"));
         }
         if (request.getRequestProtectionMethod() != ProtectionMethod.SHARED_SECRET) {
-            throw new ValidationException(ValidationError.create(
-                    "Certificate registration challenge source requires shared-secret request protection"));
+            throw new ValidationException(ValidationError
+                    .create("Certificate registration challenge source requires shared-secret request protection"));
         }
         if (request.getSharedSecret() != null && !request.getSharedSecret().isBlank()) {
-            throw new ValidationException(ValidationError.create(
-                    "A shared secret cannot be configured when the challenge source is certificate registration"));
+            throw new ValidationException(ValidationError
+                    .create("A shared secret cannot be configured when the challenge source is certificate registration"));
         }
     }
 

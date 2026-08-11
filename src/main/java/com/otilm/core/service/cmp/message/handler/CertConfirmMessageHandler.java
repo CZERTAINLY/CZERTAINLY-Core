@@ -157,8 +157,8 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
         // (or, via a mismatching hash, reject) another registration's issuance.
         if (configuration.isRegistrationMode()) {
             for (CmpTransaction cmpTransaction : relatedTransactions) {
-                cmpRegistrationResolver.requireTransactionBinding(
-                        configuration.getMatchedRegistration(), cmpTransaction, tid);
+                cmpRegistrationResolver
+                        .requireTransactionBinding(configuration.getMatchedRegistration(), cmpTransaction, tid);
             }
         }
 

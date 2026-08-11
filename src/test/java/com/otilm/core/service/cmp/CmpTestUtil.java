@@ -184,16 +184,15 @@ public class CmpTestUtil {
     }
 
     /**
-     * A MAC-protected message carrying a {@code senderKID} (used by registration mode to reference the
-     * pre-registration by UUID). The MAC key is {@code sharedSecret}, exactly as {@link #createMacBasedMessage}.
+     * A MAC-protected message carrying a {@code senderKID} (used by registration mode to reference the pre-registration
+     * by UUID). The MAC key is {@code sharedSecret}, exactly as {@link #createMacBasedMessage}.
      */
-    public static ProtectedPKIMessage createMacBasedMessageWithSenderKid(
-            String transactionId, String sharedSecret, PKIBody body, byte[] senderKid)
-            throws CRMFException, CMPException {
+    public static ProtectedPKIMessage createMacBasedMessageWithSenderKid(String transactionId, String sharedSecret,
+            PKIBody body, byte[] senderKid) throws CRMFException, CMPException {
         JcePKMACValuesCalculator jcePkmacCalc = new JcePKMACValuesCalculator();
-        jcePkmacCalc.setup(
-                new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.3.14.3.2.26")), // SHA1
-                new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.2.840.113549.2.7"))); // HMAC/SHA1
+        jcePkmacCalc
+                .setup(new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.3.14.3.2.26")), // SHA1
+                        new AlgorithmIdentifier(new ASN1ObjectIdentifier("1.2.840.113549.2.7"))); // HMAC/SHA1
         MacCalculator macCalculator = new PKMACBuilder(jcePkmacCalc)
                 .setIterationCount(1000)
                 .setSaltLength(25)
@@ -208,13 +207,14 @@ public class CmpTestUtil {
     }
 
     /**
-     * A CRMF body (ir/cr/kur) for a chosen subject with optional dNSName SANs — for registration-mode
-     * identity matching. {@code oldCertSerial} non-null adds the {@code regCtrl_oldCertID} control a kur needs.
+     * A CRMF body (ir/cr/kur) for a chosen subject with optional dNSName SANs — for registration-mode identity
+     * matching. {@code oldCertSerial} non-null adds the {@code regCtrl_oldCertID} control a kur needs.
      */
-    public static PKIBody createRegistrationCrmfBody(KeyPair keyPair, long certReqId, int pkiBodyType,
-                                                     String subjectDn, List<String> dnsSans, BigInteger oldCertSerial)
+    public static PKIBody createRegistrationCrmfBody(KeyPair keyPair, long certReqId, int pkiBodyType, String subjectDn,
+            List<String> dnsSans, BigInteger oldCertSerial)
             throws IOException, CRMFException, OperatorCreationException {
-        CertificateRequestMessageBuilder msgbuilder = new CertificateRequestMessageBuilder(BigInteger.valueOf(certReqId));
+        CertificateRequestMessageBuilder msgbuilder = new CertificateRequestMessageBuilder(
+                BigInteger.valueOf(certReqId));
         X500Name issuerDN = new X500Name("CN=ManagementCA");
         X500Name subjectDN = new X500Name(subjectDn);
         msgbuilder.setIssuer(issuerDN);
@@ -226,7 +226,8 @@ public class CmpTestUtil {
         msgbuilder.setAuthInfoSender(new GeneralName(subjectDN));
         msgbuilder.addControl(new RegTokenControl("foo123"));
         if (dnsSans != null && !dnsSans.isEmpty()) {
-            GeneralName[] names = dnsSans.stream()
+            GeneralName[] names = dnsSans
+                    .stream()
                     .map(dns -> new GeneralName(GeneralName.dNSName, dns))
                     .toArray(GeneralName[]::new);
             msgbuilder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(names));
@@ -235,19 +236,26 @@ public class CmpTestUtil {
             AttributeTypeAndValue atv = new AttributeTypeAndValue(CMPObjectIdentifiers.regCtrl_oldCertID,
                     new CertId(new GeneralName(issuerDN), new ASN1Integer(oldCertSerial)));
             msgbuilder.addControl(new Control() {
-                @Override public ASN1ObjectIdentifier getType() { return atv.getType(); }
-                @Override public ASN1Encodable getValue() { return atv.getValue(); }
+                @Override
+                public ASN1ObjectIdentifier getType() {
+                    return atv.getType();
+                }
+
+                @Override
+                public ASN1Encodable getValue() {
+                    return atv.getValue();
+                }
             });
         }
         ContentSigner popsigner = new JcaContentSignerBuilder("SHA256withECDSA")
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(keyPair.getPrivate());
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(keyPair.getPrivate());
         msgbuilder.setProofOfPossessionSigningKeySigner(popsigner);
         CertReqMessages msgs = new CertReqMessages(msgbuilder.build().toASN1Structure());
         return new PKIBody(pkiBodyType, msgs);
     }
 
-    public static ProtectedPKIMessageBuilder createPkiMessageBuilder(
-            String transactionId, PKIBody body) {
+    public static ProtectedPKIMessageBuilder createPkiMessageBuilder(String transactionId, PKIBody body) {
         X500Name issuerDN = new X500Name("CN=ManagementCA");
         X500Name userDN = new X500Name("CN=user");
         byte[] senderNonce = "12345".getBytes();

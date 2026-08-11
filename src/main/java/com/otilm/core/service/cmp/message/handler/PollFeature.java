@@ -49,11 +49,11 @@ public class PollFeature {
      * <ul>
      * <li>{@link PollResult.Reached} when the certificate's state equals {@code expectedState};</li>
      * <li>{@link PollResult.StillPending} when the certificate is still in {@code PENDING_ISSUE} /
-     * {@code PENDING_REVOKE}}, or is a registration placeholder still {@code REGISTERED}, once the poll budget
-     * is exhausted. These are ridden out within the budget — every issuance routes through {@code PENDING_ISSUE}
-     * on the actions-listener thread (a registration placeholder is first claimed there out of {@code REGISTERED}),
-     * even when the connector completes synchronously moments later, so an immediate return here would misreport nearly
-     * every issuance as asynchronous;</li>
+     * {@code PENDING_REVOKE}}, or is a registration placeholder still {@code REGISTERED}, once the poll budget is
+     * exhausted. These are ridden out within the budget — every issuance routes through {@code PENDING_ISSUE} on the
+     * actions-listener thread (a registration placeholder is first claimed there out of {@code REGISTERED}), even when
+     * the connector completes synchronously moments later, so an immediate return here would misreport nearly every
+     * issuance as asynchronous;</li>
      * <li>{@link PollResult.Diverted} when the certificate reaches a terminal state (one of {@code ISSUED},
      * {@code REVOKED}, {@code FAILED}, {@code REJECTED}) that is not the expected one — typically because another
      * thread (an operator cancel, a scheduled task) transitioned the certificate while this poll was running.</li>
@@ -120,7 +120,7 @@ public class PollFeature {
                             || current == CertificateState.REGISTERED) {
                         log
                                 .debug("TID={}, SN={} | certificate uuid={} still in asynchronous state {} after {} ms — caller will signal client to retry",
-                                tid, serialNumber, certUUID, current, timeoutMs);
+                                        tid, serialNumber, certUUID, current, timeoutMs);
                         return new PollResult.StillPending(current);
                     }
                     throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure, String

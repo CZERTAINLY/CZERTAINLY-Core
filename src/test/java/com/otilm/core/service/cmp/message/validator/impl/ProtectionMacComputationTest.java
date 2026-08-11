@@ -1,15 +1,14 @@
 package com.otilm.core.service.cmp.message.validator.impl;
 
 import com.otilm.core.service.cmp.CmpTestUtil;
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.Security;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
-import java.security.Security;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

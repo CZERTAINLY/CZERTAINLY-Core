@@ -10,6 +10,12 @@ import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.service.cmp.CmpTestUtil;
 import com.otilm.core.util.CertificateUtil;
+import java.security.KeyPair;
+import java.security.Security;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
@@ -20,14 +26,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.security.KeyPair;
-import java.security.Security;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,8 +34,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
- * Unit tests for {@link CmpRegistrationIdentityVerifier} — the shared subject-and-SAN identity check the
- * ir/cr and kur registration paths both apply to a CRMF before completing or rekeying.
+ * Unit tests for {@link CmpRegistrationIdentityVerifier} — the shared subject-and-SAN identity check the ir/cr and kur
+ * registration paths both apply to a CRMF before completing or rekeying.
  */
 class CmpRegistrationIdentityVerifierTest {
 
@@ -60,14 +58,16 @@ class CmpRegistrationIdentityVerifierTest {
         Map<String, OidRecord> existing = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE);
         savedRdnCache = existing == null ? null : new HashMap<>(existing);
         OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE, new HashMap<>());
-        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
-                OidRecord.builder().displayName("Common Name").code("CN").build());
+        OidHandler
+                .cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, "2.5.4.3",
+                        OidRecord.builder().displayName("Common Name").code("CN").build());
     }
 
     @AfterAll
     static void restoreRdnCache() {
-        OidHandler.cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
-                savedRdnCache != null ? savedRdnCache : new HashMap<>());
+        OidHandler
+                .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
+                        savedRdnCache != null ? savedRdnCache : new HashMap<>());
     }
 
     @BeforeEach
@@ -79,7 +79,8 @@ class CmpRegistrationIdentityVerifierTest {
 
     private static CertReqMessages crmf(String subjectDn, List<String> dnsSans) throws Exception {
         KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
-        PKIBody body = CmpTestUtil.createRegistrationCrmfBody(keyPair, 0L, PKIBody.TYPE_INIT_REQ, subjectDn, dnsSans, null);
+        PKIBody body = CmpTestUtil
+                .createRegistrationCrmfBody(keyPair, 0L, PKIBody.TYPE_INIT_REQ, subjectDn, dnsSans, null);
         return (CertReqMessages) body.getContent();
     }
 
@@ -95,34 +96,34 @@ class CmpRegistrationIdentityVerifierTest {
 
     @Test
     void acceptsAMatchingSubjectAndSan() throws Exception {
-        assertThatCode(() -> verifier.verify(
-                crmf(SUBJECT_DN, List.of("device-1.example")),
-                matched(SUBJECT_DN, List.of("device-1.example")), CertificateEvent.ISSUE, TID))
+        assertThatCode(() -> verifier
+                .verify(crmf(SUBJECT_DN, List.of("device-1.example")), matched(SUBJECT_DN, List.of("device-1.example")),
+                        CertificateEvent.ISSUE, TID))
                 .doesNotThrowAnyException();
         verifyNoInteractions(eventHistoryService);
     }
 
     @Test
     void rejectsAndRecordsASanMismatch() throws Exception {
-        assertThatThrownBy(() -> verifier.verify(
-                crmf(SUBJECT_DN, List.of("attacker.example")),
-                matched(SUBJECT_DN, List.of("device-1.example")), CertificateEvent.REKEY, TID))
+        assertThatThrownBy(() -> verifier
+                .verify(crmf(SUBJECT_DN, List.of("attacker.example")), matched(SUBJECT_DN, List.of("device-1.example")),
+                        CertificateEvent.REKEY, TID))
                 .isInstanceOf(CmpProcessingException.class)
                 .hasMessageContaining(CmpRegistrationResolver.REGISTRATION_REJECTION);
-        verify(eventHistoryService).addEventHistory(eq(MATCHED_UUID), eq(CertificateEvent.REKEY),
-                eq(CertificateEventStatus.FAILED),
-                org.mockito.ArgumentMatchers.contains("subject alternative names"), eq(""));
+        verify(eventHistoryService)
+                .addEventHistory(eq(MATCHED_UUID), eq(CertificateEvent.REKEY), eq(CertificateEventStatus.FAILED),
+                        org.mockito.ArgumentMatchers.contains("subject alternative names"), eq(""));
     }
 
     @Test
     void rejectsAndRecordsASubjectMismatch() throws Exception {
-        assertThatThrownBy(() -> verifier.verify(
-                crmf("CN=someone-else", List.of("device-1.example")),
-                matched(SUBJECT_DN, List.of("device-1.example")), CertificateEvent.ISSUE, TID))
+        assertThatThrownBy(() -> verifier
+                .verify(crmf("CN=someone-else", List.of("device-1.example")),
+                        matched(SUBJECT_DN, List.of("device-1.example")), CertificateEvent.ISSUE, TID))
                 .isInstanceOf(CmpProcessingException.class)
                 .hasMessageContaining(CmpRegistrationResolver.REGISTRATION_REJECTION);
-        verify(eventHistoryService).addEventHistory(eq(MATCHED_UUID), eq(CertificateEvent.ISSUE),
-                eq(CertificateEventStatus.FAILED),
-                org.mockito.ArgumentMatchers.contains("subject does not match"), eq(""));
+        verify(eventHistoryService)
+                .addEventHistory(eq(MATCHED_UUID), eq(CertificateEvent.ISSUE), eq(CertificateEventStatus.FAILED),
+                        org.mockito.ArgumentMatchers.contains("subject does not match"), eq(""));
     }
 }
