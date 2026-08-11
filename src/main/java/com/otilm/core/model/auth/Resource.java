@@ -11,14 +11,23 @@ public enum Resource {
     NONE("NONE"),
 
     // GENERAL
-    DASHBOARD("dashboard"), SETTINGS("settings"), AUDIT_LOG("auditLogs"), CREDENTIAL("credentials"), CONNECTOR(
-            "connectors"), ATTRIBUTE("attributes"), SCHEDULED_JOB("jobs"), OID("oids"), PROXY("proxies"),
+    DASHBOARD("dashboard"),
+    SETTINGS("settings"),
+    AUDIT_LOG("auditLogs"),
+    CREDENTIAL("credentials"),
+    CONNECTOR("connectors"),
+    ATTRIBUTE("attributes"),
+    SCHEDULED_JOB("jobs"),
+    OID("oids"),
+    PROXY("proxies"),
 
     // AUTH
-    USER("users"), ROLE("roles"),
+    USER("users"),
+    ROLE("roles"),
 
     // ACME
-    ACME_ACCOUNT("acmeAccounts"), ACME_PROFILE("acmeProfiles"),
+    ACME_ACCOUNT("acmeAccounts"),
+    ACME_PROFILE("acmeProfiles"),
 
     // SCEP
     SCEP_PROFILE("scepProfiles"),
@@ -27,36 +36,53 @@ public enum Resource {
     CMP_PROFILE("cmpProfiles"),
 
     // CERTIFICATES
-    AUTHORITY("authorities"), RA_PROFILE("raProfiles"), CERTIFICATE("certificates"), GROUP(
-            "groups"), COMPLIANCE_PROFILE("complianceProfiles"), DISCOVERY("discoveries"),
+    AUTHORITY("authorities"),
+    RA_PROFILE("raProfiles"),
+    CERTIFICATE("certificates"),
+    GROUP("groups"),
+    COMPLIANCE_PROFILE("complianceProfiles"),
+    DISCOVERY("discoveries"),
 
     // ENTITIES
-    ENTITY("entities"), LOCATION("locations"),
+    ENTITY("entities"),
+    LOCATION("locations"),
 
     // CRYPTOGRAPHY
-    TOKEN_PROFILE("tokenProfiles"), TOKEN("tokens"), CRYPTOGRAPHIC_KEY("keys"),
+    TOKEN_PROFILE("tokenProfiles"),
+    TOKEN("tokens"),
+    CRYPTOGRAPHIC_KEY("keys"),
 
     // APPROVALS
-    APPROVAL_PROFILE("approvalProfiles"), APPROVAL("approvals"),
+    APPROVAL_PROFILE("approvalProfiles"),
+    APPROVAL("approvals"),
 
     // NOTIFICATIONS
-    NOTIFICATION_PROFILE("notificationProfiles"), NOTIFICATION_INSTANCE("notificationInstances"),
+    NOTIFICATION_PROFILE("notificationProfiles"),
+    NOTIFICATION_INSTANCE("notificationInstances"),
 
     // WORKFLOWS
-    RULE("rules"), ACTION("actions"), TRIGGER("triggers"), EVENT("resourceEvents"),
+    RULE("rules"),
+    ACTION("actions"),
+    TRIGGER("triggers"),
+    EVENT("resourceEvents"),
 
     // SAAS
     TRUSTED_CERTIFICATE("trustedCertificates"),
 
     // SECRETS
-    VAULT("vaults"), VAULT_PROFILE("vaultProfiles"), SECRET("secrets"),
+    VAULT("vaults"),
+    VAULT_PROFILE("vaultProfiles"),
+    SECRET("secrets"),
 
     // CBOMS
     CBOM("cboms"),
 
     // SIGNING
-    TIME_QUALITY_CONFIGURATION("timeQualityConfigurations"), TSP_PROFILE("tspProfiles"), TSP_PROFILE_BASIC_CREDENTIAL(
-            "tspProfileBasicCredentials"), SIGNING_PROFILE("signingProfiles"), SIGNING_RECORD("signingRecords"),;
+    TIME_QUALITY_CONFIGURATION("timeQualityConfigurations"),
+    TSP_PROFILE("tspProfiles"),
+    TSP_PROFILE_BASIC_CREDENTIAL("tspProfileBasicCredentials"),
+    SIGNING_PROFILE("signingProfiles"),
+    SIGNING_RECORD("signingRecords");
 
     @Schema(description = "Resource Name", example = "certificates", requiredMode = Schema.RequiredMode.REQUIRED)
 

@@ -3,7 +3,10 @@ package com.otilm.core.service.handler.authority;
 import com.otilm.api.model.core.certificate.CertificateState;
 
 public enum CertificateOperation {
-    ISSUE, RENEW, REVOKE, REGISTER;
+    ISSUE,
+    RENEW,
+    REVOKE,
+    REGISTER;
 
     /** The PENDING state a certificate sits in while this operation is async-in-flight. */
     public CertificateState pendingState() {

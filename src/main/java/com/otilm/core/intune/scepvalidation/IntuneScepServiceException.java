@@ -50,7 +50,31 @@ public class IntuneScepServiceException extends IntuneClientException {
     private String transactionId = null;
 
     public enum ErrorCode {
-        Unknown, Success, CertificateRequestDecodingFailed, ChallengePasswordMissing, ChallengeDeserializationError, ChallengeDecryptionError, ChallengeDecodingError, ChallengeInvalidTimestamp, ChallengeExpired, SubjectNameMissing, SubjectNameMismatch, SubjectAltNameMissing, SubjectAltNameMismatch, KeyUsageMismatch, KeyLengthMismatch, EnhancedKeyUsageMissing, EnhancedKeyUsageMismatch, AadKeyIdentifierListMissing, RegisteredKeyMismatch, SigningCertThumbprintMismatch, ScepProfileNoLongerTargetedToTheClient, SignatureValidationFailed, BadCertificateRequestIdInChallenge, BadDeviceIdInChallenge, BadUserIdInChallenge;
+        Unknown,
+        Success,
+        CertificateRequestDecodingFailed,
+        ChallengePasswordMissing,
+        ChallengeDeserializationError,
+        ChallengeDecryptionError,
+        ChallengeDecodingError,
+        ChallengeInvalidTimestamp,
+        ChallengeExpired,
+        SubjectNameMissing,
+        SubjectNameMismatch,
+        SubjectAltNameMissing,
+        SubjectAltNameMismatch,
+        KeyUsageMismatch,
+        KeyLengthMismatch,
+        EnhancedKeyUsageMissing,
+        EnhancedKeyUsageMismatch,
+        AadKeyIdentifierListMissing,
+        RegisteredKeyMismatch,
+        SigningCertThumbprintMismatch,
+        ScepProfileNoLongerTargetedToTheClient,
+        SignatureValidationFailed,
+        BadCertificateRequestIdInChallenge,
+        BadDeviceIdInChallenge,
+        BadUserIdInChallenge;
     };
 
     /**
