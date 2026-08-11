@@ -10,7 +10,14 @@ import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
-import com.otilm.api.model.core.certificate.*;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
+import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateSubjectType;
+import com.otilm.api.model.core.certificate.CertificateType;
+import com.otilm.api.model.core.certificate.CertificateValidationResultDto;
+import com.otilm.api.model.core.certificate.CertificateValidationStatus;
+import com.otilm.api.model.core.certificate.GeneralNameType;
+import com.otilm.api.model.core.certificate.QcType;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
 import com.otilm.api.model.core.oid.SystemOid;
 import com.otilm.api.model.core.settings.CertificateValidationSettingsDto;
@@ -29,22 +36,50 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.InvalidKeyException;
+import java.security.KeyFactory;
+import java.security.KeyStore;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.SignatureException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
-import org.bouncycastle.asn1.*;
+import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1InputStream;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERPrintableString;
+import org.bouncycastle.asn1.DLSequence;
+import org.bouncycastle.asn1.DLTaggedObject;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.*;
+import org.bouncycastle.asn1.x509.AltSignatureAlgorithm;
+import org.bouncycastle.asn1.x509.AltSignatureValue;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.SubjectAltPublicKeyInfo;
 import org.bouncycastle.asn1.x509.qualified.ETSIQCObjectIdentifiers;
 import org.bouncycastle.asn1.x509.qualified.QCStatement;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
@@ -494,8 +529,9 @@ public class CertificateUtil {
         modal.setKeyUsage(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage()));
         modal.setSubjectType(subjectType);
         // Set trusted certificate mark either for CA or for self-signed certificate
-        if (subjectType != CertificateSubjectType.END_ENTITY)
+        if (subjectType != CertificateSubjectType.END_ENTITY) {
             modal.setTrustedCa(false);
+        }
     }
 
     /**
@@ -504,8 +540,9 @@ public class CertificateUtil {
      */
     private static QcStatementParseResult parseQcStatements(X509Certificate cert) {
         byte[] raw = cert.getExtensionValue(Extension.qCStatements.getId());
-        if (raw == null)
+        if (raw == null) {
             return null;
+        }
 
         boolean qcCompliance = false;
         boolean qcSscd = false;
@@ -525,12 +562,13 @@ public class CertificateUtil {
                 ASN1Sequence types = ASN1Sequence.getInstance(stmt.getStatementInfo());
                 for (ASN1Encodable t : types) {
                     ASN1ObjectIdentifier typeOid = ASN1ObjectIdentifier.getInstance(t);
-                    if (ETSIQCObjectIdentifiers.id_etsi_qct_esign.equals(typeOid))
+                    if (ETSIQCObjectIdentifiers.id_etsi_qct_esign.equals(typeOid)) {
                         qcType.add(QcType.ESIGN);
-                    else if (ETSIQCObjectIdentifiers.id_etsi_qct_eseal.equals(typeOid))
+                    } else if (ETSIQCObjectIdentifiers.id_etsi_qct_eseal.equals(typeOid)) {
                         qcType.add(QcType.ESEAL);
-                    else if (ETSIQCObjectIdentifiers.id_etsi_qct_web.equals(typeOid))
+                    } else if (ETSIQCObjectIdentifiers.id_etsi_qct_web.equals(typeOid)) {
                         qcType.add(QcType.WEB);
+                    }
                 }
             } else if (ETSIQCObjectIdentifiers.id_etsi_qcs_QcCClegislation.equals(id)) {
                 ASN1Sequence countries = ASN1Sequence.getInstance(stmt.getStatementInfo());
@@ -665,6 +703,32 @@ public class CertificateUtil {
         }
     }
 
+    /** The empty distinguished name, the normalized subject of a SAN-only enrolment or registration. */
+    private static final X500Name EMPTY_X500_NAME = new X500Name(new RDN[0]);
+
+    /**
+     * Renders a subject in the platform's normalized form ({@link PlatformX500NameStyle#NORMALIZED}) — the
+     * representation stored in the certificate's normalized-subject column and compared by the registration identity
+     * match. An absent subject normalizes to the empty string.
+     */
+    public static String normalizeSubjectDn(X500Name subject) {
+        return X500Name
+                .getInstance(PlatformX500NameStyle.NORMALIZED, subject == null ? EMPTY_X500_NAME : subject)
+                .toString();
+    }
+
+    /**
+     * Normalizes a stored subject DN string exactly as the registration identity match compares candidates: a blank or
+     * absent value is the empty name; a present one is parsed with the normalized style and may throw, which callers
+     * treat as "row unmatchable".
+     */
+    public static String normalizeStoredSubjectDn(String subjectDn) {
+        if (subjectDn == null || subjectDn.isBlank()) {
+            return normalizeSubjectDn(EMPTY_X500_NAME);
+        }
+        return normalizeSubjectDn(new X500Name(PlatformX500NameStyle.NORMALIZED, subjectDn));
+    }
+
     /**
      * Records the SAN identity of a no-CSR registration placeholder from the projected registration content, serialized
      * in the same map format used for issued certificates. No entries is a no-op, leaving the column null exactly as
@@ -712,8 +776,9 @@ public class CertificateUtil {
     private static String getCommonNameFromDn(X500Name subjectDn) {
         String commonName = null;
         for (RDN i : subjectDn.getRDNs()) {
-            if (i.getFirst() == null)
+            if (i.getFirst() == null) {
                 continue;
+            }
 
             if (SystemOid.COMMON_NAME.getOid().equals(i.getFirst().getType().getId())) {
                 commonName = i.getFirst().getValue().toString();
@@ -727,49 +792,28 @@ public class CertificateUtil {
         modal.setCommonName(getCommonNameFromDn(subjectDN));
     }
 
-    /** The empty distinguished name, the normalized subject of a SAN-only enrolment or registration. */
-    private static final X500Name EMPTY_X500_NAME = new X500Name(new RDN[0]);
-
-    /**
-     * Renders a subject in the platform's normalized form ({@link PlatformX500NameStyle#NORMALIZED}) — the
-     * representation stored in the certificate's normalized-subject column and compared by the registration identity
-     * match. An absent subject normalizes to the empty string.
-     */
-    public static String normalizeSubjectDn(X500Name subject) {
-        return X500Name
-                .getInstance(PlatformX500NameStyle.NORMALIZED, subject == null ? EMPTY_X500_NAME : subject)
-                .toString();
-    }
-
-    /**
-     * Normalizes a stored subject DN string exactly as the registration identity match compares candidates: a blank or
-     * absent value is the empty name; a present one is parsed with the normalized style and may throw, which callers
-     * treat as "row unmatchable".
-     */
-    public static String normalizeStoredSubjectDn(String subjectDn) {
-        if (subjectDn == null || subjectDn.isBlank()) {
-            return normalizeSubjectDn(EMPTY_X500_NAME);
-        }
-        return normalizeSubjectDn(new X500Name(PlatformX500NameStyle.NORMALIZED, subjectDn));
-    }
-
     public static KeyAlgorithm getKeyAlgorithmEnumFromProviderName(String providerName) {
-        if (providerName == null)
+        if (providerName == null) {
             return null;
+        }
         KeyAlgorithm keyAlgorithm = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
-        if (keyAlgorithm != null)
+        if (keyAlgorithm != null) {
             return keyAlgorithm;
-        if (providerName.contains("ML-DSA"))
+        }
+        if (providerName.contains("ML-DSA")) {
             return KeyAlgorithm.MLDSA;
-        if (providerName.contains("SLH-DSA"))
+        }
+        if (providerName.contains("SLH-DSA")) {
             return KeyAlgorithm.SLHDSA;
+        }
         return KeyAlgorithm.UNKNOWN;
     }
 
     public static String getKeyAlgorithmStringFromProviderName(String providerName) {
         KeyAlgorithm keyAlgorithm = getKeyAlgorithmEnumFromProviderName(providerName);
-        if (keyAlgorithm == KeyAlgorithm.UNKNOWN || keyAlgorithm == null)
+        if (keyAlgorithm == KeyAlgorithm.UNKNOWN || keyAlgorithm == null) {
             return providerName;
+        }
         return keyAlgorithm.getCode();
     }
 
@@ -887,8 +931,9 @@ public class CertificateUtil {
 
     public static boolean isValidationEnabled(Certificate certificate,
             @Nullable CertificateValidationResultDto validationResultDto) {
-        if (certificate.isArchived())
+        if (certificate.isArchived()) {
             return false;
+        }
         Boolean raValidationEnabled = certificate.getRaProfile() != null
                 ? certificate.getRaProfile().getValidationEnabled()
                 : null;
@@ -911,10 +956,12 @@ public class CertificateUtil {
                     validationResultDto.setMessage("Validation of certificates is disabled in platform settings.");
                 }
                 return false;
-            } else
+            } else {
                 return certificate.getCertificateContent() != null;
-        } else
+            }
+        } else {
             return certificate.getCertificateContent() != null;
+        }
     }
 
 }
