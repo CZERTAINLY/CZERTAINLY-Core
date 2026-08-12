@@ -190,7 +190,10 @@ public class SecretsUtil {
     }
 
     /**
-     * Encoded the secret value into string V1|secret|salt|count
+     * Encodes the secret value into a string.
+     *
+     * <p>
+     * {@code V1|secret|salt|count}
      *
      * @param secret value to be encoded
      * @param salt used salt
