@@ -61,19 +61,34 @@ import org.hibernate.type.SqlTypes;
 @ToString
 @RequiredArgsConstructor
 // Entity graph that eagerly loads associations needed by mapToChainDto().
-@NamedEntityGraph(name = "Certificate.chainAssociations", attributeNodes = {@NamedAttributeNode("certificateContent"),
-        @NamedAttributeNode(value = "key", subgraph = "key-items"),
-        @NamedAttributeNode(value = "altKey", subgraph = "alt-key-items"), @NamedAttributeNode("groups"),
-        @NamedAttributeNode("owner"), @NamedAttributeNode(value = "raProfile", subgraph = "ra-profile-authority"),
-        @NamedAttributeNode("certificateRequestEntity"), @NamedAttributeNode("predecessorRelations"),
-        @NamedAttributeNode("protocolAssociation")}, subgraphs = {
-                @NamedSubgraph(name = "key-items", attributeNodes = {@NamedAttributeNode("items"),
-                        @NamedAttributeNode("groups"), @NamedAttributeNode("owner"),
-                        @NamedAttributeNode("tokenProfile"), @NamedAttributeNode("tokenInstanceReference")}),
-                @NamedSubgraph(name = "alt-key-items", attributeNodes = {@NamedAttributeNode("items"),
-                        @NamedAttributeNode("groups"), @NamedAttributeNode("owner"),
-                        @NamedAttributeNode("tokenProfile"), @NamedAttributeNode("tokenInstanceReference")}),
-                @NamedSubgraph(name = "ra-profile-authority", attributeNodes = @NamedAttributeNode("authorityInstanceReference"))})
+@NamedEntityGraph(name = "Certificate.chainAssociations",
+        attributeNodes = {
+                @NamedAttributeNode("certificateContent"),
+                @NamedAttributeNode(value = "key", subgraph = "key-items"),
+                @NamedAttributeNode(value = "altKey", subgraph = "alt-key-items"),
+                @NamedAttributeNode("groups"),
+                @NamedAttributeNode("owner"),
+                @NamedAttributeNode(value = "raProfile", subgraph = "ra-profile-authority"),
+                @NamedAttributeNode("certificateRequestEntity"),
+                @NamedAttributeNode("predecessorRelations"),
+                @NamedAttributeNode("protocolAssociation")},
+        subgraphs = {
+                @NamedSubgraph(name = "key-items",
+                        attributeNodes = {
+                                @NamedAttributeNode("items"),
+                                @NamedAttributeNode("groups"),
+                                @NamedAttributeNode("owner"),
+                                @NamedAttributeNode("tokenProfile"),
+                                @NamedAttributeNode("tokenInstanceReference")}),
+                @NamedSubgraph(name = "alt-key-items",
+                        attributeNodes = {
+                                @NamedAttributeNode("items"),
+                                @NamedAttributeNode("groups"),
+                                @NamedAttributeNode("owner"),
+                                @NamedAttributeNode("tokenProfile"),
+                                @NamedAttributeNode("tokenInstanceReference")}),
+                @NamedSubgraph(name = "ra-profile-authority",
+                        attributeNodes = @NamedAttributeNode("authorityInstanceReference"))})
 @Entity
 @Table(name = "certificate")
 public class Certificate extends UniquelyIdentifiedAndAudited
@@ -176,7 +191,10 @@ public class Certificate extends UniquelyIdentifiedAndAudited
     private UUID raProfileUuid;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "group_association", joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)), inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false))
+    @JoinTable(name = "group_association",
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false,
+                    updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false))
     @SQLJoinTableRestriction("resource = 'CERTIFICATE'")
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();

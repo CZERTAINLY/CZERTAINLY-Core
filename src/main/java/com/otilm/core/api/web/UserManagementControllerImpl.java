@@ -86,27 +86,31 @@ public class UserManagementControllerImpl implements UserManagementController {
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.LIST)
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE,
+            operation = Operation.LIST)
     public List<RoleDto> getUserRoles(@LogResource(uuid = true) String userUuid) throws NotFoundException {
         return userManagementService.getUserRoles(userUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE,
+            operation = Operation.UPDATE)
     public UserDetailDto updateRoles(@LogResource(uuid = true) String userUuid,
             @LogResource(uuid = true, affiliated = true) List<String> roleUuids) throws NotFoundException {
         return userManagementService.updateRoles(userUuid, roleUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.ADD)
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE,
+            operation = Operation.ADD)
     public UserDetailDto addRole(@LogResource(uuid = true) String userUuid,
             @LogResource(uuid = true, affiliated = true) String roleUuid) throws NotFoundException {
         return userManagementService.updateRole(userUuid, roleUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.REMOVE)
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE,
+            operation = Operation.REMOVE)
     public UserDetailDto removeRole(@LogResource(uuid = true) String userUuid,
             @LogResource(uuid = true, affiliated = true) String roleUuid) throws NotFoundException {
         return userManagementService.removeRole(userUuid, roleUuid);

@@ -38,33 +38,38 @@ public class AcmeControllerImpl implements AcmeController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.ACME_DIRECTORY)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE,
+            operation = Operation.ACME_DIRECTORY)
     public ResponseEntity<Directory> getDirectory(@LogResource(name = true) String acmeProfileName)
             throws NotFoundException, AcmeProblemDocumentException {
         return acmeService.getDirectory(acmeProfileName, getRequestUri(), false);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.ACME_NONCE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE,
+            operation = Operation.ACME_NONCE)
     public ResponseEntity<?> getNonce(@LogResource(name = true) String acmeProfileName) {
         return acmeService.getNonce(acmeProfileName, false, getRequestUri(), false);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.ACME_NONCE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE,
+            operation = Operation.ACME_NONCE)
     public ResponseEntity<?> headNonce(@LogResource(name = true) String acmeProfileName) {
         return acmeService.getNonce(acmeProfileName, true, getRequestUri(), false);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.CREATE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.CREATE)
     public ResponseEntity<Account> newAccount(@LogResource(name = true, affiliated = true) String acmeProfileName,
             String jwsBody) throws AcmeProblemDocumentException, NotFoundException {
         return acmeService.newAccount(acmeProfileName, jwsBody, getRequestUri(), false);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.UPDATE)
     public ResponseEntity<Account> updateAccount(@LogResource(name = true, affiliated = true) String acmeProfileName,
             @LogResource(name = true) String accountId, String jwsBody)
             throws AcmeProblemDocumentException, NotFoundException {
@@ -72,21 +77,25 @@ public class AcmeControllerImpl implements AcmeController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.ACME_KEY_ROLLOVER)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE,
+            operation = Operation.ACME_KEY_ROLLOVER)
     public ResponseEntity<?> keyRollover(@LogResource(name = true, affiliated = true) String acmeProfileName,
             String jwsBody) throws NotFoundException, AcmeProblemDocumentException {
         return acmeService.keyRollover(acmeProfileName, jwsBody, getRequestUri(), false);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, operation = Operation.CREATE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ORDER,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, operation = Operation.CREATE)
     public ResponseEntity<Order> newOrder(String acmeProfileName, String jwsBody)
             throws AcmeProblemDocumentException, NotFoundException {
         return acmeService.newOrder(acmeProfileName, jwsBody, getRequestUri(), false);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, operation = Operation.LIST)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ORDER,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, operation = Operation.LIST)
     public ResponseEntity<List<Order>> listOrders(String acmeProfileName,
             @LogResource(name = true, affiliated = true) String accountId)
             throws NotFoundException, AcmeProblemDocumentException {
@@ -94,7 +103,8 @@ public class AcmeControllerImpl implements AcmeController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_AUTHORIZATION, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_AUTHORIZATION,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, operation = Operation.DETAIL)
     public ResponseEntity<Authorization> getAuthorizations(String acmeProfileName,
             @LogResource(name = true) String authorizationId, String jwsBody)
             throws NotFoundException, AcmeProblemDocumentException {
@@ -102,7 +112,8 @@ public class AcmeControllerImpl implements AcmeController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_CHALLENGE, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, operation = Operation.ACME_VALIDATE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_CHALLENGE,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, operation = Operation.ACME_VALIDATE)
     public ResponseEntity<Challenge> validateChallenge(String acmeProfileName,
             @LogResource(name = true) String challengeId)
             throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, AcmeProblemDocumentException {
@@ -110,14 +121,17 @@ public class AcmeControllerImpl implements AcmeController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ORDER,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, operation = Operation.DETAIL)
     public ResponseEntity<Order> getOrder(String acmeProfileName, @LogResource(name = true) String orderId)
             throws NotFoundException, AcmeProblemDocumentException {
         return acmeService.getOrder(acmeProfileName, orderId, getRequestUri(), false);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT, operation = Operation.ACME_FINALIZE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.ACME_ORDER,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ACCOUNT,
+            operation = Operation.ACME_FINALIZE)
     public ResponseEntity<Order> finalizeOrder(String acmeProfileName, @LogResource(name = true) String orderId,
             String jwsBody) throws AcmeProblemDocumentException, ConnectorException, JsonProcessingException,
             CertificateException, AlreadyExistException {
@@ -125,14 +139,16 @@ public class AcmeControllerImpl implements AcmeController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.CERTIFICATE, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, operation = Operation.DOWNLOAD)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.CERTIFICATE,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_ORDER, operation = Operation.DOWNLOAD)
     public ResponseEntity<Resource> downloadCertificate(String acmeProfileName, String certificateId)
             throws NotFoundException, CertificateException {
         return acmeService.downloadCertificate(acmeProfileName, certificateId, getRequestUri(), false);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.CERTIFICATE, affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.REVOKE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = com.otilm.api.model.core.auth.Resource.CERTIFICATE,
+            affiliatedResource = com.otilm.api.model.core.auth.Resource.ACME_PROFILE, operation = Operation.REVOKE)
     public ResponseEntity<?> revokeCertificate(@LogResource(name = true, affiliated = true) String acmeProfileName,
             String jwsBody) throws AcmeProblemDocumentException, ConnectorException, CertificateException {
         return acmeService.revokeCertificate(acmeProfileName, jwsBody, getRequestUri(), false);

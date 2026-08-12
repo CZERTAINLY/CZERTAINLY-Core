@@ -20,8 +20,8 @@ import lombok.ToString;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "notification_recipient", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"notification_uuid", "user_uuid"})})
+@Table(name = "notification_recipient",
+        uniqueConstraints = {@UniqueConstraint(columnNames = {"notification_uuid", "user_uuid"})})
 public class NotificationRecipient extends UniquelyIdentified {
 
     @Column(name = "notification_uuid", nullable = false)

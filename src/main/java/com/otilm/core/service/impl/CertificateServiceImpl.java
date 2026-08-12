@@ -548,7 +548,8 @@ public class CertificateServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST,
+            parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
     public CertificateResponseDto listCertificates(SecurityFilter filter, CertificateSearchRequestDto request) {
         setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
@@ -954,7 +955,8 @@ public class CertificateServiceImpl
 
     @Async
     @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE,
+            parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void bulkUpdateCertificatesObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request)
             throws NotSupportedException {
@@ -1022,7 +1024,8 @@ public class CertificateServiceImpl
 
     @Override
     @Async
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE,
+            parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request)
             throws NotSupportedException {
@@ -1282,7 +1285,8 @@ public class CertificateServiceImpl
     }
 
     @Override
-    @Cacheable(value = CacheConfig.CERTIFICATE_CHAIN_CACHE, key = "#certificateUuid + '_' + #withEndCertificate", sync = true)
+    @Cacheable(value = CacheConfig.CERTIFICATE_CHAIN_CACHE, key = "#certificateUuid + '_' + #withEndCertificate",
+            sync = true)
     public List<X509Certificate> getCertificateChainForSigning(UUID certificateUuid, boolean withEndCertificate)
             throws CertificateException {
         List<String> contents = certificateRepository
@@ -1824,7 +1828,9 @@ public class CertificateServiceImpl
     // transaction is still clean, so it can record a shaped reason and commit it -- from a runtime one, which has
     // already marked the transaction rollback-only. Spring's default happens to agree, but the caller's correctness
     // should not rest on a default that a class-level rollbackFor could silently reverse.
-    @Transactional(noRollbackFor = {NoSuchAlgorithmException.class, CertificateEncodingException.class,
+    @Transactional(noRollbackFor = {
+            NoSuchAlgorithmException.class,
+            CertificateEncodingException.class,
             NotFoundException.class})
     public DiscoveredCertificateImport createDiscoveredCertificateAtomic(X509Certificate certificate)
             throws NoSuchAlgorithmException, CertificateEncodingException, NotFoundException {
@@ -2075,7 +2081,8 @@ public class CertificateServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST,
+            parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
     public Long statisticsCertificateCount(SecurityFilter filter, boolean includeArchived) {
         setupSecurityFilter(filter);
         if (includeArchived) {
@@ -2087,7 +2094,8 @@ public class CertificateServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST,
+            parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
     public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto, boolean includeArchived) {
         setupSecurityFilter(filter);
 
@@ -2695,7 +2703,8 @@ public class CertificateServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST,
+            parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled) {
         setupSecurityFilter(filter);
         List<Certificate> certificates = certificateRepository
@@ -2705,7 +2714,8 @@ public class CertificateServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST,
+            parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter) {
         setupSecurityFilter(filter);
 
@@ -2717,7 +2727,8 @@ public class CertificateServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST,
+            parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public List<CertificateDto> listDigitalSigningCertificates(SecurityFilter filter,
             SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp) {
         setupSecurityFilter(filter);

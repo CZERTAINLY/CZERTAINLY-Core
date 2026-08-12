@@ -82,7 +82,8 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_RULE, operation = Operation.ADD)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            affiliatedResource = Resource.COMPLIANCE_RULE, operation = Operation.ADD)
     public ComplianceProfileRuleDto addRule(@LogResource(uuid = true) String uuid,
             ComplianceRuleAdditionRequestDto request)
             throws AlreadyExistException, NotFoundException, ValidationException, ConnectorException {
@@ -90,7 +91,8 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_RULE, operation = Operation.REMOVE)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            affiliatedResource = Resource.COMPLIANCE_RULE, operation = Operation.REMOVE)
     public void removeRule(@LogResource(uuid = true) String uuid, ComplianceRuleDeletionRequestDto request)
             throws NotFoundException, ConnectorException {
         complianceProfileService.removeRule(SecuredUUID.fromString(uuid), request);
@@ -104,14 +106,16 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.ADD)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.ADD)
     public void addGroup(@LogResource(uuid = true) String uuid, ComplianceGroupRequestDto request)
             throws AlreadyExistException, NotFoundException, ConnectorException {
         complianceProfileService.addGroup(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.REMOVE)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.REMOVE)
     public void removeGroup(@LogResource(uuid = true) String uuid, ComplianceGroupRequestDto request)
             throws NotFoundException, ConnectorException {
         complianceProfileService.removeGroup(SecuredUUID.fromString(uuid), request);
@@ -124,7 +128,8 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
     public List<SimplifiedRaProfileDto> getAssociatedRAProfiles(@LogResource(uuid = true) String uuid)
             throws NotFoundException {
         return complianceProfileService.getAssociatedRAProfiles(SecuredUUID.fromString(uuid));
@@ -145,21 +150,24 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.ASSOCIATE)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.ASSOCIATE)
     public void associateProfiles(@LogResource(uuid = true) String uuid, RaProfileAssociationRequestDto raProfiles)
             throws NotFoundException, AlreadyExistException {
         complianceProfileService.associateProfile(SecuredUUID.fromString(uuid), raProfiles);
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.DISASSOCIATE)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.DISASSOCIATE)
     public void disassociateProfiles(@LogResource(uuid = true) String uuid, RaProfileAssociationRequestDto raProfiles)
             throws NotFoundException {
         complianceProfileService.disassociateProfile(SecuredUUID.fromString(uuid), raProfiles);
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            operation = Operation.CHECK_COMPLIANCE)
     public void checkCompliance(@LogResource(uuid = true) List<String> uuids) throws NotFoundException {
         complianceProfileService.checkCompliance(SecuredUUID.fromList(uuids));
     }

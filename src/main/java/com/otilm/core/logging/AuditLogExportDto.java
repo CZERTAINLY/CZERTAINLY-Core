@@ -13,9 +13,27 @@ import java.util.UUID;
 import lombok.Builder;
 
 @Builder
-@JsonPropertyOrder({"id", "version", "loggedAt", "timestamp", "module", "operation", "operationResult", "resource",
-        "resourceObjects", "affiliatedResource", "affiliatedObjects", "actorType", "actorAuthMethod", "actorUuid",
-        "actorName", "ipAddress", "userAgent", "message", "operationData", "additionalData"})
+@JsonPropertyOrder({
+        "id",
+        "version",
+        "loggedAt",
+        "timestamp",
+        "module",
+        "operation",
+        "operationResult",
+        "resource",
+        "resourceObjects",
+        "affiliatedResource",
+        "affiliatedObjects",
+        "actorType",
+        "actorAuthMethod",
+        "actorUuid",
+        "actorName",
+        "ipAddress",
+        "userAgent",
+        "message",
+        "operationData",
+        "additionalData"})
 public record AuditLogExportDto(long id, String version, OffsetDateTime loggedAt, OffsetDateTime timestamp,
         Module module, Resource resource, String resourceObjects, Resource affiliatedResource, String affiliatedObjects,
         ActorType actorType, AuthMethod actorAuthMethod, UUID actorUuid, String actorName, String ipAddress,

@@ -32,7 +32,8 @@ public interface CrlRepository extends SecurityFilterRepository<Crl, Long> {
             :#{#crl.crlIssuerDn}, :#{#crl.crlNumber}, :#{#crl.nextUpdate}, :#{#crl.crlNumberDelta}, :#{#crl.nextUpdateDelta}, :#{#crl.lastRevocationDate})
             ON CONFLICT (issuer_dn, serial_number)
             DO NOTHING
-            """, nativeQuery = true)
+            """,
+            nativeQuery = true)
     void insertWithIssuerConflictResolve(@Param("crl") Crl crl);
 
     @Modifying

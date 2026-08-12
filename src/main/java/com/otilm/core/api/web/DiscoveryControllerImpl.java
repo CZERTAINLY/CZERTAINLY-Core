@@ -70,7 +70,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, affiliatedResource = Resource.CERTIFICATE, operation = Operation.LIST)
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, affiliatedResource = Resource.CERTIFICATE,
+            operation = Operation.LIST)
     public DiscoveryCertificateResponseDto getDiscoveryCertificates(@LogResource(uuid = true) String uuid,
             Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException {
         return discoveryService
@@ -94,7 +95,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    @AuditLogged(module = Module.SCHEDULER, resource = Resource.SCHEDULED_JOB, affiliatedResource = Resource.DISCOVERY, operation = Operation.SCHEDULE)
+    @AuditLogged(module = Module.SCHEDULER, resource = Resource.SCHEDULED_JOB, affiliatedResource = Resource.DISCOVERY,
+            operation = Operation.SCHEDULE)
     public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto)
             throws SchedulerException, ConnectorException, AlreadyExistException, AttributeException,
             NotFoundException {
@@ -137,7 +139,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.DISCOVERY, operation = Operation.LIST)
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.DISCOVERY,
+            operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return discoveryService.getSearchableFieldInformationByGroup();
     }

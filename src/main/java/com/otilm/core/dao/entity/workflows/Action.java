@@ -43,7 +43,8 @@ public class Action extends UniquelyIdentified {
     private Resource resource;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "action_2_execution", joinColumns = @JoinColumn(name = "action_uuid"), inverseJoinColumns = @JoinColumn(name = "execution_uuid"))
+    @JoinTable(name = "action_2_execution", joinColumns = @JoinColumn(name = "action_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "execution_uuid"))
     @ToString.Exclude
     private Set<Execution> executions;
 

@@ -125,7 +125,8 @@ public class TspProfileServiceImpl implements TspProfileExternalService, TspProf
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.LIST,
+            parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.DETAIL)
     @Transactional(readOnly = true)
     public SecuredList<TspProfile> listTspProfilesUsingSigningProfileAsDefault(SecuredUUID signingProfileUuid,
             SecurityFilter filter) {

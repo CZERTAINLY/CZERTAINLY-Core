@@ -41,12 +41,14 @@ public class NotificationInstanceMappedAttributes extends UniquelyIdentified
     private String mappingAttributeName;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "notification_instance_ref_uuid", referencedColumnName = "uuid", insertable = false, updatable = false)
+    @JoinColumn(name = "notification_instance_ref_uuid", referencedColumnName = "uuid", insertable = false,
+            updatable = false)
     @ToString.Exclude
     private NotificationInstanceReference notificationInstanceReference;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "attribute_definition_uuid", referencedColumnName = "uuid", insertable = false, updatable = false)
+    @JoinColumn(name = "attribute_definition_uuid", referencedColumnName = "uuid", insertable = false,
+            updatable = false)
     @ToString.Exclude
     private AttributeDefinition attributeDefinition;
 

@@ -152,7 +152,8 @@ public class CryptographicOperationServiceImpl
     // ----------------------------------------------------------------------------------------------
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     @Transactional
     public List<BaseAttribute> listCipherAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid,
             UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException, NotFoundException {
@@ -164,7 +165,8 @@ public class CryptographicOperationServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENCRYPT, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENCRYPT,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     @Transactional
     public EncryptDataResponseDto encryptData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid,
             UUID uuid, UUID keyItemUuid, CipherDataRequestDto request) throws ConnectorException, NotFoundException {
@@ -219,7 +221,8 @@ public class CryptographicOperationServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DECRYPT, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DECRYPT,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     @Transactional
     public DecryptDataResponseDto decryptData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid,
             UUID uuid, UUID keyItemUuid, CipherDataRequestDto request) throws ConnectorException, NotFoundException {
@@ -274,7 +277,8 @@ public class CryptographicOperationServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     @Transactional
     public List<BaseAttribute> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm)
@@ -289,7 +293,8 @@ public class CryptographicOperationServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.SIGN, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.SIGN,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     @Transactional
     public SignDataResponseDto signData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid,
             UUID keyItemUuid, SignDataRequestDto request) throws ConnectorException, NotFoundException {
@@ -311,7 +316,8 @@ public class CryptographicOperationServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.SIGN, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.SIGN,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public SignDataResponseDto signDataWithoutEventHistory(SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, SignDataRequestDto request)
             throws ConnectorException, NotFoundException {
@@ -362,7 +368,8 @@ public class CryptographicOperationServiceImpl
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.VERIFY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.VERIFY,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     @Transactional
     public VerifyDataResponseDto verifyData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid,
             UUID uuid, UUID keyItemUuid, VerifyDataRequestDto request) throws ConnectorException, NotFoundException {

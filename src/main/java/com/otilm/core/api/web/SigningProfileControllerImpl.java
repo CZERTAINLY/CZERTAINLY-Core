@@ -176,7 +176,8 @@ public class SigningProfileControllerImpl implements SigningProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.DEACTIVATE_PROTOCOL)
+    @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE,
+            operation = Operation.DEACTIVATE_PROTOCOL)
     public void deactivateTsp(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
         signingProfileService.deactivateTsp(SecuredUUID.fromUUID(uuid));
     }

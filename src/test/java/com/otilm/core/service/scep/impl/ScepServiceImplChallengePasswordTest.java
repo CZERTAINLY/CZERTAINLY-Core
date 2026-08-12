@@ -50,8 +50,9 @@ class ScepServiceImplChallengePasswordTest {
      * guide) are commonly configured to send on renewal. A password carrying a value is accepted only when it matches.
      */
     @ParameterizedTest(name = "request password [{0}], authenticated renewal {1}")
-    @CsvSource(nullValues = "NULL", value = {"mysecretpassword, false", // matches PROFILE_PASSWORD on an initial
-                                                                        // enrollment
+    @CsvSource(nullValues = "NULL", value = {
+            "mysecretpassword, false", // matches PROFILE_PASSWORD on an initial
+                                       // enrollment
             "NULL,             true", // renewal omits the attribute
             "'',               true" // renewal sends the attribute empty
     })
@@ -67,7 +68,8 @@ class ScepServiceImplChallengePasswordTest {
      * required.
      */
     @ParameterizedTest(name = "request password [{0}], authenticated renewal {1}")
-    @CsvSource(nullValues = "NULL", value = {"wrong, false", // wrong password on an initial enrollment
+    @CsvSource(nullValues = "NULL", value = {
+            "wrong, false", // wrong password on an initial enrollment
             "wrong, true", // wrong password on an otherwise authenticated renewal
             "'',    false" // empty attribute where the shared secret is required
     })

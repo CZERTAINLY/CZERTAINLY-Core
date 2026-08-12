@@ -58,12 +58,27 @@ public interface CertificateRepository
 
     Certificate findFirstByUuidIn(List<UUID> uuids);
 
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey",
-            "altKey.items", "raProfile"})
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "key",
+            "key.items",
+            "groups",
+            "owner",
+            "altKey",
+            "altKey.items",
+            "raProfile"})
     Optional<Certificate> findWithAssociationsByUuid(UUID uuid);
 
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey",
-            "altKey.items", "raProfile", "raProfile.authorityInstanceReference",
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "key",
+            "key.items",
+            "groups",
+            "owner",
+            "altKey",
+            "altKey.items",
+            "raProfile",
+            "raProfile.authorityInstanceReference",
             "raProfile.authorityInstanceReference.connectorInterface",
             "raProfile.authorityInstanceReference.connector"})
     Optional<Certificate> findWithAuthorityAssociationsByUuid(UUID uuid);
@@ -73,7 +88,10 @@ public interface CertificateRepository
      * to the connector), so every association the listener touches must be eagerly loaded here to avoid
      * {@link org.hibernate.LazyInitializationException}.
      */
-    @EntityGraph(attributePaths = {"certificateContent", "raProfile", "raProfile.authorityInstanceReference",
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "raProfile",
+            "raProfile.authorityInstanceReference",
             "raProfile.authorityInstanceReference.connectorInterface",
             "raProfile.authorityInstanceReference.connector"})
     Optional<Certificate> findForPollingByUuid(UUID uuid);
@@ -84,14 +102,29 @@ public interface CertificateRepository
      * called inside an active transaction, otherwise the lock is released immediately on query completion.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey",
-            "altKey.items", "raProfile", "raProfile.authorityInstanceReference",
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "key",
+            "key.items",
+            "groups",
+            "owner",
+            "altKey",
+            "altKey.items",
+            "raProfile",
+            "raProfile.authorityInstanceReference",
             "raProfile.authorityInstanceReference.connectorInterface",
             "raProfile.authorityInstanceReference.connector"})
     Optional<Certificate> findAndLockWithAssociationsByUuid(UUID uuid);
 
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey",
-            "altKey.items", "raProfile"})
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "key",
+            "key.items",
+            "groups",
+            "owner",
+            "altKey",
+            "altKey.items",
+            "raProfile"})
     List<Certificate> findWithAssociationsByUuidInOrderByCreatedDesc(List<UUID> uuids);
 
     /** Fetches a single certificate with all associations required by {@link Certificate#mapToChainDto()}. */
@@ -353,7 +386,8 @@ public interface CertificateRepository
             )
             ON CONFLICT (fingerprint)
             DO NOTHING
-            """, nativeQuery = true)
+            """,
+            nativeQuery = true)
     Integer insertWithFingerprintConflictResolve(@Param("cert") Certificate certificate);
 
     @Query("""

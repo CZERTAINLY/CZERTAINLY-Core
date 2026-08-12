@@ -58,8 +58,11 @@ public class SigningRecord extends UniquelyIdentifiedAndAudited implements Secur
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumns(value = {
-            @JoinColumn(name = "signing_profile_uuid", referencedColumnName = "signing_profile_uuid", insertable = false, updatable = false),
-            @JoinColumn(name = "signing_profile_version", referencedColumnName = "version", insertable = false, updatable = false)}, foreignKey = @ForeignKey(name = "fk_signing_record_profile_version"))
+            @JoinColumn(name = "signing_profile_uuid", referencedColumnName = "signing_profile_uuid",
+                    insertable = false, updatable = false),
+            @JoinColumn(name = "signing_profile_version", referencedColumnName = "version", insertable = false,
+                    updatable = false)},
+            foreignKey = @ForeignKey(name = "fk_signing_record_profile_version"))
     @ToString.Exclude
     private SigningProfileVersion signingProfileVersionEntity;
 

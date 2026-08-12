@@ -118,7 +118,8 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.ACME_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.UPDATE_PROTOCOL_ISSUE_PROFILE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.ACME_PROFILE, affiliatedResource = Resource.RA_PROFILE,
+            operation = Operation.UPDATE_PROTOCOL_ISSUE_PROFILE)
     public void updateRaProfile(@LogResource(uuid = true) String uuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws NotFoundException {
         acmeProfileService.updateRaProfile(SecuredUUID.fromString(uuid), raProfileUuid);

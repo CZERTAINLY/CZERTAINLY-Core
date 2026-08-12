@@ -58,7 +58,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.CREATE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.CREATE)
     public ResponseEntity<?> createRaProfile(@LogResource(uuid = true, affiliated = true) String authorityUuid,
             AddRaProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException,
             AttributeException, NotFoundException {
@@ -74,7 +75,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.DETAIL)
     public RaProfileDto getRaProfile(@LogResource(uuid = true, affiliated = true) String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {
         return raProfileService
@@ -88,7 +90,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.UPDATE)
     public RaProfileDto editRaProfile(@LogResource(uuid = true, affiliated = true) String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid, EditRaProfileRequestDto request)
             throws ConnectorException, AttributeException, NotFoundException {
@@ -98,7 +101,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.UPDATE)
     public RaProfileDto updateRaProfileValidationConfiguration(String authorityUuid, String raProfileUuid,
             RaProfileCertificateValidationSettingsUpdateDto request) throws NotFoundException {
         return raProfileService
@@ -107,7 +111,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.UPDATE)
     public RaProfileDto updateRaProfileRequestAttributesConfiguration(String authorityUuid, String raProfileUuid,
             RaProfileCertificateRequestAttributesUpdateDto request) throws NotFoundException {
         return raProfileService
@@ -116,7 +121,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.DELETE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.DELETE)
     public void deleteRaProfile(@LogResource(uuid = true, affiliated = true) String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {
         raProfileService
@@ -130,7 +136,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.DISABLE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.DISABLE)
     public void disableRaProfile(@LogResource(uuid = true, affiliated = true) String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {
         raProfileService
@@ -138,7 +145,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.ENABLE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.ENABLE)
     public void enableRaProfile(@LogResource(uuid = true, affiliated = true) String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {
         raProfileService
@@ -165,7 +173,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.ACME_PROFILE, operation = Operation.GET_PROTOCOL_INFO)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.ACME_PROFILE, operation = Operation.GET_PROTOCOL_INFO)
     public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {
         return raProfileService
@@ -174,7 +183,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.ACME_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.ACME_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
     public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid,
             @LogResource(uuid = true, affiliated = true) String acmeProfileUuid,
@@ -186,7 +196,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.ACME_PROFILE, operation = Operation.DEACTIVATE_PROTOCOL)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.ACME_PROFILE, operation = Operation.DEACTIVATE_PROTOCOL)
     public void deactivateAcmeForRaProfile(String authorityUuid, @LogResource(uuid = true) String raProfileUuid)
             throws NotFoundException {
         raProfileService
@@ -195,7 +206,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.GET_PROTOCOL_INFO)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.GET_PROTOCOL_INFO)
     public RaProfileScepDetailResponseDto getScepForRaProfile(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {
         return raProfileService
@@ -204,7 +216,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
     public RaProfileScepDetailResponseDto activateScepForRaProfile(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid,
             @LogResource(uuid = true, affiliated = true) String scepProfileUuid,
@@ -216,7 +229,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.DEACTIVATE_PROTOCOL)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.DEACTIVATE_PROTOCOL)
     public void deactivateScepForRaProfile(String authorityUuid, @LogResource(uuid = true) String raProfileUuid)
             throws NotFoundException {
         raProfileService
@@ -225,7 +239,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.GET_PROTOCOL_INFO)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.CMP_PROFILE, operation = Operation.GET_PROTOCOL_INFO)
     public RaProfileCmpDetailResponseDto getCmpForRaProfile(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {
         return raProfileService
@@ -233,7 +248,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.CMP_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
     public RaProfileCmpDetailResponseDto activateCmpForRaProfile(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid,
             @LogResource(uuid = true, affiliated = true) String cmpProfileUuid,
@@ -245,7 +261,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.DEACTIVATE_PROTOCOL)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.CMP_PROFILE, operation = Operation.DEACTIVATE_PROTOCOL)
     public void deactivateCmpForRaProfile(String authorityUuid, @LogResource(uuid = true) String raProfileUuid)
             throws NotFoundException {
         raProfileService
@@ -260,21 +277,24 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.COMPLIANCE_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.COMPLIANCE_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
     public List<SimplifiedComplianceProfileDto> getAssociatedComplianceProfiles(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {
         return raProfileService.getComplianceProfiles(authorityUuid, raProfileUuid, SecurityFilter.create());
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.APPROVAL_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.APPROVAL_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
     public List<ApprovalProfileDto> getAssociatedApprovalProfiles(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {
         return raProfileService.getAssociatedApprovalProfiles(authorityUuid, raProfileUuid, SecurityFilter.create());
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.APPROVAL_PROFILE, operation = Operation.ASSOCIATE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.APPROVAL_PROFILE, operation = Operation.ASSOCIATE)
     public void associateRAProfileWithApprovalProfile(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid,
             @LogResource(uuid = true, affiliated = true) String approvalProfileUuid) throws NotFoundException {
@@ -283,7 +303,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.APPROVAL_PROFILE, operation = Operation.DISASSOCIATE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE,
+            affiliatedResource = Resource.APPROVAL_PROFILE, operation = Operation.DISASSOCIATE)
     public void disassociateRAProfileFromApprovalProfile(String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid,
             @LogResource(uuid = true, affiliated = true) String approvalProfileUuid) throws NotFoundException {
@@ -292,7 +313,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.GET_CHAIN)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.GET_CHAIN)
     public List<CertificateDetailDto> getAuthorityCertificateChain(
             @LogResource(uuid = true, affiliated = true) String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws ConnectorException, NotFoundException {
@@ -302,7 +324,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listRevokeCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid)
             throws ConnectorException, NotFoundException {
@@ -312,7 +335,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listIssueCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid)
             throws ConnectorException, NotFoundException {

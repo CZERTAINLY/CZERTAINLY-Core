@@ -275,7 +275,8 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST,
+            parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
     public PaginationResponseDto<SecretDto> listSecrets(SearchRequestDto searchRequest, SecurityFilter securityFilter) {
         TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb,
                 cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, searchRequest.getFilters());
@@ -302,7 +303,8 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.CREATE, parentResource = Resource.VAULT,
+            parentAction = ResourceAction.DETAIL)
     public SecretDetailDto createSecret(SecretRequestDto secretRequest, SecuredParentUUID sourceVaultProfileUuid,
             SecuredUUID vaultInstanceUuid) throws NotFoundException, AttributeException, AlreadyExistException {
         if (secretRepository.existsByName(secretRequest.getName())) {
@@ -379,7 +381,8 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
         return secretDetailDto;
     }
 
-    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.CREATE, parentResource = Resource.VAULT,
+            parentAction = ResourceAction.DETAIL)
     private void checkCreateSecretPermissions(SecuredParentUUID vaultInstanceUuid, SecuredUUID sourceVaultProfileUuid) {
         // empty to evaluate permissions
     }
@@ -1138,7 +1141,8 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST,
+            parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
             PaginationRequestDto pagination) {
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
@@ -1215,14 +1219,16 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST,
+            parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
     public Long statisticsSecretCount(SecurityFilter filter) {
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
         return secretRepository.countUsingSecurityFilter(filter, null);
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST, parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.LIST,
+            parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
     public StatisticsDto addSecretStatistics(SecurityFilter filter, StatisticsDto dto) {
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
         long start = System.nanoTime();

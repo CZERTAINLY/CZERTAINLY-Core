@@ -58,13 +58,15 @@ public class AcmeAccountServiceImpl implements AcmeAccountExternalService, AcmeA
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.REVOKE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.REVOKE,
+            parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
     public void revokeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         revokeAccount(uuid);
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE,
+            parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
     public void enableAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
         if (!account.getStatus().equals(AccountStatus.VALID)) {
@@ -75,7 +77,8 @@ public class AcmeAccountServiceImpl implements AcmeAccountExternalService, AcmeA
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE,
+            parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
     public void disableAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
         if (!account.getStatus().equals(AccountStatus.VALID)) {
@@ -135,7 +138,8 @@ public class AcmeAccountServiceImpl implements AcmeAccountExternalService, AcmeA
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.LIST, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.LIST,
+            parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.LIST)
     public List<AcmeAccountListResponseDto> listAcmeAccounts(SecurityFilter filter) {
         filter.setParentRefProperty("acmeProfileUuid");
         return acmeAccountRepository
@@ -146,7 +150,8 @@ public class AcmeAccountServiceImpl implements AcmeAccountExternalService, AcmeA
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DETAIL, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DETAIL,
+            parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
     public AcmeAccountResponseDto getAcmeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid)
             throws NotFoundException {
         AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);

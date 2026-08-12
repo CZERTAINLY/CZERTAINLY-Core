@@ -74,13 +74,15 @@ public class RoleManagementControllerImpl implements RoleManagementController {
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, affiliatedResource = Resource.USER, operation = Operation.LIST)
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, affiliatedResource = Resource.USER,
+            operation = Operation.LIST)
     public List<UserDto> getRoleUsers(@LogResource(uuid = true) String roleUuid) throws NotFoundException {
         return roleManagementService.getRoleUsers(roleUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, affiliatedResource = Resource.USER, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, affiliatedResource = Resource.USER,
+            operation = Operation.UPDATE)
     public RoleDetailDto updateUsers(@LogResource(uuid = true) String roleUuid,
             @LogResource(uuid = true, affiliated = true) List<String> userUuids) throws NotFoundException {
         return roleManagementService.updateUsers(roleUuid, userUuids);

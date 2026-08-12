@@ -36,7 +36,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
-@TestPropertySource(properties = {WireMockPorts.AUTH_SERVICE_URL_PROPERTY, WireMockPorts.SCHEDULER_URL_PROPERTY,
+@TestPropertySource(properties = {
+        WireMockPorts.AUTH_SERVICE_URL_PROPERTY,
+        WireMockPorts.SCHEDULER_URL_PROPERTY,
         WireMockPorts.PROVISIONING_API_URL_PROPERTY})
 @TestExecutionListeners(value = MockBeanResetListener.class, mergeMode = MergeMode.MERGE_WITH_DEFAULTS)
 public class BaseSpringBootTest {

@@ -164,10 +164,11 @@ class CrlInsertVsValidateITest extends BaseSpringBootTest {
 
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(issuer, serial, start, end, subject,
                 eeKeyPair.getPublic());
-        DistributionPoint[] dps = new DistributionPoint[]{new DistributionPoint(
-                new DistributionPointName(new GeneralNames(
-                        new GeneralName(GeneralName.uniformResourceIdentifier, new DERIA5String(crlUrl)))),
-                null, null)};
+        DistributionPoint[] dps = new DistributionPoint[]{
+                new DistributionPoint(
+                        new DistributionPointName(new GeneralNames(
+                                new GeneralName(GeneralName.uniformResourceIdentifier, new DERIA5String(crlUrl)))),
+                        null, null)};
         builder.addExtension(Extension.cRLDistributionPoints, false, new CRLDistPoint(dps));
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA").build(caKeyPair.getPrivate());

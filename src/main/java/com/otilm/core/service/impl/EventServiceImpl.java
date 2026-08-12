@@ -121,8 +121,11 @@ public class EventServiceImpl implements EventExternalService {
                 .countStatsByEventHistoryUuids(eventHistoryUuids)
                 .stream()
                 .collect(Collectors
-                        .toMap(row -> (UUID) row[0], row -> new int[]{((Number) row[1]).intValue(),
-                                ((Number) row[2]).intValue(), ((Number) row[3]).intValue()}));
+                        .toMap(row -> (UUID) row[0],
+                                row -> new int[]{
+                                        ((Number) row[1]).intValue(),
+                                        ((Number) row[2]).intValue(),
+                                        ((Number) row[3]).intValue()}));
 
         // Batch 2: paginated object UUIDs for all event histories in one window-function query
         int objectsPageNumber = request.getObjectsPagination().getPageNumber();

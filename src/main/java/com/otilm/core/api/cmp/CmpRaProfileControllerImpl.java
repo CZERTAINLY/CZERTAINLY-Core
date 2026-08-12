@@ -33,7 +33,8 @@ public class CmpRaProfileControllerImpl implements CmpRaProfileController {
      * @throws CmpBaseException - http get is not allowed
      */
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.UNKNOWN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE,
+            operation = Operation.UNKNOWN)
     public ResponseEntity<byte[]> doGet(String raProfileName, byte[] request) throws CmpBaseException {
         throw new CmpProcessingException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
     }
@@ -47,7 +48,8 @@ public class CmpRaProfileControllerImpl implements CmpRaProfileController {
      * @throws CmpBaseException if any error has been raised
      */
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.UNKNOWN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE,
+            operation = Operation.UNKNOWN)
     public ResponseEntity<byte[]> doPost(String raProfileName, byte[] request) throws CmpBaseException {
         return cmpService.handlePost(raProfileName, request);
     }
