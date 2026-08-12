@@ -6,13 +6,25 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.common.attribute.common.AttributeContent;
 import com.otilm.api.model.common.attribute.common.AttributeType;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
+import com.otilm.api.model.core.logging.enums.ActorType;
+import com.otilm.api.model.core.logging.enums.AuthMethod;
+import com.otilm.api.model.core.logging.enums.Module;
+import com.otilm.api.model.core.logging.enums.Operation;
+import com.otilm.api.model.core.logging.enums.OperationResult;
+import com.otilm.api.model.core.logging.records.ActorRecord;
+import com.otilm.api.model.core.logging.records.LogRecord;
+import com.otilm.api.model.core.logging.records.ResourceRecord;
+import com.otilm.api.model.core.logging.records.SourceRecord;
 import com.otilm.core.dao.converter.ObjectToJsonConverter;
 import com.otilm.core.model.compliance.ComplianceResultDto;
 import java.lang.reflect.Type;
@@ -175,6 +187,65 @@ class JsonColumnGoldenTest {
         assertThat(converter.convertToDatabaseColumn(readBack))
                 .describedAs("a stored value must survive a load-and-save cycle byte-identically")
                 .isEqualTo(persisted);
+    }
+
+    /**
+     * Backs {@code AuditLog.logRecord}. A {@code record} rather than a bean, so Jackson binds through the canonical
+     * constructor, and its {@code operationData} is a bare {@code Serializable} with no target type.
+     */
+    @Test
+    void auditLogRecordColumnKeepsItsShapeAndRoundTrips() {
+        LogRecord logRecord = LogRecord
+                .builder()
+                .version("1.0")
+                .audited(true)
+                .module(Module.CERTIFICATES)
+                .actor(ActorRecord
+                        .builder()
+                        .type(ActorType.USER)
+                        .authMethod(AuthMethod.CERTIFICATE)
+                        .uuid(UUID.fromString("5e2d8b41-0000-4000-8000-000000000001"))
+                        .name("operator")
+                        .build())
+                .source(SourceRecord
+                        .builder()
+                        .method("POST")
+                        .path("/v1/certificates")
+                        .contentType("application/json")
+                        .ipAddress("192.0.2.10")
+                        .userAgent("platform-test")
+                        .build())
+                .resource(new ResourceRecord(Resource.CERTIFICATE,
+                        UUID.fromString("5e2d8b41-0000-4000-8000-000000000002"), "issued certificate"))
+                .operation(Operation.ISSUE)
+                .operationResult(OperationResult.SUCCESS)
+                .message("Certificate issued")
+                .timestamp(FIXED_TIMESTAMP)
+                .build();
+
+        assertColumnGoldenAndRoundTrip("column-log-record", logRecord, LogRecord.class);
+
+        assertThat(column(logRecord, LogRecord.class))
+                .describedAs("the record's @JsonFormat pattern must keep winning over the mapper's date handling")
+                .contains("\"timestamp\":\"2026-01-15T09:30:00.123Z\"");
+    }
+
+    /**
+     * Backs {@code AttributeDefinition.definition}, declared {@code BaseAttribute}. The declared supertype does not
+     * cancel {@code BaseAttribute}'s {@code @JsonSerialize(using = BaseAttributeSerializer.class)}, so every stored
+     * definition goes through the hand-written serializer.
+     */
+    @Test
+    void attributeDefinitionColumnKeepsItsShapeAndRoundTrips() {
+        DataAttributeV3 definition = new DataAttributeV3();
+        definition.setUuid("3a8f61d2-0000-4000-8000-000000000003");
+        definition.setName("keyUsage");
+        definition.setDescription("Key usage requested for the certificate");
+        definition.setType(AttributeType.DATA);
+        definition.setContentType(AttributeContentType.STRING);
+        definition.setContent(List.of(new StringAttributeContentV3("ref-usage", "digitalSignature")));
+
+        assertColumnGoldenAndRoundTrip("column-attribute-definition", definition, BaseAttribute.class);
     }
 
     /** Compares a column payload against its golden and requires it to survive a load-and-save cycle. */

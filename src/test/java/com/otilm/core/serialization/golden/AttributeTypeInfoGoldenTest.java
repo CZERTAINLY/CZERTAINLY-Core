@@ -1,9 +1,22 @@
 package com.otilm.core.serialization.golden;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.api.model.client.connector.v2.ConnectorInfo;
+import com.otilm.api.model.client.connector.v2.ConnectorInterface;
+import com.otilm.api.model.client.connector.v2.ConnectorInterfaceInfo;
+import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.constraint.AttributeConstraintType;
+import com.otilm.api.model.common.attribute.common.constraint.BaseAttributeConstraint;
+import com.otilm.api.model.common.attribute.common.constraint.DateTimeAttributeConstraint;
+import com.otilm.api.model.common.attribute.common.constraint.RangeAttributeConstraint;
+import com.otilm.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
+import com.otilm.api.model.common.attribute.common.constraint.data.DateTimeAttributeConstraintData;
+import com.otilm.api.model.common.attribute.common.constraint.data.RangeAttributeConstraintData;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.CodeBlockAttributeContentData;
 import com.otilm.api.model.common.attribute.common.content.data.FileAttributeContentData;
@@ -13,6 +26,11 @@ import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.GroupAttributeV2;
 import com.otilm.api.model.common.attribute.v2.InfoAttributeV2;
 import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
+import com.otilm.api.model.common.attribute.v3.GroupAttributeV3;
+import com.otilm.api.model.common.attribute.v3.InfoAttributeV3;
+import com.otilm.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.BooleanAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.CodeBlockAttributeContentV3;
@@ -30,12 +48,33 @@ import com.otilm.api.model.common.attribute.v3.content.data.ResourceCertificateC
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSecretContentData;
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSimpleContentData;
+import com.otilm.api.model.common.attribute.v3.mapping.ExtensionMappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.FieldSource;
+import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
+import com.otilm.api.model.common.attribute.v3.mapping.MappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.SanMappedField;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.KeyFormat;
+import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.connector.cryptography.key.KeyData;
+import com.otilm.api.model.connector.cryptography.key.value.KeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.PrkiKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.RawKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.SpkiKeyValue;
 import com.otilm.api.model.core.auth.AttributeResource;
+import com.otilm.api.model.core.certificate.GeneralNameType;
+import com.otilm.api.model.core.connector.v2.ConnectInfo;
+import com.otilm.api.model.core.connector.v2.ConnectInfoV1;
+import com.otilm.api.model.core.connector.v2.ConnectInfoV2;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,13 +82,15 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * Pins every polymorphic {@code @JsonTypeInfo} hierarchy: the discriminator's property name, emitted value and
  * placement are three independently breakable wire contracts shared with ~40 connector repositories.
  * <p>
- * All the hierarchies here use {@code As.EXISTING_PROPERTY} with {@code visible = true}, so a document that loses its
- * discriminator deserializes to the {@code defaultImpl} instead of failing.
+ * Most hierarchies use {@code As.EXISTING_PROPERTY} with a {@code defaultImpl}, so a document that loses its
+ * discriminator deserializes to the default instead of failing. {@code MappedField} declares no {@code defaultImpl} and
+ * {@code KeyData.value} uses {@code As.EXTERNAL_PROPERTY}; both are pinned explicitly.
  */
 class AttributeTypeInfoGoldenTest {
 
@@ -262,6 +303,273 @@ class AttributeTypeInfoGoldenTest {
                 .describedAs("the hand-written serializer leads with 'type' and 'version', the bean serializer "
                         + "follows declaration order")
                 .startsWith("name", "version", "type");
+    }
+
+    /** One golden per {@code BaseAttributeV3} subtype, the v3 counterpart of the hierarchy above. */
+    @ParameterizedTest(name = "type discriminator: {0}")
+    @MethodSource("attributeV3Subtypes")
+    void baseAttributeV3SubtypeKeepsItsDiscriminator(String attributeTypeCode, Object attribute) {
+        String golden = "attribute-v3-" + attributeTypeCode.toLowerCase();
+
+        GoldenJson.assertMatchesGolden(golden, mapper, attribute);
+
+        assertDiscriminator(attribute, "type", attributeTypeCode);
+        assertResolvesBackToItsOwnSubtype(attribute);
+    }
+
+    /**
+     * Only {@code GroupAttributeV3} and {@code InfoAttributeV3} extend {@code BaseAttributeV3}; the other three
+     * registered subtypes descend from {@code BaseAttribute} instead, so reading through {@code BaseAttributeV3} would
+     * fail for them.
+     */
+    private static Stream<Arguments> attributeV3Subtypes() {
+        DataAttributeV3 data = new DataAttributeV3();
+        data.setUuid("2c9e5f11-0000-4000-8000-000000000001");
+        data.setName("dataAttribute");
+        data.setDescription("A v3 data attribute");
+        data.setType(AttributeType.DATA);
+        data.setContentType(AttributeContentType.STRING);
+        data.setContent(List.of(new StringAttributeContentV3("ref-data", "a v3 data value")));
+
+        GroupAttributeV3 group = new GroupAttributeV3();
+        group.setUuid("2c9e5f11-0000-4000-8000-000000000002");
+        group.setName("groupAttribute");
+        group.setDescription("A v3 group attribute");
+        group.setType(AttributeType.GROUP);
+
+        InfoAttributeV3 info = new InfoAttributeV3();
+        info.setUuid("2c9e5f11-0000-4000-8000-000000000003");
+        info.setName("infoAttribute");
+        info.setDescription("A v3 info attribute");
+        info.setType(AttributeType.INFO);
+        info.setContentType(AttributeContentType.STRING);
+        info.setContent(List.of(new StringAttributeContentV3("ref-info", "a v3 info value")));
+
+        MetadataAttributeV3 metadata = new MetadataAttributeV3();
+        metadata.setUuid("2c9e5f11-0000-4000-8000-000000000004");
+        metadata.setName("metadataAttribute");
+        metadata.setDescription("A v3 metadata attribute");
+        metadata.setType(AttributeType.META);
+        metadata.setContentType(AttributeContentType.STRING);
+        metadata.setContent(List.of(new StringAttributeContentV3("ref-meta", "a v3 metadata value")));
+
+        CustomAttributeV3 custom = new CustomAttributeV3();
+        custom.setUuid("2c9e5f11-0000-4000-8000-000000000005");
+        custom.setName("customAttribute");
+        custom.setDescription("A v3 custom attribute");
+        custom.setType(AttributeType.CUSTOM);
+        custom.setContentType(AttributeContentType.STRING);
+        custom.setContent(List.of(new StringAttributeContentV3("ref-custom", "a v3 custom value")));
+
+        return Stream
+                .of(Arguments.of(AttributeType.DATA.getCode(), data),
+                        Arguments.of(AttributeType.GROUP.getCode(), group),
+                        Arguments.of(AttributeType.INFO.getCode(), info),
+                        Arguments.of(AttributeType.META.getCode(), metadata),
+                        Arguments.of(AttributeType.CUSTOM.getCode(), custom));
+    }
+
+    /**
+     * One golden per {@code BaseAttributeConstraint} subtype. Each redeclares {@code data} at a concrete type, so the
+     * discriminator is what tells a reader how to interpret it.
+     */
+    @ParameterizedTest(name = "type discriminator: {1}")
+    @MethodSource("attributeConstraintSubtypes")
+    void attributeConstraintSubtypeKeepsItsDiscriminator(String goldenSuffix, String constraintTypeCode,
+            BaseAttributeConstraint<?> constraint) {
+        String golden = "attribute-constraint-" + goldenSuffix;
+
+        GoldenJson.assertMatchesGoldenAndRoundTrips(golden, mapper, constraint, BaseAttributeConstraint.class);
+
+        assertDiscriminator(constraint, "type", constraintTypeCode);
+    }
+
+    private static Stream<Arguments> attributeConstraintSubtypes() {
+        RangeAttributeConstraintData range = new RangeAttributeConstraintData();
+        range.setFrom(1);
+        range.setTo(64);
+
+        DateTimeAttributeConstraintData dateTimeRange = new DateTimeAttributeConstraintData();
+        dateTimeRange.setFrom(LocalDateTime.of(2026, Month.JANUARY, 15, 9, 30));
+        dateTimeRange.setTo(LocalDateTime.of(2026, Month.APRIL, 15, 9, 30));
+
+        return Stream
+                .of(Arguments
+                        .of("regexp", AttributeConstraintType.REGEXP.getCode(),
+                                new RegexpAttributeConstraint("Alphanumeric only", "Value must be alphanumeric",
+                                        "^[a-zA-Z0-9]+$")),
+                        Arguments
+                                .of("range", AttributeConstraintType.RANGE.getCode(),
+                                        new RangeAttributeConstraint("Key length bounds",
+                                                "Value must be between 1 and 64", range)),
+                        Arguments
+                                .of("datetime", AttributeConstraintType.DATETIME.getCode(),
+                                        new DateTimeAttributeConstraint("Validity window",
+                                                "Value must fall inside the validity window", dateTimeRange)));
+    }
+
+    /**
+     * One golden per {@code MappedField} subtype. Alone among these hierarchies it declares no {@code defaultImpl}, so
+     * a document that loses {@code fieldType} fails rather than becoming another subtype.
+     */
+    @ParameterizedTest(name = "fieldType discriminator: {1}")
+    @MethodSource("mappedFieldSubtypes")
+    void mappedFieldSubtypeKeepsItsDiscriminator(String goldenSuffix, String fieldTypeCode, MappedField field) {
+        String golden = "mapped-field-" + goldenSuffix;
+
+        GoldenJson.assertMatchesGoldenAndRoundTrips(golden, mapper, field, MappedField.class);
+
+        assertDiscriminator(field, "fieldType", fieldTypeCode);
+    }
+
+    private static Stream<Arguments> mappedFieldSubtypes() {
+        RdnMappedField rdn = new RdnMappedField();
+        rdn.setFieldType(FieldType.RDN);
+        rdn.setOrder(1);
+        rdn.setSource(FieldSource.CSR);
+        rdn.setRdn("CN");
+
+        SanMappedField san = new SanMappedField();
+        san.setFieldType(FieldType.SAN);
+        san.setOrder(2);
+        san.setSource(FieldSource.CSR_THEN_PLATFORM);
+        san.setGeneralNameType(GeneralNameType.DNS);
+
+        ExtensionMappedField extension = new ExtensionMappedField();
+        extension.setFieldType(FieldType.EXTENSION);
+        extension.setOrder(3);
+        extension.setSource(FieldSource.PLATFORM);
+        extension.setExtensionOid("2.5.29.17");
+        extension.setCriticalOverridable(true);
+
+        return Stream
+                .of(Arguments.of("rdn", FieldType.RDN.getCode(), rdn),
+                        Arguments.of("san", FieldType.SAN.getCode(), san),
+                        Arguments.of("extension", FieldType.EXTENSION.getCode(), extension));
+    }
+
+    /** A {@code MappedField} without its discriminator has no default to fall back to and must be rejected. */
+    @Test
+    void mappedFieldWithoutItsDiscriminatorIsRejectedRatherThanDefaulted() {
+        assertThatExceptionOfType(JsonProcessingException.class)
+                .describedAs("MappedField declares no defaultImpl, so a document missing 'fieldType' must fail rather "
+                        + "than resolve to an arbitrary subtype")
+                .isThrownBy(() -> mapper.readValue("{\"order\":1,\"rdn\":\"CN\"}", MappedField.class));
+    }
+
+    /**
+     * One golden per {@code ConnectInfo} subtype. The discriminator is the connector protocol {@code version}, so a
+     * shape change here makes the platform read a v1 connector's capabilities as a v2's.
+     */
+    @ParameterizedTest(name = "version discriminator: {1}")
+    @MethodSource("connectInfoSubtypes")
+    void connectInfoSubtypeKeepsItsDiscriminator(String goldenSuffix, String versionCode, ConnectInfo connectInfo) {
+        String golden = "connect-info-" + goldenSuffix;
+
+        GoldenJson.assertMatchesGoldenAndRoundTrips(golden, mapper, connectInfo, ConnectInfo.class);
+
+        assertDiscriminator(connectInfo, "version", versionCode);
+    }
+
+    private static Stream<Arguments> connectInfoSubtypes() {
+        ConnectInfoV1 v1 = new ConnectInfoV1();
+        v1.setConnectorUuid(UUID.fromString("9d3b7c58-0000-4000-8000-000000000001"));
+
+        ConnectorInfo connector = new ConnectorInfo();
+        connector.setId("authority-connector");
+        connector.setName("Authority Connector");
+        connector.setVersion("2.0.0");
+        connector.setDescription("A v2 connector");
+
+        ConnectInfoV2 v2 = new ConnectInfoV2();
+        v2.setConnectorUuid(UUID.fromString("9d3b7c58-0000-4000-8000-000000000002"));
+        v2.setConnector(connector);
+        v2.setInterfaces(List.of(new ConnectorInterfaceInfo(ConnectorInterface.AUTHORITY, "2.0.0", List.of())));
+
+        return Stream
+                .of(Arguments.of("v1", ConnectorVersion.V1.getCode(), v1),
+                        Arguments.of("v2", ConnectorVersion.V2.getCode(), v2));
+    }
+
+    /**
+     * {@code KeyData.value} is the platform's only {@code As.EXTERNAL_PROPERTY} hierarchy: the {@code format}
+     * discriminator sits beside the typed member rather than inside it.
+     */
+    @ParameterizedTest(name = "format discriminator: {1}")
+    @MethodSource("keyDataFormats")
+    void keyDataKeepsItsExternalPropertyDiscriminatorBesideTheValue(String goldenSuffix, String formatCode,
+            KeyData keyData) {
+        String golden = "key-data-" + goldenSuffix;
+
+        GoldenJson.assertMatchesGoldenAndRoundTrips(golden, mapper, keyData, KeyData.class);
+
+        JsonNode tree = mapper.valueToTree(keyData);
+        assertThat(tree.path("format").asText())
+                .describedAs("the format discriminator must stay a sibling of 'value'")
+                .isEqualTo(formatCode);
+        assertThat(tree.path("value").has("format"))
+                .describedAs("an EXTERNAL_PROPERTY discriminator must not appear inside the typed value; moving it "
+                        + "there changes the wire contract for every connector exchanging keys")
+                .isFalse();
+    }
+
+    private static Stream<Arguments> keyDataFormats() {
+        return Stream
+                .of(Arguments
+                        .of("raw", KeyFormat.RAW.getCode(),
+                                keyData(KeyType.SECRET_KEY, KeyAlgorithm.RSA, KeyFormat.RAW,
+                                        new RawKeyValue("cmF3LWtleS1ieXRlcw=="), 2048)),
+                        Arguments
+                                .of("spki", KeyFormat.SPKI.getCode(),
+                                        keyData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, KeyFormat.SPKI,
+                                                new SpkiKeyValue("c3BraS1rZXktYnl0ZXM="), 2048)),
+                        Arguments
+                                .of("prki", KeyFormat.PRKI.getCode(), keyData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA,
+                                        KeyFormat.PRKI, new PrkiKeyValue("cHJraS1rZXktYnl0ZXM="), 256)));
+    }
+
+    private static KeyData keyData(KeyType type, KeyAlgorithm algorithm, KeyFormat format, KeyValue value, int length) {
+        KeyData keyData = new KeyData();
+        keyData.setType(type);
+        keyData.setAlgorithm(algorithm);
+        keyData.setFormat(format);
+        keyData.setValue(value);
+        keyData.setLength(length);
+        return keyData;
+    }
+
+    /** A present {@code value} with no {@code format} beside it is rejected whatever the mapper is configured to do. */
+    @Test
+    void keyDataValueWithoutItsExternalDiscriminatorIsRejected() {
+        assertThatExceptionOfType(JsonProcessingException.class)
+                .describedAs("a present key value with no 'format' beside it must fail rather than bind to an "
+                        + "arbitrary key encoding")
+                .isThrownBy(() -> mapper
+                        .readValue("{\"type\":\"Public\",\"algorithm\":\"RSA\",\"length\":2048,"
+                                + "\"value\":{\"value\":\"c3BraS1rZXktYnl0ZXM=\"}}", KeyData.class));
+    }
+
+    /**
+     * A {@code format} with no {@code value} — a key stripped of its material — is accepted only because
+     * {@code WebAppConfig} disables {@code FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY}. Jackson's default rejects it.
+     */
+    @Test
+    void keyDataFormatWithoutItsValueIsAcceptedOnlyBecauseTheWireMapperOptsOut() throws Exception {
+        String metadataOnly = "{\"type\":\"Public\",\"algorithm\":\"RSA\",\"length\":2048,"
+                + "\"format\":\"SubjectPublicKeyInfo\"}";
+
+        KeyData parsed = mapper.readValue(metadataOnly, KeyData.class);
+        assertThat(parsed.getFormat())
+                .describedAs("the wire mapper keeps the declared format even with no key material beside it")
+                .isEqualTo(KeyFormat.SPKI);
+        assertThat(parsed.getValue()).isNull();
+
+        ObjectMapper jacksonDefault = new ObjectMapper()
+                .enable(DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY);
+        assertThatExceptionOfType(JsonProcessingException.class)
+                .describedAs("Jackson's default rejects it; re-enabling the feature during the migration would break "
+                        + "every stripped-key payload the platform accepts today")
+                .isThrownBy(() -> jacksonDefault.readValue(metadataOnly, KeyData.class));
     }
 
     /** Reads the tree rather than substring-matching, so placement is asserted too. */

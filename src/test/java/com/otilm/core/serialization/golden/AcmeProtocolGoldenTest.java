@@ -17,6 +17,7 @@ import com.otilm.api.model.core.acme.Order;
 import com.otilm.api.model.core.acme.OrderStatus;
 import com.otilm.api.model.core.acme.Problem;
 import com.otilm.api.model.core.acme.ProblemDocument;
+import com.otilm.core.util.AcmeJsonProcessor;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -127,17 +128,16 @@ class AcmeProtocolGoldenTest {
     }
 
     /**
-     * Jackson's default {@code FAIL_ON_UNKNOWN_PROPERTIES} turns an ACME client adding a member into a parse failure —
-     * an interoperability constraint on an externally-facing parser, and the kind of default a major version revisits.
+     * Jackson's default {@code FAIL_ON_UNKNOWN_PROPERTIES} turns an ACME client adding a member into a parse failure.
+     * Driven through {@code generalBodyJsonParser} so the assertion follows production's own call.
      */
     @Test
-    void inboundJwsEnvelopeMapperRejectsUnknownMembers() {
-        ObjectMapper envelopeMapper = GoldenMappers.acmeJwsEnvelope();
-
+    void inboundJwsEnvelopeParserRejectsUnknownMembers() {
         assertThatExceptionOfType(UnrecognizedPropertyException.class)
                 .describedAs("the inbound envelope parser rejects an undeclared member rather than ignoring it")
-                .isThrownBy(() -> envelopeMapper
-                        .readValue("{\"type\":\"dns\",\"value\":\"host.example.com\",\"unknownMember\":\"x\"}",
+                .isThrownBy(() -> AcmeJsonProcessor
+                        .generalBodyJsonParser(
+                                "{\"type\":\"dns\",\"value\":\"host.example.com\"," + "\"unknownMember\":\"x\"}",
                                 Identifier.class));
     }
 
