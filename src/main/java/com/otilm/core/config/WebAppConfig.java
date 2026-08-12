@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.otilm.api.config.converter.IPlatformEnumConverterFactory;
 import com.otilm.api.model.client.dashboard.SigningRecordStatisticsPeriod;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.core.oid.OidCategory;
@@ -73,6 +74,9 @@ public class WebAppConfig implements WebMvcConfigurer {
 
     @Override
     public void addFormatters(FormatterRegistry registry) {
+        // Binds IPlatformEnum-typed request/path parameters by wire code (e.g. "certificates", "keys"),
+        // never by Java enum member name -- the discovery controller's {resource} segment relies on it.
+        registry.addConverterFactory(new IPlatformEnumConverterFactory());
         registry.addConverter(new Converter<String, LocalDate>() {
             @Override
             public LocalDate convert(String source) {

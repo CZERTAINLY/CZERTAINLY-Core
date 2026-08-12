@@ -4,6 +4,7 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.NotSupportedException;
 import com.otilm.api.exception.SchedulerException;
 import com.otilm.api.interfaces.core.web.DiscoveryController;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
@@ -35,12 +36,10 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
@@ -154,13 +153,12 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     /*
      * Discovery v2, not implemented yet. These seven exist because DiscoveryController declares them abstract, so this
      * class does not compile without them; they answer 501 rather than nothing, so a caller reaching one gets an answer
-     * it can act on. OmniTrustILM/core#1964 replaces every one.
+     * it can act on.
      *
      * Deliberately carrying neither @AuditLogged nor authorization annotations: there is no operation to audit and no
      * resource to check while the body does nothing. Authentication still applies -- SecurityConfig authenticates every
-     * request -- but the resource-level authorization these need, and the action catalogue AuthResourceSynchronizer
-     * pushes for them, belong to #1964 along with the behaviour. The checked exceptions stay on the signatures so
-     * filling them in later does not change the contract.
+     * request -- and the resource-level authorization these need arrives with the real implementations. The checked
+     * exceptions stay on the signatures so filling them in later does not change the contract.
      */
 
     @Override
@@ -201,9 +199,11 @@ public class DiscoveryControllerImpl implements DiscoveryController {
         throw notImplemented();
     }
 
-    private static ResponseStatusException notImplemented() {
-        return new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,
-                "Discovery v2 is not implemented by this deployment yet");
+    // NotSupportedException, not ResponseStatusException: the global ExceptionHandlingAdvice catches every
+    // Exception into a 500 before Spring's response-status resolver runs, so only an exception with its own
+    // dedicated handler reaches the wire with the intended status -- NotSupportedException maps to 501 there.
+    private static NotSupportedException notImplemented() {
+        return new NotSupportedException("Discovery v2 is not implemented by this deployment yet");
     }
 
 }

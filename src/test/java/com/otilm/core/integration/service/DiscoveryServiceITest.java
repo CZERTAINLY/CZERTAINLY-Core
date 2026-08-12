@@ -126,9 +126,9 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListDiscoveries() {
-        final DiscoveryResponseDto discoveryHistoryDTO = discoveryService
+        final DiscoveryResponseDto discoveryResponseDto = discoveryService
                 .listDiscoveries(SecurityFilter.create(), new SearchRequestDto());
-        final List<DiscoveryListDto> discoveries = discoveryHistoryDTO.getDiscoveries();
+        final List<DiscoveryListDto> discoveries = discoveryResponseDto.getDiscoveries();
         Assertions.assertNotNull(discoveries);
         Assertions.assertFalse(discoveries.isEmpty());
         Assertions.assertEquals(1, discoveries.size());
