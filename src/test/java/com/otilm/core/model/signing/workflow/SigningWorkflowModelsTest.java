@@ -28,25 +28,25 @@ class SigningWorkflowModelsTest {
     }
 
     @Test
-    void managedContentSigningWorkflow_reportsContentSigningType_andExposesFields() {
+    void managedDocumentSigningWorkflow_reportsDocumentSigningType_andExposesFields() {
         UUID connectorUuid = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         List<RequestAttribute> attrs = List.of();
 
-        ManagedContentSigningWorkflow wf = new ManagedContentSigningWorkflow(connectorUuid, attrs);
+        ManagedDocumentSigningWorkflow wf = new ManagedDocumentSigningWorkflow(connectorUuid, attrs);
 
-        assertEquals(SigningWorkflowType.CONTENT_SIGNING, wf.getWorkflowType());
+        assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, wf.getWorkflowType());
         assertEquals(connectorUuid, wf.signatureFormattingConnectorUuid());
         assertNotNull(wf.signatureFormattingConnectorAttributes());
-        assertInstanceOf(ContentSigningWorkflow.class, wf);
+        assertInstanceOf(DocumentSigningWorkflow.class, wf);
         assertInstanceOf(SigningWorkflow.class, wf);
     }
 
     @Test
-    void delegatedContentSigningWorkflow_reportsContentSigningType() {
-        DelegatedContentSigningWorkflow wf = new DelegatedContentSigningWorkflow();
+    void delegatedDocumentSigningWorkflow_reportsDocumentSigningType() {
+        DelegatedDocumentSigningWorkflow wf = new DelegatedDocumentSigningWorkflow();
 
-        assertEquals(SigningWorkflowType.CONTENT_SIGNING, wf.getWorkflowType());
-        assertInstanceOf(ContentSigningWorkflow.class, wf);
+        assertEquals(SigningWorkflowType.DOCUMENT_SIGNING, wf.getWorkflowType());
+        assertInstanceOf(DocumentSigningWorkflow.class, wf);
         assertInstanceOf(SigningWorkflow.class, wf);
     }
 

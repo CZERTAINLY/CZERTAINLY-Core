@@ -12,7 +12,7 @@ import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
  * time.
  * </p>
  */
-public sealed interface SigningWorkflow permits TimestampingWorkflow, ContentSigningWorkflow, RawSigningWorkflow {
+public sealed interface SigningWorkflow permits TimestampingWorkflow, DocumentSigningWorkflow, RawSigningWorkflow {
 
     SigningWorkflowType getWorkflowType();
 }

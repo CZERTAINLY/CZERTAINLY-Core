@@ -485,7 +485,7 @@ public class CertificateTestData {
 
                         // 2. ECDSA cert, token profile present, non-TSP workflow → accepted
                         Arguments
-                                .of("ECDSA Cert CONTENT_SIGNING",
+                                .of("ECDSA Cert DOCUMENT_SIGNING",
                                         List
                                                 .of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.ECDSA,
                                                         List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
@@ -493,11 +493,11 @@ public class CertificateTestData {
                                                 .of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA,
                                                         List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                                         CertificateState.ISSUED, CertificateValidationStatus.VALID, false, true, true,
-                                        List.of(), false, SigningWorkflowType.CONTENT_SIGNING, false, null, true),
+                                        List.of(), false, SigningWorkflowType.DOCUMENT_SIGNING, false, null, true),
 
-                        // 3. Expiring cert, token profile present, CONTENT_SIGNING → accepted
+                        // 3. Expiring cert, token profile present, DOCUMENT_SIGNING → accepted
                         Arguments
-                                .of("Expiring Cert CONTENT_SIGNING",
+                                .of("Expiring Cert DOCUMENT_SIGNING",
                                         List
                                                 .of(new KeyItemData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA,
                                                         List.of(KeyUsage.VERIFY), KeyState.ACTIVE)),
@@ -505,7 +505,8 @@ public class CertificateTestData {
                                                 .of(new KeyItemData(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA,
                                                         List.of(KeyUsage.SIGN), KeyState.ACTIVE)),
                                         CertificateState.ISSUED, CertificateValidationStatus.EXPIRING, false, true,
-                                        true, List.of(), false, SigningWorkflowType.CONTENT_SIGNING, false, null, true),
+                                        true, List.of(), false, SigningWorkflowType.DOCUMENT_SIGNING, false, null,
+                                        true),
 
                         // 4. Falcon cert, token profile present, RAW_SIGNING → accepted
                         Arguments
