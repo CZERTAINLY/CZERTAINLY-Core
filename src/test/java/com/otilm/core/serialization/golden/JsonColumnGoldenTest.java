@@ -28,12 +28,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins the JSON written into the platform's {@code jsonb} columns — the longest blast radius here. No schema migration
- * guards them, because Hibernate hands the value straight to a JSON mapper, so the JSON mapping <i>is</i> the schema:
- * rows written before a shape change keep the old shape and the mismatch surfaces only when an unlucky read hits one.
+ * Pins the JSON written into the platform's {@code jsonb} columns. No schema migration guards them, so the JSON mapping
+ * <i>is</i> the schema: rows written before a shape change keep the old shape.
  * <p>
- * Columns are <b>not</b> serialized by the wire mapper — see {@link GoldenMappers#hibernateJson()}. The one exception
- * is {@link ObjectToJsonConverter}, a JPA {@code AttributeConverter} that genuinely injects the Spring bean.
+ * Columns are <b>not</b> serialized by the wire mapper — see {@link GoldenMappers#hibernateJson()}.
+ * {@link ObjectToJsonConverter} is the one exception, a JPA {@code AttributeConverter} injecting the Spring bean.
  */
 class JsonColumnGoldenTest {
 
@@ -45,9 +44,8 @@ class JsonColumnGoldenTest {
     private final ObjectMapper webMapper = GoldenMappers.web();
 
     /**
-     * The divergence itself, pinned as a test rather than left as a comment. This is what fails first if someone
-     * "fixes" the missing {@code HibernatePropertiesCustomizer} without regenerating the column goldens — a change
-     * worth making deliberately, since it rewrites the shape of every row written afterwards.
+     * Fails first if someone "fixes" the missing {@code HibernatePropertiesCustomizer} without regenerating the column
+     * goldens, which would rewrite the shape of every row written afterwards.
      */
     @Test
     void columnMapperAndWireMapperDisagreeAboutNullInclusion() {
@@ -67,8 +65,7 @@ class JsonColumnGoldenTest {
     /**
      * Backs {@code Certificate.complianceResult}, {@code Secret.complianceResult},
      * {@code CryptographicKeyItem.complianceResult} and {@code CertificateRequestEntity.complianceResult}. Its
-     * {@code timestamp} carries an explicit {@code @JsonFormat} pattern, which decides the rendering regardless of
-     * which mapper writes it.
+     * {@code timestamp} carries an explicit {@code @JsonFormat} pattern, which outranks the mapper's date handling.
      */
     @Test
     void complianceResultColumnKeepsItsShapeAndRoundTrips() {
@@ -86,9 +83,9 @@ class JsonColumnGoldenTest {
 
     /**
      * Backs {@code Certificate.pendingRevokeAttributes}, {@code Secret2SyncVaultProfile.secretAttributes},
-     * {@code ComplianceProfileRule.attributes} and {@code ProtocolCertificateAssociations.customAttributes}. Stored
-     * polymorphically with a {@code defaultImpl} of {@code RequestAttributeV2}, so a stored V3 attribute that lost its
-     * {@code version} discriminator would come back as V2 rather than fail, quietly downgrading persisted data.
+     * {@code ComplianceProfileRule.attributes} and {@code ProtocolCertificateAssociations.customAttributes}. The
+     * {@code defaultImpl} of {@code RequestAttributeV2} means a stored V3 attribute that lost its {@code version}
+     * discriminator comes back as V2 rather than failing, quietly downgrading persisted data.
      */
     @Test
     void requestAttributeListColumnKeepsItsShapeAndRoundTrips() {
@@ -103,12 +100,10 @@ class JsonColumnGoldenTest {
     }
 
     /**
-     * Backs {@code DiscoveryCertificate.meta}, declared {@code List<MetadataAttribute>}. That declared type is an
-     * abstract intermediate which does not cancel {@code BaseAttribute}'s
-     * {@code @JsonSerialize(using = BaseAttributeSerializer.class)}, so the column is written by the hand-written
-     * serializer rather than the bean serializer: it drops {@code schemaVersion} and writes an explicit
-     * {@code properties} null. Baselining this from the concrete class instead would pin a shape production never
-     * writes.
+     * Backs {@code DiscoveryCertificate.meta}, declared {@code List<MetadataAttribute>}. That abstract intermediate
+     * does not cancel {@code BaseAttribute}'s {@code @JsonSerialize(using = BaseAttributeSerializer.class)}, so the
+     * column goes through the hand-written serializer, which drops {@code schemaVersion} and writes a
+     * {@code properties} null.
      */
     @Test
     void metadataAttributeListColumnKeepsItsShapeAndRoundTrips() {
@@ -134,10 +129,8 @@ class JsonColumnGoldenTest {
     }
 
     /**
-     * Pins the branch inside {@code AttributeContentDeserializer}, which runs on every read of
-     * {@code AttributeContentItem.json} and picks between the v2 and v3 content models by one rule: whether a
-     * {@code contentType} property is present and non-null. No discriminator or subtype resolution is involved, so a
-     * stored v3 content whose {@code contentType} stopped being written would silently come back as v2.
+     * Pins the branch in {@code AttributeContentDeserializer}, which picks the v2 or v3 content model purely from
+     * whether {@code contentType} is present. A stored v3 content that lost it silently comes back as v2.
      */
     @Test
     void attributeContentDeserializerStillPicksTheContentModelFromContentTypePresence() {
@@ -157,9 +150,8 @@ class JsonColumnGoldenTest {
      * {@link ObjectToJsonConverter} backs {@code Approval.objectData}, {@code ScheduledJob.objectData},
      * {@code ConditionItem.value} and {@code ExecutionItem.data}, and is the one column path using the wire mapper.
      * <p>
-     * It writes an untyped {@code Object} and reads it back as {@code Serializable}, so no target type guides
-     * deserialization and the result is whatever Jackson's default binding produces — a map, not the original class.
-     * The converter intentionally reads back untyped; Jackson 3 changes default binding in this exact area.
+     * It reads back as {@code Serializable}, so no target type guides deserialization and the value returns as a map.
+     * Jackson 3 changes default binding in this exact area.
      */
     @Test
     void objectToJsonConverterKeepsItsUntypedColumnShapeAcrossTheSerializableReadBack() {
@@ -185,11 +177,7 @@ class JsonColumnGoldenTest {
                 .isEqualTo(persisted);
     }
 
-    /**
-     * Compares a column payload against its golden and requires it to survive a load-and-save cycle, which is exactly
-     * what the application does to a stored row. Both comparisons ignore key order — a {@code jsonb} column does not
-     * preserve it — but nothing else.
-     */
+    /** Compares a column payload against its golden and requires it to survive a load-and-save cycle. */
     private void assertColumnGoldenAndRoundTrip(String goldenName, Object value, Type declaredType) {
         String serialized = column(value, declaredType);
         GoldenJson.assertCanonicalizedJsonMatchesGolden(goldenName, serialized);
@@ -201,9 +189,9 @@ class JsonColumnGoldenTest {
     }
 
     /**
-     * @param declaredType the type the entity field declares, which is what Hibernate hands the format mapper. Passing
-     * the runtime class instead would resolve polymorphic type information against a subtype and pin a shape production
-     * never writes.
+     * @param declaredType the entity field's declared type, which is what Hibernate hands the format mapper. The
+     * runtime class would resolve polymorphic type information against a subtype and pin a shape production never
+     * writes.
      */
     private String column(Object value, Type declaredType) {
         return columnMapper.toString(value, declaredType);

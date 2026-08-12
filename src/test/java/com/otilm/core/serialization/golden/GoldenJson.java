@@ -49,8 +49,8 @@ final class GoldenJson {
     }
 
     /**
-     * Also asserts the value survives a deserialize/re-serialize cycle unchanged, which catches a type whose write and
-     * read sides disagree — for a column, a row that mutates on every load-and-save.
+     * Also asserts the value survives a deserialize/re-serialize cycle unchanged, catching a type whose write and read
+     * sides disagree.
      *
      * @param readAs the declared type production reads the payload back as, which decides how polymorphic type
      * information is resolved
@@ -75,16 +75,11 @@ final class GoldenJson {
     }
 
     /**
-     * For JSON produced by something other than an {@link ObjectMapper} (Hibernate's {@code FormatMapper} returns a
-     * compact string), compared after canonicalization: the payload is parsed into a tree, its object keys are sorted,
-     * and it is rewritten with the pinned printer. Structure, key set, values and types are therefore pinned; key
-     * order, escape spellings, numeric spellings and duplicate keys are not. Floats are read as {@code BigDecimal} so a
-     * literal like {@code 1.5} survives the rewrite.
+     * Compares JSON produced outside an {@link ObjectMapper} (Hibernate's {@code FormatMapper} returns a compact
+     * string) after sorting object keys, so the key set and values are pinned but their order is not.
      * <p>
-     * Key order is deliberately not pinned for the two reasons that make pinning it wrong here. A {@code jsonb} column
-     * does not preserve the order Postgres was handed, so no reader can depend on it; and when the declared column type
-     * is a polymorphic base, the position of the {@code @JsonTypeInfo} discriminator property varies between JVM runs,
-     * which would make the golden flaky rather than strict.
+     * Order is unpinnable here: a {@code jsonb} column does not preserve it, and under a polymorphic declared type the
+     * {@code @JsonTypeInfo} discriminator's position varies between JVM runs.
      */
     static void assertCanonicalizedJsonMatchesGolden(String goldenName, String rawJson) {
         String actual = canonicalize(rawJson);
@@ -103,7 +98,10 @@ final class GoldenJson {
                 + "regenerating with -D" + REGENERATE_PROPERTY + "=true.";
     }
 
-    /** Canonical text for two payloads that must be equal ignoring key order — see the assertion above. */
+    /**
+     * Key-order-insensitive text for two payloads that must be equal. Floats become {@code BigDecimal} so {@code 1.5}
+     * survives the rewrite.
+     */
     static String canonicalize(String rawJson) {
         ObjectMapper reader = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
         try {
@@ -130,10 +128,7 @@ final class GoldenJson {
         return node;
     }
 
-    /**
-     * Pins the printer to {@code \n} and two-space indents; the platform default uses the system line separator, which
-     * would fail goldens on another OS for no behavioural reason.
-     */
+    /** Pins {@code \n} and two-space indents; the platform default would fail goldens on another OS. */
     private static String serialize(ObjectMapper mapper, Object value) {
         DefaultIndenter indenter = new DefaultIndenter("  ", "\n");
         DefaultPrettyPrinter printer = new DefaultPrettyPrinter();
@@ -152,7 +147,7 @@ final class GoldenJson {
         if (!Boolean.getBoolean(REGENERATE_PROPERTY)) {
             return false;
         }
-        // Regeneration asserts nothing, so on CI it would turn the baseline into a no-op that looks like success.
+        // Regeneration asserts nothing, so on CI the baseline would pass while verifying nothing.
         if (System.getenv("CI") != null) {
             throw new IllegalStateException("-D" + REGENERATE_PROPERTY + "=true must never be used on CI: it would "
                     + "rewrite the goldens instead of checking them, and the suite would pass while verifying nothing.");
@@ -190,7 +185,7 @@ final class GoldenJson {
         }
     }
 
-    /** Tolerate the trailing newline every sane editor adds and CRLF from a Windows checkout. */
+    /** Tolerate the trailing newline editors add and CRLF from a Windows checkout. */
     private static String normalize(String content) {
         return content.replace("\r\n", "\n").stripTrailing();
     }

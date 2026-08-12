@@ -24,12 +24,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
- * Pins the ACME (RFC 8555) JSON wire contract — the only JSON protocol core speaks, and one parsed strictly by
- * third-party clients (certbot, acme.sh, cert-manager) that will not upgrade in lockstep with us.
+ * Pins the ACME (RFC 8555) JSON wire contract, parsed strictly by third-party clients (certbot, acme.sh, cert-manager)
+ * that will not upgrade in lockstep with us.
  * <p>
- * These documents go out as {@code ResponseEntity} bodies, so they are serialized by the wire mapper and inherit its
- * {@code NON_NULL} inclusion — not by the bare {@code AcmeJsonProcessor} mapper, which serves only the inbound JWS
- * envelope covered below.
+ * These documents go out as {@code ResponseEntity} bodies, so the wire mapper serializes them — not the bare
+ * {@code AcmeJsonProcessor} mapper, which serves only the inbound JWS envelope covered below.
  */
 class AcmeProtocolGoldenTest {
 
@@ -116,10 +115,7 @@ class AcmeProtocolGoldenTest {
                 .startsWith("urn:ietf:params:acme:error:");
     }
 
-    /**
-     * The inbound envelope mapper applies no {@code NON_NULL} inclusion, unlike the wire mapper that serves ACME
-     * protocol documents. The two genuinely differ, so a document written by the wrong one carries the wrong shape.
-     */
+    /** The envelope mapper applies no {@code NON_NULL} inclusion, so it and the wire mapper genuinely differ. */
     @Test
     void inboundJwsEnvelopeMapperKeepsJacksonsDefaultNullInclusion() {
         assertThat(GoldenMappers.acmeJwsEnvelope().valueToTree(new DirectoryMeta()).isEmpty())
@@ -131,9 +127,8 @@ class AcmeProtocolGoldenTest {
     }
 
     /**
-     * Jackson's default {@code FAIL_ON_UNKNOWN_PROPERTIES} makes an ACME client adding a member to a payload a parse
-     * failure. That strictness is a live interoperability constraint on an externally-facing parser, and exactly the
-     * kind of default a major version revisits.
+     * Jackson's default {@code FAIL_ON_UNKNOWN_PROPERTIES} turns an ACME client adding a member into a parse failure —
+     * an interoperability constraint on an externally-facing parser, and the kind of default a major version revisits.
      */
     @Test
     void inboundJwsEnvelopeMapperRejectsUnknownMembers() {

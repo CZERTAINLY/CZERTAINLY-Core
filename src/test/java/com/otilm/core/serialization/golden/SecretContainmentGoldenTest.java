@@ -33,15 +33,13 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * Pins the serialized shapes {@link OutboundSecretContainment} depends on, and proves the guard still rejects each of
- * them. This is the one surface where a Jackson shape change is a security regression rather than a compatibility one:
- * the guard is fail-closed, but both of its checks are shape-coupled.
+ * them. Here a Jackson shape change is a security regression, because both of the guard's checks are shape-coupled:
  * <ul>
  * <li>the value-echo check compares string leaves of {@code valueToTree(response)} against recorded secret values, so a
  * secret rendered differently degrades the check into a no-op that still passes;</li>
  * <li>the recording path strips the {@code type}, {@code username} and {@code keyStoreType} keys by exact name, so a
  * discriminator rename would leave the discriminator value recorded as if it were a secret.</li>
  * </ul>
- * A test that only asserted "the guard throws" would pass through all of that, so these pin the shape as well.
  */
 class SecretContainmentGoldenTest {
 
@@ -53,7 +51,7 @@ class SecretContainmentGoldenTest {
 
     private final ObjectMapper mapper = GoldenMappers.web();
 
-    /** Driven by the very mapper the goldens use; a second instance would let the two drift apart silently. */
+    /** Shares the goldens' mapper; a second instance would let the two drift apart silently. */
     private final OutboundSecretContainment containment = new OutboundSecretContainment(mapper);
 
     @Test
@@ -83,9 +81,8 @@ class SecretContainmentGoldenTest {
     }
 
     /**
-     * {@code SecretAttributeContentV2} redeclares the {@code data} field its parent already declares. Jackson resolves
-     * the duplicate today, but a field/accessor visibility change is exactly what turns a shadowed property into a
-     * duplicated or dropped key — and this property is the secret itself.
+     * {@code SecretAttributeContentV2} redeclares the {@code data} field its parent already declares, and a
+     * field/accessor visibility change is what turns a shadowed property into a duplicated or dropped key.
      */
     @Test
     void secretAttributeContentKeepsItsShadowedDataPropertyAndIsRefused() {
@@ -114,10 +111,7 @@ class SecretContainmentGoldenTest {
                 .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(data, NOTHING_RECORDED));
     }
 
-    /**
-     * The value-echo check alone, driven through a shape the structural check does not reject: a plain string content
-     * whose value happens to be a secret expanded earlier in the call.
-     */
+    /** A plain string content whose value happens to be a secret expanded earlier in the call. */
     @Test
     void valueEchoCheckStillSeesASecretHiddenInAnOtherwiseInnocentResponse() {
         AttributeCallbackResponseDto response = echoingCallbackResponse();
@@ -129,10 +123,7 @@ class SecretContainmentGoldenTest {
                 .isThrownBy(() -> containment.assertNoExpandedSecretOutbound(response, RECORDED_SECRET));
     }
 
-    /**
-     * The negative control for the test above: without it, the echo test could pass because the guard rejects every
-     * response of this shape — precisely how a shape-coupled check fails silently.
-     */
+    /** Without this control the echo test above could pass merely because the guard rejects every response. */
     @Test
     void anEquivalentResponseWithoutTheSecretIsAllowedThrough() {
         assertThatCode(() -> containment.assertNoExpandedSecretOutbound(benignCallbackResponse(), RECORDED_SECRET))
@@ -141,10 +132,8 @@ class SecretContainmentGoldenTest {
     }
 
     /**
-     * Proves the low-entropy keys the recorder strips ({@code type}, {@code username}, {@code keyStoreType}) are still
-     * stripped by those exact names: a rename would land the discriminator value in the recorded set and every later
-     * response mentioning it would be refused as a false positive. Driven through the public request-attribute entry
-     * point, the path the v3 attribute-list endpoints take.
+     * The recorder strips {@code type}, {@code username} and {@code keyStoreType} by exact name. A rename would record
+     * the discriminator value as a secret and refuse every later response mentioning it.
      */
     @Test
     void recordingCapturesSecretLeavesButNotTheLowEntropyDiscriminatorAndUsername() {
@@ -166,17 +155,9 @@ class SecretContainmentGoldenTest {
     }
 
     /**
-     * A secret arriving as JSON is caught only by the value-echo check.
-     * <p>
-     * <b>Deserialization:</b> {@code SecretAttributeContentV2} exposes no {@code contentType}, and
-     * {@code AttributeContentDeserializer} selects the v3 model only when that property is present, so a serialized
-     * secret reads back as a plain {@code BaseAttributeContentV2} holding an untyped map.
-     * <p>
-     * <b>Containment consequence:</b> every {@code instanceof} in the structural check misses that shape, which leaves
-     * the type-independent echo scan as the only containment net for anything arriving over the wire.
-     * <p>
-     * <b>Test scope:</b> every other test here hands the guard a directly-constructed object, assuming the very thing
-     * most likely to break.
+     * {@code SecretAttributeContentV2} exposes no {@code contentType}, so a serialized secret reads back as a plain
+     * {@code BaseAttributeContentV2} that every {@code instanceof} in the structural check misses. The value-echo scan
+     * is therefore the only containment net for a secret arriving over the wire.
      */
     @Test
     void aSecretArrivingAsJsonIsCaughtByValueEchoBecauseTheStructuralCheckCannotSeeIt() throws Exception {
@@ -203,9 +184,8 @@ class SecretContainmentGoldenTest {
     }
 
     /**
-     * The same closed loop through the real callback DTO's other arm. {@code AttributeCallbackResponseDto.attributes}
-     * is declared as {@code List<BaseAttribute>}, so reading it exercises the hand-written
-     * {@code BaseAttributeDeserializer} on the exact field the guard walks.
+     * {@code AttributeCallbackResponseDto.attributes} is declared as {@code List<BaseAttribute>}, so reading it
+     * exercises the hand-written {@code BaseAttributeDeserializer} on the exact field the guard walks.
      */
     @Test
     void valueEchoCheckStillFiresOnAResponseThatWasDeserializedFromJson() throws Exception {
@@ -250,10 +230,7 @@ class SecretContainmentGoldenTest {
         return response;
     }
 
-    /**
-     * The {@code attributes} arm, which carries runtime-injected attribute definitions. Only one arm may be set, so
-     * this deliberately leaves {@code content} unset.
-     */
+    /** Sets only the {@code attributes} arm: the DTO's contract allows exactly one. */
     private static AttributeCallbackResponseDto echoingAttributesResponse() {
         return attributesResponse(SECRET_VALUE);
     }

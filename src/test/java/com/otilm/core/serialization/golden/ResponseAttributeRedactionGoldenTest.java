@@ -19,15 +19,12 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins the redaction performed by {@code ResponseAttributeSerializer}, the platform's primary secret redaction. Unlike
- * the class-level {@code @JsonSerialize} on {@code BaseAttribute} — which every concrete subclass cancels, so it binds
- * only where the declared type is an uncancelling supertype — this one is declared on the
- * {@code ResponseAttributeV2.content} <i>field</i>, so it is live on every v2 response attribute the platform emits.
+ * Pins the redaction performed by {@code ResponseAttributeSerializer}, the platform's primary secret redaction. It is
+ * declared on the {@code ResponseAttributeV2.content} <i>field</i>, so it is live on every v2 response attribute.
  * <p>
  * It nulls the {@code data} of secret content keyed on the attribute's {@code contentType}: {@code SECRET} strips
  * directly, {@code CREDENTIAL} descends into the credential's own attributes, everything else passes through. A secret
- * is therefore kept off the wire by a string comparison in hand-written Jackson 2 code — not by an annotation, and not
- * by {@code OutboundSecretContainment}, which guards a different path.
+ * is therefore kept off the wire by a string comparison in hand-written Jackson 2 code.
  */
 class ResponseAttributeRedactionGoldenTest {
 
@@ -37,8 +34,8 @@ class ResponseAttributeRedactionGoldenTest {
 
     /**
      * The {@code SECRET} branch. Two steps produce the outcome and only the first is the redaction: the serializer
-     * nulls the {@code data}, then {@code @JsonInclude(NON_NULL)} removes the key. The content entry itself survives
-     * deliberately, so consumers still learn a secret attribute exists.
+     * nulls the {@code data}, then {@code @JsonInclude(NON_NULL)} removes the key. The content entry survives so
+     * consumers still learn a secret attribute exists.
      */
     @Test
     void secretContentIsRedactedOutOfTheWireEntirely() {
@@ -61,8 +58,8 @@ class ResponseAttributeRedactionGoldenTest {
     }
 
     /**
-     * The {@code CREDENTIAL} branch, where the secret is nested inside the credential's own attribute list rather than
-     * at the top level: a rewrite handling the flat case but missing the nesting would leak.
+     * The {@code CREDENTIAL} branch, where the secret nests inside the credential's own attribute list. A rewrite
+     * handling the flat case but missing the nesting would leak.
      */
     @Test
     void secretsNestedInsideCredentialContentAreAlsoRedacted() {
@@ -93,8 +90,8 @@ class ResponseAttributeRedactionGoldenTest {
     }
 
     /**
-     * The negative control for the two above: without it, they would still pass if the serializer degenerated into
-     * nulling every content regardless of type — data loss rather than a leak, but equally worth catching.
+     * The negative control for the two above: without it they would still pass if the serializer degenerated into
+     * nulling every content regardless of type.
      */
     @Test
     void nonSecretContentPassesThroughUnredacted() {
@@ -111,9 +108,8 @@ class ResponseAttributeRedactionGoldenTest {
 
     /**
      * The serializer reads the enclosing attribute's {@code contentType} through
-     * {@code JsonGenerator.getCurrentValue()}, then null-checks it before comparing. If the upgrade broke that
-     * back-reference, {@code contentType} would read as null and every attribute — including secret-bearing ones —
-     * would take this unredacted branch.
+     * {@code JsonGenerator.getCurrentValue()}. If the upgrade broke that back-reference, every attribute — including
+     * secret-bearing ones — would take this unredacted branch.
      */
     @Test
     void aNullContentTypeTakesTheUnredactedBranchWhichIsWhyTheBackReferenceMatters() {

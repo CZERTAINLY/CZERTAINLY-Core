@@ -21,8 +21,8 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins the mapper-level rules that shape every REST DTO — null omission, date rendering, and the polymorphic attribute
- * types embedded in nearly every response — against representative carriers rather than field by field.
+ * Pins the mapper-level rules shaping every REST DTO — null omission, date rendering, and the polymorphic attribute
+ * types — against representative carriers rather than field by field.
  * <p>
  * Core defines almost no DTOs of its own; the contract layer is the published {@code interfaces} artifact, consumed by
  * ~40 connector repositories that will still be on Spring Boot 3.5 when core moves to 4.1.
@@ -32,8 +32,8 @@ class ApiContractGoldenTest {
     private final ObjectMapper mapper = GoldenMappers.web();
 
     /**
-     * {@code NON_NULL} inclusion decides whether an unset field arrives as an absent key or an explicit {@code null};
-     * connectors and the FE distinguish the two.
+     * {@code NON_NULL} inclusion decides whether an unset field arrives as an absent key or an explicit {@code null},
+     * which connectors and the FE distinguish.
      */
     @Test
     void wireMapperOmitsNullFieldsRatherThanRenderingThemExplicitly() {
@@ -71,7 +71,7 @@ class ApiContractGoldenTest {
 
     /**
      * The v2 and v3 attribute schemas coexist in live responses, so both arms of the {@code version} discriminator are
-     * pinned; a confusion between them renders in the FE as an attribute with no content.
+     * pinned. Confusing them renders in the FE as an attribute with no content.
      */
     @Test
     void responseAttributeV3KeepsItsVersionDiscriminatorAndContentShape() {

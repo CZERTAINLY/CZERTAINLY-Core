@@ -1,41 +1,36 @@
 /**
  * Golden-file JSON tests baselining Jackson 2 output ahead of the Spring Boot 4.1 / Jackson 3 migration. Jackson 3
- * changes defaults that no compiler catches — a renamed key, a dropped null, a date rendered as a number, a missing
- * polymorphic discriminator — and tests asserting on objects rather than on JSON pass straight through all of it.
+ * changes defaults no compiler catches, and tests asserting on objects rather than on JSON pass straight through them.
  *
  * <p>
  * Covered surfaces, in descending blast radius: {@code jsonb} columns, the {@code ResponseAttributeSerializer}
  * redaction, the shapes {@code OutboundSecretContainment} inspects, the {@code @JsonTypeInfo} hierarchies shared with
  * ~40 connector repositories, and the REST/ACME wire contracts.
  *
- * <h2>Hand-written serializers</h2> The {@code interfaces} library writes directly against Jackson 2 internals, so
- * these cannot survive the upgrade unmodified. Which ones actually run is not visible from the annotations:
+ * <h2>Hand-written serializers</h2> The {@code interfaces} library writes against Jackson 2 internals, and which of its
+ * serializers run is not visible from the annotations:
  * <ul>
  * <li>{@code ResponseAttributeSerializer} — live and security-critical; declared on the
  * {@code ResponseAttributeV2.content} <i>field</i>, so the subclass cancellation below does not reach it.</li>
- * <li>{@code AttributeContentDeserializer} — live; picks the v2 or v3 content model purely from whether a
- * {@code contentType} property is present.</li>
+ * <li>{@code AttributeContentDeserializer} — live; picks the v2 or v3 content model from whether {@code contentType} is
+ * present.</li>
  * <li>{@code BaseAttributeDeserializer} — live; it, not {@code @JsonSubTypes}, resolves an attribute's concrete
  * class.</li>
- * <li>{@code BaseAttributeSerializer} — live only when the declared type is one that does not cancel it. Every concrete
- * subclass re-declares a bare {@code @JsonSerialize}, so a value serialized under its own class goes through the
- * ordinary bean serializer; a value serialized under {@code BaseAttribute} or an abstract intermediate such as
- * {@code MetadataAttribute} goes through this one, which writes a different key set. {@code DiscoveryCertificate.meta}
- * is declared {@code List<MetadataAttribute>} and therefore takes the hand-written path.</li>
+ * <li>{@code BaseAttributeSerializer} — live only under a declared type that does not cancel it. Concrete subclasses
+ * cancel it with a bare {@code @JsonSerialize}; {@code BaseAttribute} and abstract intermediates such as
+ * {@code MetadataAttribute} do not, and write a different key set.</li>
  * </ul>
- * Relatedly, {@code BaseAttributeV2}'s {@code @JsonSubTypes} registrations are vestigial — none of the named classes
- * extend it, so deserializing through that type fails with an unresolvable type id.
+ * {@code BaseAttributeV2}'s {@code @JsonSubTypes} registrations are vestigial: none of the named classes extend it, so
+ * reading through that type fails with an unresolvable type id.
  *
- * <h2>When a golden fails</h2> During the migration a diff is a finding to explain, not a test to update: trace it to a
- * documented Jackson 3 behaviour change and decide deliberately before regenerating with
- * {@code -Dgolden.regenerate=true}, reviewing the regenerated diff in the PR. Outside the migration, a failure means an
- * ordinary change altered a wire or column shape.
+ * <h2>When a golden fails</h2> During the migration a diff is a finding to explain, not a test to update. Trace it to a
+ * documented Jackson 3 behaviour change before regenerating with {@code -Dgolden.regenerate=true}, and review the
+ * regenerated diff in the PR. Outside the migration it means an ordinary change altered a wire or column shape.
  *
- * <h2>Mapper parity</h2> Each golden is produced by the writer that actually serves its surface, via
- * {@code GoldenMappers} — the platform has three and they disagree, so the wrong one baselines a shape production never
- * emits. Notably, {@code jsonb} columns go through Hibernate's own mapper with Jackson's defaults (numeric timestamps,
- * nulls included), because the only {@code HibernatePropertiesCustomizer} in the repository is test-profile-only. The
- * column goldens deliberately baseline production.
+ * <h2>Mapper parity</h2> Each golden is produced by the writer serving its surface, via {@code GoldenMappers}. The
+ * platform has three and they disagree, so the wrong one baselines a shape production never emits: {@code jsonb}
+ * columns go through Hibernate's own mapper with Jackson's defaults, because the repository's only
+ * {@code HibernatePropertiesCustomizer} is test-profile-only.
  *
  * <p>
  * These are plain JUnit 5 tests with no application context, so they add nothing to {@code ContextSignatureGuardTest}.
