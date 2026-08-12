@@ -118,6 +118,40 @@ class CustomAttributeServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testListAttributesWithNullRequired() {
+        CustomAttributeV3 legacyAttribute = new CustomAttributeV3();
+        legacyAttribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba08e");
+        legacyAttribute.setName("legacyAttribute");
+        legacyAttribute.setType(AttributeType.CUSTOM);
+        legacyAttribute.setContentType(AttributeContentType.STRING);
+        CustomAttributeProperties legacyProperties = new CustomAttributeProperties();
+        legacyProperties.setLabel("LegacyAttribute");
+        legacyAttribute.setProperties(legacyProperties);
+
+        AttributeDefinition legacyDefinition = new AttributeDefinition();
+        legacyDefinition.setDefinition(legacyAttribute);
+        legacyDefinition.setName(legacyAttribute.getName());
+        legacyDefinition.setAttributeUuid(UUID.fromString(legacyAttribute.getUuid()));
+        legacyDefinition.setContentType(legacyAttribute.getContentType());
+        legacyDefinition.setType(AttributeType.CUSTOM);
+        legacyDefinition.setEnabled(true);
+        legacyDefinition.setLabel(legacyProperties.getLabel());
+        legacyDefinition.setRequired(null);
+        legacyDefinition.setProtectionLevel(ProtectionLevel.NONE);
+        attributeDefinitionRepository.save(legacyDefinition);
+
+        List<CustomAttributeDefinitionDto> attributes = attributeService
+                .listCustomAttributes(SecurityFilter.create(), null);
+        CustomAttributeDefinitionDto legacyDto = attributes
+                .stream()
+                .filter(a -> a.getUuid().equals(legacyAttribute.getUuid()))
+                .findFirst()
+                .orElseThrow();
+        Assertions.assertFalse(legacyDto.isRequired());
+        Assertions.assertEquals(ProtectionLevel.NONE, legacyDto.getProtectionLevel());
+    }
+
+    @Test
     void testGetAttribute() throws NotFoundException {
         CustomAttributeDefinitionDetailDto dto = attributeService.getCustomAttribute(definition.getUuid());
         Assertions.assertNotNull(dto);
