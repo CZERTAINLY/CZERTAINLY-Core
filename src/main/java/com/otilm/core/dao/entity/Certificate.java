@@ -206,9 +206,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited
     @Column(name = "status_validation_timestamp")
     private OffsetDateTime statusValidationTimestamp;
 
-    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY
     // orphanRemoval = true
-    )
+    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY)
     @JsonBackReference
     @ToString.Exclude
     private Set<CertificateLocation> locations = new HashSet<>();
