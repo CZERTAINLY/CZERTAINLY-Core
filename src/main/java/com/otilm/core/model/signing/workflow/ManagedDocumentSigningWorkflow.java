@@ -6,11 +6,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Content-signing workflow for ILM-managed signing.
+ * Document-signing workflow for ILM-managed signing.
  *
  * @param signatureFormattingConnectorUuid UUID of the Signature Formatting Provider.
  * @param signatureFormattingConnectorAttributes Attributes controlling DTBS construction.
  */
-public record ManagedContentSigningWorkflow(UUID signatureFormattingConnectorUuid,
-        List<RequestAttribute> signatureFormattingConnectorAttributes) implements ContentSigningWorkflow {
+public record ManagedDocumentSigningWorkflow(UUID signatureFormattingConnectorUuid,
+        List<RequestAttribute> signatureFormattingConnectorAttributes) implements DocumentSigningWorkflow {
 }

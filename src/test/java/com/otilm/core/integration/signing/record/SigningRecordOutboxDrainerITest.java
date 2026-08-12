@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The periodic trigger ({@link SigningRecordOutboxDrainScheduler}) is left disabled here — the default test profile
  * keeps {@code scheduled-tasks.enabled=false} — so every test drives {@code drainOnce()} explicitly and the
  * intermediate row counts stay deterministic.
+ * </p>
  */
 @TestPropertySource(properties = {"signing-record.outbox.max-batch-size=2", "signing-record.outbox.poison-threshold=3"})
 class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
@@ -216,7 +217,7 @@ class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
         SigningProfile profile = new SigningProfile();
         profile.setName("drainer-profile-" + System.nanoTime());
         profile.setSigningScheme(SigningScheme.MANAGED);
-        profile.setWorkflowType(SigningWorkflowType.CONTENT_SIGNING);
+        profile.setWorkflowType(SigningWorkflowType.DOCUMENT_SIGNING);
         profile.setLatestVersion(1);
         profile = profileRepo.saveAndFlush(profile);
         persistProfileVersion(profile, 1);
@@ -233,7 +234,7 @@ class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
         profileVersion.setSigningProfile(profile);
         profileVersion.setVersion(version);
         profileVersion.setSigningScheme(SigningScheme.MANAGED);
-        profileVersion.setWorkflowType(SigningWorkflowType.CONTENT_SIGNING);
+        profileVersion.setWorkflowType(SigningWorkflowType.DOCUMENT_SIGNING);
         profileVersionRepo.saveAndFlush(profileVersion);
     }
 

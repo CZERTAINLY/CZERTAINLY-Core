@@ -17,8 +17,8 @@ import com.otilm.api.model.client.signing.profile.scheme.SigningSchemeDto;
 import com.otilm.api.model.client.signing.profile.scheme.SigningSchemeRequestDto;
 import com.otilm.api.model.client.signing.profile.scheme.StaticKeyManagedSigningDto;
 import com.otilm.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
-import com.otilm.api.model.client.signing.profile.workflow.ContentSigningWorkflowDto;
-import com.otilm.api.model.client.signing.profile.workflow.ContentSigningWorkflowRequestDto;
+import com.otilm.api.model.client.signing.profile.workflow.DocumentSigningWorkflowDto;
+import com.otilm.api.model.client.signing.profile.workflow.DocumentSigningWorkflowRequestDto;
 import com.otilm.api.model.client.signing.profile.workflow.RawSigningWorkflowDto;
 import com.otilm.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
 import com.otilm.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
@@ -123,13 +123,13 @@ public class SigningProfileRequestDtoBuilder {
         return withWorkflow(new RawSigningWorkflowRequestDto());
     }
 
-    public SigningProfileRequestDtoBuilder withContentSigning(UUID signatureFormattingConnectorUuid) {
-        ContentSigningWorkflowRequestDto contentSigningWorkflow = new ContentSigningWorkflowRequestDto();
-        contentSigningWorkflow.setSignatureFormattingConnectorUuid(signatureFormattingConnectorUuid);
-        return withWorkflow(contentSigningWorkflow);
+    public SigningProfileRequestDtoBuilder withDocumentSigning(UUID signatureFormattingConnectorUuid) {
+        DocumentSigningWorkflowRequestDto documentSigningWorkflow = new DocumentSigningWorkflowRequestDto();
+        documentSigningWorkflow.setSignatureFormattingConnectorUuid(signatureFormattingConnectorUuid);
+        return withWorkflow(documentSigningWorkflow);
     }
 
-    public SigningProfileRequestDtoBuilder withContentSigning(ContentSigningWorkflowRequestDto workflow) {
+    public SigningProfileRequestDtoBuilder withDocumentSigning(DocumentSigningWorkflowRequestDto workflow) {
         return withWorkflow(workflow);
     }
 
@@ -183,8 +183,8 @@ public class SigningProfileRequestDtoBuilder {
     private static WorkflowRequestDto workflowRequestFromDto(WorkflowDto workflow) {
         return switch (workflow) {
             case RawSigningWorkflowDto ignored -> new RawSigningWorkflowRequestDto();
-            case ContentSigningWorkflowDto c -> {
-                ContentSigningWorkflowRequestDto req = new ContentSigningWorkflowRequestDto();
+            case DocumentSigningWorkflowDto c -> {
+                DocumentSigningWorkflowRequestDto req = new DocumentSigningWorkflowRequestDto();
                 if (c.getSignatureFormattingConnector() != null) {
                     req
                             .setSignatureFormattingConnectorUuid(
