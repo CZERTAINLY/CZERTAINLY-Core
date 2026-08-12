@@ -1,5 +1,5 @@
 {
-  "reference" : "ref-item",
+  "contentType" : "string",
   "data" : "stored content value",
-  "contentType" : "string"
+  "reference" : "ref-item"
 }

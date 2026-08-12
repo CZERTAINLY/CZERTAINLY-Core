@@ -1,8 +1,7 @@
 /**
- * Golden-file JSON tests baselining Jackson 2 output ahead of the Spring Boot 4.1 / Jackson 3 migration
- * (OmniTrustILM/core#1941, prep issue #1992). Jackson 3 changes defaults that no compiler catches — a renamed key, a
- * dropped null, a date rendered as a number, a missing polymorphic discriminator — and tests asserting on objects
- * rather than on JSON pass straight through all of it.
+ * Golden-file JSON tests baselining Jackson 2 output ahead of the Spring Boot 4.1 / Jackson 3 migration. Jackson 3
+ * changes defaults that no compiler catches — a renamed key, a dropped null, a date rendered as a number, a missing
+ * polymorphic discriminator — and tests asserting on objects rather than on JSON pass straight through all of it.
  *
  * <p>
  * Covered surfaces, in descending blast radius: {@code jsonb} columns, the {@code ResponseAttributeSerializer}
@@ -18,8 +17,11 @@
  * {@code contentType} property is present.</li>
  * <li>{@code BaseAttributeDeserializer} — live; it, not {@code @JsonSubTypes}, resolves an attribute's concrete
  * class.</li>
- * <li>{@code BaseAttributeSerializer} — dormant; every concrete subclass cancels it with a bare {@code @JsonSerialize},
- * and it would throw if reached for a polymorphic type.</li>
+ * <li>{@code BaseAttributeSerializer} — live only when the declared type is one that does not cancel it. Every concrete
+ * subclass re-declares a bare {@code @JsonSerialize}, so a value serialized under its own class goes through the
+ * ordinary bean serializer; a value serialized under {@code BaseAttribute} or an abstract intermediate such as
+ * {@code MetadataAttribute} goes through this one, which writes a different key set. {@code DiscoveryCertificate.meta}
+ * is declared {@code List<MetadataAttribute>} and therefore takes the hand-written path.</li>
  * </ul>
  * Relatedly, {@code BaseAttributeV2}'s {@code @JsonSubTypes} registrations are vestigial — none of the named classes
  * extend it, so deserializing through that type fails with an unresolvable type id.
@@ -32,8 +34,8 @@
  * <h2>Mapper parity</h2> Each golden is produced by the writer that actually serves its surface, via
  * {@code GoldenMappers} — the platform has three and they disagree, so the wrong one baselines a shape production never
  * emits. Notably, {@code jsonb} columns go through Hibernate's own mapper with Jackson's defaults (numeric timestamps,
- * nulls included), because the only {@code HibernatePropertiesCustomizer} in the repository is test-profile-only. That
- * gap is OmniTrustILM/core#2000; the column goldens deliberately baseline production.
+ * nulls included), because the only {@code HibernatePropertiesCustomizer} in the repository is test-profile-only. The
+ * column goldens deliberately baseline production.
  *
  * <p>
  * These are plain JUnit 5 tests with no application context, so they add nothing to {@code ContextSignatureGuardTest}.

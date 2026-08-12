@@ -246,12 +246,15 @@ class AttributeTypeInfoGoldenTest {
      * {@code @JsonSerialize(using = BaseAttributeSerializer.class)}, but every subclass re-declares a bare
      * {@code @JsonSerialize}, cancelling the inherited {@code using}.
      * <p>
-     * That makes annotation-cancellation semantics load-bearing. Were the dormant serializer to wake up, every
-     * attribute would change field order ({@code type} and {@code version} first), start carrying explicit nulls, or
-     * fail outright, since it implements no type-id handling. Field order is where the two differ most visibly.
+     * That makes annotation-cancellation semantics load-bearing, and the cancellation binds to the <i>declared</i>
+     * type: serialized under an uncancelling supertype the hand-written serializer still runs, which is what
+     * {@code DiscoveryCertificate.meta} does — see {@code JsonColumnGoldenTest}. Here the declared type is the concrete
+     * class, so the bean serializer must win: were the hand-written one to take over, every attribute would change
+     * field order ({@code type} and {@code version} first) and start carrying explicit nulls. Field order is where the
+     * two differ most visibly.
      */
     @Test
-    void concreteAttributesUseTheBeanSerializerNotTheDormantHandWrittenOne() {
+    void concreteAttributesUseTheBeanSerializerNotTheHandWrittenOne() {
         DataAttributeV2 sparse = new DataAttributeV2();
         sparse.setName("sparseAttribute");
         sparse.setType(AttributeType.DATA);

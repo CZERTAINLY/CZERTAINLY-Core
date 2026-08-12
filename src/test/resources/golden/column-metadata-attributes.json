@@ -1,18 +1,18 @@
 [
   {
-    "uuid" : "3a8f61d2-0000-4000-8000-000000000002",
-    "name" : "discoverySource",
-    "description" : "Where the certificate was discovered",
-    "version" : 3,
-    "type" : "meta",
     "content" : [
       {
-        "reference" : "ref-source",
+        "contentType" : "string",
         "data" : "network-scan",
-        "contentType" : "string"
+        "reference" : "ref-source"
       }
     ],
     "contentType" : "string",
-    "schemaVersion" : "v3"
+    "description" : "Where the certificate was discovered",
+    "name" : "discoverySource",
+    "properties" : null,
+    "type" : "meta",
+    "uuid" : "3a8f61d2-0000-4000-8000-000000000002",
+    "version" : 3
   }
 ]

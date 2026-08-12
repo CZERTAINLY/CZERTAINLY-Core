@@ -13,6 +13,7 @@ import com.otilm.api.model.common.attribute.common.content.data.SecretAttributeC
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
 import com.otilm.api.model.common.attribute.v2.content.SecretAttributeContentV2;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
@@ -165,13 +166,17 @@ class SecretContainmentGoldenTest {
     }
 
     /**
-     * A secret arriving as JSON is caught only by the value-echo check. {@code SecretAttributeContentV2} exposes no
-     * {@code contentType}, and {@code AttributeContentDeserializer} selects the v3 model only when that property is
-     * present, so a serialized secret reads back as a plain {@code BaseAttributeContentV2} holding an untyped map and
-     * every {@code instanceof} in the structural check misses it. That is current behaviour, not a regression
-     * introduced here — and it means the type-independent echo scan is the only containment net for anything arriving
-     * over the wire. Every other test here hands the guard a directly-constructed object, assuming the very thing most
-     * likely to break.
+     * A secret arriving as JSON is caught only by the value-echo check.
+     * <p>
+     * <b>Deserialization:</b> {@code SecretAttributeContentV2} exposes no {@code contentType}, and
+     * {@code AttributeContentDeserializer} selects the v3 model only when that property is present, so a serialized
+     * secret reads back as a plain {@code BaseAttributeContentV2} holding an untyped map.
+     * <p>
+     * <b>Containment consequence:</b> every {@code instanceof} in the structural check misses that shape, which leaves
+     * the type-independent echo scan as the only containment net for anything arriving over the wire.
+     * <p>
+     * <b>Test scope:</b> every other test here hands the guard a directly-constructed object, assuming the very thing
+     * most likely to break.
      */
     @Test
     void aSecretArrivingAsJsonIsCaughtByValueEchoBecauseTheStructuralCheckCannotSeeIt() throws Exception {
@@ -198,15 +203,21 @@ class SecretContainmentGoldenTest {
     }
 
     /**
-     * The same closed loop through the real callback DTO. {@code AttributeCallbackResponseDto.attributes} is declared
-     * as {@code List<BaseAttribute>}, so reading it exercises the hand-written {@code BaseAttributeDeserializer} on the
-     * exact field the guard walks.
+     * The same closed loop through the real callback DTO's other arm. {@code AttributeCallbackResponseDto.attributes}
+     * is declared as {@code List<BaseAttribute>}, so reading it exercises the hand-written
+     * {@code BaseAttributeDeserializer} on the exact field the guard walks.
      */
     @Test
     void valueEchoCheckStillFiresOnAResponseThatWasDeserializedFromJson() throws Exception {
-        String fromConnector = mapper.writeValueAsString(echoingCallbackResponse());
+        String fromConnector = mapper.writeValueAsString(echoingAttributesResponse());
 
         AttributeCallbackResponseDto deserialized = mapper.readValue(fromConnector, AttributeCallbackResponseDto.class);
+
+        assertThat(deserialized.getAttributes())
+                .describedAs("the hand-written deserializer must resolve the concrete attribute class, otherwise the "
+                        + "guard walks a shape that never carried the secret")
+                .singleElement()
+                .isInstanceOf(DataAttributeV3.class);
 
         assertThatExceptionOfType(OutboundSecretLeakException.class)
                 .describedAs("the echoed secret must still be found after a full serialize/deserialize cycle")
@@ -214,7 +225,7 @@ class SecretContainmentGoldenTest {
 
         assertThatCode(() -> containment
                 .assertNoExpandedSecretOutbound(mapper
-                        .readValue(mapper.writeValueAsString(benignCallbackResponse()),
+                        .readValue(mapper.writeValueAsString(benignAttributesResponse()),
                                 AttributeCallbackResponseDto.class),
                         RECORDED_SECRET))
                 .describedAs("and the matching benign response must still pass, so the check above is not firing "
@@ -236,6 +247,30 @@ class SecretContainmentGoldenTest {
     private static AttributeCallbackResponseDto benignCallbackResponse() {
         AttributeCallbackResponseDto response = new AttributeCallbackResponseDto();
         response.setContent(List.of(stringContent("a perfectly ordinary dropdown option")));
+        return response;
+    }
+
+    /**
+     * The {@code attributes} arm, which carries runtime-injected attribute definitions. Only one arm may be set, so
+     * this deliberately leaves {@code content} unset.
+     */
+    private static AttributeCallbackResponseDto echoingAttributesResponse() {
+        return attributesResponse(SECRET_VALUE);
+    }
+
+    private static AttributeCallbackResponseDto benignAttributesResponse() {
+        return attributesResponse("a perfectly ordinary dropdown option");
+    }
+
+    private static AttributeCallbackResponseDto attributesResponse(String value) {
+        DataAttributeV3 attribute = new DataAttributeV3();
+        attribute.setUuid("9c2e5a71-0000-4000-8000-000000000004");
+        attribute.setName("injectedOption");
+        attribute.setContentType(AttributeContentType.STRING);
+        attribute.setContent(List.of(stringContent(value)));
+
+        AttributeCallbackResponseDto response = new AttributeCallbackResponseDto();
+        response.setAttributes(List.of(attribute));
         return response;
     }
 

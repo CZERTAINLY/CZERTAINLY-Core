@@ -32,7 +32,7 @@ final class GoldenMappers {
      * {@code AvailableSettings.JSON_FORMAT_MAPPER}, and the only one in the repository is
      * {@code JsonFormatMapperTestConfig}, {@code @Profile("test")}. Production therefore persists with Jackson's
      * defaults — numeric timestamps, nulls included — while integration tests write {@code jsonb} through the wire
-     * mapper. Tracked as OmniTrustILM/core#2000; these goldens baseline production.
+     * mapper. These goldens baseline production.
      */
     static JacksonJsonFormatMapper hibernateJson() {
         return new JacksonJsonFormatMapper();

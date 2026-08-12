@@ -20,9 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Pins the redaction performed by {@code ResponseAttributeSerializer}, the platform's primary secret redaction. Unlike
- * the class-level {@code @JsonSerialize} on {@code BaseAttribute} — which every subclass cancels, leaving it dormant —
- * this one is declared on the {@code ResponseAttributeV2.content} <i>field</i>, so it is live on every v2 response
- * attribute the platform emits.
+ * the class-level {@code @JsonSerialize} on {@code BaseAttribute} — which every concrete subclass cancels, so it binds
+ * only where the declared type is an uncancelling supertype — this one is declared on the
+ * {@code ResponseAttributeV2.content} <i>field</i>, so it is live on every v2 response attribute the platform emits.
  * <p>
  * It nulls the {@code data} of secret content keyed on the attribute's {@code contentType}: {@code SECRET} strips
  * directly, {@code CREDENTIAL} descends into the credential's own attributes, everything else passes through. A secret

@@ -3,14 +3,19 @@ package com.otilm.core.serialization.golden;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -71,11 +76,18 @@ final class GoldenJson {
 
     /**
      * For JSON produced by something other than an {@link ObjectMapper} (Hibernate's {@code FormatMapper} returns a
-     * compact string), re-indented with the same pinned printer. Floats are read as {@code BigDecimal} so a literal
-     * like {@code 1.5} survives the reformat; only whitespace is normalized.
+     * compact string), compared after canonicalization: the payload is parsed into a tree, its object keys are sorted,
+     * and it is rewritten with the pinned printer. Structure, key set, values and types are therefore pinned; key
+     * order, escape spellings, numeric spellings and duplicate keys are not. Floats are read as {@code BigDecimal} so a
+     * literal like {@code 1.5} survives the rewrite.
+     * <p>
+     * Key order is deliberately not pinned for the two reasons that make pinning it wrong here. A {@code jsonb} column
+     * does not preserve the order Postgres was handed, so no reader can depend on it; and when the declared column type
+     * is a polymorphic base, the position of the {@code @JsonTypeInfo} discriminator property varies between JVM runs,
+     * which would make the golden flaky rather than strict.
      */
-    static void assertRawJsonMatchesGolden(String goldenName, String rawJson) {
-        String actual = reindent(rawJson);
+    static void assertCanonicalizedJsonMatchesGolden(String goldenName, String rawJson) {
+        String actual = canonicalize(rawJson);
 
         if (regenerating()) {
             write(goldenName, actual);
@@ -91,13 +103,31 @@ final class GoldenJson {
                 + "regenerating with -D" + REGENERATE_PROPERTY + "=true.";
     }
 
-    private static String reindent(String rawJson) {
+    /** Canonical text for two payloads that must be equal ignoring key order — see the assertion above. */
+    static String canonicalize(String rawJson) {
         ObjectMapper reader = new ObjectMapper().enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
         try {
-            return serialize(reader, reader.readTree(rawJson));
+            return serialize(reader, sortKeys(reader.readTree(rawJson)));
         } catch (IOException e) {
-            throw new UncheckedIOException("Could not re-indent JSON for golden comparison", e);
+            throw new UncheckedIOException("Could not canonicalize JSON for golden comparison", e);
         }
+    }
+
+    private static JsonNode sortKeys(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode sorted = JsonNodeFactory.instance.objectNode();
+            node
+                    .propertyStream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(property -> sorted.set(property.getKey(), sortKeys(property.getValue())));
+            return sorted;
+        }
+        if (node.isArray()) {
+            ArrayNode mapped = JsonNodeFactory.instance.arrayNode();
+            node.forEach(element -> mapped.add(sortKeys(element)));
+            return mapped;
+        }
+        return node;
     }
 
     /**

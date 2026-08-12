@@ -55,7 +55,7 @@ class JsonColumnGoldenTest {
         sparse.setStatus(ComplianceStatus.OK);
         sparse.setTimestamp(FIXED_TIMESTAMP);
 
-        assertThat(column(sparse))
+        assertThat(column(sparse, ComplianceResultDto.class))
                 .describedAs("the column mapper keeps Jackson's default inclusion, so unset members are written")
                 .contains("\"message\":null");
         assertThat(web(sparse))
@@ -79,7 +79,7 @@ class JsonColumnGoldenTest {
 
         assertColumnGoldenAndRoundTrip("column-compliance-result", result, ComplianceResultDto.class);
 
-        assertThat(column(result))
+        assertThat(column(result, ComplianceResultDto.class))
                 .describedAs("the @JsonFormat pattern must keep winning over the mapper's date handling")
                 .contains("\"timestamp\":\"2026-01-15T09:30:00.123Z\"");
     }
@@ -102,7 +102,14 @@ class JsonColumnGoldenTest {
                 }.getType());
     }
 
-    /** Backs {@code DiscoveryCertificate.meta}. */
+    /**
+     * Backs {@code DiscoveryCertificate.meta}, declared {@code List<MetadataAttribute>}. That declared type is an
+     * abstract intermediate which does not cancel {@code BaseAttribute}'s
+     * {@code @JsonSerialize(using = BaseAttributeSerializer.class)}, so the column is written by the hand-written
+     * serializer rather than the bean serializer: it drops {@code schemaVersion} and writes an explicit
+     * {@code properties} null. Baselining this from the concrete class instead would pin a shape production never
+     * writes.
+     */
     @Test
     void metadataAttributeListColumnKeepsItsShapeAndRoundTrips() {
         MetadataAttributeV3 metadata = new MetadataAttributeV3();
@@ -134,7 +141,7 @@ class JsonColumnGoldenTest {
      */
     @Test
     void attributeContentDeserializerStillPicksTheContentModelFromContentTypePresence() {
-        String withContentType = column(new StringAttributeContentV3("ref-item", "v3 content"));
+        String withContentType = column(new StringAttributeContentV3("ref-item", "v3 content"), AttributeContent.class);
         String withoutContentType = "{\"reference\":\"ref-item\",\"data\":\"v2 content\"}";
 
         assertThat(columnMapper.<AttributeContent>fromString(withContentType, AttributeContent.class))
@@ -152,7 +159,7 @@ class JsonColumnGoldenTest {
      * <p>
      * It writes an untyped {@code Object} and reads it back as {@code Serializable}, so no target type guides
      * deserialization and the result is whatever Jackson's default binding produces — a map, not the original class.
-     * That asymmetry is existing, intended behaviour; Jackson 3 changes default binding in this exact area.
+     * The converter intentionally reads back untyped; Jackson 3 changes default binding in this exact area.
      */
     @Test
     void objectToJsonConverterKeepsItsUntypedColumnShapeAcrossTheSerializableReadBack() {
@@ -180,20 +187,26 @@ class JsonColumnGoldenTest {
 
     /**
      * Compares a column payload against its golden and requires it to survive a load-and-save cycle, which is exactly
-     * what the application does to a stored row.
+     * what the application does to a stored row. Both comparisons ignore key order — a {@code jsonb} column does not
+     * preserve it — but nothing else.
      */
-    private void assertColumnGoldenAndRoundTrip(String goldenName, Object value, Type readAs) {
-        String serialized = column(value);
-        GoldenJson.assertRawJsonMatchesGolden(goldenName, serialized);
+    private void assertColumnGoldenAndRoundTrip(String goldenName, Object value, Type declaredType) {
+        String serialized = column(value, declaredType);
+        GoldenJson.assertCanonicalizedJsonMatchesGolden(goldenName, serialized);
 
-        assertThat(column(columnMapper.fromString(serialized, readAs)))
+        assertThat(GoldenJson.canonicalize(column(columnMapper.fromString(serialized, declaredType), declaredType)))
                 .describedAs("round-tripping column golden '%s.json' as %s changed its JSON shape, so a stored row "
-                        + "would mutate on every load-and-save", goldenName, readAs.getTypeName())
-                .isEqualTo(serialized);
+                        + "would mutate on every load-and-save", goldenName, declaredType.getTypeName())
+                .isEqualTo(GoldenJson.canonicalize(serialized));
     }
 
-    private String column(Object value) {
-        return columnMapper.toString(value, value.getClass());
+    /**
+     * @param declaredType the type the entity field declares, which is what Hibernate hands the format mapper. Passing
+     * the runtime class instead would resolve polymorphic type information against a subtype and pin a shape production
+     * never writes.
+     */
+    private String column(Object value, Type declaredType) {
+        return columnMapper.toString(value, declaredType);
     }
 
     private String web(Object value) {

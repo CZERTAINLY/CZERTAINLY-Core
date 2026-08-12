@@ -117,21 +117,27 @@ class AcmeProtocolGoldenTest {
     }
 
     /**
-     * Records two behaviours of the inbound envelope mapper that differ from the wire mapper: no {@code NON_NULL}
-     * inclusion, and Jackson's default {@code FAIL_ON_UNKNOWN_PROPERTIES}, which makes an ACME client adding a member
-     * to a payload a parse failure. That strictness is a live interoperability constraint on an externally-facing
-     * parser, and exactly the kind of default a major version revisits.
+     * The inbound envelope mapper applies no {@code NON_NULL} inclusion, unlike the wire mapper that serves ACME
+     * protocol documents. The two genuinely differ, so a document written by the wrong one carries the wrong shape.
      */
     @Test
-    void inboundJwsEnvelopeMapperKeepsItsDefaultsAndRejectsUnknownMembers() {
-        ObjectMapper envelopeMapper = GoldenMappers.acmeJwsEnvelope();
-
-        assertThat(envelopeMapper.valueToTree(new DirectoryMeta()).isEmpty())
+    void inboundJwsEnvelopeMapperKeepsJacksonsDefaultNullInclusion() {
+        assertThat(GoldenMappers.acmeJwsEnvelope().valueToTree(new DirectoryMeta()).isEmpty())
                 .describedAs("the envelope mapper applies no NON_NULL inclusion")
                 .isFalse();
         assertThat(GoldenMappers.web().valueToTree(new DirectoryMeta()).isEmpty())
                 .describedAs("the wire mapper omits null fields; the two genuinely differ")
                 .isTrue();
+    }
+
+    /**
+     * Jackson's default {@code FAIL_ON_UNKNOWN_PROPERTIES} makes an ACME client adding a member to a payload a parse
+     * failure. That strictness is a live interoperability constraint on an externally-facing parser, and exactly the
+     * kind of default a major version revisits.
+     */
+    @Test
+    void inboundJwsEnvelopeMapperRejectsUnknownMembers() {
+        ObjectMapper envelopeMapper = GoldenMappers.acmeJwsEnvelope();
 
         assertThatExceptionOfType(UnrecognizedPropertyException.class)
                 .describedAs("the inbound envelope parser rejects an undeclared member rather than ignoring it")
