@@ -58,6 +58,8 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.connector.cryptography.key.KeyData;
+import com.otilm.api.model.connector.cryptography.key.value.CustomKeyValue;
+import com.otilm.api.model.connector.cryptography.key.value.EprkiKeyValue;
 import com.otilm.api.model.connector.cryptography.key.value.KeyValue;
 import com.otilm.api.model.connector.cryptography.key.value.PrkiKeyValue;
 import com.otilm.api.model.connector.cryptography.key.value.RawKeyValue;
@@ -73,6 +75,7 @@ import java.time.LocalTime;
 import java.time.Month;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -524,8 +527,27 @@ class AttributeTypeInfoGoldenTest {
                                         keyData(KeyType.PUBLIC_KEY, KeyAlgorithm.RSA, KeyFormat.SPKI,
                                                 new SpkiKeyValue("c3BraS1rZXktYnl0ZXM="), 2048)),
                         Arguments
-                                .of("prki", KeyFormat.PRKI.getCode(), keyData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA,
-                                        KeyFormat.PRKI, new PrkiKeyValue("cHJraS1rZXktYnl0ZXM="), 256)));
+                                .of("prki", KeyFormat.PRKI.getCode(),
+                                        keyData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, KeyFormat.PRKI,
+                                                new PrkiKeyValue("cHJraS1rZXktYnl0ZXM="), 256)),
+                        Arguments
+                                .of("eprki", KeyFormat.EPRKI.getCode(),
+                                        keyData(KeyType.PRIVATE_KEY, KeyAlgorithm.ECDSA, KeyFormat.EPRKI,
+                                                new EprkiKeyValue("ZXBya2kta2V5LWJ5dGVz"), 256)),
+                        Arguments
+                                .of("custom", KeyFormat.CUSTOM.getCode(), keyData(KeyType.SECRET_KEY, KeyAlgorithm.RSA,
+                                        KeyFormat.CUSTOM, customKeyValue(), 2048)));
+    }
+
+    /**
+     * The only subtype whose payload is a map rather than a scalar, so it pins how an {@code EXTERNAL_PROPERTY} value
+     * serializes when the typed member is not a single-property object.
+     */
+    private static KeyValue customKeyValue() {
+        HashMap<String, String> values = new HashMap<>();
+        values.put("externalId", "hsm-slot-3");
+        values.put("handler", "pkcs11");
+        return new CustomKeyValue(values);
     }
 
     private static KeyData keyData(KeyType type, KeyAlgorithm algorithm, KeyFormat format, KeyValue value, int length) {

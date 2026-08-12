@@ -19,6 +19,8 @@ import com.otilm.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.data.ResourceSecretContentData;
 import com.otilm.api.model.connector.secrets.content.BasicAuthSecretContent;
+import com.otilm.api.model.connector.secrets.content.KeyStoreSecretContent;
+import com.otilm.api.model.connector.secrets.content.KeyStoreType;
 import com.otilm.core.attribute.engine.OutboundSecretContainment;
 import com.otilm.core.attribute.engine.OutboundSecretLeakException;
 import java.util.HashSet;
@@ -148,10 +150,37 @@ class SecretContainmentGoldenTest {
                 .doesNotContain("basicAuth", "BASIC_AUTH", "connector-user");
     }
 
+    /**
+     * {@link KeyStoreSecretContent} is the only subtype carrying {@code keyStoreType}, and both of its secret leaves
+     * must survive the strip.
+     */
+    @Test
+    void recordingCapturesBothKeyStoreSecretLeavesButNotItsTypeTag() {
+        Set<String> recorded = new HashSet<>();
+
+        containment.recordExpandedSecretsFromRequest(List.of(resolvedKeyStoreSecretAttribute()), recorded);
+
+        assertThat(recorded)
+                .describedAs("both key-store secret leaves must be recorded for echo detection")
+                .contains("a2V5LXN0b3JlLWJ5dGVz", "key-store-password")
+                .describedAs("the type discriminator and the key-store type tag are low-entropy and must stay "
+                        + "unrecorded, otherwise every later response naming the key-store format is refused")
+                .doesNotContain("keyStore", "KEY_STORE", "PKCS12");
+    }
+
     private static RequestAttribute resolvedSecretAttribute() {
         return new RequestAttributeV3(UUID.fromString("9c2e5a71-0000-4000-8000-000000000003"), "vaultSecret",
                 AttributeContentType.RESOURCE,
                 List.of(new ResourceObjectContent("ref-secret-resource", populatedResourceSecret())));
+    }
+
+    private static RequestAttribute resolvedKeyStoreSecretAttribute() {
+        ResourceSecretContentData data = new ResourceSecretContentData("9c2e5a71-0000-4000-8000-000000000005",
+                "Key Store Secret",
+                new KeyStoreSecretContent(KeyStoreType.PKCS12, "a2V5LXN0b3JlLWJ5dGVz", "key-store-password"));
+
+        return new RequestAttributeV3(UUID.fromString("9c2e5a71-0000-4000-8000-000000000006"), "keyStoreSecret",
+                AttributeContentType.RESOURCE, List.of(new ResourceObjectContent("ref-key-store-resource", data)));
     }
 
     /**

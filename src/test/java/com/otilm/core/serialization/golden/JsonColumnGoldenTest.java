@@ -14,6 +14,7 @@ import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.compliance.ComplianceStatus;
 import com.otilm.api.model.core.logging.enums.ActorType;
@@ -25,14 +26,23 @@ import com.otilm.api.model.core.logging.records.ActorRecord;
 import com.otilm.api.model.core.logging.records.LogRecord;
 import com.otilm.api.model.core.logging.records.ResourceRecord;
 import com.otilm.api.model.core.logging.records.SourceRecord;
+import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.dao.converter.ObjectToJsonConverter;
 import com.otilm.core.model.compliance.ComplianceResultDto;
+import com.otilm.core.model.signing.SigningProfileModel;
+import com.otilm.core.model.signing.scheme.SigningSchemeModel;
+import com.otilm.core.model.signing.workflow.SigningWorkflow;
+import com.otilm.core.signing.tsa.TspSigningRecordFactory;
+import com.otilm.core.signing.tsa.messages.TspRequest;
 import java.lang.reflect.Type;
+import java.math.BigInteger;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import org.hibernate.type.descriptor.java.StringJavaType;
 import org.hibernate.type.format.jackson.JacksonJsonFormatMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -43,8 +53,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Pins the JSON written into the platform's {@code jsonb} columns. No schema migration guards them, so the JSON mapping
  * <i>is</i> the schema: rows written before a shape change keep the old shape.
  * <p>
- * Columns are <b>not</b> serialized by the wire mapper — see {@link GoldenMappers#hibernateJson()}.
- * {@link ObjectToJsonConverter} is the one exception, a JPA {@code AttributeConverter} injecting the Spring bean.
+ * Columns are <b>not</b> serialized by the wire mapper — see {@link GoldenMappers#hibernateJson()} — except for
+ * {@link ObjectToJsonConverter} and the {@code String} columns whose payload a producer builds before Hibernate sees
+ * it.
  */
 class JsonColumnGoldenTest {
 
@@ -246,6 +257,57 @@ class JsonColumnGoldenTest {
         definition.setContent(List.of(new StringAttributeContentV3("ref-usage", "digitalSignature")));
 
         assertColumnGoldenAndRoundTrip("column-attribute-definition", definition, BaseAttribute.class);
+    }
+
+    /**
+     * Backs {@code SigningRecord.requestMetadataJson} and {@code SigningRecordOutbox.requestMetadataJson}. Both are
+     * declared {@code String}, so Hibernate stores what {@link TspSigningRecordFactory} built with the wire mapper.
+     */
+    @Test
+    void signingRecordMetadataColumnKeepsTheShapeTheWireMapperGivesItAndIsStoredVerbatim() {
+        String metadata = tspRequestMetadataJson(Optional.of("1.3.6.1.4.1.4146.2.1"), Optional.of(BigInteger.TEN));
+
+        GoldenJson.assertCanonicalizedJsonMatchesGolden("column-signing-record-metadata", metadata);
+
+        assertThat(metadata)
+                .describedAs("the hash algorithm is written with Enum.name(), not the platform code, so the column "
+                        + "holds 'SHA_256' rather than the 'SHA-256' every wire payload carries")
+                .contains("\"hashAlgorithm\":\"SHA_256\"");
+        assertThat(tspRequestMetadataJson(Optional.empty(), Optional.empty()))
+                .describedAs("the wire mapper's NON_NULL inclusion drops an absent policy and nonce entirely; a "
+                        + "mapper writing explicit nulls here would change the shape of every row written afterwards")
+                .doesNotContain("policy", "nonce");
+    }
+
+    /**
+     * Hibernate's format mapper short-circuits the {@code String} java type. Reintroducing a Jackson round trip here
+     * would double-encode every payload into a JSON string literal.
+     */
+    @Test
+    void stringJsonColumnsAreBoundAndReadBackWithoutAnyJacksonStep() {
+        String metadata = tspRequestMetadataJson(Optional.of("1.3.6.1.4.1.4146.2.1"), Optional.of(BigInteger.TEN));
+
+        String bound = columnMapper.toString(metadata, StringJavaType.INSTANCE, null);
+
+        assertThat(bound)
+                .describedAs("Hibernate must hand the driver the exact bytes the producer built")
+                .isEqualTo(metadata);
+        assertThat(columnMapper.<String>fromString(bound, StringJavaType.INSTANCE, null))
+                .describedAs("and read them back unchanged, so a stored row survives a load-and-save cycle")
+                .isEqualTo(metadata);
+    }
+
+    /** Goes through the production assembly path, so a renamed metadata key fails here too. */
+    private String tspRequestMetadataJson(Optional<String> policy, Optional<BigInteger> nonce) {
+        SigningProfileModel<SigningWorkflow, SigningSchemeModel> profile = new SigningProfileModel<>(
+                UUID.fromString("7b1c4e90-0000-4000-8000-000000000001"), "TSA Profile", "Timestamping profile", 3, true,
+                List.of(SigningProtocol.TSP), null, null, null, null);
+        TspRequest request = new TspRequest(DigestAlgorithm.SHA_256, new byte[]{1, 2, 3}, policy, nonce, false, null);
+
+        return new TspSigningRecordFactory(webMapper)
+                .source(profile, request, new BigInteger("48879"), FIXED_TIMESTAMP.toInstant(), new byte[]{4, 5})
+                .build()
+                .getRequestMetadataJson();
     }
 
     /** Compares a column payload against its golden and requires it to survive a load-and-save cycle. */
