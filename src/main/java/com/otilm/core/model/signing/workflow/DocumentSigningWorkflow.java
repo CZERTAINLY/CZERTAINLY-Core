@@ -7,6 +7,7 @@ import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
  *
  * <p>
  * Document signing has no common fields shared between managed and delegated signing.
+ * </p>
  */
 public sealed interface DocumentSigningWorkflow extends SigningWorkflow
         permits ManagedDocumentSigningWorkflow, DelegatedDocumentSigningWorkflow {

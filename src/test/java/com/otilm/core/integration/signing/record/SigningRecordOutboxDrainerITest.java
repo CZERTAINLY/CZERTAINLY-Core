@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The periodic trigger ({@link SigningRecordOutboxDrainScheduler}) is left disabled here — the default test profile
  * keeps {@code scheduled-tasks.enabled=false} — so every test drives {@code drainOnce()} explicitly and the
  * intermediate row counts stay deterministic.
+ * </p>
  */
 @TestPropertySource(properties = {"signing-record.outbox.max-batch-size=2", "signing-record.outbox.poison-threshold=3"})
 class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
