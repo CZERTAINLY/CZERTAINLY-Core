@@ -82,6 +82,12 @@ public class ProtectionValidator implements BiValidator<Void, Void> {
          * supplied, then this field MUST be supplied.
          */
         if (protection == null && request.getHeader().getProtectionAlg() == null) {
+            // A registration-mode profile authenticates every request solely by its challenge MAC, so an
+            // unprotected message carries no authentication and must be rejected here rather than reaching a
+            // handler that would otherwise run without a verified challenge.
+            if (configuration.isRegistrationMode()) {
+                throw new CmpProcessingException(tid, PKIFailureInfo.notAuthorized, ImplFailureInfo.CMPVALPRO530);
+            }
             return null;
         }
 

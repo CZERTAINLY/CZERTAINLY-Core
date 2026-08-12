@@ -42,6 +42,8 @@ import com.otilm.core.service.cmp.message.handler.RevocationMessageHandler;
 import com.otilm.core.service.cmp.message.validator.impl.BodyValidator;
 import com.otilm.core.service.cmp.message.validator.impl.HeaderValidator;
 import com.otilm.core.service.cmp.message.validator.impl.ProtectionValidator;
+import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
+import com.otilm.core.service.cmp.registration.CmpTransactionNotBoundException;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.CertificateEligibilityUtil;
 import com.otilm.core.util.CertificateUtil;
@@ -129,6 +131,13 @@ public class CmpServiceImpl implements CmpExternalService {
     @Autowired
     public void setPollReqMessageHandler(PollReqMessageHandler pollReqMessageHandler) {
         this.pollReqMessageHandler = pollReqMessageHandler;
+    }
+
+    private CmpRegistrationResolver cmpRegistrationResolver;
+
+    @Autowired
+    public void setCmpRegistrationResolver(CmpRegistrationResolver cmpRegistrationResolver) {
+        this.cmpRegistrationResolver = cmpRegistrationResolver;
     }
 
     // -- TRANSACTION
@@ -230,7 +239,7 @@ public class CmpServiceImpl implements CmpExternalService {
                     issueAttributes, revokeAttributes);
             /* rfc4210 */
             case V2 -> new CmpConfigurationContext(cmpProfile, raProfile, pkiRequest, certificateKeyServiceImpl,
-                    issueAttributes, revokeAttributes);
+                    issueAttributes, revokeAttributes, cmpRegistrationResolver);
             /* rfc9483 */
             case V3 -> throw new UnsupportedOperationException("not implemented");
         };
@@ -340,6 +349,14 @@ public class CmpServiceImpl implements CmpExternalService {
     private PKIMessage buildProcessingErrorResponse(ConfigurationContext configuration, PKIMessage pkiRequest,
             CmpBaseException e) {
         PKIBody errorBody = e.toPKIBody();
+        // In registration mode the response MAC is keyed by the matched registration's challenge. A rejection
+        // raised before any registration matched (unresolved senderKID, wrong state, wrong MAC) has no such
+        // key; protecting with the empty shared secret would produce a MAC anyone can reproduce, so the error
+        // is returned unprotected (RFC 4210 permits it). A post-match rejection still carries the challenge and
+        // is protected below.
+        if (configuration.isRegistrationMode() && configuration.getMatchedChallenge() == null) {
+            return PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), errorBody);
+        }
         try {
             return new PkiMessageBuilder(configuration)
                     .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(pkiRequest))
@@ -356,6 +373,12 @@ public class CmpServiceImpl implements CmpExternalService {
     // annotation was ignored anyway
     // @Transactional(propagation = Propagation.REQUIRES_NEW)
     private void handleTrxError(ASN1OctetString tid, Exception e) {
+        // A follow-up that failed the registration binding was never authorized to act on the transaction
+        // it names — failing it here would let any active registration under the RA profile poison another
+        // registration's in-flight transaction.
+        if (e instanceof CmpTransactionNotBoundException) {
+            return;
+        }
         List<CmpTransaction> trx = cmpTransactionService.findByTransactionId(tid.toString());
         if (!trx.isEmpty()) {
             for (CmpTransaction updatedTransaction : trx) {

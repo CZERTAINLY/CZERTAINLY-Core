@@ -3,9 +3,11 @@ package com.otilm.core.service.cmp.message.handler;
 import com.otilm.api.exception.CertificateOperationException;
 import com.otilm.api.exception.CertificateRequestException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
 import com.otilm.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.cmp.CmpTransactionState;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
 import com.otilm.api.model.core.v2.ClientCertificateDataResponseDto;
@@ -17,6 +19,8 @@ import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.service.cmp.configurations.ConfigurationContext;
 import com.otilm.core.service.cmp.message.PkiMessageDumper;
+import com.otilm.core.service.cmp.registration.CmpRegistrationIdentityVerifier;
+import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
 import com.otilm.core.service.v2.ClientOperationInternalService;
 import com.otilm.core.util.CertificateUtil;
 import java.io.IOException;
@@ -71,6 +75,13 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
         this.certificateRepository = certificateRepository;
     }
 
+    private CmpRegistrationIdentityVerifier registrationIdentityVerifier;
+
+    @Autowired
+    public void setRegistrationIdentityVerifier(CmpRegistrationIdentityVerifier registrationIdentityVerifier) {
+        this.registrationIdentityVerifier = registrationIdentityVerifier;
+    }
+
     private ClientOperationInternalService clientOperationService;
 
     @Autowired
@@ -115,6 +126,19 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
                     "re-key operation failed: both public key are the same; must be different");
         }
 
+        // In registration mode the senderKID (resolved and MAC-verified at the protection layer) must name
+        // the very certificate this kur rekeys: a challenge authorizes rekeying only its own certificate.
+        if (configuration.isRegistrationMode()) {
+            Certificate matched = configuration.getMatchedRegistration();
+            if (matched == null || !matched.getUuid().equals(dbCertificate.getUuid())) {
+                throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
+                        CmpRegistrationResolver.REGISTRATION_REJECTION);
+            }
+            // The senderKID names the certificate, but the CRMF still carries its own subject and SANs; a rekey
+            // must not introduce a different identity than the one the challenge authorized.
+            registrationIdentityVerifier.verify(crmf, matched, CertificateEvent.REKEY, tid);
+        }
+
         // -- process re-key (asynchronous) operation
         String certificateUUID = dbCertificate.getUuid().toString();
         try {
@@ -122,11 +146,19 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
                     .builder();
             dtoBuilder.request(Base64.getEncoder().encodeToString(crmf.getEncoded()));
             dtoBuilder.format(CertificateRequestFormat.CRMF);
+            if (configuration.isRegistrationMode()) {
+                dtoBuilder.authorizationSecret(configuration.getMatchedChallenge());
+            }
             RaProfile raProfile = configuration.getRaProfile();
             // -- (1)certification request (ask for issue)
             return clientOperationService
                     .rekeyCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
                             raProfile.getSecuredUuid(), certificateUUID, dtoBuilder.build());
+        } catch (ValidationException e) {
+            // Gate/completion denial (e.g. the authorization expired or locked between the protection-layer
+            // MAC check and this re-gate) — surface the single generic rejection, as ir/cr does.
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
+                    CmpRegistrationResolver.REGISTRATION_REJECTION);
         } catch (NotFoundException | CertificateException | IOException | NoSuchAlgorithmException | InvalidKeyException
                 | CertificateOperationException | CertificateRequestException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure, "cannot re-key certificate", e);
