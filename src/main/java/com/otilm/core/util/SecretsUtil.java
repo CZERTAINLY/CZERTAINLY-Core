@@ -193,7 +193,7 @@ public class SecretsUtil {
      * Encodes the secret value into a string.
      *
      * <p>
-     * {@code V1|secret|salt|count}
+     * {@code v1|base64(secret)|base64(salt)|count}
      *
      * @param secret value to be encoded
      * @param salt used salt

@@ -307,7 +307,7 @@ public class CertificateEligibilityUtil {
      * |-- key.tokenInstanceReferenceUuid IS NOT NULL (associated Token Instance)
      * |-- AT LEAST ONE private key must exist
      * |-- ALL private keys must meet criteria
-     *     |-- state=ACTIVE AND usage & SIGN
+     * |   |-- state=ACTIVE AND usage & SIGN
      * |-- AT LEAST ONE public key must exist
      * |-- (TIMESTAMPING only) extendedKeyUsage is exclusively the TSA OID (RFC 3161)
      * |-- (TIMESTAMPING only) extendedKeyUsageCritical is true (RFC 3161)
