@@ -16,6 +16,7 @@ public interface TimeQualityConfigurationRepository extends SecurityFilterReposi
     @Query("SELECT t.name FROM TimeQualityConfiguration t ORDER BY t.name")
     List<String> findAllNames();
 
-    @Query(value = "SELECT DISTINCT unnest(ntp_servers) FROM {h-schema}time_quality_configuration ORDER BY 1", nativeQuery = true)
+    @Query(value = "SELECT DISTINCT unnest(ntp_servers) FROM {h-schema}time_quality_configuration ORDER BY 1",
+            nativeQuery = true)
     List<String> findAllNtpServers();
 }

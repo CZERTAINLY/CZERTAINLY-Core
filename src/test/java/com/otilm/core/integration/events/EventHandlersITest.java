@@ -1554,8 +1554,10 @@ class EventHandlersITest extends BaseSpringBootTest {
 
         // test event data handling
         EventData eventData = EventDataBuilder
-                .getCertificateStatusChangedEventData(certificate, new CertificateValidationStatus[]{
-                        CertificateValidationStatus.INACTIVE, CertificateValidationStatus.VALID});
+                .getCertificateStatusChangedEventData(certificate,
+                        new CertificateValidationStatus[]{
+                                CertificateValidationStatus.INACTIVE,
+                                CertificateValidationStatus.VALID});
         final NotificationMessage messageCertificateStatusChanged = new NotificationMessage(
                 ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificate.getUuid(),
                 notificationProfileUuids, null, eventData);

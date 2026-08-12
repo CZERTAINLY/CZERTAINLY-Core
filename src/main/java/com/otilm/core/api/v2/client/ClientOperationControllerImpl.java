@@ -44,7 +44,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.ISSUE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.ISSUE)
     public ClientCertificateDataResponseDto issueExistingCertificate(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid, ClientCertificateIssueRequestDto request)
@@ -56,7 +57,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.REQUEST)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.REQUEST)
     public ClientCertificateDataResponseDto issueCertificate(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid, ClientCertificateIssueRequestDto request)
             throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException,
@@ -67,7 +69,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.RENEW)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.RENEW)
     public ClientCertificateDataResponseDto renewCertificate(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid, ClientCertificateRenewRequestDto request)
@@ -79,7 +82,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.REKEY)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.REKEY)
     public ClientCertificateDataResponseDto rekeyCertificate(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid, ClientCertificateRekeyRequestDto request)
@@ -91,7 +95,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.REVOKE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.REVOKE)
     public void revokeCertificate(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid, ClientCertificateRevocationDto request)
@@ -102,7 +107,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listIssueCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid)
             throws ConnectorException, NotFoundException {
@@ -112,7 +118,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue", affiliatedResource = Resource.RA_PROFILE, operation = Operation.VALIDATE_ATTRIBUTES)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateIssueCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid, List<RequestAttribute> attributes)
             throws ConnectorException, ValidationException, NotFoundException {
@@ -122,7 +129,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listRevokeCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid)
             throws ConnectorException, NotFoundException {
@@ -132,7 +140,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "register", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "register",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listRegisterCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid)
             throws ConnectorException, NotFoundException {
@@ -142,7 +151,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke", affiliatedResource = Resource.RA_PROFILE, operation = Operation.VALIDATE_ATTRIBUTES)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateRevokeCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid, List<RequestAttribute> attributes)
             throws ConnectorException, ValidationException, NotFoundException {
@@ -152,7 +162,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.FINALIZE_ISSUE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.FINALIZE_ISSUE)
     public com.otilm.api.model.core.certificate.CertificateDetailDto manuallyIssueCertificate(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid,
@@ -164,7 +175,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.CONFIRM_REVOKE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.CONFIRM_REVOKE)
     public void manuallyConfirmRevoke(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid) throws NotFoundException {
@@ -174,7 +186,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.CANCEL)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.CANCEL)
     public com.otilm.api.model.core.certificate.CertificateDetailDto cancelPendingCertificateOperation(
             String authorityUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid,
@@ -186,7 +199,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.REGISTER)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE,
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.REGISTER)
     public ClientCertificateDataResponseDto registerCertificate(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid, ClientCertificateRegistrationDto request)
             throws NotFoundException, ValidationException, ConnectorException, AttributeException {
@@ -196,7 +210,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.LIST)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY,
+            operation = Operation.LIST)
     public AvailableOperationsDto listAvailableOperations(
             @LogResource(uuid = true, affiliated = true) String authorityUuid,
             @LogResource(uuid = true) String raProfileUuid) throws NotFoundException {

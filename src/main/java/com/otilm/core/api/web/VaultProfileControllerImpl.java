@@ -53,7 +53,8 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT,
+            operation = Operation.DETAIL)
     public VaultProfileDetailDto getVaultProfileDetails(@LogResource(uuid = true, affiliated = true) UUID vaultUuid,
             @LogResource(uuid = true) UUID vaultProfileUuid) throws NotFoundException {
         return vaultProfileService
@@ -61,7 +62,8 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT,
+            operation = Operation.UPDATE)
     public VaultProfileDetailDto updateVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid,
             @LogResource(uuid = true) UUID vaultProfileUuid, VaultProfileUpdateRequestDto vaultProfileUpdateRequest)
             throws NotFoundException, AttributeException {
@@ -71,7 +73,8 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.DELETE)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT,
+            operation = Operation.DELETE)
     public void deleteVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid,
             @LogResource(uuid = true) UUID vaultProfileUuid) throws NotFoundException {
         vaultProfileService
@@ -79,7 +82,8 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.CREATE)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT,
+            operation = Operation.CREATE)
     public VaultProfileDetailDto createVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid,
             VaultProfileRequestDto vaultProfileRequest)
             throws NotFoundException, AttributeException, AlreadyExistException {
@@ -87,7 +91,8 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.ENABLE)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT,
+            operation = Operation.ENABLE)
     public void enableVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid,
             @LogResource(uuid = true) UUID vaultProfileUuid) throws NotFoundException {
         vaultProfileService
@@ -95,7 +100,8 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.DISABLE)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT,
+            operation = Operation.DISABLE)
     public void disableVaultProfile(@LogResource(uuid = true, affiliated = true) UUID vaultUuid,
             @LogResource(uuid = true) UUID vaultProfileUuid) throws NotFoundException {
         vaultProfileService
@@ -103,7 +109,8 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.VAULT_PROFILE, affiliatedResource = Resource.VAULT,
+            operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listSecretAttributes(@LogResource(uuid = true, affiliated = true) UUID vaultUuid,
             @LogResource(uuid = true) UUID vaultProfileUuid, SecretType secretType)
             throws ConnectorException, NotFoundException, AttributeException {
@@ -113,7 +120,8 @@ public class VaultProfileControllerImpl implements VaultProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.LIST)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER,
+            affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return vaultProfileService.getSearchableFieldInformation();
     }

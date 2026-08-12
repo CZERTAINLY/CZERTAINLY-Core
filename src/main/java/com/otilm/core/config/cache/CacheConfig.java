@@ -15,10 +15,15 @@ import org.springframework.core.Ordered;
 
 @Configuration
 @EnableCaching(order = Ordered.HIGHEST_PRECEDENCE)
-@EnableConfigurationProperties({AuthCacheProperties.class, ConnectorApiClientCacheProperties.class,
-        CertificateChainCacheProperties.class, CryptographicKeyItemCacheProperties.class,
-        SigningCertificateCacheProperties.class, SigningProfileCacheProperties.class,
-        TimeQualityConfigurationCacheProperties.class, TspProfileCacheProperties.class,})
+@EnableConfigurationProperties({
+        AuthCacheProperties.class,
+        ConnectorApiClientCacheProperties.class,
+        CertificateChainCacheProperties.class,
+        CryptographicKeyItemCacheProperties.class,
+        SigningCertificateCacheProperties.class,
+        SigningProfileCacheProperties.class,
+        TimeQualityConfigurationCacheProperties.class,
+        TspProfileCacheProperties.class,})
 public class CacheConfig {
 
     public static final String CERTIFICATE_AUTH_CACHE = "certificateAuth";

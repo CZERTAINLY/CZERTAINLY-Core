@@ -429,7 +429,8 @@ class X509RequestContentParserTest {
             ExtensionsGenerator extGen = new ExtensionsGenerator();
             extGen
                     .addExtension(Extension.subjectAlternativeName, false,
-                            new GeneralNames(new GeneralName[]{new GeneralName(GeneralName.dNSName, "host.example.com"),
+                            new GeneralNames(new GeneralName[]{
+                                    new GeneralName(GeneralName.dNSName, "host.example.com"),
                                     new GeneralName(GeneralName.rfc822Name, "admin@example.com")}));
             extGen.addExtension(Extension.extendedKeyUsage, false, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
             builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());

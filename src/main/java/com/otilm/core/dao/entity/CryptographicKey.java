@@ -67,7 +67,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     private UUID tokenInstanceReferenceUuid;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "group_association", joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)), inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false))
+    @JoinTable(name = "group_association",
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false,
+                    updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false))
     @SQLJoinTableRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();

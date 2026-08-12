@@ -96,7 +96,8 @@ public class ApprovalProfileControllerImpl implements ApprovalProfileController 
     }
 
     @Override
-    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
+    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE,
+            operation = Operation.LIST_ASSOCIATIONS)
     public List<ResourceObjectDto> getAssociations(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
         return approvalProfileService.getAssociations(SecuredUUID.fromUUID(uuid));
     }
@@ -119,7 +120,8 @@ public class ApprovalProfileControllerImpl implements ApprovalProfileController 
     }
 
     @Override
-    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
+    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE,
+            operation = Operation.LIST_ASSOCIATIONS)
     public List<ApprovalProfileDto> getAssociatedApprovalProfiles(
             @LogResource(resource = true, affiliated = true) Resource resource,
             @LogResource(uuid = true, affiliated = true) UUID associationObjectUuid) throws NotFoundException {

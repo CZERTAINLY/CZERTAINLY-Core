@@ -30,7 +30,8 @@ public interface PendingNotificationRepository extends SecurityFilterRepository<
             VALUES (:uuid, :profileUuid, :resource, :objectUuid, :event, :version, 1, :lastSentAt)
             ON CONFLICT (notification_profile_uuid, resource, object_uuid, event)
             DO UPDATE SET repetitions = pending_notification.repetitions + 1, last_sent_at = EXCLUDED.last_sent_at
-            """, nativeQuery = true)
+            """,
+            nativeQuery = true)
     void upsertSent(@Param("uuid") UUID uuid, @Param("profileUuid") UUID profileUuid,
             @Param("resource") String resource, @Param("objectUuid") UUID objectUuid, @Param("event") String event,
             @Param("version") int version, @Param("lastSentAt") OffsetDateTime lastSentAt);

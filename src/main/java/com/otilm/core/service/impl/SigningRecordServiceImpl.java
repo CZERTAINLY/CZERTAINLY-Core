@@ -104,7 +104,8 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST,
+            parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
     @Transactional(readOnly = true)
     public PaginationResponseDto<SigningRecordListDto> listSigningRecords(SearchRequestDto request,
             SecurityFilter filter) {
@@ -112,7 +113,8 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST,
+            parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.DETAIL)
     @Transactional(readOnly = true)
     public PaginationResponseDto<SigningRecordListDto> listSigningRecordsForProfile(UUID signingProfileUuid,
             SearchRequestDto request, SecurityFilter filter) {
@@ -120,7 +122,8 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST,
+            parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
     @Transactional(readOnly = true)
     public SigningRecordStatisticsDto getSigningRecordStatistics(SigningRecordStatisticsPeriod period,
             SecurityFilter filter) {

@@ -92,7 +92,12 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited
     private Set<DiscoveryCertificate> certificate = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "trigger_association", joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false), inverseJoinColumns = @JoinColumn(name = "trigger_uuid", insertable = false, updatable = false), foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT), inverseForeignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinTable(name = "trigger_association",
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false,
+                    updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "trigger_uuid", insertable = false, updatable = false),
+            foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT),
+            inverseForeignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     @SQLJoinTableRestriction("resource = 'DISCOVERY'")
     @ToString.Exclude
     private List<Trigger> triggers = new ArrayList<>();

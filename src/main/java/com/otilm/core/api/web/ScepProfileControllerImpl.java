@@ -115,14 +115,16 @@ public class ScepProfileControllerImpl implements ScepProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.UPDATE_PROTOCOL_ISSUE_PROFILE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, affiliatedResource = Resource.RA_PROFILE,
+            operation = Operation.UPDATE_PROTOCOL_ISSUE_PROFILE)
     public void updateRaProfile(@LogResource(uuid = true) String uuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws NotFoundException {
         scepProfileService.updateRaProfile(SecuredUUID.fromString(uuid), raProfileUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, affiliatedResource = Resource.CERTIFICATE, operation = Operation.LIST_PROTOCOL_CERTIFICATES)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, affiliatedResource = Resource.CERTIFICATE,
+            operation = Operation.LIST_PROTOCOL_CERTIFICATES)
     public List<CertificateDto> listScepCaCertificates(boolean intuneEnabled) {
         return scepProfileService.listScepCaCertificates(intuneEnabled);
     }

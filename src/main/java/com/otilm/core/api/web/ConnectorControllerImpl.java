@@ -148,7 +148,8 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR,
+            operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> getAttributes(@LogResource(uuid = true, affiliated = true) @PathVariable String uuid,
             @PathVariable FunctionGroupCode functionGroup, @LogResource(name = true) @PathVariable String kind)
             throws NotFoundException, ConnectorException {
@@ -156,7 +157,8 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR,
+            operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateAttributes(@LogResource(uuid = true, affiliated = true) @PathVariable String uuid,
             @PathVariable String functionGroup, @LogResource(name = true) @PathVariable String kind,
             @RequestBody List<RequestAttribute> attributes) throws NotFoundException, ConnectorException {
@@ -166,7 +168,8 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR,
+            operation = Operation.LIST_ATTRIBUTES)
     public Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAttributesAll(
             @LogResource(uuid = true, affiliated = true) String uuid) throws NotFoundException, ConnectorException {
         return connectorService.getAllAttributesOfConnector(SecuredUUID.fromString(uuid));

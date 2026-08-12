@@ -36,7 +36,8 @@ public class CallbackControllerImpl implements CallbackController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR,
+            operation = Operation.ATTRIBUTE_CALLBACK)
     public Object callback(@LogResource(uuid = true, affiliated = true) String uuid, String functionGroup,
             @LogResource(name = true) String kind, RequestAttributeCallback callback)
             throws NotFoundException, ConnectorException, ValidationException, AttributeException {
@@ -44,14 +45,16 @@ public class CallbackControllerImpl implements CallbackController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR,
+            operation = Operation.ATTRIBUTE_CALLBACK)
     public Object callback(UUID uuid, RequestAttributeCallback callback)
             throws ConnectorException, NotFoundException, AttributeException {
         return callbackService.callback(uuid, callback);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR,
+            operation = Operation.ATTRIBUTE_CALLBACK)
     public Object resourceCallback(Resource resource, String parentObjectUuid, RequestAttributeCallback callback)
             throws NotFoundException, ConnectorException, ValidationException, AttributeException {
         return callbackService.resourceCallback(resource, parentObjectUuid, callback);

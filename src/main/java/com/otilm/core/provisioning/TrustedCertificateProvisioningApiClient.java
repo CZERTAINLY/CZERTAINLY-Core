@@ -20,20 +20,34 @@ import org.springframework.web.service.annotation.PostExchange;
 public interface TrustedCertificateProvisioningApiClient {
 
     @GetExchange
-    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
+    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
+            backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}",
+                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
+                    multiplierExpression = "${provisioning.api.retry.multiplier}"))
     List<TrustedCertificateProvisioningDTO> listTrustedCertificates();
 
     @GetExchange("/{uuid}")
-    @Retryable(retryFor = RestClientException.class, noRetryFor = HttpClientErrorException.NotFound.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
+    @Retryable(retryFor = RestClientException.class, noRetryFor = HttpClientErrorException.NotFound.class,
+            maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
+            backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}",
+                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
+                    multiplierExpression = "${provisioning.api.retry.multiplier}"))
     TrustedCertificateProvisioningDTO getTrustedCertificate(@PathVariable String uuid);
 
     @PostExchange
-    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
+    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
+            backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}",
+                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
+                    multiplierExpression = "${provisioning.api.retry.multiplier}"))
     TrustedCertificateProvisioningDTO createTrustedCertificate(
             @RequestBody TrustedCertificateProvisioningRequestDTO request);
 
     @DeleteExchange("/{uuid}")
-    @Retryable(retryFor = RestClientException.class, noRetryFor = HttpClientErrorException.NotFound.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
+    @Retryable(retryFor = RestClientException.class, noRetryFor = HttpClientErrorException.NotFound.class,
+            maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
+            backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}",
+                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
+                    multiplierExpression = "${provisioning.api.retry.multiplier}"))
     void deleteTrustedCertificate(@PathVariable String uuid);
 
 }

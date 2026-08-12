@@ -226,7 +226,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.CREATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.CREATE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto dto)
             throws AlreadyExistException, LocationException, ConnectorException, AttributeException, NotFoundException {
         if (StringUtils.isBlank(dto.getName())) {
@@ -286,7 +287,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DETAIL, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DETAIL,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto getLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository
                 .findByUuid(locationUuid)
@@ -317,7 +319,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto editLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto dto)
             throws ConnectorException, LocationException, AttributeException, NotFoundException {
         Location location = locationRepository
@@ -374,7 +377,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DELETE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DELETE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public void deleteLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository
                 .findByUuid(locationUuid)
@@ -388,7 +392,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public void enableLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository
                 .findByUuid(locationUuid)
@@ -401,7 +406,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public void disableLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository
                 .findByUuid(locationUuid)
@@ -414,7 +420,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY, parentAction = ResourceAction.ANY)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY,
+            parentAction = ResourceAction.ANY)
     public List<BaseAttribute> listPushAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid)
             throws NotFoundException, LocationException {
         Location location = locationRepository
@@ -438,7 +445,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY, parentAction = ResourceAction.ANY)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY,
+            parentAction = ResourceAction.ANY)
     public List<BaseAttribute> listCsrAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid)
             throws NotFoundException, LocationException {
         Location location = locationRepository
@@ -462,7 +470,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto removeCertificateFromLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid,
             String certificateUuid) throws NotFoundException, LocationException {
         Location location = locationRepository
@@ -572,7 +581,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto pushCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid,
             String certificateUuid, PushToLocationRequestDto request)
             throws NotFoundException, LocationException, AttributeException {
@@ -727,7 +737,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto issueCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid,
             String raProfileUuid, IssueToLocationRequestDto request)
             throws ConnectorException, LocationException, NotFoundException {
@@ -798,7 +809,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto updateLocationContent(SecuredParentUUID entityUuid, SecuredUUID locationUuid)
             throws NotFoundException, LocationException {
         Location location = locationRepository
@@ -868,7 +880,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE,
+            parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid,
             String certificateUuid) throws ConnectorException, LocationException, NotFoundException {
         Location location = locationRepository

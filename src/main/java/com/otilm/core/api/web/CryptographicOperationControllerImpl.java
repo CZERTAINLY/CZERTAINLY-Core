@@ -38,7 +38,8 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, affiliatedResource = Resource.TOKEN, operation = Operation.ENCRYPT)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            affiliatedResource = Resource.TOKEN, operation = Operation.ENCRYPT)
     public EncryptDataResponseDto encryptData(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             String tokenProfileUuid, String uuid, @LogResource(uuid = true) String keyItemUuid,
             CipherDataRequestDto request) throws ConnectorException, NotFoundException {
@@ -48,7 +49,8 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, affiliatedResource = Resource.TOKEN, operation = Operation.DECRYPT)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            affiliatedResource = Resource.TOKEN, operation = Operation.DECRYPT)
     public DecryptDataResponseDto decryptData(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             String tokenProfileUuid, String uuid, @LogResource(uuid = true) String keyItemUuid,
             CipherDataRequestDto request) throws ConnectorException, NotFoundException {
@@ -58,7 +60,8 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.SIGN)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.SIGN)
     public SignDataResponseDto signData(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             String tokenProfileUuid, String uuid, @LogResource(uuid = true) String keyItemUuid,
             SignDataRequestDto request) throws ConnectorException, NotFoundException {
@@ -68,7 +71,8 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.VERIFY)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.VERIFY)
     public VerifyDataResponseDto verifyData(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             String tokenProfileUuid, String uuid, @LogResource(uuid = true) String keyItemUuid,
             VerifyDataRequestDto request) throws ConnectorException, NotFoundException {
@@ -85,7 +89,8 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "signature", affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "signature",
+            affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listSignatureAttributes(String tokenInstanceUuid, String tokenProfileUuid, String uuid,
             @LogResource(uuid = true, affiliated = true) String keyItemUuid, KeyAlgorithm algorithm)
             throws ConnectorException, NotFoundException {
@@ -96,7 +101,8 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "cipher", affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "cipher",
+            affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listCipherAttributes(String tokenInstanceUuid, String tokenProfileUuid, String uuid,
             @LogResource(uuid = true, affiliated = true) String keyItemUuid, KeyAlgorithm algorithm)
             throws ConnectorException, NotFoundException {
@@ -107,7 +113,8 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "random", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "random",
+            affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listRandomAttributes(
             @LogResource(uuid = true, affiliated = true) String tokenInstanceUuid)
             throws ConnectorException, NotFoundException {

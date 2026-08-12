@@ -23,14 +23,16 @@ public class ScepControllerImpl implements ScepController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.UNKNOWN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE,
+            operation = Operation.UNKNOWN)
     public ResponseEntity<Object> doGet(@LogResource(name = true, affiliated = true) String scepProfileName,
             String operation, String message) throws ScepException {
         return scepService.handleGet(scepProfileName, operation, message);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.UNKNOWN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE,
+            operation = Operation.UNKNOWN)
     public ResponseEntity<Object> doPost(@LogResource(name = true, affiliated = true) String scepProfileName,
             String operation, byte[] request) throws ScepException {
         return scepService.handlePost(scepProfileName, operation, request);

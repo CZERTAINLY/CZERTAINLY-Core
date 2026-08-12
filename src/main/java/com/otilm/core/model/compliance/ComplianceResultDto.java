@@ -21,7 +21,8 @@ public class ComplianceResultDto implements Serializable {
     private ComplianceStatus status;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
-    @Schema(description = "Date of the most recent compliance check", requiredMode = Schema.RequiredMode.REQUIRED, example = "2025-09-11T13:45:30.123Z")
+    @Schema(description = "Date of the most recent compliance check", requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "2025-09-11T13:45:30.123Z")
     private OffsetDateTime timestamp;
 
     @Schema(description = "Overall compliance check result message", requiredMode = Schema.RequiredMode.NOT_REQUIRED)

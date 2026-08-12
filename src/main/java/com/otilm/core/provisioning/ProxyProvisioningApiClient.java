@@ -18,15 +18,24 @@ import org.springframework.web.service.annotation.PostExchange;
 public interface ProxyProvisioningApiClient {
 
     @PostExchange
-    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
+    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
+            backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}",
+                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
+                    multiplierExpression = "${provisioning.api.retry.multiplier}"))
     void provisionProxy(@RequestBody ProxyProvisioningRequestDTO request);
 
     @GetExchange("/{proxyCode}/installation")
-    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
+    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
+            backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}",
+                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
+                    multiplierExpression = "${provisioning.api.retry.multiplier}"))
     InstallationInstructionsDTO getInstallationInstructions(@PathVariable String proxyCode,
             @RequestParam String format);
 
     @DeleteExchange("/{proxyCode}")
-    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}", backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}", maxDelayExpression = "${provisioning.api.retry.max-delay}", multiplierExpression = "${provisioning.api.retry.multiplier}"))
+    @Retryable(retryFor = RestClientException.class, maxAttemptsExpression = "${provisioning.api.retry.max-attempts}",
+            backoff = @Backoff(delayExpression = "${provisioning.api.retry.delay}",
+                    maxDelayExpression = "${provisioning.api.retry.max-delay}",
+                    multiplierExpression = "${provisioning.api.retry.multiplier}"))
     void decommissionProxy(@PathVariable String proxyCode);
 }

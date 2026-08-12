@@ -42,7 +42,8 @@ public class TimeQualityConfigurationControllerImpl implements TimeQualityConfig
     }
 
     @Override
-    @AuditLogged(module = Module.SIGNING, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.TIME_QUALITY_CONFIGURATION, operation = Operation.LIST)
+    @AuditLogged(module = Module.SIGNING, resource = Resource.SEARCH_FILTER,
+            affiliatedResource = Resource.TIME_QUALITY_CONFIGURATION, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return timeQualityConfigurationService.getSearchableFieldInformation();
     }
@@ -84,7 +85,8 @@ public class TimeQualityConfigurationControllerImpl implements TimeQualityConfig
     }
 
     @Override
-    @AuditLogged(module = Module.SIGNING, resource = Resource.TIME_QUALITY_CONFIGURATION, affiliatedResource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TIME_QUALITY_CONFIGURATION,
+            affiliatedResource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
     public List<SimplifiedSigningProfileDto> listSigningProfilesForTimeQualityConfiguration(
             @LogResource(uuid = true) UUID uuid) {
         return signingProfileService

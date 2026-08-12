@@ -28,7 +28,11 @@ public interface TriggerHistoryRepository extends SecurityFilterRepository<Trigg
     @Query("UPDATE TriggerHistory t SET t.triggerAssociationUuid = NULL WHERE t.triggerAssociationUuid = :uuid")
     int removeTriggerAssociation(@Param("uuid") UUID uuid);
 
-    @EntityGraph(attributePaths = {"records", "triggerAssociation", "records.execution", "records.execution.items",
+    @EntityGraph(attributePaths = {
+            "records",
+            "triggerAssociation",
+            "records.execution",
+            "records.execution.items",
             "records.execution.items.notificationProfile"})
     Page<TriggerHistory> findByObjectUuidAndObjectResourceOrderByTriggeredAtDesc(UUID objectUuid,
             Resource objectResource, Pageable pageable);
@@ -51,7 +55,8 @@ public interface TriggerHistoryRepository extends SecurityFilterRepository<Trigg
             LEFT JOIN {h-schema}trigger tr ON t.trigger_uuid = tr.uuid
             WHERE t.event_history_uuid IN :uuids
             GROUP BY t.event_history_uuid
-            """, nativeQuery = true)
+            """,
+            nativeQuery = true)
     List<Object[]> countStatsByEventHistoryUuids(@Param("uuids") List<UUID> uuids);
 
     /**
@@ -86,7 +91,11 @@ public interface TriggerHistoryRepository extends SecurityFilterRepository<Trigg
               AND (t.objectUuid IN :objectUuids OR t.objectUuid IS NULL)
             ORDER BY t.eventHistoryUuid ASC, t.objectUuid ASC NULLS LAST, t.triggeredAt DESC
             """)
-    @EntityGraph(attributePaths = {"records", "triggerAssociation", "records.execution", "records.execution.items",
+    @EntityGraph(attributePaths = {
+            "records",
+            "triggerAssociation",
+            "records.execution",
+            "records.execution.items",
             "records.execution.items.notificationProfile"})
     List<TriggerHistory> findByEventHistoryUuidsAndObjectUuids(@Param("eventHistoryUuids") List<UUID> eventHistoryUuids,
             @Param("objectUuids") List<UUID> objectUuids);

@@ -303,7 +303,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void checkAccessPermissions(SecuredUUID raProfileUuid, SecuredParentUUID authorityUuid) {
 
     }

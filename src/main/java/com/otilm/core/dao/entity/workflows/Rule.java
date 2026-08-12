@@ -42,7 +42,8 @@ public class Rule extends UniquelyIdentified {
     private Resource resource;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "rule_2_condition", joinColumns = @JoinColumn(name = "rule_uuid"), inverseJoinColumns = @JoinColumn(name = "condition_uuid"))
+    @JoinTable(name = "rule_2_condition", joinColumns = @JoinColumn(name = "rule_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "condition_uuid"))
     @ToString.Exclude
     private Set<Condition> conditions;
 

@@ -32,7 +32,8 @@ public class Connector2FunctionGroup implements Serializable {
     @Id
     @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "connector_2_function_group_seq")
-    @SequenceGenerator(name = "connector_2_function_group_seq", sequenceName = "connector_2_function_group_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "connector_2_function_group_seq", sequenceName = "connector_2_function_group_id_seq",
+            allocationSize = 1)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

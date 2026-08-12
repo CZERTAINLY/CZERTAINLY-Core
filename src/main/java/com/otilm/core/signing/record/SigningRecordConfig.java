@@ -11,8 +11,11 @@ import org.springframework.context.annotation.Configuration;
  * lets the strategy stay agnostic of it — and lets tests construct the queue with a capacity they can drive directly.
  */
 @Configuration
-@EnableConfigurationProperties({SigningRecordOutboxProperties.class, SigningRecordBestEffortProperties.class,
-        SigningRecordRetentionProperties.class, SigningRecordDeleteAfterRetrievalProperties.class,})
+@EnableConfigurationProperties({
+        SigningRecordOutboxProperties.class,
+        SigningRecordBestEffortProperties.class,
+        SigningRecordRetentionProperties.class,
+        SigningRecordDeleteAfterRetrievalProperties.class,})
 public class SigningRecordConfig {
 
     @Bean

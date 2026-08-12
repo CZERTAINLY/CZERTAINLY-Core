@@ -18,8 +18,11 @@ public interface RaProfileRepository extends SecurityFilterRepository<RaProfile,
      * (e.g. request-attribute resolution under {@code Propagation.NOT_SUPPORTED}) do not depend on open-session-in-view
      * for the lazy collection.
      */
-    @EntityGraph(attributePaths = {"authorityInstanceReference", "authorityInstanceReference.connectorInterface",
-            "authorityInstanceReference.connector", "authorityInstanceReference.connector.functionGroups"})
+    @EntityGraph(attributePaths = {
+            "authorityInstanceReference",
+            "authorityInstanceReference.connectorInterface",
+            "authorityInstanceReference.connector",
+            "authorityInstanceReference.connector.functionGroups"})
     Optional<RaProfile> findWithAuthorityByUuid(UUID uuid);
 
     Optional<RaProfile> findByName(String name);

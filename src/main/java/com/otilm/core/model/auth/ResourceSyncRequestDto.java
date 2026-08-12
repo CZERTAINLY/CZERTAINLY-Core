@@ -13,7 +13,8 @@ public class ResourceSyncRequestDto {
     @Schema(description = "Action Names", requiredMode = Schema.RequiredMode.REQUIRED, example = "list")
     private List<String> actions;
 
-    @Schema(description = "Is endpoint for listing objects flag - true = Yes; false = No", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Is endpoint for listing objects flag - true = Yes; false = No",
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private String listObjectsEndpoint;
 
     public Resource getName() {

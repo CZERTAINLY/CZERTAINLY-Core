@@ -204,7 +204,8 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL,
+            parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
     @Transactional(readOnly = true)
     public List<SimplifiedSigningProfileDto> listSigningProfilesAssociatedTimeQualityConfiguration(
             SecuredUUID timeQualityConfigurationUuid, SecurityFilter filter) {
@@ -216,7 +217,8 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.TIME_QUALITY_CONFIGURATION, action = ResourceAction.DETAIL,
+            parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
     @Transactional(readOnly = true)
     public SecuredList<SigningProfile> listSigningProfileEntitiesAssociatedTimeQualityConfiguration(
             SecuredUUID timeQualityConfigurationUuid, SecurityFilter filter) {
@@ -226,7 +228,8 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.TSP_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.SIGNING_PROFILE, parentAction = ResourceAction.LIST)
     @Transactional(readOnly = true)
     public SecuredList<SigningProfile> listSigningProfilesAssociatedWithTsp(SecuredUUID tspProfileUuid,
             SecurityFilter filter) {
