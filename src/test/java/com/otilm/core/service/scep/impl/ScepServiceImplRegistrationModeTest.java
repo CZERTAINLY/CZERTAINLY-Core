@@ -304,8 +304,8 @@ class ScepServiceImplRegistrationModeTest {
         // CN=device-1 — so a caller that stops normalizing (or passes the wrong value) misses the stub,
         // yields no candidates, and fails the test rather than passing on an over-broad matcher.
         when(certificateRepository
-                .findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(
-                        eq(RA_PROFILE_UUID), eq(CertificateUtil.normalizeSubjectDn(new X500Name("CN=device-1")))))
+                .findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(RA_PROFILE_UUID,
+                        CertificateUtil.normalizeSubjectDn(new X500Name("CN=device-1"))))
                 .thenReturn(Arrays.asList(candidates));
     }
 
