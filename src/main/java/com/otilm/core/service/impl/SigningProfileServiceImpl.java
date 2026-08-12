@@ -816,11 +816,11 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
                     throw new ValidationException(
                             "Signature formatting connector is required for document signing workflow");
                 }
-                Connector contentConnector = connectorService
+                Connector documentConnector = connectorService
                         .getConnectorEntity(SecuredUUID.fromUUID(w.getSignatureFormattingConnectorUuid()));
-                validateFormattingConnectorFeature(contentConnector, FeatureFlag.DOCUMENT_SIGNING,
+                validateFormattingConnectorFeature(documentConnector, FeatureFlag.DOCUMENT_SIGNING,
                         SigningWorkflowType.DOCUMENT_SIGNING);
-                version.setSignatureFormattingConnector(contentConnector);
+                version.setSignatureFormattingConnector(documentConnector);
             }
             case RawSigningWorkflowRequestDto ignored -> {
                 // RawSigningWorkflowRequestDto has no signatureFormattingConnectorUuid field — no formatting is allowed

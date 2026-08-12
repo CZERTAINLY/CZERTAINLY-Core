@@ -376,7 +376,7 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     /**
      * Builds a request using a DELEGATED scheme and DOCUMENT_SIGNING workflow.
      */
-    protected SigningProfileRequestDto buildDelegatedContentRequest(String name) {
+    protected SigningProfileRequestDto buildDelegatedDocumentRequest(String name) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
@@ -405,7 +405,7 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
      * Builds a request using a MANAGED/STATIC_KEY scheme and DOCUMENT_SIGNING workflow, optionally setting a Signature
      * Formatting Provider UUID on the workflow.
      */
-    protected SigningProfileRequestDto buildManagedStaticKeyContentRequest(String name, UUID formattingConnectorUuid) {
+    protected SigningProfileRequestDto buildManagedStaticKeyDocumentRequest(String name, UUID formattingConnectorUuid) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
