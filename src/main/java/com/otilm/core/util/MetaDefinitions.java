@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.core.certificate.CertificateValidationCheck;
 import com.otilm.api.model.core.certificate.CertificateValidationCheckDto;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -11,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 public class MetaDefinitions {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory.storage();
 
     public static String serialize(Map<String, Object> metaData) {
         try {

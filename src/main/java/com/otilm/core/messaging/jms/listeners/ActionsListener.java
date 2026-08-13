@@ -49,7 +49,7 @@ public class ActionsListener implements MessageProcessor<ActionMessage> {
 
     private SecretInternalService secretService;
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private ObjectMapper mapper;
 
     private NotificationProducer notificationProducer;
 
@@ -187,6 +187,11 @@ public class ActionsListener implements MessageProcessor<ActionMessage> {
     }
 
     // SETTERs
+
+    @Autowired
+    public void setMapper(ObjectMapper mapper) {
+        this.mapper = mapper;
+    }
 
     @Autowired
     public void setApprovalProfileRelationRepository(

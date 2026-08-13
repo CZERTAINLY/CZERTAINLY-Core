@@ -1,10 +1,10 @@
 package com.otilm.core.security.exception;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.PlatformException;
 import com.otilm.api.model.common.AuthenticationServiceExceptionDto;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
@@ -16,8 +16,7 @@ public class AuthenticationServiceException extends AuthenticationException impl
 
     public AuthenticationServiceException(String message) {
         super("Authentication Service Exception");
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        ObjectMapper mapper = ObjectMapperFactory.lenientStorage();
 
         try {
             this.exception = mapper.readValue(message, AuthenticationServiceExceptionDto.class);

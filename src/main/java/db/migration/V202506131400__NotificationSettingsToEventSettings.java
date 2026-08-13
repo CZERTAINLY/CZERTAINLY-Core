@@ -1,8 +1,8 @@
 package db.migration;
 
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.util.DatabaseMigration;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 
@@ -34,7 +34,7 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
                 String value = notificationSettings.getString("value");
                 TypeReference<Map<String, String>> typeReference = new TypeReference<>() {
                 };
-                Map<String, String> typeToInstanceMap = new ObjectMapper().readValue(value, typeReference);
+                Map<String, String> typeToInstanceMap = ObjectMapperFactory.storage().readValue(value, typeReference);
                 Map<String, List<String>> instanceToTypes = typeToInstanceMap.entrySet()
                         .stream()
                         .collect(Collectors.groupingBy(

@@ -1,9 +1,7 @@
 package com.otilm.core.service.impl;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.core.audit.AuditLogDto;
@@ -60,13 +58,7 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
 
     private static final LoggerWrapper logger = new LoggerWrapper(AuditLogServiceImpl.class, null, null);
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
-    static {
-        MAPPER.findAndRegisterModules();
-        MAPPER.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        MAPPER.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    }
+    private ObjectMapper objectMapper;
 
     @Value("${export.auditLog.fileName.prefix:audit-logs}")
     private String fileNamePrefix;
@@ -76,6 +68,11 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Autowired
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Autowired
     public void setAuditLogRepository(AuditLogRepository auditLogRepository) {
@@ -151,13 +148,13 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
             builder.message(a.getMessage());
 
             try {
-                builder.operationData(MAPPER.writeValueAsString(a.getLogRecord().operationData()));
+                builder.operationData(objectMapper.writeValueAsString(a.getLogRecord().operationData()));
             } catch (JsonProcessingException e) {
                 builder.operationData("ERROR_SERIALIZATION");
             }
 
             try {
-                builder.additionalData(MAPPER.writeValueAsString(a.getLogRecord().additionalData()));
+                builder.additionalData(objectMapper.writeValueAsString(a.getLogRecord().additionalData()));
             } catch (JsonProcessingException e) {
                 builder.additionalData("ERROR_SERIALIZATION");
             }

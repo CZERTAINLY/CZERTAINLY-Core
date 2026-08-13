@@ -1,16 +1,14 @@
 package com.otilm.core.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.otilm.api.model.core.acme.Identifier;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.util.ArrayList;
 import java.util.List;
 
 public class SerializationUtil {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-            .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory.lenientStorage();
 
     public static String serializeIdentifiers(List<Identifier> identifiers) {
         try {
@@ -53,7 +51,6 @@ public class SerializationUtil {
     }
 
     public static Object deserialize(String object, Class returnType) {
-        OBJECT_MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         if (object == null || object.isEmpty()) {
             return new ArrayList<>();
         }
@@ -65,7 +62,6 @@ public class SerializationUtil {
     }
 
     public static <T> T convertValue(Object source, Class<T> returnType) {
-        OBJECT_MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         if (source == null) {
             return null;
         }

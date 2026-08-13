@@ -1,11 +1,10 @@
 package com.otilm.core.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.dataformat.csv.CsvGenerator;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
 import com.otilm.api.model.core.audit.ExportResultDto;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -22,13 +21,7 @@ public class ExportProcessor {
 
     private static final DateTimeFormatter EXPORT_DATE_TIME_FORMAT = DateTimeFormatter
             .ofPattern("yyyy-MM-dd'T'HH-mm-ss");
-    private static final CsvMapper CSV_MAPPER = new CsvMapper();
-
-    static {
-        CSV_MAPPER.findAndRegisterModules();
-        CSV_MAPPER.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        CSV_MAPPER.enable(CsvGenerator.Feature.ESCAPE_QUOTE_CHAR_WITH_ESCAPE_CHAR);
-    }
+    private static final CsvMapper CSV_MAPPER = ObjectMapperFactory.csvExport();
 
     @Value("${export.encoding:UTF-8}")
     private String encoding;
