@@ -30,6 +30,7 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.SchedulerExternalService;
 import com.otilm.core.tasks.DiscoveryCertificateTask;
+import com.otilm.core.util.converter.ResourceCodeConverter;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -37,6 +38,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -59,6 +62,14 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     @Autowired
     public void setDiscoveryService(DiscoveryExternalService discoveryService) {
         this.discoveryService = discoveryService;
+    }
+
+    // The house pattern for binding a platform enum by wire code (18 controllers register these editors).
+    // ResourceCodeConverter goes through Resource.findByCode, whose ValidationException answers an unknown
+    // code with a clean 422 — the global ConversionService route would 400 with Spring's class-name message.
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
     }
 
     @Override
