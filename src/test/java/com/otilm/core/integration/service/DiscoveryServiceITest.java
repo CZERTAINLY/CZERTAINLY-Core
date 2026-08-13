@@ -11,9 +11,9 @@ import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
+import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDetailDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDto;
+import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
@@ -126,9 +126,9 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
     @Test
     void testListDiscoveries() {
-        final DiscoveryResponseDto discoveryHistoryDTO = discoveryService
+        final DiscoveryResponseDto discoveryResponseDto = discoveryService
                 .listDiscoveries(SecurityFilter.create(), new SearchRequestDto());
-        final List<DiscoveryHistoryDto> discoveries = discoveryHistoryDTO.getDiscoveries();
+        final List<DiscoveryListDto> discoveries = discoveryResponseDto.getDiscoveries();
         Assertions.assertNotNull(discoveries);
         Assertions.assertFalse(discoveries.isEmpty());
         Assertions.assertEquals(1, discoveries.size());
@@ -137,7 +137,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
     @Test
     void testGetDiscovery() throws NotFoundException {
-        DiscoveryHistoryDetailDto dto = discoveryService.getDiscovery(discovery.getSecuredUuid());
+        DiscoveryDetailDto dto = discoveryService.getDiscovery(discovery.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(discovery.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(discovery.getConnectorUuid().toString(), dto.getConnectorUuid());
@@ -167,7 +167,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         request.setAttributes(List.of());
         request.setKind("ApiKey");
 
-        DiscoveryHistoryDetailDto dto = discoveryService.createDiscovery(request, true);
+        DiscoveryDetailDto dto = discoveryService.createDiscovery(request, true);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertEquals(discovery.getConnectorUuid().toString(), dto.getConnectorUuid());

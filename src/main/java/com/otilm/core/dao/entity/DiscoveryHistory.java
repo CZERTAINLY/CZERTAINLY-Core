@@ -1,8 +1,9 @@
 package com.otilm.core.dao.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDetailDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDto;
+import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
+import com.otilm.api.model.client.discovery.DiscoveryListDto;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.util.DtoMapper;
@@ -43,7 +44,7 @@ import org.hibernate.proxy.HibernateProxy;
 public class DiscoveryHistory extends UniquelyIdentifiedAndAudited
         implements
             Serializable,
-            DtoMapper<DiscoveryHistoryDetailDto> {
+            DtoMapper<DiscoveryDetailDto> {
 
     @Serial
     private static final long serialVersionUID = 571684590427678474L;
@@ -103,8 +104,8 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited
     private List<Trigger> triggers = new ArrayList<>();
 
     @Override
-    public DiscoveryHistoryDetailDto mapToDto() {
-        DiscoveryHistoryDetailDto dto = new DiscoveryHistoryDetailDto();
+    public DiscoveryDetailDto mapToDto() {
+        DiscoveryDetailDto dto = new DiscoveryDetailDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setEndTime(endTime);
@@ -118,11 +119,17 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited
         dto.setTriggers(triggers.stream().map(Trigger::mapToDto).toList());
         dto.setConnectorStatus(connectorStatus);
         dto.setConnectorTotalCertificatesDiscovered(connectorTotalCertificatesDiscovered);
+        // The contract publishes both lists as always present. Every run this Core can hold ran against a
+        // v1 discovery connector, so the v1 synthesis is exact: certificates only, no lifecycle capabilities.
+        // The discovery v2 implementation replaces these constants with the run's stored targets and the
+        // capabilities synced from its connector.
+        dto.setResources(List.of(Resource.CERTIFICATE));
+        dto.setEffectiveCapabilities(List.of());
         return dto;
     }
 
-    public DiscoveryHistoryDto mapToListDto() {
-        DiscoveryHistoryDto dto = new DiscoveryHistoryDto();
+    public DiscoveryListDto mapToListDto() {
+        DiscoveryListDto dto = new DiscoveryListDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setEndTime(endTime);
