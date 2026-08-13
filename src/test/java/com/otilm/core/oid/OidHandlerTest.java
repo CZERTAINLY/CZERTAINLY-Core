@@ -27,7 +27,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class OidHandlerTest {
 
-    private static final OidCategory[] TOUCHED = {OidCategory.RDN_ATTRIBUTE_TYPE, OidCategory.GENERIC,
+    private static final OidCategory[] TOUCHED = {
+            OidCategory.RDN_ATTRIBUTE_TYPE,
+            OidCategory.GENERIC,
             OidCategory.EXTENDED_KEY_USAGE};
 
     private static final Map<OidCategory, Map<String, OidRecord>> saved = new EnumMap<>(OidCategory.class);

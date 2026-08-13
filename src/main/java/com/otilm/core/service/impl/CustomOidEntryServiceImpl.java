@@ -95,7 +95,8 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         refreshCache();
     }
 
-    @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS, initialDelayString = "${settings.cache.refresh-interval}")
+    @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS,
+            initialDelayString = "${settings.cache.refresh-interval}")
     public void refreshCache() {
         // Read the source data without holding OidHandler's monitor, then publish optimistically: if a
         // mutator published while these queries ran, the snapshot is stale and is abandoned rather than

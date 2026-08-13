@@ -56,7 +56,8 @@ public class AuditLogControllerImpl implements AuditLogController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.AUDIT_LOG, operation = Operation.LIST)
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.AUDIT_LOG,
+            operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return auditLogService.getSearchableFieldInformationByGroup();
     }

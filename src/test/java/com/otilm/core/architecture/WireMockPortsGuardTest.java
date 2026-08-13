@@ -30,7 +30,8 @@ class WireMockPortsGuardTest {
     private static final Path TEST_YML = Path.of("src/test/resources/application.yml");
 
     @ParameterizedTest(name = "{0} is pinned to port {1}")
-    @CsvSource({WireMockPorts.AUTH_SERVICE_URL_KEY + "," + WireMockPorts.AUTH_SERVICE,
+    @CsvSource({
+            WireMockPorts.AUTH_SERVICE_URL_KEY + "," + WireMockPorts.AUTH_SERVICE,
             WireMockPorts.SCHEDULER_URL_KEY + "," + WireMockPorts.SCHEDULER,
             WireMockPorts.PROVISIONING_API_URL_KEY + "," + WireMockPorts.PROVISIONING_API})
     void testYmlBindsStubUrlToNamedPort(String propertyKey, int expectedPort) throws IOException {

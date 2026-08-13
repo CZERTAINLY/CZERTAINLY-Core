@@ -50,7 +50,8 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
                 :#{#cki.length}, :#{#cki.fingerprint}, :#{#cki.reason?.name() ?: null}, :#{#cki.complianceStatus.name()}, :#{#cki.createdAt},
                 :#{#cki.updatedAt}, :#{#cki.usageBitmask}
             ) ON CONFLICT (fingerprint) DO NOTHING
-            """, nativeQuery = true)
+            """,
+            nativeQuery = true)
     Integer insertWithFingerprintConflictResolve(@Param("cki") CryptographicKeyItem keyItem);
 
     @Query(value = """

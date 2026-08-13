@@ -31,49 +31,57 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authBasic", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authBasic",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
     public List<DataAttribute> getBasicAuthAttributes() {
         return connectorAuthService.getBasicAuthAttributes();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authBasic", affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authBasic",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateBasicAuthAttributes(@RequestBody List<RequestAttribute> attributes) {
         connectorAuthService.validateBasicAuthAttributes(attributes);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authCertificate", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authCertificate",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
     public List<DataAttribute> getCertificateAttributes() {
         return connectorAuthService.getCertificateAttributes();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authCertificate", affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authCertificate",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateCertificateAttributes(@RequestBody List<RequestAttribute> attributes) {
         connectorAuthService.validateCertificateAttributes(attributes);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authApiKey", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authApiKey",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
     public List<DataAttribute> getApiKeyAuthAttributes() {
         return connectorAuthService.getApiKeyAuthAttributes();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authApiKey", affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authApiKey",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateApiKeyAuthAttributes(@RequestBody List<RequestAttribute> attributes) {
         connectorAuthService.validateApiKeyAuthAttributes(attributes);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authJwt", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authJwt",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
     public List<DataAttribute> getJWTAuthAttributes() {
         return connectorAuthService.getJWTAuthAttributes();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authJwt", affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authJwt",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateJWTAuthAttributes(@RequestBody List<RequestAttribute> attributes) {
         connectorAuthService.validateJWTAuthAttributes(attributes);
     }

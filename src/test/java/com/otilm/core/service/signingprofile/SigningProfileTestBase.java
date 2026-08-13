@@ -15,7 +15,7 @@ import com.otilm.api.model.client.signing.profile.SigningProfileRequestDto;
 import com.otilm.api.model.client.signing.profile.scheme.DelegatedSigningRequestDto;
 import com.otilm.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningRequestDto;
 import com.otilm.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
-import com.otilm.api.model.client.signing.profile.workflow.ContentSigningWorkflowRequestDto;
+import com.otilm.api.model.client.signing.profile.workflow.DocumentSigningWorkflowRequestDto;
 import com.otilm.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
 import com.otilm.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
 import com.otilm.api.model.client.signing.timequality.TimeQualityConfigurationRequestDto;
@@ -187,7 +187,7 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     protected Certificate tsaCertificate;
 
     /**
-     * A Connector used as the signature formatting connector in CONTENT_SIGNING and TIMESTAMPING workflow tests.
+     * A Connector used as the signature formatting connector in DOCUMENT_SIGNING and TIMESTAMPING workflow tests.
      */
     protected Connector formattingConnector;
 
@@ -374,14 +374,14 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     }
 
     /**
-     * Builds a request using a DELEGATED scheme and CONTENT_SIGNING workflow.
+     * Builds a request using a DELEGATED scheme and DOCUMENT_SIGNING workflow.
      */
-    protected SigningProfileRequestDto buildDelegatedContentRequest(String name) {
+    protected SigningProfileRequestDto buildDelegatedDocumentRequest(String name) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
         request.setSigningScheme(buildDelegatedScheme());
-        ContentSigningWorkflowRequestDto workflow = new ContentSigningWorkflowRequestDto();
+        DocumentSigningWorkflowRequestDto workflow = new DocumentSigningWorkflowRequestDto();
         workflow.setSignatureFormattingConnectorUuid(formattingConnector.getUuid());
         request.setWorkflow(workflow);
         return request;
@@ -402,17 +402,17 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     }
 
     /**
-     * Builds a request using a MANAGED/STATIC_KEY scheme and CONTENT_SIGNING workflow, optionally setting a Signature
+     * Builds a request using a MANAGED/STATIC_KEY scheme and DOCUMENT_SIGNING workflow, optionally setting a Signature
      * Formatting Provider UUID on the workflow.
      */
-    protected SigningProfileRequestDto buildManagedStaticKeyContentRequest(String name, UUID formattingConnectorUuid) {
+    protected SigningProfileRequestDto buildManagedStaticKeyDocumentRequest(String name, UUID formattingConnectorUuid) {
         SigningProfileRequestDto request = new SigningProfileRequestDto();
         request.setName(name);
         request.setDescription("Test description for " + name);
         StaticKeyManagedSigningRequestDto scheme = new StaticKeyManagedSigningRequestDto();
         scheme.setCertificateUuid(certificate.getUuid());
         request.setSigningScheme(scheme);
-        ContentSigningWorkflowRequestDto workflow = new ContentSigningWorkflowRequestDto();
+        DocumentSigningWorkflowRequestDto workflow = new DocumentSigningWorkflowRequestDto();
         workflow.setSignatureFormattingConnectorUuid(formattingConnectorUuid);
         request.setWorkflow(workflow);
         return request;
@@ -506,7 +506,7 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         connectorInterface.setConnectorUuid(connector.getUuid());
         connectorInterface.setInterfaceCode(ConnectorInterface.SIGNATURE_FORMATTING);
         connectorInterface.setVersion("1.0.0");
-        connectorInterface.setFeatures(List.of(FeatureFlag.CONTENT_SIGNING, FeatureFlag.TIMESTAMPING));
+        connectorInterface.setFeatures(List.of(FeatureFlag.DOCUMENT_SIGNING, FeatureFlag.TIMESTAMPING));
         connectorInterfaceRepository.save(connectorInterface);
 
         return connector;

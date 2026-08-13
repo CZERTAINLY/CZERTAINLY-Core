@@ -79,7 +79,8 @@ public class CbomControllerImpl implements CbomController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.CBOM, operation = Operation.LIST)
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.CBOM,
+            operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return cbomService.getSearchableFieldInformationByGroup();
     }

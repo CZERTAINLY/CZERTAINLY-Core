@@ -124,7 +124,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
     }
 
     @Override
-    @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS, initialDelayString = "${settings.cache.refresh-interval}")
+    @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS,
+            initialDelayString = "${settings.cache.refresh-interval}")
     public void refreshCache() {
         settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettings());
         settingsCache.cacheSettings(SettingsSection.LOGGING, getLoggingSettings());

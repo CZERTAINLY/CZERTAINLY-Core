@@ -283,7 +283,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     // ----------------------------------------------------------------------------------------------
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
     public CryptographicKeyResponseDto listCryptographicKeys(SecurityFilter filter, SearchRequestDto request) {
         filter.setParentRefProperty(CryptographicKey_.tokenInstanceReferenceUuid.getName());
         RequestValidatorHelper.revalidateSearchRequestDto(request);
@@ -407,7 +408,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.CREATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.CREATE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public KeyDetailDto createKey(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type,
             KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException,
             AttributeException, NotFoundException {
@@ -561,7 +563,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void disableKey(List<String> uuids) {
         logger.debug("Request to disable the key with UUID {} ", uuids);
         for (String keyUuid : new LinkedHashSet<>(uuids)) {
@@ -581,7 +584,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void enableKey(List<String> uuids) {
         logger.debug("Request to enable the key with UUID {} ", uuids);
         for (String keyUuid : new LinkedHashSet<>(uuids)) {
@@ -601,13 +605,15 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void enableKeyItems(List<String> uuids) {
         setKeyItemsEnabled(uuids, true, true);
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void disableKeyItems(List<String> uuids) {
         setKeyItemsEnabled(uuids, true, false);
     }
@@ -663,7 +669,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void deleteKey(List<String> uuids) throws ConnectorException {
         logger.debug("Request to deleted the keys with UUIDs {}", uuids);
         for (String uuid : uuids) {
@@ -691,7 +698,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void deleteKeyItems(SecurityFilter filterForTokenInstance, List<String> keyItemUuids)
             throws ConnectorException {
@@ -837,7 +845,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void destroyKey(List<String> uuids) throws ConnectorException, NotFoundException {
         logger.debug("Request to destroy the key with UUIDs {}", uuids);
         for (String uuid : uuids) {
@@ -849,13 +858,15 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void destroyKeyItems(List<String> keyItemUuids) throws ConnectorException {
         destroyKeyItems(keyItemUuids, true);
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY,
+            parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.DETAIL)
     public List<BaseAttribute> listCreateKeyAttributes(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid,
             KeyRequestType type) throws ConnectorException, NotFoundException {
         logger.debug("Request to list the attributes for creating a new key on Token profile: {}", tokenProfileUuid);
@@ -889,7 +900,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void syncKeys(SecuredParentUUID tokenInstanceUuid)
             throws ConnectorException, AttributeException, NotFoundException {
         TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(tokenInstanceUuid);
@@ -944,7 +956,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void compromiseKey(BulkCompromiseKeyRequestDto request) {
         List<UUID> uuids = request.getUuids();
         logger.debug("Request to mark the key as compromised with UUIDs {}", uuids);
@@ -961,13 +974,15 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void compromiseKeyItems(BulkCompromiseKeyItemRequestDto request) {
         compromiseKeyItems(request.getUuids(), true, request.getReason());
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void updateKeyUsages(BulkKeyUsageRequestDto request) {
         logger.debug("Request to update the key usages with UUIDs {}", request.getUuids());
         for (UUID uuid : request.getUuids()) {
@@ -999,7 +1014,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE,
+            parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void updateKeyItemUsages(BulkKeyItemUsageRequestDto request) {
         setKeyItemsUsages(request.getUuids(), request.getUsage(), true);
     }

@@ -21,7 +21,9 @@ import lombok.Setter;
 @Setter
 @Entity
 // A certificate has at most one async operation in flight at a time.
-@Table(name = "certificate_status_poll", uniqueConstraints = @UniqueConstraint(name = "uq_certificate_status_poll_certificate", columnNames = "certificate_uuid"))
+@Table(name = "certificate_status_poll",
+        uniqueConstraints = @UniqueConstraint(name = "uq_certificate_status_poll_certificate",
+                columnNames = "certificate_uuid"))
 public class CertificateStatusPoll extends UniquelyIdentified {
 
     @Column(name = "certificate_uuid", nullable = false)
@@ -38,7 +40,8 @@ public class CertificateStatusPoll extends UniquelyIdentified {
     private OffsetDateTime nextPollAt;
 
     // Set by the database on insert, never written by the application — hence a read-only mapping.
-    @Column(name = "i_cre", nullable = false, insertable = false, updatable = false, columnDefinition = "timestamptz not null default now()")
+    @Column(name = "i_cre", nullable = false, insertable = false, updatable = false,
+            columnDefinition = "timestamptz not null default now()")
     private OffsetDateTime created;
 
     // No-op override required by Sonar S2160 (a field-adding subclass of UniquelyIdentified must override

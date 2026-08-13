@@ -113,7 +113,7 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
     }
 
     @Test
-    void contentSigning_returnsIssuedCertsWithActiveSigningKeyRegardlessOfEku() throws Exception {
+    void documentSigning_returnsIssuedCertsWithActiveSigningKeyRegardlessOfEku() throws Exception {
         Certificate noEku = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
         Certificate tsaCrit = saveCert(CertificateTestUtil.createTimestampingCertificate(), createKey());
         Certificate archived = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
@@ -123,7 +123,7 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
         revoked.setState(com.otilm.api.model.core.certificate.CertificateState.REVOKED);
         certificateRepository.save(revoked);
 
-        List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false);
+        List<UUID> found = queryUuids(SigningWorkflowType.DOCUMENT_SIGNING, false);
 
         assertThat(found).containsExactlyInAnyOrder(noEku.getUuid(), tsaCrit.getUuid());
     }

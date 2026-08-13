@@ -45,8 +45,8 @@ import org.hibernate.proxy.HibernateProxy;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "connector", uniqueConstraints = {
-        @UniqueConstraint(name = "uq_connector_url_version", columnNames = {"url", "version"})})
+@Table(name = "connector",
+        uniqueConstraints = {@UniqueConstraint(name = "uq_connector_url_version", columnNames = {"url", "version"})})
 public class Connector extends UniquelyIdentifiedAndAudited
         implements
             Serializable,

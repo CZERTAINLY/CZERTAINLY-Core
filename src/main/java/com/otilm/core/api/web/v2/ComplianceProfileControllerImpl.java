@@ -96,7 +96,8 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_RULE, affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_RULE,
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST)
     public List<ComplianceRuleListDto> getComplianceRules(
             @LogResource(uuid = true, affiliated = true) UUID connectorUuid, String kind,
             @LogResource(resource = true, affiliated = true) Resource resource, String type, String format)
@@ -105,7 +106,8 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_GROUP, affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_GROUP,
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST)
     public List<ComplianceGroupListDto> getComplianceGroups(
             @LogResource(uuid = true, affiliated = true) UUID connectorUuid, String kind,
             @LogResource(resource = true, affiliated = true) Resource resource)
@@ -114,7 +116,8 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_GROUP, affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_RULES)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_GROUP,
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_RULES)
     public List<ComplianceRuleListDto> getComplianceGroupRules(@LogResource(uuid = true) UUID groupUuid,
             @LogResource(uuid = true, affiliated = true) UUID connectorUuid, String kind)
             throws ConnectorException, NotFoundException {
@@ -142,27 +145,31 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_RULE, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            affiliatedResource = Resource.COMPLIANCE_RULE, operation = Operation.UPDATE)
     public void patchComplianceProfileRule(@LogResource(uuid = true) UUID uuid,
             ComplianceProfileRulesPatchRequestDto request) throws ConnectorException, NotFoundException {
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.UPDATE)
     public void patchComplianceProfileGroup(@LogResource(uuid = true) UUID uuid,
             ComplianceProfileGroupsPatchRequestDto request) throws ConnectorException, NotFoundException {
         complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            operation = Operation.LIST_ASSOCIATIONS)
     public List<ResourceObjectDto> getAssociations(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
         return complianceProfileService.getAssociations(SecuredUUID.fromUUID(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.LIST_ASSOCIATIONS)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            operation = Operation.LIST_ASSOCIATIONS)
     public List<ComplianceProfileListDto> getAssociatedComplianceProfiles(
             @LogResource(resource = true, affiliated = true) Resource resource,
             @LogResource(uuid = true, affiliated = true) UUID associationObjectUuid) {

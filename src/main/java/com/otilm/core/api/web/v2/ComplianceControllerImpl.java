@@ -36,7 +36,8 @@ public class ComplianceControllerImpl implements ComplianceController {
     }
 
     @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE,
+            operation = Operation.CHECK_COMPLIANCE)
     public void checkCompliance(@LogResource(uuid = true) List<UUID> uuids,
             @LogResource(resource = true, affiliated = true) Resource resource, String type)
             throws ConnectorException, NotFoundException {

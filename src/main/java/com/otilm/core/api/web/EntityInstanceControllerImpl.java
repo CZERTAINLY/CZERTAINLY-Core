@@ -48,7 +48,8 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.ENTITY, operation = Operation.LIST)
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.ENTITY,
+            operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return entityInstanceService.getSearchableFieldInformationByGroup();
     }
@@ -91,14 +92,16 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location",
+            affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid)
             throws ConnectorException, NotFoundException {
         return entityInstanceService.listLocationAttributes(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location", affiliatedResource = Resource.ENTITY, operation = Operation.VALIDATE_ATTRIBUTES)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location",
+            affiliatedResource = Resource.ENTITY, operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid,
             List<RequestAttribute> attributes) throws ConnectorException, NotFoundException {
         entityInstanceService.validateLocationAttributes(SecuredUUID.fromString(entityUuid), attributes);

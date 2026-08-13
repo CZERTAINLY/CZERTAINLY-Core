@@ -64,26 +64,30 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.LIST)
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER,
+            affiliatedResource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return cryptographicKeyService.getSearchableFieldInformation();
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN_PROFILE, operation = Operation.LIST)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN_PROFILE, operation = Operation.LIST)
     public List<KeyDto> listKeyPairs(@LogResource(uuid = true, affiliated = true) Optional<String> tokenProfileUuid) {
         return cryptographicKeyService.listKeyPairs(tokenProfileUuid, SecurityFilter.create());
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
     public KeyDetailDto getKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             @LogResource(uuid = true) String uuid) throws NotFoundException {
         return cryptographicKeyService.getKey(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.DETAIL)
     public KeyDetailDto getKey(@LogResource(uuid = true) String uuid) throws NotFoundException {
         return cryptographicKeyService.getKey(SecuredUUID.fromString(uuid));
     }
@@ -95,21 +99,24 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            operation = Operation.DETAIL)
     public KeyItemDetailDto getKeyItem(String uuid, @LogResource(uuid = true) String keyItemUuid)
             throws NotFoundException {
         return cryptographicKeyService.getKeyItem(SecuredUUID.fromString(uuid), keyItemUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
     public KeyItemDetailDto getKeyItem(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             String uuid, @LogResource(uuid = true) String keyItemUuid) throws NotFoundException {
         return cryptographicKeyService.getKeyItem(SecuredUUID.fromString(uuid), keyItemUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.CREATE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.CREATE)
     public KeyDetailDto createKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             String tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException,
             ValidationException, ConnectorException, AttributeException, NotFoundException {
@@ -119,53 +126,61 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.UPDATE)
     public KeyDetailDto editKey(@LogResource(uuid = true) String uuid, EditKeyRequestDto request)
             throws ConnectorException, AttributeException, NotFoundException {
         return cryptographicKeyService.editKey(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.SYNC)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.SYNC)
     public void syncKeys(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid)
             throws ConnectorException, AttributeException, NotFoundException {
         cryptographicKeyService.syncKeys(SecuredParentUUID.fromString(tokenInstanceUuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.COMPROMISE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.COMPROMISE)
     public void compromiseKey(@LogResource(uuid = true) String uuid, CompromiseKeyRequestDto request)
             throws NotFoundException {
         cryptographicKeyService.compromiseKey(UUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.COMPROMISE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.COMPROMISE)
     public void compromiseKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             @LogResource(uuid = true) String uuid, CompromiseKeyRequestDto request) throws NotFoundException {
         cryptographicKeyService.compromiseKey(UUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.COMPROMISE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.COMPROMISE)
     public void compromiseKeys(BulkCompromiseKeyRequestDto request) {
         cryptographicKeyService.compromiseKey(request);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.COMPROMISE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            operation = Operation.COMPROMISE)
     public void compromiseKeyItems(BulkCompromiseKeyItemRequestDto request) {
         cryptographicKeyService.compromiseKeyItems(request);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DESTROY)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.DESTROY)
     public void destroyKey(String uuid, List<String> keyItemUuids) throws ConnectorException, NotFoundException {
         cryptographicKeyService.destroyKey(UUID.fromString(uuid), keyItemUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DESTROY)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.DESTROY)
     public void destroyKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             @LogResource(uuid = true) String uuid, List<String> keyItemUuids)
             throws ConnectorException, NotFoundException {
@@ -173,27 +188,31 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DESTROY)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.DESTROY)
     public void destroyKeys(@LogResource(uuid = true) List<String> keyUuids)
             throws ConnectorException, NotFoundException {
         cryptographicKeyService.destroyKey(keyUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.DESTROY)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            operation = Operation.DESTROY)
     public void destroyKeyItems(@LogResource(uuid = true) List<String> keyItemUuids) throws ConnectorException {
         cryptographicKeyService.destroyKeyItems(keyItemUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DELETE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.DELETE)
     public void deleteKey(@LogResource(uuid = true) String uuid, List<String> keyItemUuids)
             throws ConnectorException, NotFoundException {
         cryptographicKeyService.deleteKey(UUID.fromString(uuid), keyItemUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DELETE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.DELETE)
     public void deleteKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             @LogResource(uuid = true) String uuid, List<String> keyItemUuids)
             throws ConnectorException, NotFoundException {
@@ -201,76 +220,88 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DELETE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.DELETE)
     public void deleteKeys(@LogResource(uuid = true) List<String> keyUuids) throws ConnectorException {
         cryptographicKeyService.deleteKey(keyUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.DELETE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            operation = Operation.DELETE)
     public void deleteKeyItems(@LogResource(uuid = true) List<String> keyItemUuids) throws ConnectorException {
         cryptographicKeyService.deleteKeyItems(SecurityFilter.create(), keyItemUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.ENABLE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.ENABLE)
     public void enableKey(@LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws NotFoundException {
         cryptographicKeyService.enableKey(UUID.fromString(uuid), keyItemUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.ENABLE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.ENABLE)
     public void enableKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             @LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws NotFoundException {
         cryptographicKeyService.enableKey(UUID.fromString(uuid), keyItemUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.ENABLE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.ENABLE)
     public void enableKeys(@LogResource(uuid = true) List<String> uuids) {
         cryptographicKeyService.enableKey(uuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.ENABLE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            operation = Operation.ENABLE)
     public void enableKeyItems(@LogResource(uuid = true) List<String> uuids) {
         cryptographicKeyService.enableKeyItems(uuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DISABLE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.DISABLE)
     public void disableKey(@LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws NotFoundException {
         cryptographicKeyService.disableKey(UUID.fromString(uuid), keyItemUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DISABLE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.DISABLE)
     public void disableKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             @LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws NotFoundException {
         cryptographicKeyService.disableKey(UUID.fromString(uuid), keyItemUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DISABLE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.DISABLE)
     public void disableKeys(@LogResource(uuid = true) List<String> uuids) {
         cryptographicKeyService.disableKey(uuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.DISABLE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            operation = Operation.DISABLE)
     public void disableKeyItems(@LogResource(uuid = true) List<String> uuids) {
         cryptographicKeyService.disableKeyItems(uuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.UPDATE_KEY_USAGE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.UPDATE_KEY_USAGE)
     public void updateKeyUsages(@LogResource(uuid = true) String uuid, UpdateKeyUsageRequestDto request)
             throws NotFoundException, ValidationException {
         cryptographicKeyService.updateKeyUsages(UUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.UPDATE_KEY_USAGE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            affiliatedResource = Resource.TOKEN, operation = Operation.UPDATE_KEY_USAGE)
     public void updateKeyUsages(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid,
             @LogResource(uuid = true) String uuid, UpdateKeyUsageRequestDto request)
             throws NotFoundException, ValidationException {
@@ -278,19 +309,22 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.UPDATE_KEY_USAGE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY,
+            operation = Operation.UPDATE_KEY_USAGE)
     public void updateKeysUsages(BulkKeyUsageRequestDto request) {
         cryptographicKeyService.updateKeyUsages(request);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.UPDATE_KEY_USAGE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            operation = Operation.UPDATE_KEY_USAGE)
     public void updateKeyItemUsages(BulkKeyItemUsageRequestDto request) {
         cryptographicKeyService.updateKeyItemUsages(request);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.TOKEN,
+            operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listCreateKeyAttributes(
             @LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String tokenProfileUuid,
             @LogResource(name = true) KeyRequestType type) throws ConnectorException, NotFoundException {
@@ -300,14 +334,16 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.HISTORY)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            operation = Operation.HISTORY)
     public List<KeyEventHistoryDto> getEventHistory(@LogResource(uuid = true) String uuid, String keyItemUuid)
             throws NotFoundException {
         return cryptographicKeyService.getEventHistory(UUID.fromString(uuid), UUID.fromString(keyItemUuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, affiliatedResource = Resource.TOKEN, operation = Operation.HISTORY)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM,
+            affiliatedResource = Resource.TOKEN, operation = Operation.HISTORY)
     public List<KeyEventHistoryDto> getEventHistory(
             @LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String uuid,
             @LogResource(uuid = true) String keyItemUuid) throws NotFoundException {

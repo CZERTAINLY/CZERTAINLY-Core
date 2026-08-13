@@ -16,8 +16,13 @@ public interface TriggerAssociationRepository extends SecurityFilterRepository<T
 
     List<TriggerAssociation> findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource resource, UUID objectUuid);
 
-    @EntityGraph(attributePaths = {"trigger", "trigger.rules", "trigger.rules.conditions",
-            "trigger.rules.conditions.items", "trigger.actions", "trigger.actions.executions",
+    @EntityGraph(attributePaths = {
+            "trigger",
+            "trigger.rules",
+            "trigger.rules.conditions",
+            "trigger.rules.conditions.items",
+            "trigger.actions",
+            "trigger.actions.executions",
             "trigger.actions.executions.items"})
     List<TriggerAssociation> findAllByEventAndResourceAndObjectUuidOrderByTriggerOrderAsc(ResourceEvent resourceEvent,
             Resource resource, UUID objectUuid);

@@ -25,7 +25,9 @@ import lombok.ToString;
 @ToString
 @Entity
 // A certificate has at most one durable authorization record.
-@Table(name = "certificate_registration_authorization", uniqueConstraints = @UniqueConstraint(name = "uq_certificate_registration_authorization_certificate", columnNames = "certificate_uuid"))
+@Table(name = "certificate_registration_authorization",
+        uniqueConstraints = @UniqueConstraint(name = "uq_certificate_registration_authorization_certificate",
+                columnNames = "certificate_uuid"))
 public class CertificateRegistrationAuthorization extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "certificate_uuid", nullable = false)

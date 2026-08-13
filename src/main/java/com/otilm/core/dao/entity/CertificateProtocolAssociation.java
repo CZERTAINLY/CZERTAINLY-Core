@@ -50,25 +50,29 @@ public class CertificateProtocolAssociation extends UniquelyIdentified implement
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "protocol_profile_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinColumn(name = "protocol_profile_uuid", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     @SQLRestriction("protocol = 'ACME'")
     private AcmeProfile acmeProfile;
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "protocol_profile_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinColumn(name = "protocol_profile_uuid", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     @SQLRestriction("protocol = 'SCEP'")
     private ScepProfile scepProfile;
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "protocol_profile_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinColumn(name = "protocol_profile_uuid", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     @SQLRestriction("protocol = 'CMP'")
     private CmpProfile cmpProfile;
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "additional_protocol_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @JoinColumn(name = "additional_protocol_uuid", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     @SQLRestriction("protocol = 'ACME'")
     private AcmeAccount acmeAccount;
 

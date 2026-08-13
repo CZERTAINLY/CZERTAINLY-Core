@@ -12,7 +12,8 @@ public class SyncRequestDto {
     @Schema(description = "Request Method", requiredMode = Schema.RequiredMode.REQUIRED, example = "GET")
     private String method;
 
-    @Schema(description = "Context of the request", requiredMode = Schema.RequiredMode.REQUIRED, example = "/v1/clients")
+    @Schema(description = "Context of the request", requiredMode = Schema.RequiredMode.REQUIRED,
+            example = "/v1/clients")
     private String routeTemplate;
 
     @Schema(description = "Name of the resource", requiredMode = Schema.RequiredMode.REQUIRED, example = "client")
@@ -21,7 +22,8 @@ public class SyncRequestDto {
     @Schema(description = "Action Name", requiredMode = Schema.RequiredMode.REQUIRED, example = "list")
     private ResourceAction actionName;
 
-    @Schema(description = "Is endpoint for listing objects flag - true = Yes; false = No", requiredMode = Schema.RequiredMode.REQUIRED, example = "false", defaultValue = "false")
+    @Schema(description = "Is endpoint for listing objects flag - true = Yes; false = No",
+            requiredMode = Schema.RequiredMode.REQUIRED, example = "false", defaultValue = "false")
     private boolean isListingEndpoint;
 
     public String getName() {

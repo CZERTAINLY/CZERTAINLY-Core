@@ -34,7 +34,8 @@ public class CertificateContent implements Serializable {
     @Column(name = "id")
     @ColumnDefault("nextval('certificate_content_id_seq'::regclass)")
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_content_seq")
-    @SequenceGenerator(name = "certificate_content_seq", sequenceName = "certificate_content_id_seq", allocationSize = 1)
+    @SequenceGenerator(name = "certificate_content_seq", sequenceName = "certificate_content_id_seq",
+            allocationSize = 1)
     private Long id;
 
     @Column(name = "fingerprint", unique = true)

@@ -68,9 +68,8 @@ public class Location extends UniquelyIdentifiedAndAudited
     @Column(name = "enabled")
     private Boolean enabled;
 
-    @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, fetch = FetchType.LAZY
     // orphanRemoval = true
-    )
+    @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference
     @ToString.Exclude
     private Set<CertificateLocation> certificates = new HashSet<>();

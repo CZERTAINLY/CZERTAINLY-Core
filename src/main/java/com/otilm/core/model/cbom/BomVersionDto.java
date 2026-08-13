@@ -13,7 +13,8 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 public class BomVersionDto {
 
     @NotNull
-    @Schema(description = "CycloneDX version number for the CBOM document", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "CycloneDX version number for the CBOM document", example = "1",
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private String version;
 
     @NotNull

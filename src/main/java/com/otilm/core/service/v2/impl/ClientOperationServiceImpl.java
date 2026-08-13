@@ -387,7 +387,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
         RaProfile raProfile = raProfileRepository
@@ -397,7 +398,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public List<BaseAttribute> listRegisterCertificateAttributes(SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
         RaProfile raProfile = raProfileRepository
@@ -407,7 +409,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void validateIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException {
         RaProfile raProfile = raProfileRepository
@@ -511,7 +514,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid,
             final SecuredUUID raProfileUuid, final ClientCertificateIssueRequestDto request,
             final CertificateProtocolInfo protocolInfo) throws NotFoundException, CertificateException,
@@ -568,7 +572,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto registerCertificate(SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid, ClientCertificateRegistrationDto request)
             throws NotFoundException, ConnectorException, AttributeException {
@@ -1156,7 +1161,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
     @Override
     @Transactional(readOnly = true)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public AvailableOperationsDto listAvailableOperations(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid)
             throws NotFoundException {
         RaProfile raProfile = raProfileRepository
@@ -1787,7 +1793,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueExistingCertificate(final SecuredParentUUID authorityUuid,
             final SecuredUUID raProfileUuid, final String certificateUuid,
             final ClientCertificateIssueRequestDto request) throws NotFoundException {
@@ -1917,7 +1924,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto renewCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             String certificateUuid, ClientCertificateRenewRequestDto request)
             throws NotFoundException, CertificateOperationException, CertificateRequestException {
@@ -2146,7 +2154,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto rekeyCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             String certificateUuid, ClientCertificateRekeyRequestDto request)
             throws NotFoundException, CertificateException, CertificateOperationException, CertificateRequestException {
@@ -2418,7 +2427,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void revokeCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid,
             ClientCertificateRevocationDto request) throws ConnectorException, AttributeException, NotFoundException {
         Certificate certificate = validateOldCertificateForOperation(certificateUuid, raProfileUuid.toString(),
@@ -2748,7 +2758,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
         RaProfile raProfile = raProfileRepository
@@ -2758,7 +2769,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void validateRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException {
         RaProfile raProfile = raProfileRepository
@@ -3089,7 +3101,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
      * checkIssuePermissions below gates the actual issuance authority on CERTIFICATE. Mirrors what
      * issueCertificateAction does before persisting in the synchronous flow.
      */
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public CertificateDetailDto manuallyIssueCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             String certificateUuid, UploadCertificateRequestDto request) throws NotFoundException, CertificateException,
             AlreadyExistException, ConnectorException, AttributeException {
@@ -3242,7 +3255,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
      * checkRevokePermissions gates the actual revocation authority on CERTIFICATE.
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void manuallyConfirmRevoke(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             String certificateUuid) throws NotFoundException {
         certificateService.checkRevokePermissions();
@@ -3331,7 +3345,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public CertificateDetailDto cancelPendingCertificateOperation(SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid, String certificateUuid, CancelPendingCertificateRequestDto request)
             throws NotFoundException {

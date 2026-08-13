@@ -35,7 +35,8 @@ public class TspSigningProfileControllerImpl implements TspSigningProfileControl
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SIGNING_RECORD, affiliatedResource = Resource.SIGNING_PROFILE, operation = Operation.SIGN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SIGNING_RECORD,
+            affiliatedResource = Resource.SIGNING_PROFILE, operation = Operation.SIGN)
     public ResponseEntity<byte[]> timestamp(@LogResource(name = true, affiliated = true) String signingProfileName,
             byte[] request) {
         byte[] responseBytes;
