@@ -300,7 +300,12 @@ class ScepServiceImplRegistrationModeTest {
     }
 
     private void stubCandidates(Certificate... candidates) {
-        when(certificateRepository.findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuid(RA_PROFILE_UUID))
+        // Match the exact normalized subject the caller must derive from the CSR — every test enrols
+        // CN=device-1 — so a caller that stops normalizing (or passes the wrong value) misses the stub,
+        // yields no candidates, and fails the test rather than passing on an over-broad matcher.
+        when(certificateRepository
+                .findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(RA_PROFILE_UUID,
+                        CertificateUtil.normalizeSubjectDn(new X500Name("CN=device-1"))))
                 .thenReturn(Arrays.asList(candidates));
     }
 

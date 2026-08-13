@@ -678,11 +678,15 @@ public class CertificateUtil {
 
     /**
      * Records the subject identity of a no-CSR registration placeholder from the operator-supplied subject DN. Sets the
-     * subject DN and common name only; key, SAN and fingerprint fields stay empty until issuance fills them. A blank DN
-     * is a no-op (subject carried entirely in the SAN, permitted by RFC 5280 §4.1.2.6).
+     * subject DN, common name and normalized subject; key, SAN and fingerprint fields stay empty until issuance fills
+     * them. A blank DN stores only the normalized empty subject (subject carried entirely in the SAN, permitted by RFC
+     * 5280 §4.1.2.6).
      */
     public static void applyRegistrationSubject(Certificate modal, String subjectDn) {
         if (subjectDn == null || subjectDn.isBlank()) {
+            // SAN-only registration: the normalized empty subject keeps the row reachable by the
+            // registration lookup's normalized-subject equality.
+            modal.setSubjectDnNormalized(normalizeSubjectDn(EMPTY_X500_NAME));
             return;
         }
         try {
@@ -691,6 +695,38 @@ public class CertificateUtil {
             throw new ValidationException(
                     ValidationError.create("Invalid subject DN '%s': %s".formatted(subjectDn, e.getMessage())));
         }
+        try {
+            modal.setSubjectDnNormalized(normalizeStoredSubjectDn(modal.getSubjectDn()));
+        } catch (RuntimeException e) {
+            // The rendered DN does not re-parse (the style does not escape values); the identity match skips
+            // such rows, and a NULL normalized subject keeps the SQL prefilter equally unable to return them.
+        }
+    }
+
+    /** The empty distinguished name, the normalized subject of a SAN-only enrolment or registration. */
+    private static final X500Name EMPTY_X500_NAME = new X500Name(new RDN[0]);
+
+    /**
+     * Renders a subject in the platform's normalized form ({@link PlatformX500NameStyle#NORMALIZED}) — the
+     * representation stored in the certificate's normalized-subject column and compared by the registration identity
+     * match. An absent subject normalizes to the empty string.
+     */
+    public static String normalizeSubjectDn(X500Name subject) {
+        return X500Name
+                .getInstance(PlatformX500NameStyle.NORMALIZED, subject == null ? EMPTY_X500_NAME : subject)
+                .toString();
+    }
+
+    /**
+     * Normalizes a stored subject DN string exactly as the registration identity match compares candidates: a blank or
+     * absent value is the empty name; a present one is parsed with the normalized style and may throw, which callers
+     * treat as "row unmatchable".
+     */
+    public static String normalizeStoredSubjectDn(String subjectDn) {
+        if (subjectDn == null || subjectDn.isBlank()) {
+            return normalizeSubjectDn(EMPTY_X500_NAME);
+        }
+        return normalizeSubjectDn(new X500Name(PlatformX500NameStyle.NORMALIZED, subjectDn));
     }
 
     /**

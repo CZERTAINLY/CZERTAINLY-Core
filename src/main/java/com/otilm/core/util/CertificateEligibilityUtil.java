@@ -87,20 +87,33 @@ public class CertificateEligibilityUtil {
         return privateKeyAvailable;
     }
 
+    // @formatter:off
     /*
      * Constructed Query Graph for SCEP CA Certificate Filtering:
      *
-     * Certificate (root) |-- NOT archived |-- state == ISSUED |-- validationStatus IN (VALID, EXPIRING) |-- keyUuid IS
-     * NOT NULL |-- ALL items must have valid algorithm (RSA [and ECDSA if intuneEnabled=false]) | |-- Subquery
-     * invalidAlgoSubquery: NOT EXISTS item with invalid algorithm |-- AT LEAST ONE valid private key must exist | |--
-     * Subquery privateKeySubquery: EXISTS private key meeting criteria |-- ALL private keys must meet criteria | |--
-     * Subquery invalidPrivateKeySubquery: NOT EXISTS private key NOT meeting criteria | |-- RSA Private AND
-     * state=ACTIVE AND usage & (DECRYPT | SIGN) == (DECRYPT | SIGN) | OR | |-- ECDSA Private AND state=ACTIVE AND usage
-     * & SIGN [only if intuneEnabled=false] |-- AT LEAST ONE valid public key must exist | |-- Subquery
-     * publicKeySubquery: EXISTS public key meeting criteria |-- ALL public keys must meet criteria |-- Subquery
-     * invalidPublicKeySubquery: NOT EXISTS public key NOT meeting criteria |-- RSA Public AND usage & (ENCRYPT |
-     * VERIFY) == (ENCRYPT | VERIFY) OR |-- ECDSA Public AND usage & VERIFY [only if intuneEnabled=false]
+     * Certificate (root)
+     * |-- NOT archived
+     * |-- state == ISSUED
+     * |-- validationStatus IN (VALID, EXPIRING)
+     * |-- keyUuid IS NOT NULL
+     * |-- ALL items must have valid algorithm (RSA [and ECDSA if intuneEnabled=false])
+     * |   |-- Subquery invalidAlgoSubquery: NOT EXISTS item with invalid algorithm
+     * |-- AT LEAST ONE valid private key must exist
+     * |   |-- Subquery privateKeySubquery: EXISTS private key meeting criteria
+     * |-- ALL private keys must meet criteria
+     * |   |-- Subquery invalidPrivateKeySubquery: NOT EXISTS private key NOT meeting criteria
+     * |       |-- RSA Private AND state=ACTIVE AND usage & (DECRYPT | SIGN) == (DECRYPT | SIGN)
+     * |       OR
+     * |       |-- ECDSA Private AND state=ACTIVE AND usage & SIGN [only if intuneEnabled=false]
+     * |-- AT LEAST ONE valid public key must exist
+     * |   |-- Subquery publicKeySubquery: EXISTS public key meeting criteria
+     * |-- ALL public keys must meet criteria
+     *     |-- Subquery invalidPublicKeySubquery: NOT EXISTS public key NOT meeting criteria
+     *         |-- RSA Public AND usage & (ENCRYPT | VERIFY) == (ENCRYPT | VERIFY)
+     *         OR
+     *         |-- ECDSA Public AND usage & VERIFY [only if intuneEnabled=false]
      */
+    // @formatter:on
     public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryScepCaCertAcceptable(
             boolean intuneEnabled) {
         return (root, cb, cr) -> {
@@ -209,13 +222,20 @@ public class CertificateEligibilityUtil {
                                         KeyUsage.VERIFY.getBit()));
     }
 
+    // @formatter:off
     /*
      * Constructed Query Graph for CMP Signing Certificate Filtering:
      *
-     * Certificate (root) |-- NOT archived |-- keyUuid IS NOT NULL |-- state == ISSUED |-- validationStatus IN (VALID,
-     * EXPIRING) |-- AT LEAST ONE private key must exist |-- ALL private keys must meet criteria |-- state=ACTIVE AND
-     * usage & SIGN
+     * Certificate (root)
+     * |-- NOT archived
+     * |-- keyUuid IS NOT NULL
+     * |-- state == ISSUED
+     * |-- validationStatus IN (VALID, EXPIRING)
+     * |-- AT LEAST ONE private key must exist
+     * |-- ALL private keys must meet criteria
+     *     |-- state=ACTIVE AND usage & SIGN
      */
+    // @formatter:on
     public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryCmpSigningCertAcceptable() {
         return (root, cb, cr) -> {
             // Subquery to ensure at least one private key exists.
@@ -274,17 +294,27 @@ public class CertificateEligibilityUtil {
         return privateKeyAvailable;
     }
 
+    // @formatter:off
     /*
      * Constructed Query Graph for Digital Signing Certificate Filtering:
      *
-     * Certificate (root) |-- NOT archived |-- keyUuid IS NOT NULL |-- state == ISSUED |-- validationStatus IN (VALID,
-     * EXPIRING) |-- key.tokenProfileUuid IS NOT NULL (associated Token Profile) |-- key.tokenInstanceReferenceUuid IS
-     * NOT NULL (associated Token Instance) |-- AT LEAST ONE private key must exist |-- ALL private keys must meet
-     * criteria |-- state=ACTIVE AND usage & SIGN |-- AT LEAST ONE public key must exist |-- (TIMESTAMPING only)
-     * extendedKeyUsage is exclusively the TSA OID (RFC 3161) |-- (TIMESTAMPING only) extendedKeyUsageCritical is true
-     * (RFC 3161) |-- (TIMESTAMPING + qualifiedTimestamp only) certificate carries id-etsi-qcs-QcCompliance (ETSI EN 319
-     * 412-5 / EN 319 421)
+     * Certificate (root)
+     * |-- NOT archived
+     * |-- keyUuid IS NOT NULL
+     * |-- state == ISSUED
+     * |-- validationStatus IN (VALID, EXPIRING)
+     * |-- key.tokenProfileUuid IS NOT NULL           (associated Token Profile)
+     * |-- key.tokenInstanceReferenceUuid IS NOT NULL (associated Token Instance)
+     * |-- AT LEAST ONE private key must exist
+     * |-- ALL private keys must meet criteria
+     * |   |-- state=ACTIVE AND usage & SIGN
+     * |-- AT LEAST ONE public key must exist
+     * |-- (TIMESTAMPING only) extendedKeyUsage is exclusively the TSA OID (RFC 3161)
+     * |-- (TIMESTAMPING only) extendedKeyUsageCritical is true (RFC 3161)
+     * |-- (TIMESTAMPING + qualifiedTimestamp only) certificate carries id-etsi-qcs-QcCompliance
+     *     (ETSI EN 319 412-5 / EN 319 421)
      */
+    // @formatter:on
     public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryDigitalSigningCertAcceptable(
             SigningWorkflowType workflowType, boolean qualifiedTimestamp) {
         return (root, cb, cr) -> {

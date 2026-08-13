@@ -44,6 +44,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -412,6 +413,46 @@ class CertificateUtilTest {
                 .setProofOfPossessionSubsequentMessage(SubsequentMessage.encrCert);
         CertReqMessages messages = new CertReqMessages(builder.build().toASN1Structure());
         return new CrmfCertificateRequest(messages.getEncoded());
+    }
+
+    @Test
+    void normalizeStoredSubjectDnNeutralizesRdnOrderAndAttributeNameCase() {
+        assertEquals(CertificateUtil.normalizeStoredSubjectDn("CN=device-7, O=Acme"),
+                CertificateUtil.normalizeStoredSubjectDn("o=Acme, cn=device-7"));
+    }
+
+    @Test
+    void normalizeStoredSubjectDnPreservesAttributeValueCase() {
+        assertNotEquals(CertificateUtil.normalizeStoredSubjectDn("CN=Device-7"),
+                CertificateUtil.normalizeStoredSubjectDn("CN=device-7"));
+    }
+
+    @Test
+    void absentSubjectNormalizesToTheEmptyString() {
+        assertEquals("", CertificateUtil.normalizeSubjectDn(null));
+        assertEquals("", CertificateUtil.normalizeStoredSubjectDn(null));
+        assertEquals("", CertificateUtil.normalizeStoredSubjectDn("   "));
+    }
+
+    @Test
+    void normalizeStoredSubjectDnRejectsAnUnparseableValue() {
+        assertThrows(IllegalArgumentException.class, () -> CertificateUtil.normalizeStoredSubjectDn("not a dn"));
+    }
+
+    @Test
+    void applyRegistrationSubjectPopulatesTheNormalizedSubject() {
+        Certificate certificate = new Certificate();
+        CertificateUtil.applyRegistrationSubject(certificate, "CN=device-7, O=Acme");
+        assertEquals(CertificateUtil.normalizeStoredSubjectDn(certificate.getSubjectDn()),
+                certificate.getSubjectDnNormalized());
+    }
+
+    @Test
+    void applyRegistrationSubjectOfABlankDnStoresTheEmptyNormalizedSubject() {
+        Certificate certificate = new Certificate();
+        CertificateUtil.applyRegistrationSubject(certificate, " ");
+        assertNull(certificate.getSubjectDn());
+        assertEquals("", certificate.getSubjectDnNormalized());
     }
 
 }
