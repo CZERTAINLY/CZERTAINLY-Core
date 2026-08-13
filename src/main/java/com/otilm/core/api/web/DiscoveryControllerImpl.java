@@ -64,7 +64,6 @@ public class DiscoveryControllerImpl implements DiscoveryController {
         this.discoveryService = discoveryService;
     }
 
-    // The house pattern for binding a platform enum by wire code.
     // ResourceCodeConverter goes through Resource.findByCode, whose ValidationException answers an unknown
     // code with a clean 422 — the global ConversionService route would 400 with Spring's class-name message.
     @InitBinder
@@ -162,14 +161,17 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     /*
-     * Discovery v2, not implemented yet. These seven exist because DiscoveryController declares them abstract, so this
-     * class does not compile without them; they answer 501 rather than nothing, so a caller reaching one gets an answer
-     * it can act on.
+     * Discovery v2, not implemented yet: these seven exist because DiscoveryController declares them abstract, so this
+     * class does not compile without them.
      *
-     * Deliberately carrying neither @AuditLogged nor authorization annotations: there is no operation to audit and no
-     * resource to check while the body does nothing. Authentication still applies -- SecurityConfig authenticates every
-     * request -- and the resource-level authorization these need arrives with the real implementations. The checked
-     * exceptions stay on the signatures so filling them in later does not change the contract.
+     * Stub response: 501, so a caller reaching one gets an answer it can act on.
+     *
+     * Authorization: deliberately neither @AuditLogged nor authorization annotations — no operation to audit and no
+     * resource to check while the body does nothing; resource-level gating arrives with the real implementations.
+     * Authentication is unaffected.
+     *
+     * Compatibility: the checked exceptions stay on the signatures so filling them in later does not change the
+     * contract.
      */
 
     @Override
