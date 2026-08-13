@@ -64,7 +64,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
         this.discoveryService = discoveryService;
     }
 
-    // The house pattern for binding a platform enum by wire code (18 controllers register these editors).
+    // The house pattern for binding a platform enum by wire code.
     // ResourceCodeConverter goes through Resource.findByCode, whose ValidationException answers an unknown
     // code with a clean 422 — the global ConversionService route would 400 with Spring's class-name message.
     @InitBinder
