@@ -235,7 +235,8 @@ public class CertificateHandler {
      * committed certificate backs the given UUIDs (see {@link #uploadKeyInternal}). Callers use the result to keep the
      * discovery status visible when key association could not complete.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT, rollbackFor = NoSuchAlgorithmException.class)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT,
+            rollbackFor = NoSuchAlgorithmException.class)
     public boolean uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids)
             throws NoSuchAlgorithmException {
         UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "certKey_");
@@ -250,7 +251,8 @@ public class CertificateHandler {
      * @return true if the alternative key was associated with the certificates, false if the upload was skipped because
      * no committed certificate backs the given UUIDs.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT, rollbackFor = NoSuchAlgorithmException.class)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT,
+            rollbackFor = NoSuchAlgorithmException.class)
     public boolean uploadDiscoveredCertificateAltKey(PublicKey publicKey, List<UUID> certificateUuids)
             throws NoSuchAlgorithmException {
         UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "altCertKey_");

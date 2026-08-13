@@ -165,7 +165,8 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.CERTIFICATE, operation = Operation.LIST)
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.CERTIFICATE,
+            operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return certificateService.getSearchableFieldInformationByGroup();
     }
@@ -178,7 +179,8 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.LOCATION, operation = Operation.LIST)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.LOCATION,
+            operation = Operation.LIST)
     public List<LocationDto> listLocations(@LogResource(uuid = true) UUID certificateUuid) throws NotFoundException {
         return certificateService.listLocations(SecuredUUID.fromUUID(certificateUuid));
     }
@@ -197,7 +199,8 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "csr", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "csr",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> getCsrGenerationAttributes(
             @LogResource(uuid = true, affiliated = true) UUID raProfileUuid)
             throws NotFoundException, ConnectorException {
@@ -238,7 +241,8 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.APPROVAL, operation = Operation.LIST)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.APPROVAL,
+            operation = Operation.LIST)
     public ApprovalResponseDto listCertificateApprovals(@LogResource(uuid = true) final UUID uuid,
             final PaginationRequestDto paginationRequestDto) {
         return approvalService
@@ -277,14 +281,16 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ASSOCIATE,
+            affiliatedResource = Resource.CERTIFICATE)
     public void associateCertificates(@LogResource(uuid = true) UUID uuid,
             @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
         certificateService.associateCertificates(uuid, certificateUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DISASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DISASSOCIATE,
+            affiliatedResource = Resource.CERTIFICATE)
     public void removeCertificateAssociation(@LogResource(uuid = true) UUID uuid,
             @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
         certificateService.removeCertificateAssociation(uuid, certificateUuid);

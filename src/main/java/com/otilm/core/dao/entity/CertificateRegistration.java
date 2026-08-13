@@ -18,7 +18,9 @@ import lombok.Setter;
 @Setter
 @Entity
 // A certificate has at most one registration binding at a time.
-@Table(name = "certificate_registration", uniqueConstraints = @UniqueConstraint(name = "uq_certificate_registration_certificate", columnNames = "certificate_uuid"))
+@Table(name = "certificate_registration",
+        uniqueConstraints = @UniqueConstraint(name = "uq_certificate_registration_certificate",
+                columnNames = "certificate_uuid"))
 public class CertificateRegistration extends UniquelyIdentified {
 
     @Column(name = "certificate_uuid", nullable = false)
@@ -29,11 +31,13 @@ public class CertificateRegistration extends UniquelyIdentified {
     private String meta;
 
     // Set by the database on insert, never by the application.
-    @Column(name = "i_cre", nullable = false, insertable = false, updatable = false, columnDefinition = "timestamptz not null default now()")
+    @Column(name = "i_cre", nullable = false, insertable = false, updatable = false,
+            columnDefinition = "timestamptz not null default now()")
     private OffsetDateTime created;
 
     // Maintained by the upsert SQL (audit-columns-in-SQL rule); read-only on the entity.
-    @Column(name = "i_upd", nullable = false, insertable = false, updatable = false, columnDefinition = "timestamptz not null default now()")
+    @Column(name = "i_upd", nullable = false, insertable = false, updatable = false,
+            columnDefinition = "timestamptz not null default now()")
     private OffsetDateTime updated;
 
     @Override

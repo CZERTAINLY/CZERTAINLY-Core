@@ -108,7 +108,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.LIST, parentResource = Resource.VAULT, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.LIST,
+            parentResource = Resource.VAULT, parentAction = ResourceAction.LIST)
     public PaginationResponseDto<VaultProfileDto> listVaultProfiles(SearchRequestDto request,
             SecurityFilter securityFilter) {
         securityFilter.setParentRefProperty(VaultProfile_.VAULT_INSTANCE_UUID);
@@ -132,7 +133,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public VaultProfileDetailDto getVaultProfileDetails(SecuredParentUUID vaultUuid, SecuredUUID vaultProfileUuid)
             throws NotFoundException {
         VaultProfile vaultProfile = vaultProfileRepository
@@ -161,7 +163,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public VaultProfileDetailDto updateVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID,
             VaultProfileUpdateRequestDto request) throws NotFoundException, AttributeException {
         VaultProfile vaultProfile = vaultProfileRepository
@@ -191,7 +194,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DELETE,
+            parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public void deleteVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID)
             throws NotFoundException {
         VaultProfile vaultProfile = vaultProfileRepository
@@ -212,7 +216,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.CREATE,
+            parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public VaultProfileDetailDto createVaultProfile(SecuredParentUUID securedParentUUID, VaultProfileRequestDto request)
             throws NotFoundException, ValidationException, AttributeException, AlreadyExistException {
         if (vaultProfileRepository.existsByName(request.getName())) {
@@ -250,7 +255,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.ENABLE,
+            parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public void enableVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID)
             throws NotFoundException {
         VaultProfile vaultProfile = vaultProfileRepository
@@ -261,7 +267,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.ENABLE,
+            parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public void disableVaultProfile(SecuredParentUUID securedParentUUID, SecuredUUID securedUUID)
             throws NotFoundException {
         VaultProfile vaultProfile = vaultProfileRepository
@@ -272,7 +279,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.VAULT, parentAction = ResourceAction.DETAIL)
     public List<BaseAttribute> listSecretAttributes(SecuredParentUUID vaultUUID, SecuredUUID vaultProfileUUID,
             SecretType secretType) throws NotFoundException, ConnectorException, AttributeException {
         VaultInstance vaultInstance = vaultInstanceRepository
@@ -346,7 +354,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.LIST, parentResource = Resource.VAULT, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.VAULT_PROFILE, action = ResourceAction.LIST,
+            parentResource = Resource.VAULT, parentAction = ResourceAction.LIST)
     public Long statisticsVaultProfileCount(SecurityFilter filter) {
         filter.setParentRefProperty(VaultProfile_.VAULT_INSTANCE_UUID);
         return vaultProfileRepository.countUsingSecurityFilter(filter, null);

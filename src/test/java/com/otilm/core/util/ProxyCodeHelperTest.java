@@ -58,8 +58,11 @@ class ProxyCodeHelperTest {
     // DIACRITICS REMOVAL
 
     @ParameterizedTest
-    @CsvSource({"'Příliš žluťoučký kůň', 'proxy-prilis-zlutoucky-kun'", "'Müller Straße', 'proxy-muller-strae'",
-            "'Łódź Świętokrzyska', 'proxy-lodz-swietokrzyska'", "'São Paulo', 'proxy-sao-paulo'"})
+    @CsvSource({
+            "'Příliš žluťoučký kůň', 'proxy-prilis-zlutoucky-kun'",
+            "'Müller Straße', 'proxy-muller-strae'",
+            "'Łódź Świętokrzyska', 'proxy-lodz-swietokrzyska'",
+            "'São Paulo', 'proxy-sao-paulo'"})
     @DisplayName("Should remove diacritics from various languages")
     void testCalculateCode_DiacriticsRemoval(String input, String expected) {
         ProxyCodeHelper helper = new ProxyCodeHelper("proxy-");
@@ -84,8 +87,11 @@ class ProxyCodeHelperTest {
     // SPECIAL CHARACTERS
 
     @ParameterizedTest
-    @CsvSource({"'Test@Proxy#123', 'proxy-testproxy123'", "'Test(Proxy)Name', 'proxy-testproxyname'",
-            "'Test/Proxy\\Name', 'proxy-testproxyname'", "'Test.Proxy_Name', 'proxy-testproxyname'"})
+    @CsvSource({
+            "'Test@Proxy#123', 'proxy-testproxy123'",
+            "'Test(Proxy)Name', 'proxy-testproxyname'",
+            "'Test/Proxy\\Name', 'proxy-testproxyname'",
+            "'Test.Proxy_Name', 'proxy-testproxyname'"})
     @DisplayName("Should remove special characters")
     void testCalculateCode_SpecialCharactersRemoval(String input, String expected) {
         ProxyCodeHelper helper = new ProxyCodeHelper("proxy-");

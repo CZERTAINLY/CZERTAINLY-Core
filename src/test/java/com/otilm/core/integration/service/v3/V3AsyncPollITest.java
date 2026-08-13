@@ -61,7 +61,8 @@ import static org.awaitility.Awaitility.await;
 // times, past that limit, to prove an in-progress cert is never failed by running out of attempts.
 // delays[0] just fills the required non-null delays list. Its value does not matter, because
 // makePollDueNow() back-dates the row instead of waiting for the configured interval.
-@TestPropertySource(properties = {"provider.status-poll.by-kind.REGISTER.delays[0]=PT0S",
+@TestPropertySource(properties = {
+        "provider.status-poll.by-kind.REGISTER.delays[0]=PT0S",
         "provider.status-poll.by-kind.REGISTER.max-attempts=2"})
 class V3AsyncPollITest extends BaseMessagingIntTest {
 

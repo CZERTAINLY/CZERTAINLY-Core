@@ -13,7 +13,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface SigningProfileVersionRepository extends JpaRepository<SigningProfileVersion, UUID> {
 
-    @EntityGraph(attributePaths = {"certificate", "certificate.certificateContent", "certificate.key",
+    @EntityGraph(attributePaths = {
+            "certificate",
+            "certificate.certificateContent",
+            "certificate.key",
             "certificate.key.items",})
     Optional<SigningProfileVersion> findWithAssociationsBySigningProfileUuidAndVersion(UUID signingProfileUuid,
             int version);

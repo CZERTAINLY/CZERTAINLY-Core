@@ -17,8 +17,12 @@ public interface ComplianceProfileRepository extends SecurityFilterRepository<Co
     @EntityGraph(attributePaths = {"complianceRules", "complianceRules.internalRule", "associations"})
     Optional<ComplianceProfile> findWithAssociationsByUuid(UUID uuid);
 
-    @EntityGraph(attributePaths = {"associations", "complianceRules", "complianceRules.connector",
-            "complianceRules.internalRule", "complianceRules.internalRule.conditionItems"})
+    @EntityGraph(attributePaths = {
+            "associations",
+            "complianceRules",
+            "complianceRules.connector",
+            "complianceRules.internalRule",
+            "complianceRules.internalRule.conditionItems"})
     List<ComplianceProfile> findWithAssociationsByUuidIn(List<UUID> uuids);
 
     List<ComplianceProfile> findDistinctByComplianceRulesConnectorUuid(UUID connectorUuid);

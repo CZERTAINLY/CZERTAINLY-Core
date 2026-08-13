@@ -110,7 +110,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     private AuthorityProviderAdapterFactory authorityProviderAdapterFactory;
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
     public List<RaProfileDto> listRaProfiles(SecurityFilter filter, Optional<Boolean> enabled) {
         filter.setParentRefProperty("authorityInstanceReferenceUuid");
         return enabled
@@ -135,7 +136,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.CREATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileDto addRaProfile(SecuredParentUUID authorityInstanceUuid, AddRaProfileRequestDto request)
             throws AlreadyExistException, ValidationException, ConnectorException, AttributeException,
             NotFoundException {
@@ -198,7 +200,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileDto getRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile raProfile = raProfileRepository
                 .findByUuid(uuid)
@@ -222,7 +225,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileDto editRaProfile(SecuredParentUUID authorityInstanceUuid, SecuredUUID uuid,
             EditRaProfileRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         RaProfile raProfile = raProfileRepository
@@ -255,7 +259,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileDto updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid, RaProfileCertificateValidationSettingsUpdateDto request)
             throws NotFoundException {
@@ -273,7 +278,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileDto updateRaProfileRequestAttributesConfiguration(SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid, RaProfileCertificateRequestAttributesUpdateDto request)
             throws NotFoundException {
@@ -285,7 +291,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DELETE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void deleteRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         deleteRaProfileInt(uuid);
     }
@@ -297,7 +304,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void enableRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile entity = raProfileRepository
                 .findByUuid(uuid)
@@ -308,7 +316,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void disableRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile entity = raProfileRepository
                 .findByUuid(uuid)
@@ -382,7 +391,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     // TODO - use acme service to obtain ACME profile
     public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid)
             throws NotFoundException {
@@ -390,7 +400,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid,
             SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request)
             throws ConnectorException, ValidationException, AttributeException, NotFoundException {
@@ -435,7 +446,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void deactivateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         raProfile.setAcmeProfile(null);
@@ -447,7 +459,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileScepDetailResponseDto activateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid,
             SecuredUUID scepProfileUuid, ActivateScepForRaProfileRequestDto request)
             throws ConnectorException, ValidationException, AttributeException, NotFoundException {
@@ -482,7 +495,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void deactivateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         raProfile.setScepProfile(null);
@@ -499,14 +513,16 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     // -----------------------------------------------------------------------------------------------------------------
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileCmpDetailResponseDto getCmpForRaProfile(SecuredParentUUID authorityInstanceUuid,
             SecuredUUID raProfileUuid) throws NotFoundException {
         return getRaProfileEntity(raProfileUuid).mapToCmpDto();
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileCmpDetailResponseDto activateCmpForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid,
             SecuredUUID cmpProfileUuid, ActivateCmpForRaProfileRequestDto request)
             throws ConnectorException, ValidationException, AttributeException, NotFoundException {
@@ -548,7 +564,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void deactivateCmpForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         raProfile.setCmpProfile(null);
@@ -575,7 +592,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.ANY)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.ANY)
     public List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid)
             throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntity(uuid);
@@ -583,7 +601,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.ANY)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.ANY)
     public List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid)
             throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntity(uuid);
@@ -612,7 +631,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
     public Long statisticsRaProfilesCount(SecurityFilter filter) {
         filter.setParentRefProperty("authorityInstanceReferenceUuid");
         return raProfileRepository.countUsingSecurityFilter(filter, null);
@@ -639,7 +659,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL,
+            parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
     public void evaluateCertificateRaProfilePermissions(SecuredUUID certificateUuid, SecuredParentUUID raProfileUuid) {
     }
 
@@ -651,7 +672,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileScepDetailResponseDto getScepForRaProfile(SecuredParentUUID authorityInstanceUuid,
             SecuredUUID raProfileUuid) throws NotFoundException {
         return getRaProfileEntity(raProfileUuid).mapToScepDto();
@@ -753,7 +775,8 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public List<CertificateDetailDto> getAuthorityCertificateChain(SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntity(raProfileUuid);

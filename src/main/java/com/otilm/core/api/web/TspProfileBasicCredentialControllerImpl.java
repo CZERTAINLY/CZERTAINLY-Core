@@ -33,21 +33,24 @@ public class TspProfileBasicCredentialControllerImpl implements TspProfileBasicC
     }
 
     @Override
-    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL, affiliatedResource = Resource.TSP_PROFILE, operation = Operation.LIST)
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL,
+            affiliatedResource = Resource.TSP_PROFILE, operation = Operation.LIST)
     public List<TspBasicCredentialDto> list(@LogResource(uuid = true, affiliated = true) UUID tspProfileUuid)
             throws NotFoundException {
         return service.list(SecuredParentUUID.fromUUID(tspProfileUuid));
     }
 
     @Override
-    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL, affiliatedResource = Resource.TSP_PROFILE, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL,
+            affiliatedResource = Resource.TSP_PROFILE, operation = Operation.DETAIL)
     public TspBasicCredentialDto get(@LogResource(uuid = true, affiliated = true) UUID tspProfileUuid,
             @LogResource(uuid = true) UUID uuid) throws NotFoundException {
         return service.get(SecuredParentUUID.fromUUID(tspProfileUuid), SecuredUUID.fromUUID(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL, affiliatedResource = Resource.TSP_PROFILE, operation = Operation.CREATE)
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL,
+            affiliatedResource = Resource.TSP_PROFILE, operation = Operation.CREATE)
     public TspBasicCredentialDto create(@LogResource(uuid = true, affiliated = true) UUID tspProfileUuid,
             @Valid TspBasicCredentialCreateRequestDto request)
             throws AlreadyExistException, AttributeException, ConnectorCommunicationException, NotFoundException {
@@ -55,7 +58,8 @@ public class TspProfileBasicCredentialControllerImpl implements TspProfileBasicC
     }
 
     @Override
-    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL, affiliatedResource = Resource.TSP_PROFILE, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL,
+            affiliatedResource = Resource.TSP_PROFILE, operation = Operation.UPDATE)
     public TspBasicCredentialDto update(@LogResource(uuid = true, affiliated = true) UUID tspProfileUuid,
             @LogResource(uuid = true) UUID uuid, @Valid TspBasicCredentialUpdateRequestDto request)
             throws AlreadyExistException, AttributeException, ConnectorCommunicationException, NotFoundException {
@@ -63,7 +67,8 @@ public class TspProfileBasicCredentialControllerImpl implements TspProfileBasicC
     }
 
     @Override
-    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL, affiliatedResource = Resource.TSP_PROFILE, operation = Operation.DELETE)
+    @AuditLogged(module = Module.SIGNING, resource = Resource.TSP_PROFILE_BASIC_CREDENTIAL,
+            affiliatedResource = Resource.TSP_PROFILE, operation = Operation.DELETE)
     public void delete(@LogResource(uuid = true, affiliated = true) UUID tspProfileUuid,
             @LogResource(uuid = true) UUID uuid)
             throws AttributeException, ConnectorCommunicationException, NotFoundException {

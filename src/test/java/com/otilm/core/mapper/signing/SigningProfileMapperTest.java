@@ -273,7 +273,7 @@ class SigningProfileMapperTest {
             // given
             SigningProfile header = newHeader();
             SigningProfileVersion version = newTimestampingVersion();
-            version.setWorkflowType(SigningWorkflowType.CONTENT_SIGNING);
+            version.setWorkflowType(SigningWorkflowType.DOCUMENT_SIGNING);
             version.setSigningScheme(SigningScheme.MANAGED);
             version.setManagedSigningType(ManagedSigningType.STATIC_KEY);
 

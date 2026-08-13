@@ -14,11 +14,13 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 public class BomCreateResponseDto implements Serializable {
 
     @NotNull
-    @Schema(description = "CycloneDX serial number (URN, RFC-4122)", example = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "CycloneDX serial number (URN, RFC-4122)",
+            example = "urn:uuid:3e671687-395b-41f5-a30f-a58921a69b79", requiredMode = Schema.RequiredMode.REQUIRED)
     private String serialNumber;
 
     @NotNull
-    @Schema(description = "CycloneDX integer version number for the BOM document", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "CycloneDX integer version number for the BOM document", example = "1",
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer version;
 
     @NotNull

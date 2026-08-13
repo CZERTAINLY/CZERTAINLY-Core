@@ -37,14 +37,16 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.VAULT,
+            operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listVaultInstanceAttributes(UUID connectorUuid)
             throws ConnectorException, NotFoundException, AttributeException {
         return vaultInstanceService.listVaultInstanceAttributes(connectorUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.ATTRIBUTE, name = "vaultProfile", affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.ATTRIBUTE, name = "vaultProfile",
+            affiliatedResource = Resource.VAULT, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listVaultProfileAttributes(@LogResource(uuid = true, affiliated = true) UUID uuid)
             throws ConnectorException, NotFoundException, AttributeException {
         return vaultInstanceService.listVaultProfileAttributes(SecuredUUID.fromUUID(uuid));
@@ -85,7 +87,8 @@ public class VaultInstanceControllerImpl implements VaultInstanceController {
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, operation = Operation.LIST, affiliatedResource = Resource.VAULT)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, operation = Operation.LIST,
+            affiliatedResource = Resource.VAULT)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return vaultInstanceService.getSearchableFieldInformation();
     }

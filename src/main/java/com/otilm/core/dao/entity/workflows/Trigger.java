@@ -51,12 +51,14 @@ public class Trigger extends UniquelyIdentified {
     private ResourceEvent event;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "trigger_2_rule", joinColumns = @JoinColumn(name = "trigger_uuid"), inverseJoinColumns = @JoinColumn(name = "rule_uuid"))
+    @JoinTable(name = "trigger_2_rule", joinColumns = @JoinColumn(name = "trigger_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "rule_uuid"))
     @ToString.Exclude
     private Set<Rule> rules;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "trigger_2_action", joinColumns = @JoinColumn(name = "trigger_uuid"), inverseJoinColumns = @JoinColumn(name = "action_uuid"))
+    @JoinTable(name = "trigger_2_action", joinColumns = @JoinColumn(name = "trigger_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "action_uuid"))
     @ToString.Exclude
     private Set<Action> actions;
 

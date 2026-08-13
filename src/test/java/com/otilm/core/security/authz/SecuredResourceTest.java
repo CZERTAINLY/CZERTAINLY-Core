@@ -44,7 +44,8 @@ class SecuredResourceTest {
 
     @Test
     void throwsWhenMoreThanOneSecuredResourceArgumentPresent() {
-        Object[] arguments = new Object[]{SecuredResource.fromResource(Resource.CERTIFICATE),
+        Object[] arguments = new Object[]{
+                SecuredResource.fromResource(Resource.CERTIFICATE),
                 SecuredResource.fromResource(Resource.RA_PROFILE)};
         Assertions.assertThrows(ValidationException.class, () -> SecuredResource.fromArguments(arguments));
     }

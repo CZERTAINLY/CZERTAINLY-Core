@@ -22,13 +22,15 @@ public class ScepRaProfileControllerImpl implements ScepRaProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.UNKNOWN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE,
+            operation = Operation.UNKNOWN)
     public ResponseEntity<Object> doGet(String raProfileName, String operation, String message) throws ScepException {
         return scepService.handleGet(raProfileName, operation, message);
     }
 
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.UNKNOWN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE,
+            operation = Operation.UNKNOWN)
     public ResponseEntity<Object> doPost(String raProfileName, String operation, byte[] request) throws ScepException {
         return scepService.handlePost(raProfileName, operation, request);
     }

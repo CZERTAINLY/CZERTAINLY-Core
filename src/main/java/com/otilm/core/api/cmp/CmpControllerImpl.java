@@ -34,7 +34,8 @@ public class CmpControllerImpl implements CmpController {
      * @throws CmpBaseException - http get is not allowed
      */
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.UNKNOWN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE,
+            operation = Operation.UNKNOWN)
     public ResponseEntity<byte[]> doGet(@LogResource(name = true, affiliated = true) String cmpProfileName,
             byte[] request) throws CmpBaseException {
         throw new CmpProcessingException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
@@ -49,7 +50,8 @@ public class CmpControllerImpl implements CmpController {
      * @throws CmpBaseException if any error has been raised
      */
     @Override
-    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.UNKNOWN)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE,
+            operation = Operation.UNKNOWN)
     public ResponseEntity<byte[]> doPost(@LogResource(name = true, affiliated = true) String cmpProfileName,
             byte[] request) throws CmpBaseException {
         return cmpService.handlePost(cmpProfileName, request);

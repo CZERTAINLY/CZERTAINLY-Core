@@ -11,7 +11,8 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 @Getter
 public class CryptoAssetCountDto implements Serializable {
 
-    @Schema(description = "Total number of crypto components", example = "0", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Total number of crypto components", example = "0",
+            requiredMode = Schema.RequiredMode.REQUIRED)
     private Integer total;
 
     @Override

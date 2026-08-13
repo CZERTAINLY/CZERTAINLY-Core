@@ -31,8 +31,9 @@ import org.hibernate.type.SqlTypes;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "notification_profile_version", uniqueConstraints = @UniqueConstraint(name = NotificationProfileVersion.UNIQUE_VERSION_CONSTRAINT, columnNames = {
-        "notification_profile_uuid", "version"}))
+@Table(name = "notification_profile_version",
+        uniqueConstraints = @UniqueConstraint(name = NotificationProfileVersion.UNIQUE_VERSION_CONSTRAINT,
+                columnNames = {"notification_profile_uuid", "version"}))
 public class NotificationProfileVersion extends UniquelyIdentified {
 
     public static final String UNIQUE_VERSION_CONSTRAINT = "uq_notification_profile_version";
@@ -60,7 +61,8 @@ public class NotificationProfileVersion extends UniquelyIdentified {
     private UUID notificationInstanceRefUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "notification_instance_ref_uuid", referencedColumnName = "uuid", insertable = false, updatable = false)
+    @JoinColumn(name = "notification_instance_ref_uuid", referencedColumnName = "uuid", insertable = false,
+            updatable = false)
     @ToString.Exclude
     private NotificationInstanceReference notificationInstance;
 

@@ -41,7 +41,8 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, operation = Operation.LIST, affiliatedResource = Resource.SECRET)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SEARCH_FILTER, operation = Operation.LIST,
+            affiliatedResource = Resource.SECRET)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return secretService.getSearchableFieldInformation();
     }
@@ -72,7 +73,8 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.CREATE, affiliatedResource = Resource.VAULT)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, operation = Operation.CREATE,
+            affiliatedResource = Resource.VAULT)
     public SecretDetailDto createSecret(SecretRequestDto secretRequest,
             @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, UUID vaultUuid)
             throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
@@ -108,7 +110,8 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.ASSOCIATE)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE,
+            operation = Operation.ASSOCIATE)
     public void addVaultProfileToSecret(@LogResource(uuid = true) UUID uuid,
             @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid,
             List<RequestAttribute> createSecretAttributes)
@@ -117,7 +120,8 @@ public class SecretManagementControllerImpl implements SecretManagementControlle
     }
 
     @Override
-    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE, operation = Operation.DISASSOCIATE)
+    @AuditLogged(module = Module.SECRETS, resource = Resource.SECRET, affiliatedResource = Resource.VAULT_PROFILE,
+            operation = Operation.DISASSOCIATE)
     public void removeVaultProfileFromSecret(@LogResource(uuid = true) UUID uuid,
             @LogResource(uuid = true, affiliated = true) UUID vaultProfileUuid, boolean deleteInVault)
             throws NotFoundException, ConnectorException, AttributeException {

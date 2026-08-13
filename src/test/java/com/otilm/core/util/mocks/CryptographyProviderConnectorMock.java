@@ -38,7 +38,8 @@ public class CryptographyProviderConnectorMock extends BaseConnectorMock {
     }
 
     private static List<EndpointDto> cryptographyProviderEndpoints() {
-        String[][] specs = {{"POST", "/v1/cryptographyProvider/tokens", "createTokenInstance"},
+        String[][] specs = {
+                {"POST", "/v1/cryptographyProvider/tokens", "createTokenInstance"},
                 {"GET", "/v1/cryptographyProvider/tokens", "listTokenInstances"},
                 {"GET", "/v1/cryptographyProvider/tokens/{uuid}", "getTokenInstance"},
                 {"POST", "/v1/cryptographyProvider/tokens/{uuid}", "updateTokenInstance"},
@@ -46,28 +47,42 @@ public class CryptographyProviderConnectorMock extends BaseConnectorMock {
                 {"GET", "/v1/cryptographyProvider/tokens/{uuid}/status", "getTokenInstanceStatus"},
                 {"PATCH", "/v1/cryptographyProvider/tokens/{uuid}/activate", "activateTokenInstance"},
                 {"PATCH", "/v1/cryptographyProvider/tokens/{uuid}/deactivate", "deactivateTokenInstance"},
-                {"GET", "/v1/cryptographyProvider/tokens/{uuid}/activate/attributes",
+                {
+                        "GET",
+                        "/v1/cryptographyProvider/tokens/{uuid}/activate/attributes",
                         "listTokenInstanceActivationAttributes"},
-                {"POST", "/v1/cryptographyProvider/tokens/{uuid}/activate/attributes/validate",
+                {
+                        "POST",
+                        "/v1/cryptographyProvider/tokens/{uuid}/activate/attributes/validate",
                         "validateTokenInstanceActivationAttributes"},
                 {"GET", "/v1/cryptographyProvider/tokens/{uuid}/tokenProfile/attributes", "listTokenProfileAttributes"},
-                {"POST", "/v1/cryptographyProvider/tokens/{uuid}/tokenProfile/attributes/validate",
+                {
+                        "POST",
+                        "/v1/cryptographyProvider/tokens/{uuid}/tokenProfile/attributes/validate",
                         "validateTokenProfileAttributes"},
                 {"GET", "/v1/cryptographyProvider/tokens/{uuid}/keys", "listKeys"},
                 {"GET", "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}", "getKey"},
                 {"DELETE", "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}", "destroyKey"},
                 {"POST", "/v1/cryptographyProvider/tokens/{uuid}/keys/pair", "createKeyPair"},
                 {"GET", "/v1/cryptographyProvider/tokens/{uuid}/keys/pair/attributes", "listCreateKeyPairAttributes"},
-                {"POST", "/v1/cryptographyProvider/tokens/{uuid}/keys/pair/attributes/validate",
+                {
+                        "POST",
+                        "/v1/cryptographyProvider/tokens/{uuid}/keys/pair/attributes/validate",
                         "validateCreateKeyPairAttributes"},
                 {"POST", "/v1/cryptographyProvider/tokens/{uuid}/keys/secret", "createSecretKey"},
-                {"GET", "/v1/cryptographyProvider/tokens/{uuid}/keys/secret/attributes",
+                {
+                        "GET",
+                        "/v1/cryptographyProvider/tokens/{uuid}/keys/secret/attributes",
                         "listCreateSecretKeyAttributes"},
-                {"POST", "/v1/cryptographyProvider/tokens/{uuid}/keys/secret/attributes/validate",
+                {
+                        "POST",
+                        "/v1/cryptographyProvider/tokens/{uuid}/keys/secret/attributes/validate",
                         "validateCreateSecretKeyAttributes"},
                 {"POST", "/v1/cryptographyProvider/tokens/{uuid}/keys/random", "randomData"},
                 {"GET", "/v1/cryptographyProvider/tokens/{uuid}/keys/random/attributes", "listRandomAttributes"},
-                {"POST", "/v1/cryptographyProvider/tokens/{uuid}/keys/random/attributes/validate",
+                {
+                        "POST",
+                        "/v1/cryptographyProvider/tokens/{uuid}/keys/random/attributes/validate",
                         "validateRandomAttributes"},
                 {"POST", "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}/encrypt", "encryptData"},
                 {"POST", "/v1/cryptographyProvider/tokens/{uuid}/keys/{keyUuid}/decrypt", "decryptData"},

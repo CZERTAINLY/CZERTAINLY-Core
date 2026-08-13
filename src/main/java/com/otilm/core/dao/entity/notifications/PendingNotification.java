@@ -24,8 +24,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "pending_notification", uniqueConstraints = @UniqueConstraint(name = PendingNotification.UNIQUE_SUPPRESSION_ROW_CONSTRAINT, columnNames = {
-        "notification_profile_uuid", "resource", "object_uuid", "event"}))
+@Table(name = "pending_notification",
+        uniqueConstraints = @UniqueConstraint(name = PendingNotification.UNIQUE_SUPPRESSION_ROW_CONSTRAINT,
+                columnNames = {"notification_profile_uuid", "resource", "object_uuid", "event"}))
 public class PendingNotification extends ResourceObjectAssociation {
 
     public static final String UNIQUE_SUPPRESSION_ROW_CONSTRAINT = "uq_pending_notification_suppression_row";

@@ -129,7 +129,8 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE_ATTRIBUTE_RESOURCES)
+    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE,
+            operation = Operation.UPDATE_ATTRIBUTE_RESOURCES)
     public void updateResources(@LogResource(uuid = true) String uuid, List<Resource> resources)
             throws NotFoundException {
         attributeService.updateResources(UUID.fromString(uuid), resources);
@@ -143,13 +144,15 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.RESOURCE, affiliatedResource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
+    @AuditLogged(module = Module.CORE, resource = Resource.RESOURCE, affiliatedResource = Resource.CUSTOM_ATTRIBUTE,
+            operation = Operation.LIST)
     public List<Resource> getResources() {
         return attributeService.getResources();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE_ATTRIBUTE_CONTENT)
+    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE,
+            operation = Operation.UPDATE_ATTRIBUTE_CONTENT)
     public List<ResponseAttribute> updateAttributeContentForResource(
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,
@@ -161,7 +164,8 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DELETE_ATTRIBUTE_CONTENT)
+    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE,
+            operation = Operation.DELETE_ATTRIBUTE_CONTENT)
     public List<ResponseAttribute> deleteAttributeContentForResource(
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,

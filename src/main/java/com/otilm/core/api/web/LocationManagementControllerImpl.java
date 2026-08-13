@@ -51,7 +51,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY, operation = Operation.CREATE)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY,
+            operation = Operation.CREATE)
     public ResponseEntity<?> addLocation(@LogResource(uuid = true, affiliated = true) String entityUuid,
             AddLocationRequestDto request)
             throws ConnectorException, AlreadyExistException, LocationException, AttributeException, NotFoundException {
@@ -67,7 +68,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY,
+            operation = Operation.DETAIL)
     public LocationDto getLocation(@LogResource(uuid = true, affiliated = true) String entityUuid,
             @LogResource(uuid = true) String locationUuid) throws NotFoundException {
         return locationService
@@ -75,7 +77,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY,
+            operation = Operation.UPDATE)
     public LocationDto editLocation(@LogResource(uuid = true, affiliated = true) String entityUuid,
             @LogResource(uuid = true) String locationUuid, EditLocationRequestDto request)
             throws ConnectorException, LocationException, AttributeException, NotFoundException {
@@ -84,28 +87,32 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY, operation = Operation.DELETE)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY,
+            operation = Operation.DELETE)
     public void deleteLocation(@LogResource(uuid = true, affiliated = true) String entityUuid,
             @LogResource(uuid = true) String locationUuid) throws NotFoundException {
         locationService.deleteLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY, operation = Operation.DISABLE)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY,
+            operation = Operation.DISABLE)
     public void disableLocation(@LogResource(uuid = true, affiliated = true) String entityUuid,
             @LogResource(uuid = true) String locationUuid) throws NotFoundException {
         locationService.disableLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY, operation = Operation.ENABLE)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY,
+            operation = Operation.ENABLE)
     public void enableLocation(@LogResource(uuid = true, affiliated = true) String entityUuid,
             @LogResource(uuid = true) String locationUuid) throws NotFoundException {
         locationService.enableLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE, operation = Operation.SYNC)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE,
+            operation = Operation.SYNC)
     public LocationDto updateLocationContent(@LogResource(uuid = true, affiliated = true) String entityUuid,
             @LogResource(uuid = true) String locationUuid) throws NotFoundException, LocationException {
         return locationService
@@ -113,7 +120,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE, operation = Operation.PUSH_TO_LOCATION)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE,
+            operation = Operation.PUSH_TO_LOCATION)
     public LocationDto pushCertificate(String entityUuid, @LogResource(uuid = true) String locationUuid,
             @LogResource(uuid = true, affiliated = true) String certificateUuid, PushToLocationRequestDto request)
             throws NotFoundException, LocationException, AttributeException {
@@ -123,7 +131,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE, operation = Operation.REMOVE_FROM_LOCATION)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE,
+            operation = Operation.REMOVE_FROM_LOCATION)
     public LocationDto removeCertificate(String entityUuid, @LogResource(uuid = true) String locationUuid,
             @LogResource(uuid = true, affiliated = true) String certificateUuid)
             throws NotFoundException, LocationException {
@@ -133,7 +142,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE, operation = Operation.ISSUE_IN_LOCATION)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE,
+            operation = Operation.ISSUE_IN_LOCATION)
     public LocationDto issueCertificate(String entityUuid, @LogResource(uuid = true) String locationUuid,
             IssueToLocationRequestDto request) throws ConnectorException, LocationException, NotFoundException {
         return locationService
@@ -142,7 +152,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE, operation = Operation.RENEW_IN_LOCATION)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE,
+            operation = Operation.RENEW_IN_LOCATION)
     public LocationDto renewCertificateInLocation(String entityUuid, @LogResource(uuid = true) String locationUuid,
             @LogResource(uuid = true, affiliated = true) String certificateUuid)
             throws ConnectorException, LocationException, NotFoundException {
@@ -152,7 +163,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "push", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "push",
+            affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listPushAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid,
             String locationUuid) throws NotFoundException, LocationException {
         return locationService
@@ -160,7 +172,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "csr", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "csr",
+            affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listCsrAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid,
             String locationUuid) throws NotFoundException, LocationException {
         return locationService
@@ -168,7 +181,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.LOCATION, operation = Operation.LIST)
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.LOCATION,
+            operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return locationService.getSearchableFieldInformationByGroup();
     }

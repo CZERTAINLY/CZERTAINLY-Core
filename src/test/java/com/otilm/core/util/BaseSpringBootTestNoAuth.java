@@ -11,7 +11,9 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
-@TestPropertySource(properties = {WireMockPorts.AUTH_SERVICE_URL_PROPERTY, WireMockPorts.SCHEDULER_URL_PROPERTY,
+@TestPropertySource(properties = {
+        WireMockPorts.AUTH_SERVICE_URL_PROPERTY,
+        WireMockPorts.SCHEDULER_URL_PROPERTY,
         WireMockPorts.PROVISIONING_API_URL_PROPERTY})
 public class BaseSpringBootTestNoAuth {
 

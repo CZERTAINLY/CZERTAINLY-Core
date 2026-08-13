@@ -30,8 +30,8 @@ import org.hibernate.type.SqlTypes;
 @Getter
 @Setter
 @Entity
-@Table(name = "signing_profile_version", uniqueConstraints = @UniqueConstraint(name = "uq_signing_profile_version", columnNames = {
-        "signing_profile_uuid", "version"}))
+@Table(name = "signing_profile_version", uniqueConstraints = @UniqueConstraint(name = "uq_signing_profile_version",
+        columnNames = {"signing_profile_uuid", "version"}))
 public class SigningProfileVersion extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "signing_profile_uuid", nullable = false)
