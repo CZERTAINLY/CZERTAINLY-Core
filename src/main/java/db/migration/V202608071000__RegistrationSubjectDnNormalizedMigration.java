@@ -39,6 +39,8 @@ public class V202608071000__RegistrationSubjectDnNormalizedMigration extends Bas
 
     private static final Logger logger = LoggerFactory.getLogger(V202608071000__RegistrationSubjectDnNormalizedMigration.class);
 
+    private static final int BATCH_SIZE = 500;
+
     @Override
     public Integer getChecksum() {
         return DatabaseMigration.JavaMigrationChecksums.V202608071000__RegistrationSubjectDnNormalizedMigration.getChecksum();
@@ -88,31 +90,45 @@ public class V202608071000__RegistrationSubjectDnNormalizedMigration extends Bas
     private void backfillNormalizedSubjects(Context context) throws SQLException {
         int backfilled = 0;
         int skipped = 0;
+        int pending = 0;
         try (Statement select = context.getConnection().createStatement();
              PreparedStatement update = context.getConnection().prepareStatement(
-                     "UPDATE certificate SET subject_dn_normalized = ? WHERE uuid = ?");
-             ResultSet rows = select.executeQuery(
-                     "SELECT uuid, subject_dn FROM certificate "
-                             + "WHERE state IN ('REGISTERED', 'PENDING_REGISTRATION', 'PENDING_APPROVAL') "
-                             + "AND subject_dn_normalized IS NULL")) {
-            while (rows.next()) {
-                String certificateUuid = rows.getString("uuid");
-                String normalized;
-                try {
-                    normalized = CertificateUtil.normalizeStoredSubjectDn(rows.getString("subject_dn"));
-                } catch (RuntimeException e) {
-                    logger.warn("Skipping normalized subject backfill of certificate {}: the stored subject DN"
-                            + " does not re-parse, so registration-mode enrolment cannot match this row. Cause: {}",
-                            certificateUuid, e.getMessage());
-                    skipped++;
-                    continue;
+                     "UPDATE certificate SET subject_dn_normalized = ? WHERE uuid = ?")) {
+            // Stream the source rows instead of materializing the whole inventory: the migration runs inside
+            // Flyway's transaction (autoCommit off), so a fetch size opens a server-side cursor, and the batch
+            // is flushed every BATCH_SIZE rows so neither the result set nor the pending updates grow with the
+            // registration count.
+            select.setFetchSize(BATCH_SIZE);
+            try (ResultSet rows = select.executeQuery(
+                    "SELECT uuid, subject_dn FROM certificate "
+                            + "WHERE state IN ('REGISTERED', 'PENDING_REGISTRATION', 'PENDING_APPROVAL') "
+                            + "AND subject_dn_normalized IS NULL")) {
+                while (rows.next()) {
+                    String certificateUuid = rows.getString("uuid");
+                    String normalized;
+                    try {
+                        normalized = CertificateUtil.normalizeStoredSubjectDn(rows.getString("subject_dn"));
+                    } catch (RuntimeException e) {
+                        logger.warn("Skipping normalized subject backfill of certificate {}: the stored subject DN"
+                                + " does not re-parse, so registration-mode enrolment cannot match this row. Cause: {}",
+                                certificateUuid, e.getMessage());
+                        skipped++;
+                        continue;
+                    }
+                    update.setString(1, normalized);
+                    update.setObject(2, UUID.fromString(certificateUuid));
+                    update.addBatch();
+                    backfilled++;
+                    if (++pending == BATCH_SIZE) {
+                        update.executeBatch();
+                        update.clearBatch();
+                        pending = 0;
+                    }
                 }
-                update.setString(1, normalized);
-                update.setObject(2, UUID.fromString(certificateUuid));
-                update.addBatch();
-                backfilled++;
+                if (pending > 0) {
+                    update.executeBatch();
+                }
             }
-            update.executeBatch();
         }
         logger.info("Normalized subject backfill finished: {} rows backfilled, {} rows skipped.", backfilled, skipped);
     }

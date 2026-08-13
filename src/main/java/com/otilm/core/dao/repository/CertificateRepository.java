@@ -58,12 +58,27 @@ public interface CertificateRepository
 
     Certificate findFirstByUuidIn(List<UUID> uuids);
 
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey",
-            "altKey.items", "raProfile"})
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "key",
+            "key.items",
+            "groups",
+            "owner",
+            "altKey",
+            "altKey.items",
+            "raProfile"})
     Optional<Certificate> findWithAssociationsByUuid(UUID uuid);
 
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey",
-            "altKey.items", "raProfile", "raProfile.authorityInstanceReference",
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "key",
+            "key.items",
+            "groups",
+            "owner",
+            "altKey",
+            "altKey.items",
+            "raProfile",
+            "raProfile.authorityInstanceReference",
             "raProfile.authorityInstanceReference.connectorInterface",
             "raProfile.authorityInstanceReference.connector"})
     Optional<Certificate> findWithAuthorityAssociationsByUuid(UUID uuid);
@@ -73,7 +88,10 @@ public interface CertificateRepository
      * to the connector), so every association the listener touches must be eagerly loaded here to avoid
      * {@link org.hibernate.LazyInitializationException}.
      */
-    @EntityGraph(attributePaths = {"certificateContent", "raProfile", "raProfile.authorityInstanceReference",
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "raProfile",
+            "raProfile.authorityInstanceReference",
             "raProfile.authorityInstanceReference.connectorInterface",
             "raProfile.authorityInstanceReference.connector"})
     Optional<Certificate> findForPollingByUuid(UUID uuid);
@@ -84,14 +102,29 @@ public interface CertificateRepository
      * called inside an active transaction, otherwise the lock is released immediately on query completion.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey",
-            "altKey.items", "raProfile", "raProfile.authorityInstanceReference",
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "key",
+            "key.items",
+            "groups",
+            "owner",
+            "altKey",
+            "altKey.items",
+            "raProfile",
+            "raProfile.authorityInstanceReference",
             "raProfile.authorityInstanceReference.connectorInterface",
             "raProfile.authorityInstanceReference.connector"})
     Optional<Certificate> findAndLockWithAssociationsByUuid(UUID uuid);
 
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey",
-            "altKey.items", "raProfile"})
+    @EntityGraph(attributePaths = {
+            "certificateContent",
+            "key",
+            "key.items",
+            "groups",
+            "owner",
+            "altKey",
+            "altKey.items",
+            "raProfile"})
     List<Certificate> findWithAssociationsByUuidInOrderByCreatedDesc(List<UUID> uuids);
 
     /** Fetches a single certificate with all associations required by {@link Certificate#mapToChainDto()}. */
@@ -204,11 +237,17 @@ public interface CertificateRepository
      * profile: REGISTERED placeholders whose registration authorization is ACTIVE, prefiltered by the stored normalized
      * subject so the identity match receives only same-subject candidates. Registrations without a challenge have no
      * authorization row and are excluded — they cannot authenticate an enrolment.
+     *
+     * <p>
+     * Rows whose normalized subject is NULL are always included and left for the caller's identity match to resolve: a
+     * placeholder written by an old instance during a rolling upgrade — after the one-shot backfill has already run —
+     * carries no normalized subject, and an equality-only prefilter would make it permanently unmatchable. NULL rows
+     * are only ever produced transiently by such writers, so the prefilter's narrowing still holds in steady state.
      */
     @Query("""
             SELECT c FROM Certificate c
                 WHERE c.raProfileUuid = :raProfileUuid
-                    AND c.subjectDnNormalized = :subjectDnNormalized
+                    AND (c.subjectDnNormalized = :subjectDnNormalized OR c.subjectDnNormalized IS NULL)
                     AND c.state = ?#{T(com.otilm.api.model.core.certificate.CertificateState).REGISTERED}
                     AND c.archived = false
                     AND EXISTS (SELECT 1 FROM CertificateRegistrationAuthorization a
@@ -355,7 +394,8 @@ public interface CertificateRepository
             )
             ON CONFLICT (fingerprint)
             DO NOTHING
-            """, nativeQuery = true)
+            """,
+            nativeQuery = true)
     Integer insertWithFingerprintConflictResolve(@Param("cert") Certificate certificate);
 
     @Query("""

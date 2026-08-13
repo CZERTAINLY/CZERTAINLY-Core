@@ -74,7 +74,7 @@ public class DatabaseMigration {
         V202509191412__LogRecordsRefactor(79840308, true),
         V202604011901__BackfillExtendedKeyUsageCritical(-1003930180, true),
         V202607031200__CreateAttributeContentResolverUserAndPermissions(1703465896, false),
-        V202608071000__RegistrationSubjectDnNormalizedMigration(1108119154);
+        V202608071000__RegistrationSubjectDnNormalizedMigration(612311821);
 
         private final int checksum;
 

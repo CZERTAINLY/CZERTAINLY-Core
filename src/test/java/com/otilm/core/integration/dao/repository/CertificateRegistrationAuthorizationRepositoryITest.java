@@ -106,6 +106,26 @@ class CertificateRegistrationAuthorizationRepositoryITest extends BaseSpringBoot
                 .containsExactly(sanOnly.getUuid());
     }
 
+    @Test
+    void registrationLookupIncludesRowsWithNoNormalizedSubject() {
+        UUID raProfileUuid = persistRaProfile();
+        // A placeholder written by an old instance during a rolling upgrade (after the one-shot backfill)
+        // carries no normalized subject; the lookup must still surface it for the caller's identity match
+        // rather than leave it permanently unmatchable, even when the presented subject differs.
+        Certificate legacyNullNormalized = aCertificate().withState(CertificateState.REGISTERED).build();
+        legacyNullNormalized.setRaProfileUuid(raProfileUuid);
+        legacyNullNormalized.setSubjectDn("CN=lookup-subject");
+        legacyNullNormalized.setSubjectDnNormalized(null);
+        legacyNullNormalized = certificateRepository.save(legacyNullNormalized);
+        persistAuthorizationFor(legacyNullNormalized.getUuid(), RegistrationState.ACTIVE);
+
+        assertThat(certificateRepository
+                .findRegisteredWithActiveRegistrationAuthorizationByRaProfileUuidAndSubjectDnNormalized(raProfileUuid,
+                        CertificateUtil.normalizeStoredSubjectDn("CN=different-subject")))
+                .extracting(Certificate::getUuid)
+                .containsExactly(legacyNullNormalized.getUuid());
+    }
+
     private UUID persistRaProfile() {
         RaProfile raProfile = new RaProfile();
         raProfile.setName("rp-" + UUID.randomUUID());
