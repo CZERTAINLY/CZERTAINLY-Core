@@ -7,8 +7,8 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
+import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -19,7 +19,7 @@ public interface DiscoveryExternalService {
 
     DiscoveryResponseDto listDiscoveries(final SecurityFilter filter, final SearchRequestDto searchRequestDto);
 
-    DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException;
+    DiscoveryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * List the certificates that are discovered as part of the discovery
@@ -34,7 +34,7 @@ public interface DiscoveryExternalService {
     DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid, Boolean newlyDiscovered,
             int itemsPerPage, int pageNumber) throws NotFoundException;
 
-    DiscoveryHistoryDetailDto createDiscovery(DiscoveryDto request, boolean saveEntity)
+    DiscoveryDetailDto createDiscovery(DiscoveryDto request, boolean saveEntity)
             throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
 
     void runDiscoveryAsync(UUID discoveryUuid);

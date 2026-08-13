@@ -14,9 +14,9 @@ import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
+import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDetailDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDto;
+import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.attribute.common.AttributeContent;
 import com.otilm.api.model.common.attribute.common.AttributeType;
@@ -232,7 +232,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
         final TriFunction<Root<DiscoveryHistory>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
                 root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
-        final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository
+        final List<DiscoveryListDto> listedDiscoveriesDTOs = discoveryRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")))
                 .stream()
@@ -251,9 +251,9 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
-    public DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
+    public DiscoveryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
-        DiscoveryHistoryDetailDto dto = discoveryHistory.mapToDto();
+        DiscoveryDetailDto dto = discoveryHistory.mapToDto();
         dto
                 .setMetadata(attributeEngine
                         .getMappedMetadataContent(ObjectAttributeContentInfo
@@ -359,7 +359,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
-    public DiscoveryHistoryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity)
+    public DiscoveryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity)
             throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
@@ -418,7 +418,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
-    public DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo) {
+    public DiscoveryDetailDto runDiscovery(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo) {
         // reload discovery modal with all association since it could be in separate transaction/session due to async
         DiscoveryContext context = loadDiscoveryContext(discoveryUuid);
         DiscoveryHistory discovery = context.getDiscoveryHistory();
@@ -509,7 +509,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
         updateDiscoveryStateInTx(context, false);
 
-        DiscoveryHistoryDetailDto discoveryDto = discovery.mapToDto();
+        DiscoveryDetailDto discoveryDto = discovery.mapToDto();
         eventProducer
                 .produceMessage(CertificateDiscoveredEventHandler
                         .constructEventMessage(discovery.getUuid(), context.getLoggedUserUuid(), scheduledJobInfo));
@@ -834,7 +834,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         return discovery;
     }
 
-    private DiscoveryHistoryDetailDto finalizeDiscoveryInTx(DiscoveryContext discoveryContext, boolean updateMetadata,
+    private DiscoveryDetailDto finalizeDiscoveryInTx(DiscoveryContext discoveryContext, boolean updateMetadata,
             String preProcessingMessage) {
         TransactionStatus transaction = transactionManager.getTransaction(new DefaultTransactionDefinition());
         DiscoveryHistory discovery = updateDiscoveryState(discoveryContext, updateMetadata);
@@ -850,7 +850,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         discoveryRepository.save(discovery);
         transactionManager.commit(transaction);
 
-        DiscoveryHistoryDetailDto discoveryDto = discovery.mapToDto();
+        DiscoveryDetailDto discoveryDto = discovery.mapToDto();
         eventProducer
                 .produceMessage(DiscoveryFinishedEventHandler
                         .constructEventMessage(discovery.getUuid(), discoveryContext.getLoggedUserUuid(), null,

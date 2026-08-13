@@ -4,15 +4,20 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.NotSupportedException;
 import com.otilm.api.exception.SchedulerException;
 import com.otilm.api.interfaces.core.web.DiscoveryController;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
+import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDetailDto;
+import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.common.UuidDto;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.discovery.DiscoveryItemDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.scheduler.ScheduleDiscoveryDto;
@@ -25,6 +30,7 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.SchedulerExternalService;
 import com.otilm.core.tasks.DiscoveryCertificateTask;
+import com.otilm.core.util.converter.ResourceCodeConverter;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
@@ -32,6 +38,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -56,6 +64,13 @@ public class DiscoveryControllerImpl implements DiscoveryController {
         this.discoveryService = discoveryService;
     }
 
+    // ResourceCodeConverter goes through Resource.findByCode, whose ValidationException answers an unknown
+    // code with a clean 422 — the global ConversionService route would 400 with Spring's class-name message.
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
+    }
+
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.LIST)
     public DiscoveryResponseDto listDiscoveries(final SearchRequestDto request) {
@@ -64,8 +79,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.DETAIL)
-    public DiscoveryHistoryDetailDto getDiscovery(@LogResource(uuid = true) @PathVariable String uuid)
-            throws NotFoundException {
+    public DiscoveryDetailDto getDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException {
         return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
     }
 
@@ -82,7 +96,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.CREATE)
     public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
             throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        final DiscoveryHistoryDetailDto modal = discoveryService.createDiscovery(request, true);
+        final DiscoveryDetailDto modal = discoveryService.createDiscovery(request, true);
         discoveryService.runDiscoveryAsync(UUID.fromString(modal.getUuid()));
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -143,6 +157,65 @@ public class DiscoveryControllerImpl implements DiscoveryController {
             operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return discoveryService.getSearchableFieldInformationByGroup();
+    }
+
+    /*
+     * Discovery v2, not implemented yet: these seven exist because DiscoveryController declares them abstract, so this
+     * class does not compile without them.
+     *
+     * Stub response: 501, so a caller reaching one gets an answer it can act on.
+     *
+     * Authorization: deliberately neither @AuditLogged nor authorization annotations — no operation to audit and no
+     * resource to check while the body does nothing; resource-level gating arrives with the real implementations.
+     * Authentication is unaffected.
+     *
+     * Compatibility: the checked exceptions stay on the signatures so filling them in later does not change the
+     * contract.
+     */
+
+    @Override
+    public PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(String uuid, Resource resource,
+            Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException {
+        throw notImplemented();
+    }
+
+    @Override
+    public void stopDiscovery(String uuid) throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    @Override
+    public void resumeDiscovery(String uuid) throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    @Override
+    public void cancelDiscovery(String uuid) throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    @Override
+    public List<DiscoverySupportedResourceDto> listDiscoveryResources(String connectorUuid) throws NotFoundException {
+        throw notImplemented();
+    }
+
+    @Override
+    public List<BaseAttribute> getDiscoveryAttributes(String connectorUuid)
+            throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    @Override
+    public List<BaseAttribute> getDiscoveryResourceAttributes(String connectorUuid, Resource resource)
+            throws NotFoundException, ConnectorException {
+        throw notImplemented();
+    }
+
+    // NotSupportedException, not ResponseStatusException: the global ExceptionHandlingAdvice catches every
+    // Exception into a 500 before Spring's response-status resolver runs, so only an exception with its own
+    // dedicated handler reaches the wire with the intended status -- NotSupportedException maps to 501 there.
+    private static NotSupportedException notImplemented() {
+        return new NotSupportedException("Discovery v2 is not implemented by this deployment yet");
     }
 
 }

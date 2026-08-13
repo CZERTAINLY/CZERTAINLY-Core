@@ -1,8 +1,8 @@
 package com.otilm.core.tasks;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
-import com.otilm.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
@@ -82,7 +82,7 @@ public class DiscoveryCertificateTask implements ScheduledJobTask {
         discoveryDto.setName(discoveryDto.getName() + prepareTimeSuffix());
 
         // Define a new transaction
-        DiscoveryHistoryDetailDto discovery = null;
+        DiscoveryDetailDto discovery = null;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
             discovery = discoveryService.createDiscovery(discoveryDto, true);
