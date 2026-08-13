@@ -79,8 +79,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.DETAIL)
-    public DiscoveryDetailDto getDiscovery(@LogResource(uuid = true) @PathVariable String uuid)
-            throws NotFoundException {
+    public DiscoveryDetailDto getDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException {
         return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
     }
 
