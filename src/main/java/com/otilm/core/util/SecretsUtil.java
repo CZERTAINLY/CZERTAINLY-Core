@@ -190,21 +190,21 @@ public class SecretsUtil {
     }
 
     /**
-     * Encodes the secret value into a string.
+     * Encodes the encrypted secret value into a string.
      *
      * <p>
-     * {@code v1|base64(secret)|base64(salt)|count}
+     * {@code v1|base64(encryptedSecret)|base64(salt)|count}
      *
-     * @param secret value to be encoded
+     * @param encryptedSecret encrypted secret value to be encoded
      * @param salt used salt
      * @param count number of iterations
      * @return encoded string
      */
-    private static String encodeSecretStringV1(byte[] secret, byte[] salt, int count) {
+    private static String encodeSecretStringV1(byte[] encryptedSecret, byte[] salt, int count) {
         StringBuilder encoded = new StringBuilder();
         encoded.append(SecretEncodingVersion.V1.getVersion());
         encoded.append("|");
-        encoded.append(Base64.getEncoder().encodeToString(secret));
+        encoded.append(Base64.getEncoder().encodeToString(encryptedSecret));
         encoded.append("|");
         encoded.append(Base64.getEncoder().encodeToString(salt));
         encoded.append("|");
