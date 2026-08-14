@@ -4,7 +4,7 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.FunctionGroup;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.FunctionGroupRepository;
@@ -44,7 +44,7 @@ class DiscoveryServiceMessagingITest extends BaseMessagingIntTest {
     @MockitoSpyBean
     private NotificationProducer notificationProducer;
 
-    private DiscoveryHistory discovery;
+    private Discovery discovery;
 
     @BeforeEach
     void setUp() {
@@ -59,7 +59,7 @@ class DiscoveryServiceMessagingITest extends BaseMessagingIntTest {
         functionGroup.setName(FunctionGroupCode.DISCOVERY_PROVIDER.getCode());
         functionGroupRepository.save(functionGroup);
 
-        discovery = new DiscoveryHistory();
+        discovery = new Discovery();
         discovery.setName(DISCOVERY_NAME);
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);

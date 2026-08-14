@@ -40,11 +40,8 @@ import org.hibernate.proxy.HibernateProxy;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "discovery_history")
-public class DiscoveryHistory extends UniquelyIdentifiedAndAudited
-        implements
-            Serializable,
-            DtoMapper<DiscoveryDetailDto> {
+@Table(name = "discovery")
+public class Discovery extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryDetailDto> {
 
     @Serial
     private static final long serialVersionUID = 571684590427678474L;
@@ -159,7 +156,7 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited
         if (thisEffectiveClass != oEffectiveClass) {
             return false;
         }
-        DiscoveryHistory that = (DiscoveryHistory) o;
+        Discovery that = (Discovery) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 

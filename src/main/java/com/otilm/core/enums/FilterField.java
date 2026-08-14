@@ -49,7 +49,7 @@ import com.otilm.core.dao.entity.ConnectorInterfaceEntity_;
 import com.otilm.core.dao.entity.Connector_;
 import com.otilm.core.dao.entity.CryptographicKeyItem_;
 import com.otilm.core.dao.entity.CryptographicKey_;
-import com.otilm.core.dao.entity.DiscoveryHistory_;
+import com.otilm.core.dao.entity.Discovery_;
 import com.otilm.core.dao.entity.EntityInstanceReference_;
 import com.otilm.core.dao.entity.FunctionGroup_;
 import com.otilm.core.dao.entity.Group_;
@@ -216,18 +216,17 @@ public enum FilterField {
             OwnerAssociation_.ownerUsername, "Owner", SearchFieldTypeEnum.LIST, null, null, true, null),
 
     // Discovery
-    DISCOVERY_NAME(Resource.DISCOVERY, null, null, DiscoveryHistory_.name, "Name", SearchFieldTypeEnum.STRING),
-    DISCOVERY_START_TIME(Resource.DISCOVERY, null, null, DiscoveryHistory_.startTime, "Start time",
+    DISCOVERY_NAME(Resource.DISCOVERY, null, null, Discovery_.name, "Name", SearchFieldTypeEnum.STRING),
+    DISCOVERY_START_TIME(Resource.DISCOVERY, null, null, Discovery_.startTime, "Start time",
             SearchFieldTypeEnum.DATETIME),
-    DISCOVERY_END_TIME(Resource.DISCOVERY, null, null, DiscoveryHistory_.endTime, "End time",
-            SearchFieldTypeEnum.DATETIME),
-    DISCOVERY_STATUS(Resource.DISCOVERY, null, null, DiscoveryHistory_.status, "Status", SearchFieldTypeEnum.LIST,
+    DISCOVERY_END_TIME(Resource.DISCOVERY, null, null, Discovery_.endTime, "End time", SearchFieldTypeEnum.DATETIME),
+    DISCOVERY_STATUS(Resource.DISCOVERY, null, null, Discovery_.status, "Status", SearchFieldTypeEnum.LIST,
             DiscoveryStatus.class, null, false, null),
-    DISCOVERY_TOTAL_CERT_DISCOVERED(Resource.DISCOVERY, null, null, DiscoveryHistory_.totalCertificatesDiscovered,
+    DISCOVERY_TOTAL_CERT_DISCOVERED(Resource.DISCOVERY, null, null, Discovery_.totalCertificatesDiscovered,
             "Total certificate discovered", SearchFieldTypeEnum.NUMBER),
-    DISCOVERY_CONNECTOR_NAME(Resource.DISCOVERY, null, null, DiscoveryHistory_.connectorName, "Discovery provider",
+    DISCOVERY_CONNECTOR_NAME(Resource.DISCOVERY, null, null, Discovery_.connectorName, "Discovery provider",
             SearchFieldTypeEnum.LIST),
-    DISCOVERY_KIND(Resource.DISCOVERY, null, null, DiscoveryHistory_.kind, "Kind", SearchFieldTypeEnum.STRING),
+    DISCOVERY_KIND(Resource.DISCOVERY, null, null, Discovery_.kind, "Kind", SearchFieldTypeEnum.STRING),
 
     // Entity
     ENTITY_NAME(Resource.ENTITY, null, null, EntityInstanceReference_.name, "Name", SearchFieldTypeEnum.STRING),

@@ -51,7 +51,7 @@ import com.otilm.core.dao.entity.CertificateProtocolAssociation;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.entity.Location;
 import com.otilm.core.dao.entity.RaProfile;
@@ -115,7 +115,7 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
     private GroupRepository groupRepository;
 
     @Autowired
-    private TriggerEvaluator<DiscoveryHistory> discoveryHistoryTriggerEvaluator;
+    private TriggerEvaluator<Discovery> discoveryTriggerEvaluator;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -586,13 +586,12 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
                 .assertTrue(certificateTriggerEvaluator
                         .evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
-        DiscoveryHistory discovery = new DiscoveryHistory();
+        Discovery discovery = new Discovery();
         discovery.setStartTime(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
         condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
         condition.setValue("2019-12-01T22:10:00.274+00:00");
         Assertions
-                .assertTrue(discoveryHistoryTriggerEvaluator
-                        .evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+                .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
     }
 
     @Test
@@ -639,20 +638,18 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
                 .assertTrue(certificateTriggerEvaluator
                         .evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
-        DiscoveryHistory discovery = new DiscoveryHistory();
+        Discovery discovery = new Discovery();
         discovery.setStartTime(convertToDateViaInstant(LocalDateTime.now().minusDays(5).minusHours(3)));
         condition.setOperator(FilterConditionOperator.IN_PAST);
         condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
         condition.setValue("P5DT4H");
         Assertions
-                .assertTrue(discoveryHistoryTriggerEvaluator
-                        .evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+                .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
         discovery.setStartTime(convertToDateViaInstant(LocalDateTime.now().plusDays(5).plusHours(3)));
         condition.setValue("P5DT4H");
         condition.setOperator(FilterConditionOperator.IN_NEXT);
         Assertions
-                .assertTrue(discoveryHistoryTriggerEvaluator
-                        .evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+                .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
 
     }
 

@@ -61,8 +61,8 @@ import com.otilm.core.dao.entity.ApprovalProfile;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
-import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.entity.GroupAssociation;
 import com.otilm.core.dao.entity.RaProfile;
@@ -556,7 +556,7 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     @Test
     void testProcessTriggersExceptionSetsEventHistoryToFailed() throws EventException {
-        DiscoveryHistory discovery = new DiscoveryHistory();
+        Discovery discovery = new Discovery();
         discovery.setName("TestDiscovery");
         discovery.setKind("IP");
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
@@ -597,14 +597,14 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     @Test
     void testDiscoveryFinishedEventCompletesProcessingDiscovery() throws EventException {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
 
         discoveryFinishedEventHandler
                 .handleEvent(DiscoveryFinishedEventHandler
                         .constructEventMessage(discovery.getUuid(), null, null,
                                 new DiscoveryResult(DiscoveryStatus.PROCESSING, "Provider completed.")));
 
-        DiscoveryHistory persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.COMPLETED, persisted.getStatus());
         Assertions.assertNotNull(persisted.getEndTime());
         Assertions.assertEquals("Discovery completed successfully. Provider completed.", persisted.getMessage());
@@ -612,14 +612,14 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     @Test
     void testDiscoveryFinishedEventMarksWarningWhenCertificatesFailed() throws EventException {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
 
         discoveryFinishedEventHandler
                 .handleEvent(DiscoveryFinishedEventHandler
                         .constructEventMessage(discovery.getUuid(), null, null, new DiscoveryResult(
                                 DiscoveryStatus.WARNING, "2 certificate(s) could not be processed during discovery.")));
 
-        DiscoveryHistory persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.WARNING, persisted.getStatus());
         Assertions.assertNotNull(persisted.getEndTime());
         Assertions
@@ -630,7 +630,7 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     @Test
     void testDiscoveryFinishedEventIgnoresNonFinishSignal() throws EventException {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
 
         // COMPLETED/FAILED payloads come from the discovery service with the state already persisted; only a
         // PROCESSING or WARNING signal from certificate post-processing finalizes a processing discovery.
@@ -639,14 +639,14 @@ class EventHandlersITest extends BaseSpringBootTest {
                         .constructEventMessage(discovery.getUuid(), null, null,
                                 new DiscoveryResult(DiscoveryStatus.FAILED, "Provider failed.")));
 
-        DiscoveryHistory persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.PROCESSING, persisted.getStatus());
         Assertions.assertNull(persisted.getEndTime());
     }
 
     @Test
     void testDiscoveryFinishedEventLeavesTerminalDiscoveryUnchanged() throws EventException {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
         discovery.setStatus(DiscoveryStatus.COMPLETED);
         discovery.setEndTime(new Date());
         discovery.setMessage("Discovery completed successfully.");
@@ -658,7 +658,7 @@ class EventHandlersITest extends BaseSpringBootTest {
                         .constructEventMessage(discovery.getUuid(), null, null,
                                 new DiscoveryResult(DiscoveryStatus.COMPLETED, "Late duplicate event.")));
 
-        DiscoveryHistory persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.COMPLETED, persisted.getStatus());
         Assertions.assertEquals(endTimeBefore, persisted.getEndTime());
         Assertions.assertEquals("Discovery completed successfully.", persisted.getMessage());
@@ -666,7 +666,7 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     @Test
     void testCertificateDiscoveredEmitsFinishWhenNoNewCertificates() throws EventException {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
 
         certificateDiscoveredEventHandler
                 .handleEvent(CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, null));
@@ -679,7 +679,7 @@ class EventHandlersITest extends BaseSpringBootTest {
 
     @Test
     void testCertificateDiscoveredEmitsWarningWhenCertificateProcessingFails() throws EventException {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
 
         CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent("not-a-valid-certificate");
@@ -705,8 +705,8 @@ class EventHandlersITest extends BaseSpringBootTest {
         Assertions.assertNotNull(processed.getProcessedError());
     }
 
-    private DiscoveryHistory persistProcessingDiscovery() {
-        DiscoveryHistory discovery = new DiscoveryHistory();
+    private Discovery persistProcessingDiscovery() {
+        Discovery discovery = new Discovery();
         discovery.setName("TestDiscovery");
         discovery.setKind("IP");
         discovery.setStatus(DiscoveryStatus.PROCESSING);
@@ -721,7 +721,7 @@ class EventHandlersITest extends BaseSpringBootTest {
      */
     @Test
     void testCertificateDiscoveredImportsOneCertificateForDuplicateRows() throws Exception {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
         X509Certificate x509 = generateSelfSignedCertificate();
         CertificateContent content = persistContentFor(x509);
         List<DiscoveryCertificate> rows = List
@@ -762,7 +762,7 @@ class EventHandlersITest extends BaseSpringBootTest {
      */
     @Test
     void testCertificateDiscoveredImportsWhenAnActionTriggerExecutionFails() throws Exception {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
         X509Certificate x509 = generateSelfSignedCertificate();
         CertificateContent content = persistContentFor(x509);
         DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "action-failing-host");
@@ -817,7 +817,7 @@ class EventHandlersITest extends BaseSpringBootTest {
      */
     @Test
     void testCertificateDiscoveredAppliesASucceedingActionTriggerAcrossTheTransactionBoundary() throws Exception {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
         X509Certificate x509 = generateSelfSignedCertificate();
         CertificateContent content = persistContentFor(x509);
         persistDiscoveryCertificate(discovery, content, "group-setting-host");
@@ -845,7 +845,7 @@ class EventHandlersITest extends BaseSpringBootTest {
      */
     @Test
     void testCertificateDiscoveredKeepsASucceedingTriggerWhenAnotherFails() throws Exception {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
         X509Certificate x509 = generateSelfSignedCertificate();
         CertificateContent content = persistContentFor(x509);
         persistDiscoveryCertificate(discovery, content, "two-trigger-host");
@@ -961,7 +961,7 @@ class EventHandlersITest extends BaseSpringBootTest {
      */
     @Test
     void testCertificateDiscoveredHonoursAnIgnoreTriggerConditionedOnTheFingerprint() throws Exception {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
         X509Certificate x509 = generateSelfSignedCertificate();
         String fingerprint = CertificateUtil.getThumbprint(x509);
         CertificateContent content = persistContentFor(x509);
@@ -1037,7 +1037,7 @@ class EventHandlersITest extends BaseSpringBootTest {
      */
     @Test
     void testCertificateDiscoveredImportsDespiteAConditionOnAnAbsentAssociation() throws Exception {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
         X509Certificate x509 = generateSelfSignedCertificate();
         CertificateContent content = persistContentFor(x509);
         DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "no-ra-profile-host");
@@ -1069,7 +1069,7 @@ class EventHandlersITest extends BaseSpringBootTest {
      */
     @Test
     void testCertificateDiscoveredRecordsARolledBackGroupWithoutCountingItAsAKeyGap() throws Exception {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
         X509Certificate x509 = generateSelfSignedCertificate();
         CertificateContent content = persistContentFor(x509);
         DiscoveryCertificate row = persistDiscoveryCertificate(discovery, content, "rolling-back-host");
@@ -1114,7 +1114,7 @@ class EventHandlersITest extends BaseSpringBootTest {
      */
     @Test
     void testCertificateDiscoveredAttributesAFailedKeyAssociationToEveryRow() throws Exception {
-        DiscoveryHistory discovery = persistProcessingDiscovery();
+        Discovery discovery = persistProcessingDiscovery();
         X509Certificate x509 = generateSelfSignedCertificate();
         CertificateContent content = persistContentFor(x509);
         List<DiscoveryCertificate> rows = List
@@ -1171,7 +1171,7 @@ class EventHandlersITest extends BaseSpringBootTest {
         return certificateContentRepository.save(content);
     }
 
-    private DiscoveryCertificate persistDiscoveryCertificate(DiscoveryHistory discovery, CertificateContent content,
+    private DiscoveryCertificate persistDiscoveryCertificate(Discovery discovery, CertificateContent content,
             String host) {
         DiscoveryCertificate row = new DiscoveryCertificate();
         row.setCommonName(host);
@@ -1200,7 +1200,7 @@ class EventHandlersITest extends BaseSpringBootTest {
     @Test
     void testDiscoveryFinishedEvent()
             throws EventException, AttributeException, AlreadyExistException, NotFoundException {
-        DiscoveryHistory discovery = new DiscoveryHistory();
+        Discovery discovery = new Discovery();
         discovery.setName("TestDiscovery");
         discovery.setKind("IP");
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
@@ -1574,7 +1574,7 @@ class EventHandlersITest extends BaseSpringBootTest {
                 notificationProfileUuids, null, eventData);
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateActionPerformed));
 
-        DiscoveryHistory discovery = new DiscoveryHistory();
+        Discovery discovery = new Discovery();
         discovery.setName("TestDiscovery");
         discovery.setStatus(DiscoveryStatus.COMPLETED);
         discovery.setConnectorStatus(DiscoveryStatus.COMPLETED);

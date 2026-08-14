@@ -20,7 +20,7 @@ import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.FunctionGroup;
 import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
@@ -76,7 +76,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     @Autowired
     private EventListener eventListener;
 
-    private DiscoveryHistory discovery;
+    private Discovery discovery;
     private Connector connector;
 
     private WireMockServer mockServer;
@@ -110,7 +110,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         connector.getFunctionGroups().add(c2fg);
         connectorRepository.save(connector);
 
-        discovery = new DiscoveryHistory();
+        discovery = new Discovery();
         discovery.setName(DISCOVERY_NAME);
         discovery.setConnectorUuid(connector.getUuid());
         discovery.setConnectorName(connector.getName());
@@ -245,7 +245,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
         UUID discoveryUuid = UUID.fromString(discoveryService.createDiscovery(dto, true).getUuid());
 
-        DiscoveryHistory persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Discovery persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
         persisted.setConnectorUuid(UUID.randomUUID());
         discoveryRepository.save(persisted);
 
@@ -270,7 +270,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         mockServer.resetMappings();
 
         discoveryInternalService.runDiscovery(discoveryUuid, null);
-        DiscoveryHistory persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Discovery persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
 
         Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
         Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscovery(persisted));
@@ -288,7 +288,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
         discoveryInternalService.runDiscovery(discoveryUuid, null);
 
-        DiscoveryHistory persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Discovery persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.PROCESSING, persisted.getStatus());
         Assertions.assertEquals(1, discoveryCertificateRepository.countByDiscovery(persisted));
 

@@ -17,7 +17,7 @@ import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.core.dao.entity.Approval;
 import com.otilm.core.dao.entity.ApprovalProfile;
 import com.otilm.core.dao.entity.Certificate;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.model.auth.ResourceAction;
 import java.time.ZoneId;
 import java.util.UUID;
@@ -91,7 +91,7 @@ public class EventDataBuilder {
     }
 
     public static CertificateDiscoveredEventData getCertificateDiscoveredEventData(Certificate certificate,
-            DiscoveryHistory discovery, UUID userUuid) {
+            Discovery discovery, UUID userUuid) {
         CertificateDiscoveredEventData eventData = new CertificateDiscoveredEventData();
         setCertificateEventData(eventData, certificate);
         eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
@@ -106,7 +106,7 @@ public class EventDataBuilder {
         return eventData;
     }
 
-    public static DiscoveryFinishedEventData getDiscoveryFinishedEventData(DiscoveryHistory discovery) {
+    public static DiscoveryFinishedEventData getDiscoveryFinishedEventData(Discovery discovery) {
         DiscoveryFinishedEventData eventData = new DiscoveryFinishedEventData();
         eventData.setDiscoveryUuid(discovery.getUuid());
         eventData.setDiscoveryName(discovery.getName());

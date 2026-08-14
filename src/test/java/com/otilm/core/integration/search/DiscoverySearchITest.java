@@ -26,7 +26,7 @@ import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.FunctionGroup;
 import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
@@ -54,7 +54,7 @@ import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aProper
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyNotEqualsFilter;
 
-class DiscoveryHistorySearchITest extends BaseSpringBootTest {
+class DiscoverySearchITest extends BaseSpringBootTest {
 
     @Autowired
     private DiscoveryRepository discoveryRepository;
@@ -78,7 +78,7 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
     private boolean isLoadedData = false;
 
     private Connector connector;
-    private DiscoveryHistory discoveryHistory;
+    private Discovery discovery;
 
     @BeforeEach
     void loadData() {
@@ -108,7 +108,7 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
             connector.getFunctionGroups().add(c2fg);
             connectorRepository.save(connector);
 
-            final DiscoveryHistory discovery1 = new DiscoveryHistory();
+            final Discovery discovery1 = new Discovery();
             discovery1.setName("test_discovery1");
             discovery1.setConnectorUuid(connector.getUuid());
             discovery1.setConnectorName("connector1");
@@ -119,9 +119,9 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
             discovery1.setEndTime(DATE_FORMAT.parse("2020-02-01T10:10:10"));
             discovery1.setTotalCertificatesDiscovered(15);
             discovery1.setConnectorTotalCertificatesDiscovered(15);
-            discoveryHistory = discoveryRepository.save(discovery1);
+            discovery = discoveryRepository.save(discovery1);
 
-            final DiscoveryHistory discovery2 = new DiscoveryHistory();
+            final Discovery discovery2 = new Discovery();
             discovery2.setName("test_discovery2");
             discovery2.setConnectorUuid(connector.getUuid());
             discovery2.setConnectorName("connector1");
@@ -134,7 +134,7 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
             discovery2.setConnectorTotalCertificatesDiscovered(11);
             discoveryRepository.save(discovery2);
 
-            final DiscoveryHistory discovery3 = new DiscoveryHistory();
+            final Discovery discovery3 = new Discovery();
             discovery3.setName("test_discovery3");
             discovery3.setConnectorUuid(connector.getUuid());
             discovery3.setConnectorName("connector5");
@@ -147,7 +147,7 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
             discovery3.setConnectorTotalCertificatesDiscovered(20);
             discoveryRepository.save(discovery3);
 
-            final DiscoveryHistory discovery4 = new DiscoveryHistory();
+            final Discovery discovery4 = new Discovery();
             discovery4.setName("test_discovery4");
             discovery4.setConnectorUuid(connector.getUuid());
             discovery4.setConnectorName("connector1");
@@ -182,7 +182,7 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
         attributeEngine
                 .updateMetadataAttribute(metadataAttribute,
                         ObjectAttributeContentInfo
-                                .builder(Resource.DISCOVERY, discoveryHistory.getUuid())
+                                .builder(Resource.DISCOVERY, discovery.getUuid())
                                 .connector(connector.getUuid())
                                 .build());
     }
@@ -206,14 +206,14 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
 
         attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.DISCOVERY));
         attributeEngine
-                .updateObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid(),
+                .updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(),
                         List.of(requestAttribute));
     }
 
     @Test
     void testInsertedData() {
-        final List<DiscoveryHistory> discoveryHistoryList = discoveryRepository.findAll();
-        Assertions.assertEquals(4, discoveryHistoryList.size());
+        final List<Discovery> discoveryList = discoveryRepository.findAll();
+        Assertions.assertEquals(4, discoveryList.size());
     }
 
     @Test
@@ -226,11 +226,10 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
 
     @Test
     void testInsertedAttributes() {
-        var customAttrs = attributeEngine
-                .getObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid());
+        var customAttrs = attributeEngine.getObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid());
         var metaAttrs = attributeEngine
                 .getMetadataAttributesDefinitionContent(
-                        ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discoveryHistory.getUuid()).build());
+                        ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discovery.getUuid()).build());
         Assertions.assertEquals(1, customAttrs.size());
         Assertions.assertEquals(1, metaAttrs.size());
     }

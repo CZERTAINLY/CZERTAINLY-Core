@@ -11,8 +11,8 @@ import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.AttributeDefinition;
 import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
-import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.events.handlers.discovery.DiscoverySource;
@@ -170,7 +170,7 @@ public class CertificateHandler {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void createDiscoveredCertificate(String batch, DiscoveryHistory discovery,
+    public void createDiscoveredCertificate(String batch, Discovery discovery,
             List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
         for (DiscoveryProviderCertificateDataDto certificate : discoveredCertificates) {
             DiscoveryCertificate discoveryCertificate = null;
@@ -214,7 +214,7 @@ public class CertificateHandler {
      * Failures are swallowed -- progress is cosmetic, and letting one out would have the caller log the batch as
      * failed. Addressed by identifier, not by saving the detached instance every batch holds a copy of.
      */
-    public void reportDownloadProgress(DiscoveryHistory discovery) {
+    public void reportDownloadProgress(Discovery discovery) {
         try {
             Long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
             String progress = String

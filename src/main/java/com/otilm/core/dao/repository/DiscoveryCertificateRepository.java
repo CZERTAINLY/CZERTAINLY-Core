@@ -1,8 +1,8 @@
 package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
-import com.otilm.core.dao.entity.DiscoveryHistory;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -18,17 +18,17 @@ import org.springframework.stereotype.Repository;
 public interface DiscoveryCertificateRepository extends SecurityFilterRepository<DiscoveryCertificate, Long> {
     Optional<DiscoveryCertificate> findByUuid(UUID uuid);
 
-    Long deleteByDiscovery(DiscoveryHistory history);
+    Long deleteByDiscovery(Discovery history);
 
-    List<DiscoveryCertificate> findByDiscovery(DiscoveryHistory history, Pageable pagable);
+    List<DiscoveryCertificate> findByDiscovery(Discovery history, Pageable pagable);
 
     @EntityGraph(attributePaths = {"certificateContent"})
     List<DiscoveryCertificate> findByDiscoveryUuidAndNewlyDiscovered(UUID discoveryUuid, boolean newlyDiscovered,
             Pageable pageable);
 
-    Long countByDiscovery(DiscoveryHistory history);
+    Long countByDiscovery(Discovery history);
 
-    Long countByDiscoveryAndNewlyDiscovered(DiscoveryHistory history, boolean newlyDiscovered);
+    Long countByDiscoveryAndNewlyDiscovered(Discovery history, boolean newlyDiscovered);
 
     List<DiscoveryCertificate> findByCertificateContent(CertificateContent certificateContent);
 

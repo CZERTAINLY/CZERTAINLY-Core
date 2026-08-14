@@ -1,6 +1,6 @@
 package com.otilm.core.dao.repository;
 
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,19 +11,19 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface DiscoveryRepository extends SecurityFilterRepository<DiscoveryHistory, UUID> {
+public interface DiscoveryRepository extends SecurityFilterRepository<Discovery, UUID> {
 
-    Optional<DiscoveryHistory> findByUuid(UUID uuid);
+    Optional<Discovery> findByUuid(UUID uuid);
 
     @EntityGraph(attributePaths = {"triggers"})
-    DiscoveryHistory findWithTriggersByUuid(UUID uuid);
+    Discovery findWithTriggersByUuid(UUID uuid);
 
-    Optional<DiscoveryHistory> findByName(String name);
+    Optional<Discovery> findByName(String name);
 
-    @Query("SELECT DISTINCT connectorName FROM DiscoveryHistory ")
+    @Query("SELECT DISTINCT connectorName FROM Discovery ")
     List<String> findDistinctConnectorName();
 
     @Modifying
-    @Query("UPDATE DiscoveryHistory d SET d.message = :message, d.updated = CURRENT_TIMESTAMP WHERE d.uuid = :uuid")
+    @Query("UPDATE Discovery d SET d.message = :message, d.updated = CURRENT_TIMESTAMP WHERE d.uuid = :uuid")
     void updateMessage(@Param("uuid") UUID uuid, @Param("message") String message);
 }
