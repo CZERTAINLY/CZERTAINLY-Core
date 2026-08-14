@@ -220,7 +220,7 @@ public enum FilterField {
     DISCOVERY_START_TIME(Resource.DISCOVERY, null, null, Discovery_.startTime, "Start time",
             SearchFieldTypeEnum.DATETIME),
     DISCOVERY_END_TIME(Resource.DISCOVERY, null, null, Discovery_.endTime, "End time", SearchFieldTypeEnum.DATETIME),
-    DISCOVERY_STATUS(Resource.DISCOVERY, null, null, Discovery_.status, "Status", SearchFieldTypeEnum.LIST,
+    DISCOVERY_STATUS(Resource.DISCOVERY, null, null, Discovery_.status, Constants.STATUS, SearchFieldTypeEnum.LIST,
             DiscoveryStatus.class, null, false, null),
     DISCOVERY_TOTAL_CERT_DISCOVERED(Resource.DISCOVERY, null, null, Discovery_.totalCertificatesDiscovered,
             "Total certificate discovered", SearchFieldTypeEnum.NUMBER),
@@ -251,7 +251,7 @@ public enum FilterField {
     CONNECTOR_URL(Resource.CONNECTOR, null, null, Connector_.url, "URL", SearchFieldTypeEnum.STRING),
     CONNECTOR_AUTH_TYPE(Resource.CONNECTOR, null, null, Connector_.authType, "Auth type", SearchFieldTypeEnum.LIST,
             AuthType.class),
-    CONNECTOR_STATUS(Resource.CONNECTOR, null, null, Connector_.status, "Status", SearchFieldTypeEnum.LIST,
+    CONNECTOR_STATUS(Resource.CONNECTOR, null, null, Connector_.status, Constants.STATUS, SearchFieldTypeEnum.LIST,
             ConnectorStatus.class),
     CONNECTOR_INTERFACE(Resource.CONNECTOR, null, List.of(Connector_.interfaces),
             ConnectorInterfaceEntity_.interfaceCode, "Interface", SearchFieldTypeEnum.LIST, ConnectorInterface.class),
@@ -307,7 +307,7 @@ public enum FilterField {
             Resource.class),
     APPROVAL_ACTION(Resource.APPROVAL, null, null, Approval_.action, "Action", SearchFieldTypeEnum.LIST,
             ResourceAction.class),
-    APPROVAL_STATUS(Resource.APPROVAL, null, null, Approval_.status, "Status", SearchFieldTypeEnum.LIST,
+    APPROVAL_STATUS(Resource.APPROVAL, null, null, Approval_.status, Constants.STATUS, SearchFieldTypeEnum.LIST,
             ApprovalStatusEnum.class),
     APPROVAL_CREATED_AT(Resource.APPROVAL, null, null, Approval_.createdAt, "Created At", SearchFieldTypeEnum.DATETIME),
     APPROVAL_EXPIRY_AT(Resource.APPROVAL, null, null, Approval_.expiryAt, "Expiry At", SearchFieldTypeEnum.DATETIME),
@@ -478,6 +478,7 @@ public enum FilterField {
         private static final String RESOURCE_OBJECTS_ARRAY = "objects[*]";
         public static final String STATE = "State";
         public static final String ENABLED = "Enabled";
+        public static final String STATUS = "Status";
     }
 
 }

@@ -7,6 +7,8 @@ import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.util.BaseSpringBootTest;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -34,6 +36,8 @@ class DiscoveryWorkRepositoryITest extends BaseSpringBootTest {
     private DiscoveryWorkRepository workRepository;
     @Autowired
     private DiscoveryRepository discoveryRepository;
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Test
     void doubleScheduleKeepsOneRowAndMovesTheDueTime() {
@@ -62,6 +66,50 @@ class DiscoveryWorkRepositoryITest extends BaseSpringBootTest {
         assertThat(due)
                 .extracting(DiscoveryWork::getWorkType)
                 .containsExactly(DiscoveryWorkType.STATUS, DiscoveryWorkType.DRAIN);
+    }
+
+    @Test
+    void rescheduleByRunAndTypeMovesAttemptAndDueTime() {
+        UUID runUuid = aRun();
+        workRepository.schedule(UUID.randomUUID(), runUuid, DiscoveryWorkType.DRAIN.name(), NOW);
+
+        workRepository.reschedule(runUuid, DiscoveryWorkType.DRAIN, 3, NOW.plusMinutes(30));
+        entityManager.clear();
+
+        DiscoveryWork row = workRepository.findAll().get(0);
+        assertThat(row.getAttempt()).isEqualTo(3);
+        assertThat(row.getNextDueAt().toInstant()).isEqualTo(NOW.plusMinutes(30).toInstant());
+    }
+
+    @Test
+    void reArmingABackedOffRowResetsItsAttemptCounter() {
+        UUID runUuid = aRun();
+        workRepository.schedule(UUID.randomUUID(), runUuid, DiscoveryWorkType.DRAIN.name(), NOW);
+        workRepository.reschedule(runUuid, DiscoveryWorkType.DRAIN, 7, NOW.plusHours(1));
+
+        workRepository.schedule(UUID.randomUUID(), runUuid, DiscoveryWorkType.DRAIN.name(), NOW);
+        entityManager.clear();
+
+        DiscoveryWork row = workRepository.findAll().get(0);
+        assertThat(row.getAttempt())
+                .as("scheduling is a fresh start; in-flight backoff is reschedule()'s job")
+                .isZero();
+        assertThat(row.getNextDueAt().toInstant()).isEqualTo(NOW.toInstant());
+    }
+
+    @Test
+    void deleteByDiscoveryUuidRemovesOnlyTheTargetedRunsRows() {
+        UUID runA = aRun();
+        UUID runB = aRun();
+        workRepository.schedule(UUID.randomUUID(), runA, DiscoveryWorkType.STATUS.name(), NOW);
+        workRepository.schedule(UUID.randomUUID(), runB, DiscoveryWorkType.STATUS.name(), NOW);
+
+        workRepository.deleteByDiscoveryUuid(runA);
+        entityManager.clear();
+
+        List<DiscoveryWork> remaining = workRepository.findAll();
+        assertThat(remaining).hasSize(1);
+        assertThat(remaining.get(0).getDiscoveryUuid()).isEqualTo(runB);
     }
 
     @Test

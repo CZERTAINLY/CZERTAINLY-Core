@@ -96,6 +96,9 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     private UUID connectorInterfaceUuid;
 
     // Connector-side run context the lifecycle calls replay; nulled on every terminal transition.
+    // S1948: every entity is Serializable via UniquelyIdentifiedObject, but nothing Java-serializes them —
+    // Jackson owns this JSONB field's persistence shape (same situation as Certificate's attribute lists).
+    @SuppressWarnings("java:S1948")
     @Column(name = "run_meta", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> runMeta;
@@ -115,6 +118,7 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "progress_total_estimate")
     private Long progressTotalEstimate;
 
+    @SuppressWarnings("java:S1948") // see runMeta
     @Column(name = "progress_by_resource", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<Resource, DiscoveryResourceProgressDto> progressByResource;
@@ -190,18 +194,18 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     }
 
     @Override
-    public final boolean equals(Object o) {
+    public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
         if (o == null) {
             return false;
         }
-        Class<?> oEffectiveClass = o instanceof HibernateProxy
-                ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
+        Class<?> oEffectiveClass = o instanceof HibernateProxy hibernateProxy
+                ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass()
                 : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy
-                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy hibernateProxy
+                ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass()
                 : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) {
             return false;
@@ -211,9 +215,9 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     }
 
     @Override
-    public final int hashCode() {
-        return this instanceof HibernateProxy
-                ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
+    public int hashCode() {
+        return this instanceof HibernateProxy hibernateProxy
+                ? hibernateProxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
                 : getClass().hashCode();
     }
 }

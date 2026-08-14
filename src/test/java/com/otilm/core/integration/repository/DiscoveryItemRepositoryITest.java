@@ -74,8 +74,9 @@ class DiscoveryItemRepositoryITest extends BaseSpringBootTest {
     void duplicateUniqueRefWithinRunAndResourceIsRejected() {
         UUID runUuid = aRun();
         itemRepository.saveAndFlush(item(runUuid, 1L, "10.0.0.7:443"));
+        DiscoveryItem duplicate = item(runUuid, 2L, "10.0.0.7:443");
 
-        assertThatThrownBy(() -> itemRepository.saveAndFlush(item(runUuid, 2L, "10.0.0.7:443")))
+        assertThatThrownBy(() -> itemRepository.saveAndFlush(duplicate))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 

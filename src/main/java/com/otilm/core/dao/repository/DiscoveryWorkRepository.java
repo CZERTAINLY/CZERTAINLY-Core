@@ -1,6 +1,7 @@
 package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.DiscoveryWork;
+import com.otilm.core.model.discovery.DiscoveryWorkType;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -22,23 +23,28 @@ public interface DiscoveryWorkRepository extends JpaRepository<DiscoveryWork, UU
     List<DiscoveryWork> findByNextDueAtLessThanEqualOrderByNextDueAt(OffsetDateTime cutoff, Pageable pageable);
 
     /**
-     * Inserts the pending row for a run and work type, or moves the existing row's due time. Atomic on the unique
-     * {@code (discovery_uuid, work_type)} — unlike an exists-check-then-insert, a concurrent loser is a clean due-time
-     * update (no constraint violation, no aborted transaction).
+     * Inserts the pending row for a run and work type, or re-arms the existing row: due time moved, backoff counter
+     * reset — scheduling is a fresh start, and in-flight backoff belongs to {@link #reschedule}. Atomic on the unique
+     * {@code (discovery_uuid, work_type)} — unlike an exists-check-then-insert, a concurrent loser is a clean re-arm
+     * (no constraint violation, no aborted transaction). On conflict the passed {@code uuid} is discarded with the rest
+     * of the losing insert; rows are addressed by run and work type, never by that uuid.
      */
     @Modifying
     @Query(value = """
             INSERT INTO {h-schema}discovery_work (uuid, discovery_uuid, work_type, attempt, next_due_at)
             VALUES (:uuid, :discoveryUuid, :workType, 0, :nextDueAt)
-            ON CONFLICT (discovery_uuid, work_type) DO UPDATE SET next_due_at = EXCLUDED.next_due_at
+            ON CONFLICT (discovery_uuid, work_type) DO UPDATE SET next_due_at = EXCLUDED.next_due_at, attempt = 0
             """, nativeQuery = true)
     void schedule(@Param("uuid") UUID uuid, @Param("discoveryUuid") UUID discoveryUuid,
             @Param("workType") String workType, @Param("nextDueAt") OffsetDateTime nextDueAt);
 
+    // Addressed by the natural key, not the row uuid: schedule() discards the passed uuid on conflict, so a
+    // caller-retained row uuid can silently address nothing — (run, work type) always addresses the live row.
     @Modifying
-    @Query("UPDATE DiscoveryWork w SET w.attempt = :attempt, w.nextDueAt = :nextDueAt WHERE w.uuid = :uuid")
-    void reschedule(@Param("uuid") UUID uuid, @Param("attempt") int attempt,
-            @Param("nextDueAt") OffsetDateTime nextDueAt);
+    @Query("UPDATE DiscoveryWork w SET w.attempt = :attempt, w.nextDueAt = :nextDueAt "
+            + "WHERE w.discoveryUuid = :discoveryUuid AND w.workType = :workType")
+    void reschedule(@Param("discoveryUuid") UUID discoveryUuid, @Param("workType") DiscoveryWorkType workType,
+            @Param("attempt") int attempt, @Param("nextDueAt") OffsetDateTime nextDueAt);
 
     @Modifying
     @Query("DELETE FROM DiscoveryWork w WHERE w.discoveryUuid = :discoveryUuid")

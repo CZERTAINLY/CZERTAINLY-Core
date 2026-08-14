@@ -14,8 +14,10 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import org.hibernate.generator.EventType;
 
 /**
  * One unit of pending discovery v2 work: created when a run starts owing a status poll, a drain or a processing pass,
@@ -51,6 +53,9 @@ public class DiscoveryWork extends UniquelyIdentified {
     private OffsetDateTime nextDueAt;
 
     // Set by the database on insert, never written by the application — hence a read-only mapping.
+    // @Generated makes Hibernate re-read the DB-assigned value after a JPA insert, so the in-memory
+    // entity never carries a null created while the row already has one.
+    @Generated(event = EventType.INSERT)
     @Column(name = "i_cre", nullable = false, insertable = false, updatable = false,
             columnDefinition = "timestamptz not null default now()")
     private OffsetDateTime created;

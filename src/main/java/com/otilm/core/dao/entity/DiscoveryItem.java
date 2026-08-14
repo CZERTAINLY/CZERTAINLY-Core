@@ -61,6 +61,9 @@ public class DiscoveryItem extends UniquelyIdentified {
     @Column(name = "unique_ref", nullable = false)
     private String uniqueRef;
 
+    // S1948: every entity is Serializable via UniquelyIdentifiedObject, but nothing Java-serializes them —
+    // Jackson owns this JSONB field's persistence shape.
+    @SuppressWarnings("java:S1948")
     @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> payload;
