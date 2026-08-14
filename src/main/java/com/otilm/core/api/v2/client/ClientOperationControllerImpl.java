@@ -123,9 +123,9 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public List<BaseAttribute> listRenewCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid)
             throws ConnectorException, NotFoundException {
-        // Temporary stub while the adapter and service layers land on this branch; replaced by delegation to
-        // clientOperationService before this branch is reviewed.
-        return List.of();
+        return clientOperationService
+                .listRenewCertificateAttributes(SecuredParentUUID.fromString(authorityUuid),
+                        SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
@@ -134,9 +134,9 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public List<BaseAttribute> listIdentifyCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid)
             throws ConnectorException, NotFoundException {
-        // Temporary stub while the adapter and service layers land on this branch; replaced by delegation to
-        // clientOperationService before this branch is reviewed.
-        return List.of();
+        return clientOperationService
+                .listIdentifyCertificateAttributes(SecuredParentUUID.fromString(authorityUuid),
+                        SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override

@@ -411,6 +411,28 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
             parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public List<BaseAttribute> listRenewCertificateAttributes(SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
+        RaProfile raProfile = raProfileRepository
+                .findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        return extendedAttributeService.listRenewCertificateAttributes(raProfile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public List<BaseAttribute> listIdentifyCertificateAttributes(SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
+        RaProfile raProfile = raProfileRepository
+                .findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        return extendedAttributeService.listIdentifyCertificateAttributes(raProfile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void validateIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException {
         RaProfile raProfile = raProfileRepository
