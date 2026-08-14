@@ -217,7 +217,7 @@ class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
         SigningProfile profile = new SigningProfile();
         profile.setName("drainer-profile-" + System.nanoTime());
         profile.setSigningScheme(SigningScheme.MANAGED);
-        profile.setWorkflowType(SigningWorkflowType.DOCUMENT_SIGNING);
+        profile.setWorkflowType(SigningWorkflowType.CONTENT_SIGNING);
         profile.setLatestVersion(1);
         profile = profileRepo.saveAndFlush(profile);
         persistProfileVersion(profile, 1);
@@ -234,7 +234,7 @@ class SigningRecordOutboxDrainerITest extends BaseSpringBootTest {
         profileVersion.setSigningProfile(profile);
         profileVersion.setVersion(version);
         profileVersion.setSigningScheme(SigningScheme.MANAGED);
-        profileVersion.setWorkflowType(SigningWorkflowType.DOCUMENT_SIGNING);
+        profileVersion.setWorkflowType(SigningWorkflowType.CONTENT_SIGNING);
         profileVersionRepo.saveAndFlush(profileVersion);
     }
 

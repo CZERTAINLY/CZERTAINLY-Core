@@ -11,7 +11,7 @@ import com.otilm.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.otilm.api.model.client.signing.profile.scheme.OneTimeKeyManagedSigningDto;
 import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
 import com.otilm.api.model.client.signing.profile.scheme.StaticKeyManagedSigningDto;
-import com.otilm.api.model.client.signing.profile.workflow.DocumentSigningWorkflowDto;
+import com.otilm.api.model.client.signing.profile.workflow.ContentSigningWorkflowDto;
 import com.otilm.api.model.client.signing.profile.workflow.RawSigningWorkflowDto;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.client.signing.profile.workflow.TimestampingWorkflowDto;
@@ -98,7 +98,7 @@ public class SigningProfileMapper {
 
         // Build workflow DTO from version (timestamping also reads unversioned fields from header)
         dto.setWorkflow(switch (version.getWorkflowType()) {
-            case DOCUMENT_SIGNING -> buildDocumentSigningWorkflowDto(version, signatureFormattingConnectorAttributes);
+            case CONTENT_SIGNING -> buildContentSigningWorkflowDto(version, signatureFormattingConnectorAttributes);
             case RAW_SIGNING -> new RawSigningWorkflowDto();
             case TIMESTAMPING -> buildTimestampingWorkflowDto(header, version, signatureFormattingConnectorAttributes);
         });
@@ -210,9 +210,9 @@ public class SigningProfileMapper {
     // DTO builders (read from version)
     // ──────────────────────────────────────────────────────────────────────────
 
-    private static DocumentSigningWorkflowDto buildDocumentSigningWorkflowDto(SigningProfileVersion version,
+    private static ContentSigningWorkflowDto buildContentSigningWorkflowDto(SigningProfileVersion version,
             List<ResponseAttribute> signatureFormattingConnectorAttributes) {
-        DocumentSigningWorkflowDto wf = new DocumentSigningWorkflowDto();
+        ContentSigningWorkflowDto wf = new ContentSigningWorkflowDto();
         setFormattingRef(version, wf::setSignatureFormattingConnector);
         wf.setSignatureFormattingConnectorAttributes(safeList(signatureFormattingConnectorAttributes));
         return wf;

@@ -21,8 +21,8 @@ public class ConnectorMockFactory {
         return new CryptographyProviderConnectorMock(functionGroupSeeder);
     }
 
-    public DocumentSigningFormattingMock startDocumentSigningFormatting() {
-        return new DocumentSigningFormattingMock();
+    public ContentSigningFormattingMock startContentSigningFormatting() {
+        return new ContentSigningFormattingMock();
     }
 
     public TimestampingFormattingConnectorMock startTimestampingFormatting() {

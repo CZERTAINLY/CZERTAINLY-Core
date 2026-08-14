@@ -205,7 +205,7 @@ class SigningRecordEndToEndITest extends BaseSpringBootTest {
         SigningProfile profile = new SigningProfile();
         profile.setName("e2e-" + persistenceMode.name());
         profile.setSigningScheme(SigningScheme.MANAGED);
-        profile.setWorkflowType(SigningWorkflowType.DOCUMENT_SIGNING);
+        profile.setWorkflowType(SigningWorkflowType.CONTENT_SIGNING);
         profile.setLatestVersion(1);
         profile = profileRepo.saveAndFlush(profile);
 
@@ -213,7 +213,7 @@ class SigningRecordEndToEndITest extends BaseSpringBootTest {
         version.setSigningProfile(profile);
         version.setVersion(1);
         version.setSigningScheme(SigningScheme.MANAGED);
-        version.setWorkflowType(SigningWorkflowType.DOCUMENT_SIGNING);
+        version.setWorkflowType(SigningWorkflowType.CONTENT_SIGNING);
         version.setPersistenceMode(persistenceMode);
         return versionRepo.saveAndFlush(version);
     }
