@@ -3,6 +3,7 @@ package com.otilm.core.dao.entity;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryListDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryResourceProgressDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.workflows.Trigger;
@@ -21,10 +22,12 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -32,8 +35,10 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Setter
@@ -83,6 +88,51 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
 
     @Column(name = "connector_name")
     private String connectorName;
+
+    // ---- Discovery v2 run columns. All null (or zero, for the cursor) on a v1 legacy run. ----
+
+    // NULL = v1 legacy run; set = the connector interface this run was initiated against.
+    @Column(name = "connector_interface_uuid")
+    private UUID connectorInterfaceUuid;
+
+    // Connector-side run context the lifecycle calls replay; nulled on every terminal transition.
+    @Column(name = "run_meta", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> runMeta;
+
+    @Column(name = "resources", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<Resource> resources;
+
+    // Run-wide highest item sequence applied to staging — the drain cursor. Item sequences start at 1, so 0
+    // means nothing drained yet.
+    @Column(name = "last_applied_sequence", nullable = false)
+    private long lastAppliedSequence;
+
+    @Column(name = "progress_processed")
+    private Long progressProcessed;
+
+    @Column(name = "progress_total_estimate")
+    private Long progressTotalEstimate;
+
+    @Column(name = "progress_by_resource", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<Resource, DiscoveryResourceProgressDto> progressByResource;
+
+    @Column(name = "progress_phase")
+    private String progressPhase;
+
+    @Column(name = "run_messages", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<String> runMessages;
+
+    @Column(name = "stopped_at")
+    private OffsetDateTime stoppedAt;
+
+    // Last authoritative DiscoveryRunState wire code the connector reported; "completed" switches the drain
+    // into drain-to-completion mode.
+    @Column(name = "connector_state")
+    private String connectorState;
 
     @JsonBackReference
     @OneToMany(mappedBy = "discovery", fetch = FetchType.LAZY)
