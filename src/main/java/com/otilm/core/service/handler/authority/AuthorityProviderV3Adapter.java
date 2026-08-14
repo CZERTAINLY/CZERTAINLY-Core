@@ -1,8 +1,10 @@
 package com.otilm.core.service.handler.authority;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.ConnectorProblemException;
+import com.otilm.api.exception.ConnectorServerException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.client.v3.AuthoritySyncApiClient;
 import com.otilm.api.interfaces.client.v3.CertificateSyncApiClient;
@@ -49,7 +51,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
@@ -68,6 +72,7 @@ import org.springframework.stereotype.Component;
  * {@link ConnectorAcceptedButLocalFailureException} — callers must NOT roll back certificate state on this exception.
  * </p>
  */
+@Slf4j
 @Component
 public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
         implements
@@ -217,25 +222,74 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
         return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
     }
 
-    // Temporary stubs: real defensive implementations (schemaOrEmpty + contained) land in the next commit on this
-    // branch; these exist only so the adapter contract change compiles standalone.
-
     @Override
     public List<BaseAttribute> listCertificateRequestAttributes(AuthorityInstanceReference authority,
             RaProfile raProfile) throws ConnectorException {
-        return List.of();
+        ApiClientConnectorInfo connectorDto = connectorForApiClient(authority);
+        CertificateAttributeListRequestDtoV3 request = attributeListRequest(authority, raProfile);
+        List<BaseAttribute> response = schemaOrEmpty(() -> connectorApiFactory
+                .getCertificateApiClientV3(connectorDto)
+                .listRequestAttributes(connectorDto, request), "request");
+        return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
     }
 
     @Override
     public List<BaseAttribute> listRenewAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
             throws ConnectorException {
-        return List.of();
+        ApiClientConnectorInfo connectorDto = connectorForApiClient(authority);
+        CertificateAttributeListRequestDtoV3 request = attributeListRequest(authority, raProfile);
+        List<BaseAttribute> response = schemaOrEmpty(() -> connectorApiFactory
+                .getCertificateApiClientV3(connectorDto)
+                .listRenewAttributes(connectorDto, request), "renew");
+        return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
     }
 
     @Override
     public List<BaseAttribute> listIdentifyAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
             throws ConnectorException {
-        return List.of();
+        ApiClientConnectorInfo connectorDto = connectorForApiClient(authority);
+        CertificateAttributeListRequestDtoV3 request = attributeListRequest(authority, raProfile);
+        List<BaseAttribute> response = schemaOrEmpty(() -> connectorApiFactory
+                .getCertificateApiClientV3(connectorDto)
+                .listIdentifyAttributes(connectorDto, request), "identify");
+        return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
+    }
+
+    @FunctionalInterface
+    private interface SchemaCall {
+        List<BaseAttribute> get() throws ConnectorException;
+    }
+
+    /**
+     * Resolves "connector does not offer this schema" to an empty list, keyed on status codes because connectors are
+     * polyglot and a problem body is not guaranteed: HTTP 404 (endpoint absent), ErrorCode.OPERATION_NOT_SUPPORTED, and
+     * a bare 501 all mean the optional attribute-schema endpoint is not provided. Everything else — auth failures,
+     * other 5xx, communication failures, malformed bodies — propagates: silently emptying a schema the connector does
+     * have would drop attributes the CA requires.
+     */
+    private List<BaseAttribute> schemaOrEmpty(SchemaCall call, String operation) throws ConnectorException {
+        try {
+            return call.get();
+        } catch (ConnectorEntityNotFoundException e) {
+            log
+                    .debug("Optional {} attribute-schema endpoint not served by connector (404); resolving empty schema",
+                            operation);
+            return List.of();
+        } catch (ConnectorProblemException e) {
+            if (e.getProblemDetail().getErrorCode() == ErrorCode.OPERATION_NOT_SUPPORTED) {
+                log
+                        .debug("Connector declines to offer the {} attribute schema (OPERATION_NOT_SUPPORTED); "
+                                + "resolving empty schema", operation);
+                return List.of();
+            }
+            throw e;
+        } catch (ConnectorServerException e) {
+            if (e.getHttpStatus() == HttpStatus.NOT_IMPLEMENTED) {
+                log.debug("Connector answered bare 501 for the {} attribute schema; resolving empty schema", operation);
+                return List.of();
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -292,9 +346,9 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
     }
 
     /**
-     * Fail closed if the connector echoed back a secret Core expanded into the request. Applied to the four
-     * attribute-list responses only: they flow to the operator's attribute-selection UI and are fetched pre-commitment
-     * (read-only), so refusing on an echo is safe.
+     * Fail closed if the connector echoed back a secret Core expanded into the request. Applied to the seven
+     * attribute-list responses only (RA-profile, issue, revoke, register, request, renew, identify): they flow to the
+     * operator's attribute-selection UI and are fetched pre-commitment (read-only), so refusing on an echo is safe.
      * <p>
      * The operation responses are deliberately NOT scanned — issue/renew/revoke/register/issueRegistered return
      * certificate data plus a connector-owned {@code meta} bag (also returned by {@code pollStatus}) that Core persists
