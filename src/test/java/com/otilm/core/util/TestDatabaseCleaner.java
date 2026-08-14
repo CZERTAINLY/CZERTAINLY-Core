@@ -6,6 +6,7 @@ import java.sql.Statement;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import javax.sql.DataSource;
 
 /**
@@ -19,6 +20,9 @@ import javax.sql.DataSource;
 final class TestDatabaseCleaner {
 
     private static final String UNDEFINED_FUNCTION_SQL_STATE = "42883";
+
+    /** A schema that does not match this matches no tables, which would silently skip clearing. */
+    private static final Pattern SCHEMA_NAME = Pattern.compile("^[a-zA-Z0-9_]+$");
 
     /** Stand-in key for the install cache; {@link java.sql.DatabaseMetaData#getURL()} may return null. */
     private static final String UNKNOWN_URL = "unknown";
@@ -62,6 +66,9 @@ final class TestDatabaseCleaner {
     }
 
     static void clear(DataSource dataSource, String schema) throws SQLException {
+        if (schema == null || !SCHEMA_NAME.matcher(schema).matches()) {
+            throw new SQLException("Invalid schema name: " + schema);
+        }
         try (Connection connection = dataSource.getConnection()) {
             if (INSTALLED_JDBC_URLS.add(Objects.requireNonNullElse(connection.getMetaData().getURL(), UNKNOWN_URL))) {
                 install(connection);

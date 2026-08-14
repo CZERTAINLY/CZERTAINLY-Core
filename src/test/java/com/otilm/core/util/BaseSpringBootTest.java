@@ -73,7 +73,7 @@ public class BaseSpringBootTest {
     private void clearTables() throws SQLException {
         DataSource dataSource = jdbcTemplate.getDataSource();
         if (dataSource == null) {
-            throw new SQLException("JDBCTemplate does not have initialized data source");
+            throw new SQLException("JdbcTemplate does not have initialized data source");
         }
         TestDatabaseCleaner.clear(dataSource, dbSchema);
     }
