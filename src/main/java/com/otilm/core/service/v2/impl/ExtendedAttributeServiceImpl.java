@@ -142,6 +142,64 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
+    public List<BaseAttribute> listRenewCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException {
+        var authorityRef = raProfile.getAuthorityInstanceReference();
+        if (authorityRef.getConnector() == null) {
+            throw new NotFoundException(CONNECTOR_UNAVAILABLE_MESSAGE);
+        }
+        return authorityProviderAdapterFactory.forAuthority(authorityRef).listRenewAttributes(authorityRef, raProfile);
+    }
+
+    @Override
+    public List<BaseAttribute> listIdentifyCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException {
+        var authorityRef = raProfile.getAuthorityInstanceReference();
+        if (authorityRef.getConnector() == null) {
+            throw new NotFoundException(CONNECTOR_UNAVAILABLE_MESSAGE);
+        }
+        return authorityProviderAdapterFactory
+                .forAuthority(authorityRef)
+                .listIdentifyAttributes(authorityRef, raProfile);
+    }
+
+    @Override
+    public void mergeAndValidateRenewAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException {
+        var authorityRef = raProfile.getAuthorityInstanceReference();
+        if (authorityRef.getConnector() == null) {
+            throw new ValidationException(ValidationError.create(CONNECTOR_UNAVAILABLE_MESSAGE));
+        }
+        if (attributes == null) {
+            attributes = new ArrayList<>();
+        }
+        List<BaseAttribute> definitions = authorityProviderAdapterFactory
+                .forAuthority(authorityRef)
+                .listRenewAttributes(authorityRef, raProfile);
+        attributeEngine
+                .validateUpdateDataAttributes(authorityRef.getConnectorUuid(), AttributeOperation.CERTIFICATE_RENEW,
+                        definitions, attributes);
+    }
+
+    @Override
+    public void mergeAndValidateIdentifyAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException {
+        var authorityRef = raProfile.getAuthorityInstanceReference();
+        if (authorityRef.getConnector() == null) {
+            throw new ValidationException(ValidationError.create(CONNECTOR_UNAVAILABLE_MESSAGE));
+        }
+        if (attributes == null) {
+            attributes = new ArrayList<>();
+        }
+        List<BaseAttribute> definitions = authorityProviderAdapterFactory
+                .forAuthority(authorityRef)
+                .listIdentifyAttributes(authorityRef, raProfile);
+        attributeEngine
+                .validateUpdateDataAttributes(authorityRef.getConnectorUuid(), AttributeOperation.CERTIFICATE_IDENTIFY,
+                        definitions, attributes);
+    }
+
+    @Override
     public void mergeAndValidateRegisterAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
             throws ConnectorException, AttributeException, NotFoundException {
         var authorityRef = raProfile.getAuthorityInstanceReference();

@@ -229,6 +229,66 @@ class ExtendedAttributeServiceImplTest {
                         attrs);
     }
 
+    // --- listRenewCertificateAttributes / listIdentifyCertificateAttributes ---
+
+    @Test
+    void listRenewCertificateAttributes_delegatesToAdapter() throws Exception {
+        List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
+        when(adapter.listRenewAttributes(authority, raProfile)).thenReturn(expected);
+
+        assertSame(expected, service.listRenewCertificateAttributes(raProfile));
+    }
+
+    @Test
+    void listIdentifyCertificateAttributes_delegatesToAdapter() throws Exception {
+        List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
+        when(adapter.listIdentifyAttributes(authority, raProfile)).thenReturn(expected);
+
+        assertSame(expected, service.listIdentifyCertificateAttributes(raProfile));
+    }
+
+    @Test
+    void listRenewCertificateAttributes_throwsWhenConnectorMissing() {
+        authority.setConnector(null);
+
+        assertThrows(NotFoundException.class, () -> service.listRenewCertificateAttributes(raProfile));
+        verifyNoInteractions(adapterFactory);
+    }
+
+    @Test
+    void listIdentifyCertificateAttributes_throwsWhenConnectorMissing() {
+        authority.setConnector(null);
+
+        assertThrows(NotFoundException.class, () -> service.listIdentifyCertificateAttributes(raProfile));
+        verifyNoInteractions(adapterFactory);
+    }
+
+    // --- mergeAndValidateRenewAttributes / mergeAndValidateIdentifyAttributes ---
+
+    @Test
+    void mergeAndValidateRenewAttributes_validatesAgainstRenewSchema() throws Exception {
+        List<BaseAttribute> definitions = List.of(mock(BaseAttribute.class));
+        when(adapter.listRenewAttributes(authority, raProfile)).thenReturn(definitions);
+
+        service.mergeAndValidateRenewAttributes(raProfile, null);
+
+        verify(attributeEngine)
+                .validateUpdateDataAttributes(authority.getConnectorUuid(), AttributeOperation.CERTIFICATE_RENEW,
+                        definitions, List.of());
+    }
+
+    @Test
+    void mergeAndValidateIdentifyAttributes_validatesAgainstIdentifySchema() throws Exception {
+        List<BaseAttribute> definitions = List.of(mock(BaseAttribute.class));
+        when(adapter.listIdentifyAttributes(authority, raProfile)).thenReturn(definitions);
+
+        service.mergeAndValidateIdentifyAttributes(raProfile, null);
+
+        verify(attributeEngine)
+                .validateUpdateDataAttributes(authority.getConnectorUuid(), AttributeOperation.CERTIFICATE_IDENTIFY,
+                        definitions, List.of());
+    }
+
     // --- listRegisterCertificateAttributes ---
 
     @Test
