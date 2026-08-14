@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class CsrGenerationAttributesITest extends BaseSpringBootTest {
@@ -111,6 +112,18 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
                 .extracting(BaseAttribute::getName)
                 .containsExactlyElementsOf(
                         DefaultRequestAttributeSet.seed().stream().map(BaseAttribute::getName).toList());
+    }
+
+    @Test
+    void csrResolutionStaysPlatformOnly_regressionForConnectorRequestSchema() throws Exception {
+        // Regression pin for ilm#323: the connector-provided certificate-request schema exists on the adapter
+        // (listCertificateRequestAttributes) but is deliberately NOT consumed here — wiring it into this resolution
+        // is ilm#278. CSR-attribute resolution must not gain any connector consultation on this branch.
+        RaProfile raProfile = newEnabledRaProfile();
+
+        certificateService.getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
+
+        verifyNoInteractions(extendedAttributeService);
     }
 
     @Test
