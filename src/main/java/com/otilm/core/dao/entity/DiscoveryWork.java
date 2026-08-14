@@ -34,7 +34,7 @@ public class DiscoveryWork extends UniquelyIdentified {
     private UUID discoveryUuid;
 
     // Mirrors ON DELETE CASCADE from the migration for the test environment, which generates its schema from
-    // the entities (same note as ScheduledJobHistory); the writable column stays the scalar discoveryUuid above.
+    // the entities; the writable column stays the scalar discoveryUuid above.
     @OnDelete(action = OnDeleteAction.CASCADE)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "discovery_uuid", insertable = false, updatable = false)

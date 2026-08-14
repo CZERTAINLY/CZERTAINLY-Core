@@ -44,7 +44,7 @@ public class DiscoveryItem extends UniquelyIdentified {
     private UUID discoveryUuid;
 
     // Mirrors ON DELETE CASCADE from the migration for the test environment, which generates its schema from
-    // the entities (same note as ScheduledJobHistory); the writable column stays the scalar discoveryUuid above.
+    // the entities; the writable column stays the scalar discoveryUuid above.
     @OnDelete(action = OnDeleteAction.CASCADE)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "discovery_uuid", insertable = false, updatable = false)
@@ -71,16 +71,14 @@ public class DiscoveryItem extends UniquelyIdentified {
     @Column(name = "processed_at")
     private OffsetDateTime processedAt;
 
-    // Per-item processing failure (parity: discovery_certificate.processed_error).
     @Column(name = "processed_error")
     private String processedError;
 
-    // Object this item became (parity: discovery_certificate.inventory_uuid);
-    // null until processed, permanently null if processing failed.
+    // Object this item became; null until processed, permanently null if processing failed.
     @Column(name = "inventory_uuid")
     private UUID inventoryUuid;
 
-    // Not already in inventory when staged, matched by fingerprint (parity: discovery_certificate.newly_discovered).
+    // Not already in inventory when staged, matched by fingerprint.
     @Column(name = "newly_discovered", nullable = false)
     private boolean newlyDiscovered;
 
