@@ -1,14 +1,11 @@
 package com.otilm.core.config;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.otilm.api.model.client.dashboard.SigningRecordStatisticsPeriod;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.auth.oauth2.AuthenticationSnapshotRequestFilter;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
@@ -28,7 +25,6 @@ import org.springframework.format.FormatterRegistry;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.ResourceHttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
@@ -41,13 +37,7 @@ public class WebAppConfig implements WebMvcConfigurer {
 
     @Bean(name = "jacksonObjectMapper")
     public ObjectMapper jsonObjectMapper() {
-        return Jackson2ObjectMapperBuilder
-                .json()
-                .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS,
-                        DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY)
-                .modules(new JavaTimeModule())
-                .serializationInclusion(JsonInclude.Include.NON_NULL)
-                .build();
+        return ObjectMapperFactory.wire();
     }
 
     @Override

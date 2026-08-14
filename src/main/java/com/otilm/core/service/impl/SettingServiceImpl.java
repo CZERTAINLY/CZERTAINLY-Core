@@ -39,6 +39,7 @@ import com.otilm.core.dao.entity.Setting;
 import com.otilm.core.dao.repository.SettingRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.SettingExternalService;
 import com.otilm.core.service.SettingInternalService;
 import com.otilm.core.service.TriggerExternalService;
@@ -92,18 +93,20 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
     private static final String DESERIALIZATION_ERROR_MESSAGE = "Cannot deserialize OAuth2 Provider Settings for provider '%s'.";
     private static final Logger logger = LoggerFactory.getLogger(SettingServiceImpl.class);
 
-    private final ObjectMapper mapper;
+    private final ObjectMapper wireMapper;
     private final SettingsCache settingsCache;
     private final SettingRepository settingRepository;
 
     private TriggerExternalService triggerService;
     private TriggerInternalService triggerInternalService;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    /** Settings are persisted, so they keep Jackson's storage shape rather than the wire mapper's null suppression. */
+    private final ObjectMapper storageMapper = ObjectMapperFactory.storage();
 
     @Autowired
-    public SettingServiceImpl(SettingsCache settingsCache, SettingRepository settingRepository, ObjectMapper mapper) {
-        this.mapper = mapper;
+    public SettingServiceImpl(SettingsCache settingsCache, SettingRepository settingRepository,
+            ObjectMapper wireMapper) {
+        this.wireMapper = wireMapper;
         this.settingsCache = settingsCache;
         this.settingRepository = settingRepository;
     }
@@ -176,7 +179,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         if (certificateSettings != null && certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME) != null) {
             try {
                 certificateSettingsDto
-                        .setValidation(objectMapper
+                        .setValidation(storageMapper
                                 .readValue(certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME).getValue(),
                                         CertificateValidationSettingsDto.class));
             } catch (JsonProcessingException e) {
@@ -196,7 +199,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         if (certificateSettings != null && certificateSettings.get(CERTIFICATES_REGISTRATION_SETTINGS_NAME) != null) {
             try {
                 certificateSettingsDto
-                        .setRegistration(objectMapper
+                        .setRegistration(storageMapper
                                 .readValue(certificateSettings.get(CERTIFICATES_REGISTRATION_SETTINGS_NAME).getValue(),
                                         CertificateRegistrationSettingsDto.class));
             } catch (JsonProcessingException e) {
@@ -307,7 +310,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
                     validation.setFrequency(null);
                     validation.setExpiringThreshold(null);
                 }
-                certificatesValidationSetting.setValue(objectMapper.writeValueAsString(validation));
+                certificatesValidationSetting.setValue(storageMapper.writeValueAsString(validation));
             } catch (JsonProcessingException e) {
                 logger.warn("Failed to serialize platform certificates validation settings", e);
                 throw new ValidationException("Cannot serialize platform certificates settings.");
@@ -339,7 +342,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             Setting registrationSetting = certificateSetting(certificateSettings,
                     CERTIFICATES_REGISTRATION_SETTINGS_NAME);
             try {
-                registrationSetting.setValue(objectMapper.writeValueAsString(registration));
+                registrationSetting.setValue(storageMapper.writeValueAsString(registration));
             } catch (JsonProcessingException e) {
                 logger.warn("Failed to serialize platform certificates registration settings", e);
                 throw new ValidationException("Cannot serialize platform certificates settings.");
@@ -414,7 +417,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             if ((setting = auditLoggingSettings.get(LOGGING_RESOURCES_NAME)) != null) {
                 ResourceLoggingSettingsDto resources;
                 try {
-                    resources = mapper.readValue(setting.getValue(), ResourceLoggingSettingsDto.class);
+                    resources = wireMapper.readValue(setting.getValue(), ResourceLoggingSettingsDto.class);
                 } catch (JsonProcessingException e) {
                     logger.warn("Cannot deserialize audit logs resource settings. Returning default settings.");
                     resources = new ResourceLoggingSettingsDto();
@@ -430,7 +433,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         if (eventLoggingSettings != null && (setting = eventLoggingSettings.get(LOGGING_RESOURCES_NAME)) != null) {
             ResourceLoggingSettingsDto resources;
             try {
-                resources = mapper.readValue(setting.getValue(), ResourceLoggingSettingsDto.class);
+                resources = wireMapper.readValue(setting.getValue(), ResourceLoggingSettingsDto.class);
             } catch (JsonProcessingException e) {
                 logger.warn("Cannot deserialize event logs resource settings. Returning default settings.");
                 resources = new ResourceLoggingSettingsDto();
@@ -479,8 +482,8 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         }
         try {
             setting
-                    .setValue(mapper
-                            .writeValueAsString(mapper
+                    .setValue(wireMapper
+                            .writeValueAsString(wireMapper
                                     .convertValue(loggingSettingsDto.getAuditLogs(),
                                             ResourceLoggingSettingsDto.class)));
             settingRepository.save(setting);
@@ -497,7 +500,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             setting.setName(LOGGING_RESOURCES_NAME);
         }
         try {
-            setting.setValue(mapper.writeValueAsString(loggingSettingsDto.getEventLogs()));
+            setting.setValue(wireMapper.writeValueAsString(loggingSettingsDto.getEventLogs()));
             settingRepository.save(setting);
         } catch (JsonProcessingException e) {
             throw new ValidationException("Cannot serialize event logging resources settings: " + e.getMessage());
@@ -517,7 +520,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         for (Setting oauth2Provider : oauth2ProviderSettings) {
             OAuth2ProviderSettingsDto oAuth2ProviderSettings;
             try {
-                oAuth2ProviderSettings = objectMapper
+                oAuth2ProviderSettings = storageMapper
                         .readValue(oauth2Provider.getValue(), OAuth2ProviderSettingsDto.class);
                 if (!withClientSecret) {
                     oAuth2ProviderSettings.setClientSecret(null);
@@ -589,7 +592,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         OAuth2ProviderSettingsResponseDto settingsDto = null;
         if (setting != null) {
             try {
-                settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsResponseDto.class);
+                settingsDto = storageMapper.readValue(setting.getValue(), OAuth2ProviderSettingsResponseDto.class);
                 if (!withClientSecret) {
                     settingsDto.setClientSecret(null);
                 }
@@ -635,7 +638,7 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
         } else if (!isNewProvider) {
             OAuth2ProviderSettingsDto storedProviderSettings;
             try {
-                storedProviderSettings = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
+                storedProviderSettings = storageMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
             } catch (JsonProcessingException e) {
                 throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(providerName));
             }
@@ -648,10 +651,10 @@ public class SettingServiceImpl implements SettingExternalService, SettingIntern
             if (settingsDto instanceof OAuth2ProviderSettingsDto s) {
                 fullSettingsDto = s;
             } else {
-                fullSettingsDto = objectMapper.convertValue(settingsDto, OAuth2ProviderSettingsDto.class);
+                fullSettingsDto = storageMapper.convertValue(settingsDto, OAuth2ProviderSettingsDto.class);
                 fullSettingsDto.setName(providerName);
             }
-            setting.setValue(objectMapper.writeValueAsString(fullSettingsDto));
+            setting.setValue(storageMapper.writeValueAsString(fullSettingsDto));
         } catch (JsonProcessingException e) {
             throw new ValidationException(
                     "Cannot serialize OAuth2 provider settings for provider '%s'.".formatted(providerName));

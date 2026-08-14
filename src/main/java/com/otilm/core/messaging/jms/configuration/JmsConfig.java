@@ -3,7 +3,7 @@ package com.otilm.core.messaging.jms.configuration;
 import com.azure.core.credential.TokenCredential;
 import com.azure.identity.ClientSecretCredentialBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import jakarta.jms.ConnectionFactory;
 import org.apache.qpid.jms.JmsConnectionExtensions;
 import org.apache.qpid.jms.JmsConnectionFactory;
@@ -174,11 +174,7 @@ public class JmsConfig {
 
     @Bean
     public MessageConverter messageConverter(Jackson2ObjectMapperBuilder objectMapperBuilder) {
-        ObjectMapper objectMapper = objectMapperBuilder
-                .createXmlMapper(false)
-                .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                .build()
-                .findAndRegisterModules();
+        ObjectMapper objectMapper = ObjectMapperFactory.jmsMessage(objectMapperBuilder);
 
         MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
         converter.setObjectMapper(objectMapper);

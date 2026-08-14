@@ -15,6 +15,7 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CrlEntry;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.CrlService;
 import com.otilm.core.service.writer.CertificateValidationWriter;
 import com.otilm.core.settings.SettingsCache;
@@ -44,7 +45,7 @@ import org.springframework.stereotype.Service;
 @Service("X.509")
 public class X509CertificateValidator implements ICertificateValidator {
     private static final Logger logger = LoggerFactory.getLogger(X509CertificateValidator.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory.storage();
     private CertificateRepository certificateRepository;
 
     private CrlService crlService;

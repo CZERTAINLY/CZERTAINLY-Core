@@ -128,8 +128,8 @@ class AcmeProtocolGoldenTest {
     }
 
     /**
-     * Jackson's default {@code FAIL_ON_UNKNOWN_PROPERTIES} turns an ACME client adding a member into a parse failure.
-     * Driven through {@code generalBodyJsonParser} so the assertion follows production's own call.
+     * An ACME client adding a member must be a parse failure. {@code acmeRequest()} enables
+     * {@code FAIL_ON_UNKNOWN_PROPERTIES} explicitly, so a Jackson default change cannot loosen this silently.
      */
     @Test
     void inboundJwsEnvelopeParserRejectsUnknownMembers() {
