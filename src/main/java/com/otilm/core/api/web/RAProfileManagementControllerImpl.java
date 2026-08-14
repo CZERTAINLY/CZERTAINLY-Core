@@ -351,9 +351,9 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     public List<BaseAttribute> listRenewCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid)
             throws ConnectorException, NotFoundException {
-        // Temporary stub while the adapter and service layers land on this branch; replaced by delegation to
-        // raProfileService before this branch is reviewed.
-        return List.of();
+        return raProfileService
+                .listRenewCertificateAttributes(SecuredParentUUID.fromString(authorityUuid),
+                        SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
@@ -362,9 +362,9 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     public List<BaseAttribute> listIdentifyCertificateAttributes(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid)
             throws ConnectorException, NotFoundException {
-        // Temporary stub while the adapter and service layers land on this branch; replaced by delegation to
-        // raProfileService before this branch is reviewed.
-        return List.of();
+        return raProfileService
+                .listIdentifyCertificateAttributes(SecuredParentUUID.fromString(authorityUuid),
+                        SecuredUUID.fromString(raProfileUuid));
     }
 
 }
