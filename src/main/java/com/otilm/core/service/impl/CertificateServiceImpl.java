@@ -3146,17 +3146,16 @@ public class CertificateServiceImpl
         }
         try {
             // Validate the connector's identify-operation attributes against the schema — always, so a required
-            // identify attribute is enforced even when the operator sends none — then persist the supplied ones on
-            // the certificate (identify + connector), symmetric with the other operations.
+            // identify attribute is enforced even when the operator sends none — then persist them unconditionally:
+            // the write replaces this (certificate, connector) slot, so re-identifying against a connector the
+            // certificate was assigned to before cannot resurface a previous stint's values.
             extendedAttributeService.mergeAndValidateIdentifyAttributes(newRaProfile, identifyAttributes);
-            if (identifyAttributes != null && !identifyAttributes.isEmpty()) {
-                attributeEngine
-                        .updateObjectDataAttributesContent(ObjectAttributeContentInfo
-                                .builder(Resource.CERTIFICATE, certificate.getUuid())
-                                .connector(newRaProfile.getAuthorityInstanceReference().getConnectorUuid())
-                                .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
-                                .build(), identifyAttributes);
-            }
+            attributeEngine
+                    .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                            .builder(Resource.CERTIFICATE, certificate.getUuid())
+                            .connector(newRaProfile.getAuthorityInstanceReference().getConnectorUuid())
+                            .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
+                            .build(), identifyAttributes);
             AuthorityProviderAdapter adapter = adapterFactory
                     .forAuthority(newRaProfile.getAuthorityInstanceReference());
             return adapter
