@@ -46,6 +46,18 @@ public final class ObjectMapperFactory {
     }
 
     /**
+     * The audit-export recipe, pinned as the export has always built it. It discovers every module on the classpath,
+     * because the exported columns are open-typed and may hold any producer's JDK8 value.
+     */
+    public static ObjectMapper auditLogExport() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.findAndRegisterModules();
+        mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        return mapper;
+    }
+
+    /**
      * Jackson's own defaults, for JSON that is persisted. No migration guards those columns, so a shape change here
      * splits a table into rows written before it and rows written after.
      */

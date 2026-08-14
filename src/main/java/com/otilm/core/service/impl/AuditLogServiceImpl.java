@@ -28,6 +28,7 @@ import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.AuditLogExternalService;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.settings.SettingsCache;
@@ -58,7 +59,7 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
 
     private static final LoggerWrapper logger = new LoggerWrapper(AuditLogServiceImpl.class, null, null);
 
-    private ObjectMapper objectMapper;
+    private static final ObjectMapper MAPPER = ObjectMapperFactory.auditLogExport();
 
     @Value("${export.auditLog.fileName.prefix:audit-logs}")
     private String fileNamePrefix;
@@ -68,11 +69,6 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
 
     @PersistenceContext
     private EntityManager entityManager;
-
-    @Autowired
-    public void setObjectMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     @Autowired
     public void setAuditLogRepository(AuditLogRepository auditLogRepository) {
@@ -148,13 +144,13 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
             builder.message(a.getMessage());
 
             try {
-                builder.operationData(objectMapper.writeValueAsString(a.getLogRecord().operationData()));
+                builder.operationData(MAPPER.writeValueAsString(a.getLogRecord().operationData()));
             } catch (JsonProcessingException e) {
                 builder.operationData("ERROR_SERIALIZATION");
             }
 
             try {
-                builder.additionalData(objectMapper.writeValueAsString(a.getLogRecord().additionalData()));
+                builder.additionalData(MAPPER.writeValueAsString(a.getLogRecord().additionalData()));
             } catch (JsonProcessingException e) {
                 builder.additionalData("ERROR_SERIALIZATION");
             }

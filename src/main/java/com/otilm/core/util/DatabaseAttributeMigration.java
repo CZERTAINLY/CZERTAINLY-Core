@@ -1,6 +1,7 @@
 package com.otilm.core.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
@@ -8,7 +9,6 @@ import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.attribute.engine.AttributeEngine;
-import com.otilm.core.serialization.ObjectMapperFactory;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,7 +25,13 @@ import org.slf4j.LoggerFactory;
 public class DatabaseAttributeMigration {
 
     private static final Logger logger = LoggerFactory.getLogger(DatabaseAttributeMigration.class);
-    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = ObjectMapperFactory.lenientStorage();
+
+    /**
+     * A pinned mapper, not a factory recipe. This is the body of migration {@code V202402171510}, which must keep
+     * producing the shape it wrote on its first run.
+     */
+    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     private static Map<String, UUID> attributeNameDefinitionMapping = new HashMap<>();
     private static final Map<UUID, Map<String, UUID>> definitionsItemsContentMapping = new HashMap<>();

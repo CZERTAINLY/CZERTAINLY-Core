@@ -3,6 +3,7 @@ package com.otilm.core.architecture;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.cfg.MapperBuilder;
 import com.otilm.core.serialization.ObjectMapperFactory;
+import com.otilm.core.util.DatabaseAttributeMigration;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaCall;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -22,7 +23,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * while {@code Jackson2ObjectMapperBuilder.json().build()} recreates a decentralized recipe.
  * <p>
  * Java migrations are exempt: each pins its own mapper, because a migration must keep producing the shape it wrote on
- * its first run.
+ * its first run. {@link DatabaseAttributeMigration} is exempt too, as the body of migration {@code V202402171510}.
  */
 @AnalyzeClasses(packages = {"com.otilm.core", "db.migration"},
         importOptions = ObjectMapperCentralizationArchTest.OnlyThisModule.class)
@@ -50,7 +51,7 @@ class ObjectMapperCentralizationArchTest {
     @ArchTest
     static final ArchRule onlyTheFactoryConstructsObjectMappers = noClasses()
             .that()
-            .doNotBelongToAnyOf(ObjectMapperFactory.class)
+            .doNotBelongToAnyOf(ObjectMapperFactory.class, DatabaseAttributeMigration.class)
             .and()
             .resideOutsideOfPackage("db.migration..")
             .should()
