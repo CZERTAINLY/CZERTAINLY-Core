@@ -666,6 +666,22 @@ class RaProfileServiceITest extends ApprovalProfileData {
     }
 
     @Test
+    void testListRenewAndIdentifyCertificateAttributes_resolveEmptyOnV2Authority()
+            throws ConnectorException, NotFoundException {
+        // A v2 authority has no renew/identify schema endpoints; resolution is empty without any connector call.
+        Assertions
+                .assertEquals(List.of(),
+                        raProfileService
+                                .listRenewCertificateAttributes(authorityInstanceReference.getSecuredParentUuid(),
+                                        raProfile.getSecuredUuid()));
+        Assertions
+                .assertEquals(List.of(),
+                        raProfileService
+                                .listIdentifyCertificateAttributes(authorityInstanceReference.getSecuredParentUuid(),
+                                        raProfile.getSecuredUuid()));
+    }
+
+    @Test
     void testActivateAcme() throws ConnectorException, NotFoundException, AttributeException {
         AcmeProfile acmeProfile = new AcmeProfile();
         acmeProfileRepository.save(acmeProfile);

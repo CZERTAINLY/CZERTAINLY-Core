@@ -308,6 +308,24 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testListRenewAndIdentifyCertificateAttributes_resolveEmptyOnV2Authority()
+            throws ConnectorException, NotFoundException {
+        // A v2 authority has no renew/identify schema endpoints; resolution is empty without any connector call.
+        Assertions
+                .assertEquals(List.of(),
+                        clientOperationService
+                                .listRenewCertificateAttributes(
+                                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                        SecuredUUID.fromUUID(raProfile.getUuid())));
+        Assertions
+                .assertEquals(List.of(),
+                        clientOperationService
+                                .listIdentifyCertificateAttributes(
+                                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                        SecuredUUID.fromUUID(raProfile.getUuid())));
+    }
+
+    @Test
     void testListIssueCertificateAttributes_validationFail() {
         Assertions
                 .assertThrows(NotFoundException.class,
