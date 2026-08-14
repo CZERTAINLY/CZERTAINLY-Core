@@ -5,6 +5,7 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.api.model.core.certificate.CertificateRelationType;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
@@ -24,6 +25,8 @@ import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.FunctionGroupRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.security.authz.SecuredUUID;
+import com.otilm.core.service.CertificateExternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.builders.AuthorityFixtures;
@@ -60,6 +63,8 @@ class V3RenewRevokeITest extends BaseSpringBootTest {
 
     @Autowired
     private ClientOperationInternalService clientOperationInternalService;
+    @Autowired
+    private CertificateExternalService certificateExternalService;
     @Autowired
     private CertificateRepository certificateRepository;
     @Autowired
@@ -172,6 +177,13 @@ class V3RenewRevokeITest extends BaseSpringBootTest {
                         postRequestedFor(urlEqualTo(V3_RENEW_PATH))
                                 .withRequestBody(matchingJsonPath("$.attributes[0].name", equalTo("validityOverride")))
                                 .withRequestBody(matchingJsonPath("$.attributes[0].content[0].data", equalTo("P90D"))));
+
+        // The submitted values also surface on the successor's detail, like issue/revoke/register values do.
+        CertificateDetailDto detail = certificateExternalService.getCertificate(SecuredUUID.fromUUID(successorUuid));
+        Assertions
+                .assertEquals(1, detail.getRenewAttributes().size(),
+                        "renew attributes must surface on the successor certificate detail");
+        Assertions.assertEquals("validityOverride", detail.getRenewAttributes().get(0).getName());
     }
 
     @Test

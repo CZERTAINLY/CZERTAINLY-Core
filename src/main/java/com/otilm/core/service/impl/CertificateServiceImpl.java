@@ -704,6 +704,26 @@ public class CertificateServiceImpl
                                             .getConnectorUuid())
                                     .operation(AttributeOperation.CERTIFICATE_REGISTER)
                                     .build()));
+            dto
+                    .setRenewAttributes(attributeEngine
+                            .getObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                    .connector(certificate
+                                            .getRaProfile()
+                                            .getAuthorityInstanceReference()
+                                            .getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_RENEW)
+                                    .build()));
+            dto
+                    .setIdentifyAttributes(attributeEngine
+                            .getObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                    .connector(certificate
+                                            .getRaProfile()
+                                            .getAuthorityInstanceReference()
+                                            .getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
+                                    .build()));
         }
         // Registration request-attribute values are persisted without a connector under the null operation slot by
         // the register flow, and read here for every certificate so a registered placeholder that has no certificate
