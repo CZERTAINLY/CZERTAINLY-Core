@@ -225,7 +225,6 @@ public class IntuneScepServiceClient extends IntuneClient {
             throw new IllegalArgumentException("The argument 'errorDescription' is missing");
         }
 
-        ObjectMapper objectMapper = ObjectMapperFactory.storage();
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody
                 .put("notification",

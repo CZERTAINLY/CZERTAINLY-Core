@@ -1,6 +1,5 @@
 package db.migration;
 
-import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.util.DatabaseMigration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,7 +16,10 @@ import java.sql.Statement;
 @SuppressWarnings("java:S101")
 public class V202509191412__LogRecordsRefactor extends BaseJavaMigration {
 
-    private static final ObjectMapper mapper = ObjectMapperFactory.storage();
+    /**
+     * A pinned mapper, not a factory recipe. A migration must keep producing the shape it wrote on its first run.
+     */
+    private static final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public Integer getChecksum() {

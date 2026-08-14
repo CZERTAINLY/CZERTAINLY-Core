@@ -58,9 +58,15 @@ public final class ObjectMapperFactory {
      * exceptional.
      */
     public static ObjectMapper lenientStorage() {
-        return storage()
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        return storage().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
+
+    /**
+     * {@link #lenientStorage()} for utilities that serialize whatever object they are handed, where a value with no
+     * visible properties is written as an empty object rather than failing.
+     */
+    public static ObjectMapper emptyBeanTolerantStorage() {
+        return lenientStorage().configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
     }
 
     /**

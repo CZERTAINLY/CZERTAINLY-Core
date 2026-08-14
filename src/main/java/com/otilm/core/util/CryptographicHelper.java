@@ -19,7 +19,7 @@ public class CryptographicHelper {
     private CryptographicHelper() {
     }
 
-    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory.lenientStorage();
+    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory.emptyBeanTolerantStorage();
 
     public static String serializeKeyValue(KeyFormat keyFormat, KeyValue value) {
         if (value == null || keyFormat == null) {

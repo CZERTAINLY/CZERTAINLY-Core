@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SerializationUtil {
-    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory.lenientStorage();
+    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory.emptyBeanTolerantStorage();
 
     public static String serializeIdentifiers(List<Identifier> identifiers) {
         try {

@@ -12,7 +12,6 @@ import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
-import db.migration.V202507311051__MigrateToComplianceProfilesV2;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -21,6 +20,9 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * Keeps every production {@link ObjectMapper} recipe inside {@link ObjectMapperFactory}, because Jackson 3 changes
  * defaults with no compiler signature. Mapper builders and subclasses count too: a constructor-only rule stays green
  * while {@code Jackson2ObjectMapperBuilder.json().build()} recreates a decentralized recipe.
+ * <p>
+ * Java migrations are exempt: each pins its own mapper, because a migration must keep producing the shape it wrote on
+ * its first run.
  */
 @AnalyzeClasses(packages = {"com.otilm.core", "db.migration"},
         importOptions = ObjectMapperCentralizationArchTest.OnlyThisModule.class)
@@ -48,7 +50,9 @@ class ObjectMapperCentralizationArchTest {
     @ArchTest
     static final ArchRule onlyTheFactoryConstructsObjectMappers = noClasses()
             .that()
-            .doNotBelongToAnyOf(ObjectMapperFactory.class, V202507311051__MigrateToComplianceProfilesV2.class)
+            .doNotBelongToAnyOf(ObjectMapperFactory.class)
+            .and()
+            .resideOutsideOfPackage("db.migration..")
             .should()
             .callCodeUnitWhere(BUILDS_AN_OBJECT_MAPPER)
             .because("production mappers come from ObjectMapperFactory, so the Jackson 3 migration has one recipe set "
