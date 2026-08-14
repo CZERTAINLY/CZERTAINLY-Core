@@ -102,8 +102,8 @@ public interface AuthorityProviderAdapter {
     /**
      * Lists the connector's certificate-request attribute schema (subject RDNs, SANs, extensions the CA asks for).
      * Optional on the connector: v3 resolves 404, {@code OPERATION_NOT_SUPPORTED} (501) and an empty array to an empty
-     * list; v2 has no such endpoint and always returns empty. Implemented but not consumed by any flow — wiring it into
-     * {@code GET /v1/certificates/csr/attributes} belongs to OmniTrustILM/ilm#278.
+     * list; v2 has no such endpoint and always returns empty. Implemented but not consumed by any flow yet — wiring it
+     * into {@code GET /v1/certificates/csr/attributes} is a separate planned change.
      */
     List<BaseAttribute> listCertificateRequestAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
             throws ConnectorException;

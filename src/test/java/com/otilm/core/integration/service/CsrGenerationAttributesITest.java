@@ -116,9 +116,9 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
 
     @Test
     void csrResolutionStaysPlatformOnly_regressionForConnectorRequestSchema() throws Exception {
-        // Regression pin for ilm#323: the connector-provided certificate-request schema exists on the adapter
+        // Regression pin: the connector-provided certificate-request schema exists on the adapter
         // (listCertificateRequestAttributes) but is deliberately NOT consumed here — wiring it into this resolution
-        // is ilm#278. CSR-attribute resolution must not gain any connector consultation on this branch.
+        // is a separate planned change. CSR-attribute resolution must not gain any connector consultation.
         RaProfile raProfile = newEnabledRaProfile();
 
         certificateService.getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
