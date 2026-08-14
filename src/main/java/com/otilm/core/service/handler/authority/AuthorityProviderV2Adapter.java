@@ -120,8 +120,9 @@ public class AuthorityProviderV2Adapter extends AbstractAuthorityProviderAdapter
     }
 
     @Override
-    public List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent)
-            throws ValidationException, ConnectorException {
+    public List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent,
+            List<RequestAttribute> attributes) throws ValidationException, ConnectorException {
+        // attributes ignored: the v2 identification contract carries no operation attributes.
         AuthorityInstanceReference authority = raProfile.getAuthorityInstanceReference();
 
         CertificateIdentificationRequestDto wire = new CertificateIdentificationRequestDto();

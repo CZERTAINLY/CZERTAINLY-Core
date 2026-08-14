@@ -60,8 +60,11 @@ public interface AuthorityProviderAdapter {
      * @param raProfile the RA profile whose authority performs the identification — may differ from the certificate's
      * current RA profile (RA profile switch)
      * @param certificateContent Base64 certificate content to identify
+     * @param attributes identify-operation attribute values, validated by the caller against
+     * {@link #listIdentifyAttributes}; v3 carries them on the wire, v2 ignores them (its contract has no such field).
+     * Never {@code null} — callers pass an empty list when the operator supplied none.
      */
-    List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent)
+    List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent, List<RequestAttribute> attributes)
             throws ValidationException, ConnectorException;
 
     /**

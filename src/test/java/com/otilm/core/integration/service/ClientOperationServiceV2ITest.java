@@ -2030,7 +2030,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         ValidationException ex = Assertions
                 .assertThrows(ValidationException.class,
-                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid));
+                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid, List.of()));
         Assertions
                 .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
                         "expected error message to mention pending state, got: " + ex.getMessage());
@@ -2045,7 +2045,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         ValidationException ex = Assertions
                 .assertThrows(ValidationException.class,
-                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid));
+                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid, List.of()));
         Assertions
                 .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
                         "expected error message to mention pending state, got: " + ex.getMessage());

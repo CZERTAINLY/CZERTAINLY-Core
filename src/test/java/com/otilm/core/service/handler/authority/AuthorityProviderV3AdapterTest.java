@@ -458,7 +458,7 @@ class AuthorityProviderV3AdapterTest {
         when(certClientV3.identify(eq(connectorInfo), any(CertificateIdentificationRequestDtoV3.class)))
                 .thenReturn(response);
 
-        List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=");
+        List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of());
 
         assertSame(meta, result);
         ArgumentCaptor<CertificateIdentificationRequestDtoV3> captor = ArgumentCaptor
@@ -472,7 +472,21 @@ class AuthorityProviderV3AdapterTest {
         when(certClientV3.identify(eq(connectorInfo), any(CertificateIdentificationRequestDtoV3.class)))
                 .thenReturn(new CertificateIdentificationResponseDto());
 
-        assertEquals(List.of(), adapter.identify(raProfile, "dGVzdGNlcnQ="));
+        assertEquals(List.of(), adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of()));
+    }
+
+    @Test
+    void identifyPutsAttributesOnTheWire() throws ConnectorException {
+        List<RequestAttribute> identifyValues = List.of(new RequestAttributeV3());
+        when(certClientV3.identify(eq(connectorInfo), any(CertificateIdentificationRequestDtoV3.class)))
+                .thenReturn(new CertificateIdentificationResponseDto());
+
+        adapter.identify(raProfile, "dGVzdGNlcnQ=", identifyValues);
+
+        ArgumentCaptor<CertificateIdentificationRequestDtoV3> wire = ArgumentCaptor
+                .forClass(CertificateIdentificationRequestDtoV3.class);
+        verify(certClientV3).identify(eq(connectorInfo), wire.capture());
+        assertEquals(identifyValues, wire.getValue().getAttributes());
     }
 
     // ---- getCaCertificates ----

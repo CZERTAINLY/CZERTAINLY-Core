@@ -157,6 +157,7 @@ import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapter;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapterFactory;
 import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachine;
+import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.service.writer.CertificateValidationWriter;
 import com.otilm.core.service.writer.DiscoveryCertificateContentWriter;
 import com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter;
@@ -296,6 +297,7 @@ public class CertificateServiceImpl
     private AcmeAccountRepository acmeAccountRepository;
 
     private AttributeEngine attributeEngine;
+    private ExtendedAttributeService extendedAttributeService;
     private ResourceObjectAssociationService objectAssociationService;
     private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     private ApplicationEventPublisher applicationEventPublisher;
@@ -520,6 +522,11 @@ public class CertificateServiceImpl
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
+        this.extendedAttributeService = extendedAttributeService;
     }
 
     @Autowired
@@ -867,7 +874,8 @@ public class CertificateServiceImpl
                         request.getGroupUuids(), request.getOwnerUuid());
         if (request.getRaProfileUuid() != null) {
             switchRaProfile(uuid,
-                    request.getRaProfileUuid().isEmpty() ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
+                    request.getRaProfileUuid().isEmpty() ? null : SecuredUUID.fromString(request.getRaProfileUuid()),
+                    request.getAttributes());
         }
         if (request.getGroupUuids() != null) {
             this
@@ -1017,8 +1025,10 @@ public class CertificateServiceImpl
             updateOwner(certificateUuid, ownerUuid);
         }
         if (request.getRaProfileUuid() != null) {
+            // One raProfileUuid governs the whole batch, so one identify-attribute set applies to every certificate.
             switchRaProfile(certificateUuid,
-                    removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
+                    removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()),
+                    request.getAttributes());
         }
     }
 
@@ -3021,7 +3031,7 @@ public class CertificateServiceImpl
         }
     }
 
-    public void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid)
+    public void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid, List<RequestAttribute> identifyAttributes)
             throws NotFoundException, CertificateOperationException, AttributeException {
         Certificate certificate = getCertificateEntity(uuid);
         if (certificate.isArchived()) {
@@ -3055,7 +3065,7 @@ public class CertificateServiceImpl
                     .findByUuid(raProfileUuid)
                     .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
             newRaProfileName = newRaProfile.getName();
-            identifiedMeta = identifyByNewAuthority(certificate, newRaProfile);
+            identifiedMeta = identifyByNewAuthority(certificate, newRaProfile, identifyAttributes);
         }
 
         certificate.setRaProfile(newRaProfile);
@@ -3099,8 +3109,8 @@ public class CertificateServiceImpl
      * Every failure here is reported to the operator and then raised checked, so the caller's transaction survives to
      * keep that report -- for a discovery action trigger, an unchecked one would cost the trigger its history.
      */
-    private List<MetadataAttribute> identifyByNewAuthority(Certificate certificate, RaProfile newRaProfile)
-            throws CertificateOperationException {
+    private List<MetadataAttribute> identifyByNewAuthority(Certificate certificate, RaProfile newRaProfile,
+            List<RequestAttribute> identifyAttributes) throws CertificateOperationException {
         if (newRaProfile.getAuthorityInstanceReference() == null) {
             // The connector is never contacted, so this is not a rejection and must not be reported as one.
             certificateEventHistoryService
@@ -3115,9 +3125,23 @@ public class CertificateServiceImpl
                             newRaProfile.getName(), certificate.toStringShort()));
         }
         try {
+            // Validate the connector's identify-operation attributes against the schema — always, so a required
+            // identify attribute is enforced even when the operator sends none — then persist the supplied ones on
+            // the certificate (identify + connector), symmetric with the other operations.
+            extendedAttributeService.mergeAndValidateIdentifyAttributes(newRaProfile, identifyAttributes);
+            if (identifyAttributes != null && !identifyAttributes.isEmpty()) {
+                attributeEngine
+                        .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                .connector(newRaProfile.getAuthorityInstanceReference().getConnectorUuid())
+                                .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
+                                .build(), identifyAttributes);
+            }
             AuthorityProviderAdapter adapter = adapterFactory
                     .forAuthority(newRaProfile.getAuthorityInstanceReference());
-            return adapter.identify(newRaProfile, certificate.getCertificateContent().getContent());
+            return adapter
+                    .identify(newRaProfile, certificate.getCertificateContent().getContent(),
+                            identifyAttributes != null ? identifyAttributes : List.of());
         } catch (ConnectorException e) {
             certificateEventHistoryService
                     .addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE,
@@ -3129,6 +3153,18 @@ public class CertificateServiceImpl
             throw new CertificateOperationException(String
                     .format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s",
                             newRaProfile.getName(), certificate.toStringShort()));
+        } catch (AttributeException | NotFoundException e) {
+            // The supplied identify attributes failed structural validation against the connector's schema.
+            certificateEventHistoryService
+                    .addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE,
+                            CertificateEventStatus.FAILED,
+                            String
+                                    .format("Identify attributes rejected by schema of new RA profile %s: %s",
+                                            newRaProfile.getName(), e.getMessage()),
+                            null);
+            throw new CertificateOperationException(String
+                    .format("Cannot switch RA profile for certificate. Identify attributes rejected by schema of new RA profile %s: %s. Certificate: %s",
+                            newRaProfile.getName(), e.getMessage(), certificate.toStringShort()));
         } catch (ValidationException e) {
             // A connector may reject identification for any policy it implements: trust anchor mismatch, validity,
             // key usage, RA-profile attribute violation. Forward its own reason so the operator sees the cause.

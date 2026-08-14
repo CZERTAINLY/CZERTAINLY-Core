@@ -3271,14 +3271,32 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                 .orElseThrow(() -> new NotFoundException(Certificate.class, certificate.getUuid()));
         RaProfile raProfile = certForAdapter.getRaProfile();
         try {
+            // Validate the connector's identify-operation attributes against the schema — always, so a required
+            // identify attribute is enforced even when the client sends none — then persist the supplied ones on
+            // the certificate (identify + connector), symmetric with the other operations.
+            extendedAttributeService.mergeAndValidateIdentifyAttributes(raProfile, request.getAttributes());
+            if (request.getAttributes() != null && !request.getAttributes().isEmpty()) {
+                attributeEngine
+                        .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                .connector(raProfile.getAuthorityInstanceReference().getConnectorUuid())
+                                .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
+                                .build(), request.getAttributes());
+            }
             return adapterFactory
                     .forAuthority(raProfile.getAuthorityInstanceReference())
-                    .identify(raProfile, request.getCertificate());
+                    .identify(raProfile, request.getCertificate(),
+                            request.getAttributes() != null ? request.getAttributes() : List.of());
         } catch (ValidationException e) {
             certificateEventHistoryService
                     .addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED,
                             "Manual upload rejected by connector identify: " + e.getMessage(), "");
             throw new ValidationException("Manual upload rejected by connector identify: " + e.getMessage());
+        } catch (AttributeException e) {
+            certificateEventHistoryService
+                    .addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED,
+                            "Identify attributes rejected by connector schema: " + e.getMessage(), "");
+            throw new ValidationException("Identify attributes rejected by connector schema: " + e.getMessage());
         }
     }
 

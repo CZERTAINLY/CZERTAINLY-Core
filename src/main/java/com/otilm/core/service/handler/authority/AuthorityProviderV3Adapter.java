@@ -162,13 +162,14 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
     }
 
     @Override
-    public List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent)
-            throws ValidationException, ConnectorException {
+    public List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent,
+            List<RequestAttribute> attributes) throws ValidationException, ConnectorException {
         AuthorityInstanceReference authority = raProfile.getAuthorityInstanceReference();
         ApiClientConnectorInfo connectorDto = connectorForApiClient(authority);
 
         CertificateIdentificationRequestDtoV3 wire = new CertificateIdentificationRequestDtoV3();
         wire.setCertificate(certificateContent);
+        wire.setAttributes(attributes);
         wire.setAuthorityAttributes(authorityAttributesFor(authority));
         wire.setRaProfileAttributes(resolvedRaProfileAttributes(raProfile, authority));
 

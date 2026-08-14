@@ -316,7 +316,7 @@ class AuthorityProviderV2AdapterTest {
                         any(CertificateIdentificationRequestDto.class)))
                 .thenReturn(response);
 
-        List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=");
+        List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of());
 
         assertSame(meta, result);
         ArgumentCaptor<CertificateIdentificationRequestDto> captor = ArgumentCaptor
@@ -335,7 +335,7 @@ class AuthorityProviderV2AdapterTest {
                         any(CertificateIdentificationRequestDto.class)))
                 .thenReturn(new CertificateIdentificationResponseDto());
 
-        adapter.identify(raProfile, "dGVzdGNlcnQ=");
+        adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of());
 
         ArgumentCaptor<CertificateIdentificationRequestDto> captor = ArgumentCaptor
                 .forClass(CertificateIdentificationRequestDto.class);
@@ -350,7 +350,7 @@ class AuthorityProviderV2AdapterTest {
                         any(CertificateIdentificationRequestDto.class)))
                 .thenReturn(new CertificateIdentificationResponseDto());
 
-        assertEquals(List.of(), adapter.identify(raProfile, "dGVzdGNlcnQ="));
+        assertEquals(List.of(), adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of()));
     }
 
     // --- getCaCertificates ---
