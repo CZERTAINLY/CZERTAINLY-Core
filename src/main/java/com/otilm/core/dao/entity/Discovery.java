@@ -24,7 +24,6 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -159,9 +158,8 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
         DiscoveryDetailDto dto = new DiscoveryDetailDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
-        // The wire DTO keeps java.util.Date for request-shape compatibility; the entity moved to timestamptz.
-        dto.setEndTime(endTime == null ? null : Date.from(endTime.toInstant()));
-        dto.setStartTime(startTime == null ? null : Date.from(startTime.toInstant()));
+        dto.setEndTime(endTime);
+        dto.setStartTime(startTime);
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
         dto.setConnectorUuid(connectorUuid.toString());
@@ -184,8 +182,8 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
         DiscoveryListDto dto = new DiscoveryListDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
-        dto.setEndTime(endTime == null ? null : Date.from(endTime.toInstant()));
-        dto.setStartTime(startTime == null ? null : Date.from(startTime.toInstant()));
+        dto.setEndTime(endTime);
+        dto.setStartTime(startTime);
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
         dto.setConnectorUuid(connectorUuid.toString());
