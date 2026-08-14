@@ -37,6 +37,7 @@ import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatus;
 import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatusRequestDtoV3;
 import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatusResponseDto;
 import com.otilm.api.model.connector.v3.certificate.CertificateRegistrationRequestDtoV3;
+import com.otilm.api.model.connector.v3.certificate.CertificateRenewRequestDtoV3;
 import com.otilm.api.model.connector.v3.certificate.CertificateRevocationRequestDtoV3;
 import com.otilm.api.model.connector.v3.certificate.CertificateSignRequestDtoV3;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
@@ -851,6 +852,24 @@ class AuthorityProviderV3AdapterTest {
         AdapterOperationResult result = adapter.renew(oldCert, cert, new ClientCertificateRenewRequestDto());
 
         assertEquals(AdapterOperationOutcome.ASYNC_ACCEPTED, result.outcome());
+    }
+
+    @Test
+    void renewPutsPersistedRenewAttributesOnTheWire() throws ConnectorException {
+        List<RequestAttribute> renewValues = List.of(new RequestAttributeV3());
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && AttributeOperation.CERTIFICATE_RENEW.equals(info.operation()))))
+                .thenReturn(renewValues);
+        when(certClientV3.renew(eq(connectorInfo), any()))
+                .thenReturn(ResponseEntity.ok(new CertificateDataResponseDto()));
+
+        // null request DTO = the rekey path; the wire attributes must come from the engine either way.
+        adapter.renew(oldCert, cert, null);
+
+        ArgumentCaptor<CertificateRenewRequestDtoV3> wire = ArgumentCaptor.forClass(CertificateRenewRequestDtoV3.class);
+        verify(certClientV3).renew(eq(connectorInfo), wire.capture());
+        assertEquals(renewValues, wire.getValue().getAttributes());
     }
 
     // ---- attribute listing / validation / connection check ----

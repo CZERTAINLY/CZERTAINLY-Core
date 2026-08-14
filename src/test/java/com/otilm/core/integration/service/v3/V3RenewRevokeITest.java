@@ -2,6 +2,9 @@ package com.otilm.core.integration.service.v3;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
+import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
+import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.core.certificate.CertificateRelationType;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
@@ -35,6 +38,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
@@ -48,6 +53,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 class V3RenewRevokeITest extends BaseSpringBootTest {
 
     private static final String V3_RENEW_PATH = "/v3/authorityProvider/certificates/renew";
+    private static final String V3_RENEW_ATTRIBUTES_PATH = "/v3/authorityProvider/certificates/renew/attributes";
     private static final String V3_REVOKE_PATH = "/v3/authorityProvider/certificates/revoke";
     private static final String V2_RENEW_PATTERN = "/v2/authorityProvider/authorities/[^/]+/certificates/renew";
     private static final String V2_REVOKE_PATTERN = "/v2/authorityProvider/authorities/[^/]+/certificates/revoke";
@@ -118,6 +124,54 @@ class V3RenewRevokeITest extends BaseSpringBootTest {
                         "the predecessor must stay ISSUED while the successor awaits asynchronous completion");
         wireMockServer.verify(1, postRequestedFor(urlEqualTo(V3_RENEW_PATH)));
         wireMockServer.verify(0, postRequestedFor(urlPathMatching(V2_RENEW_PATTERN)));
+    }
+
+    @Test
+    void renew_carriesRenewAttributeValuesOnTheWire() throws Exception {
+        AuthorityFixtures.Fixture fixture = buildV3Fixture();
+        V3ConnectorStubs.stubAttributesAndValidate(wireMockServer);
+        UUID predecessorUuid = seedRenewalPair(fixture);
+        UUID successorUuid = successorUuid(predecessorUuid);
+
+        // Connector offers a renew schema (more specific than the blanket empty stub above, so it wins).
+        wireMockServer
+                .stubFor(post(urlEqualTo(V3_RENEW_ATTRIBUTES_PATH))
+                        .willReturn(
+                                aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody("""
+                                        [ {
+                                          "uuid": "1b7f2c3a-0000-4000-8000-000000000001",
+                                          "name": "validityOverride",
+                                          "type": "data",
+                                          "version": 3,
+                                          "contentType": "string",
+                                          "properties": { "label": "Validity Override", "visible": true,
+                                                          "required": false, "readOnly": false,
+                                                          "list": false, "multiSelect": false }
+                                        } ]
+                                        """)));
+        wireMockServer
+                .stubFor(post(urlEqualTo(V3_RENEW_PATH))
+                        .willReturn(aResponse()
+                                .withStatus(202)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("{\"certificateData\": null, \"meta\": []}")));
+
+        RequestAttributeV3 renewValue = new RequestAttributeV3(UUID.fromString("1b7f2c3a-0000-4000-8000-000000000001"),
+                "validityOverride", AttributeContentType.STRING, List.of(new StringAttributeContentV3("P90D")));
+        ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto
+                .builder()
+                .attributes(List.of(renewValue))
+                .build();
+
+        Assertions
+                .assertDoesNotThrow(
+                        () -> clientOperationInternalService.renewCertificateAction(successorUuid, request, true));
+
+        wireMockServer
+                .verify(1,
+                        postRequestedFor(urlEqualTo(V3_RENEW_PATH))
+                                .withRequestBody(matchingJsonPath("$.attributes[0].name", equalTo("validityOverride")))
+                                .withRequestBody(matchingJsonPath("$.attributes[0].content[0].data", equalTo("P90D"))));
     }
 
     @Test

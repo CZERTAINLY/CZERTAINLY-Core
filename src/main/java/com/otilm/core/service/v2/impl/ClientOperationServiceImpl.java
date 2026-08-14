@@ -2054,6 +2054,18 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         additionalInformation.put("New Certificate UUID", certificate.getUuid());
         boolean connectorAccepted = false;
         try {
+            // Validate the connector's renew-operation attributes against the schema — always, so a required renew
+            // attribute is enforced even when the client sends none — then persist the supplied ones on the
+            // successor (renew + connector), where the adapter reads them onto the wire.
+            extendedAttributeService.mergeAndValidateRenewAttributes(raProfile, request.getAttributes());
+            if (request.getAttributes() != null && !request.getAttributes().isEmpty()) {
+                attributeEngine
+                        .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                .connector(raProfile.getAuthorityInstanceReference().getConnectorUuid())
+                                .operation(AttributeOperation.CERTIFICATE_RENEW)
+                                .build(), request.getAttributes());
+            }
             // Move the new certificate to PENDING_ISSUE before calling the connector so every path
             // (sync 200 or async 202) reaches issueRequestedCertificate / the poll cycle from a
             // uniform PENDING_ISSUE state via the state machine.
@@ -2339,6 +2351,17 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         additionalInformation.put("New Certificate UUID", certificate.getUuid());
         boolean connectorAccepted = false;
         try {
+            // Rekey is a renew at the authority — no separate connector operation — so its values validate against
+            // the renew schema and persist under CERTIFICATE_RENEW on the successor, where the adapter reads them.
+            extendedAttributeService.mergeAndValidateRenewAttributes(raProfile, request.getAttributes());
+            if (request.getAttributes() != null && !request.getAttributes().isEmpty()) {
+                attributeEngine
+                        .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                                .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                .connector(raProfile.getAuthorityInstanceReference().getConnectorUuid())
+                                .operation(AttributeOperation.CERTIFICATE_RENEW)
+                                .build(), request.getAttributes());
+            }
             // Move the new certificate to PENDING_ISSUE before calling the connector so every path
             // (sync 200 or async 202) reaches issueRequestedCertificate / the poll cycle from a
             // uniform PENDING_ISSUE state via the state machine.

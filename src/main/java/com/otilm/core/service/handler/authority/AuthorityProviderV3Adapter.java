@@ -132,6 +132,7 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
         }
         wire.setExistingCertificate(oldCert.getCertificateContent().getContent());
         wire.setMeta(loadMeta(oldCert, authority));
+        wire.setAttributes(renewAttributesFor(newCert, authority));
         wire.setAuthorityAttributes(authorityAttributesFor(authority));
         wire.setRaProfileAttributes(resolvedRaProfileAttributes(raProfile, authority));
 
@@ -511,6 +512,20 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
                         .builder(Resource.CERTIFICATE, cert.getUuid())
                         .connector(authority.getConnectorUuid())
                         .operation(AttributeOperation.CERTIFICATE_ISSUE)
+                        .build());
+    }
+
+    /**
+     * Renew-operation attributes persisted on the successor by the service layer. Renew and rekey both persist under
+     * {@code CERTIFICATE_RENEW} — rekey is a renew at the authority — which is why {@code renew}'s unused request-DTO
+     * parameter stays unused: the values arrive via the engine for both paths.
+     */
+    private List<RequestAttribute> renewAttributesFor(Certificate cert, AuthorityInstanceReference authority) {
+        return attributeEngine
+                .getRequestObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, cert.getUuid())
+                        .connector(authority.getConnectorUuid())
+                        .operation(AttributeOperation.CERTIFICATE_RENEW)
                         .build());
     }
 
