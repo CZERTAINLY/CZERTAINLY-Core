@@ -15,15 +15,15 @@ import com.otilm.core.security.authz.opa.OpaClient;
 import com.otilm.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.otilm.core.security.authz.opa.dto.OpaResourceAccessResult;
 import com.otilm.core.service.SettingInternalService;
-import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mockito;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
@@ -55,41 +55,27 @@ public class BaseSpringBootTest {
     @Autowired
     private SettingInternalService settingService;
 
+    @Value("${spring.jpa.properties.hibernate.default_schema:core}")
+    protected String dbSchema;
+
     @BeforeEach
     public void setupAuth() throws SQLException {
         mockSuccessfulCheckResourceAccess();
         mockSuccessfulCheckObjectAccess();
         injectAuthentication();
 
-        // clean DB tables data before each test
-        truncateTables();
-        // re-seed the settings cache from the (now empty) DB so settings cannot leak into the next context
+        clearTables();
+        // re-seed the settings cache from the now-empty DB so settings cannot leak into the next context
         settingService.refreshCache();
-        // clean context
         MDC.clear();
     }
 
-    private void truncateTables() throws SQLException {
-        if (jdbcTemplate.getDataSource() == null) {
+    private void clearTables() throws SQLException {
+        DataSource dataSource = jdbcTemplate.getDataSource();
+        if (dataSource == null) {
             throw new SQLException("JDBCTemplate does not have initialized data source");
         }
-
-        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
-            List<String> tableNames = new ArrayList<>();
-            try (var tables = connection
-                    .getMetaData()
-                    .getTables(connection.getCatalog(), "core", null, new String[]{"TABLE"})) {
-                while (tables.next()) {
-                    tableNames.add("core.\"%s\"".formatted(tables.getString("TABLE_NAME")));
-                }
-            }
-            if (!tableNames.isEmpty()) {
-                String truncateSql = "TRUNCATE " + String.join(", ", tableNames);
-                try (var statement = connection.prepareStatement(truncateSql)) {
-                    statement.execute();
-                }
-            }
-        }
+        TestDatabaseCleaner.clear(dataSource, dbSchema);
     }
 
     protected void mockSuccessfulCheckResourceAccess() {

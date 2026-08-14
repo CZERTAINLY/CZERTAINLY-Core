@@ -9,7 +9,6 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.annotation.DirtiesContext;
@@ -46,9 +45,6 @@ public abstract class BaseMigrationTest extends BaseSpringBootTest {
 
     @Autowired
     private DataSource dataSource;
-
-    @Value("${spring.jpa.properties.hibernate.default_schema:core}")
-    private String dbSchema;
 
     @AfterAll
     void resetSchema() throws SQLException {

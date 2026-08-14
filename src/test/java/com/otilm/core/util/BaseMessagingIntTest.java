@@ -53,7 +53,7 @@ public abstract class BaseMessagingIntTest extends BaseSpringBootTest {
     @Override
     @BeforeEach
     public void setupAuth() {
-        // Skip truncateTables() for messaging tests - they use different database schema
+        // Skip clearTables() for messaging tests - they use different database schema
         mockSuccessfulCheckResourceAccess();
         mockSuccessfulCheckObjectAccess();
         injectAuthentication();
