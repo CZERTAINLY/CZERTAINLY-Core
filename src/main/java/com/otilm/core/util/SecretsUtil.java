@@ -1,10 +1,7 @@
 package com.otilm.core.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.otilm.api.model.connector.secrets.content.ApiKeySecretContent;
 import com.otilm.api.model.connector.secrets.content.BasicAuthSecretContent;
 import com.otilm.api.model.connector.secrets.content.GenericSecretContent;
@@ -14,6 +11,7 @@ import com.otilm.api.model.connector.secrets.content.KeyValueSecretContent;
 import com.otilm.api.model.connector.secrets.content.PrivateKeySecretContent;
 import com.otilm.api.model.connector.secrets.content.SecretContent;
 import com.otilm.api.model.connector.secrets.content.SecretKeySecretContent;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -50,12 +48,7 @@ public class SecretsUtil {
     private static final String algorithm = "PBEWithSHA256And256BitAES-CBC-BC";
     private static final int iterations = 1000;
 
-    private static final ObjectMapper objectMapper = JsonMapper
-            .builder()
-            .findAndAddModules()
-            .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
-            .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
-            .build();
+    private static final ObjectMapper objectMapper = ObjectMapperFactory.secretThumbprint();
 
     /**
      * Encrypts and encodes the given secret using the PBEWithSHA256And256BitAES-CBC-BC algorithm.

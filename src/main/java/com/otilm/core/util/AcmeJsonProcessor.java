@@ -3,12 +3,14 @@ package com.otilm.core.util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JWSObject;
+import com.otilm.core.serialization.ObjectMapperFactory;
 
 /**
  * Class contains the static method for processing the JSON entities from ACME request.
  */
 public class AcmeJsonProcessor {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory.acmeRequest();
 
     /**
      * Class to parse the information from source JSON to the requested format

@@ -25,6 +25,11 @@ import org.slf4j.LoggerFactory;
 public class DatabaseAttributeMigration {
 
     private static final Logger logger = LoggerFactory.getLogger(DatabaseAttributeMigration.class);
+
+    /**
+     * A pinned mapper, not a factory recipe. This is the body of migration {@code V202402171510}, which must keep
+     * producing the shape it wrote on its first run.
+     */
     private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 

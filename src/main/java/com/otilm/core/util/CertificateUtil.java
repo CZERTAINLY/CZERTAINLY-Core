@@ -29,6 +29,7 @@ import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.model.request.CrmfCertificateRequest;
 import com.otilm.core.model.request.Pkcs10CertificateRequest;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.settings.SettingsCache;
 import jakarta.annotation.Nullable;
 import jakarta.xml.bind.DatatypeConverter;
@@ -93,7 +94,9 @@ import org.slf4j.LoggerFactory;
 
 public class CertificateUtil {
     public static final String EMPTY_COMMON_NAME_PLACEHOLDER = "<empty>";
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+    /** Key ordering makes the persisted JSON depend on the SAN contents alone, not on the map implementation. */
+    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory
+            .storage()
             .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
     private static final Map<String, KeyAlgorithm> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();

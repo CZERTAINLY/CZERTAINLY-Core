@@ -12,6 +12,7 @@ import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.otilm.core.messaging.jms.producers.NotificationProducer;
 import com.otilm.core.messaging.model.ActionMessage;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.ApprovalInternalService;
 import com.otilm.core.service.SecretInternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
@@ -68,6 +69,7 @@ class ActionsListenerTest {
         listener.setNotificationProducer(notificationProducer);
         listener.setAuthHelper(authHelper);
         listener.setMessagingProperties(messagingProperties);
+        listener.setMapper(ObjectMapperFactory.wire());
 
         // Only the failure-path tests read this; lenient() avoids strict-stubbing complaints
         // from happy-path tests that never invoke it.

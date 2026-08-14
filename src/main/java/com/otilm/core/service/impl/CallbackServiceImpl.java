@@ -1,6 +1,5 @@
 package com.otilm.core.service.impl;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.exception.AttributeException;
@@ -44,6 +43,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.CallbackExternalService;
 import com.otilm.core.service.CoreCallbackService;
 import com.otilm.core.service.CredentialInternalService;
@@ -612,8 +612,7 @@ public class CallbackServiceImpl implements CallbackExternalService {
         // response.
         // This method will take the attribute definition and store it in the database. In the other methods where there
         // group attributes, we can retrieve them and merge them with the code.
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        ObjectMapper mapper = ObjectMapperFactory.lenientStorage();
         try {
             List<BaseAttribute> callbackAttributes = mapper
                     .convertValue(callbackResponse,

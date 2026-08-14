@@ -1,7 +1,6 @@
 package com.otilm.core.dao.entity.workflows;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.core.search.FilterFieldSource;
@@ -9,6 +8,7 @@ import com.otilm.api.model.core.workflows.ExecutionItemDto;
 import com.otilm.core.dao.converter.ObjectToJsonConverter;
 import com.otilm.core.dao.entity.UniquelyIdentified;
 import com.otilm.core.dao.entity.notifications.NotificationProfile;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -82,8 +82,7 @@ public class ExecutionItem extends UniquelyIdentified {
         if (fieldSource != FilterFieldSource.CUSTOM) {
             executionItemDto.setData((Serializable) data);
         } else if (data != null) {
-            ObjectMapper mapper = new ObjectMapper()
-                    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            ObjectMapper mapper = ObjectMapperFactory.lenientStorage();
             List<BaseAttributeContentV3<?>> contentItems = mapper.convertValue(data, new TypeReference<>() {
             });
             executionItemDto
