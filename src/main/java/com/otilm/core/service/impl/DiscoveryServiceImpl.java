@@ -82,9 +82,10 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -375,7 +376,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         Discovery discovery = new Discovery();
         discovery.setName(request.getName());
         discovery.setConnectorName(connector.getName());
-        discovery.setStartTime(new Date());
+        discovery.setStartTime(OffsetDateTime.now());
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorUuid(connector.getUuid());
@@ -610,7 +611,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                     .debug("Discovery response: name={}, uuid={}, status={}, total={}", discovery.getName(),
                             discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
 
-            long secondsElapsed = (new Date().getTime() - discovery.getStartTime().getTime()) / 1000;
+            long secondsElapsed = Duration.between(discovery.getStartTime(), OffsetDateTime.now()).toSeconds();
             if (!isReachedMaxTime && secondsElapsed > discoveryProperties.maxWaitTimeSeconds()) {
                 isReachedMaxTime = true;
 
@@ -835,7 +836,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         TransactionStatus transaction = transactionManager.getTransaction(new DefaultTransactionDefinition());
         Discovery discovery = updateDiscoveryState(discoveryContext, updateMetadata);
 
-        discovery.setEndTime(new Date());
+        discovery.setEndTime(OffsetDateTime.now());
         if (discovery.getStatus() == DiscoveryStatus.COMPLETED) {
             discovery
                     .setMessage(preProcessingMessage == null

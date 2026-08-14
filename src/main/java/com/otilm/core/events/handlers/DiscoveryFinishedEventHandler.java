@@ -18,7 +18,7 @@ import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.model.ScheduledTaskResult;
 import com.otilm.core.tasks.ScheduledJobInfo;
-import java.util.Date;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,7 +53,7 @@ public class DiscoveryFinishedEventHandler extends EventHandler<Discovery> {
                     ? DiscoveryStatus.COMPLETED
                     : reportedStatus;
             discovery.setStatus(finalStatus);
-            discovery.setEndTime(new Date());
+            discovery.setEndTime(OffsetDateTime.now());
             discovery.setMessage(buildFinishedMessage(finalStatus, discoveryResult.getMessage()));
             discoveryRepository.save(discovery);
         }

@@ -130,6 +130,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -648,10 +649,10 @@ class EventHandlersITest extends BaseSpringBootTest {
     void testDiscoveryFinishedEventLeavesTerminalDiscoveryUnchanged() throws EventException {
         Discovery discovery = persistProcessingDiscovery();
         discovery.setStatus(DiscoveryStatus.COMPLETED);
-        discovery.setEndTime(new Date());
+        discovery.setEndTime(OffsetDateTime.now());
         discovery.setMessage("Discovery completed successfully.");
         discoveryRepository.save(discovery);
-        Date endTimeBefore = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow().getEndTime();
+        OffsetDateTime endTimeBefore = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow().getEndTime();
 
         discoveryFinishedEventHandler
                 .handleEvent(DiscoveryFinishedEventHandler

@@ -72,10 +72,10 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     private String message;
 
     @Column(name = "start_time")
-    private Date startTime;
+    private OffsetDateTime startTime;
 
     @Column(name = "end_time")
-    private Date endTime;
+    private OffsetDateTime endTime;
 
     @Column(name = "total_certificates_discovered")
     private Integer totalCertificatesDiscovered;
@@ -159,8 +159,9 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
         DiscoveryDetailDto dto = new DiscoveryDetailDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
-        dto.setEndTime(endTime);
-        dto.setStartTime(startTime);
+        // The wire DTO keeps java.util.Date for request-shape compatibility; the entity moved to timestamptz.
+        dto.setEndTime(endTime == null ? null : Date.from(endTime.toInstant()));
+        dto.setStartTime(startTime == null ? null : Date.from(startTime.toInstant()));
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
         dto.setConnectorUuid(connectorUuid.toString());
@@ -183,8 +184,8 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
         DiscoveryListDto dto = new DiscoveryListDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
-        dto.setEndTime(endTime);
-        dto.setStartTime(startTime);
+        dto.setEndTime(endTime == null ? null : Date.from(endTime.toInstant()));
+        dto.setStartTime(startTime == null ? null : Date.from(startTime.toInstant()));
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
         dto.setConnectorUuid(connectorUuid.toString());

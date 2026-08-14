@@ -91,6 +91,7 @@ import java.security.cert.CertificateException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
@@ -587,7 +588,9 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
                         .evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         Discovery discovery = new Discovery();
-        discovery.setStartTime(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
+        discovery
+                .setStartTime(
+                        LocalDateTime.parse("2019-12-01T22:10:15").atZone(ZoneId.systemDefault()).toOffsetDateTime());
         condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
         condition.setValue("2019-12-01T22:10:00.274+00:00");
         Assertions
@@ -639,13 +642,13 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
                         .evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         Discovery discovery = new Discovery();
-        discovery.setStartTime(convertToDateViaInstant(LocalDateTime.now().minusDays(5).minusHours(3)));
+        discovery.setStartTime(OffsetDateTime.now().minusDays(5).minusHours(3));
         condition.setOperator(FilterConditionOperator.IN_PAST);
         condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
         condition.setValue("P5DT4H");
         Assertions
                 .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
-        discovery.setStartTime(convertToDateViaInstant(LocalDateTime.now().plusDays(5).plusHours(3)));
+        discovery.setStartTime(OffsetDateTime.now().plusDays(5).plusHours(3));
         condition.setValue("P5DT4H");
         condition.setOperator(FilterConditionOperator.IN_NEXT);
         Assertions

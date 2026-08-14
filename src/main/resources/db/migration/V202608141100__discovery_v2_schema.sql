@@ -14,8 +14,14 @@ ALTER TABLE "discovery"
     ADD COLUMN "progress_phase" VARCHAR,
     ADD COLUMN "run_messages" JSONB,
     ADD COLUMN "stopped_at" TIMESTAMPTZ,
-    ADD COLUMN "connector_state" VARCHAR;                -- last authoritative DiscoveryRunState;
+    ADD COLUMN "connector_state" VARCHAR,                -- last authoritative DiscoveryRunState;
                                                          -- 'completed' = drain-to-completion mode
+    -- The two legacy run timestamps join the timestamptz columns above. The naive values are interpreted
+    -- in the session's TimeZone, which pgJDBC pins to the JVM's zone — the same zone the java.util.Date
+    -- values were written in, so the implicit conversion is exact wherever the JVM zone did not change
+    -- over the data's lifetime.
+    ALTER COLUMN "start_time" TYPE TIMESTAMPTZ,
+    ALTER COLUMN "end_time" TYPE TIMESTAMPTZ;
 
 CREATE TABLE "discovery_work" (
     "uuid" UUID PRIMARY KEY,

@@ -38,8 +38,7 @@ import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.DiscoveryInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
-import java.time.Instant;
-import java.util.Date;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -381,7 +380,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         discoveryUuid = UUID.fromString(discoveryService.createDiscovery(dto, true).getUuid());
 
         persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
-        persisted.setStartTime(Date.from(Instant.now().minus(7, java.time.temporal.ChronoUnit.DAYS)));
+        persisted.setStartTime(OffsetDateTime.now().minusDays(7));
         discoveryRepository.save(persisted);
 
         discoveryInternalService.runDiscovery(discoveryUuid, null);

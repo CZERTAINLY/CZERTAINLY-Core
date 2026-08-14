@@ -37,9 +37,9 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -73,7 +73,10 @@ class DiscoverySearchITest extends BaseSpringBootTest {
         this.attributeEngine = attributeEngine;
     }
 
-    private static final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+    /** Parsed in the system zone, preserving the instants the former SimpleDateFormat fixture produced. */
+    private static OffsetDateTime localDateTime(String value) {
+        return LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+    }
 
     private boolean isLoadedData = false;
 
@@ -115,8 +118,8 @@ class DiscoverySearchITest extends BaseSpringBootTest {
             discovery1.setStatus(DiscoveryStatus.FAILED);
             discovery1.setConnectorStatus(DiscoveryStatus.FAILED);
             discovery1.setKind("kindTEST1");
-            discovery1.setStartTime(DATE_FORMAT.parse("2020-01-01T10:10:10"));
-            discovery1.setEndTime(DATE_FORMAT.parse("2020-02-01T10:10:10"));
+            discovery1.setStartTime(localDateTime("2020-01-01T10:10:10"));
+            discovery1.setEndTime(localDateTime("2020-02-01T10:10:10"));
             discovery1.setTotalCertificatesDiscovered(15);
             discovery1.setConnectorTotalCertificatesDiscovered(15);
             discovery = discoveryRepository.save(discovery1);
@@ -128,8 +131,8 @@ class DiscoverySearchITest extends BaseSpringBootTest {
             discovery2.setStatus(DiscoveryStatus.COMPLETED);
             discovery2.setConnectorStatus(DiscoveryStatus.COMPLETED);
             discovery2.setKind("kindTEST3");
-            discovery2.setStartTime(DATE_FORMAT.parse("2020-05-05T10:10:10"));
-            discovery2.setEndTime(DATE_FORMAT.parse("2021-02-01T10:10:10"));
+            discovery2.setStartTime(localDateTime("2020-05-05T10:10:10"));
+            discovery2.setEndTime(localDateTime("2021-02-01T10:10:10"));
             discovery2.setTotalCertificatesDiscovered(11);
             discovery2.setConnectorTotalCertificatesDiscovered(11);
             discoveryRepository.save(discovery2);
@@ -141,8 +144,8 @@ class DiscoverySearchITest extends BaseSpringBootTest {
             discovery3.setStatus(DiscoveryStatus.COMPLETED);
             discovery3.setConnectorStatus(DiscoveryStatus.COMPLETED);
             discovery3.setKind("kindTEST3");
-            discovery3.setStartTime(DATE_FORMAT.parse("2022-10-01T10:10:10"));
-            discovery3.setEndTime(DATE_FORMAT.parse("2023-02-01T10:10:10"));
+            discovery3.setStartTime(localDateTime("2022-10-01T10:10:10"));
+            discovery3.setEndTime(localDateTime("2023-02-01T10:10:10"));
             discovery3.setTotalCertificatesDiscovered(20);
             discovery3.setConnectorTotalCertificatesDiscovered(20);
             discoveryRepository.save(discovery3);
@@ -154,8 +157,8 @@ class DiscoverySearchITest extends BaseSpringBootTest {
             discovery4.setStatus(DiscoveryStatus.IN_PROGRESS);
             discovery4.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
             discovery4.setKind("kindTEST4");
-            discovery4.setStartTime(DATE_FORMAT.parse("2020-06-01T10:10:10"));
-            discovery4.setEndTime(DATE_FORMAT.parse("2020-10-01T10:10:10"));
+            discovery4.setStartTime(localDateTime("2020-06-01T10:10:10"));
+            discovery4.setEndTime(localDateTime("2020-10-01T10:10:10"));
             discovery4.setTotalCertificatesDiscovered(5);
             discovery4.setConnectorTotalCertificatesDiscovered(5);
             discoveryRepository.save(discovery4);
@@ -163,7 +166,7 @@ class DiscoverySearchITest extends BaseSpringBootTest {
             loadMetaData();
             loadCustomAttributesData();
             isLoadedData = true;
-        } catch (ParseException | NotFoundException | AttributeException e) {
+        } catch (NotFoundException | AttributeException e) {
             isLoadedData = false;
         }
     }
