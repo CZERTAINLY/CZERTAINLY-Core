@@ -53,6 +53,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -433,6 +434,15 @@ class AuthorityProviderV2AdapterTest {
         List<BaseAttribute> result = adapter.listRevokeAttributes(authority, null);
 
         assertSame(expected, result);
+    }
+
+    @Test
+    void newAttributeSchemas_returnEmptyOnV2_withoutTouchingTheConnector() throws ConnectorException {
+        assertEquals(List.of(), adapter.listCertificateRequestAttributes(authority, raProfile));
+        assertEquals(List.of(), adapter.listRenewAttributes(authority, raProfile));
+        assertEquals(List.of(), adapter.listIdentifyAttributes(authority, raProfile));
+
+        verifyNoInteractions(certClient);
     }
 
     // --- checkAuthorityConnection ---

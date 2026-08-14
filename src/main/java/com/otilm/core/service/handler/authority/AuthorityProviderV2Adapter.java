@@ -184,6 +184,26 @@ public class AuthorityProviderV2Adapter extends AbstractAuthorityProviderAdapter
                 .listRevokeCertificateAttributes(connectorDto, authority.getAuthorityInstanceUuid());
     }
 
+    // The v2 authority contract has no request/renew/identify attribute-schema endpoints. Returning empty here —
+    // rather than throwing — keeps every call site free of interface-version branching (see register's precedent
+    // in ExtendedAttributeServiceImpl).
+
+    @Override
+    public List<BaseAttribute> listCertificateRequestAttributes(AuthorityInstanceReference authority,
+            RaProfile raProfile) {
+        return List.of();
+    }
+
+    @Override
+    public List<BaseAttribute> listRenewAttributes(AuthorityInstanceReference authority, RaProfile raProfile) {
+        return List.of();
+    }
+
+    @Override
+    public List<BaseAttribute> listIdentifyAttributes(AuthorityInstanceReference authority, RaProfile raProfile) {
+        return List.of();
+    }
+
     @Override
     public void validateIssueAttributes(AuthorityInstanceReference authority, List<RequestAttribute> attributes)
             throws ValidationException, ConnectorException {

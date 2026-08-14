@@ -217,6 +217,27 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
         return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
     }
 
+    // Temporary stubs: real defensive implementations (schemaOrEmpty + contained) land in the next commit on this
+    // branch; these exist only so the adapter contract change compiles standalone.
+
+    @Override
+    public List<BaseAttribute> listCertificateRequestAttributes(AuthorityInstanceReference authority,
+            RaProfile raProfile) throws ConnectorException {
+        return List.of();
+    }
+
+    @Override
+    public List<BaseAttribute> listRenewAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
+            throws ConnectorException {
+        return List.of();
+    }
+
+    @Override
+    public List<BaseAttribute> listIdentifyAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
+            throws ConnectorException {
+        return List.of();
+    }
+
     @Override
     public void validateIssueAttributes(AuthorityInstanceReference authority, List<RequestAttribute> attributes) {
         // v3 has no connector-side /validate; the caller validates structurally against the listed
