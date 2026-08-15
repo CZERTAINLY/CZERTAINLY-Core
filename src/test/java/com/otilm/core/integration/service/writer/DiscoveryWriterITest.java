@@ -2,8 +2,8 @@ package com.otilm.core.integration.service.writer;
 
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
-import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
@@ -127,21 +127,21 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
 
     @Test
     void updateProgressMessageWritesOnlyTheMessage() {
-        DiscoveryHistory discovery = givenDiscovery();
+        Discovery discovery = givenDiscovery();
         DiscoveryStatus statusBefore = discovery.getStatus();
 
         discoveryWriter
                 .updateProgressMessage(discovery.getUuid(), "Processed 40 % of newly discovered certificates (4 / 10)");
 
-        DiscoveryHistory reloaded = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Discovery reloaded = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         assertThat(reloaded.getMessage()).isEqualTo("Processed 40 % of newly discovered certificates (4 / 10)");
         assertThat(reloaded.getStatus())
                 .as("progress reporting must not touch the discovery status")
                 .isEqualTo(statusBefore);
     }
 
-    private DiscoveryHistory givenDiscovery() {
-        DiscoveryHistory discovery = new DiscoveryHistory();
+    private Discovery givenDiscovery() {
+        Discovery discovery = new Discovery();
         discovery.setName("DiscoveryWriterITest-" + UUID.randomUUID());
         discovery.setKind("IP");
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
@@ -150,7 +150,7 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
         return discoveryRepository.save(discovery);
     }
 
-    private DiscoveryCertificate givenDiscoveryCertificate(DiscoveryHistory discovery) {
+    private DiscoveryCertificate givenDiscoveryCertificate(Discovery discovery) {
         CertificateContent content = new CertificateContent();
         content.setFingerprint(UUID.randomUUID().toString());
         content.setContent("content-" + UUID.randomUUID());

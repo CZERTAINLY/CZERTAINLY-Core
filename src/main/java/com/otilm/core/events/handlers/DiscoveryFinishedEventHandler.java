@@ -5,7 +5,7 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.evaluator.TriggerEvaluator;
 import com.otilm.core.events.EventContext;
@@ -18,27 +18,29 @@ import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.model.ScheduledTaskResult;
 import com.otilm.core.tasks.ScheduledJobInfo;
-import java.util.Date;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
 @Component(ResourceEvent.Codes.DISCOVERY_FINISHED)
-public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory> {
+public class DiscoveryFinishedEventHandler extends EventHandler<Discovery> {
 
     private final DiscoveryRepository discoveryRepository;
 
-    protected DiscoveryFinishedEventHandler(DiscoveryRepository repository,
-            TriggerEvaluator<DiscoveryHistory> ruleEvaluator) {
+    protected DiscoveryFinishedEventHandler(DiscoveryRepository repository, TriggerEvaluator<Discovery> ruleEvaluator) {
         super(repository, ruleEvaluator);
         discoveryRepository = repository;
     }
 
     @Override
-    protected EventContext<DiscoveryHistory> prepareContext(EventMessage eventMessage) throws EventException {
-        DiscoveryHistory discovery = discoveryRepository
-                .findByUuid(eventMessage.getObjectUuid())
+    protected EventContext<Discovery> prepareContext(EventMessage eventMessage) throws EventException {
+        // Locked read: the listener delivers concurrently, and two deliveries observing a non-terminal status
+        // would each apply a terminal transition — the row lock serializes them so the guard below holds.
+        Discovery discovery = discoveryRepository
+                .findWithLockByUuid(eventMessage.getObjectUuid())
                 .orElseThrow(() -> new EventException(eventMessage.getEvent(),
                         "Discovery with UUID %s not found".formatted(eventMessage.getObjectUuid())));
         DiscoveryResult discoveryResult = objectMapper.convertValue(eventMessage.getData(), DiscoveryResult.class);
@@ -54,12 +56,12 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
                     ? DiscoveryStatus.COMPLETED
                     : reportedStatus;
             discovery.setStatus(finalStatus);
-            discovery.setEndTime(new Date());
+            discovery.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
             discovery.setMessage(buildFinishedMessage(finalStatus, discoveryResult.getMessage()));
             discoveryRepository.save(discovery);
         }
 
-        EventContext<DiscoveryHistory> context = new EventContext<>(eventMessage, triggerEvaluator, discovery,
+        EventContext<Discovery> context = new EventContext<>(eventMessage, triggerEvaluator, discovery,
                 getEventData(discovery, eventMessage.getData()));
         fetchEventTriggers(context, null, null); // triggers without resource and its UUID are platform ones
 
@@ -67,13 +69,13 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
     }
 
     @Override
-    protected Object getEventData(DiscoveryHistory discovery, Object eventMessageData) {
+    protected Object getEventData(Discovery discovery, Object eventMessageData) {
         return EventDataBuilder.getDiscoveryFinishedEventData(discovery);
     }
 
     @Override
-    protected void sendFollowUpEventsNotifications(EventContext<DiscoveryHistory> eventContext) {
-        DiscoveryHistory discovery = eventContext.getResourceObjects().getFirst();
+    protected void sendFollowUpEventsNotifications(EventContext<Discovery> eventContext) {
+        Discovery discovery = eventContext.getResourceObjects().getFirst();
         Object eventData = eventContext.getResourceObjectsEventData().getFirst();
         NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.DISCOVERY,
                 discovery.getUuid(), null,

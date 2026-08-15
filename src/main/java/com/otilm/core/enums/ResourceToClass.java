@@ -14,7 +14,7 @@ import com.otilm.core.dao.entity.ComplianceProfile;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Credential;
 import com.otilm.core.dao.entity.CryptographicKey;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.EntityInstanceReference;
 import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.entity.Location;
@@ -64,7 +64,7 @@ public enum ResourceToClass {
     CERTIFICATE_REQUEST(Resource.CERTIFICATE_REQUEST, CertificateRequestEntity.class),
     GROUP(Resource.GROUP, Group.class),
     COMPLIANCE_PROFILE(Resource.COMPLIANCE_PROFILE, ComplianceProfile.class),
-    DISCOVERY(Resource.DISCOVERY, DiscoveryHistory.class),
+    DISCOVERY(Resource.DISCOVERY, Discovery.class),
 
     // ENTITIES
     ENTITY(Resource.ENTITY, EntityInstanceReference.class),

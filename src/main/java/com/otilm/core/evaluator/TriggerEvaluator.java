@@ -47,8 +47,10 @@ import jakarta.persistence.metamodel.Attribute;
 import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.Period;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -692,50 +694,46 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         dateOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         dateOperatorFunctionMap.putAll(commonOperatorFunctionMap);
         dateOperatorFunctionMap
-                .put(FilterConditionOperator.GREATER,
-                        (o, c) -> getLocalDate((Date) o).isAfter(LocalDate.parse(c.toString())));
+                .put(FilterConditionOperator.GREATER, (o, c) -> getLocalDate(o).isAfter(LocalDate.parse(c.toString())));
         dateOperatorFunctionMap
                 .put(FilterConditionOperator.GREATER_OR_EQUAL,
-                        (o, c) -> !(getLocalDate((Date) o).isBefore(LocalDate.parse(c.toString()))));
+                        (o, c) -> !(getLocalDate(o).isBefore(LocalDate.parse(c.toString()))));
         dateOperatorFunctionMap
-                .put(FilterConditionOperator.LESSER,
-                        (o, c) -> getLocalDate((Date) o).isBefore(LocalDate.parse(c.toString())));
+                .put(FilterConditionOperator.LESSER, (o, c) -> getLocalDate(o).isBefore(LocalDate.parse(c.toString())));
         dateOperatorFunctionMap
                 .put(FilterConditionOperator.LESSER_OR_EQUAL,
-                        (o, c) -> !(getLocalDate((Date) o).isAfter(LocalDate.parse(c.toString()))));
+                        (o, c) -> !(getLocalDate(o).isAfter(LocalDate.parse(c.toString()))));
         dateOperatorFunctionMap
-                .put(FilterConditionOperator.IN_PAST, (o, c) -> (getLocalDate((Date) o)).isBefore(LocalDate.now())
-                        && (getLocalDate((Date) o)).isAfter(getLocalDateNowMinusDuration(c.toString())));
+                .put(FilterConditionOperator.IN_PAST, (o, c) -> (getLocalDate(o)).isBefore(LocalDate.now())
+                        && (getLocalDate(o)).isAfter(getLocalDateNowMinusDuration(c.toString())));
         dateOperatorFunctionMap
-                .put(FilterConditionOperator.IN_NEXT, (o, c) -> (getLocalDate((Date) o)).isAfter(LocalDate.now())
-                        && (getLocalDate((Date) o)).isBefore(getLocalDateNowPlusDuration(c.toString())));
+                .put(FilterConditionOperator.IN_NEXT, (o, c) -> (getLocalDate(o)).isAfter(LocalDate.now())
+                        && (getLocalDate(o)).isBefore(getLocalDateNowPlusDuration(c.toString())));
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATE, dateOperatorFunctionMap);
 
         datetimeOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         datetimeOperatorFunctionMap.putAll(commonOperatorFunctionMap);
         datetimeOperatorFunctionMap
-                .put(FilterConditionOperator.GREATER, (o, c) -> getLocalDateTime((Date) o)
+                .put(FilterConditionOperator.GREATER, (o, c) -> getLocalDateTime(o)
                         .isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
         datetimeOperatorFunctionMap
-                .put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(getLocalDateTime((Date) o)
+                .put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(getLocalDateTime(o)
                         .isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
         datetimeOperatorFunctionMap
-                .put(FilterConditionOperator.LESSER, (o, c) -> getLocalDateTime((Date) o)
+                .put(FilterConditionOperator.LESSER, (o, c) -> getLocalDateTime(o)
                         .isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
         datetimeOperatorFunctionMap
-                .put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(getLocalDateTime((Date) o)
+                .put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(getLocalDateTime(o)
                         .isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
         datetimeOperatorFunctionMap
                 .put(FilterConditionOperator.IN_PAST,
-                        (o, c) -> (getLocalDateTime((Date) o)).isBefore(LocalDateTime.now())
-                                && (getLocalDateTime((Date) o))
-                                        .isAfter(getLocalDateTimeNowMinusDuration(c.toString())));
+                        (o, c) -> (getLocalDateTime(o)).isBefore(LocalDateTime.now(ZoneId.systemDefault()))
+                                && (getLocalDateTime(o)).isAfter(getLocalDateTimeNowMinusDuration(c.toString())));
         datetimeOperatorFunctionMap
                 .put(FilterConditionOperator.IN_NEXT,
-                        (o, c) -> (getLocalDateTime((Date) o)).isAfter(LocalDateTime.now())
-                                && (getLocalDateTime((Date) o))
-                                        .isBefore(getLocalDateTimeNowPlusDuration(c.toString())));
+                        (o, c) -> (getLocalDateTime(o)).isAfter(LocalDateTime.now(ZoneId.systemDefault()))
+                                && (getLocalDateTime(o)).isBefore(getLocalDateTimeNowPlusDuration(c.toString())));
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATETIME, datetimeOperatorFunctionMap);
 
@@ -749,12 +747,21 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
     }
 
-    private static LocalDate getLocalDate(Date o) {
-        return o.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+    // Entity date attributes arrive as java.util.Date from the legacy columns and as OffsetDateTime from the
+    // timestamptz ones; both normalize over the same instant, so the operators need not care which they got.
+    private static LocalDate getLocalDate(Object o) {
+        return toSystemZoned(o).toLocalDate();
     }
 
-    private static LocalDateTime getLocalDateTime(Date o) {
-        return o.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    private static LocalDateTime getLocalDateTime(Object o) {
+        return toSystemZoned(o).toLocalDateTime();
+    }
+
+    private static ZonedDateTime toSystemZoned(Object o) {
+        if (o instanceof OffsetDateTime offsetDateTime) {
+            return offsetDateTime.atZoneSameInstant(ZoneId.systemDefault());
+        }
+        return ((Date) o).toInstant().atZone(ZoneId.systemDefault());
     }
 
     private static LocalDateTime getLocalDateTimeNowMinusDuration(String duration) {
