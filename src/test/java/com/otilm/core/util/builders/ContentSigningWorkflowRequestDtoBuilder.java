@@ -1,34 +1,34 @@
 package com.otilm.core.util.builders;
 
 import com.otilm.api.model.client.attribute.RequestAttribute;
-import com.otilm.api.model.client.signing.profile.workflow.DocumentSigningWorkflowRequestDto;
+import com.otilm.api.model.client.signing.profile.workflow.ContentSigningWorkflowRequestDto;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class DocumentSigningWorkflowRequestDtoBuilder {
+public class ContentSigningWorkflowRequestDtoBuilder {
 
     private UUID signatureFormattingConnectorUuid = null;
     private List<RequestAttribute> signatureFormattingConnectorAttributes = new ArrayList<>();
 
-    public static DocumentSigningWorkflowRequestDtoBuilder aDocumentSigningWorkflow() {
-        return new DocumentSigningWorkflowRequestDtoBuilder();
+    public static ContentSigningWorkflowRequestDtoBuilder aContentSigningWorkflow() {
+        return new ContentSigningWorkflowRequestDtoBuilder();
     }
 
-    public DocumentSigningWorkflowRequestDtoBuilder withSignatureFormattingConnector(UUID uuid) {
+    public ContentSigningWorkflowRequestDtoBuilder withSignatureFormattingConnector(UUID uuid) {
         this.signatureFormattingConnectorUuid = uuid;
         return this;
     }
 
-    public DocumentSigningWorkflowRequestDtoBuilder withSignatureFormattingConnectorAttributes(
+    public ContentSigningWorkflowRequestDtoBuilder withSignatureFormattingConnectorAttributes(
             List<RequestAttribute> attrs) {
         this.signatureFormattingConnectorAttributes = attrs;
         return this;
     }
 
-    public DocumentSigningWorkflowRequestDto build() {
-        DocumentSigningWorkflowRequestDto dto = new DocumentSigningWorkflowRequestDto();
+    public ContentSigningWorkflowRequestDto build() {
+        ContentSigningWorkflowRequestDto dto = new ContentSigningWorkflowRequestDto();
         dto.setSignatureFormattingConnectorUuid(signatureFormattingConnectorUuid);
         dto.setSignatureFormattingConnectorAttributes(signatureFormattingConnectorAttributes);
         return dto;

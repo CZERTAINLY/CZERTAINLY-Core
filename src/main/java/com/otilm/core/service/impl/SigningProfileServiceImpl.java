@@ -26,7 +26,7 @@ import com.otilm.api.model.client.signing.profile.scheme.OneTimeKeyManagedSignin
 import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
 import com.otilm.api.model.client.signing.profile.scheme.SigningSchemeRequestDto;
 import com.otilm.api.model.client.signing.profile.scheme.StaticKeyManagedSigningRequestDto;
-import com.otilm.api.model.client.signing.profile.workflow.DocumentSigningWorkflowRequestDto;
+import com.otilm.api.model.client.signing.profile.workflow.ContentSigningWorkflowRequestDto;
 import com.otilm.api.model.client.signing.profile.workflow.RawSigningWorkflowRequestDto;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.client.signing.profile.workflow.TimestampingWorkflowRequestDto;
@@ -814,16 +814,16 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         version.setValidateTokenSignature(null);
 
         switch (workflow) {
-            case DocumentSigningWorkflowRequestDto w -> {
+            case ContentSigningWorkflowRequestDto w -> {
                 if (w.getSignatureFormattingConnectorUuid() == null) {
                     throw new ValidationException(
-                            "Signature formatting connector is required for document signing workflow");
+                            "Signature formatting connector is required for content signing workflow");
                 }
-                Connector documentConnector = connectorService
+                Connector contentConnector = connectorService
                         .getConnectorEntity(SecuredUUID.fromUUID(w.getSignatureFormattingConnectorUuid()));
-                validateFormattingConnectorFeature(documentConnector, FeatureFlag.DOCUMENT_SIGNING,
-                        SigningWorkflowType.DOCUMENT_SIGNING);
-                version.setSignatureFormattingConnector(documentConnector);
+                validateFormattingConnectorFeature(contentConnector, FeatureFlag.CONTENT_SIGNING,
+                        SigningWorkflowType.CONTENT_SIGNING);
+                version.setSignatureFormattingConnector(contentConnector);
             }
             case RawSigningWorkflowRequestDto ignored -> {
                 // RawSigningWorkflowRequestDto has no signatureFormattingConnectorUuid field — no formatting is allowed
@@ -977,7 +977,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
             SigningProfileVersion version, WorkflowRequestDto workflow, List<BaseAttribute> formattingDefinitions)
             throws AttributeException, NotFoundException {
         return switch (workflow) {
-            case DocumentSigningWorkflowRequestDto w -> {
+            case ContentSigningWorkflowRequestDto w -> {
                 attributeEngine
                         .validateUpdateDataAttributes(w.getSignatureFormattingConnectorUuid(),
                                 AttributeOperation.WORKFLOW_FORMATTING, formattingDefinitions,
@@ -1026,7 +1026,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
     private List<BaseAttribute> fetchFormattingAttributeDefinitions(WorkflowRequestDto workflow)
             throws ConnectorException, NotFoundException {
         return switch (workflow) {
-            case DocumentSigningWorkflowRequestDto w ->
+            case ContentSigningWorkflowRequestDto w ->
                 fetchFormattingAttributeDefinitions(w.getSignatureFormattingConnectorUuid());
             case TimestampingWorkflowRequestDto w ->
                 fetchFormattingAttributeDefinitions(w.getSignatureFormattingConnectorUuid());

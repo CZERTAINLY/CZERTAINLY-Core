@@ -6,7 +6,7 @@ import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.workflows.EventStatus;
 import com.otilm.api.model.core.workflows.TriggerType;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.workflows.EventHistory;
 import com.otilm.core.dao.entity.workflows.Trigger;
 import com.otilm.core.dao.entity.workflows.TriggerAssociation;
@@ -58,7 +58,7 @@ class EventHistoryTransactionITest extends BaseSpringBootTest {
                 .when(jmsTemplate)
                 .convertAndSend(any(String.class), any(NotificationMessage.class), any());
 
-        DiscoveryHistory discovery = new DiscoveryHistory();
+        Discovery discovery = new Discovery();
         discovery.setName("TestDiscovery");
         discovery.setKind("IP");
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);

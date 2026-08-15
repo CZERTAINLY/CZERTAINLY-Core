@@ -52,7 +52,7 @@ import com.otilm.api.model.scheduler.UpdateScheduledJob;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.FunctionGroup;
 import com.otilm.core.dao.entity.ScheduledJob;
 import com.otilm.core.dao.entity.ScheduledJobHistory;
@@ -331,11 +331,11 @@ class SchedulerServiceITest extends BaseSpringBootTest {
 
         schedulerInternalService.runScheduledJob(jobName);
 
-        List<DiscoveryHistory> discoveries = discoveryRepository.findAll();
+        List<Discovery> discoveries = discoveryRepository.findAll();
         Assertions.assertEquals(1, discoveries.size());
 
         // simulate events
-        DiscoveryHistory discovery = discoveries.getFirst();
+        Discovery discovery = discoveries.getFirst();
         EventMessage eventMessage = CertificateDiscoveredEventHandler
                 .constructEventMessage(discovery.getUuid(), null, new ScheduledJobInfo(scheduledJobEntity.getJobName(),
                         scheduledJobEntity.getUuid(), scheduledJobHistoryRepository.findAll().getFirst().getUuid()));

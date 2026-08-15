@@ -64,7 +64,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "discovery_uuid", nullable = false, insertable = false, updatable = false)
     @ToString.Exclude
-    private DiscoveryHistory discovery;
+    private Discovery discovery;
 
     @Column(name = "discovery_uuid", nullable = false)
     private UUID discoveryUuid;
@@ -114,7 +114,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited
         this.certificateContentId = certificateContent.getId();
     }
 
-    public void setDiscovery(DiscoveryHistory discovery) {
+    public void setDiscovery(Discovery discovery) {
         this.discovery = discovery;
         this.discoveryUuid = discovery.getUuid();
     }

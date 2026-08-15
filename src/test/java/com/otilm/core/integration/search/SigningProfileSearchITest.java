@@ -63,7 +63,7 @@ class SigningProfileSearchITest extends BaseSpringBootTest {
 
     // Three profiles with distinct characteristics for filtering
     private SigningProfile profileA; // DELEGATED / RAW_SIGNING, enabled, linked to tspAlpha + tqcFast
-    private SigningProfile profileB; // MANAGED / DOCUMENT_SIGNING, disabled, no associations
+    private SigningProfile profileB; // MANAGED / CONTENT_SIGNING, disabled, no associations
     private SigningProfile profileC; // DELEGATED / TIMESTAMPING, enabled, linked to tqcSlow
 
     private TspProfile tspAlpha;
@@ -115,7 +115,7 @@ class SigningProfileSearchITest extends BaseSpringBootTest {
         profileB.setName("profile-beta");
         profileB.setEnabled(false);
         profileB.setSigningScheme(SigningScheme.MANAGED);
-        profileB.setWorkflowType(SigningWorkflowType.DOCUMENT_SIGNING);
+        profileB.setWorkflowType(SigningWorkflowType.CONTENT_SIGNING);
         profileB.setLatestVersion(1);
         profileB = signingProfileRepository.save(profileB);
 
@@ -297,7 +297,7 @@ class SigningProfileSearchITest extends BaseSpringBootTest {
     @Test
     void filterByWorkflowType_notEquals_excludesType() {
         List<SigningProfileListDto> results = listWithFilters(aPropertyNotEqualsFilter(
-                FilterField.SIGNING_PROFILE_WORKFLOW_TYPE, SigningWorkflowType.DOCUMENT_SIGNING.getCode()));
+                FilterField.SIGNING_PROFILE_WORKFLOW_TYPE, SigningWorkflowType.CONTENT_SIGNING.getCode()));
 
         Assertions.assertEquals(2, results.size());
         Assertions.assertTrue(results.stream().noneMatch(p -> p.getName().equals("profile-beta")));

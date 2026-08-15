@@ -9,8 +9,8 @@ import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.workflows.EventStatus;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
-import com.otilm.core.dao.entity.DiscoveryHistory;
 import com.otilm.core.dao.entity.workflows.EventHistory;
 import com.otilm.core.dao.entity.workflows.TriggerAssociation;
 import com.otilm.core.dao.entity.workflows.TriggerHistory;
@@ -193,7 +193,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         mergedTriggers.addAll(context.getPlatformTriggers().getTriggers());
         mergedIgnoreTriggers.addAll(context.getPlatformTriggers().getIgnoreTriggers());
 
-        DiscoveryHistory discovery = discoveryRepository
+        Discovery discovery = discoveryRepository
                 .findByUuid(eventMessage.getOverrideObjectUuid())
                 .orElseThrow(() -> new EventException(eventMessage.getEvent(),
                         "Discovery with UUID %s not found".formatted(eventMessage.getOverrideObjectUuid())));
@@ -228,7 +228,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     @ExternalAuthorizationProgrammatic(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    private void handleDiscoveredCertificates(EventContext<Certificate> context, DiscoveryHistory discovery,
+    private void handleDiscoveredCertificates(EventContext<Certificate> context, Discovery discovery,
             String originalMessage, List<DiscoveryCertificate> discoveredCertificates,
             List<TriggerAssociation> mergedIgnoreTriggers, List<TriggerAssociation> mergedTriggers) {
         if (discoveredCertificates.isEmpty()) {
