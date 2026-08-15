@@ -19,10 +19,9 @@ import javax.sql.DataSource;
  *
  * <p>
  * Requires a superuser connection. Tables are emptied in catalog order, so foreign-key enforcement is switched off for
- * the duration of the call ({@code session_replication_role = replica}) instead of deriving a dependency order. That
- * raises the privilege floor above what the previous {@code TRUNCATE} needed (table ownership); against a database
- * where the test user is not superuser every call fails with SQLState 42501. Testcontainers' {@code test} user is
- * superuser, which is the path this class is used on.
+ * the duration of the call ({@code session_replication_role = replica}) instead of deriving a dependency order. Against
+ * a database where the test user is not superuser every call fails with SQLState 42501; Testcontainers' {@code test}
+ * user is superuser, which is the path this class is used on.
  */
 public final class TestDatabaseCleaner {
 
@@ -47,7 +46,7 @@ public final class TestDatabaseCleaner {
                 END IF;
 
                 -- Tables are emptied in catalog order rather than dependency order, so disable constraint
-                -- enforcement instead of deriving an order. Requires a superuser connection.
+                -- enforcement instead of deriving an order.
                 SET LOCAL session_replication_role = replica;
 
                 FOR relation IN
@@ -105,8 +104,8 @@ public final class TestDatabaseCleaner {
     }
 
     /**
-     * Rejects a schema name that cannot be safely interpolated into DDL. Shared with
-     * {@code BaseMigrationTest.resetSchema()} so both validators of the same schema property cannot drift apart.
+     * Rejects a schema name that cannot be safely interpolated into DDL. Shared by every caller that interpolates the
+     * schema property, so the validation cannot drift apart between them.
      */
     public static void requireValidSchemaName(String schema) {
         if (schema == null || !SCHEMA_NAME.matcher(schema).matches()) {

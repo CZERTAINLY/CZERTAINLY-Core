@@ -184,7 +184,7 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
         tokenProfile.setTokenInstanceName("rendererTokenInstance");
         tokenProfileRepository.save(tokenProfile);
 
-        // clearTables() in BaseSpringBootTest wipes all rows including attribute definitions
+        // The per-test clear in BaseSpringBootTest wipes all rows including attribute definitions
         // that ContextRefreshListener registers at startup. Re-seed them here exactly as the
         // listener does: connectorUuid=null, operation="sign".
         attributeEngine
