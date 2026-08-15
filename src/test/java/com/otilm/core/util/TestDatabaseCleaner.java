@@ -16,12 +16,19 @@ import javax.sql.DataSource;
  * Uses {@code DELETE} rather than {@code TRUNCATE} because truncating costs a fresh relfilenode per named table even
  * when that table is already empty. The table list is read from the catalog on every call, and the function itself
  * lives in {@code public}, because {@code BaseMigrationTest} drops and recreates the schema mid-run.
+ *
+ * <p>
+ * Requires a superuser connection. Tables are emptied in catalog order, so foreign-key enforcement is switched off for
+ * the duration of the call ({@code session_replication_role = replica}) instead of deriving a dependency order. That
+ * raises the privilege floor above what the previous {@code TRUNCATE} needed (table ownership); against a database
+ * where the test user is not superuser every call fails with SQLState 42501. Testcontainers' {@code test} user is
+ * superuser, which is the path this class is used on.
  */
-final class TestDatabaseCleaner {
+public final class TestDatabaseCleaner {
 
     private static final String UNDEFINED_FUNCTION_SQL_STATE = "42883";
 
-    /** A schema that does not match this matches no tables, which would silently skip clearing. */
+    /** Names outside this cannot be safely interpolated into DDL. */
     private static final Pattern SCHEMA_NAME = Pattern.compile("^[a-zA-Z0-9_]+$");
 
     /** Stand-in key for the install cache; {@link java.sql.DatabaseMetaData#getURL()} may return null. */
@@ -34,6 +41,11 @@ final class TestDatabaseCleaner {
                 populated boolean;
                 cleared integer := 0;
             BEGIN
+                -- A schema that does not exist matches no tables, which would silently skip clearing.
+                IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = target_schema) THEN
+                    RAISE EXCEPTION 'schema % does not exist', target_schema;
+                END IF;
+
                 -- Tables are emptied in catalog order rather than dependency order, so disable constraint
                 -- enforcement instead of deriving an order. Requires a superuser connection.
                 SET LOCAL session_replication_role = replica;
@@ -66,13 +78,14 @@ final class TestDatabaseCleaner {
     }
 
     static void clear(DataSource dataSource, String schema) throws SQLException {
-        if (schema == null || !SCHEMA_NAME.matcher(schema).matches()) {
-            throw new SQLException("Invalid schema name: " + schema);
-        }
+        requireValidSchemaName(schema);
         try (Connection connection = dataSource.getConnection()) {
-            if (INSTALLED_JDBC_URLS.add(Objects.requireNonNullElse(connection.getMetaData().getURL(), UNKNOWN_URL))) {
-                install(connection);
+            if (!connection.getAutoCommit()) {
+                // SET LOCAL and the DELETEs only take effect if the call commits as its own transaction; a pool
+                // configured with auto-commit off would roll them back when it reclaims the connection.
+                connection.setAutoCommit(true);
             }
+            installOnce(connection);
             try {
                 clearSchema(connection, schema);
             } catch (SQLException e) {
@@ -91,7 +104,26 @@ final class TestDatabaseCleaner {
         }
     }
 
-    private static void install(Connection connection) throws SQLException {
+    /**
+     * Rejects a schema name that cannot be safely interpolated into DDL. Shared with
+     * {@code BaseMigrationTest.resetSchema()} so both validators of the same schema property cannot drift apart.
+     */
+    public static void requireValidSchemaName(String schema) {
+        if (schema == null || !SCHEMA_NAME.matcher(schema).matches()) {
+            throw new IllegalArgumentException("Invalid schema name: " + schema);
+        }
+    }
+
+    private static synchronized void installOnce(Connection connection) throws SQLException {
+        String url = Objects.requireNonNullElse(connection.getMetaData().getURL(), UNKNOWN_URL);
+        if (INSTALLED_JDBC_URLS.contains(url)) {
+            return;
+        }
+        install(connection);
+        INSTALLED_JDBC_URLS.add(url);
+    }
+
+    private static synchronized void install(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute(CLEAR_FUNCTION);
         }

@@ -25,7 +25,6 @@ import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestExecutionListeners;
@@ -50,7 +49,7 @@ public class BaseSpringBootTest {
     protected AuditLogsProducer auditLogsProducer;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private DataSource dataSource;
 
     @Autowired
     private SettingInternalService settingService;
@@ -64,18 +63,10 @@ public class BaseSpringBootTest {
         mockSuccessfulCheckObjectAccess();
         injectAuthentication();
 
-        clearTables();
+        TestDatabaseCleaner.clear(dataSource, dbSchema);
         // re-seed the settings cache from the now-empty DB so settings cannot leak into the next context
         settingService.refreshCache();
         MDC.clear();
-    }
-
-    private void clearTables() throws SQLException {
-        DataSource dataSource = jdbcTemplate.getDataSource();
-        if (dataSource == null) {
-            throw new SQLException("JdbcTemplate does not have initialized data source");
-        }
-        TestDatabaseCleaner.clear(dataSource, dbSchema);
     }
 
     protected void mockSuccessfulCheckResourceAccess() {

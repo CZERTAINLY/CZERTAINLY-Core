@@ -1,6 +1,7 @@
 package com.otilm.core.integration.migration;
 
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.TestDatabaseCleaner;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -48,9 +49,7 @@ public abstract class BaseMigrationTest extends BaseSpringBootTest {
 
     @AfterAll
     void resetSchema() throws SQLException {
-        if (!dbSchema.matches("^[a-zA-Z0-9_]+$")) {
-            throw new IllegalArgumentException("Invalid schema name: " + dbSchema);
-        }
+        TestDatabaseCleaner.requireValidSchemaName(dbSchema);
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
             stmt.execute("DROP SCHEMA IF EXISTS " + dbSchema + " CASCADE");
             stmt.execute("CREATE SCHEMA " + dbSchema);
