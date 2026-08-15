@@ -1913,7 +1913,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
         void create_timestamping_requiredAttributeMissing_throwsValidationException() {
             // given: the formatting connector advertises a required attribute
             UUID attrUuid = UUID.fromString("00000000-dead-beef-0002-000000000001");
-            String attrName = "req_content_attr";
+            String attrName = "req_timestamping_attr";
             timestampingFormattingMock.stubFormattingAttributeDefinition(attrUuid, attrName, true);
 
             // when: create a profile omitting the required attribute
@@ -1923,13 +1923,16 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                             .withDelegatedSigning(signerConnector.getUuid())
                             .withTimestamping(aTimestampingWorkflow()
                                     .withSignatureFormattingConnector(
-                                            UUID.fromString(contentSigningFormattingConnector.getUuid()))
+                                            UUID.fromString(timestampingFormattingConnector.getUuid()))
                                     .build())
                             .build());
 
             // then
-            assertThrows(ValidationException.class, create,
+            ValidationException exception = assertThrows(ValidationException.class, create,
                     "createSigningProfile must reject a missing required formatting attribute");
+            assertTrue(exception.getMessage().contains(attrName),
+                    "ValidationException must identify the missing required formatting attribute, but was: "
+                            + exception.getMessage());
         }
     }
 
