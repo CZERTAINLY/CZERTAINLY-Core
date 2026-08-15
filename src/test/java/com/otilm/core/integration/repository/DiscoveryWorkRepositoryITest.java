@@ -22,9 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * SQL-level coverage for the discovery work agenda: the {@code ON CONFLICT} upsert is idempotent per run and work type,
- * the due query orders soonest-first and excludes the not-yet-due, and deleting a run cascades its agenda rows away at
- * the database level — the sweep must never meet work for a run that no longer exists.
+ * SQL-level coverage for the discovery work agenda. The {@code ON CONFLICT} upsert is idempotent per run and work type.
+ * The due query orders soonest-first and excludes the not-yet-due. Deleting a run cascades its agenda rows away at the
+ * database level — the sweep must never meet work for a run that no longer exists.
  */
 @Transactional
 class DiscoveryWorkRepositoryITest extends BaseSpringBootTest {

@@ -21,8 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Schema proof for the discovery v2 run columns — above all {@code progressByResource}, the first enum-keyed map under
- * {@code @JdbcTypeCode(SqlTypes.JSON)} in any core entity: {@link Resource} keys serialize by wire code via
+ * Schema proof for the discovery v2 run columns. The critical case is {@code progressByResource}, the first enum-keyed
+ * map under {@code @JdbcTypeCode(SqlTypes.JSON)} in any core entity: {@link Resource} keys serialize by wire code via
  * {@code @JsonValue}, and enum-as-map-key handling through Hibernate's Jackson mapper is exactly the kind of mapping
  * that only fails at read time.
  */
@@ -46,7 +46,9 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         run.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
         run.setConnectorUuid(UUID.randomUUID());
         run.setConnectorName("network-discovery");
-        run.setConnectorInterfaceUuid(UUID.randomUUID());
+        UUID interfaceUuid = UUID.randomUUID();
+        OffsetDateTime stoppedAt = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+        run.setConnectorInterfaceUuid(interfaceUuid);
         run.setRunMeta(Map.of("connectorRunId", "run-42"));
         run.setResources(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY));
         run.setLastAppliedSequence(17L);
@@ -55,20 +57,25 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         run.setProgressByResource(Map.of(Resource.CRYPTOGRAPHIC_KEY, keyProgress));
         run.setProgressPhase("scanning");
         run.setRunMessages(List.of("host 10.0.0.7 refused the connection"));
-        run.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS));
+        run.setStoppedAt(stoppedAt);
         run.setConnectorState("running");
         UUID runUuid = discoveryRepository.saveAndFlush(run).getUuid();
         // Without the clear, findById answers from the persistence context and the jsonb columns are never read.
         entityManager.clear();
 
         Discovery back = discoveryRepository.findById(runUuid).orElseThrow();
+        assertThat(back.getConnectorInterfaceUuid()).isEqualTo(interfaceUuid);
         assertThat(back.getRunMeta()).containsEntry("connectorRunId", "run-42");
         assertThat(back.getResources()).containsExactly(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY);
         assertThat(back.getLastAppliedSequence()).isEqualTo(17L);
+        assertThat(back.getProgressProcessed()).isEqualTo(11L);
+        assertThat(back.getProgressTotalEstimate()).isEqualTo(40L);
         assertThat(back.getProgressByResource()).containsOnlyKeys(Resource.CRYPTOGRAPHIC_KEY);
         assertThat(back.getProgressByResource().get(Resource.CRYPTOGRAPHIC_KEY).getProcessed()).isEqualTo(3L);
+        assertThat(back.getProgressPhase()).isEqualTo("scanning");
         assertThat(back.getRunMessages()).containsExactly("host 10.0.0.7 refused the connection");
         assertThat(back.getConnectorState()).isEqualTo("running");
-        assertThat(back.getStoppedAt()).isNotNull();
+        // Compared as instants: the driver may hand the timestamptz back under a different zone offset.
+        assertThat(back.getStoppedAt().toInstant()).isEqualTo(stoppedAt.toInstant());
     }
 }

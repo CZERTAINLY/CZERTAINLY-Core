@@ -23,11 +23,16 @@ public interface DiscoveryWorkRepository extends JpaRepository<DiscoveryWork, UU
     List<DiscoveryWork> findByNextDueAtLessThanEqualOrderByNextDueAt(OffsetDateTime cutoff, Pageable pageable);
 
     /**
-     * Inserts the pending row for a run and work type, or re-arms the existing row: due time moved, backoff counter
-     * reset — scheduling is a fresh start, and in-flight backoff belongs to {@link #reschedule}. Atomic on the unique
-     * {@code (discovery_uuid, work_type)} — unlike an exists-check-then-insert, a concurrent loser is a clean re-arm
-     * (no constraint violation, no aborted transaction). On conflict the passed {@code uuid} is discarded with the rest
-     * of the losing insert; rows are addressed by run and work type, never by that uuid.
+     * Inserts the pending row for a run and work type, or re-arms the existing one: due time moved, backoff counter
+     * reset. Scheduling is a fresh start; in-flight backoff belongs to {@link #reschedule}.
+     *
+     * <p>
+     * <b>Concurrency:</b> atomic on the unique {@code (discovery_uuid, work_type)} — a concurrent loser is a clean
+     * re-arm, not a constraint violation.
+     *
+     * <p>
+     * <b>Identity:</b> on conflict the passed {@code uuid} is discarded with the rest of the losing insert; rows are
+     * addressed by run and work type, never by that uuid.
      */
     @Modifying
     @Query(value = """

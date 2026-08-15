@@ -73,7 +73,7 @@ class DiscoverySearchITest extends BaseSpringBootTest {
         this.attributeEngine = attributeEngine;
     }
 
-    /** Parsed in the system zone, preserving the instants the former SimpleDateFormat fixture produced. */
+    /** Interprets local fixture timestamps in the system zone, preserving their intended instants. */
     private static OffsetDateTime localDateTime(String value) {
         return LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
     }

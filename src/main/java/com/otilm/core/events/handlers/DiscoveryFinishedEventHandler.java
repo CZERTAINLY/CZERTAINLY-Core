@@ -37,8 +37,10 @@ public class DiscoveryFinishedEventHandler extends EventHandler<Discovery> {
 
     @Override
     protected EventContext<Discovery> prepareContext(EventMessage eventMessage) throws EventException {
+        // Locked read: the listener delivers concurrently, and two deliveries observing a non-terminal status
+        // would each apply a terminal transition — the row lock serializes them so the guard below holds.
         Discovery discovery = discoveryRepository
-                .findByUuid(eventMessage.getObjectUuid())
+                .findWithLockByUuid(eventMessage.getObjectUuid())
                 .orElseThrow(() -> new EventException(eventMessage.getEvent(),
                         "Discovery with UUID %s not found".formatted(eventMessage.getObjectUuid())));
         DiscoveryResult discoveryResult = objectMapper.convertValue(eventMessage.getData(), DiscoveryResult.class);

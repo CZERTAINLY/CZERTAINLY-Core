@@ -23,10 +23,8 @@ import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 
 /**
- * One staged discovery v2 item, whatever its resource type — the resource-agnostic sibling of
- * {@link DiscoveryCertificate}, whose v1 rows keep living beside these until the evidence-gated unification
- * (core#2027). The parity columns ({@code processedError}, {@code inventoryUuid}, {@code newlyDiscovered},
- * {@code meta}) deliberately mirror that entity so the union listing reads one shape from both stores.
+ * One staged discovery item, whatever its resource type: the run-scoped record of something a Discovery Provider
+ * reported, held until processing turns it into an inventory object — or records, on the row itself, why it could not.
  *
  * <p>
  * {@code payload} keeps the connector-reported union untyped ({@code Map}): staging must never fail on a payload shape
@@ -90,9 +88,8 @@ public class DiscoveryItem extends UniquelyIdentified {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<MetadataAttribute> meta;
 
-    // No-op override required by Sonar S2160 (a field-adding subclass of UniquelyIdentified must override
-    // equals): identity stays the UUID and the added columns deliberately do not affect equality. Matches the
-    // convention used by the other field-adding entities; dropping it just re-raises the finding.
+    // No-op overrides required by S2160: identity and hashing stay UUID-based, and the added columns never
+    // affect equality.
     @Override
     public boolean equals(Object o) {
         return super.equals(o);

@@ -22,7 +22,7 @@ import org.hibernate.generator.EventType;
 /**
  * One unit of pending discovery v2 work: created when a run starts owing a status poll, a drain or a processing pass,
  * rescheduled with backoff on failure, and deleted when the run stops owing it. Internal scheduling machinery, not a
- * user-facing entity — hence no author/update audit columns, the same shape as {@link CertificateStatusPoll}.
+ * user-facing entity — hence no author/update audit columns.
  */
 @Getter
 @Setter
@@ -60,9 +60,8 @@ public class DiscoveryWork extends UniquelyIdentified {
             columnDefinition = "timestamptz not null default now()")
     private OffsetDateTime created;
 
-    // No-op override required by Sonar S2160 (a field-adding subclass of UniquelyIdentified must override
-    // equals): identity stays the UUID and the added columns deliberately do not affect equality. Matches the
-    // convention used by the other field-adding entities; dropping it just re-raises the finding.
+    // No-op overrides required by S2160: identity and hashing stay UUID-based, and the added columns never
+    // affect equality.
     @Override
     public boolean equals(Object o) {
         return super.equals(o);

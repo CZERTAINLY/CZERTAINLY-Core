@@ -1,6 +1,5 @@
--- Mechanical rename: the table holds the live discovery run, not an archive of finished ones,
--- so "history" has always been a misnomer. Constraint names follow so they keep naming the
--- objects they constrain. No behavior change.
+-- The table holds the live discovery run, not an archive of finished ones — "history" was a misnomer.
+-- Constraint names follow so they keep naming the objects they constrain.
 ALTER TABLE "discovery_history" RENAME TO "discovery";
 
 ALTER TABLE "discovery" RENAME CONSTRAINT "discovery_history_pkey" TO "discovery_pkey";
