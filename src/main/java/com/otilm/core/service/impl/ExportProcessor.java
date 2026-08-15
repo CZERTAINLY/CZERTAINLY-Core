@@ -81,6 +81,10 @@ public class ExportProcessor {
                 result.setFileContent(os.toByteArray());
             }
         } catch (IOException e) {
+            // Deliberately broad: this block covers both the Jackson CSV write and the genuine stream and zip IO
+            // around it. It cannot be narrowed on Jackson 2, where JsonProcessingException is an IOException subtype.
+            // When Jackson 3 makes its exceptions unchecked they stop matching IOException, and a failing
+            // writeValue would escape unwrapped — the Jackson 3 step has to add a JacksonException branch here.
             throw new IllegalStateException(e);
         }
         return result;
