@@ -67,11 +67,11 @@ class JsonColumnGoldenTest {
     private final ObjectMapper webMapper = GoldenMappers.web();
 
     /**
-     * Fails first if someone "fixes" the missing {@code HibernatePropertiesCustomizer} without regenerating the column
-     * goldens, which would rewrite the shape of every row written afterwards.
+     * Fails if someone points Hibernate at the wire mapper, which would rewrite the shape of every row written
+     * afterwards while the rows already stored keep the old one.
      */
     @Test
-    void columnMapperAndWireMapperDisagreeAboutNullInclusion() {
+    void columnMapperKeepsNullsThatTheWireMapperOmits() {
         ComplianceResultDto sparse = new ComplianceResultDto();
         sparse.setStatus(ComplianceStatus.OK);
         sparse.setTimestamp(FIXED_TIMESTAMP);
@@ -83,6 +83,23 @@ class JsonColumnGoldenTest {
                 .describedAs("the wire mapper omits them; a column baselined against it would pin a shape production "
                         + "never writes")
                 .doesNotContain("\"message\"");
+    }
+
+    /**
+     * Stating the mapper is only safe while it writes exactly what Hibernate's default writes; once it diverges, so do
+     * new rows from stored ones.
+     */
+    @Test
+    void statedColumnMapperReproducesHibernatesDefaultBytes() {
+        ComplianceResultDto sparse = new ComplianceResultDto();
+        sparse.setStatus(ComplianceStatus.OK);
+        sparse.setTimestamp(FIXED_TIMESTAMP);
+
+        JacksonJsonFormatMapper hibernateDefault = new JacksonJsonFormatMapper();
+
+        assertThat(column(sparse, ComplianceResultDto.class))
+                .describedAs("the stated column mapper and Hibernate's own default must agree byte for byte")
+                .isEqualTo(hibernateDefault.toString(sparse, ComplianceResultDto.class));
     }
 
     /**

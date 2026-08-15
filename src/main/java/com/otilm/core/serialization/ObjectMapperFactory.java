@@ -58,11 +58,22 @@ public final class ObjectMapperFactory {
     }
 
     /**
-     * Jackson's own defaults, for JSON that is persisted. No migration guards those columns, so a shape change here
-     * splits a table into rows written before it and rows written after.
+     * Jackson's own defaults, for code that serializes JSON by hand before storing it. No migration guards persisted
+     * JSON, so a shape change here splits a table into rows written before it and rows written after.
+     *
+     * @see #jsonColumn()
      */
     public static ObjectMapper storage() {
         return new ObjectMapper();
+    }
+
+    /**
+     * The recipe for every {@code @JdbcTypeCode(SqlTypes.JSON)} column, matching what Hibernate builds by default: a
+     * plain {@code ObjectMapper} carrying the classpath modules. The modules are load-bearing, as
+     * {@code JavaTimeModule} governs the shape of every persisted date.
+     */
+    public static ObjectMapper jsonColumn() {
+        return new ObjectMapper().registerModules(ObjectMapper.findModules(ObjectMapperFactory.class.getClassLoader()));
     }
 
     /**
