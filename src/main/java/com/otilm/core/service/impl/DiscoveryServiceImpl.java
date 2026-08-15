@@ -84,6 +84,7 @@ import jakarta.persistence.criteria.Root;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -296,6 +297,9 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         return responseDto;
     }
 
+    // S8989 wants explicit rollbackFor on the class-level @Transactional for this checked exception; changing
+    // rollback semantics is behavior, not cleanup, and the platform-wide convention is the default rollback.
+    @SuppressWarnings("java:S8989")
     public Discovery getDiscoveryEntity(SecuredUUID uuid) throws NotFoundException {
         return discoveryRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Discovery.class, uuid));
     }
@@ -376,7 +380,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         Discovery discovery = new Discovery();
         discovery.setName(request.getName());
         discovery.setConnectorName(connector.getName());
-        discovery.setStartTime(OffsetDateTime.now());
+        discovery.setStartTime(OffsetDateTime.now(ZoneOffset.UTC));
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorUuid(connector.getUuid());
@@ -611,7 +615,9 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                     .debug("Discovery response: name={}, uuid={}, status={}, total={}", discovery.getName(),
                             discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
 
-            long secondsElapsed = Duration.between(discovery.getStartTime(), OffsetDateTime.now()).toSeconds();
+            long secondsElapsed = Duration
+                    .between(discovery.getStartTime(), OffsetDateTime.now(ZoneOffset.UTC))
+                    .toSeconds();
             if (!isReachedMaxTime && secondsElapsed > discoveryProperties.maxWaitTimeSeconds()) {
                 isReachedMaxTime = true;
 
@@ -836,7 +842,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         TransactionStatus transaction = transactionManager.getTransaction(new DefaultTransactionDefinition());
         Discovery discovery = updateDiscoveryState(discoveryContext, updateMetadata);
 
-        discovery.setEndTime(OffsetDateTime.now());
+        discovery.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
         if (discovery.getStatus() == DiscoveryStatus.COMPLETED) {
             discovery
                     .setMessage(preProcessingMessage == null

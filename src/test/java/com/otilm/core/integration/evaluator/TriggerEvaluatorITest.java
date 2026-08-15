@@ -597,6 +597,111 @@ class TriggerEvaluatorITest extends BaseSpringBootTest {
                 .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
     }
 
+    /**
+     * Every datetime comparison operator, both outcomes, on an {@code OffsetDateTime} attribute — the branch matrix the
+     * evaluator's operator lambdas carry since the timestamptz columns arrived. The certificate variant of the same
+     * operators runs on {@code java.util.Date}, so both temporal types cover both branches of the normalizing helper.
+     */
+    @Test
+    void testEvaluatorDateTimeOperatorMatrix() throws RuleException, ParseException {
+        Discovery discovery = new Discovery();
+        discovery
+                .setStartTime(
+                        LocalDateTime.parse("2019-12-01T22:10:15").atZone(ZoneId.systemDefault()).toOffsetDateTime());
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
+
+        String before = "2019-12-01T22:10:00.274+00:00";
+        String after = "2019-12-01T22:10:30.274+00:00";
+
+        condition.setOperator(FilterConditionOperator.GREATER);
+        condition.setValue(before);
+        Assertions
+                .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        condition.setValue(after);
+        Assertions
+                .assertFalse(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+
+        condition.setOperator(FilterConditionOperator.GREATER_OR_EQUAL);
+        condition.setValue(before);
+        Assertions
+                .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        condition.setValue(after);
+        Assertions
+                .assertFalse(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+
+        condition.setOperator(FilterConditionOperator.LESSER);
+        condition.setValue(after);
+        Assertions
+                .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        condition.setValue(before);
+        Assertions
+                .assertFalse(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+
+        condition.setOperator(FilterConditionOperator.LESSER_OR_EQUAL);
+        condition.setValue(after);
+        Assertions
+                .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        condition.setValue(before);
+        Assertions
+                .assertFalse(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+
+        // Date variant of the same four comparisons, driving the helper's java.util.Date branch
+        certificate.setNotBefore(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
+        condition.setFieldIdentifier(FilterField.NOT_BEFORE.toString());
+        condition.setOperator(FilterConditionOperator.GREATER_OR_EQUAL);
+        condition.setValue(before);
+        Assertions
+                .assertTrue(certificateTriggerEvaluator
+                        .evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.LESSER);
+        Assertions
+                .assertFalse(certificateTriggerEvaluator
+                        .evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.LESSER_OR_EQUAL);
+        condition.setValue(after);
+        Assertions
+                .assertTrue(certificateTriggerEvaluator
+                        .evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+    }
+
+    /**
+     * The half-open interval operators on an {@code OffsetDateTime} attribute: each of IN_PAST and IN_NEXT carries two
+     * conditions (inside the window, on the correct side of now), so each needs a case per condition outcome —
+     * wrong-side-of-now, inside, and outside the window.
+     */
+    @Test
+    void testEvaluatorDateTimeIntervalMatrix() throws RuleException {
+        Discovery discovery = new Discovery();
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
+
+        discovery.setStartTime(OffsetDateTime.now().minusDays(5));
+        condition.setOperator(FilterConditionOperator.IN_PAST);
+        condition.setValue("P6D");
+        Assertions
+                .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        condition.setValue("P2D");
+        Assertions
+                .assertFalse(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        condition.setOperator(FilterConditionOperator.IN_NEXT);
+        condition.setValue("P6D");
+        Assertions
+                .assertFalse(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+
+        discovery.setStartTime(OffsetDateTime.now().plusDays(5));
+        condition.setValue("P6D");
+        Assertions
+                .assertTrue(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        condition.setValue("P2D");
+        Assertions
+                .assertFalse(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        condition.setOperator(FilterConditionOperator.IN_PAST);
+        condition.setValue("P6D");
+        Assertions
+                .assertFalse(discoveryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+    }
+
     @Test
     void testEvaluatorDateInterval() throws RuleException {
         certificate.setNotAfter(convertToDateViaInstant(LocalDateTime.now().plusDays(10)));

@@ -727,11 +727,13 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
                 .put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(getLocalDateTime(o)
                         .isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
         datetimeOperatorFunctionMap
-                .put(FilterConditionOperator.IN_PAST, (o, c) -> (getLocalDateTime(o)).isBefore(LocalDateTime.now())
-                        && (getLocalDateTime(o)).isAfter(getLocalDateTimeNowMinusDuration(c.toString())));
+                .put(FilterConditionOperator.IN_PAST,
+                        (o, c) -> (getLocalDateTime(o)).isBefore(LocalDateTime.now(ZoneId.systemDefault()))
+                                && (getLocalDateTime(o)).isAfter(getLocalDateTimeNowMinusDuration(c.toString())));
         datetimeOperatorFunctionMap
-                .put(FilterConditionOperator.IN_NEXT, (o, c) -> (getLocalDateTime(o)).isAfter(LocalDateTime.now())
-                        && (getLocalDateTime(o)).isBefore(getLocalDateTimeNowPlusDuration(c.toString())));
+                .put(FilterConditionOperator.IN_NEXT,
+                        (o, c) -> (getLocalDateTime(o)).isAfter(LocalDateTime.now(ZoneId.systemDefault()))
+                                && (getLocalDateTime(o)).isBefore(getLocalDateTimeNowPlusDuration(c.toString())));
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATETIME, datetimeOperatorFunctionMap);
 
