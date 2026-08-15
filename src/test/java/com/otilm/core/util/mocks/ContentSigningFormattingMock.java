@@ -11,22 +11,22 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Mock of a V2 document-signing formatting connector — stubs {@code GET /v2/info} advertising
- * {@link ConnectorInterface#SIGNATURE_FORMATTING} with {@link FeatureFlag#DOCUMENT_SIGNING}. Used to back
- * {@code DOCUMENT_SIGNING} workflow profiles.
+ * Mock of a V2 content-signing formatting connector — stubs {@code GET /v2/info} advertising
+ * {@link ConnectorInterface#SIGNATURE_FORMATTING} with {@link FeatureFlag#CONTENT_SIGNING}. Used to back
+ * {@code CONTENT_SIGNING} workflow profiles.
  */
-public class DocumentSigningFormattingMock extends BaseConnectorMock {
+public class ContentSigningFormattingMock extends BaseConnectorMock {
 
-    DocumentSigningFormattingMock() {
+    ContentSigningFormattingMock() {
         stubV2InfoDetails(List
                 .of(interfaceInfo(ConnectorInterface.INFO, List.of()),
                         interfaceInfo(ConnectorInterface.HEALTH, List.of()),
                         interfaceInfo(ConnectorInterface.METRICS, List.of()),
                         interfaceInfo(ConnectorInterface.SIGNING, List.of()),
-                        interfaceInfo(ConnectorInterface.SIGNATURE_FORMATTING, List.of(FeatureFlag.DOCUMENT_SIGNING))));
+                        interfaceInfo(ConnectorInterface.SIGNATURE_FORMATTING, List.of(FeatureFlag.CONTENT_SIGNING))));
     }
 
-    public DocumentSigningFormattingMock stubFormattingAttributes() {
+    public ContentSigningFormattingMock stubFormattingAttributes() {
         server
                 .stubFor(WireMock
                         .get(WireMock.urlPathMatching(".*/v1/signatureProvider/formatting/attributes"))
@@ -38,7 +38,7 @@ public class DocumentSigningFormattingMock extends BaseConnectorMock {
      * Stubs the signature-formatting attributes endpoint to advertise a single optional STRING attribute definition.
      * Takes precedence over {@link #stubFormattingAttributes()} when called after it.
      */
-    public DocumentSigningFormattingMock stubFormattingAttributeDefinition(UUID attrUuid, String attrName) {
+    public ContentSigningFormattingMock stubFormattingAttributeDefinition(UUID attrUuid, String attrName) {
         return stubFormattingAttributeDefinition(attrUuid, attrName, false);
     }
 
@@ -47,7 +47,7 @@ public class DocumentSigningFormattingMock extends BaseConnectorMock {
      * {@code required=true}, the service must reject requests that omit this attribute. Takes precedence over
      * {@link #stubFormattingAttributes()} when called after it.
      */
-    public DocumentSigningFormattingMock stubFormattingAttributeDefinition(UUID attrUuid, String attrName,
+    public ContentSigningFormattingMock stubFormattingAttributeDefinition(UUID attrUuid, String attrName,
             boolean required) {
         DataAttributeV2 def = new DataAttributeV2();
         def.setUuid(attrUuid.toString());
