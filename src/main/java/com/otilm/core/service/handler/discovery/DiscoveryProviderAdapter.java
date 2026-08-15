@@ -19,12 +19,21 @@ public interface DiscoveryProviderAdapter {
     /** Runs the whole provider-side discovery for the run, returning the run detail at handoff or completion. */
     DiscoveryDetailDto start(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo);
 
-    /** @throws UnsupportedOperationException when the connector version cannot suspend a run (v1 cannot). */
+    /**
+     * @throws UnsupportedOperationException when the connector version cannot suspend a run (v1 cannot); callers wiring
+     * the lifecycle endpoints must map this to the contract's 422.
+     */
     void stop(Discovery discovery);
 
-    /** @throws UnsupportedOperationException when the connector version cannot resume a run (v1 cannot). */
+    /**
+     * @throws UnsupportedOperationException when the connector version cannot resume a run (v1 cannot); callers wiring
+     * the lifecycle endpoints must map this to the contract's 422.
+     */
     void resume(Discovery discovery);
 
-    /** @throws UnsupportedOperationException when the connector version cannot cancel a run (v1 cannot). */
+    /**
+     * @throws UnsupportedOperationException when the connector version cannot cancel a run (v1 cannot); callers wiring
+     * the lifecycle endpoints must map this to the contract's 422.
+     */
     void cancel(Discovery discovery);
 }

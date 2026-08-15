@@ -12,8 +12,8 @@ import org.springframework.stereotype.Component;
  * <p>
  * A run with no connector-interface association is a v1 run — the deliberate inverse of
  * {@code AuthorityProviderAdapterFactory}'s NULL rule, because discovery's legacy is the v1 interface: every run
- * created before the v2 create path exists carries no association, and the v1 adapter also owns the legacy failure
- * behavior for runs that cannot be loaded at all. Any unrecognized version refuses rather than guessing.
+ * created before the v2 create path exists carries no association. Any unrecognized version refuses rather than
+ * guessing.
  */
 @Component
 public class DiscoveryProviderAdapterFactory {
@@ -43,6 +43,10 @@ public class DiscoveryProviderAdapterFactory {
                 .orElseThrow(() -> new UnsupportedDiscoveryVersionException(
                         "Discovery connector interface not found (discovery " + discovery.getUuid() + ")"));
         String version = iface.getVersion();
+        if (version == null) {
+            throw new UnsupportedDiscoveryVersionException(
+                    "Discovery connector interface has no version (discovery " + discovery.getUuid() + ")");
+        }
         if ("v2".equals(version)) {
             return v2Adapter;
         }

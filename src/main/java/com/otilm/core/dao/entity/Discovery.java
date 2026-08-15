@@ -104,7 +104,7 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
 
     // TEXT[] of enum member names, the platform's shape for a flat enum list (connector_interface.features).
     @Enumerated(EnumType.STRING)
-    @Column(name = "resources")
+    @Column(name = "resources", columnDefinition = "text[]")
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<Resource> resources;
 

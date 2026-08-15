@@ -63,13 +63,12 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 /**
- * The v1 discovery flow, extracted behavior-frozen from {@code DiscoveryServiceImpl}: start the run at the provider,
- * wait for completion, download the certificate pages, and hand the staged results to processing. Method bodies moved
- * unchanged; only the wiring is new.
+ * The v1 (legacy) discovery flow, kept behavior-frozen: start the run at the provider, wait for completion, download
+ * the certificate pages, and hand the staged results to processing.
  *
  * <p>
  * The v1 discovery interface has no run lifecycle, so {@link #stop}, {@link #resume} and {@link #cancel} refuse with
- * {@link UnsupportedOperationException} — callers map that to the contract's 422.
+ * {@link UnsupportedOperationException}; callers wiring the lifecycle endpoints must map that to the contract's 422.
  */
 @Component
 public class V1DiscoveryProviderAdapter implements DiscoveryProviderAdapter {

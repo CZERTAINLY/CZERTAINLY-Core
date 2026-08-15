@@ -26,6 +26,7 @@ import com.otilm.api.model.common.ErrorMessageDto;
 import com.otilm.api.model.core.acme.ProblemDocument;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.exception.UnsupportedAuthorityVersionException;
+import com.otilm.core.exception.UnsupportedDiscoveryVersionException;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.exception.AuthenticationServiceException;
 import com.otilm.core.util.AuthHelper;
@@ -465,6 +466,20 @@ public class ExceptionHandlingAdvice {
     public ErrorMessageDto handleUnsupportedAuthorityVersionException(UnsupportedAuthorityVersionException ex) {
         LOG.warn("HTTP 400: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance("The authority's connector interface version is not supported.");
+    }
+
+    /**
+     * Handler for {@link UnsupportedDiscoveryVersionException} — the discovery twin of the authority handler above,
+     * same reasoning: caller-fixable configuration, fixed body because the message carries an unvalidated
+     * connector-reported version string.
+     *
+     * @return a fixed message that names neither the discovery nor the version
+     */
+    @ExceptionHandler(UnsupportedDiscoveryVersionException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleUnsupportedDiscoveryVersionException(UnsupportedDiscoveryVersionException ex) {
+        LOG.warn("HTTP 400: {}", ex.getMessage(), ex);
+        return ErrorMessageDto.getInstance("The discovery's connector interface version is not supported.");
     }
 
     /**

@@ -15,11 +15,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * Pins the factory's routing table: no association routes to v1 — discovery's legacy default, the deliberate inverse of
- * the authority factory's NULL rule — a {@code "v2"} interface routes to the v2 adapter, and anything unrecognizable
- * refuses rather than guessing.
- */
+/** Pins the factory's routing table: no association → v1, {@code "v2"} → v2, anything else refuses. */
 class DiscoveryProviderAdapterFactoryTest {
 
     private V1DiscoveryProviderAdapter v1Adapter;
@@ -44,8 +40,6 @@ class DiscoveryProviderAdapterFactoryTest {
 
     @Test
     void unloadableRunRoutesToV1() {
-        // The v1 flow owns the legacy failure handling for runs that cannot be loaded; routing must not
-        // introduce a new failure mode in front of it.
         assertThat(factory.forDiscovery(null)).isSameAs(v1Adapter);
     }
 
@@ -63,6 +57,15 @@ class DiscoveryProviderAdapterFactoryTest {
         assertThatThrownBy(() -> factory.forDiscovery(run))
                 .isInstanceOf(UnsupportedDiscoveryVersionException.class)
                 .hasMessageContaining("v3");
+    }
+
+    @Test
+    void nullInterfaceVersionRefusesWithTheDedicatedMessage() {
+        Discovery run = runWithInterfaceVersion(null);
+
+        assertThatThrownBy(() -> factory.forDiscovery(run))
+                .isInstanceOf(UnsupportedDiscoveryVersionException.class)
+                .hasMessageContaining("has no version");
     }
 
     @Test

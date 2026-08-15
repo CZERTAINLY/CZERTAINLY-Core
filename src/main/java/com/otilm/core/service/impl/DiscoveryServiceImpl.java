@@ -38,6 +38,7 @@ import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.enums.FilterField;
+import com.otilm.core.exception.UnsupportedDiscoveryVersionException;
 import com.otilm.core.messaging.jms.producers.NotificationProducer;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.model.auth.ResourceAction;
@@ -47,7 +48,6 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.DiscoveryInternalService;
-import com.otilm.core.service.DiscoveryProperties;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
@@ -83,8 +83,6 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
 
-    private final DiscoveryProperties discoveryProperties;
-
     private AttributeEngine attributeEngine;
 
     private TriggerInternalService triggerInternalService;
@@ -98,10 +96,6 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     private ConnectorRepository connectorRepository;
     private NotificationProducer notificationProducer;
     private TriggerExternalService triggerService;
-
-    public DiscoveryServiceImpl(DiscoveryProperties discoveryProperties) {
-        this.discoveryProperties = discoveryProperties;
-    }
 
     @Autowired
     public void setConnectorRepository(ConnectorRepository connectorRepository) {
@@ -353,10 +347,20 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public DiscoveryDetailDto runDiscovery(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo) {
-        // Routing read only, and null-tolerant on purpose: a run that cannot be loaded takes the v1 flow's
-        // established failure handling inside the adapter, not a new failure mode here.
         Discovery discovery = discoveryRepository.findByUuid(discoveryUuid).orElse(null);
-        return discoveryProviderAdapterFactory.forDiscovery(discovery).start(discoveryUuid, scheduledJobInfo);
+        try {
+            return discoveryProviderAdapterFactory.forDiscovery(discovery).start(discoveryUuid, scheduledJobInfo);
+        } catch (UnsupportedDiscoveryVersionException e) {
+            // A routing refusal must still end as a terminal, user-visible run state: the async caller swallows
+            // whatever escapes here, and the scheduler expects a result rather than an exception.
+            logger.warn("Discovery {} cannot be dispatched: {}", discoveryUuid, e.getMessage());
+            discovery.setStatus(DiscoveryStatus.FAILED);
+            discovery.setConnectorStatus(DiscoveryStatus.FAILED);
+            discovery.setMessage(e.getMessage());
+            discovery.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
+            discoveryRepository.save(discovery);
+            return discovery.mapToDto();
+        }
     }
 
     @Override
