@@ -2,10 +2,10 @@ package com.otilm.core.dao.entity;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateEventHistoryDto;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.util.DtoMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -68,7 +68,7 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited
         try {
             certificateEventHistoryDto
                     .setAdditionalInformation(
-                            new ObjectMapper().readValue(additionalInformation, new TypeReference<>() {
+                            ObjectMapperFactory.storage().readValue(additionalInformation, new TypeReference<>() {
                             }));
         } catch (JsonProcessingException | IllegalArgumentException e) {
             certificateEventHistoryDto.setAdditionalInformation(null);

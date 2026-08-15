@@ -1,9 +1,7 @@
 package com.otilm.core.attribute.engine;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationError;
@@ -66,6 +64,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.security.authz.SecurityResourceFilter;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.SearchHelper;
@@ -106,11 +105,7 @@ public class AttributeEngine {
     private static final Pattern UUID_REGEX = Pattern
             .compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
-    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = JsonMapper
-            .builder()
-            .findAndAddModules()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-            .build();
+    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = ObjectMapperFactory.attributeContent();
 
     @PersistenceContext
     private EntityManager entityManager;

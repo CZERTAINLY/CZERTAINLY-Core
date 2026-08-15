@@ -1,9 +1,7 @@
 package com.otilm.core.service.impl;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.core.audit.AuditLogDto;
@@ -30,6 +28,7 @@ import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.AuditLogExternalService;
 import com.otilm.core.service.AuditLogInternalService;
 import com.otilm.core.settings.SettingsCache;
@@ -60,13 +59,7 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
 
     private static final LoggerWrapper logger = new LoggerWrapper(AuditLogServiceImpl.class, null, null);
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
-    static {
-        MAPPER.findAndRegisterModules();
-        MAPPER.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        MAPPER.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    }
+    private static final ObjectMapper MAPPER = ObjectMapperFactory.auditLogExport();
 
     @Value("${export.auditLog.fileName.prefix:audit-logs}")
     private String fileNamePrefix;

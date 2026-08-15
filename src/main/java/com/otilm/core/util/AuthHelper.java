@@ -1,7 +1,5 @@
 package com.otilm.core.util;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.NameAndUuidDto;
@@ -24,6 +22,7 @@ import com.otilm.core.security.authz.opa.OpaClient;
 import com.otilm.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.otilm.core.security.authz.opa.dto.OpaRequestDetails;
 import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.AuditLogInternalService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -237,9 +236,7 @@ public class AuthHelper {
                     .getContext()
                     .getAuthentication()
                     .getPrincipal();
-            ObjectMapper objectMapper = new ObjectMapper();
-            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-            userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
+            userProfileDto = ObjectMapperFactory.wire().readValue(userDetails.getRawData(), UserProfileDto.class);
         } catch (Exception e) {
             throw new ValidationException(
                     ValidationError.create("Cannot retrieve profile information for Unknown/Anonymous user"));

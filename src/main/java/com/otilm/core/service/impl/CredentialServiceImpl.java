@@ -1,6 +1,5 @@
 package com.otilm.core.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
@@ -39,6 +38,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.ConnectorExternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.CredentialExternalService;
@@ -321,7 +321,8 @@ public class CredentialServiceImpl implements CredentialExternalService, Credent
                                         credentialUuid = (String) map.get("uuid");
                                     } else {
                                         try {
-                                            credentialUuid = (String) ((Map) (new ObjectMapper()
+                                            credentialUuid = (String) ((Map) (ObjectMapperFactory
+                                                    .storage()
                                                     .convertValue(bodyKeyValue, ObjectAttributeContentV2.class))
                                                     .getData()).get("uuid");
                                         } catch (Exception e) {
