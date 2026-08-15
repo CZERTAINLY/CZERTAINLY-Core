@@ -76,6 +76,7 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.AttributeResourceService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.SecretExternalService;
@@ -121,7 +122,7 @@ import org.springframework.stereotype.Service;
 public class SecretServiceImpl implements SecretExternalService, SecretInternalService, AttributeResourceService {
     private static final Logger logger = LoggerFactory.getLogger(SecretServiceImpl.class);
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = ObjectMapperFactory.storage();
 
     private AttributeEngine attributeEngine;
     private ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder;

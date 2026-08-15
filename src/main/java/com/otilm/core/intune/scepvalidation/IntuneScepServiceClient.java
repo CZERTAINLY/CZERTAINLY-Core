@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.otilm.core.intune.scepvalidation.IntuneScepServiceException.ErrorCode;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Properties;
@@ -50,7 +51,7 @@ The important modification are marked with the comment "MODIFICATION"
  */
 public class IntuneScepServiceClient extends IntuneClient {
 
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private ObjectMapper objectMapper = ObjectMapperFactory.storage();
     private String serviceVersion = "2018-02-20";
     public final static String VALIDATION_SERVICE_NAME = "ScepRequestValidationFEService";
     private final static String VALIDATION_URL = "ScepActions/validateRequest";
@@ -224,7 +225,6 @@ public class IntuneScepServiceClient extends IntuneClient {
             throw new IllegalArgumentException("The argument 'errorDescription' is missing");
         }
 
-        ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody
                 .put("notification",

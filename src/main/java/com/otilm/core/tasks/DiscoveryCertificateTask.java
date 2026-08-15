@@ -34,11 +34,16 @@ public class DiscoveryCertificateTask implements ScheduledJobTask {
 
     private DiscoveryInternalService discoveryInternalService;
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private ObjectMapper mapper;
 
     private PlatformTransactionManager transactionManager;
 
     private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss.FFF");
+
+    @Autowired
+    public void setMapper(ObjectMapper mapper) {
+        this.mapper = mapper;
+    }
 
     @Autowired
     public void setTransactionManager(PlatformTransactionManager transactionManager) {

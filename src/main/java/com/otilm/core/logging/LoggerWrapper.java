@@ -1,9 +1,7 @@
 package com.otilm.core.logging;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
@@ -11,6 +9,7 @@ import com.otilm.api.model.core.logging.enums.OperationResult;
 import com.otilm.api.model.core.logging.records.LogRecord;
 import com.otilm.api.model.core.logging.records.ResourceObjectIdentity;
 import com.otilm.api.model.core.logging.records.ResourceRecord;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -22,13 +21,7 @@ import org.slf4j.LoggerFactory;
 @Getter
 public class LoggerWrapper {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    static {
-        OBJECT_MAPPER.findAndRegisterModules();
-        OBJECT_MAPPER.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        OBJECT_MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    }
+    private static final ObjectMapper OBJECT_MAPPER = ObjectMapperFactory.auditLog();
 
     private final Logger logger;
     private final Module module;

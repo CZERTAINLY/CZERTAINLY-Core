@@ -37,6 +37,7 @@ import com.google.gson.JsonParser;
 import com.microsoft.aad.adal4j.AuthenticationException;
 import com.microsoft.aad.adal4j.AuthenticationResult;
 import com.microsoft.aad.adal4j.ClientCredential;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.IOException;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
@@ -453,7 +454,7 @@ class IntuneClient {
 
             // MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of
             // org.json.JSONObject
-            ObjectMapper objectMapper = new ObjectMapper();
+            ObjectMapper objectMapper = ObjectMapperFactory.storage();
             String canonicalFormat = JsonParser.parseString(httpEntityStr).toString();
             jsonResult = objectMapper.readTree(canonicalFormat);
 
