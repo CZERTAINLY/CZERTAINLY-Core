@@ -38,7 +38,10 @@ import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.enums.FilterField;
+import com.otilm.core.events.data.DiscoveryResult;
+import com.otilm.core.events.handlers.DiscoveryFinishedEventHandler;
 import com.otilm.core.exception.UnsupportedDiscoveryVersionException;
+import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.jms.producers.NotificationProducer;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.model.auth.ResourceAction;
@@ -83,6 +86,8 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
 
+    private static final String UNSUPPORTED_VERSION_MESSAGE = "The discovery's connector interface version is not supported.";
+
     private AttributeEngine attributeEngine;
 
     private TriggerInternalService triggerInternalService;
@@ -94,12 +99,18 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     private DiscoveryProviderAdapterFactory discoveryProviderAdapterFactory;
     private ConnectorRepository connectorRepository;
+    private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
     private TriggerExternalService triggerService;
 
     @Autowired
     public void setConnectorRepository(ConnectorRepository connectorRepository) {
         this.connectorRepository = connectorRepository;
+    }
+
+    @Autowired
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
     }
 
     @Autowired
@@ -356,10 +367,19 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
             logger.warn("Discovery {} cannot be dispatched: {}", discoveryUuid, e.getMessage());
             discovery.setStatus(DiscoveryStatus.FAILED);
             discovery.setConnectorStatus(DiscoveryStatus.FAILED);
-            discovery.setMessage(e.getMessage());
+            // The curated text, not e.getMessage(): the raw message carries the connector-reported version
+            // string, which is unvalidated input — it stays in the log, like the REST handler's fixed body.
+            discovery.setMessage(UNSUPPORTED_VERSION_MESSAGE);
             discovery.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
             discoveryRepository.save(discovery);
-            return discovery.mapToDto();
+            eventProducer
+                    .produceMessage(DiscoveryFinishedEventHandler
+                            .constructEventMessage(discoveryUuid,
+                                    UUID.fromString(AuthHelper.getUserIdentification().getUuid()), null,
+                                    new DiscoveryResult(DiscoveryStatus.FAILED, UNSUPPORTED_VERSION_MESSAGE)));
+            // Reloaded with triggers fetched: this method runs without a transaction, so mapping the detached
+            // routing entity would trip over the lazy triggers collection.
+            return discoveryRepository.findWithTriggersByUuid(discoveryUuid).mapToDto();
         }
     }
 

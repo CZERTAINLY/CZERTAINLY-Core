@@ -7,8 +7,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
- * Placeholder the factory can already route to: a run associated with a v2 discovery interface exists only once the v2
- * create path writes the association, and that path arrives together with the real implementation of this class.
+ * Placeholder v2 adapter: the factory can route to it, but every operation fails with {@link IllegalStateException}
+ * because no create path writes a v2 interface association yet.
  */
 @Component
 public class V2DiscoveryProviderAdapter implements DiscoveryProviderAdapter {

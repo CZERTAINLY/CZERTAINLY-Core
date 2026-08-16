@@ -9,6 +9,7 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
+import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
@@ -20,9 +21,11 @@ import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
+import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.FunctionGroup;
 import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
+import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
@@ -67,6 +70,8 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
     @Autowired
     private ConnectorRepository connectorRepository;
+    @Autowired
+    private ConnectorInterfaceRepository connectorInterfaceRepository;
     @Autowired
     private FunctionGroupRepository functionGroupRepository;
     @Autowired
@@ -273,6 +278,28 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
         Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
         Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscovery(persisted));
+    }
+
+    @Test
+    void runDiscoveryWithUnsupportedInterfaceVersionFailsTheRunAndReturnsItsDetail() {
+        ConnectorInterfaceEntity iface = new ConnectorInterfaceEntity();
+        iface.setConnectorUuid(connector.getUuid());
+        iface.setInterfaceCode(ConnectorInterface.DISCOVERY);
+        iface.setVersion("v9");
+        iface = connectorInterfaceRepository.save(iface);
+
+        discovery.setConnectorInterfaceUuid(iface.getUuid());
+        discoveryRepository.save(discovery);
+
+        DiscoveryDetailDto detail = discoveryInternalService.runDiscovery(discovery.getUuid(), null);
+
+        Assertions.assertEquals(DiscoveryStatus.FAILED, detail.getStatus());
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getConnectorStatus());
+        Assertions
+                .assertEquals("The discovery's connector interface version is not supported.", persisted.getMessage());
+        Assertions.assertNotNull(persisted.getEndTime());
     }
 
     @Test
