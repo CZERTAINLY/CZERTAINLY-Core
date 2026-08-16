@@ -9,8 +9,8 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * States the {@code FormatMapper} for every {@code @JdbcTypeCode(SqlTypes.JSON)} column, so tests and production
- * serialize them identically. {@link ObjectMapperFactory#jsonColumn()} matches what Hibernate builds by default, so no
- * persisted byte changes.
+ * serialize them identically. {@link ObjectMapperFactory#jsonColumn()} registers the modules Hibernate's own discovery
+ * misses inside the fat jar.
  */
 @Configuration
 public class JsonColumnFormatMapperConfig {

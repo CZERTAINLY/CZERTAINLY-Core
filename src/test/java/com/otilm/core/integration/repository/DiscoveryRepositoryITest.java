@@ -5,7 +5,6 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.DiscoveryRepository;
-import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.util.BaseSpringBootTest;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -87,8 +86,8 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
     }
 
     /**
-     * Hibernate must use the stated mapper. The stored bytes cannot show this on their own, because
-     * {@link ObjectMapperFactory#jsonColumn()} deliberately matches the mapper Hibernate falls back to.
+     * Hibernate must use the stated mapper. The stored bytes cannot show this on their own, because a fallback mapper
+     * writes the same output for the payload this test stores.
      */
     @Test
     void hibernateUsesTheStatedJsonFormatMapper() {
