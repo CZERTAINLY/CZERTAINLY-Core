@@ -30,7 +30,14 @@ final class GoldenMappers {
      * {@link ObjectMapperFactory#jsonColumn()}, so these goldens use the mapper production persists with.
      */
     static JacksonJsonFormatMapper hibernateJson() {
-        return new JacksonJsonFormatMapper(ObjectMapperFactory.jsonColumn());
+        return new JacksonJsonFormatMapper(jsonColumnMapper());
+    }
+
+    /**
+     * The bare mapper behind {@link #hibernateJson()}, for assertions about its configuration.
+     */
+    static ObjectMapper jsonColumnMapper() {
+        return ObjectMapperFactory.jsonColumn();
     }
 
     /**

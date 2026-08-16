@@ -13,6 +13,7 @@ import com.otilm.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.DateTimeAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.core.auth.Resource;
@@ -38,6 +39,7 @@ import java.lang.reflect.Type;
 import java.math.BigInteger;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,20 +88,29 @@ class JsonColumnGoldenTest {
     }
 
     /**
-     * Stating the mapper is only safe while it writes exactly what Hibernate's default writes; once it diverges, so do
-     * new rows from stored ones.
+     * A Java 8 date reaches the column as text. Serialized through the base type, as Hibernate does, the subclass
+     * {@code @JsonFormat} does not apply, so only the mapper's own date handling keeps the value castable by the search
+     * SQL.
      */
     @Test
-    void statedColumnMapperReproducesHibernatesDefaultBytes() {
-        ComplianceResultDto sparse = new ComplianceResultDto();
-        sparse.setStatus(ComplianceStatus.OK);
-        sparse.setTimestamp(FIXED_TIMESTAMP);
+    void columnMapperWritesJavaTimeValuesAsText() {
+        DateTimeAttributeContentV3 datetime = new DateTimeAttributeContentV3("ref-datetime",
+                ZonedDateTime.of(2026, 1, 15, 9, 30, 0, 123_000_000, ZoneOffset.UTC));
 
-        JacksonJsonFormatMapper hibernateDefault = new JacksonJsonFormatMapper();
+        assertThat(column(datetime, AttributeContent.class))
+                .describedAs("a numeric or array date is unreadable and breaks the jsonb casts in search")
+                .contains("\"data\":\"2026-01-15T09:30:00.123Z\"");
+    }
 
-        assertThat(column(sparse, ComplianceResultDto.class))
-                .describedAs("the stated column mapper and Hibernate's own default must agree byte for byte")
-                .isEqualTo(hibernateDefault.toString(sparse, ComplianceResultDto.class));
+    /**
+     * The column mapper must carry the classpath modules. Hibernate's own discovery misses them inside the fat jar, and
+     * Jackson then refuses the write outright rather than degrading.
+     */
+    @Test
+    void columnMapperRegistersTheJavaTimeModule() {
+        assertThat(GoldenMappers.jsonColumnMapper().getRegisteredModuleIds())
+                .describedAs("without the JSR-310 module every Java 8 date fails to persist")
+                .contains("jackson-datatype-jsr310");
     }
 
     /**

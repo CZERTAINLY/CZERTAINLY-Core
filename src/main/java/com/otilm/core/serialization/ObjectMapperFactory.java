@@ -68,12 +68,14 @@ public final class ObjectMapperFactory {
     }
 
     /**
-     * The recipe for every {@code @JdbcTypeCode(SqlTypes.JSON)} column, matching what Hibernate builds by default: a
-     * plain {@code ObjectMapper} carrying the classpath modules. The modules are load-bearing, as
-     * {@code JavaTimeModule} governs the shape of every persisted date.
+     * The recipe for every {@code @JdbcTypeCode(SqlTypes.JSON)} column. It registers the classpath modules through the
+     * application class loader, because Hibernate's own discovery misses them inside the fat jar and then rejects every
+     * Java 8 date; dates are written as text so the search SQL can cast them.
      */
     public static ObjectMapper jsonColumn() {
-        return new ObjectMapper().registerModules(ObjectMapper.findModules(ObjectMapperFactory.class.getClassLoader()));
+        return new ObjectMapper()
+                .registerModules(ObjectMapper.findModules(ObjectMapperFactory.class.getClassLoader()))
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
     /**
