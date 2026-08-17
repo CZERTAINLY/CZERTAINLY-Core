@@ -18,6 +18,7 @@ class TspErrorMapperTest {
             "MALFORMED_INPUT,BAD_DATA_FORMAT",
             "MISCONFIGURED,SYSTEM_FAILURE",
             "CONNECTOR_FAULT,SYSTEM_FAILURE",
+            "BINDING_VIOLATION,SYSTEM_FAILURE",
             "SIGNER_FAULT,SYSTEM_FAILURE",
             "STEP_FAILED,SYSTEM_FAILURE"})
     void mapsEveryFailureToATspFailureInfo(SigningEngineFailure failure, TspFailureInfo expected) {

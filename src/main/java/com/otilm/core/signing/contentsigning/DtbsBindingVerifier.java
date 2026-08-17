@@ -1,0 +1,110 @@
+package com.otilm.core.signing.contentsigning;
+
+import com.otilm.api.model.connector.signatures.contentsigning.common.ComputeDtbsResponseDto;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.error.SigningEngineFailure;
+import java.security.MessageDigest;
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * Verifies that the data-to-be-signed a formatting connector produced is bound to the document the caller authorized,
+ * by comparing the connector's echoed {@code documentDigest} against the authorized digest. The engine runs this before
+ * it releases the signing key, so a connector bug or a document mix-up cannot get an unauthorized document signed.
+ *
+ * <p>
+ * The rule is family-blind: PAdES, XAdES, CAdES and JAdES all satisfy it the same way. The platform never parses the
+ * data-to-be-signed and never re-derives the digest from the document — the connector must echo the digest it actually
+ * committed to, and the authorized digest is the one computed once when the operation was accepted. Raw signing needs
+ * no echo at all, because there the client submits the digest itself.
+ * </p>
+ */
+public final class DtbsBindingVerifier {
+
+    private static final String STEP = "computeDtbs";
+
+    private static final String MISMATCH_CLIENT_MESSAGE = "The document the signature would cover is not the document that was authorized";
+
+    private static final String BROKEN_ECHO_CLIENT_MESSAGE = "Internal error during signature formatting";
+
+    private DtbsBindingVerifier() {
+    }
+
+    /**
+     * Verifies the echo a {@code computeDtbs} response carries against the authorized digest.
+     *
+     * @throws SigningEngineException if the echo is missing, unusable or bound to a different document
+     */
+    public static void verify(DocumentDigest authorized, ComputeDtbsResponseDto response)
+            throws SigningEngineException {
+        Objects.requireNonNull(response, "response");
+        verify(authorized, echoOf(response));
+    }
+
+    /**
+     * Verifies an echoed digest against the authorized digest.
+     *
+     * @param echoed the digest the connector committed to, or {@code null} when it echoed none
+     * @throws SigningEngineException if the echo is missing, unusable or bound to a different document
+     */
+    public static void verify(DocumentDigest authorized, DocumentDigest echoed) throws SigningEngineException {
+        Objects.requireNonNull(authorized, "authorized");
+        if (echoed == null) {
+            throw brokenEcho("connector echoed no documentDigest");
+        }
+        requireUsableEcho(authorized, echoed);
+        if (!MessageDigest.isEqual(authorized.value(), echoed.value())) {
+            throw SigningEngineException
+                    .stepFailed(SigningEngineFailure.BINDING_VIOLATION, STEP,
+                            "connector committed to %s but %s was authorized".formatted(echoed, authorized), null,
+                            MISMATCH_CLIENT_MESSAGE);
+        }
+    }
+
+    /**
+     * Verifies a multi-document operation, pairing each response with the authorized digest at the same position. Every
+     * document is checked against its own authorized occurrence, so one document's echo can never vouch for another.
+     *
+     * @throws IllegalArgumentException if the two lists differ in size, which means the caller paired them wrong
+     * @throws SigningEngineException if any echo is missing, unusable or bound to a different document
+     */
+    public static void verifyAll(List<DocumentDigest> authorized, List<ComputeDtbsResponseDto> responses)
+            throws SigningEngineException {
+        Objects.requireNonNull(authorized, "authorized");
+        Objects.requireNonNull(responses, "responses");
+        if (authorized.size() != responses.size()) {
+            throw new IllegalArgumentException("Cannot pair %d authorized digests with %d computeDtbs responses"
+                    .formatted(authorized.size(), responses.size()));
+        }
+        for (int document = 0; document < authorized.size(); document++) {
+            verify(authorized.get(document), responses.get(document));
+        }
+    }
+
+    private static DocumentDigest echoOf(ComputeDtbsResponseDto response) {
+        return response.getDocumentDigest() == null || response.getDocumentDigestAlgorithm() == null
+                ? null
+                : new DocumentDigest(response.getDocumentDigestAlgorithm(), response.getDocumentDigest());
+    }
+
+    /**
+     * An echo of the wrong algorithm or of a length its algorithm never produces proves the connector broke the
+     * contract, not that the document differs — so it must not reach the caller as a mismatch.
+     */
+    private static void requireUsableEcho(DocumentDigest authorized, DocumentDigest echoed)
+            throws SigningEngineException {
+        if (echoed.algorithm() != authorized.algorithm()) {
+            throw brokenEcho("connector echoed a %s digest but %s was authorized"
+                    .formatted(echoed.algorithm().getCode(), authorized.algorithm().getCode()));
+        }
+        if (!echoed.hasLengthOfItsAlgorithm()) {
+            throw brokenEcho("connector echoed a %d-byte digest, which %s never produces"
+                    .formatted(echoed.value().length, echoed.algorithm().getCode()));
+        }
+    }
+
+    private static SigningEngineException brokenEcho(String defect) {
+        return SigningEngineException
+                .stepFailed(SigningEngineFailure.CONNECTOR_FAULT, STEP, defect, null, BROKEN_ECHO_CLIENT_MESSAGE);
+    }
+}

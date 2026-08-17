@@ -18,6 +18,12 @@ public enum SigningEngineFailure {
     /** A connector was reached but did not deliver. */
     CONNECTOR_FAULT,
 
+    /**
+     * The signature would have covered something other than what was authorized. This is the security event the
+     * data-to-be-signed binding check exists to catch, not an ordinary fault, so it stays separately recordable.
+     */
+    BINDING_VIOLATION,
+
     /** The signing key or the cryptography provider failed to produce a signature. */
     SIGNER_FAULT,
 
