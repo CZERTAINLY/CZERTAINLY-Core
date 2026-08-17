@@ -349,10 +349,18 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
 
     @AfterEach
     void tearDown() {
-        contentSigningFormattingMock.stop();
-        timestampingFormattingMock.stop();
-        cryptographyProviderServerMock.stop();
-        signerConnectorServerMock.stop();
+        if (contentSigningFormattingMock != null) {
+            contentSigningFormattingMock.stop();
+        }
+        if (timestampingFormattingMock != null) {
+            timestampingFormattingMock.stop();
+        }
+        if (cryptographyProviderServerMock != null) {
+            cryptographyProviderServerMock.stop();
+        }
+        if (signerConnectorServerMock != null) {
+            signerConnectorServerMock.stop();
+        }
     }
 
     private void createSigningRecordFor(SigningProfileDto profile) {
@@ -672,7 +680,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
         @Test
         void contentSigningWorkflow_returnsTheTimestampSourceByName() throws Exception {
             // given
-            ContentSigningFormattingMock formattingMock = connectorMockFactory.startContentSigningFormatting();
+            ContentSigningFormattingMock formattingMock = connectorMockFactory.startSecondContentSigningFormatting();
             try {
                 ConnectorDetailDto connector = registerTimestampedRungConnector(formattingMock,
                         "content-signing-formatting-named-source");
@@ -824,7 +832,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
         void managedScheme_contentSigningWorkflowWithAConnectorLackingTheFeature_throwsValidationException()
                 throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
             // given: a formatting connector advertising no content-signing feature, and no per-operation route either
-            ContentSigningFormattingMock featurelessMock = connectorMockFactory.startContentSigningFormatting();
+            ContentSigningFormattingMock featurelessMock = connectorMockFactory.startSecondContentSigningFormatting();
             try {
                 featurelessMock.advertiseNoContentSigningFeature();
                 ConnectorDetailDto featureless = connectorService
@@ -1395,7 +1403,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
         void namedAsATimestampSource_throwsValidationExceptionWithTheReferencingProfileName() throws Exception {
             // given: a content-signing profile naming the timestamping profile as its timestamp source
             SecuredUUID timestampingProfileUuid = SecuredUUID.fromString(defaultTimestampingProfile.getUuid());
-            ContentSigningFormattingMock formattingMock = connectorMockFactory.startContentSigningFormatting();
+            ContentSigningFormattingMock formattingMock = connectorMockFactory.startSecondContentSigningFormatting();
             try {
                 ConnectorDetailDto connector = registerTimestampedRungConnector(formattingMock,
                         "content-signing-formatting-timestamped-rung");
@@ -1426,7 +1434,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
         void namedAsATimestampSourceByASupersededVersionOnly_stillRefusesTheDelete() throws Exception {
             // given: a profile repointed away from the timestamp source in a new version
             SecuredUUID timestampingProfileUuid = SecuredUUID.fromString(defaultTimestampingProfile.getUuid());
-            ContentSigningFormattingMock formattingMock = connectorMockFactory.startContentSigningFormatting();
+            ContentSigningFormattingMock formattingMock = connectorMockFactory.startSecondContentSigningFormatting();
             try {
                 ConnectorDetailDto connector = registerTimestampedRungConnector(formattingMock,
                         "content-signing-formatting-repointed");
@@ -1472,7 +1480,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
         void namedAsATimestampSourceLiveAndBySupersededVersionOnly_reportsEachRemedyWithItsOwnNames() throws Exception {
             // given: one profile still naming the timestamp source, one repointed away from it in a new version
             SecuredUUID timestampingProfileUuid = SecuredUUID.fromString(defaultTimestampingProfile.getUuid());
-            ContentSigningFormattingMock formattingMock = connectorMockFactory.startContentSigningFormatting();
+            ContentSigningFormattingMock formattingMock = connectorMockFactory.startSecondContentSigningFormatting();
             try {
                 ConnectorDetailDto connector = registerTimestampedRungConnector(formattingMock,
                         "content-signing-formatting-both-buckets");
@@ -2140,7 +2148,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             contentSigningFormattingMock.stubPerOperationFormattingAttributeDefinition(attrUuid, attrName);
 
             // and: a second content signing formatting connector (formattingB)
-            ContentSigningFormattingMock formattingBMock = connectorMockFactory.startContentSigningFormatting();
+            ContentSigningFormattingMock formattingBMock = connectorMockFactory.startSecondContentSigningFormatting();
             formattingBMock.stubPerOperationFormattingAttributeDefinition(attrUuid, attrName);
             ConnectorDetailDto formattingBConnector = connectorService
                     .createConnector(aV2ConnectorRequest()

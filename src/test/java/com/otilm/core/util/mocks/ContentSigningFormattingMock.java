@@ -25,8 +25,8 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
 
     private static final byte[] FOREIGN_DOCUMENT = "a different document".getBytes(StandardCharsets.UTF_8);
 
-    ContentSigningFormattingMock() {
-        super(new ComputeDtbsEchoTransformer(), new ComputeDtbsEchoTransformer(FOREIGN_DOCUMENT));
+    ContentSigningFormattingMock(int port) {
+        super(port, new ComputeDtbsEchoTransformer(), new ComputeDtbsEchoTransformer(FOREIGN_DOCUMENT));
         advertiseFamilyInterfaces(List.of(FeatureFlag.CONTENT_SIGNING));
     }
 
