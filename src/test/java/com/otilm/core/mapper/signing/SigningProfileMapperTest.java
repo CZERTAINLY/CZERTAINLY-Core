@@ -1,5 +1,6 @@
 package com.otilm.core.mapper.signing;
 
+import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.signing.profile.SigningProfileListDto;
 import com.otilm.api.model.client.signing.profile.record.SigningRecordPersistenceMode;
 import com.otilm.api.model.client.signing.profile.scheme.ManagedSigningType;
@@ -15,7 +16,9 @@ import com.otilm.core.model.signing.SigningRecordPolicyModel;
 import com.otilm.core.model.signing.scheme.ManagedSigning;
 import com.otilm.core.model.signing.scheme.OneTimeKeyManagedSigning;
 import com.otilm.core.model.signing.scheme.StaticKeyManagedSigning;
+import com.otilm.core.model.signing.workflow.ManagedContentSigningWorkflow;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
+import com.otilm.core.util.builders.RequestAttributeV3Builder;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Nested;
@@ -349,6 +352,85 @@ class SigningProfileMapperTest {
             v.setAllowedPolicyIds(List.of("1.2.3.4.5"));
             v.setAllowedDigestAlgorithms(List.of(DigestAlgorithm.SHA_256.getCode()));
             v.setValidateTokenSignature(false);
+            return v;
+        }
+    }
+
+    // ── ToManagedContentSigningModel ─────────────────────────────────────────────
+
+    @Nested
+    class ToManagedContentSigningModel {
+
+        private static final UUID FORMATTING_CONNECTOR_UUID = UUID.fromString("99999999-9999-9999-9999-999999999999");
+        private static final RequestAttribute A_FORMAT_ATTRIBUTE = RequestAttributeV3Builder
+                .aCustomAttribute()
+                .withUuid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+                .withName("format-attribute")
+                .withStringContent("value")
+                .build();
+
+        @Test
+        void mapsAManagedContentSigningProfileToItsModel() {
+            // given
+            SigningProfile header = aSigningProfileHeader(SigningWorkflowType.CONTENT_SIGNING);
+            SigningProfileVersion version = aVersion(SigningWorkflowType.CONTENT_SIGNING, SigningScheme.MANAGED);
+            version.setSignatureFormattingConnectorUuid(FORMATTING_CONNECTOR_UUID);
+
+            // when
+            SigningProfileModel<ManagedContentSigningWorkflow, ManagedSigning> model = SigningProfileMapper
+                    .toManagedContentSigningModel(header, version, List.of(), List.of(A_FORMAT_ATTRIBUTE));
+
+            // then
+            assertThat(model.workflow().signatureFormattingConnectorUuid()).isEqualTo(FORMATTING_CONNECTOR_UUID);
+            assertThat(model.workflow().signatureFormattingConnectorAttributes()).containsExactly(A_FORMAT_ATTRIBUTE);
+            assertThat(model.workflow().getWorkflowType()).isEqualTo(SigningWorkflowType.CONTENT_SIGNING);
+        }
+
+        @Test
+        void refusesToMapANonContentSigningVersionAsContentSigning() {
+            // given
+            SigningProfile header = aSigningProfileHeader(SigningWorkflowType.TIMESTAMPING);
+            SigningProfileVersion version = aVersion(SigningWorkflowType.TIMESTAMPING, SigningScheme.MANAGED);
+
+            // when / then
+            assertThatThrownBy(
+                    () -> SigningProfileMapper.toManagedContentSigningModel(header, version, List.of(), List.of()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("does not use a content-signing workflow");
+        }
+
+        @Test
+        void refusesToMapADelegatedSchemeAsContentSigning() {
+            // given
+            SigningProfile header = aSigningProfileHeader(SigningWorkflowType.CONTENT_SIGNING);
+            SigningProfileVersion version = aVersion(SigningWorkflowType.CONTENT_SIGNING, SigningScheme.DELEGATED);
+
+            // when / then
+            assertThatThrownBy(
+                    () -> SigningProfileMapper.toManagedContentSigningModel(header, version, List.of(), List.of()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("does not use a managed signing scheme");
+        }
+
+        private static SigningProfile aSigningProfileHeader(SigningWorkflowType workflowType) {
+            SigningProfile p = new SigningProfile();
+            p.setUuid(PROFILE_UUID);
+            p.setName("profile-x");
+            p.setDescription("desc");
+            p.setEnabled(true);
+            p.setWorkflowType(workflowType);
+            return p;
+        }
+
+        private static SigningProfileVersion aVersion(SigningWorkflowType workflowType, SigningScheme scheme) {
+            SigningProfileVersion v = new SigningProfileVersion();
+            v.setVersion(1);
+            v.setWorkflowType(workflowType);
+            v.setSigningScheme(scheme);
+            if (scheme == SigningScheme.MANAGED) {
+                v.setManagedSigningType(ManagedSigningType.STATIC_KEY);
+                v.setCertificateUuid(CERT_UUID);
+            }
             return v;
         }
     }

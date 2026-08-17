@@ -15,6 +15,8 @@ import com.otilm.api.clients.mq.LocationApiClient;
 import com.otilm.api.clients.mq.NotificationInstanceApiClient;
 import com.otilm.api.clients.mq.ProxyClient;
 import com.otilm.api.clients.mq.TokenInstanceApiClient;
+import com.otilm.api.clients.mq.signing.SignatureFormattingApiClient;
+import com.otilm.api.clients.mq.signing.contentsigning.ContentSigningFormattingApiClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -202,5 +204,22 @@ public class ProxyClientConfig {
     @Bean
     public com.otilm.api.clients.mq.v3.AuthorityApiClient mqAuthorityApiClientV3(ProxyClient proxyClient) {
         return new com.otilm.api.clients.mq.v3.AuthorityApiClient(proxyClient);
+    }
+
+    /**
+     * Create MQ-based SignatureFormattingApiClient bean. Used when a signature-formatting connector has a proxy set.
+     */
+    @Bean
+    public SignatureFormattingApiClient mqSignatureFormattingApiClient(ProxyClient proxyClient) {
+        return new SignatureFormattingApiClient(proxyClient);
+    }
+
+    /**
+     * Create MQ-based ContentSigningFormattingApiClient bean. Used when a content-signing formatting connector has a
+     * proxy set.
+     */
+    @Bean
+    public ContentSigningFormattingApiClient mqContentSigningFormattingApiClient(ProxyClient proxyClient) {
+        return new ContentSigningFormattingApiClient(proxyClient);
     }
 }

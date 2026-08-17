@@ -301,8 +301,8 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
      *
      * @throws IllegalStateException if the profile has no version row matching its {@code latestVersion}, or the
      * version declares a managed scheme but its {@code managedSigningType} is {@code null} (DB integrity violations)
-     * @throws IllegalArgumentException if the profile is not a managed timestamping profile — the only kind the model
-     * currently supports
+     * @throws IllegalArgumentException if the profile's workflow type has no model mapper, or the version declares a
+     * scheme the mapper does not support
      */
     @Cacheable(value = CacheConfig.SIGNING_PROFILE_CACHE, key = "#name", sync = true)
     @Transactional(readOnly = true)
@@ -332,10 +332,17 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
                         .version(currentVersion.getVersion())
                         .build());
 
-        // Narrow scope: only managed-timestamping profiles are cacheable for now.
-        return SigningProfileMapper
-                .toManagedTimestampingModel(profile, currentVersion, signingOperationAttributes,
-                        signatureFormattingConnectorAttributes);
+        return switch (currentVersion.getWorkflowType()) {
+            case TIMESTAMPING -> SigningProfileMapper
+                    .toManagedTimestampingModel(profile, currentVersion, signingOperationAttributes,
+                            signatureFormattingConnectorAttributes);
+            case CONTENT_SIGNING -> SigningProfileMapper
+                    .toManagedContentSigningModel(profile, currentVersion, signingOperationAttributes,
+                            signatureFormattingConnectorAttributes);
+            case RAW_SIGNING -> throw new IllegalArgumentException(
+                    "Signing Profile '%s' uses the RAW_SIGNING workflow, which does not support model retrieval yet"
+                            .formatted(name));
+        };
     }
 
     @Override
