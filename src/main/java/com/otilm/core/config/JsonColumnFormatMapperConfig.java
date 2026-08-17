@@ -1,7 +1,7 @@
 package com.otilm.core.config;
 
 import com.otilm.core.serialization.ObjectMapperFactory;
-import org.hibernate.cfg.AvailableSettings;
+import org.hibernate.cfg.MappingSettings;
 import org.hibernate.type.format.jackson.JacksonJsonFormatMapper;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernatePropertiesCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -22,6 +22,6 @@ public class JsonColumnFormatMapperConfig {
 
     @Bean
     HibernatePropertiesCustomizer jsonColumnFormatMapperCustomizer(JacksonJsonFormatMapper jsonColumnFormatMapper) {
-        return properties -> properties.put(AvailableSettings.JSON_FORMAT_MAPPER, jsonColumnFormatMapper);
+        return properties -> properties.put(MappingSettings.JSON_FORMAT_MAPPER, jsonColumnFormatMapper);
     }
 }
