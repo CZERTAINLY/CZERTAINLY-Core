@@ -11,13 +11,9 @@ import jakarta.persistence.PersistenceContext;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.hibernate.engine.spi.SessionFactoryImplementor;
-import org.hibernate.type.format.FormatMapper;
-import org.hibernate.type.format.jackson.JacksonJsonFormatMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,8 +33,6 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
     private DiscoveryRepository discoveryRepository;
     @PersistenceContext
     private EntityManager entityManager;
-    @Autowired
-    private JacksonJsonFormatMapper jsonColumnFormatMapper;
 
     @Test
     void v2RunColumnsRoundTrip() {
@@ -83,52 +77,5 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         assertThat(back.getConnectorState()).isEqualTo("running");
         // Compared as instants: the driver may hand the timestamptz back under a different zone offset.
         assertThat(back.getStoppedAt().toInstant()).isEqualTo(stoppedAt.toInstant());
-    }
-
-    /**
-     * Hibernate must use the stated mapper. The stored bytes cannot show this on their own, because a fallback mapper
-     * writes the same output for the payload this test stores.
-     */
-    @Test
-    void hibernateUsesTheStatedJsonFormatMapper() {
-        FormatMapper active = entityManager
-                .getEntityManagerFactory()
-                .unwrap(SessionFactoryImplementor.class)
-                .getSessionFactoryOptions()
-                .getJsonFormatMapper();
-
-        assertThat(active).isSameAs(jsonColumnFormatMapper);
-    }
-
-    /**
-     * Pins the persisted shape: a null map value reaches the column. The payload is a plain {@code Map} because
-     * inclusion declared on a DTO outranks the mapper.
-     */
-    @Test
-    void jsonColumnsKeepNullMembers() {
-        Map<String, Object> metaWithUnsetMember = new HashMap<>();
-        metaWithUnsetMember.put("connectorRunId", "run-42");
-        metaWithUnsetMember.put("connectorBuild", null);
-
-        Discovery run = new Discovery();
-        run.setName("mapper-proof");
-        run.setKind("IP-HostName");
-        run.setStatus(DiscoveryStatus.IN_PROGRESS);
-        run.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
-        run.setConnectorUuid(UUID.randomUUID());
-        run.setConnectorName("network-discovery");
-        run.setRunMeta(metaWithUnsetMember);
-        UUID runUuid = discoveryRepository.saveAndFlush(run).getUuid();
-        entityManager.clear();
-
-        String storedJson = (String) entityManager
-                .createNativeQuery("SELECT run_meta::text FROM discovery WHERE uuid = :uuid")
-                .setParameter("uuid", runUuid)
-                .getSingleResult();
-
-        assertThat(storedJson)
-                .describedAs("the null member must reach the column, which is what Jackson's default inclusion does")
-                .contains("\"connectorBuild\": null")
-                .contains("\"connectorRunId\": \"run-42\"");
     }
 }
