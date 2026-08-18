@@ -900,12 +900,14 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         return p.getPersistenceMode() != null ? p.getPersistenceMode() : SigningRecordPersistenceMode.DEFERRED_DURABLE;
     }
 
+    /** A feature flag counts only on the interfaces it declares itself applicable to. */
     private void validateFormattingConnectorFeature(Connector connector, FeatureFlag requiredFeature,
             SigningWorkflowType workflowType) {
+        List<ConnectorInterface> applicableInterfaces = requiredFeature.getApplicableInterfaces();
         boolean hasFeature = connector
                 .getInterfaces()
                 .stream()
-                .filter(i -> ConnectorInterface.SIGNATURE_FORMATTING.equals(i.getInterfaceCode()))
+                .filter(i -> applicableInterfaces.contains(i.getInterfaceCode()))
                 .anyMatch(i -> i.getFeatures() != null && i.getFeatures().contains(requiredFeature));
         if (!hasFeature) {
             throw new ValidationException(

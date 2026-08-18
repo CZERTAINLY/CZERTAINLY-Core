@@ -214,6 +214,24 @@ class ContentSigningFormattingClientTest {
                 });
     }
 
+    @Test
+    void anEmptyBodyFromTheRestTransportBecomesAStepNamedEngineFailure() throws Exception {
+        // given
+        given(connectorApiFactory.getContentSigningFormattingApiClient(connector)).willReturn(apiClient);
+        given(apiClient.computeDtbs(any(), any()))
+                .willThrow(new IllegalStateException("Connector returned an empty body for computeDtbs"));
+
+        // when / then
+        assertThatThrownBy(() -> client.computeDtbs(connector, new PadesComputeDtbsRequestDto()))
+                .isInstanceOf(SigningEngineException.class)
+                .satisfies(e -> {
+                    SigningEngineException engineException = (SigningEngineException) e;
+                    assertThat(engineException.failure()).isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
+                    assertThat(engineException.step()).isEqualTo("computeDtbs");
+                    assertThat(engineException.clientMessage()).isEqualTo("Internal error during signature formatting");
+                });
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("formattingOperations")
     void everyOperationReportsItsOwnStepName(String expectedStep, ApiClientCall stubTarget, ClientCall operation)

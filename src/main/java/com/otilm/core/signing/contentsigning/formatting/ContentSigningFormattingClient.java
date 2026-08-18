@@ -89,11 +89,14 @@ public class ContentSigningFormattingClient {
         return call("embedArchiveTimestamp", connector, client -> client.embedArchiveTimestamp(connector, request));
     }
 
+    /** The REST transport reports a body-less 2xx as an unchecked {@link IllegalStateException}. */
     private <T> T call(String step, ApiClientConnectorInfo connector, ConnectorCall<T> operation)
             throws SigningEngineException {
+        ContentSigningFormattingSyncApiClient apiClient = connectorApiFactory
+                .getContentSigningFormattingApiClient(connector);
         try {
-            return operation.execute(connectorApiFactory.getContentSigningFormattingApiClient(connector));
-        } catch (ConnectorException e) {
+            return operation.execute(apiClient);
+        } catch (ConnectorException | IllegalStateException e) {
             throw SigningEngineException
                     .stepFailed(SigningEngineFailure.CONNECTOR_FAULT, step, e.getMessage(), e, CLIENT_MESSAGE);
         }
