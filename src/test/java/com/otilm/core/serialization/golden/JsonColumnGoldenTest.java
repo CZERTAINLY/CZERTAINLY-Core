@@ -88,9 +88,10 @@ class JsonColumnGoldenTest {
     }
 
     /**
-     * A Java 8 date reaches the column as text. Serialized through the base type, as Hibernate does, the subclass
-     * {@code @JsonFormat} does not apply, so only the mapper's own date handling keeps the value castable by the search
-     * SQL.
+     * A Java 8 date reaches the column as text. This is the one column where it takes the mapper to get there: the
+     * content object is the column root, and a root is written with its declared type, so the subclass
+     * {@code @JsonFormat} is bypassed. Nested content — every {@code List<RequestAttribute>} and
+     * {@code List<MetadataAttribute>} column — resolves per element against the runtime class and was already text.
      */
     @Test
     void columnMapperWritesJavaTimeValuesAsText() {
@@ -103,8 +104,8 @@ class JsonColumnGoldenTest {
     }
 
     /**
-     * The column mapper must carry the classpath modules. Hibernate's own discovery misses them inside the fat jar, and
-     * Jackson then refuses the write outright rather than degrading.
+     * The column mapper must carry the classpath modules. Stating the mapper takes over the registration Hibernate does
+     * for itself, and a mapper without this module refuses the write outright rather than degrading.
      */
     @Test
     void columnMapperRegistersTheJavaTimeModule() {

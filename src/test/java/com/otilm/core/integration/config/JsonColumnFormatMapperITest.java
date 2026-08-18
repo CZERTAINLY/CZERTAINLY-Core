@@ -1,8 +1,11 @@
 package com.otilm.core.integration.config;
 
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
+import com.otilm.core.dao.converter.ObjectToJsonConverter;
 import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.entity.ScheduledJob;
 import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.dao.repository.ScheduledJobsRepository;
 import com.otilm.core.util.BaseSpringBootTest;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -20,7 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Proof that {@code JsonColumnFormatMapperConfig} reaches Hibernate and shapes what every
- * {@code @JdbcTypeCode(SqlTypes.JSON)} column stores. {@link Discovery} is the vehicle for the persisted-shape case.
+ * {@code @JdbcTypeCode(SqlTypes.JSON)} column stores. {@link Discovery} is the vehicle for the persisted-shape case,
+ * {@link ScheduledJob} for the columns that a converter keeps out of the stated mapper's reach.
  */
 @Transactional
 class JsonColumnFormatMapperITest extends BaseSpringBootTest {
@@ -31,6 +35,8 @@ class JsonColumnFormatMapperITest extends BaseSpringBootTest {
     private EntityManager entityManager;
     @Autowired
     private JacksonJsonFormatMapper jsonColumnFormatMapper;
+    @Autowired
+    private ScheduledJobsRepository scheduledJobsRepository;
 
     /**
      * Hibernate must use the stated mapper. The stored bytes cannot show this on their own, because a fallback mapper
@@ -77,5 +83,37 @@ class JsonColumnFormatMapperITest extends BaseSpringBootTest {
                 .describedAs("the null member must reach the column, which is what Jackson's default inclusion does")
                 .contains("\"connectorBuild\": null")
                 .contains("\"connectorRunId\": \"run-42\"");
+    }
+
+    /**
+     * Marks the boundary of what the stated mapper governs. A column carrying {@link ObjectToJsonConverter} alongside
+     * {@code @JdbcTypeCode(SqlTypes.JSON)} is serialized by the converter's wire mapper instead: Hibernate resolves the
+     * JPA converter, which makes the relational type {@code String}, and a {@code String} reaches the driver verbatim.
+     * The wire mapper's {@code NON_NULL} is therefore visible here and nowhere else in this class.
+     */
+    @Test
+    void convertedColumnsAreSerializedByTheConverterNotTheStatedMapper() {
+        Map<String, Object> payloadWithUnsetMember = new HashMap<>();
+        payloadWithUnsetMember.put("resourceUuid", "run-42");
+        payloadWithUnsetMember.put("cancelledAt", null);
+
+        ScheduledJob job = new ScheduledJob();
+        job.setJobName("mapper-proof-" + UUID.randomUUID());
+        job.setJobClassName("com.otilm.core.tasks.DiscoveryCertificateTask");
+        job.setCronExpression("0 0 * * * *");
+        job.setObjectData(payloadWithUnsetMember);
+        UUID jobUuid = scheduledJobsRepository.saveAndFlush(job).getUuid();
+        entityManager.clear();
+
+        String storedJson = (String) entityManager
+                .createNativeQuery("SELECT object_data::text FROM scheduled_job WHERE uuid = :uuid")
+                .setParameter("uuid", jobUuid)
+                .getSingleResult();
+
+        assertThat(storedJson)
+                .describedAs(
+                        "the converter's wire mapper omits nulls, so this column does not follow the stated mapper")
+                .contains("\"resourceUuid\": \"run-42\"")
+                .doesNotContain("cancelledAt");
     }
 }

@@ -9,8 +9,11 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * States the {@code FormatMapper} for every {@code @JdbcTypeCode(SqlTypes.JSON)} column, so tests and production
- * serialize them identically. {@link ObjectMapperFactory#jsonColumn()} registers the modules Hibernate's own discovery
- * misses inside the fat jar.
+ * serialize them identically. {@link ObjectMapperFactory#jsonColumn()} is Hibernate's own recipe with one change, dates
+ * as text.
+ * <p>
+ * A column that also carries {@code ObjectToJsonConverter} is outside this: the converter makes the relational type
+ * {@code String}, which reaches the driver verbatim, so those columns keep the wire mapper's shape.
  */
 @Configuration
 public class JsonColumnFormatMapperConfig {

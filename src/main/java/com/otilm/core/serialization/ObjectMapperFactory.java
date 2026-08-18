@@ -68,9 +68,11 @@ public final class ObjectMapperFactory {
     }
 
     /**
-     * The recipe for every {@code @JdbcTypeCode(SqlTypes.JSON)} column. It registers the classpath modules through the
-     * application class loader, because Hibernate's own discovery misses them inside the fat jar and then rejects every
-     * Java 8 date; dates are written as text so the search SQL can cast them.
+     * The recipe for every {@code @JdbcTypeCode(SqlTypes.JSON)} column. Stating the mapper means registering its
+     * modules too, so this reproduces the discovery Hibernate would otherwise do for itself; without them Jackson
+     * rejects every Java 8 date outright. Dates are written as text, which is the one deliberate departure from what
+     * Hibernate's own mapper writes: a timestamp lands as {@code 1768469400.000000000} or {@code [18, 0, 5]}, which the
+     * search SQL cannot cast and the attribute deserializer cannot read back.
      */
     public static ObjectMapper jsonColumn() {
         return new ObjectMapper()
