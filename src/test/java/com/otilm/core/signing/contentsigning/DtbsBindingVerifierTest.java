@@ -193,7 +193,6 @@ class DtbsBindingVerifierTest {
                 .withMessageContaining("no authorized digest");
     }
 
-    /** Whoever computed the authorized digest cannot move it afterwards by reusing the buffer it came in. */
     @Test
     void holdsTheAuthorizedDigestAgainstMutationOfItsSourceArray() {
         // given

@@ -19,8 +19,8 @@ public enum SigningEngineFailure {
     CONNECTOR_FAULT,
 
     /**
-     * The signature would have covered something other than what was authorized. This is the security event the
-     * data-to-be-signed binding check exists to catch, not an ordinary fault, so it stays separately recordable.
+     * The signature would have covered something other than what was authorized. The data-to-be-signed binding check
+     * records this separately so it can be alerted on as a security event.
      */
     BINDING_VIOLATION,
 

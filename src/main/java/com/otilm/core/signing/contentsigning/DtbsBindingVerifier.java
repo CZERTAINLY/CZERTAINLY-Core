@@ -12,11 +12,10 @@ import java.util.Objects;
  * The engine runs this before it releases the signing key.
  *
  * <p>
- * The check compares the connector's echoed {@code documentDigest} against the authorized digest. The platform never
- * parses the data-to-be-signed, and never re-derives the digest from the document. So the connector must echo the
- * digest it actually committed to. The authorized digest is the one computed when the operation was accepted. The rule
- * is family-blind: PAdES, XAdES, CAdES and JAdES all satisfy it the same way. Raw signing carries no echo, because
- * there the client submits the digest itself.
+ * The check compares the connector's echoed {@code documentDigest} against the digest authorized when the operation was
+ * accepted. The platform never parses the data-to-be-signed and never re-derives the digest, so the connector must echo
+ * the digest it committed to. PAdES, XAdES, CAdES and JAdES all satisfy the rule the same way; raw signing carries no
+ * echo, because there the client submits the digest itself.
  * </p>
  */
 public final class DtbsBindingVerifier {

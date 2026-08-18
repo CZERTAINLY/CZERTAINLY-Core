@@ -37,11 +37,7 @@ public record DocumentDigest(DigestAlgorithm algorithm, byte[] value) {
         return value.length == algorithm.getDigestSizeBytes();
     }
 
-    /**
-     * A record's generated members would compare the array by identity, which is never what a digest comparison means.
-     * The comparison runs in time independent of where two digests first differ, matching the one the binding check
-     * relies on.
-     */
+    /** Compares the digest by value in constant time, which a record's generated {@code equals} would not do. */
     @Override
     public boolean equals(Object other) {
         return other instanceof DocumentDigest digest && algorithm == digest.algorithm
