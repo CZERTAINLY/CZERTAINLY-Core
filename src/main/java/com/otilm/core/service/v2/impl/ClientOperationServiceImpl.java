@@ -3274,17 +3274,17 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             // Validate the connector's identify-operation attributes against the schema — always, so a required
             // identify attribute is enforced even when the client sends none — then persist them unconditionally:
             // a retried manual issue replaces the slot rather than leaving a previous attempt's values behind.
-            extendedAttributeService.mergeAndValidateIdentifyAttributes(raProfile, request.getAttributes());
+            extendedAttributeService.mergeAndValidateIdentifyAttributes(raProfile, request.getIdentifyAttributes());
             attributeEngine
                     .updateObjectDataAttributesContent(ObjectAttributeContentInfo
                             .builder(Resource.CERTIFICATE, certificate.getUuid())
                             .connector(raProfile.getAuthorityInstanceReference().getConnectorUuid())
                             .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
-                            .build(), request.getAttributes());
+                            .build(), request.getIdentifyAttributes());
             return adapterFactory
                     .forAuthority(raProfile.getAuthorityInstanceReference())
                     .identify(raProfile, request.getCertificate(),
-                            request.getAttributes() != null ? request.getAttributes() : List.of());
+                            request.getIdentifyAttributes() != null ? request.getIdentifyAttributes() : List.of());
         } catch (ValidationException e) {
             certificateEventHistoryService
                     .addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED,
