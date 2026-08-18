@@ -5,14 +5,14 @@ import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import java.util.List;
 
 /**
- * Mock of a V2 delegated-signer connector — stubs {@code GET /v2/info} advertising {@link ConnectorInterface#SIGNING}.
- * Used exclusively to back delegated signing profiles.
+ * Mock of a V2 connector backing delegated-signing profiles. Registration demands one functional interface, so
+ * {@code GET /v2/info} carries {@link ConnectorInterface#SIGNATURE_FORMATTING}.
  */
 public class SignerConnectorMock extends BaseConnectorMock {
 
     SignerConnectorMock() {
         stubV2Info(List
                 .of(ConnectorInterface.INFO, ConnectorInterface.HEALTH, ConnectorInterface.METRICS,
-                        ConnectorInterface.SIGNING));
+                        ConnectorInterface.SIGNATURE_FORMATTING));
     }
 }

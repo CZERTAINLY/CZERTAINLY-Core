@@ -29,8 +29,8 @@ public interface SigningProfileInternalService extends ResourceExtensionService 
      * @throws NotFoundException if no signing profile with the given name exists
      * @throws IllegalStateException if the profile has no version row matching its {@code latestVersion}, or the
      * version declares a managed scheme but its {@code managedSigningType} is {@code null}
-     * @throws IllegalArgumentException if the profile is not a managed timestamping profile — the only kind the model
-     * currently supports
+     * @throws IllegalArgumentException if the profile's workflow type has no model mapper, or the version declares a
+     * scheme the mapper does not support
      */
     SigningProfileModel<? extends SigningWorkflow, ? extends SigningSchemeModel> getSigningProfileModel(String name)
             throws NotFoundException;

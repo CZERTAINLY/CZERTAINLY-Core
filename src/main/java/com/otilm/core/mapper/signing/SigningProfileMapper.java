@@ -26,6 +26,7 @@ import com.otilm.core.model.signing.SigningRecordPolicyModel;
 import com.otilm.core.model.signing.scheme.ManagedSigning;
 import com.otilm.core.model.signing.scheme.OneTimeKeyManagedSigning;
 import com.otilm.core.model.signing.scheme.StaticKeyManagedSigning;
+import com.otilm.core.model.signing.workflow.ManagedContentSigningWorkflow;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.otilm.core.util.TspProtocolUrlFactory;
 import java.util.ArrayList;
@@ -165,6 +166,34 @@ public class SigningProfileMapper {
         return new SigningProfileModel<>(header.getUuid(), header.getName(), header.getDescription(),
                 version.getVersion(), header.isEnabled(), detectEnabledProtocols(header), header.getTspProfileUuid(),
                 buildManagedTimestampingWorkflowModel(header, version, signatureFormattingConnectorAttributes),
+                buildManagedSchemeModel(version, signingOperationAttributes), buildRecordPolicyModel(version));
+    }
+
+    /**
+     * Maps a managed content-signing profile version to its cacheable model. Reads UUID columns only, so it is safe on
+     * a detached entity.
+     *
+     * @throws IllegalArgumentException if the profile's workflow type is not {@code CONTENT_SIGNING} or its signing
+     * scheme is not {@code MANAGED}
+     * @throws IllegalStateException if the version's {@code managedSigningType} is {@code null} despite declaring a
+     * managed scheme (DB integrity violation)
+     */
+    public static SigningProfileModel<ManagedContentSigningWorkflow, ManagedSigning> toManagedContentSigningModel(
+            SigningProfile header, SigningProfileVersion version, List<RequestAttribute> signingOperationAttributes,
+            List<RequestAttribute> signatureFormattingConnectorAttributes) {
+        if (version.getWorkflowType() != SigningWorkflowType.CONTENT_SIGNING) {
+            throw new IllegalArgumentException(
+                    "Signing Profile '%s' does not use a content-signing workflow".formatted(header.getName()));
+        }
+        if (version.getSigningScheme() != SigningScheme.MANAGED) {
+            throw new IllegalArgumentException(
+                    "Signing Profile '%s' does not use a managed signing scheme".formatted(header.getName()));
+        }
+
+        return new SigningProfileModel<>(header.getUuid(), header.getName(), header.getDescription(),
+                version.getVersion(), header.isEnabled(), detectEnabledProtocols(header), header.getTspProfileUuid(),
+                new ManagedContentSigningWorkflow(version.getSignatureFormattingConnectorUuid(),
+                        cacheSafeList(signatureFormattingConnectorAttributes)),
                 buildManagedSchemeModel(version, signingOperationAttributes), buildRecordPolicyModel(version));
     }
 

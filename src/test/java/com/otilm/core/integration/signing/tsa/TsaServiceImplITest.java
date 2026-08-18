@@ -28,6 +28,7 @@ import com.otilm.core.service.TokenInstanceExternalService;
 import com.otilm.core.service.TokenProfileExternalService;
 import com.otilm.core.service.TspProfileExternalService;
 import com.otilm.core.service.v2.ConnectorExternalService;
+import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.tsa.ManagedTimestampEngine;
 import com.otilm.core.signing.tsa.TimestampTokenTestUtil;
 import com.otilm.core.signing.tsa.TsaExternalService;
@@ -380,7 +381,8 @@ class TsaServiceImplITest extends BaseSpringBootTest {
                     .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
                             .isEqualTo(TspFailureInfo.SYSTEM_FAILURE))
                     .hasMessageContaining("Signature formatting connector communication failed during DTBS phase")
-                    .hasCauseInstanceOf(ConnectorServerException.class);
+                    .hasCauseInstanceOf(SigningEngineException.class)
+                    .hasRootCauseInstanceOf(ConnectorServerException.class);
         }
     }
 }
