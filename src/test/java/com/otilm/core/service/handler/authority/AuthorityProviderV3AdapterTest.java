@@ -937,6 +937,8 @@ class AuthorityProviderV3AdapterTest {
         List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
         when(certClientV3.listRenewAttributes(eq(connectorInfo), any())).thenReturn(expected);
         assertEquals(expected, adapter.listRenewAttributes(authority, raProfile));
+        when(certClientV3.listRenewAttributes(eq(connectorInfo), any())).thenReturn(null);
+        assertEquals(List.of(), adapter.listRenewAttributes(authority, raProfile));
     }
 
     @Test
