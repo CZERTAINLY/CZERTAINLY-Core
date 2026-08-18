@@ -59,6 +59,7 @@ import com.otilm.core.helpers.TestCertificateAuthority;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.scheme.StaticKeyManagedSigning;
+import com.otilm.core.model.signing.workflow.ManagedContentSigningWorkflow;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -106,6 +107,8 @@ import static com.otilm.core.util.builders.TimestampingWorkflowRequestDtoBuilder
 import static com.otilm.core.util.builders.TokenInstanceRequestDtoBuilder.aTokenInstanceRequest;
 import static com.otilm.core.util.builders.TokenProfileRequestDtoBuilder.aTokenProfileRequest;
 import static com.otilm.core.util.builders.TspProfileRequestDtoBuilder.aTspProfileRequest;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -2414,19 +2417,44 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                 // then
                 assertThrows(NotFoundException.class, getProfile);
             }
+        }
+
+        @Nested
+        class ManagedContentSigningModel {
 
             @Test
-            void nonTimestampingProfile_throwsIllegalArgumentException() {
-                // given: a pre-configured raw (non-timestamping) profile
-                String rawProfileName = defaultRawSigningProfile.getName();
+            void contentSigning_staticKeyScheme_returnsTypedModel()
+                    throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
+                // given
+                signingProfileService
+                        .createSigningProfile(aSigningProfileRequest()
+                                .withName("cs-managed-model")
+                                .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                                .withContentSigning(UUID.fromString(contentSigningFormattingConnector.getUuid()))
+                                .build());
 
                 // when
-                Executable getModel = () -> signingProfileInternalService.getSigningProfileModel(rawProfileName);
+                SigningProfileModel<?, ?> model = signingProfileInternalService
+                        .getSigningProfileModel("cs-managed-model");
 
                 // then
-                IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, getModel);
-                assertTrue(ex.getMessage().contains("does not use a timestamping workflow"));
+                assertThat(model.workflow()).isInstanceOf(ManagedContentSigningWorkflow.class);
+                assertThat(model.signingScheme()).isInstanceOf(StaticKeyManagedSigning.class);
+                ManagedContentSigningWorkflow workflow = (ManagedContentSigningWorkflow) model.workflow();
+                assertThat(workflow.signatureFormattingConnectorUuid())
+                        .isEqualTo(UUID.fromString(contentSigningFormattingConnector.getUuid()));
             }
+        }
+
+        @Test
+        void rawSigningProfile_throwsIllegalArgumentException() {
+            // given: a pre-configured raw-signing profile — RAW_SIGNING has no model mapper yet (core#2004)
+            String rawProfileName = defaultRawSigningProfile.getName();
+
+            // when / then
+            assertThatThrownBy(() -> signingProfileInternalService.getSigningProfileModel(rawProfileName))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("does not support model retrieval yet");
         }
 
     }

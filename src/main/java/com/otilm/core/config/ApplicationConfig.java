@@ -21,6 +21,7 @@ import com.otilm.api.clients.cryptography.TokenInstanceApiClient;
 import com.otilm.api.clients.secret.SecretApiClient;
 import com.otilm.api.clients.secret.VaultApiClient;
 import com.otilm.api.clients.signing.SignatureFormattingApiClient;
+import com.otilm.api.clients.signing.contentsigning.ContentSigningFormattingApiClient;
 import com.otilm.api.clients.v2.InfoApiClient;
 import com.otilm.api.clients.v2.MetricsApiClient;
 import com.otilm.core.security.authn.client.ResourceApiClient;
@@ -231,5 +232,11 @@ public class ApplicationConfig {
     public SignatureFormattingApiClient signatureFormattingApiClient(WebClient webClient,
             TrustManager[] defaultTrustManagers) {
         return new SignatureFormattingApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public ContentSigningFormattingApiClient contentSigningFormattingApiClient(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
+        return new ContentSigningFormattingApiClient(webClient, defaultTrustManagers);
     }
 }

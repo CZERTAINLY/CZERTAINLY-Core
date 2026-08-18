@@ -31,7 +31,6 @@ public class TimestampingFormattingConnectorMock extends BaseConnectorMock {
                 .of(interfaceInfo(ConnectorInterface.INFO, List.of()),
                         interfaceInfo(ConnectorInterface.HEALTH, List.of()),
                         interfaceInfo(ConnectorInterface.METRICS, List.of()),
-                        interfaceInfo(ConnectorInterface.SIGNING, List.of()),
                         interfaceInfo(ConnectorInterface.SIGNATURE_FORMATTING, List.of(FeatureFlag.TIMESTAMPING))));
     }
 

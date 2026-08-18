@@ -2,15 +2,18 @@ package com.otilm.core.signing.tsa;
 
 import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
+import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.messaging.timequality.TimeQualityStatus;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
 import com.otilm.core.model.signing.timequality.TimeQualityConfigurationModel;
+import com.otilm.core.signing.engine.certificate.SigningCertificateValidatorFactory;
+import com.otilm.core.signing.engine.certificate.ValidationResult;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.error.SigningEngineFailure;
 import com.otilm.core.signing.record.SigningRecordInputSource;
 import com.otilm.core.signing.record.SigningRecordStrategyFactory;
-import com.otilm.core.signing.tsa.certificate.SigningCertificateValidatorFactory;
-import com.otilm.core.signing.tsa.certificate.ValidationResult;
 import com.otilm.core.signing.tsa.messages.TspRequest;
 import com.otilm.core.signing.tsa.messages.TspResponse;
 import com.otilm.core.signing.tsa.timequality.TimeQualityRegister;
@@ -63,6 +66,15 @@ public class ManagedTimestampEngine {
 
     public TspResponse process(TspRequest request, SigningProfileModel<?, ?> signingProfile,
             ResolvedManagedTimestampingProfile timestampingProfile) throws TspException {
+        try {
+            return processInternal(request, signingProfile, timestampingProfile);
+        } catch (SigningEngineException e) {
+            throw TspErrorMapper.toTspException(e); // TspController maps this to a proper rejection response
+        }
+    }
+
+    private TspResponse processInternal(TspRequest request, SigningProfileModel<?, ?> signingProfile,
+            ResolvedManagedTimestampingProfile timestampingProfile) throws SigningEngineException {
 
         ResolvedManagedScheme signingScheme = timestampingProfile.resolvedScheme();
         var signerCertificateValidator = signingCertificateValidatorFactory.getValidator(signingScheme);
@@ -83,12 +95,12 @@ public class ManagedTimestampEngine {
                         timeStatus);
 
         var validationResult = signerCertificateValidator
-                .validate(signingScheme, timestampingProfile.isQualifiedTimestamp());
-        if (validationResult instanceof ValidationResult.Nok(TspFailureInfo failureInfo, String logMessage, String clientMessage)) {
+                .validate(signingScheme, SigningWorkflowType.TIMESTAMPING, timestampingProfile.isQualifiedTimestamp());
+        if (validationResult instanceof ValidationResult.Nok(SigningEngineFailure failure, String logMessage, String clientMessage)) {
             logger
                     .warn("Rejecting timestamp request for signing profile '{}': {}", timestampingProfile.name(),
                             logMessage);
-            return TspResponse.rejected(failureInfo, clientMessage);
+            return TspResponse.rejected(TspErrorMapper.toFailureInfo(failure), clientMessage);
         }
 
         try {
@@ -108,8 +120,9 @@ public class ManagedTimestampEngine {
 
             return TspResponse.granted(encodedToken);
 
-        } catch (TspException e) {
-            throw e; // TspController maps this to a proper rejection response
+        } catch (SigningEngineException e) {
+            // keeps engine failures out of catch (Exception) below, which would collapse them into SYSTEM_FAILURE
+            throw e;
         } catch (TSPValidationException e) {
             logger.error("Timestamp signature validation failed", e);
             return TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "Timestamp signature validation failed");

@@ -6,14 +6,19 @@ import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.signing.SigningProfileModel;
+import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfile;
+import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
 import com.otilm.core.model.signing.workflow.DelegatedTimestampingWorkflow;
+import com.otilm.core.model.signing.workflow.ManagedContentSigningWorkflow;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.SigningProfileInternalService;
 import com.otilm.core.service.TspProfileInternalService;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.error.SigningEngineFailure;
+import com.otilm.core.signing.engine.resolver.SigningProfileResolverFactory;
 import com.otilm.core.signing.tsa.ManagedTimestampEngine;
 import com.otilm.core.signing.tsa.messages.TspResponse;
-import com.otilm.core.signing.tsa.resolver.SigningProfileResolverFactory;
 import com.otilm.core.signing.tsa.validator.TspRequestValidationException;
 import com.otilm.core.signing.tsa.validator.TspRequestValidator;
 import java.util.List;
@@ -22,6 +27,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,6 +43,8 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,6 +75,21 @@ class TsaServiceImplUnitTest {
         return aSigningProfile().withName("signing-profile").withTspProfileUuid(TSP_PROFILE_UUID).build();
     }
 
+    /** The shape a real content-signing profile has: no TSP protocol and a permanently null tspProfileUuid. */
+    private static SigningProfileModel<?, ?> aContentSigningProfile() {
+        return aSigningProfile()
+                .withName("content-signing-profile")
+                .withEnabledProtocols(List.of())
+                .withTspProfileUuid(null)
+                .withWorkflow(new ManagedContentSigningWorkflow(UUID.randomUUID(), List.of()))
+                .build();
+    }
+
+    private static ResolvedManagedContentSigningProfile aResolvedContentSigningProfile() {
+        return new ResolvedManagedContentSigningProfile(UUID.randomUUID(), "docs", null, 1, true, List.of(), List.of(),
+                null, null);
+    }
+
     // ── processTspRequestForTspProfile ────────────────────────────────────────
 
     @Nested
@@ -92,6 +115,8 @@ class TsaServiceImplUnitTest {
             when(tspProfileService.getTspProfile("tsp-profile"))
                     .thenReturn(aTspProfile().withDefaultSigningProfileName("signing-profile").build());
             doReturn(signingProfile).when(signingProfileService).getSigningProfileModel("signing-profile");
+            when(signingProfileResolverFactory.resolve(any()))
+                    .thenReturn(mock(ResolvedManagedTimestampingProfile.class));
             when(managedTimestampEngine.process(any(), any(), any()))
                     .thenReturn(TspResponse.granted(new byte[]{1, 2, 3}));
 
@@ -202,6 +227,25 @@ class TsaServiceImplUnitTest {
         }
 
         @Test
+        void throwsSystemFailure_whenDefaultSigningProfileIsContentSigning() throws NotFoundException {
+            // given — the TSP profile's default signing profile runs the content-signing workflow
+            when(tspProfileService.getTspProfile("tsp-profile"))
+                    .thenReturn(aTspProfile().withDefaultSigningProfileName("content-signing-profile").build());
+            doReturn(aContentSigningProfile())
+                    .when(signingProfileService)
+                    .getSigningProfileModel("content-signing-profile");
+
+            // when
+            Executable call = () -> tsaService.processTspRequestForTspProfile("tsp-profile", aTspRequest().build());
+
+            // then — RFC 3161 systemFailure (bit 25) plus the free text, both pinned
+            assertThatThrownBy(call::execute).isInstanceOf(TspException.class).satisfies(ex -> {
+                assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+                assertThat(((TspException) ex).getClientMessage()).isEqualTo("The system is misconfigured.");
+            });
+        }
+
+        @Test
         void propagatesValidationException_fromValidator() throws Exception {
             // given
             when(tspProfileService.getTspProfile("tsp-profile"))
@@ -262,6 +306,8 @@ class TsaServiceImplUnitTest {
             // given
             doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
             when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());
+            when(signingProfileResolverFactory.resolve(any()))
+                    .thenReturn(mock(ResolvedManagedTimestampingProfile.class));
             when(managedTimestampEngine.process(any(), any(), any()))
                     .thenReturn(TspResponse.granted(new byte[]{7, 8, 9}));
 
@@ -300,6 +346,8 @@ class TsaServiceImplUnitTest {
             // given — the engine signals an internal failure (e.g. degraded time quality)
             doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
             when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());
+            when(signingProfileResolverFactory.resolve(any()))
+                    .thenReturn(mock(ResolvedManagedTimestampingProfile.class));
             when(managedTimestampEngine.process(any(), any(), any()))
                     .thenReturn(TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "internal error"));
 
@@ -310,6 +358,27 @@ class TsaServiceImplUnitTest {
             // then
             assertThat(response).isInstanceOf(TspResponse.Rejected.class);
             assertThat(((TspResponse.Rejected) response).failureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+        }
+
+        @Test
+        void mapsToTspException_whenSigningProfileResolutionFails() throws NotFoundException, SigningEngineException {
+            // given — the resolver factory cannot build a resolved profile (e.g. missing connector configuration)
+            doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
+            when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());
+            var cause = new SigningEngineException(SigningEngineFailure.MISCONFIGURED, "no resolver found",
+                    "The system is misconfigured.");
+            when(signingProfileResolverFactory.resolve(any())).thenThrow(cause);
+
+            // when
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+
+            // then — the engine currency is mapped onto RFC 3161's via TspErrorMapper
+            assertThatThrownBy(call::execute).isInstanceOf(TspException.class).satisfies(ex -> {
+                assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+                assertThat(((TspException) ex).getClientMessage()).isEqualTo(cause.clientMessage());
+                assertThat(ex.getCause()).isSameAs(cause);
+            });
         }
 
         @Test
@@ -397,6 +466,53 @@ class TsaServiceImplUnitTest {
         }
 
         @Test
+        void throwsBadRequest_whenTheNamedProfileIsContentSigning() throws NotFoundException {
+            // given — a content-signing profile, whose tspProfileUuid is permanently null
+            doReturn(aContentSigningProfile())
+                    .when(signingProfileService)
+                    .getSigningProfileModel("content-signing-profile");
+
+            // when
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("content-signing-profile", aTspRequest().build());
+
+            // then — the badRequest (bit 2) any profile without a TSP link gets, so naming one on the TSP endpoint
+            // tells an unauthenticated caller nothing about which workflow it carries
+            assertThatThrownBy(call::execute).isInstanceOf(TspException.class).satisfies(ex -> {
+                assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.BAD_REQUEST);
+                assertThat(ex).hasMessageContaining("does not have the TSP protocol enabled");
+            });
+            verify(authorizationEnforcer, never()).enforce(any(), any(), any(SecuredUUID.class));
+        }
+
+        @Test
+        void enforcesAuthorization_beforeRefusingAContentSigningProfileWithATspLink() throws NotFoundException {
+            // given — the misconfiguration a content-signing profile can only reach by being linked to a TSP profile
+            var signingProfile = aSigningProfile()
+                    .withName("content-signing-profile")
+                    .withTspProfileUuid(TSP_PROFILE_UUID)
+                    .withWorkflow(new ManagedContentSigningWorkflow(UUID.randomUUID(), List.of()))
+                    .build();
+            doReturn(signingProfile).when(signingProfileService).getSigningProfileModel("content-signing-profile");
+            when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());
+            ArgumentCaptor<SecuredUUID> securedUuid = ArgumentCaptor.forClass(SecuredUUID.class);
+
+            // when
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("content-signing-profile", aTspRequest().build());
+
+            // then — RFC 3161 processing stays confined to managed timestamping, but only after the caller is
+            // authorized for the linked TSP profile
+            assertThatThrownBy(call::execute).isInstanceOf(TspException.class).satisfies(ex -> {
+                assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+                assertThat(((TspException) ex).getClientMessage()).isEqualTo("The system is misconfigured.");
+            });
+            verify(authorizationEnforcer)
+                    .enforce(eq(Resource.TSP_PROFILE), eq(ResourceAction.TIMESTAMP), securedUuid.capture());
+            assertThat(securedUuid.getValue().getValue()).isEqualTo(TSP_PROFILE_UUID);
+        }
+
+        @Test
         void propagatesNotFound_whenLinkedTspProfileDoesNotExist() throws NotFoundException {
             // given
             doReturn(aDefaultSigningProfile()).when(signingProfileService).getSigningProfileModel("signing-profile");
@@ -448,6 +564,26 @@ class TsaServiceImplUnitTest {
 
             // then
             assertThatThrownBy(call::execute).isInstanceOf(AccessDeniedException.class);
+        }
+
+        @Test
+        void rejectsAProfileThatResolvesToANonTimestampingProfile() throws Exception {
+            // given — resolver selection is supports()-driven, so a misconfigured resolver could claim this profile
+            var signingProfile = aDefaultSigningProfile();
+            doReturn(signingProfile).when(signingProfileService).getSigningProfileModel("signing-profile");
+            when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());
+            when(signingProfileResolverFactory.resolve(signingProfile)).thenReturn(aResolvedContentSigningProfile());
+
+            // when
+            Executable call = () -> tsaService
+                    .processTspRequestForSigningProfile("signing-profile", aTspRequest().build());
+
+            // then
+            assertThatThrownBy(call::execute)
+                    .isInstanceOf(TspException.class)
+                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
+                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE))
+                    .hasMessageContaining("resolved to ResolvedManagedContentSigningProfile");
         }
     }
 }

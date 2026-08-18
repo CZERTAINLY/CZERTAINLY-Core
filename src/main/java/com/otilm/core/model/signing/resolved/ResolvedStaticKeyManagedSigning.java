@@ -3,7 +3,7 @@ package com.otilm.core.model.signing.resolved;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.core.model.crypto.CryptographicKeyItemModel;
 import com.otilm.core.model.signing.SigningCertificate;
-import com.otilm.core.signing.tsa.CertificateChain;
+import com.otilm.core.signing.engine.CertificateChain;
 
 import java.util.List;
 

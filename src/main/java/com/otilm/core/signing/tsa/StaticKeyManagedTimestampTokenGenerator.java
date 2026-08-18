@@ -1,13 +1,14 @@
 package com.otilm.core.signing.tsa;
 
-import com.otilm.api.interfaces.core.tsp.error.TspException;
-import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
+import com.otilm.core.signing.engine.CertificateChain;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.error.SigningEngineFailure;
+import com.otilm.core.signing.engine.signer.Signer;
+import com.otilm.core.signing.engine.signer.SignerFactory;
 import com.otilm.core.signing.tsa.formatting.SignatureFormattingClient;
 import com.otilm.core.signing.tsa.messages.TspRequest;
-import com.otilm.core.signing.tsa.signer.Signer;
-import com.otilm.core.signing.tsa.signer.SignerFactory;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -45,7 +46,7 @@ public class StaticKeyManagedTimestampTokenGenerator implements ManagedTimestamp
 
     @Override
     public TimeStampToken generate(TspRequest request, ResolvedManagedTimestampingProfile timestampingProfile,
-            CertificateChain certificateChain, BigInteger serialNumber, Instant genTime) throws TspException {
+            CertificateChain certificateChain, BigInteger serialNumber, Instant genTime) throws SigningEngineException {
 
         Signer signer = signerFactory.create(timestampingProfile.resolvedScheme());
         SignatureAlgorithm signatureAlgorithm = signer.getSignatureAlgorithm();
@@ -62,8 +63,9 @@ public class StaticKeyManagedTimestampTokenGenerator implements ManagedTimestamp
         try {
             return new TimeStampToken(new CMSSignedData(tokenBytes));
         } catch (TSPException | IOException | CMSException e) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE, "Failed to parse assembled timestamp token", e,
-                    "Internal error during token parsing");
+            throw SigningEngineException
+                    .stepFailed(SigningEngineFailure.STEP_FAILED, "parseToken",
+                            "Failed to parse assembled timestamp token", e, "Internal error during token parsing");
         }
     }
 }

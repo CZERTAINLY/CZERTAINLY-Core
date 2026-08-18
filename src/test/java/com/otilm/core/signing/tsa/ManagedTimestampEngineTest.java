@@ -1,5 +1,6 @@
 package com.otilm.core.signing.tsa;
 
+import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.api.model.client.signing.profile.record.SigningRecordPersistenceMode;
 import com.otilm.api.model.core.signing.SigningProtocol;
@@ -10,14 +11,17 @@ import com.otilm.core.model.signing.SigningRecordPolicyModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
 import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
+import com.otilm.core.signing.engine.CertificateChain;
+import com.otilm.core.signing.engine.certificate.SigningCertificateValidator;
+import com.otilm.core.signing.engine.certificate.SigningCertificateValidatorFactory;
+import com.otilm.core.signing.engine.certificate.ValidationResult;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.error.SigningEngineFailure;
 import com.otilm.core.signing.record.SigningRecordInput;
 import com.otilm.core.signing.record.SigningRecordInputSource;
 import com.otilm.core.signing.record.SigningRecordInputSources;
 import com.otilm.core.signing.record.SigningRecordStrategy;
 import com.otilm.core.signing.record.SigningRecordStrategyFactory;
-import com.otilm.core.signing.tsa.certificate.SigningCertificateValidator;
-import com.otilm.core.signing.tsa.certificate.SigningCertificateValidatorFactory;
-import com.otilm.core.signing.tsa.certificate.ValidationResult;
 import com.otilm.core.signing.tsa.messages.TspResponse;
 import com.otilm.core.signing.tsa.timequality.TimeQualityRegister;
 import com.otilm.core.util.CertificateTestUtil;
@@ -39,6 +43,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static com.otilm.core.signing.tsa.messages.TspRequestBuilder.aTspRequest;
 import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.lenient;
@@ -109,7 +114,7 @@ class ManagedTimestampEngineTest {
         var timestampToken = aTokenEncodingTo(new byte[]{1, 2, 3});
 
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate()).thenReturn(BigInteger.ONE);
         when(tokenGenerator.generate(any(), any(), any(), any(), any())).thenReturn(timestampToken);
 
@@ -129,7 +134,7 @@ class ManagedTimestampEngineTest {
         var recordInputSource = SigningRecordInputSources.of(recordInput);
 
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate()).thenReturn(BigInteger.ONE);
         when(tokenGenerator.generate(any(), any(), any(), any(), any())).thenReturn(timestampToken);
         when(tspSigningRecordFactory.source(any(), any(), any(), any(), any())).thenReturn(recordInputSource);
@@ -154,7 +159,7 @@ class ManagedTimestampEngineTest {
                 .build();
 
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate()).thenReturn(BigInteger.ONE);
         when(tokenGenerator.generate(any(), any(), any(), any(), any())).thenReturn(timestampToken);
 
@@ -182,9 +187,9 @@ class ManagedTimestampEngineTest {
     void rejectsWithSystemFailure_whenCertificateValidationFails() throws Exception {
         // given — the signing certificate is not acceptable (e.g. revoked, missing QC extension)
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean()))
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean()))
                 .thenReturn(ValidationResult
-                        .nok(TspFailureInfo.SYSTEM_FAILURE, "certificate not acceptable",
+                        .nok(SigningEngineFailure.MISCONFIGURED, "certificate not acceptable",
                                 "contact your administrator"));
 
         // when
@@ -199,7 +204,7 @@ class ManagedTimestampEngineTest {
     void rejectsWithTimeNotAvailable_whenClockDriftIsDetectedDuringSerialNumberGeneration() throws Exception {
         // given — the monotonic clock drifted relative to wall time, making serial uniqueness unsafe
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate())
                 .thenThrow(new ClockDriftException("monotonic clock drifted beyond threshold"));
 
@@ -215,7 +220,7 @@ class ManagedTimestampEngineTest {
     void rejectsWithSystemFailure_whenSerialNumberGenerationIsInterrupted() throws Exception {
         // given — the serial number generator was interrupted (e.g. thread interrupt during Snowflake epoch)
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate())
                 .thenThrow(new SerialNumberGenerationException("thread interrupted during serial number generation"));
 
@@ -231,7 +236,7 @@ class ManagedTimestampEngineTest {
     void rejectsWithSystemFailure_whenTokenGenerationFails() throws Exception {
         // given — the token generator encounters an unexpected error (e.g. signing connector down)
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate()).thenReturn(BigInteger.ONE);
         when(tokenGenerator.generate(any(), any(), any(), any(), any()))
                 .thenThrow(new RuntimeException("signing connector unavailable"));
@@ -245,13 +250,33 @@ class ManagedTimestampEngineTest {
     }
 
     @Test
+    void mapsToTspException_whenTokenGenerationThrowsSigningEngineException() throws Exception {
+        // given — the token generator fails with an engine-currency error (e.g. no signer found for the scheme)
+        var cause = new SigningEngineException(SigningEngineFailure.MISCONFIGURED, "no signer found",
+                "The system is misconfigured.");
+        when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(serialNumberGenerator.generate()).thenReturn(BigInteger.ONE);
+        when(tokenGenerator.generate(any(), any(), any(), any(), any())).thenThrow(cause);
+
+        // when / then — the escaping SigningEngineException is mapped, not collapsed into a rejected TspResponse
+        assertThatThrownBy(() -> engine.process(aTspRequest().build(), signingProfile, aResolvedProfile(false, null)))
+                .isInstanceOf(TspException.class)
+                .satisfies(ex -> {
+                    assertThat(((TspException) ex).getFailureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+                    assertThat(((TspException) ex).getClientMessage()).isEqualTo(cause.clientMessage());
+                    assertThat(ex.getCause()).isSameAs(cause);
+                });
+    }
+
+    @Test
     void returnsGrantedToken_whenTokenSignatureValidationSucceeds() throws Exception {
         // given — token and the certificate that signed it are aligned
         var tokenWithCert = TimestampTokenTestUtil.createTimestampTokenWithCert();
         var certificateChain = CertificateChain.of(tokenWithCert.cert());
 
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate()).thenReturn(BigInteger.ONE);
         when(tokenGenerator.generate(any(), any(), any(), any(), any())).thenReturn(tokenWithCert.token());
 
@@ -270,7 +295,7 @@ class ManagedTimestampEngineTest {
         var certificateChain = CertificateChain.of(unrelatedCert);
 
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate()).thenReturn(BigInteger.ONE);
         when(tokenGenerator.generate(any(), any(), any(), any(), any())).thenReturn(tokenWithCert.token());
 
@@ -288,7 +313,7 @@ class ManagedTimestampEngineTest {
         var timestampToken = aTokenEncodingTo(new byte[]{1, 2, 3});
 
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
-        when(signingCertificateValidator.validate(any(), anyBoolean())).thenReturn(ValidationResult.ok());
+        when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
         when(serialNumberGenerator.generate()).thenReturn(BigInteger.ONE);
         when(tokenGenerator.generate(any(), any(), any(), any(), any())).thenReturn(timestampToken);
         when(signingRecordStrategyFactory.strategyFor(any(SigningRecordPersistenceMode.class)))
