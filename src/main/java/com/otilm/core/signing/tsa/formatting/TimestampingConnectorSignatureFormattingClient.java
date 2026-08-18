@@ -1,16 +1,16 @@
 package com.otilm.core.signing.tsa.formatting;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
-import com.otilm.api.clients.signing.SignatureFormattingApiClient;
 import com.otilm.api.exception.ConnectorException;
-import com.otilm.api.interfaces.core.tsp.error.TspException;
-import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.connector.signatures.formatting.ExtensionDto;
 import com.otilm.api.model.connector.signatures.formatting.TimestampingFormatDtbsRequestDto;
 import com.otilm.api.model.connector.signatures.formatting.TimestampingFormatResponseRequestDto;
+import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
-import com.otilm.core.signing.tsa.CertificateChain;
+import com.otilm.core.signing.engine.CertificateChain;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.error.SigningEngineFailure;
 import com.otilm.core.signing.tsa.messages.TspRequest;
 import java.math.BigInteger;
 import java.security.cert.CertificateEncodingException;
@@ -23,23 +23,21 @@ import java.util.Collections;
 import java.util.List;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class TimestampingConnectorSignatureFormattingClient implements SignatureFormattingClient {
 
-    private SignatureFormattingApiClient apiClient;
+    private final ConnectorApiFactory connectorApiFactory;
 
-    @Autowired
-    public void setApiClient(SignatureFormattingApiClient apiClient) {
-        this.apiClient = apiClient;
+    public TimestampingConnectorSignatureFormattingClient(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     @Override
     public byte[] formatDtbs(TspRequest request, ResolvedManagedTimestampingProfile timestampingProfile,
             BigInteger serialNumber, Instant genTime, CertificateChain certificateChain,
-            SignatureAlgorithm signatureAlgorithm) throws TspException {
+            SignatureAlgorithm signatureAlgorithm) throws SigningEngineException {
 
         ApiClientConnectorInfo connector = timestampingProfile.signatureFormattingConnector();
 
@@ -59,18 +57,22 @@ public class TimestampingConnectorSignatureFormattingClient implements Signature
         requestDto.setFormatAttributes(timestampingProfile.signatureFormattingConnectorAttributes());
 
         try {
-            return apiClient.formatDtbs(connector, requestDto).getDtbs();
+            return connectorApiFactory
+                    .getSignatureFormattingApiClient(connector)
+                    .formatDtbs(connector, requestDto)
+                    .getDtbs();
         } catch (ConnectorException e) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Signature formatting connector communication failed during DTBS phase: " + e.getMessage(), e,
-                    "Internal error during DTBS formatting");
+            throw SigningEngineException
+                    .stepFailed(SigningEngineFailure.CONNECTOR_FAULT, "formatDtbs",
+                            "Signature formatting connector communication failed during DTBS phase: " + e.getMessage(),
+                            e, "Internal error during DTBS formatting");
         }
     }
 
     @Override
     public byte[] formatSigningResponse(TspRequest request, ResolvedManagedTimestampingProfile timestampingProfile,
             BigInteger serialNumber, Instant genTime, CertificateChain certificateChain, byte[] dtbs, byte[] signature,
-            SignatureAlgorithm signatureAlgorithm) throws TspException {
+            SignatureAlgorithm signatureAlgorithm) throws SigningEngineException {
 
         ApiClientConnectorInfo connector = timestampingProfile.signatureFormattingConnector();
 
@@ -92,15 +94,20 @@ public class TimestampingConnectorSignatureFormattingClient implements Signature
         requestDto.setSignatureAlgorithm(signatureAlgorithm);
 
         try {
-            return apiClient.formatSigningResponse(connector, requestDto).getResponse();
+            return connectorApiFactory
+                    .getSignatureFormattingApiClient(connector)
+                    .formatSigningResponse(connector, requestDto)
+                    .getResponse();
         } catch (ConnectorException e) {
-            throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Signature formatting connector communication failed during response assembly: " + e.getMessage(),
-                    e, "Internal error assembling timestamp token");
+            throw SigningEngineException
+                    .stepFailed(SigningEngineFailure.CONNECTOR_FAULT, "formatSigningResponse",
+                            "Signature formatting connector communication failed during response assembly: "
+                                    + e.getMessage(),
+                            e, "Internal error assembling timestamp token");
         }
     }
 
-    private static List<ExtensionDto> toExtensionDtos(Extensions extensions) throws TspException {
+    private static List<ExtensionDto> toExtensionDtos(Extensions extensions) throws SigningEngineException {
         if (extensions == null) {
             return Collections.emptyList();
         }
@@ -114,18 +121,18 @@ public class TimestampingConnectorSignatureFormattingClient implements Signature
                 return dto;
             }).toList();
         } catch (Exception e) {
-            throw new TspException(TspFailureInfo.BAD_DATA_FORMAT,
+            throw new SigningEngineException(SigningEngineFailure.MALFORMED_INPUT,
                     "Failed to encode request extensions: " + e.getMessage(), e, "Invalid request extensions");
         }
     }
 
-    private static List<byte[]> encodeDerChain(CertificateChain certificateChain) throws TspException {
+    private static List<byte[]> encodeDerChain(CertificateChain certificateChain) throws SigningEngineException {
         List<byte[]> result = new ArrayList<>();
         for (X509Certificate certificate : certificateChain.chain()) {
             try {
                 result.add(certificate.getEncoded());
             } catch (CertificateEncodingException e) {
-                throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
+                throw new SigningEngineException(SigningEngineFailure.MISCONFIGURED,
                         "Failed to encode certificate chain: " + e.getMessage(), e,
                         "Internal error encoding certificate chain");
             }

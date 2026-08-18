@@ -5,7 +5,8 @@ import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 /**
  * Sealed marker for the request-time resolved view of a Signing Profile.
  */
-public sealed interface ResolvedSigningProfile permits ResolvedManagedTimestampingProfile {
+public sealed interface ResolvedSigningProfile
+        permits ResolvedManagedTimestampingProfile, ResolvedManagedContentSigningProfile {
 
     /** Workflow type for dispatch / logging. */
     SigningWorkflowType workflowType();

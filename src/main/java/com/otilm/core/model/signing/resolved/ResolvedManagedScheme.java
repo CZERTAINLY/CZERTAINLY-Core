@@ -1,6 +1,6 @@
 package com.otilm.core.model.signing.resolved;
 
-import com.otilm.core.signing.tsa.CertificateChain;
+import com.otilm.core.signing.engine.CertificateChain;
 
 /**
  * Sealed interface for the resolved (request-time) representation of a managed signing scheme.
