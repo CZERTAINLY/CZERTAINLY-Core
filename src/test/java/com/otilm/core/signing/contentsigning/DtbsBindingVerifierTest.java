@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
@@ -20,22 +19,25 @@ class DtbsBindingVerifierTest {
 
     private static final DocumentDigest AUTHORIZED = new DocumentDigest(DigestAlgorithm.SHA_256, AUTHORIZED_VALUE);
 
+    private static final DocumentDigest DIFFERENT_DOCUMENT = new DocumentDigest(DigestAlgorithm.SHA_256,
+            digestOfLength(32, (byte) 0x22));
+
+    private static final DocumentDigest UNUSABLE_ECHO = new DocumentDigest(DigestAlgorithm.SHA_512,
+            digestOfLength(64, (byte) 0x11));
+
     @Test
     void acceptsAnEchoOfTheAuthorizedDocument() {
         // given a connector echoing an equal array rather than the very same one
         DocumentDigest echoed = new DocumentDigest(DigestAlgorithm.SHA_256, AUTHORIZED_VALUE.clone());
 
         // when / then
-        assertThatCode(() -> DtbsBindingVerifier.verify(AUTHORIZED, echoed)).doesNotThrowAnyException();
+        assertThatCode(() -> DtbsBindingVerifier.verifyEcho(AUTHORIZED, echoed)).doesNotThrowAnyException();
     }
 
     @Test
     void refusesAnEchoOfADifferentDocument() {
-        // given
-        DocumentDigest echoed = new DocumentDigest(DigestAlgorithm.SHA_256, digestOfLength(32, (byte) 0x22));
-
         // when / then
-        SigningEngineException thrown = catchVerify(AUTHORIZED, echoed);
+        SigningEngineException thrown = catchVerifyEcho(AUTHORIZED, DIFFERENT_DOCUMENT);
         assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.BINDING_VIOLATION);
         assertThat(thrown.step()).isEqualTo("computeDtbs");
         assertThat(thrown.operatorMessage()).contains("2222", "1111");
@@ -48,14 +50,14 @@ class DtbsBindingVerifierTest {
         almost[31] ^= 0x01;
 
         // when / then
-        assertThat(catchVerify(AUTHORIZED, new DocumentDigest(DigestAlgorithm.SHA_256, almost)).failure())
+        assertThat(catchVerifyEcho(AUTHORIZED, new DocumentDigest(DigestAlgorithm.SHA_256, almost)).failure())
                 .isEqualTo(SigningEngineFailure.BINDING_VIOLATION);
     }
 
     @Test
     void refusesAMissingEcho() {
         // when / then
-        SigningEngineException thrown = catchVerify(AUTHORIZED, (DocumentDigest) null);
+        SigningEngineException thrown = catchVerifyEcho(AUTHORIZED, null);
         assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
         assertThat(thrown.operatorMessage()).contains("echoed no documentDigest");
     }
@@ -63,11 +65,8 @@ class DtbsBindingVerifierTest {
     /** Digests of different algorithms are incomparable, so the platform refuses instead of re-deriving one. */
     @Test
     void refusesAnEchoUnderADifferentAlgorithm() {
-        // given
-        DocumentDigest echoed = new DocumentDigest(DigestAlgorithm.SHA_512, digestOfLength(64, (byte) 0x11));
-
         // when / then
-        assertThat(catchVerify(AUTHORIZED, echoed).operatorMessage()).contains("SHA-512", "SHA-256");
+        assertThat(catchVerifyEcho(AUTHORIZED, UNUSABLE_ECHO).operatorMessage()).contains("SHA-512", "SHA-256");
     }
 
     @Test
@@ -76,50 +75,59 @@ class DtbsBindingVerifierTest {
         DocumentDigest echoed = new DocumentDigest(DigestAlgorithm.SHA_256, digestOfLength(16, (byte) 0x11));
 
         // when / then
-        assertThat(catchVerify(AUTHORIZED, echoed).operatorMessage()).contains("16-byte", "never produces");
+        assertThat(catchVerifyEcho(AUTHORIZED, echoed).operatorMessage()).contains("16-byte", "never produces");
+    }
+
+    /** A platform-side digest no algorithm could have produced would mismatch every echo, so it is not a violation. */
+    @Test
+    void refusesAMalformedAuthorizedDigest() {
+        // given
+        DocumentDigest malformed = new DocumentDigest(DigestAlgorithm.SHA_256, digestOfLength(16, (byte) 0x11));
+
+        // when / then
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> DtbsBindingVerifier
+                        .verifyEcho(malformed, new DocumentDigest(DigestAlgorithm.SHA_256, AUTHORIZED_VALUE)))
+                .withMessageContaining("16 bytes")
+                .withMessageContaining("SHA-256");
     }
 
     /** A broken connector must not be reported to the client as an unauthorized document. */
     @Test
     void tellsABrokenEchoApartFromAMismatchOnTheWire() {
-        // given
-        DocumentDigest different = new DocumentDigest(DigestAlgorithm.SHA_256, digestOfLength(32, (byte) 0x22));
-        DocumentDigest unusable = new DocumentDigest(DigestAlgorithm.SHA_512, digestOfLength(64, (byte) 0x11));
-
         // when / then
-        assertThat(catchVerify(AUTHORIZED, different).clientMessage())
-                .isNotEqualTo(catchVerify(AUTHORIZED, unusable).clientMessage());
+        assertThat(catchVerifyEcho(AUTHORIZED, DIFFERENT_DOCUMENT).clientMessage())
+                .isNotEqualTo(catchVerifyEcho(AUTHORIZED, UNUSABLE_ECHO).clientMessage());
     }
 
     /** Records and alerting key off the failure value, so the security event must not collapse into a fault. */
     @Test
     void classifiesAMismatchApartFromABrokenEcho() {
-        // given
-        DocumentDigest different = new DocumentDigest(DigestAlgorithm.SHA_256, digestOfLength(32, (byte) 0x22));
-        DocumentDigest unusable = new DocumentDigest(DigestAlgorithm.SHA_512, digestOfLength(64, (byte) 0x11));
-
         // when / then
-        assertThat(catchVerify(AUTHORIZED, different).failure()).isEqualTo(SigningEngineFailure.BINDING_VIOLATION);
-        assertThat(catchVerify(AUTHORIZED, unusable).failure()).isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
+        assertThat(catchVerifyEcho(AUTHORIZED, DIFFERENT_DOCUMENT).failure())
+                .isEqualTo(SigningEngineFailure.BINDING_VIOLATION);
+        assertThat(catchVerifyEcho(AUTHORIZED, UNUSABLE_ECHO).failure())
+                .isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
     }
 
     @Test
     void keepsDigestsOutOfTheClientMessage() {
-        // given
-        DocumentDigest echoed = new DocumentDigest(DigestAlgorithm.SHA_256, digestOfLength(32, (byte) 0x22));
-
         // when / then
-        assertThat(catchVerify(AUTHORIZED, echoed).clientMessage()).doesNotContain("1111", "2222");
+        assertThat(catchVerifyEcho(AUTHORIZED, DIFFERENT_DOCUMENT).clientMessage()).doesNotContain("1111", "2222");
     }
 
     @Test
-    void readsTheEchoOffAComputeDtbsResponse() {
+    void acceptsAnEchoReadOffAComputeDtbsResponse() {
         // when / then
         assertThatCode(
                 () -> DtbsBindingVerifier.verify(AUTHORIZED, response(DigestAlgorithm.SHA_256, AUTHORIZED_VALUE)))
                 .doesNotThrowAnyException();
-        assertThat(
-                catchVerify(AUTHORIZED, response(DigestAlgorithm.SHA_256, digestOfLength(32, (byte) 0x22))).failure())
+    }
+
+    @Test
+    void refusesAnEchoReadOffAComputeDtbsResponseThatNamesAnotherDocument() {
+        // when / then
+        assertThat(catchVerify(AUTHORIZED, response(DigestAlgorithm.SHA_256, DIFFERENT_DOCUMENT.value())).failure())
                 .isEqualTo(SigningEngineFailure.BINDING_VIOLATION);
     }
 
@@ -158,8 +166,10 @@ class DtbsBindingVerifierTest {
                         response(DigestAlgorithm.SHA_256, AUTHORIZED_VALUE));
 
         // when / then
-        assertThatExceptionOfType(SigningEngineException.class)
-                .isThrownBy(() -> DtbsBindingVerifier.verifyAll(List.of(AUTHORIZED, second), swapped));
+        SigningEngineException thrown = catchThrowableOfType(SigningEngineException.class,
+                () -> DtbsBindingVerifier.verifyAll(List.of(AUTHORIZED, second), swapped));
+        assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.BINDING_VIOLATION);
+        assertThat(thrown.operatorMessage()).contains("3333", "1111");
     }
 
     @Test
@@ -170,13 +180,17 @@ class DtbsBindingVerifierTest {
                         .verifyAll(List.of(AUTHORIZED),
                                 List
                                         .of(response(DigestAlgorithm.SHA_256, AUTHORIZED_VALUE),
-                                                response(DigestAlgorithm.SHA_256, AUTHORIZED_VALUE))));
+                                                response(DigestAlgorithm.SHA_256, AUTHORIZED_VALUE))))
+                .withMessageContaining("Cannot pair 1 authorized digests with 2");
     }
 
+    /** An operation covering no document would satisfy the gate by having nothing to check. */
     @Test
-    void acceptsAnEmptyMultiDocumentOperation() {
+    void refusesAMultiDocumentOperationWithNothingToCheck() {
         // when / then
-        assertThatCode(() -> DtbsBindingVerifier.verifyAll(List.of(), List.of())).doesNotThrowAnyException();
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> DtbsBindingVerifier.verifyAll(List.of(), List.of()))
+                .withMessageContaining("no authorized digest");
     }
 
     /** Whoever computed the authorized digest cannot move it afterwards by reusing the buffer it came in. */
@@ -191,14 +205,15 @@ class DtbsBindingVerifierTest {
 
         // then
         assertThatCode(() -> DtbsBindingVerifier
-                .verify(authorized, new DocumentDigest(DigestAlgorithm.SHA_256, digestOfLength(32, (byte) 0x11))))
+                .verifyEcho(authorized, new DocumentDigest(DigestAlgorithm.SHA_256, digestOfLength(32, (byte) 0x11))))
                 .doesNotThrowAnyException();
-        assertThat(catchVerify(authorized, new DocumentDigest(DigestAlgorithm.SHA_256, source)).failure())
+        assertThat(catchVerifyEcho(authorized, new DocumentDigest(DigestAlgorithm.SHA_256, source)).failure())
                 .isEqualTo(SigningEngineFailure.BINDING_VIOLATION);
     }
 
-    private static SigningEngineException catchVerify(DocumentDigest authorized, DocumentDigest echoed) {
-        return catchThrowableOfType(SigningEngineException.class, () -> DtbsBindingVerifier.verify(authorized, echoed));
+    private static SigningEngineException catchVerifyEcho(DocumentDigest authorized, DocumentDigest echoed) {
+        return catchThrowableOfType(SigningEngineException.class,
+                () -> DtbsBindingVerifier.verifyEcho(authorized, echoed));
     }
 
     private static SigningEngineException catchVerify(DocumentDigest authorized, ComputeDtbsResponseDto response) {

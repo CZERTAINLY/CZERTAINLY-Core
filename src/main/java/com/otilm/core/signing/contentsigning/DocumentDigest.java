@@ -1,6 +1,7 @@
 package com.otilm.core.signing.contentsigning;
 
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.Objects;
@@ -26,6 +27,11 @@ public record DocumentDigest(DigestAlgorithm algorithm, byte[] value) {
         return value.clone();
     }
 
+    /** The digest length, free of the copy {@link #value()} has to make. */
+    public int length() {
+        return value.length;
+    }
+
     /** Whether the digest is as long as its algorithm produces; a shorter or longer one came from no document. */
     public boolean hasLengthOfItsAlgorithm() {
         return value.length == algorithm.getDigestSizeBytes();
@@ -33,11 +39,13 @@ public record DocumentDigest(DigestAlgorithm algorithm, byte[] value) {
 
     /**
      * A record's generated members would compare the array by identity, which is never what a digest comparison means.
+     * The comparison runs in time independent of where two digests first differ, matching the one the binding check
+     * relies on.
      */
     @Override
     public boolean equals(Object other) {
         return other instanceof DocumentDigest digest && algorithm == digest.algorithm
-                && Arrays.equals(value, digest.value);
+                && MessageDigest.isEqual(value, digest.value);
     }
 
     @Override

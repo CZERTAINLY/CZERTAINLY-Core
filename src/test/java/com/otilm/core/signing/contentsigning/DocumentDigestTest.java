@@ -47,6 +47,12 @@ class DocumentDigestTest {
     }
 
     @Test
+    void reportsItsLengthWithoutCopyingTheDigest() {
+        // when / then
+        assertThat(new DocumentDigest(DigestAlgorithm.SHA_256, VALUE).length()).isEqualTo(VALUE.length);
+    }
+
+    @Test
     void refusesToExistWithoutBothHalves() {
         // when / then
         assertThatNullPointerException().isThrownBy(() -> new DocumentDigest(null, VALUE));
