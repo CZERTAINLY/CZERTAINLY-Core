@@ -39,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 class CsrGenerationAttributesITest extends BaseSpringBootTest {
@@ -117,13 +117,38 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
     @Test
     void csrResolutionStaysPlatformOnly_regressionForConnectorRequestSchema() throws Exception {
         // Regression pin: the connector-provided certificate-request schema exists on the adapter
-        // (listCertificateRequestAttributes) but is deliberately NOT consumed here — wiring it into this resolution
-        // is a separate planned change. CSR-attribute resolution must not gain any connector consultation.
-        RaProfile raProfile = newEnabledRaProfile();
+        // (listCertificateRequestAttributes) but is deliberately NOT consumed here. The fixture carries an authority
+        // and connector, so the resolution actually reaches the connector-consulting path — the pin is that the
+        // issue-attribute listing is its ONLY consultation.
+        Connector connector = new Connector();
+        connector.setUrl("http://localhost");
+        connector.setVersion(ConnectorVersion.V1);
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connector = connectorRepository.save(connector);
+
+        AuthorityInstanceReference authority = new AuthorityInstanceReference();
+        authority.setAuthorityInstanceUuid("2");
+        authority.setConnector(connector);
+        authority = authorityInstanceReferenceRepository.save(authority);
+
+        RaProfile raProfile = new RaProfile();
+        raProfile.setName("rp-" + UUID.randomUUID());
+        raProfile.setEnabled(true);
+        raProfile.setAuthorityInstanceReference(authority);
+        raProfile.setAuthorityInstanceReferenceUuid(authority.getUuid());
+        raProfile = raProfileRepository.save(raProfile);
+
+        RaProfileCertificateRequestAttribute requestAttribute = new RaProfileCertificateRequestAttribute();
+        requestAttribute.setRaProfile(raProfile);
+        requestAttribute.setMergeMode(AttributeSetMergeMode.MERGE);
+        raProfileCertificateRequestAttributeRepository.save(requestAttribute);
+
+        when(extendedAttributeService.listIssueCertificateAttributes(any())).thenReturn(List.of());
 
         certificateService.getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
 
-        verifyNoInteractions(extendedAttributeService);
+        verify(extendedAttributeService).listIssueCertificateAttributes(any());
+        verifyNoMoreInteractions(extendedAttributeService);
     }
 
     @Test

@@ -44,7 +44,7 @@ public interface ClientOperationInternalService {
     ClientCertificateDataResponseDto renewCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             String certificateUuid, ClientCertificateRenewRequestDto request)
             throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException,
-            CertificateOperationException, CertificateRequestException;
+            CertificateOperationException, CertificateRequestException, ConnectorException, AttributeException;
 
     void renewCertificateAction(final UUID certificateUuid, ClientCertificateRenewRequestDto request,
             boolean isApproved) throws NotFoundException, CertificateOperationException;
@@ -52,7 +52,7 @@ public interface ClientOperationInternalService {
     ClientCertificateDataResponseDto rekeyCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             String certificateUuid, ClientCertificateRekeyRequestDto request)
             throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException,
-            CertificateOperationException, CertificateRequestException;
+            CertificateOperationException, CertificateRequestException, ConnectorException, AttributeException;
 
     void rekeyCertificateAction(final UUID certificateUuid, ClientCertificateRekeyRequestDto request,
             boolean isApproved) throws NotFoundException, CertificateOperationException;

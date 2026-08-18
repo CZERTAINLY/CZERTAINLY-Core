@@ -148,6 +148,8 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         if (authorityRef.getConnector() == null) {
             throw new NotFoundException(CONNECTOR_UNAVAILABLE_MESSAGE);
         }
+        // No legacy-connector check here (unlike issue/revoke): the renew schema is v3-only, so an older authority
+        // routes to an adapter that returns an empty schema — uniform "no schema", not a version-framed 404.
         return authorityProviderAdapterFactory.forAuthority(authorityRef).listRenewAttributes(authorityRef, raProfile);
     }
 
@@ -158,6 +160,8 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         if (authorityRef.getConnector() == null) {
             throw new NotFoundException(CONNECTOR_UNAVAILABLE_MESSAGE);
         }
+        // No legacy-connector check here (unlike issue/revoke): the identify schema is v3-only, so an older authority
+        // routes to an adapter that returns an empty schema — uniform "no schema", not a version-framed 404.
         return authorityProviderAdapterFactory
                 .forAuthority(authorityRef)
                 .listIdentifyAttributes(authorityRef, raProfile);
@@ -176,6 +180,13 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         List<BaseAttribute> definitions = authorityProviderAdapterFactory
                 .forAuthority(authorityRef)
                 .listRenewAttributes(authorityRef, raProfile);
+        // An authority without a renew schema (v2, or a v3 connector not serving the endpoint) cannot carry the
+        // values on the wire; accepting them would persist attributes the CA never receives and surface them on
+        // the certificate detail as if applied.
+        if (!attributes.isEmpty() && definitions.isEmpty()) {
+            throw new ValidationException(ValidationError
+                    .create("Renew attributes were supplied but the authority offers no renew attribute schema"));
+        }
         attributeEngine
                 .validateUpdateDataAttributes(authorityRef.getConnectorUuid(), AttributeOperation.CERTIFICATE_RENEW,
                         definitions, attributes);
@@ -194,6 +205,11 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         List<BaseAttribute> definitions = authorityProviderAdapterFactory
                 .forAuthority(authorityRef)
                 .listIdentifyAttributes(authorityRef, raProfile);
+        // Same containment as renew: no identify schema on the authority means the wire cannot carry the values.
+        if (!attributes.isEmpty() && definitions.isEmpty()) {
+            throw new ValidationException(ValidationError
+                    .create("Identify attributes were supplied but the authority offers no identify attribute schema"));
+        }
         attributeEngine
                 .validateUpdateDataAttributes(authorityRef.getConnectorUuid(), AttributeOperation.CERTIFICATE_IDENTIFY,
                         definitions, attributes);

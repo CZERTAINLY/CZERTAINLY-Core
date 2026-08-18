@@ -5,12 +5,16 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.api.model.core.certificate.CertificateRelationType;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRevocationDto;
+import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.AttributeOperation;
+import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.CertificateRelation;
@@ -28,6 +32,7 @@ import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CertificateExternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
+import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.builders.AuthorityFixtures;
 import com.otilm.core.util.builders.CertificateRequestEntityBuilder;
@@ -65,6 +70,10 @@ class V3RenewRevokeITest extends BaseSpringBootTest {
     private ClientOperationInternalService clientOperationInternalService;
     @Autowired
     private CertificateExternalService certificateExternalService;
+    @Autowired
+    private ExtendedAttributeService extendedAttributeService;
+    @Autowired
+    private AttributeEngine attributeEngine;
     @Autowired
     private CertificateRepository certificateRepository;
     @Autowired
@@ -132,13 +141,50 @@ class V3RenewRevokeITest extends BaseSpringBootTest {
     }
 
     @Test
-    void renew_carriesRenewAttributeValuesOnTheWire() throws Exception {
+    void renew_carriesPersistedRenewAttributeValuesOnTheWire() throws Exception {
         AuthorityFixtures.Fixture fixture = buildV3Fixture();
         V3ConnectorStubs.stubAttributesAndValidate(wireMockServer);
         UUID predecessorUuid = seedRenewalPair(fixture);
         UUID successorUuid = successorUuid(predecessorUuid);
+        stubRenewSchemaAndAccept();
+        persistRenewValue(fixture, successorUuid);
 
-        // Connector offers a renew schema (more specific than the blanket empty stub above, so it wins).
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .renewCertificateAction(successorUuid, ClientCertificateRenewRequestDto.builder().build(),
+                                true));
+
+        wireMockServer
+                .verify(1,
+                        postRequestedFor(urlEqualTo(V3_RENEW_PATH))
+                                .withRequestBody(matchingJsonPath("$.attributes[0].name", equalTo("validityOverride")))
+                                .withRequestBody(matchingJsonPath("$.attributes[0].content[0].data", equalTo("P90D"))));
+    }
+
+    @Test
+    void renewAttributeValuesSurfaceOnSuccessorDetail() throws Exception {
+        AuthorityFixtures.Fixture fixture = buildV3Fixture();
+        V3ConnectorStubs.stubAttributesAndValidate(wireMockServer);
+        UUID predecessorUuid = seedRenewalPair(fixture);
+        UUID successorUuid = successorUuid(predecessorUuid);
+        stubRenewSchemaAndAccept();
+        persistRenewValue(fixture, successorUuid);
+
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .renewCertificateAction(successorUuid, ClientCertificateRenewRequestDto.builder().build(),
+                                true));
+
+        // The persisted values surface on the successor's detail, like issue/revoke/register values do.
+        CertificateDetailDto detail = certificateExternalService.getCertificate(SecuredUUID.fromUUID(successorUuid));
+        Assertions
+                .assertEquals(1, detail.getRenewAttributes().size(),
+                        "renew attributes must surface on the successor certificate detail");
+        Assertions.assertEquals("validityOverride", detail.getRenewAttributes().getFirst().getName());
+    }
+
+    /** Connector offers a renew schema (more specific than the blanket empty stub, so it wins) and accepts renew. */
+    private void stubRenewSchemaAndAccept() {
         wireMockServer
                 .stubFor(post(urlEqualTo(V3_RENEW_ATTRIBUTES_PATH))
                         .willReturn(
@@ -160,30 +206,22 @@ class V3RenewRevokeITest extends BaseSpringBootTest {
                                 .withStatus(202)
                                 .withHeader("Content-Type", "application/json")
                                 .withBody("{\"certificateData\": null, \"meta\": []}")));
+    }
 
+    /**
+     * Persists a renew value on the successor the way the synchronous renew entry does (validate against the connector
+     * schema, then write the CERTIFICATE_RENEW slot), so the action's adapter read-back finds it.
+     */
+    private void persistRenewValue(AuthorityFixtures.Fixture fixture, UUID successorUuid) throws Exception {
         RequestAttributeV3 renewValue = new RequestAttributeV3(UUID.fromString("1b7f2c3a-0000-4000-8000-000000000001"),
                 "validityOverride", AttributeContentType.STRING, List.of(new StringAttributeContentV3("P90D")));
-        ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto
-                .builder()
-                .attributes(List.of(renewValue))
-                .build();
-
-        Assertions
-                .assertDoesNotThrow(
-                        () -> clientOperationInternalService.renewCertificateAction(successorUuid, request, true));
-
-        wireMockServer
-                .verify(1,
-                        postRequestedFor(urlEqualTo(V3_RENEW_PATH))
-                                .withRequestBody(matchingJsonPath("$.attributes[0].name", equalTo("validityOverride")))
-                                .withRequestBody(matchingJsonPath("$.attributes[0].content[0].data", equalTo("P90D"))));
-
-        // The submitted values also surface on the successor's detail, like issue/revoke/register values do.
-        CertificateDetailDto detail = certificateExternalService.getCertificate(SecuredUUID.fromUUID(successorUuid));
-        Assertions
-                .assertEquals(1, detail.getRenewAttributes().size(),
-                        "renew attributes must surface on the successor certificate detail");
-        Assertions.assertEquals("validityOverride", detail.getRenewAttributes().get(0).getName());
+        extendedAttributeService.mergeAndValidateRenewAttributes(fixture.raProfile(), List.of(renewValue));
+        attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, successorUuid)
+                        .connector(fixture.raProfile().getAuthorityInstanceReference().getConnectorUuid())
+                        .operation(AttributeOperation.CERTIFICATE_RENEW)
+                        .build(), List.of(renewValue));
     }
 
     @Test

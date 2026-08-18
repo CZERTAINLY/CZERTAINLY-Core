@@ -937,8 +937,24 @@ class AuthorityProviderV3AdapterTest {
         List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
         when(certClientV3.listRenewAttributes(eq(connectorInfo), any())).thenReturn(expected);
         assertEquals(expected, adapter.listRenewAttributes(authority, raProfile));
+    }
+
+    @Test
+    void nullRequestSchemaBodyResolvesEmpty() throws ConnectorException {
+        when(certClientV3.listRequestAttributes(eq(connectorInfo), any())).thenReturn(null);
+        assertEquals(List.of(), adapter.listCertificateRequestAttributes(authority, raProfile));
+    }
+
+    @Test
+    void nullRenewSchemaBodyResolvesEmpty() throws ConnectorException {
         when(certClientV3.listRenewAttributes(eq(connectorInfo), any())).thenReturn(null);
         assertEquals(List.of(), adapter.listRenewAttributes(authority, raProfile));
+    }
+
+    @Test
+    void nullIdentifySchemaBodyResolvesEmpty() throws ConnectorException {
+        when(certClientV3.listIdentifyAttributes(eq(connectorInfo), any())).thenReturn(null);
+        assertEquals(List.of(), adapter.listIdentifyAttributes(authority, raProfile));
     }
 
     @Test

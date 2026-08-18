@@ -437,7 +437,7 @@ class AuthorityProviderV2AdapterTest {
     }
 
     @Test
-    void newAttributeSchemas_returnEmptyOnV2_withoutTouchingTheConnector() throws ConnectorException {
+    void requestRenewIdentifySchemas_returnEmptyOnV2_withoutTouchingTheConnector() throws ConnectorException {
         assertEquals(List.of(), adapter.listCertificateRequestAttributes(authority, raProfile));
         assertEquals(List.of(), adapter.listRenewAttributes(authority, raProfile));
         assertEquals(List.of(), adapter.listIdentifyAttributes(authority, raProfile));

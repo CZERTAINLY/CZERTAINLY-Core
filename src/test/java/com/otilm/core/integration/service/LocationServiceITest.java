@@ -814,7 +814,7 @@ class LocationServiceITest extends BaseSpringBootTest {
     @Test
     void renewCertificateInLocation() throws ConnectorException, LocationException, CertificateOperationException,
             java.security.cert.CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException,
-            CertificateRequestException, NotFoundException {
+            CertificateRequestException, NotFoundException, AttributeException {
         CertificateLocation certificateLocation = location.getCertificates().stream().findFirst().get();
         DataAttributeV2 pushAttribute = new DataAttributeV2();
         pushAttribute.setUuid(UUID.randomUUID().toString());

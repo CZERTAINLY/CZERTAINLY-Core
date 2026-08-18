@@ -4,6 +4,7 @@ import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.core.attribute.engine.AttributeEngine;
@@ -287,6 +288,28 @@ class ExtendedAttributeServiceImplTest {
         verify(attributeEngine)
                 .validateUpdateDataAttributes(authority.getConnectorUuid(), AttributeOperation.CERTIFICATE_IDENTIFY,
                         definitions, List.of());
+    }
+
+    @Test
+    void mergeAndValidateRenewAttributes_rejectsValuesWhenAuthorityOffersNoSchema() throws Exception {
+        when(adapter.listRenewAttributes(authority, raProfile)).thenReturn(List.of());
+
+        RequestAttributeV3 value = new RequestAttributeV3();
+        value.setName("validityOverride");
+        assertThrows(ValidationException.class,
+                () -> service.mergeAndValidateRenewAttributes(raProfile, List.of(value)));
+        verifyNoInteractions(attributeEngine);
+    }
+
+    @Test
+    void mergeAndValidateIdentifyAttributes_rejectsValuesWhenAuthorityOffersNoSchema() throws Exception {
+        when(adapter.listIdentifyAttributes(authority, raProfile)).thenReturn(List.of());
+
+        RequestAttributeV3 value = new RequestAttributeV3();
+        value.setName("agentReference");
+        assertThrows(ValidationException.class,
+                () -> service.mergeAndValidateIdentifyAttributes(raProfile, List.of(value)));
+        verifyNoInteractions(attributeEngine);
     }
 
     // --- listRegisterCertificateAttributes ---

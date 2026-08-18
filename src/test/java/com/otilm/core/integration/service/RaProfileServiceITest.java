@@ -666,14 +666,19 @@ class RaProfileServiceITest extends ApprovalProfileData {
     }
 
     @Test
-    void testListRenewAndIdentifyCertificateAttributes_resolveEmptyOnV2Authority()
-            throws ConnectorException, NotFoundException {
-        // A v2 authority has no renew/identify schema endpoints; resolution is empty without any connector call.
+    void testListRenewCertificateAttributes_resolvesEmptyOnV2Authority() throws ConnectorException, NotFoundException {
+        // A v2 authority has no renew schema endpoint; resolution is empty without any connector call.
         Assertions
                 .assertEquals(List.of(),
                         raProfileService
                                 .listRenewCertificateAttributes(authorityInstanceReference.getSecuredParentUuid(),
                                         raProfile.getSecuredUuid()));
+    }
+
+    @Test
+    void testListIdentifyCertificateAttributes_resolvesEmptyOnV2Authority()
+            throws ConnectorException, NotFoundException {
+        // A v2 authority has no identify schema endpoint; resolution is empty without any connector call.
         Assertions
                 .assertEquals(List.of(),
                         raProfileService

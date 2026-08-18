@@ -257,50 +257,6 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
         return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
     }
 
-    @FunctionalInterface
-    private interface SchemaCall {
-        List<BaseAttribute> get() throws ConnectorException;
-    }
-
-    /**
-     * Resolves "connector does not offer this schema" to an empty list, keyed on status codes because connectors are
-     * polyglot and a problem body is not guaranteed: HTTP 404 (endpoint absent), ErrorCode.OPERATION_NOT_SUPPORTED, and
-     * a bare 501 all mean the optional attribute-schema endpoint is not provided. Everything else — auth failures,
-     * other 5xx, communication failures, malformed bodies — propagates: silently emptying a schema the connector does
-     * have would drop attributes the CA requires.
-     */
-    private List<BaseAttribute> schemaOrEmpty(SchemaCall call, String operation) throws ConnectorException {
-        try {
-            List<BaseAttribute> response = call.get();
-            if (response == null) {
-                log
-                        .debug("Connector returned empty body for the {} attribute schema; resolving empty schema",
-                                operation);
-                return List.of();
-            }
-            return response;
-        } catch (ConnectorEntityNotFoundException e) {
-            log
-                    .debug("Optional {} attribute-schema endpoint not served by connector (404); resolving empty schema",
-                            operation);
-            return List.of();
-        } catch (ConnectorProblemException e) {
-            if (e.getProblemDetail().getErrorCode() == ErrorCode.OPERATION_NOT_SUPPORTED) {
-                log
-                        .debug("Connector declines to offer the {} attribute schema (OPERATION_NOT_SUPPORTED); "
-                                + "resolving empty schema", operation);
-                return List.of();
-            }
-            throw e;
-        } catch (ConnectorServerException e) {
-            if (e.getHttpStatus() == HttpStatus.NOT_IMPLEMENTED) {
-                log.debug("Connector answered bare 501 for the {} attribute schema; resolving empty schema", operation);
-                return List.of();
-            }
-            throw e;
-        }
-    }
-
     @Override
     public void validateIssueAttributes(AuthorityInstanceReference authority, List<RequestAttribute> attributes) {
         // v3 has no connector-side /validate; the caller validates structurally against the listed
@@ -484,6 +440,55 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
     }
 
     // ---- private helpers ----
+
+    @FunctionalInterface
+    private interface SchemaCall {
+        List<BaseAttribute> get() throws ConnectorException;
+    }
+
+    /**
+     * Resolves "connector does not offer this schema" to an empty list.
+     * <p>
+     * <b>Not-offered signals:</b> HTTP 404 (endpoint absent), {@code OPERATION_NOT_SUPPORTED}, a bare 501, and an empty
+     * response body. Keyed on status because connectors are polyglot and a problem body is not guaranteed.
+     * <p>
+     * <b>Everything else propagates</b> — auth failures, other 5xx, communication failures, malformed bodies. Silently
+     * emptying a schema the connector does have would drop attributes the CA requires.
+     * <p>
+     * <b>Consequence for validation:</b> an empty resolution also means required-attribute enforcement is off for that
+     * operation; the merge/validate callers compensate by rejecting supplied values against an empty schema.
+     */
+    private List<BaseAttribute> schemaOrEmpty(SchemaCall call, String operation) throws ConnectorException {
+        try {
+            List<BaseAttribute> response = call.get();
+            if (response == null) {
+                log
+                        .debug("Connector returned empty body for the {} attribute schema; resolving empty schema",
+                                operation);
+                return List.of();
+            }
+            return response;
+        } catch (ConnectorEntityNotFoundException e) {
+            log
+                    .debug("Optional {} attribute-schema endpoint not served by connector (404); resolving empty schema",
+                            operation);
+            return List.of();
+        } catch (ConnectorProblemException e) {
+            if (e.getProblemDetail().getErrorCode() == ErrorCode.OPERATION_NOT_SUPPORTED) {
+                log
+                        .debug("Connector declines to offer the {} attribute schema (OPERATION_NOT_SUPPORTED); "
+                                + "resolving empty schema", operation);
+                return List.of();
+            }
+            throw e;
+        } catch (ConnectorServerException e) {
+            if (e.getHttpStatus() == HttpStatus.NOT_IMPLEMENTED) {
+                log.debug("Connector answered bare 501 for the {} attribute schema; resolving empty schema", operation);
+                return List.of();
+            }
+            throw e;
+        }
+    }
 
     @FunctionalInterface
     private interface ConnectorCall {
