@@ -24,12 +24,13 @@ class DocumentDigestTest {
     void tellsDigestsApartByValueAndByAlgorithm() {
         // given
         DocumentDigest digest = new DocumentDigest(DigestAlgorithm.SHA_256, VALUE);
+        Object notADigest = "not a digest";
 
         // when / then
         assertThat(digest)
                 .isNotEqualTo(new DocumentDigest(DigestAlgorithm.SHA_256, new byte[]{0x0a, 0x0c}))
                 .isNotEqualTo(new DocumentDigest(DigestAlgorithm.SHA_512, VALUE))
-                .isNotEqualTo("not a digest")
+                .isNotEqualTo(notADigest)
                 .isEqualTo(digest);
     }
 

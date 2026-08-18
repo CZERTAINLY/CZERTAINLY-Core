@@ -142,6 +142,15 @@ class DtbsBindingVerifierTest {
         assertThat(catchVerify(AUTHORIZED, noAlgorithm).operatorMessage()).contains("echoed no documentDigest");
     }
 
+    /** A connector that delivered nothing at all is the same fault as one that echoed no digest. */
+    @Test
+    void treatsAMissingResponseAsAConnectorFault() {
+        // when / then
+        SigningEngineException thrown = catchVerify(AUTHORIZED, null);
+        assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
+        assertThat(thrown.operatorMessage()).contains("returned no computeDtbs response");
+    }
+
     @Test
     void verifiesEveryDocumentOfAMultiDocumentOperation() {
         // given

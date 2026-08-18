@@ -33,11 +33,14 @@ public final class DtbsBindingVerifier {
      * Verifies the echo a {@code computeDtbs} response carries against the authorized digest.
      *
      * @throws IllegalArgumentException if the authorized digest is not as long as its algorithm produces
-     * @throws SigningEngineException if the echo is missing, unusable or bound to a different document
+     * @throws SigningEngineException if the response or its echo is missing, unusable or bound to a different document
      */
     public static void verify(DocumentDigest authorized, ComputeDtbsResponseDto response)
             throws SigningEngineException {
-        Objects.requireNonNull(response, "response");
+        requireWellFormedAuthorizedDigest(authorized);
+        if (response == null) {
+            throw brokenEcho("connector returned no computeDtbs response");
+        }
         verifyEcho(authorized, echoOf(response));
     }
 

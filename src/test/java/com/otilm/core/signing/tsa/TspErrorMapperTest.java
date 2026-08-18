@@ -26,7 +26,7 @@ class TspErrorMapperTest {
     @EnumSource(SigningEngineFailure.class)
     void mapsEveryFailureToATspFailureInfo(SigningEngineFailure failure) {
         // when / then
-        assertThat(EXPECTED).containsKey(failure);
+        assertThat(failure).isIn(EXPECTED.keySet());
         assertThat(TspErrorMapper.toFailureInfo(failure)).isEqualTo(EXPECTED.get(failure));
     }
 
