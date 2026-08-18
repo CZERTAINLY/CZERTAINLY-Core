@@ -54,6 +54,7 @@ import com.otilm.core.service.DiscoveryInternalService;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
+import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.tasks.ScheduledJobInfo;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.FilterPredicatesBuilder;
@@ -98,6 +99,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     private CertificateContentRepository certificateContentRepository;
 
     private DiscoveryProviderAdapterFactory discoveryProviderAdapterFactory;
+    private DiscoveryWriter discoveryWriter;
     private ConnectorRepository connectorRepository;
     private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
@@ -106,6 +108,11 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     @Autowired
     public void setConnectorRepository(ConnectorRepository connectorRepository) {
         this.connectorRepository = connectorRepository;
+    }
+
+    @Autowired
+    public void setDiscoveryWriter(DiscoveryWriter discoveryWriter) {
+        this.discoveryWriter = discoveryWriter;
     }
 
     @Autowired
@@ -365,21 +372,19 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
             // A routing refusal must still end as a terminal, user-visible run state: the async caller swallows
             // whatever escapes here, and the scheduler expects a result rather than an exception.
             logger.warn("Discovery {} cannot be dispatched: {}", discoveryUuid, e.getMessage());
-            discovery.setStatus(DiscoveryStatus.FAILED);
-            discovery.setConnectorStatus(DiscoveryStatus.FAILED);
             // The curated text, not e.getMessage(): the raw message carries the connector-reported version
             // string, which is unvalidated input — it stays in the log, like the REST handler's fixed body.
-            discovery.setMessage(UNSUPPORTED_VERSION_MESSAGE);
-            discovery.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
-            discoveryRepository.save(discovery);
+            // The writer also maps the terminal detail; re-reading it here would resolve to this scope's stale
+            // first-level-cached entity (see the writer's javadoc).
+            DiscoveryDetailDto failedDetail = discoveryWriter
+                    .markDispatchRefused(discoveryUuid, UNSUPPORTED_VERSION_MESSAGE)
+                    .orElseThrow(() -> e);
             eventProducer
                     .produceMessage(DiscoveryFinishedEventHandler
                             .constructEventMessage(discoveryUuid,
                                     UUID.fromString(AuthHelper.getUserIdentification().getUuid()), null,
                                     new DiscoveryResult(DiscoveryStatus.FAILED, UNSUPPORTED_VERSION_MESSAGE)));
-            // Reloaded with triggers fetched: this method runs without a transaction, so mapping the detached
-            // routing entity would trip over the lazy triggers collection.
-            return discoveryRepository.findWithTriggersByUuid(discoveryUuid).mapToDto();
+            return failedDetail;
         }
     }
 

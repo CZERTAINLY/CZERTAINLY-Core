@@ -140,6 +140,25 @@ class DiscoveryWriterITest extends BaseSpringBootTest {
                 .isEqualTo(statusBefore);
     }
 
+    @Test
+    void markDispatchRefusedPersistsTheTerminalFailureAndReturnsItsDetail() {
+        Discovery run = givenDiscovery();
+
+        var detail = discoveryWriter.markDispatchRefused(run.getUuid(), "refused").orElseThrow();
+
+        assertThat(detail.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        Discovery persisted = discoveryRepository.findByUuid(run.getUuid()).orElseThrow();
+        assertThat(persisted.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        assertThat(persisted.getConnectorStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        assertThat(persisted.getMessage()).isEqualTo("refused");
+        assertThat(persisted.getEndTime()).isNotNull();
+    }
+
+    @Test
+    void markDispatchRefusedIsEmptyForAnUnknownRun() {
+        assertThat(discoveryWriter.markDispatchRefused(UUID.randomUUID(), "refused")).isEmpty();
+    }
+
     private Discovery givenDiscovery() {
         Discovery discovery = new Discovery();
         discovery.setName("DiscoveryWriterITest-" + UUID.randomUUID());

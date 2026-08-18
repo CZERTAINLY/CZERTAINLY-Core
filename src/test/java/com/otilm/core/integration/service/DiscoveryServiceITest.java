@@ -303,6 +303,100 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void runDiscoveryWithV2AssociationEndsTerminalWhileTheAdapterIsAPlaceholder() {
+        ConnectorInterfaceEntity iface = new ConnectorInterfaceEntity();
+        iface.setConnectorUuid(connector.getUuid());
+        iface.setInterfaceCode(ConnectorInterface.DISCOVERY);
+        iface.setVersion("v2");
+        iface = connectorInterfaceRepository.save(iface);
+
+        discovery.setConnectorInterfaceUuid(iface.getUuid());
+        discoveryRepository.save(discovery);
+
+        DiscoveryDetailDto detail = discoveryInternalService.runDiscovery(discovery.getUuid(), null);
+
+        Assertions.assertEquals(DiscoveryStatus.FAILED, detail.getStatus());
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions.assertNotNull(persisted.getEndTime());
+    }
+
+    @Test
+    void runDiscoveryFailsWhenProviderReportsFailureWithoutCertificates()
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        UUID discoveryUuid = createRunnableDiscovery();
+        stubDiscoveryStart("""
+                {"uuid": "%s", "name": "integration-provider", "status": "failed",
+                 "totalCertificatesDiscovered": 0, "certificateData": [], "meta": [%s]}
+                """.formatted(PROVIDER_DISCOVERY_UUID, RUN_META_JSON));
+
+        discoveryInternalService.runDiscovery(discoveryUuid, null);
+
+        Discovery persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions
+                .assertTrue(persisted.getMessage().contains("failed on connector side without any certificates found"),
+                        persisted.getMessage());
+    }
+
+    @Test
+    void runDiscoveryFailsWhenProviderResponseLacksItsReference()
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        UUID discoveryUuid = createRunnableDiscovery();
+        stubDiscoveryStart("""
+                {"uuid": null, "name": "integration-provider", "status": "completed",
+                 "totalCertificatesDiscovered": 1, "certificateData": [], "meta": []}
+                """);
+
+        discoveryInternalService.runDiscovery(discoveryUuid, null);
+
+        Discovery persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions
+                .assertTrue(persisted.getMessage().contains("does not have associated discovery object at provider"),
+                        persisted.getMessage());
+    }
+
+    @Test
+    void runDiscoveryTreatsARepeatedCertificateAsDuplicate()
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        UUID discoveryUuid = createRunnableDiscovery();
+        // Two certificates promised, every page serves the same one: page 2 repeats page 1's content and must
+        // land in the duplicate handling rather than a second staged row.
+        stubDiscoveryStart(startResponse(2));
+        stubDiscoveryData(dataResponse(2));
+
+        discoveryInternalService.runDiscovery(discoveryUuid, null);
+
+        Discovery persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.PROCESSING, persisted.getStatus());
+        Assertions.assertEquals(1, discoveryCertificateRepository.countByDiscovery(persisted));
+    }
+
+    @Test
+    void runDiscoveryWarnsWhenAPageComesBackEmpty()
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        UUID discoveryUuid = createRunnableDiscovery();
+        stubDiscoveryStart(startResponse(2));
+        stubDiscoveryData(dataResponse(2));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/discoveryProvider/discover/" + PROVIDER_DISCOVERY_UUID))
+                        .withRequestBody(WireMock.matchingJsonPath("$.pageNumber", WireMock.equalTo("2")))
+                        .willReturn(WireMock.okJson("""
+                                {"uuid": "%s", "name": "integration-provider", "status": "completed",
+                                 "totalCertificatesDiscovered": 2, "certificateData": [], "meta": []}
+                                """.formatted(PROVIDER_DISCOVERY_UUID))));
+
+        discoveryInternalService.runDiscovery(discoveryUuid, null);
+
+        Discovery persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.PROCESSING, persisted.getStatus());
+        Assertions.assertTrue(persisted.getMessage().contains("Retrieved only"), persisted.getMessage());
+        Assertions.assertEquals(1, discoveryCertificateRepository.countByDiscovery(persisted));
+    }
+
+    @Test
     void runDiscoveryTest() throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         DiscoveryDto dto = new DiscoveryDto();
         dto.setName("RunDiscoveryIT-" + UUID.randomUUID());
@@ -426,6 +520,66 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         nameAndUuidDto = discoveryInternalService.getResourceObjectExternal(discovery.getSecuredUuid());
         Assertions.assertEquals(discovery.getUuid().toString(), nameAndUuidDto.getUuid());
         Assertions.assertEquals(discovery.getName(), nameAndUuidDto.getName());
+    }
+
+    private static final String RUN_META_JSON = """
+            {
+                "version": 2,
+                "uuid": "872ca286-601f-11ed-9b6a-0242ac120002",
+                "name": "totalUrls",
+                "description": "Total number of URLs for the discovery",
+                "content": [{"reference": "5", "data": 5}],
+                "type": "meta",
+                "contentType": "integer",
+                "properties": {"label": "Total URLs", "visible": true, "group": null, "global": false, "overwrite": false}
+            }
+            """;
+
+    private UUID createRunnableDiscovery()
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        DiscoveryDto dto = new DiscoveryDto();
+        dto.setName("RunDiscoveryIT-" + UUID.randomUUID());
+        dto.setKind("IpAndPort");
+        dto.setConnectorUuid(connector.getUuid().toString());
+        dto.setAttributes(List.of());
+        return UUID.fromString(discoveryService.createDiscovery(dto, true).getUuid());
+    }
+
+    /** Registered after {@code setUp}'s defaults, so it wins for the start endpoint. */
+    private void stubDiscoveryStart(String responseJson) {
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/discoveryProvider/discover"))
+                        .willReturn(WireMock.okJson(responseJson)));
+    }
+
+    /** Registered after {@code setUp}'s defaults, so it wins for the data endpoint. */
+    private void stubDiscoveryData(String responseJson) {
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v1/discoveryProvider/discover/" + PROVIDER_DISCOVERY_UUID))
+                        .willReturn(WireMock.okJson(responseJson)));
+    }
+
+    private String startResponse(int totalCertificates) {
+        return """
+                {"uuid": "%s", "name": "integration-provider", "status": "completed",
+                 "totalCertificatesDiscovered": %d, "certificateData": [], "meta": []}
+                """.formatted(PROVIDER_DISCOVERY_UUID, totalCertificates);
+    }
+
+    /** A single-certificate page reporting {@code totalCertificates} in total, page-number agnostic. */
+    private String dataResponse(int totalCertificates) {
+        return """
+                {"uuid": "%s", "name": "integration-provider", "status": "completed",
+                 "totalCertificatesDiscovered": %d,
+                 "certificateData": [{
+                     "uuid": "0279d416-02ed-4415-a8cd-85af3f083222",
+                     "base64Content": "%s",
+                     "meta": []
+                 }],
+                 "meta": []}
+                """.formatted(PROVIDER_DISCOVERY_UUID, totalCertificates, CERTIFICATE_BASE64);
     }
 
     private void stubConnectorEndpoints() {
