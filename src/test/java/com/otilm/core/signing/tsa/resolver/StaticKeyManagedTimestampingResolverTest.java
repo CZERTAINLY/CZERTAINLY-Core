@@ -2,21 +2,14 @@ package com.otilm.core.signing.tsa.resolver;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.exception.NotFoundException;
-import com.otilm.api.interfaces.core.tsp.error.TspException;
-import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
-import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.core.signing.SigningProtocol;
-import com.otilm.core.model.crypto.CryptographicKeyItemModel;
-import com.otilm.core.model.crypto.CryptographicKeyItemModelFixtures;
-import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.SigningRecordPolicyModelBuilder;
+import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
-import com.otilm.core.model.signing.scheme.DelegatedSigning;
-import com.otilm.core.model.signing.scheme.SigningSchemeModel;
 import com.otilm.core.model.signing.scheme.StaticKeyManagedSigning;
 import com.otilm.core.model.signing.timequality.ExplicitTimeQualityConfiguration;
 import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
@@ -24,13 +17,11 @@ import com.otilm.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.otilm.core.model.signing.workflow.DelegatedRawSigningWorkflow;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.otilm.core.model.signing.workflow.SigningWorkflow;
-import com.otilm.core.service.CertificateInternalService;
-import com.otilm.core.service.CryptographicKeyInternalService;
 import com.otilm.core.service.TimeQualityConfigurationInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
-import com.otilm.core.util.CertificateTestUtil;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.error.SigningEngineFailure;
+import com.otilm.core.signing.engine.resolver.ManagedSchemeResolver;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -56,9 +47,7 @@ import static org.mockito.Mockito.when;
 class StaticKeyManagedTimestampingResolverTest {
 
     @Mock
-    private CertificateInternalService certificateService;
-    @Mock
-    private CryptographicKeyInternalService cryptographicKeyService;
+    private ManagedSchemeResolver schemeResolver;
     @Mock
     private TimeQualityConfigurationInternalService timeQualityConfigurationService;
     @Mock
@@ -67,15 +56,13 @@ class StaticKeyManagedTimestampingResolverTest {
     @InjectMocks
     private StaticKeyManagedTimestampingResolver resolver;
 
-    private static final UUID CERTIFICATE_UUID = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final UUID CONNECTOR_UUID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID TQC_UUID = UUID.fromString("33333333-3333-3333-3333-333333333333");
 
-    private static SigningProfileModel<?, ?> managedTimestampingModel(SigningWorkflow workflow,
-            SigningSchemeModel scheme) {
+    private static SigningProfileModel<?, ?> managedTimestampingModel(SigningWorkflow workflow) {
         return new SigningProfileModel<>(UUID.fromString("99999999-9999-9999-9999-999999999999"), "ts-profile",
                 "a description", 2, true, List.of(SigningProtocol.TSP),
-                UUID.fromString("88888888-8888-8888-8888-888888888888"), workflow, scheme,
+                UUID.fromString("88888888-8888-8888-8888-888888888888"), workflow, staticKeyScheme(),
                 SigningRecordPolicyModelBuilder.notRecording().build());
     }
 
@@ -85,13 +72,12 @@ class StaticKeyManagedTimestampingResolverTest {
     }
 
     private static StaticKeyManagedSigning staticKeyScheme() {
-        return new StaticKeyManagedSigning(CERTIFICATE_UUID, List.of());
+        return new StaticKeyManagedSigning(UUID.fromString("11111111-1111-1111-1111-111111111111"), List.of());
     }
 
-    private static X509Certificate someX509() throws Exception {
-        // a real end-entity timestamping certificate; CertificateChain requires the signing cert at index 0
-        // to be an end-entity (basicConstraints == -1), so a bare mock would be rejected
-        return CertificateTestUtil.createTimestampingCertificate();
+    // ResolvedManagedScheme is a sealed interface and cannot be mocked; use a real instance instead.
+    private static ResolvedManagedScheme aResolvedScheme() {
+        return new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), List.of(), null, List.of());
     }
 
     // ── resolve() ──────────────────────────────────────────────────────────────
@@ -101,47 +87,29 @@ class StaticKeyManagedTimestampingResolverTest {
 
         @BeforeEach
         void stubHappyPathCollaborators() throws Exception {
-            // default happy-path wiring for the three collaborators every resolve() touches on the success path;
-            // lenient because early-failure tests short-circuit before reaching all three, and the mapping test
-            // re-stubs with exact-argument matchers
-            lenient()
-                    .when(certificateService.getSigningCertificate(any()))
-                    .thenReturn(SigningCertificateBuilder.valid());
-            lenient()
-                    .when(certificateService.getCertificateChainForSigning(any(), eq(true)))
-                    .thenReturn(List.of(someX509()));
+            // lenient: the early-failure tests short-circuit before reaching both collaborators
+            lenient().when(schemeResolver.resolve(any(), any())).thenReturn(aResolvedScheme());
             lenient()
                     .when(connectorService.getConnectorForApiClient(any()))
                     .thenReturn(mock(ApiClientConnectorInfo.class));
         }
 
         @Test
-        void mapsAllFields_andResolvesCertificateConnectorAndTimeQuality() throws Exception {
+        void mapsAllFields_andResolvesSchemeConnectorAndTimeQuality() throws Exception {
             // given
             ExplicitTimeQualityConfiguration tqc = new ExplicitTimeQualityConfiguration(TQC_UUID, "tqc",
                     Duration.ofSeconds(1), List.of("ntp"), Duration.ofSeconds(10), 4, Duration.ofSeconds(5), 1,
                     Duration.ofMillis(500), false);
             ApiClientConnectorInfo connector = mock(ApiClientConnectorInfo.class);
+            ResolvedManagedScheme resolvedScheme = aResolvedScheme();
 
-            UUID keyItemUuid = UUID.fromString("44444444-4444-4444-4444-444444444444");
-            SigningCertificate certificate = SigningCertificateBuilder
-                    .aSigningCertificate()
-                    .uuid(CERTIFICATE_UUID)
-                    .keyItemUuids(List.of(keyItemUuid))
-                    .build();
-            CryptographicKeyItemModel keyItem = CryptographicKeyItemModelFixtures
-                    .activeSigningPrivateKey(KeyAlgorithm.RSA);
-            List<X509Certificate> chain = List.of(someX509());
-
-            when(certificateService.getSigningCertificate(CERTIFICATE_UUID)).thenReturn(certificate);
-            when(cryptographicKeyService.getKeyItemModel(keyItemUuid)).thenReturn(keyItem);
-            when(certificateService.getCertificateChainForSigning(CERTIFICATE_UUID, true)).thenReturn(chain);
+            when(schemeResolver.resolve(eq("ts-profile"), any())).thenReturn(resolvedScheme);
             when(timeQualityConfigurationService.getTimeQualityConfigurationModel(TQC_UUID)).thenReturn(tqc);
             when(connectorService.getConnectorForApiClient(CONNECTOR_UUID)).thenReturn(connector);
 
             // when
             ResolvedManagedTimestampingProfile result = resolver
-                    .resolve(managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID), staticKeyScheme()));
+                    .resolve(managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID)));
 
             // then
             assertThat(result.uuid()).isEqualTo(UUID.fromString("99999999-9999-9999-9999-999999999999"));
@@ -157,16 +125,9 @@ class StaticKeyManagedTimestampingResolverTest {
             assertThat(result.validateTokenSignature()).isTrue();
             assertThat(result.timeQualityConfiguration()).isSameAs(tqc);
             assertThat(result.signatureFormattingConnector()).isSameAs(connector);
-            assertThat(result.resolvedScheme()).isInstanceOf(ResolvedStaticKeyManagedSigning.class);
-            ResolvedStaticKeyManagedSigning resolvedScheme = (ResolvedStaticKeyManagedSigning) result.resolvedScheme();
-            assertThat(resolvedScheme.certificate()).isSameAs(certificate);
-            assertThat(resolvedScheme.keyItems()).containsExactly(keyItem);
-            assertThat(resolvedScheme.chain().chain()).isEqualTo(chain);
+            assertThat(result.resolvedScheme()).isSameAs(resolvedScheme);
 
-            // resolves from caches, not from the JPA entity accessor
-            verify(certificateService).getSigningCertificate(CERTIFICATE_UUID);
-            verify(cryptographicKeyService).getKeyItemModel(keyItemUuid);
-            verify(certificateService, never()).getCertificateEntity(any());
+            verify(schemeResolver).resolve("ts-profile", staticKeyScheme());
         }
 
         // ── time quality configuration resolution ─────────────────────────────
@@ -177,7 +138,7 @@ class StaticKeyManagedTimestampingResolverTest {
 
             // when
             ResolvedManagedTimestampingProfile result = resolver
-                    .resolve(managedTimestampingModel(managedTimestampingWorkflow(null), staticKeyScheme()));
+                    .resolve(managedTimestampingModel(managedTimestampingWorkflow(null)));
 
             // then
             assertThat(result.timeQualityConfiguration()).isSameAs(LocalClockTimeQualityConfiguration.INSTANCE);
@@ -192,7 +153,7 @@ class StaticKeyManagedTimestampingResolverTest {
 
             // when
             ResolvedManagedTimestampingProfile result = resolver
-                    .resolve(managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID), staticKeyScheme()));
+                    .resolve(managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID)));
 
             // then
             assertThat(result.timeQualityConfiguration()).isSameAs(tqc);
@@ -202,98 +163,33 @@ class StaticKeyManagedTimestampingResolverTest {
         // ── failures ──────────────────────────────────────────────────────────
 
         @Test
-        void throwsSystemFailure_whenSchemeIsNotStaticKey() {
-            // given — a delegated scheme is not resolvable by this resolver
-            SigningSchemeModel delegated = new DelegatedSigning(CONNECTOR_UUID, List.of());
-            var model = managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID), delegated);
+        void propagatesSigningEngineException_whenSchemeResolutionFails() throws Exception {
+            // given — scheme resolution (certificate, key items, chain) is delegated to ManagedSchemeResolver
+            SigningEngineException schemeFailure = new SigningEngineException(SigningEngineFailure.MISCONFIGURED,
+                    "unsupported scheme", "The system is misconfigured.");
+            when(schemeResolver.resolve(any(), any())).thenThrow(schemeFailure);
+
+            var model = managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID));
 
             // when / then
-            assertThatThrownBy(() -> resolver.resolve(model))
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE));
+            assertThatThrownBy(() -> resolver.resolve(model)).isSameAs(schemeFailure);
         }
 
         @Test
-        void throwsSystemFailure_whenCertificateNotFound() throws Exception {
-            // given
-            when(certificateService.getSigningCertificate(any()))
-                    .thenThrow(new NotFoundException("certificate not found"));
-
-            var model = managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID), staticKeyScheme());
-
-            // when / then
-            assertThatThrownBy(() -> resolver.resolve(model))
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE));
-        }
-
-        @Test
-        void throwsSystemFailure_whenKeyItemNotFound() throws Exception {
-            // given
-            UUID keyItemUuid = UUID.fromString("55555555-5555-5555-5555-555555555555");
-            when(certificateService.getSigningCertificate(any()))
-                    .thenReturn(
-                            SigningCertificateBuilder.aSigningCertificate().keyItemUuids(List.of(keyItemUuid)).build());
-            when(cryptographicKeyService.getKeyItemModel(keyItemUuid))
-                    .thenThrow(new NotFoundException("key item not found"));
-
-            var model = managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID), staticKeyScheme());
-
-            // when / then
-            assertThatThrownBy(() -> resolver.resolve(model))
-                    .isInstanceOf(TspException.class)
-                    .hasMessageContaining(keyItemUuid.toString())
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE));
-        }
-
-        @Test
-        void throwsSystemFailure_whenCertificateChainCannotBeParsed() throws Exception {
-            // given
-            when(certificateService.getCertificateChainForSigning(any(), eq(true)))
-                    .thenThrow(new CertificateException("bad DER"));
-
-            var model = managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID), staticKeyScheme());
-
-            // when / then
-            assertThatThrownBy(() -> resolver.resolve(model))
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE));
-        }
-
-        @Test
-        void throwsSystemFailure_whenCertificateChainIsEmpty() throws Exception {
-            // given — chain validation lives in the resolver (single source of truth); an empty chain is a system
-            // failure
-            when(certificateService.getCertificateChainForSigning(any(), eq(true))).thenReturn(List.of());
-
-            var model = managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID), staticKeyScheme());
-
-            // when / then
-            assertThatThrownBy(() -> resolver.resolve(model))
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE));
-        }
-
-        @Test
-        void throwsSystemFailure_whenSignatureFormattingConnectorNotFound() throws Exception {
+        void throwsMisconfigured_whenSignatureFormattingConnectorNotFound() throws Exception {
             // given
             when(timeQualityConfigurationService.getTimeQualityConfigurationModel(TQC_UUID))
                     .thenReturn(LocalClockTimeQualityConfiguration.INSTANCE);
             when(connectorService.getConnectorForApiClient(CONNECTOR_UUID))
                     .thenThrow(new NotFoundException("connector not found"));
 
-            var model = managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID), staticKeyScheme());
+            var model = managedTimestampingModel(managedTimestampingWorkflow(TQC_UUID));
 
             // when / then
             assertThatThrownBy(() -> resolver.resolve(model))
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE));
+                    .isInstanceOf(SigningEngineException.class)
+                    .satisfies(ex -> assertThat(((SigningEngineException) ex).failure())
+                            .isEqualTo(SigningEngineFailure.MISCONFIGURED));
         }
     }
 
@@ -305,7 +201,7 @@ class StaticKeyManagedTimestampingResolverTest {
         @Test
         void returnsTrue_forManagedTimestampingWorkflow() {
             // given
-            var model = managedTimestampingModel(managedTimestampingWorkflow(null), staticKeyScheme());
+            var model = managedTimestampingModel(managedTimestampingWorkflow(null));
 
             // when / then
             assertThat(resolver.supports(model)).isTrue();
@@ -314,7 +210,7 @@ class StaticKeyManagedTimestampingResolverTest {
         @Test
         void returnsFalse_forNonManagedTimestampingWorkflow() {
             // given
-            var model = managedTimestampingModel(new DelegatedRawSigningWorkflow(), staticKeyScheme());
+            var model = managedTimestampingModel(new DelegatedRawSigningWorkflow());
 
             // when / then
             assertThat(resolver.supports(model)).isFalse();

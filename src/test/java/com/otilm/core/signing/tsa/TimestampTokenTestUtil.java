@@ -64,7 +64,8 @@ public final class TimestampTokenTestUtil {
 
     /**
      * Generates a minimal {@link TimeStampToken} together with the {@link X509Certificate} that was used to sign it, so
-     * callers can build a matching {@link CertificateChain} for signature verification tests.
+     * callers can build a matching {@link com.otilm.core.signing.engine.CertificateChain} for signature verification
+     * tests.
      */
     public static TokenWithCert createTimestampTokenWithCert() throws Exception {
         ensureBouncyCastleProvider();
