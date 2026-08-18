@@ -39,6 +39,10 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
 
     private static final Logger logger = LoggerFactory.getLogger(V202507311051__MigrateToComplianceProfilesV2.class);
 
+    /**
+     * A pinned copy of the wire recipe. A migration must keep producing the shape it wrote on its first run, so it
+     * cannot follow a factory recipe that may evolve.
+     */
     private static final ObjectMapper mapper = Jackson2ObjectMapperBuilder.json()
             .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY)
             .modules(new JavaTimeModule())

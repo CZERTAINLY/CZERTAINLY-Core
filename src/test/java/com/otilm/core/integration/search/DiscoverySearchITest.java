@@ -26,7 +26,7 @@ import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
-import com.otilm.core.dao.entity.DiscoveryHistory;
+import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.FunctionGroup;
 import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
@@ -37,9 +37,9 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -54,7 +54,7 @@ import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aProper
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyNotEqualsFilter;
 
-class DiscoveryHistorySearchITest extends BaseSpringBootTest {
+class DiscoverySearchITest extends BaseSpringBootTest {
 
     @Autowired
     private DiscoveryRepository discoveryRepository;
@@ -73,12 +73,15 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
         this.attributeEngine = attributeEngine;
     }
 
-    private static final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+    /** Interprets local fixture timestamps in the system zone, preserving their intended instants. */
+    private static OffsetDateTime localDateTime(String value) {
+        return LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+    }
 
     private boolean isLoadedData = false;
 
     private Connector connector;
-    private DiscoveryHistory discoveryHistory;
+    private Discovery discovery;
 
     @BeforeEach
     void loadData() {
@@ -108,54 +111,54 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
             connector.getFunctionGroups().add(c2fg);
             connectorRepository.save(connector);
 
-            final DiscoveryHistory discovery1 = new DiscoveryHistory();
+            final Discovery discovery1 = new Discovery();
             discovery1.setName("test_discovery1");
             discovery1.setConnectorUuid(connector.getUuid());
             discovery1.setConnectorName("connector1");
             discovery1.setStatus(DiscoveryStatus.FAILED);
             discovery1.setConnectorStatus(DiscoveryStatus.FAILED);
             discovery1.setKind("kindTEST1");
-            discovery1.setStartTime(DATE_FORMAT.parse("2020-01-01T10:10:10"));
-            discovery1.setEndTime(DATE_FORMAT.parse("2020-02-01T10:10:10"));
+            discovery1.setStartTime(localDateTime("2020-01-01T10:10:10"));
+            discovery1.setEndTime(localDateTime("2020-02-01T10:10:10"));
             discovery1.setTotalCertificatesDiscovered(15);
             discovery1.setConnectorTotalCertificatesDiscovered(15);
-            discoveryHistory = discoveryRepository.save(discovery1);
+            discovery = discoveryRepository.save(discovery1);
 
-            final DiscoveryHistory discovery2 = new DiscoveryHistory();
+            final Discovery discovery2 = new Discovery();
             discovery2.setName("test_discovery2");
             discovery2.setConnectorUuid(connector.getUuid());
             discovery2.setConnectorName("connector1");
             discovery2.setStatus(DiscoveryStatus.COMPLETED);
             discovery2.setConnectorStatus(DiscoveryStatus.COMPLETED);
             discovery2.setKind("kindTEST3");
-            discovery2.setStartTime(DATE_FORMAT.parse("2020-05-05T10:10:10"));
-            discovery2.setEndTime(DATE_FORMAT.parse("2021-02-01T10:10:10"));
+            discovery2.setStartTime(localDateTime("2020-05-05T10:10:10"));
+            discovery2.setEndTime(localDateTime("2021-02-01T10:10:10"));
             discovery2.setTotalCertificatesDiscovered(11);
             discovery2.setConnectorTotalCertificatesDiscovered(11);
             discoveryRepository.save(discovery2);
 
-            final DiscoveryHistory discovery3 = new DiscoveryHistory();
+            final Discovery discovery3 = new Discovery();
             discovery3.setName("test_discovery3");
             discovery3.setConnectorUuid(connector.getUuid());
             discovery3.setConnectorName("connector5");
             discovery3.setStatus(DiscoveryStatus.COMPLETED);
             discovery3.setConnectorStatus(DiscoveryStatus.COMPLETED);
             discovery3.setKind("kindTEST3");
-            discovery3.setStartTime(DATE_FORMAT.parse("2022-10-01T10:10:10"));
-            discovery3.setEndTime(DATE_FORMAT.parse("2023-02-01T10:10:10"));
+            discovery3.setStartTime(localDateTime("2022-10-01T10:10:10"));
+            discovery3.setEndTime(localDateTime("2023-02-01T10:10:10"));
             discovery3.setTotalCertificatesDiscovered(20);
             discovery3.setConnectorTotalCertificatesDiscovered(20);
             discoveryRepository.save(discovery3);
 
-            final DiscoveryHistory discovery4 = new DiscoveryHistory();
+            final Discovery discovery4 = new Discovery();
             discovery4.setName("test_discovery4");
             discovery4.setConnectorUuid(connector.getUuid());
             discovery4.setConnectorName("connector1");
             discovery4.setStatus(DiscoveryStatus.IN_PROGRESS);
             discovery4.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
             discovery4.setKind("kindTEST4");
-            discovery4.setStartTime(DATE_FORMAT.parse("2020-06-01T10:10:10"));
-            discovery4.setEndTime(DATE_FORMAT.parse("2020-10-01T10:10:10"));
+            discovery4.setStartTime(localDateTime("2020-06-01T10:10:10"));
+            discovery4.setEndTime(localDateTime("2020-10-01T10:10:10"));
             discovery4.setTotalCertificatesDiscovered(5);
             discovery4.setConnectorTotalCertificatesDiscovered(5);
             discoveryRepository.save(discovery4);
@@ -163,7 +166,7 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
             loadMetaData();
             loadCustomAttributesData();
             isLoadedData = true;
-        } catch (ParseException | NotFoundException | AttributeException e) {
+        } catch (NotFoundException | AttributeException e) {
             isLoadedData = false;
         }
     }
@@ -182,7 +185,7 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
         attributeEngine
                 .updateMetadataAttribute(metadataAttribute,
                         ObjectAttributeContentInfo
-                                .builder(Resource.DISCOVERY, discoveryHistory.getUuid())
+                                .builder(Resource.DISCOVERY, discovery.getUuid())
                                 .connector(connector.getUuid())
                                 .build());
     }
@@ -206,14 +209,14 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
 
         attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.DISCOVERY));
         attributeEngine
-                .updateObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid(),
+                .updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(),
                         List.of(requestAttribute));
     }
 
     @Test
     void testInsertedData() {
-        final List<DiscoveryHistory> discoveryHistoryList = discoveryRepository.findAll();
-        Assertions.assertEquals(4, discoveryHistoryList.size());
+        final List<Discovery> discoveryList = discoveryRepository.findAll();
+        Assertions.assertEquals(4, discoveryList.size());
     }
 
     @Test
@@ -226,11 +229,10 @@ class DiscoveryHistorySearchITest extends BaseSpringBootTest {
 
     @Test
     void testInsertedAttributes() {
-        var customAttrs = attributeEngine
-                .getObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid());
+        var customAttrs = attributeEngine.getObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid());
         var metaAttrs = attributeEngine
                 .getMetadataAttributesDefinitionContent(
-                        ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discoveryHistory.getUuid()).build());
+                        ObjectAttributeContentInfo.builder(Resource.DISCOVERY, discovery.getUuid()).build());
         Assertions.assertEquals(1, customAttrs.size());
         Assertions.assertEquals(1, metaAttrs.size());
     }

@@ -37,6 +37,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.otilm.core.intune.carequest.CARevocationRequest;
 import com.otilm.core.intune.carequest.CARevocationResult;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
@@ -50,7 +51,7 @@ import org.slf4j.LoggerFactory;
  */
 public class IntuneRevocationClient extends IntuneClient {
 
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private ObjectMapper objectMapper = ObjectMapperFactory.storage();
     private String serviceVersion = "5019-05-05";
     public final static String CONNECTOR_SERVICE_NAME = "PkiConnectorFEService";
     public final static String DOWNLOADREVOCATIONREQUESTS_URL = "CertificateAuthorityRequests/downloadRevocationRequests";

@@ -49,7 +49,7 @@ public class DiscoveryWriter {
     }
 
     /**
-     * Reports progress by discovery identifier rather than through the shared {@code DiscoveryHistory} instance — see
+     * Reports progress by discovery identifier rather than through the shared {@code Discovery} instance — see
      * {@code DiscoverySource} for why that entity must not reach a worker.
      */
     @Transactional

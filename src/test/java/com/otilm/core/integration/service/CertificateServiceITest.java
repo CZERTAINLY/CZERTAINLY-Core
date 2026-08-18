@@ -2631,7 +2631,7 @@ class CertificateServiceITest extends BaseSpringBootTest {
     }
 
     private void storeCommonNameCsrAttribute(UUID certificateRequestUuid) throws AttributeException, NotFoundException {
-        // definitions are wiped by truncateTables() in BaseSpringBootTest, so register them explicitly
+        // definitions are wiped by the per-test clear in BaseSpringBootTest, so register them explicitly
         attributeEngine.updateDataAttributeDefinitions(null, null, CsrAttributes.csrAttributesAsDataAttributesV3());
 
         // store a csr attribute in the no-operation slot
