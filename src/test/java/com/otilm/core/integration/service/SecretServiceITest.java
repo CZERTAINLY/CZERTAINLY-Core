@@ -7,6 +7,7 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.MessageHandlingException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.SecretOperationException;
 import com.otilm.api.exception.ValidationException;
@@ -81,6 +82,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -94,6 +96,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -130,6 +135,8 @@ class SecretServiceITest extends BaseSpringBootTest {
     private ConnectorRepository connectorRepository;
     @Autowired
     private ActionsListener actionListener;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
     @MockitoBean
     private ActionProducer actionProducer;
     @MockitoBean
@@ -144,13 +151,23 @@ class SecretServiceITest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException, NoSuchAlgorithmException, JsonProcessingException {
 
-        // Process message instead of sending it to the queue and set approval status to approved to bypass approval in
-        // tests
+        // Stand in for the broker: process the action message instead of queueing it, and approve it to bypass
+        // approval. The real listener consumes on another thread in its own transaction after the producing
+        // transaction has committed, so run the handler in a fresh REQUIRES_NEW transaction rather than inline in the
+        // producer's — inline would run in the producer's already-committed transaction and its writes would be lost.
+        final TransactionTemplate listenerTransaction = new TransactionTemplate(transactionManager);
+        listenerTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         Mockito.doAnswer(invocation -> {
             ActionMessage msg = invocation.getArgument(0);
             msg.setApprovalStatus(ApprovalStatusEnum.APPROVED);
             msg.setApprovalUuid(UUID.randomUUID());
-            actionListener.processMessage(msg);
+            listenerTransaction.executeWithoutResult(status -> {
+                try {
+                    actionListener.processMessage(msg);
+                } catch (MessageHandlingException e) {
+                    throw new IllegalStateException(e);
+                }
+            });
             return null; // because produceMessage returns void
         }).when(actionProducer).produceMessage(any());
         Mockito.doNothing().when(authHelper).authenticateAsUser(any());
@@ -925,6 +942,36 @@ class SecretServiceITest extends BaseSpringBootTest {
         } finally {
             authServiceMock.stop();
         }
+    }
+
+    @Test
+    void createSecretPublishesActionMessageOnlyAfterCommit()
+            throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
+        // The listener consumes the action message on another thread in its own READ COMMITTED transaction, so it can
+        // only load the secret once the creating transaction has committed. Reproduce that constraint by reading the
+        // secret from a separate transaction at the moment the message is published: if the publish still happens
+        // inside the open creating transaction, the row is invisible and the listener would throw NotFoundException.
+        final AtomicBoolean secretVisibleFromSeparateTransaction = new AtomicBoolean();
+        final TransactionTemplate separateTransaction = new TransactionTemplate(transactionManager);
+        separateTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        Mockito.doAnswer(invocation -> {
+            ActionMessage msg = invocation.getArgument(0);
+            secretVisibleFromSeparateTransaction
+                    .set(separateTransaction
+                            .execute(status -> secretRepository.findByUuid(msg.getResourceUuid()).isPresent()));
+            return null;
+        }).when(actionProducer).produceMessage(any());
+
+        SecretRequestDto request = new SecretRequestDto();
+        request.setName("afterCommitSecret");
+        request.setSecret(new BasicAuthSecretContent());
+
+        secretService.createSecret(request, vaultProfile.getSecuredParentUuid(), vaultInstance.getSecuredUuid());
+
+        assertThat(secretVisibleFromSeparateTransaction.get())
+                .as("action message must be published only after the creating transaction commits")
+                .isTrue();
     }
 
 }
