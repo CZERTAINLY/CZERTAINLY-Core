@@ -30,6 +30,7 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ApprovalProfileExternalService;
 import com.otilm.core.service.ApprovalProfileInternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.util.ApprovalRecipientHelper;
 import com.otilm.core.util.RequestValidatorHelper;
@@ -128,6 +129,7 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
             approvalStepRepository.deleteAll(apv.getApprovalSteps());
             approvalProfileVersionRepository.delete(apv);
         });
+        commentService.removeObjectComments(Resource.APPROVAL_PROFILE, approvalProfile.getUuid());
         approvalProfileRepository.delete(approvalProfile);
     }
 
@@ -373,6 +375,13 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
     }
 
     // SETTERs
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setApprovalProfileRepository(ApprovalProfileRepository approvalProfileRepository) {

@@ -145,6 +145,7 @@ import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.service.CertificateExternalService;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.CertificateUploadService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ComplianceExternalService;
 import com.otilm.core.service.ComplianceInternalService;
 import com.otilm.core.service.CrlService;
@@ -313,6 +314,13 @@ public class CertificateServiceImpl
     @Autowired
     public void setAdapterFactory(AuthorityProviderAdapterFactory adapterFactory) {
         this.adapterFactory = adapterFactory;
+    }
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
     }
 
     @Autowired
@@ -839,6 +847,7 @@ public class CertificateServiceImpl
         certificate.setOwner(null);
         certificate.getGroups().clear();
         objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
+        commentService.removeObjectComments(Resource.CERTIFICATE, uuid.getValue());
         attributeEngine.deleteObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
 
         scepProfileRepository.clearCaCertificateReference(certificate.getUuid());

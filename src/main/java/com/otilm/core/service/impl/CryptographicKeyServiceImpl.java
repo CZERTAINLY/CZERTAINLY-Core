@@ -82,6 +82,7 @@ import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.CryptographicKeyEventHistoryService;
 import com.otilm.core.service.CryptographicKeyExternalService;
 import com.otilm.core.service.CryptographicKeyInternalService;
@@ -191,6 +192,13 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     @Autowired
     public void setTransactionManager(PlatformTransactionManager transactionManager) {
         this.transactionManager = transactionManager;
+    }
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
     }
 
     @Autowired
@@ -1612,6 +1620,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         key.setOwner(null);
         key.getGroups().clear();
         objectAssociationService.removeObjectAssociations(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
+        commentService.removeObjectComments(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
         cryptographicKeyRepository.delete(key);
     }
 

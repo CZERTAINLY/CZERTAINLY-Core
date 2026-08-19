@@ -78,6 +78,7 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.service.AttributeResourceService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.SecretExternalService;
 import com.otilm.core.service.SecretInternalService;
@@ -150,6 +151,13 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
     @Autowired
     public void setActionProducer(ActionProducer actionProducer) {
         this.actionProducer = actionProducer;
+    }
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
     }
 
     @Autowired
@@ -620,6 +628,7 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
         secret.setOwner(null);
         secret.getGroups().clear();
         objectAssociationService.removeObjectAssociations(Resource.SECRET, secret.getUuid());
+        commentService.removeObjectComments(Resource.SECRET, secret.getUuid());
         secretRepository.delete(secret);
         secretVersionRepository.deleteAll(secretVersions);
     }

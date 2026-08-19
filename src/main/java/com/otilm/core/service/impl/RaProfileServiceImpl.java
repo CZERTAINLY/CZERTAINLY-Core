@@ -55,6 +55,7 @@ import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ApprovalProfileExternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ComplianceInternalService;
 import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
 import com.otilm.core.service.RaProfileExternalService;
@@ -888,6 +889,7 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
         }
 
         attributeEngine.deleteObjectAttributeContent(Resource.RA_PROFILE, raProfile.getUuid());
+        commentService.removeObjectComments(Resource.RA_PROFILE, raProfile.getUuid());
         raProfileRepository.delete(raProfile);
     }
 
@@ -911,6 +913,13 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     // SETTERs
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setRaProfileRepository(RaProfileRepository raProfileRepository) {

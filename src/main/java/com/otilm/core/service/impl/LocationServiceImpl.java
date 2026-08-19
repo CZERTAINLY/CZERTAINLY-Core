@@ -79,6 +79,7 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CertificateEventHistoryInternalService;
 import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.LocationExternalService;
 import com.otilm.core.service.LocationInternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
@@ -131,6 +132,13 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     private AttributeEngine attributeEngine;
     private AuthorizationEnforcer authorizationEnforcer;
     private ApplicationEventPublisher applicationEventPublisher;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setEntityInstanceReferenceRepository(
@@ -386,6 +394,7 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
 
         certificateLocationRepository.deleteAll(location.getCertificates());
         attributeEngine.deleteObjectAttributeContent(Resource.LOCATION, location.getUuid());
+        commentService.removeObjectComments(Resource.LOCATION, location.getUuid());
         locationRepository.delete(location);
 
         logger.info("Location {} was deleted", location.getName());

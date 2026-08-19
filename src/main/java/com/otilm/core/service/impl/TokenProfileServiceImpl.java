@@ -34,6 +34,7 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.TokenProfileExternalService;
 import com.otilm.core.service.TokenProfileInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
@@ -70,6 +71,13 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private CryptographicKeyRepository cryptographicKeyRepository;
     private SigningProfileVersionRepository signingProfileVersionRepository;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setSigningProfileVersionRepository(SigningProfileVersionRepository signingProfileVersionRepository) {
@@ -433,6 +441,7 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
         validateNoDependentObjects(tokenProfile);
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
         try {
+            commentService.removeObjectComments(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
             tokenProfileRepository.delete(tokenProfile);
             // Force the DELETE to execute here; without the flush it runs at commit,
             // outside this try, and a concurrent FK violation would surface as HTTP 500.

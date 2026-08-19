@@ -40,6 +40,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ConnectorExternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.CredentialInternalService;
@@ -78,6 +79,13 @@ public class EntityInstanceServiceImpl implements EntityInstanceExternalService,
     private ConnectorApiFactory connectorApiFactory;
     private AttributeEngine attributeEngine;
     private ResourceInternalService resourceService;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setConnectorService(ConnectorExternalService connectorService) {
@@ -323,6 +331,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceExternalService,
                 .getEntityInstanceApiClient(connectorDto)
                 .removeEntityInstance(connectorDto, entityInstanceRef.getEntityInstanceUuid());
         attributeEngine.deleteObjectAttributeContent(Resource.ENTITY, entityInstanceRef.getUuid());
+        commentService.removeObjectComments(Resource.ENTITY, entityInstanceRef.getUuid());
         entityInstanceReferenceRepository.delete(entityInstanceRef);
 
         logger.info("Entity instance {} was deleted", entityInstanceRef.getName());

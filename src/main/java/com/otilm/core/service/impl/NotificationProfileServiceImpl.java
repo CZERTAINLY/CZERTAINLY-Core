@@ -26,6 +26,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.service.NotificationProfileInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
@@ -72,6 +73,13 @@ public class NotificationProfileServiceImpl
     private ExecutionRepository executionRepository;
     private ResourceObjectAssociationService resourceObjectAssociationService;
     private NotificationDataCategoryGate notificationDataCategoryGate;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Lazy
     @Autowired
@@ -176,6 +184,7 @@ public class NotificationProfileServiceImpl
                                     executions.stream().map(Execution::getName).collect(Collectors.joining(", "))));
         }
 
+        commentService.removeObjectComments(Resource.NOTIFICATION_PROFILE, notificationProfile.getUuid());
         notificationProfileRepository.delete(notificationProfile);
     }
 

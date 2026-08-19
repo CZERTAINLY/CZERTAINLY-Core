@@ -61,6 +61,7 @@ import com.otilm.core.model.discovery.DiscoveryContext;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.CredentialInternalService;
 import com.otilm.core.service.DiscoveryExternalService;
@@ -143,6 +144,13 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     public DiscoveryServiceImpl(DiscoveryProperties discoveryProperties) {
         this.discoveryProperties = discoveryProperties;
+    }
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
     }
 
     @Autowired
@@ -317,6 +325,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         logger.debug("Deleted {} unused certificate contents", certContentsDeleted);
 
         attributeEngine.deleteObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
+        commentService.removeObjectComments(Resource.DISCOVERY, discovery.getUuid());
         discoveryRepository.delete(discovery);
         triggerInternalService.deleteTriggerAssociations(Resource.DISCOVERY, discovery.getUuid());
 

@@ -23,6 +23,8 @@ public interface CommentRepository extends SecurityFilterRepository<Comment, UUI
 
     boolean existsByParentUuid(UUID parentUuid);
 
+    boolean existsByResourceAndObjectUuid(Resource resource, UUID objectUuid);
+
     @Modifying
     @Query("UPDATE Comment c SET c.resolvedAt = :resolvedAt, c.resolvedByUuid = :actorUuid, "
             + "c.resolvedByUsername = :actorUsername WHERE c.uuid = :uuid")

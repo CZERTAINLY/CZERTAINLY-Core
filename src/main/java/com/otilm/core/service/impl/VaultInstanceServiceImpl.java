@@ -39,6 +39,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.VaultInstanceExternalService;
 import com.otilm.core.service.VaultInstanceInternalService;
 import com.otilm.core.service.v2.ConnectorExternalService;
@@ -73,6 +74,13 @@ public class VaultInstanceServiceImpl implements VaultInstanceExternalService, V
 
     private AttributeEngine attributeEngine;
     private ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setConnectorRequestAttributesBuilder(
@@ -215,6 +223,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceExternalService, V
             throw new ValidationException(
                     "Vault Instance %s is used in Vault Profiles %s".formatted(uuid, allByVaultInstanceUuid));
         }
+        commentService.removeObjectComments(Resource.VAULT, vaultInstance.getUuid());
         vaultInstanceRepository.delete(vaultInstance);
     }
 
