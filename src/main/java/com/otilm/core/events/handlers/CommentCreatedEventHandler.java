@@ -1,0 +1,52 @@
+package com.otilm.core.events.handlers;
+
+import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.core.notification.RecipientType;
+import com.otilm.api.model.core.other.ResourceEvent;
+import com.otilm.core.dao.entity.Comment;
+import com.otilm.core.dao.repository.CommentRepository;
+import com.otilm.core.evaluator.TriggerEvaluator;
+import com.otilm.core.events.EventContext;
+import com.otilm.core.messaging.model.NotificationRecipient;
+import com.otilm.core.service.ResourceObjectAssociationService;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Transactional
+@Component(ResourceEvent.Codes.COMMENT_CREATED)
+public class CommentCreatedEventHandler extends CommentEventsHandler {
+
+    private ResourceObjectAssociationService resourceObjectAssociationService;
+
+    @Autowired
+    protected CommentCreatedEventHandler(CommentRepository repository, TriggerEvaluator<Comment> triggerEvaluator) {
+        super(repository, triggerEvaluator);
+    }
+
+    @Autowired
+    public void setResourceObjectAssociationService(ResourceObjectAssociationService resourceObjectAssociationService) {
+        this.resourceObjectAssociationService = resourceObjectAssociationService;
+    }
+
+    @Override
+    protected void sendFollowUpEventsNotifications(EventContext<Comment> eventContext) {
+        Comment comment = eventContext.getResourceObjects().getFirst();
+        UUID actingUser = eventContext.getUserUuid();
+
+        List<NotificationRecipient> recipients;
+        if (comment.getParentUuid() == null) {
+            NameAndUuidDto owner = resourceObjectAssociationService
+                    .getOwner(comment.getResource(), comment.getObjectUuid());
+            if (owner == null || owner.getUuid().equals(String.valueOf(actingUser))) {
+                return;
+            }
+            recipients = List.of(new NotificationRecipient(RecipientType.OWNER, null));
+        } else {
+            recipients = threadParticipantsExcept(comment.getParentUuid(), actingUser);
+        }
+        publishFollowUpNotification(eventContext, comment, recipients);
+    }
+}
