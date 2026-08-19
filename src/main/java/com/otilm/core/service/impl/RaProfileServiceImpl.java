@@ -611,6 +611,24 @@ public class RaProfileServiceImpl implements RaProfileExternalService, RaProfile
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.ANY)
+    public List<BaseAttribute> listRenewCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid)
+            throws ConnectorException, NotFoundException {
+        RaProfile raProfile = getRaProfileEntity(uuid);
+        return extendedAttributeService.listRenewCertificateAttributes(raProfile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.ANY)
+    public List<BaseAttribute> listIdentifyCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid)
+            throws ConnectorException, NotFoundException {
+        RaProfile raProfile = getRaProfileEntity(uuid);
+        return extendedAttributeService.listIdentifyCertificateAttributes(raProfile);
+    }
+
+    @Override
     // TODO - remove, service should not allow modifying RaProfile entity outside of it.
     public RaProfile updateRaProfileEntity(RaProfile raProfile) {
         raProfileRepository.save(raProfile);

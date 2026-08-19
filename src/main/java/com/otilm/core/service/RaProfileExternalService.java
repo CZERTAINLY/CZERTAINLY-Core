@@ -118,6 +118,12 @@ public interface RaProfileExternalService {
     List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid)
             throws ConnectorException, NotFoundException;
 
+    List<BaseAttribute> listRenewCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid)
+            throws ConnectorException, NotFoundException;
+
+    List<BaseAttribute> listIdentifyCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid)
+            throws ConnectorException, NotFoundException;
+
     /**
      * Check the compliance for all the certificates associated with the RA Profile
      *

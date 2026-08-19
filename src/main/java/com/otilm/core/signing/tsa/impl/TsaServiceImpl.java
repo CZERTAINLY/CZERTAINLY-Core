@@ -10,6 +10,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.TspProfileModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
+import com.otilm.core.model.signing.resolved.ResolvedSigningProfile;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.otilm.core.model.signing.workflow.SigningWorkflow;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
@@ -17,11 +18,13 @@ import com.otilm.core.security.authz.ExternalAuthorizationProgrammatic;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.SigningProfileInternalService;
 import com.otilm.core.service.TspProfileInternalService;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.resolver.SigningProfileResolverFactory;
 import com.otilm.core.signing.tsa.ManagedTimestampEngine;
 import com.otilm.core.signing.tsa.TsaExternalService;
+import com.otilm.core.signing.tsa.TspErrorMapper;
 import com.otilm.core.signing.tsa.messages.TspRequest;
 import com.otilm.core.signing.tsa.messages.TspResponse;
-import com.otilm.core.signing.tsa.resolver.SigningProfileResolverFactory;
 import com.otilm.core.signing.tsa.validator.TspRequestValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -118,16 +121,34 @@ public class TsaServiceImpl implements TsaExternalService {
             throw new TspException(TspFailureInfo.BAD_REQUEST, message, message);
         }
 
-        SigningWorkflow workflow = signingProfile.workflow();
-        if (!(workflow instanceof ManagedTimestampingWorkflow timestampingWorkflow)) {
+        tspRequestValidator.validate(requireManagedTimestampingWorkflow(signingProfile), request);
+
+        ResolvedSigningProfile resolved;
+        try {
+            resolved = signingProfileResolverFactory.resolve(signingProfile);
+        } catch (SigningEngineException e) {
+            throw TspErrorMapper.toTspException(e);
+        }
+        if (!(resolved instanceof ResolvedManagedTimestampingProfile resolvedProfile)) {
             throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
-                    "Signing Profile '%s' is not a managed timestamping profile (workflow: %s)"
-                            .formatted(signingProfile.name(), workflow.getClass().getSimpleName()),
+                    "Signing Profile '%s' resolved to %s, not a managed timestamping profile"
+                            .formatted(signingProfile.name(),
+                                    resolved == null ? "null" : resolved.getClass().getSimpleName()),
                     "The system is misconfigured.");
         }
-        tspRequestValidator.validate(timestampingWorkflow, request);
-
-        ResolvedManagedTimestampingProfile resolvedProfile = signingProfileResolverFactory.resolve(signingProfile);
         return managedTimestampEngine.process(request, signingProfile, resolvedProfile);
+    }
+
+    /** Confines RFC 3161 processing to managed-timestamping profiles; any other workflow is an operator error. */
+    private static ManagedTimestampingWorkflow requireManagedTimestampingWorkflow(
+            SigningProfileModel<?, ?> signingProfile) throws TspException {
+        SigningWorkflow workflow = signingProfile.workflow();
+        if (workflow instanceof ManagedTimestampingWorkflow timestampingWorkflow) {
+            return timestampingWorkflow;
+        }
+        throw new TspException(TspFailureInfo.SYSTEM_FAILURE,
+                "Signing Profile '%s' is not a managed timestamping profile (workflow: %s)"
+                        .formatted(signingProfile.name(), workflow.getClass().getSimpleName()),
+                "The system is misconfigured.");
     }
 }

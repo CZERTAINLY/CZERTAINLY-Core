@@ -360,21 +360,33 @@ public class CertificateEligibilityUtil {
             predicates
                     .add(cb.isNotNull(root.get(Certificate_.KEY).get(CryptographicKey_.TOKEN_INSTANCE_REFERENCE_UUID)));
 
-            // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
-            if (workflowType == SigningWorkflowType.TIMESTAMPING) {
-                String exclusiveTsaEku = MetaDefinitions
-                        .serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid()));
-                predicates.add(cb.equal(root.get(Certificate_.EXTENDED_KEY_USAGE), exclusiveTsaEku));
-                predicates.add(cb.isTrue(root.get(Certificate_.EXTENDED_KEY_USAGE_CRITICAL)));
-                // ETSI EN 319 421 §6.2: for a qualified TSA the signer certificate MUST carry the
-                // id-etsi-qcs-QcCompliance statement (OID 0.4.0.1862.1.1, ETSI EN 319 412-5).
-                if (qualifiedTimestamp) {
-                    predicates.add(cb.isTrue(root.get(Certificate_.QC_COMPLIANCE)));
-                }
-            }
+            predicates.addAll(workflowPredicates(root, cb, workflowType, qualifiedTimestamp));
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private static List<Predicate> workflowPredicates(Root<Certificate> root, CriteriaBuilder cb,
+            SigningWorkflowType workflowType, boolean qualifiedTimestamp) {
+        return switch (workflowType) {
+            case TIMESTAMPING -> timestampingPredicates(root, cb, qualifiedTimestamp);
+            case CONTENT_SIGNING, RAW_SIGNING -> List.of();
+        };
+    }
+
+    private static List<Predicate> timestampingPredicates(Root<Certificate> root, CriteriaBuilder cb,
+            boolean qualifiedTimestamp) {
+        List<Predicate> predicates = new ArrayList<>();
+        // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
+        String exclusiveTsaEku = MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid()));
+        predicates.add(cb.equal(root.get(Certificate_.EXTENDED_KEY_USAGE), exclusiveTsaEku));
+        predicates.add(cb.isTrue(root.get(Certificate_.EXTENDED_KEY_USAGE_CRITICAL)));
+        // ETSI EN 319 421 §6.2: for a qualified TSA the signer certificate MUST carry the
+        // id-etsi-qcs-QcCompliance statement (OID 0.4.0.1862.1.1, ETSI EN 319 412-5).
+        if (qualifiedTimestamp) {
+            predicates.add(cb.isTrue(root.get(Certificate_.QC_COMPLIANCE)));
+        }
+        return predicates;
     }
 
     /**
@@ -385,7 +397,9 @@ public class CertificateEligibilityUtil {
      * For {@link SigningWorkflowType#TIMESTAMPING}, RFC 3161 requirements are enforced (exclusive, critical extended
      * key usage EKU). When {@code qualifiedTimestamp} is {@code true}, the certificate is additionally required to
      * carry the {@code id-etsi-qcs-QcCompliance} statement (OID {@code 0.4.0.1862.1.1}) as mandated by ETSI EN 319 421
-     * §6.2 and defined in ETSI EN 319 412-5.
+     * §6.2 and defined in ETSI EN 319 412-5. {@link SigningWorkflowType#CONTENT_SIGNING} and
+     * {@link SigningWorkflowType#RAW_SIGNING} apply only the generic key and state rules — no certificate-purpose rule
+     * is defined for them yet.
      *
      * @param certificate the entity to evaluate
      * @param workflowType the signing workflow
@@ -497,20 +511,25 @@ public class CertificateEligibilityUtil {
             return false;
         }
 
-        if (workflowType == SigningWorkflowType.TIMESTAMPING) {
-            // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
-            List<String> ekuOids = view.extendedKeyUsageOids();
-            boolean ekuCompliant = ekuOids.size() == 1 && ekuOids.contains(SystemOid.TIME_STAMPING.getOid())
-                    && view.extendedKeyUsageCritical();
-            if (!ekuCompliant) {
-                return false;
-            }
+        return switch (workflowType) {
+            case TIMESTAMPING -> isAcceptableTimestampingCertificate(view, qualifiedTimestamp);
+            // No certificate-purpose rule is defined for these workflows yet; the rules above still apply.
+            case CONTENT_SIGNING, RAW_SIGNING -> true;
+        };
+    }
 
-            // ETSI EN 319 421 §6.2: for a qualified TSA the signer certificate MUST carry the
-            // id-etsi-qcs-QcCompliance statement (OID 0.4.0.1862.1.1, ETSI EN 319 412-5).
-            return !qualifiedTimestamp || view.qcCompliant();
+    private static boolean isAcceptableTimestampingCertificate(SigningAcceptabilityView view,
+            boolean qualifiedTimestamp) {
+        // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
+        List<String> ekuOids = view.extendedKeyUsageOids();
+        boolean ekuCompliant = ekuOids.size() == 1 && ekuOids.contains(SystemOid.TIME_STAMPING.getOid())
+                && view.extendedKeyUsageCritical();
+        if (!ekuCompliant) {
+            return false;
         }
 
-        return true;
+        // ETSI EN 319 421 §6.2: for a qualified TSA the signer certificate MUST carry the
+        // id-etsi-qcs-QcCompliance statement (OID 0.4.0.1862.1.1, ETSI EN 319 412-5).
+        return !qualifiedTimestamp || view.qcCompliant();
     }
 }

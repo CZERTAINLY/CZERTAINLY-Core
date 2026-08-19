@@ -1,9 +1,9 @@
 package com.otilm.core.signing.tsa.formatting;
 
-import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
-import com.otilm.core.signing.tsa.CertificateChain;
+import com.otilm.core.signing.engine.CertificateChain;
+import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.tsa.messages.TspRequest;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -31,11 +31,11 @@ public interface SignatureFormattingClient {
      * @param certificateChain signing certificate and its chain
      * @param signatureAlgorithm algorithm the signer will use
      * @return DER-encoded SignedAttributes bytes to be signed
-     * @throws TspException if BouncyCastle fails to build the draft token
+     * @throws SigningEngineException if BouncyCastle fails to build the draft token
      */
     byte[] formatDtbs(TspRequest request, ResolvedManagedTimestampingProfile timestampingProfile,
             BigInteger serialNumber, Instant genTime, CertificateChain certificateChain,
-            SignatureAlgorithm signatureAlgorithm) throws TspException;
+            SignatureAlgorithm signatureAlgorithm) throws SigningEngineException;
 
     /**
      * Replays phase 1, injects the real signature, and produces a valid TimeStampToken.
@@ -49,9 +49,9 @@ public interface SignatureFormattingClient {
      * @param signature raw signature bytes from the signer
      * @param signatureAlgorithm algorithm used by the signer (same as passed to formatDtbs)
      * @return fully assembled, verifiable TimeStampToken
-     * @throws TspException if BouncyCastle fails to assemble the token
+     * @throws SigningEngineException if BouncyCastle fails to assemble the token
      */
     byte[] formatSigningResponse(TspRequest request, ResolvedManagedTimestampingProfile timestampingProfile,
             BigInteger serialNumber, Instant genTime, CertificateChain certificateChain, byte[] dtbs, byte[] signature,
-            SignatureAlgorithm signatureAlgorithm) throws TspException;
+            SignatureAlgorithm signatureAlgorithm) throws SigningEngineException;
 }

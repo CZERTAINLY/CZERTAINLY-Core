@@ -31,6 +31,7 @@ import com.otilm.api.interfaces.client.v1.LocationSyncApiClient;
 import com.otilm.api.interfaces.client.v1.NotificationInstanceSyncApiClient;
 import com.otilm.api.interfaces.client.v1.TokenInstanceSyncApiClient;
 import com.otilm.api.interfaces.client.v1.signing.SignatureFormattingSyncApiClient;
+import com.otilm.api.interfaces.client.v1.signing.contentsigning.ContentSigningFormattingSyncApiClient;
 import com.otilm.api.interfaces.client.v2.AttributesSyncApiClient;
 import com.otilm.api.interfaces.client.v2.CertificateSyncApiClient;
 import com.otilm.api.interfaces.client.v2.ComplianceSyncApiClient;
@@ -128,6 +129,8 @@ public class ConnectorApiFactory {
     // Signing clients
     private final SignatureFormattingApiClient restSignatureFormattingApiClient;
     private final Optional<com.otilm.api.clients.mq.signing.SignatureFormattingApiClient> mqSignatureFormattingApiClient;
+    private final com.otilm.api.clients.signing.contentsigning.ContentSigningFormattingApiClient restContentSigningFormattingApiClient;
+    private final Optional<com.otilm.api.clients.mq.signing.contentsigning.ContentSigningFormattingApiClient> mqContentSigningFormattingApiClient;
 
     // Vault/Secret clients
     private final com.otilm.api.clients.secret.VaultApiClient restVaultApiClient;
@@ -144,7 +147,7 @@ public class ConnectorApiFactory {
     @PostConstruct
     void logInitialization() {
         log
-                .info("ConnectorApiFactory initialized. MQ clients available: attribute={}, attributesV2={}, authorityInstance={}, certificate={}, certificateV2={}, certificateV3={}, authorityV3={}, compliance={}, complianceV2={}, connector={}, discovery={}, endEntity={}, endEntityProfile={}, entityInstance={}, health={}, healthV2={}, infoV2={}, location={}, metricsV2={}, notificationInstance={}, tokenInstance={}, keyManagement={}, cryptographicOperations={}, signatureFormatting={}, vault={}, secret(REST-only)={}",
+                .info("ConnectorApiFactory initialized. MQ clients available: attribute={}, attributesV2={}, authorityInstance={}, certificate={}, certificateV2={}, certificateV3={}, authorityV3={}, compliance={}, complianceV2={}, connector={}, discovery={}, endEntity={}, endEntityProfile={}, entityInstance={}, health={}, healthV2={}, infoV2={}, location={}, metricsV2={}, notificationInstance={}, tokenInstance={}, keyManagement={}, cryptographicOperations={}, signatureFormatting={}, contentSigningFormatting={}, vault={}, secret(REST-only)={}",
                         mqAttributeApiClient.isPresent(), mqAttributesApiClientV2.isPresent(),
                         mqAuthorityInstanceApiClient.isPresent(), mqCertificateApiClient.isPresent(),
                         mqCertificateApiClientV2.isPresent(), mqCertificateApiClientV3.isPresent(),
@@ -156,7 +159,8 @@ public class ConnectorApiFactory {
                         mqLocationApiClient.isPresent(), mqMetricsApiClientV2.isPresent(),
                         mqNotificationInstanceApiClient.isPresent(), mqTokenInstanceApiClient.isPresent(),
                         mqKeyManagementApiClient.isPresent(), mqCryptographicOperationsApiClient.isPresent(),
-                        mqSignatureFormattingApiClient.isPresent(), mqVaultApiClient.isPresent(), true);
+                        mqSignatureFormattingApiClient.isPresent(), mqContentSigningFormattingApiClient.isPresent(),
+                        mqVaultApiClient.isPresent(), true);
     }
 
     /**
@@ -271,6 +275,11 @@ public class ConnectorApiFactory {
 
     public SignatureFormattingSyncApiClient getSignatureFormattingApiClient(ApiClientConnectorInfo connector) {
         return getClient(connector, restSignatureFormattingApiClient, mqSignatureFormattingApiClient);
+    }
+
+    public ContentSigningFormattingSyncApiClient getContentSigningFormattingApiClient(
+            ApiClientConnectorInfo connector) {
+        return getClient(connector, restContentSigningFormattingApiClient, mqContentSigningFormattingApiClient);
     }
 
     public com.otilm.api.interfaces.client.v1.secret.VaultSyncApiClient getVaultApiClient(

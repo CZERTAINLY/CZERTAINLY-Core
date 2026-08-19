@@ -2,6 +2,7 @@ package com.otilm.core.serialization.golden;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.core.config.WebAppConfig;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.util.AcmeJsonProcessor;
 import org.hibernate.type.format.jackson.JacksonJsonFormatMapper;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -25,14 +26,18 @@ final class GoldenMappers {
     }
 
     /**
-     * Hibernate's format mapper: every {@code @JdbcTypeCode(SqlTypes.JSON)} column.
-     * <p>
-     * Spring's {@code ObjectMapper} reaches Hibernate only through a {@code HibernatePropertiesCustomizer}, and the
-     * repository's only one is {@code @Profile("test")}. Production therefore persists with Jackson's defaults, which
-     * is what these goldens baseline.
+     * Hibernate's format mapper: every {@code @JdbcTypeCode(SqlTypes.JSON)} column. Built from
+     * {@link ObjectMapperFactory#jsonColumn()}, so these goldens use the mapper production persists with.
      */
     static JacksonJsonFormatMapper hibernateJson() {
-        return new JacksonJsonFormatMapper();
+        return new JacksonJsonFormatMapper(jsonColumnMapper());
+    }
+
+    /**
+     * The bare mapper behind {@link #hibernateJson()}, for assertions about its configuration.
+     */
+    static ObjectMapper jsonColumnMapper() {
+        return ObjectMapperFactory.jsonColumn();
     }
 
     /**

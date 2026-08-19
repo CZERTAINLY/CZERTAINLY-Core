@@ -21,10 +21,11 @@ import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
 import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
 import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
 import com.otilm.core.security.authz.opa.dto.OpaResourceAccessResult;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.resolver.SigningProfileResolverFactory;
 import com.otilm.core.signing.tsa.ManagedTimestampEngine;
 import com.otilm.core.signing.tsa.TsaExternalService;
 import com.otilm.core.signing.tsa.messages.TspResponse;
-import com.otilm.core.signing.tsa.resolver.SigningProfileResolverFactory;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.util.List;
 import java.util.UUID;
@@ -66,7 +67,7 @@ class TsaServiceAuthzITest extends BaseSpringBootTest {
     private TspProfileRepository tspProfileRepository;
 
     @BeforeEach
-    void stubEngineAndResolver() throws TspException {
+    void stubEngineAndResolver() throws TspException, SigningEngineException {
         lenient()
                 .when(managedTimestampEngine.process(any(), any(), any()))
                 .thenReturn(TspResponse.granted(new byte[]{1, 2, 3}));
