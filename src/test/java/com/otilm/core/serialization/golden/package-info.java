@@ -29,8 +29,8 @@
  *
  * <h2>Mapper parity</h2> Each golden is produced by the writer serving its surface, via {@code GoldenMappers}. The
  * platform has three and they disagree, so the wrong one baselines a shape production never emits: {@code jsonb}
- * columns go through Hibernate's own mapper with Jackson's defaults, because the repository's only
- * {@code HibernatePropertiesCustomizer} is test-profile-only.
+ * columns go through Hibernate's own mapper, which {@code JsonColumnFormatMapperConfig} states as
+ * {@code ObjectMapperFactory.jsonColumn()}.
  *
  * <p>
  * These are plain JUnit 5 tests with no application context, so they add nothing to {@code ContextSignatureGuardTest}.
