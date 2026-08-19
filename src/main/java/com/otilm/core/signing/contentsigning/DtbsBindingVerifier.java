@@ -1,5 +1,6 @@
 package com.otilm.core.signing.contentsigning;
 
+import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.connector.signatures.contentsigning.common.ComputeDtbsResponseDto;
 import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
@@ -37,11 +38,10 @@ public final class DtbsBindingVerifier {
      */
     public static void verify(DocumentDigest authorized, ComputeDtbsResponseDto response)
             throws SigningEngineException {
-        requireWellFormedAuthorizedDigest(authorized);
         if (response == null) {
             throw brokenEcho("connector returned no computeDtbs response");
         }
-        verifyEcho(authorized, echoOf(response));
+        verifyEcho(authorized, requireCompleteEcho(response));
     }
 
     /**
@@ -101,10 +101,25 @@ public final class DtbsBindingVerifier {
         }
     }
 
-    private static DocumentDigest echoOf(ComputeDtbsResponseDto response) {
-        return response.getDocumentDigest() == null || response.getDocumentDigestAlgorithm() == null
-                ? null
-                : new DocumentDigest(response.getDocumentDigestAlgorithm(), response.getDocumentDigest());
+    /**
+     * An echo is only usable with both halves present. Naming the half that is missing points whoever debugs the
+     * connector at the field actually at fault, rather than at the one that is populated.
+     */
+    private static DocumentDigest requireCompleteEcho(ComputeDtbsResponseDto response) throws SigningEngineException {
+        DigestAlgorithm algorithm = response.getDocumentDigestAlgorithm();
+        byte[] digest = response.getDocumentDigest();
+        if (algorithm == null && digest == null) {
+            throw brokenEcho("connector echoed no documentDigest");
+        }
+        if (digest == null) {
+            throw brokenEcho("connector echoed a %s documentDigestAlgorithm but no documentDigest"
+                    .formatted(algorithm.getCode()));
+        }
+        if (algorithm == null) {
+            throw brokenEcho("connector echoed a %d-byte documentDigest but no documentDigestAlgorithm"
+                    .formatted(digest.length));
+        }
+        return new DocumentDigest(algorithm, digest);
     }
 
     /**

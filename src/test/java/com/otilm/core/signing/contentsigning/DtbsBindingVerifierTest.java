@@ -132,14 +132,28 @@ class DtbsBindingVerifierTest {
     }
 
     @Test
-    void treatsAResponseMissingEitherHalfOfTheEchoAsNoEcho() {
-        // given
-        ComputeDtbsResponseDto noDigest = response(DigestAlgorithm.SHA_256, null);
-        ComputeDtbsResponseDto noAlgorithm = response(null, AUTHORIZED_VALUE);
-
+    void treatsAResponseCarryingNeitherHalfOfTheEchoAsNoEcho() {
         // when / then
-        assertThat(catchVerify(AUTHORIZED, noDigest).operatorMessage()).contains("echoed no documentDigest");
-        assertThat(catchVerify(AUTHORIZED, noAlgorithm).operatorMessage()).contains("echoed no documentDigest");
+        SigningEngineException thrown = catchVerify(AUTHORIZED, response(null, null));
+        assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
+        assertThat(thrown.operatorMessage()).contains("echoed no documentDigest");
+    }
+
+    /** Naming the missing half sends whoever debugs the connector to the field that is actually at fault. */
+    @Test
+    void namesTheMissingDigestWhenTheConnectorEchoedOnlyItsAlgorithm() {
+        // when / then
+        SigningEngineException thrown = catchVerify(AUTHORIZED, response(DigestAlgorithm.SHA_256, null));
+        assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
+        assertThat(thrown.operatorMessage()).contains("SHA-256 documentDigestAlgorithm but no documentDigest");
+    }
+
+    @Test
+    void namesTheMissingAlgorithmWhenTheConnectorEchoedOnlyTheDigest() {
+        // when / then
+        SigningEngineException thrown = catchVerify(AUTHORIZED, response(null, AUTHORIZED_VALUE));
+        assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
+        assertThat(thrown.operatorMessage()).contains("32-byte documentDigest but no documentDigestAlgorithm");
     }
 
     /** A connector that delivered nothing at all is the same fault as one that echoed no digest. */
