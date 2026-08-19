@@ -18,15 +18,15 @@ import static org.mockito.Mockito.when;
 /** Pins the factory's routing table: no association → v1, {@code "v2"} → v2, anything else refuses. */
 class DiscoveryProviderAdapterFactoryTest {
 
-    private V1DiscoveryProviderAdapter v1Adapter;
-    private V2DiscoveryProviderAdapter v2Adapter;
+    private DiscoveryProviderV1Adapter v1Adapter;
+    private DiscoveryProviderV2Adapter v2Adapter;
     private ConnectorInterfaceRepository interfaceRepository;
     private DiscoveryProviderAdapterFactory factory;
 
     @BeforeEach
     void setUp() {
-        v1Adapter = mock(V1DiscoveryProviderAdapter.class);
-        v2Adapter = mock(V2DiscoveryProviderAdapter.class);
+        v1Adapter = mock(DiscoveryProviderV1Adapter.class);
+        v2Adapter = mock(DiscoveryProviderV2Adapter.class);
         interfaceRepository = mock(ConnectorInterfaceRepository.class);
         factory = new DiscoveryProviderAdapterFactory(v1Adapter, v2Adapter, interfaceRepository);
     }

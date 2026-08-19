@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * synchronous operations fail loud with {@link IllegalStateException}.
  */
 @Component
-public class V2DiscoveryProviderAdapter implements DiscoveryProviderAdapter {
+public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
 
     private static final String NOT_IMPLEMENTED = "The discovery v2 provider adapter is not implemented yet";
 

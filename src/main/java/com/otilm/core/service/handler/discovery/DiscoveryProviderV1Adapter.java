@@ -71,9 +71,9 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
  * {@link UnsupportedOperationException}; callers wiring the lifecycle endpoints must map that to the contract's 422.
  */
 @Component
-public class V1DiscoveryProviderAdapter implements DiscoveryProviderAdapter {
+public class DiscoveryProviderV1Adapter implements DiscoveryProviderAdapter {
 
-    private static final Logger logger = LoggerFactory.getLogger(V1DiscoveryProviderAdapter.class);
+    private static final Logger logger = LoggerFactory.getLogger(DiscoveryProviderV1Adapter.class);
 
     private static final Semaphore downloadCertSemaphore = new Semaphore(10);
 
@@ -90,7 +90,7 @@ public class V1DiscoveryProviderAdapter implements DiscoveryProviderAdapter {
     private final ConnectorApiFactory connectorApiFactory;
     private final EventProducer eventProducer;
 
-    public V1DiscoveryProviderAdapter(DiscoveryProperties discoveryProperties,
+    public DiscoveryProviderV1Adapter(DiscoveryProperties discoveryProperties,
             PlatformTransactionManager transactionManager, DiscoveryRepository discoveryRepository,
             ConnectorRepository connectorRepository, CertificateRepository certificateRepository,
             DiscoveryCertificateRepository discoveryCertificateRepository, AttributeEngine attributeEngine,

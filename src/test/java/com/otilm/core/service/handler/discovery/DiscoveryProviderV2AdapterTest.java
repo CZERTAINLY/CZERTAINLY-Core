@@ -8,9 +8,9 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Pins the placeholder's failure modes until the real v2 implementation replaces it. */
-class V2DiscoveryProviderAdapterTest {
+class DiscoveryProviderV2AdapterTest {
 
-    private final V2DiscoveryProviderAdapter adapter = new V2DiscoveryProviderAdapter();
+    private final DiscoveryProviderV2Adapter adapter = new DiscoveryProviderV2Adapter();
 
     private final Discovery run = new Discovery();
 

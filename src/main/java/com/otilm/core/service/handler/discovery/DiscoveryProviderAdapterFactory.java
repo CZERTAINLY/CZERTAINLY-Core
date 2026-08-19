@@ -18,11 +18,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class DiscoveryProviderAdapterFactory {
 
-    private final V1DiscoveryProviderAdapter v1Adapter;
-    private final V2DiscoveryProviderAdapter v2Adapter;
+    private final DiscoveryProviderV1Adapter v1Adapter;
+    private final DiscoveryProviderV2Adapter v2Adapter;
     private final ConnectorInterfaceRepository connectorInterfaceRepository;
 
-    public DiscoveryProviderAdapterFactory(V1DiscoveryProviderAdapter v1Adapter, V2DiscoveryProviderAdapter v2Adapter,
+    public DiscoveryProviderAdapterFactory(DiscoveryProviderV1Adapter v1Adapter, DiscoveryProviderV2Adapter v2Adapter,
             ConnectorInterfaceRepository connectorInterfaceRepository) {
         this.v1Adapter = v1Adapter;
         this.v2Adapter = v2Adapter;

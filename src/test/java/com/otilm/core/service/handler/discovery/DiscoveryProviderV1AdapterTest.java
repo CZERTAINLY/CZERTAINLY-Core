@@ -19,9 +19,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 /** Pins that the v1 interface rejects the lifecycle operations it never supported. */
-class V1DiscoveryProviderAdapterTest {
+class DiscoveryProviderV1AdapterTest {
 
-    private final V1DiscoveryProviderAdapter adapter = new V1DiscoveryProviderAdapter(mock(DiscoveryProperties.class),
+    private final DiscoveryProviderV1Adapter adapter = new DiscoveryProviderV1Adapter(mock(DiscoveryProperties.class),
             mock(PlatformTransactionManager.class), mock(DiscoveryRepository.class), mock(ConnectorRepository.class),
             mock(CertificateRepository.class), mock(DiscoveryCertificateRepository.class), mock(AttributeEngine.class),
             mock(CertificateHandler.class), mock(CredentialInternalService.class), mock(ResourceInternalService.class),
