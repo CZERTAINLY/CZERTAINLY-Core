@@ -18,7 +18,8 @@ public final class TspErrorMapper {
         return switch (failure) {
             case INVALID_INPUT -> TspFailureInfo.BAD_REQUEST;
             case MALFORMED_INPUT -> TspFailureInfo.BAD_DATA_FORMAT;
-            case MISCONFIGURED, CONNECTOR_FAULT, SIGNER_FAULT, STEP_FAILED -> TspFailureInfo.SYSTEM_FAILURE;
+            case MISCONFIGURED, CONNECTOR_FAULT, BINDING_VIOLATION, SIGNER_FAULT, STEP_FAILED ->
+                TspFailureInfo.SYSTEM_FAILURE;
         };
     }
 

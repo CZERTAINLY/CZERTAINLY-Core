@@ -4,25 +4,30 @@ import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TspErrorMapperTest {
 
+    private static final Map<SigningEngineFailure, TspFailureInfo> EXPECTED = Map
+            .of(SigningEngineFailure.INVALID_INPUT, TspFailureInfo.BAD_REQUEST, SigningEngineFailure.MALFORMED_INPUT,
+                    TspFailureInfo.BAD_DATA_FORMAT, SigningEngineFailure.MISCONFIGURED, TspFailureInfo.SYSTEM_FAILURE,
+                    SigningEngineFailure.CONNECTOR_FAULT, TspFailureInfo.SYSTEM_FAILURE,
+                    SigningEngineFailure.BINDING_VIOLATION, TspFailureInfo.SYSTEM_FAILURE,
+                    SigningEngineFailure.SIGNER_FAULT, TspFailureInfo.SYSTEM_FAILURE, SigningEngineFailure.STEP_FAILED,
+                    TspFailureInfo.SYSTEM_FAILURE);
+
+    /** Driving off the enum makes a new failure value fail here until it is given a TSP meaning. */
     @ParameterizedTest
-    @CsvSource({
-            "INVALID_INPUT,BAD_REQUEST",
-            "MALFORMED_INPUT,BAD_DATA_FORMAT",
-            "MISCONFIGURED,SYSTEM_FAILURE",
-            "CONNECTOR_FAULT,SYSTEM_FAILURE",
-            "SIGNER_FAULT,SYSTEM_FAILURE",
-            "STEP_FAILED,SYSTEM_FAILURE"})
-    void mapsEveryFailureToATspFailureInfo(SigningEngineFailure failure, TspFailureInfo expected) {
+    @EnumSource(SigningEngineFailure.class)
+    void mapsEveryFailureToATspFailureInfo(SigningEngineFailure failure) {
         // when / then
-        assertThat(TspErrorMapper.toFailureInfo(failure)).isEqualTo(expected);
+        assertThat(failure).isIn(EXPECTED.keySet());
+        assertThat(TspErrorMapper.toFailureInfo(failure)).isEqualTo(EXPECTED.get(failure));
     }
 
     @Test
