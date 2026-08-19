@@ -36,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
@@ -953,6 +954,31 @@ class ProxyClientImplTest {
                         .build());
 
         ResponseEntity<Map> result = proxyClient.sendRequestForEntity(connector, "/v1/test", "POST", null, Map.class);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(result.getBody()).isNull();
+    }
+
+    @Test
+    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    void sendRequestForEntity_withExplicitTimeout_preservesStatusAndUsesTheTimeout() throws Exception {
+        // Without the six-argument override, an explicit timeout would fall through to the interface default,
+        // which wraps the bare body in ResponseEntity.ok — turning MQ cancel's 204 into a 200.
+        ConnectorDto connector = createConnector("proxy-001");
+        CompletableFuture<ProxyMessage> future = new CompletableFuture<>();
+        when(correlator.registerRequest(anyString(), eq(Duration.ofSeconds(90)))).thenReturn(future);
+
+        future
+                .complete(ProxyMessage
+                        .builder()
+                        .correlationId("test-corr")
+                        .proxyId("proxy-001")
+                        .timestamp(Instant.now())
+                        .connectorResponse(ConnectorResponse.builder().statusCode(204).body(null).build())
+                        .build());
+
+        ResponseEntity<Map> result = proxyClient
+                .sendRequestForEntity(connector, "/v1/test", "DELETE", null, Map.class, Duration.ofSeconds(90));
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(result.getBody()).isNull();

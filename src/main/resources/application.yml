@@ -327,6 +327,12 @@ validation:
     connect-timeout: 1000
 
 # Shared WebClient tuning applied to every outbound API-client call (any provider implementation)
+discovery:
+  mq-timeouts:
+    status: ${DISCOVERY_MQ_TIMEOUT_STATUS:30s}
+    drain: ${DISCOVERY_MQ_TIMEOUT_DRAIN:30s}
+    control: ${DISCOVERY_MQ_TIMEOUT_CONTROL:30s}
+
 connector:
   api-client:
     # Fail fast on unresponsive endpoints; keep connect + response timeouts below the 120s transaction timeout.
@@ -336,6 +342,7 @@ connector:
     max-connections: ${CONNECTOR_API_CLIENT_MAX_CONNECTIONS:20}
     # Shed load quickly under pool saturation rather than queueing behind the response timeout
     pending-acquire-timeout: ${CONNECTOR_API_CLIENT_PENDING_ACQUIRE_TIMEOUT:10s}
+    max-in-memory-size: ${CONNECTOR_API_CLIENT_MAX_IN_MEMORY_SIZE:16MB}
 
 cbom:
   client:
