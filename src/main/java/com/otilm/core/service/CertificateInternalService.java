@@ -178,8 +178,11 @@ public interface CertificateInternalService extends ResourceExtensionService {
      *
      * @param uuid UUID of the certificate
      * @param raProfileUuid UUID of the RA profile to switch to
+     * @param identifyAttributes identify-operation attribute values for the new RA profile's authority (schema from its
+     * identify attribute listing); ignored when {@code raProfileUuid} is null (RA-profile removal — no identify runs).
+     * May be null or empty when the operator supplied none.
      */
-    void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid)
+    void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid, List<RequestAttribute> identifyAttributes)
             throws NotFoundException, CertificateOperationException, AttributeException;
 
     /**

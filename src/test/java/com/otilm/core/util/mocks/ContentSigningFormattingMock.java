@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Mock of a V2 content-signing formatting connector — stubs {@code GET /v2/info} advertising
- * {@link ConnectorInterface#SIGNATURE_FORMATTING} with {@link FeatureFlag#CONTENT_SIGNING}. Used to back
- * {@code CONTENT_SIGNING} workflow profiles.
+ * Mock of a V2 content-signing formatting connector, backing {@code CONTENT_SIGNING} workflow profiles. Advertises
+ * {@link FeatureFlag#CONTENT_SIGNING} on the four AdES family interfaces, plus
+ * {@link ConnectorInterface#SIGNATURE_FORMATTING} for the flat attributes route stubbed below.
  */
 public class ContentSigningFormattingMock extends BaseConnectorMock {
 
@@ -22,8 +22,11 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
                 .of(interfaceInfo(ConnectorInterface.INFO, List.of()),
                         interfaceInfo(ConnectorInterface.HEALTH, List.of()),
                         interfaceInfo(ConnectorInterface.METRICS, List.of()),
-                        interfaceInfo(ConnectorInterface.SIGNING, List.of()),
-                        interfaceInfo(ConnectorInterface.SIGNATURE_FORMATTING, List.of(FeatureFlag.CONTENT_SIGNING))));
+                        interfaceInfo(ConnectorInterface.SIGNATURE_FORMATTING, List.of()),
+                        interfaceInfo(ConnectorInterface.PADES_FORMATTING, List.of(FeatureFlag.CONTENT_SIGNING)),
+                        interfaceInfo(ConnectorInterface.XADES_FORMATTING, List.of(FeatureFlag.CONTENT_SIGNING)),
+                        interfaceInfo(ConnectorInterface.CADES_FORMATTING, List.of(FeatureFlag.CONTENT_SIGNING)),
+                        interfaceInfo(ConnectorInterface.JADES_FORMATTING, List.of(FeatureFlag.CONTENT_SIGNING))));
     }
 
     public ContentSigningFormattingMock stubFormattingAttributes() {

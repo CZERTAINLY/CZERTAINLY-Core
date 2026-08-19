@@ -58,11 +58,26 @@ public final class ObjectMapperFactory {
     }
 
     /**
-     * Jackson's own defaults, for JSON that is persisted. No migration guards those columns, so a shape change here
-     * splits a table into rows written before it and rows written after.
+     * Jackson's own defaults, for code that serializes JSON by hand before storing it. No migration guards persisted
+     * JSON, so a shape change here splits a table into rows written before it and rows written after.
+     *
+     * @see #jsonColumn()
      */
     public static ObjectMapper storage() {
         return new ObjectMapper();
+    }
+
+    /**
+     * The recipe for every {@code @JdbcTypeCode(SqlTypes.JSON)} column. Stating the mapper means registering its
+     * modules too, so this reproduces the discovery Hibernate would otherwise do for itself; without them Jackson
+     * rejects every Java 8 date outright. Dates are written as text, which is the one deliberate departure from what
+     * Hibernate's own mapper writes: a timestamp lands as {@code 1768469400.000000000} or {@code [18, 0, 5]}, which the
+     * search SQL cannot cast and the attribute deserializer cannot read back.
+     */
+    public static ObjectMapper jsonColumn() {
+        return new ObjectMapper()
+                .registerModules(ObjectMapper.findModules(ObjectMapperFactory.class.getClassLoader()))
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
     /**

@@ -1,10 +1,8 @@
 package com.otilm.core.signing.tsa.formatting;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
-import com.otilm.api.clients.signing.SignatureFormattingApiClient;
 import com.otilm.api.exception.ConnectorException;
-import com.otilm.api.interfaces.core.tsp.error.TspException;
-import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
+import com.otilm.api.interfaces.client.v1.signing.SignatureFormattingSyncApiClient;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.connector.signatures.formatting.FormatDtbsResponseDto;
@@ -12,12 +10,15 @@ import com.otilm.api.model.connector.signatures.formatting.FormattedResponseDto;
 import com.otilm.api.model.connector.signatures.formatting.TimestampingFormatDtbsRequestDto;
 import com.otilm.api.model.connector.signatures.formatting.TimestampingFormatResponseRequestDto;
 import com.otilm.api.model.core.signing.SigningProtocol;
+import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
 import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
-import com.otilm.core.signing.tsa.CertificateChain;
+import com.otilm.core.signing.engine.CertificateChain;
+import com.otilm.core.signing.engine.error.SigningEngineException;
+import com.otilm.core.signing.engine.error.SigningEngineFailure;
 import com.otilm.core.signing.tsa.messages.TspRequest;
 import com.otilm.core.util.CertificateTestUtil;
 import java.math.BigInteger;
@@ -25,6 +26,7 @@ import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.bouncycastle.asn1.x509.Extensions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,9 @@ import static com.otilm.core.signing.tsa.messages.TspRequestBuilder.aTspRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -44,34 +49,57 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TimestampingSignatureFormattingClientTest {
 
+    private static final SignatureAlgorithm SIGNATURE_ALGORITHM = SignatureAlgorithm.SHA256_WITH_RSA;
+    private static final TspRequest REQUEST = aTspRequest().build();
+    private static final BigInteger SERIAL = BigInteger.ONE;
+    private static final Instant GEN_TIME = Instant.now();
+    private static final CertificateChain CHAIN = mock(CertificateChain.class);
+    private static final byte[] DTBS = {1, 2, 3, 4};
+
     @Mock
-    private SignatureFormattingApiClient apiClient;
+    private ConnectorApiFactory connectorApiFactory;
+    @Mock
+    private SignatureFormattingSyncApiClient apiClient;
 
     private TimestampingConnectorSignatureFormattingClient client;
     private ResolvedManagedTimestampingProfile profile;
-    private CertificateChain chain;
-
-    private TspRequest request;
-    private BigInteger serialNumber;
-    private Instant genTime;
-    private static final SignatureAlgorithm SIGNATURE_ALGORITHM = SignatureAlgorithm.SHA256_WITH_RSA;
 
     @BeforeEach
     void wireClientAndFixtures() {
-        client = new TimestampingConnectorSignatureFormattingClient();
-        client.setApiClient(apiClient);
+        lenient().when(CHAIN.chain()).thenReturn(List.of());
 
-        profile = new ResolvedManagedTimestampingProfile(UUID.randomUUID(), "test-profile", null, 1, true,
+        client = new TimestampingConnectorSignatureFormattingClient(connectorApiFactory);
+        lenient().when(connectorApiFactory.getSignatureFormattingApiClient(any())).thenReturn(apiClient);
+        profile = aProfileUsing(mock(ApiClientConnectorInfo.class));
+    }
+
+    private static ResolvedManagedTimestampingProfile aProfileUsing(ApiClientConnectorInfo connector) {
+        return new ResolvedManagedTimestampingProfile(UUID.randomUUID(), "test-profile", null, 1, true,
                 List.of(SigningProtocol.TSP), Boolean.FALSE, "1.2.3.4.5", List.of(), List.of(), false, List.of(),
-                LocalClockTimeQualityConfiguration.INSTANCE, mock(ApiClientConnectorInfo.class),
+                LocalClockTimeQualityConfiguration.INSTANCE, connector,
                 new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), List.of(), null, List.of()));
+    }
 
-        chain = mock(CertificateChain.class);
-        lenient().when(chain.chain()).thenReturn(List.of());
+    private static FormatDtbsResponseDto aDtbsResponse(byte[] dtbs) {
+        FormatDtbsResponseDto responseDto = new FormatDtbsResponseDto();
+        responseDto.setDtbs(dtbs);
+        return responseDto;
+    }
 
-        request = aTspRequest().build();
-        serialNumber = BigInteger.ONE;
-        genTime = Instant.now();
+    @Test
+    void resolvesTheApiClientFromTheFactoryPerCall() throws Exception {
+        // given — ConnectorApiFactorySignatureFormattingITest covers which client the factory then hands back
+        ApiClientConnectorInfo connector = mock(ApiClientConnectorInfo.class);
+        ResolvedManagedTimestampingProfile profile = aProfileUsing(connector);
+        given(connectorApiFactory.getSignatureFormattingApiClient(connector)).willReturn(apiClient);
+        given(apiClient.formatDtbs(eq(connector), any())).willReturn(aDtbsResponse(DTBS));
+
+        // when
+        byte[] dtbs = client.formatDtbs(REQUEST, profile, SERIAL, GEN_TIME, CHAIN, SIGNATURE_ALGORITHM);
+
+        // then
+        assertThat(dtbs).isEqualTo(DTBS);
+        then(connectorApiFactory).should().getSignatureFormattingApiClient(connector);
     }
 
     // ── formatDtbs ────────────────────────────────────────────────────────────
@@ -80,16 +108,32 @@ class TimestampingSignatureFormattingClientTest {
     class FormatDtbs {
 
         @Test
-        void throwsSystemFailure_whenApiCallFails() throws Exception {
+        void throwsConnectorFault_whenApiCallFails() throws Exception {
             // given — the remote formatting call fails
             when(apiClient.formatDtbs(any(), any())).thenThrow(new ConnectorException("connection refused"));
 
             // when / then
-            assertThatThrownBy(
-                    () -> client.formatDtbs(request, profile, serialNumber, genTime, chain, SIGNATURE_ALGORITHM))
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE));
+            assertThatThrownBy(() -> client.formatDtbs(REQUEST, profile, SERIAL, GEN_TIME, CHAIN, SIGNATURE_ALGORITHM))
+                    .isInstanceOf(SigningEngineException.class)
+                    .satisfies(ex -> {
+                        assertThat(((SigningEngineException) ex).failure())
+                                .isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
+                        assertThat(((SigningEngineException) ex).step()).isEqualTo("formatDtbs");
+                    });
+        }
+
+        @Test
+        void throwsMalformedInput_whenRequestExtensionsCannotBeEncoded() {
+            // given — the sole production producer of MALFORMED_INPUT, which RFC 3161 reports as badDataFormat
+            Extensions extensions = mock(Extensions.class);
+            given(extensions.getExtensionOIDs()).willThrow(new IllegalStateException("corrupt extension encoding"));
+            TspRequest request = aTspRequest().requestExtensions(extensions).build();
+
+            // when / then
+            assertThatThrownBy(() -> client.formatDtbs(request, profile, SERIAL, GEN_TIME, CHAIN, SIGNATURE_ALGORITHM))
+                    .isInstanceOf(SigningEngineException.class)
+                    .satisfies(ex -> assertThat(((SigningEngineException) ex).failure())
+                            .isEqualTo(SigningEngineFailure.MALFORMED_INPUT));
         }
 
         @Test
@@ -102,7 +146,7 @@ class TimestampingSignatureFormattingClientTest {
             when(apiClient.formatDtbs(any(), any())).thenReturn(responseDto);
 
             // when
-            byte[] result = client.formatDtbs(request, profile, serialNumber, genTime, chain, SIGNATURE_ALGORITHM);
+            byte[] result = client.formatDtbs(REQUEST, profile, SERIAL, GEN_TIME, CHAIN, SIGNATURE_ALGORITHM);
 
             // then
             assertThat(result).isEqualTo(expectedDtbs);
@@ -122,7 +166,7 @@ class TimestampingSignatureFormattingClientTest {
 
             // when
             client
-                    .formatDtbs(request, profile, serialNumber, genTime, CertificateChain.of(List.of(cert)),
+                    .formatDtbs(REQUEST, profile, SERIAL, GEN_TIME, CertificateChain.of(List.of(cert)),
                             SIGNATURE_ALGORITHM);
 
             // then
@@ -139,18 +183,21 @@ class TimestampingSignatureFormattingClientTest {
         private final byte[] signature = {4, 5, 6};
 
         @Test
-        void throwsSystemFailure_whenApiCallFails() throws Exception {
+        void throwsConnectorFault_whenApiCallFails() throws Exception {
             // given — the remote call fails during response assembly
             when(apiClient.formatSigningResponse(any(), any()))
                     .thenThrow(new ConnectorException("remote assembly failed"));
 
             // when / then
             assertThatThrownBy(() -> client
-                    .formatSigningResponse(request, profile, serialNumber, genTime, chain, dtbs, signature,
+                    .formatSigningResponse(REQUEST, profile, SERIAL, GEN_TIME, CHAIN, dtbs, signature,
                             SIGNATURE_ALGORITHM))
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE));
+                    .isInstanceOf(SigningEngineException.class)
+                    .satisfies(ex -> {
+                        assertThat(((SigningEngineException) ex).failure())
+                                .isEqualTo(SigningEngineFailure.CONNECTOR_FAULT);
+                        assertThat(((SigningEngineException) ex).step()).isEqualTo("formatSigningResponse");
+                    });
         }
 
         @Test
@@ -164,11 +211,12 @@ class TimestampingSignatureFormattingClientTest {
 
             // when
             byte[] result = client
-                    .formatSigningResponse(request, profile, serialNumber, genTime, chain, dtbs, signature,
+                    .formatSigningResponse(REQUEST, profile, SERIAL, GEN_TIME, CHAIN, dtbs, signature,
                             SIGNATURE_ALGORITHM);
 
             // then
             assertThat(result).isEqualTo(expectedToken);
+            then(connectorApiFactory).should().getSignatureFormattingApiClient(profile.signatureFormattingConnector());
         }
 
         @Test
@@ -184,8 +232,8 @@ class TimestampingSignatureFormattingClientTest {
 
             // when
             client
-                    .formatSigningResponse(request, profile, serialNumber, genTime, CertificateChain.of(List.of(cert)),
-                            dtbs, signature, SIGNATURE_ALGORITHM);
+                    .formatSigningResponse(REQUEST, profile, SERIAL, GEN_TIME, CertificateChain.of(List.of(cert)), dtbs,
+                            signature, SIGNATURE_ALGORITHM);
 
             // then
             assertThat(captor.getValue().getCertificateChain()).containsExactly(cert.getEncoded());

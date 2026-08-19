@@ -15,7 +15,7 @@ import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.CancelPendingCertificateRequestDto;
-import com.otilm.api.model.client.certificate.UploadCertificateRequestDto;
+import com.otilm.api.model.client.certificate.ManuallyIssueCertificateRequestDto;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.client.location.PushToLocationRequestDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
@@ -406,6 +406,28 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                 .findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         return extendedAttributeService.listRegisterCertificateAttributes(raProfile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public List<BaseAttribute> listRenewCertificateAttributes(SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
+        RaProfile raProfile = raProfileRepository
+                .findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        return extendedAttributeService.listRenewCertificateAttributes(raProfile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY,
+            parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public List<BaseAttribute> listIdentifyCertificateAttributes(SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
+        RaProfile raProfile = raProfileRepository
+                .findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        return extendedAttributeService.listIdentifyCertificateAttributes(raProfile);
     }
 
     @Override
@@ -1927,8 +1949,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
             parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto renewCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
-            String certificateUuid, ClientCertificateRenewRequestDto request)
-            throws NotFoundException, CertificateOperationException, CertificateRequestException {
+            String certificateUuid, ClientCertificateRenewRequestDto request) throws NotFoundException,
+            CertificateOperationException, CertificateRequestException, ConnectorException, AttributeException {
         Certificate oldCertificate = validateOldCertificateForOperation(certificateUuid, raProfileUuid.toString(),
                 ResourceAction.RENEW);
 
@@ -1939,6 +1961,12 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         boolean challengeAuthorized = registrationChallengeGate
                 .verify(oldCertificate.getUuid(), request != null ? request.getAuthorizationSecret() : null,
                         CertificateEvent.RENEW);
+
+        // Validate the connector's renew-operation attributes against the schema before any successor exists —
+        // always, so a required renew attribute is enforced even when the client sends none — mirroring
+        // revokeCertificate. An invalid submission fails here with 422 instead of stranding a successor later.
+        extendedAttributeService
+                .mergeAndValidateRenewAttributes(oldCertificate.getRaProfile(), request.getAttributes());
 
         // CSR decision making
         CertificateRequest certificateRequest;
@@ -1966,6 +1994,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
         CertificateDetailDto newCertificate = submitAndShapeFailure(certificateRequestDto, null,
                 "Failed to submit certificate request for certificate renewal");
+        persistRenewAttributes(oldCertificate.getRaProfile(), UUID.fromString(newCertificate.getUuid()),
+                request.getAttributes());
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData("");
@@ -2158,7 +2188,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto rekeyCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             String certificateUuid, ClientCertificateRekeyRequestDto request)
-            throws NotFoundException, CertificateException, CertificateOperationException, CertificateRequestException {
+            throws NotFoundException, CertificateException, CertificateOperationException, CertificateRequestException,
+            ConnectorException, AttributeException {
         Certificate oldCertificate = validateOldCertificateForOperation(certificateUuid, raProfileUuid.toString(),
                 ResourceAction.REKEY);
 
@@ -2167,6 +2198,11 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         boolean challengeAuthorized = registrationChallengeGate
                 .verify(oldCertificate.getUuid(), request != null ? request.getAuthorizationSecret() : null,
                         CertificateEvent.REKEY);
+
+        // Rekey is a renew at the authority — no separate connector operation — so its values validate against
+        // the renew schema, before any successor exists, mirroring revokeCertificate.
+        extendedAttributeService
+                .mergeAndValidateRenewAttributes(oldCertificate.getRaProfile(), request.getAttributes());
 
         // CSR decision making
         ClientCertificateRequestDto certificateRequestDto = new ClientCertificateRequestDto();
@@ -2194,6 +2230,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
 
         CertificateDetailDto newCertificate = submitAndShapeFailure(certificateRequestDto, null,
                 "Failed to submit certificate request for certificate rekey");
+        persistRenewAttributes(oldCertificate.getRaProfile(), UUID.fromString(newCertificate.getUuid()),
+                request.getAttributes());
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData("");
@@ -2780,6 +2818,26 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     }
 
     /**
+     * Persists renew-operation attribute values on the successor certificate, where
+     * {@code AuthorityProviderV3Adapter.renewAttributesFor} reads them onto the wire. Shared by renew and rekey — rekey
+     * is a renew at the authority, so both persist under {@code CERTIFICATE_RENEW}. Values were already validated
+     * against the renew schema by the caller; the successor is freshly created, so there is no stale slot to clear on
+     * an empty submission.
+     */
+    private void persistRenewAttributes(RaProfile raProfile, UUID successorUuid, List<RequestAttribute> attributes)
+            throws NotFoundException, AttributeException {
+        if (attributes == null || attributes.isEmpty()) {
+            return;
+        }
+        attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, successorUuid)
+                        .connector(raProfile.getAuthorityInstanceReference().getConnectorUuid())
+                        .operation(AttributeOperation.CERTIFICATE_RENEW)
+                        .build(), attributes);
+    }
+
+    /**
      * Check and get the CSR from the existing certificate
      *
      * @param certificate Old certificate
@@ -3104,8 +3162,8 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL,
             parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public CertificateDetailDto manuallyIssueCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
-            String certificateUuid, UploadCertificateRequestDto request) throws NotFoundException, CertificateException,
-            AlreadyExistException, ConnectorException, AttributeException {
+            String certificateUuid, ManuallyIssueCertificateRequestDto request) throws NotFoundException,
+            CertificateException, AlreadyExistException, ConnectorException, AttributeException {
         certificateService.checkIssuePermissions();
 
         Certificate certificate = certificateRepository
@@ -3218,23 +3276,50 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
      * attempt. Returns the connector's identification meta, never {@code null}.
      */
     private List<MetadataAttribute> identifyUploadedCertificateOrReject(Certificate certificate,
-            UploadCertificateRequestDto request) throws ConnectorException, NotFoundException {
+            ManuallyIssueCertificateRequestDto request) throws ConnectorException, NotFoundException {
         // The caller's finder omits the authority's connectorInterface (lazy) and the caller
         // holds no session — reload with the full adapter graph for adapter dispatch.
         Certificate certForAdapter = certificateRepository
                 .findForPollingByUuid(certificate.getUuid())
                 .orElseThrow(() -> new NotFoundException(Certificate.class, certificate.getUuid()));
         RaProfile raProfile = certForAdapter.getRaProfile();
+        // Validate the connector's identify-operation attributes against the schema — always, so a required
+        // identify attribute is enforced even when the client sends none. Kept outside the connector try below,
+        // so a platform-side schema rejection (ValidationException from the engine) is never reported as a
+        // connector rejection.
         try {
-            return adapterFactory
+            extendedAttributeService.mergeAndValidateIdentifyAttributes(raProfile, request.getIdentifyAttributes());
+        } catch (ValidationException | AttributeException e) {
+            certificateEventHistoryService
+                    .addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED,
+                            "Identify attributes rejected by schema: " + e.getMessage(), "");
+            throw new ValidationException("Identify attributes rejected by schema: " + e.getMessage());
+        }
+        List<MetadataAttribute> identifiedMeta;
+        try {
+            identifiedMeta = adapterFactory
                     .forAuthority(raProfile.getAuthorityInstanceReference())
-                    .identify(raProfile, request.getCertificate());
+                    .identify(raProfile, request.getCertificate(),
+                            request.getIdentifyAttributes() != null ? request.getIdentifyAttributes() : List.of());
         } catch (ValidationException e) {
             certificateEventHistoryService
                     .addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED,
                             "Manual upload rejected by connector identify: " + e.getMessage(), "");
             throw new ValidationException("Manual upload rejected by connector identify: " + e.getMessage());
         }
+        // Persist only after the authority accepted the identification — a rejected upload attempt leaves no
+        // write behind, and a later successful attempt's values replace the slot.
+        try {
+            attributeEngine
+                    .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                            .builder(Resource.CERTIFICATE, certificate.getUuid())
+                            .connector(raProfile.getAuthorityInstanceReference().getConnectorUuid())
+                            .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
+                            .build(), request.getIdentifyAttributes());
+        } catch (AttributeException e) {
+            throw new ValidationException("Failed to persist identify attributes: " + e.getMessage());
+        }
+        return identifiedMeta;
     }
 
     private void pushFinalizedCertificateToAllLocations(Certificate certificate) {

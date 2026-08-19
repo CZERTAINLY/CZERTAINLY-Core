@@ -5,17 +5,12 @@ import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
-import com.otilm.core.signing.tsa.CertificateChain;
+import com.otilm.core.signing.engine.CertificateChain;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 class ResolvedSigningProfileTest {
@@ -32,33 +27,34 @@ class ResolvedSigningProfileTest {
                 List.of("1.2.3.4.5", "1.2.3.4.6"), List.of(DigestAlgorithm.SHA_256), Boolean.FALSE, List.of(), null,
                 null, scheme);
 
-        assertEquals(PROFILE_UUID, profile.uuid());
-        assertEquals("profile-x", profile.name());
-        assertEquals("desc", profile.description());
-        assertEquals(3, profile.version());
-        assertTrue(profile.enabled());
-        assertEquals(List.of(SigningProtocol.TSP), profile.enabledProtocols());
-        assertEquals(Boolean.TRUE, profile.isQualifiedTimestamp());
-        assertEquals("1.2.3.4.5", profile.defaultPolicyId());
-        assertEquals(List.of("1.2.3.4.5", "1.2.3.4.6"), profile.allowedPolicyIds());
-        assertEquals(List.of(DigestAlgorithm.SHA_256), profile.allowedDigestAlgorithms());
-        assertEquals(Boolean.FALSE, profile.validateTokenSignature());
-        assertNotNull(profile.signatureFormattingConnectorAttributes());
-        assertNull(profile.timeQualityConfiguration());
-        assertNull(profile.signatureFormattingConnector());
-        assertSame(scheme, profile.resolvedScheme());
+        assertThat(profile.uuid()).isEqualTo(PROFILE_UUID);
+        assertThat(profile.name()).isEqualTo("profile-x");
+        assertThat(profile.description()).isEqualTo("desc");
+        assertThat(profile.version()).isEqualTo(3);
+        assertThat(profile.enabled()).isTrue();
+        assertThat(profile.enabledProtocols()).isEqualTo(List.of(SigningProtocol.TSP));
+        assertThat(profile.isQualifiedTimestamp()).isEqualTo(Boolean.TRUE);
+        assertThat(profile.defaultPolicyId()).isEqualTo("1.2.3.4.5");
+        assertThat(profile.allowedPolicyIds()).isEqualTo(List.of("1.2.3.4.5", "1.2.3.4.6"));
+        assertThat(profile.allowedDigestAlgorithms()).isEqualTo(List.of(DigestAlgorithm.SHA_256));
+        assertThat(profile.validateTokenSignature()).isEqualTo(Boolean.FALSE);
+        assertThat(profile.signatureFormattingConnectorAttributes()).isNotNull();
+        assertThat(profile.timeQualityConfiguration()).isNull();
+        assertThat(profile.signatureFormattingConnector()).isNull();
+        assertThat(profile.resolvedScheme()).isSameAs(scheme);
 
-        assertEquals(SigningWorkflowType.TIMESTAMPING, profile.workflowType());
+        assertThat(profile.workflowType()).isEqualTo(SigningWorkflowType.TIMESTAMPING);
     }
 
     @Test
-    void resolvedManagedTimestampingProfile_isResolvedSigningProfile() {
+    void reportsTheWorkflowTypeThroughTheResolvedSigningProfileInterface() {
+        // given — the static type is the interface, which is how the TSP path narrows a resolved profile
         ResolvedSigningProfile profile = new ResolvedManagedTimestampingProfile(PROFILE_UUID, "n", null, 1, false,
                 List.of(), false, null, List.of(), List.of(), null, List.of(), null, null,
                 new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), List.of(), null, List.of()));
 
-        assertInstanceOf(ResolvedManagedTimestampingProfile.class, profile);
-        assertEquals(SigningWorkflowType.TIMESTAMPING, profile.workflowType());
+        // then
+        assertThat(profile.workflowType()).isEqualTo(SigningWorkflowType.TIMESTAMPING);
     }
 
     @Test
@@ -67,17 +63,19 @@ class ResolvedSigningProfileTest {
         CertificateChain chain = mock(CertificateChain.class);
         ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(cert, List.of(), chain, List.of());
 
-        assertSame(cert, scheme.certificate());
-        assertNotNull(scheme.keyItems());
-        assertSame(chain, scheme.chain());
-        assertNotNull(scheme.signingOperationAttributes());
+        assertThat(scheme.certificate()).isSameAs(cert);
+        assertThat(scheme.keyItems()).isNotNull();
+        assertThat(scheme.chain()).isSameAs(chain);
+        assertThat(scheme.signingOperationAttributes()).isNotNull();
     }
 
     @Test
-    void resolvedStaticKeyManagedSigning_isResolvedManagedScheme() {
-        ResolvedManagedScheme scheme = new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), List.of(),
-                null, List.of());
+    void contentSigningProfileReportsItsWorkflowType() {
+        // given / when
+        ResolvedManagedContentSigningProfile profile = new ResolvedManagedContentSigningProfile(UUID.randomUUID(),
+                "docs", null, 3, true, List.of(), List.of(), null, null);
 
-        assertInstanceOf(ResolvedStaticKeyManagedSigning.class, scheme);
+        // then
+        assertThat(profile.workflowType()).isEqualTo(SigningWorkflowType.CONTENT_SIGNING);
     }
 }
