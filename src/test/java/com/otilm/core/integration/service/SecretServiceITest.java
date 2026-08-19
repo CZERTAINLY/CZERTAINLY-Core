@@ -151,12 +151,8 @@ class SecretServiceITest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException, NoSuchAlgorithmException, JsonProcessingException {
 
-        // Stand in for the broker so the listener runs the way it does in production.
-        // Broker model: process the action message inline instead of queueing it, approved to bypass approval.
-        // Transaction boundary: the real listener runs on another thread in its own transaction, only after the
-        // producing transaction has committed — so run the handler in a fresh REQUIRES_NEW transaction.
-        // Why not inline: at afterCommit the producing transaction has already committed; an inline handler would
-        // join that committed transaction, so its writes would never commit and would be discarded at cleanup.
+        // REQUIRES_NEW so the handler runs in its own transaction like the real broker: at afterCommit the producing
+        // transaction has already committed, so an inline handler would join it and its writes would be discarded.
         final TransactionTemplate listenerTransaction = new TransactionTemplate(transactionManager);
         listenerTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         Mockito.doAnswer(invocation -> {
@@ -949,11 +945,8 @@ class SecretServiceITest extends BaseSpringBootTest {
     @Test
     void createSecretPublishesActionMessageOnlyAfterCommit()
             throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
-        // Assert the action message is published only after the creating transaction commits.
-        // Broker model: the real listener loads the secret on another thread in its own READ COMMITTED transaction.
-        // Failure guarded: publishing while the creating transaction is still open leaves the row invisible to that
-        // separate transaction, so the listener throws NotFoundException and the secret stays INACTIVE.
-        // Check: read the secret from a REQUIRES_NEW transaction at the moment the message is published.
+        // Read from a separate REQUIRES_NEW transaction: a publish before commit leaves the secret invisible there,
+        // exactly as it is to the real listener's own transaction.
         final AtomicBoolean secretVisibleFromSeparateTransaction = new AtomicBoolean();
         final TransactionTemplate separateTransaction = new TransactionTemplate(transactionManager);
         separateTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
