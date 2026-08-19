@@ -9,7 +9,7 @@ import com.otilm.core.security.authz.SecurityFilter;
 
 import java.util.UUID;
 
-public interface VaultInstanceInternalService {
+public interface VaultInstanceInternalService extends ResourceExtensionService {
 
     void loadAttributesForSecretOperation(ApiClientConnectorInfo connector, UUID vaultInstanceUuid,
             UUID vaultProfileUuid, SecretOperationRequest secretOperationRequest)
