@@ -15,6 +15,11 @@ public enum SigningEngineFailure {
     /** The platform's own configuration is wrong. */
     MISCONFIGURED,
 
+    /**
+     * The platform's time reference is not trustworthy enough to stamp with, so the operation refuses rather than lies.
+     */
+    TIME_UNAVAILABLE,
+
     /** A connector was reached but did not deliver. */
     CONNECTOR_FAULT,
 

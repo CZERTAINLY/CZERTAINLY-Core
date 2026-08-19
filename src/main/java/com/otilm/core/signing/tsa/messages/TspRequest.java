@@ -10,13 +10,15 @@ import org.bouncycastle.asn1.x509.Extensions;
 import org.springframework.lang.NonNull;
 
 /**
- * Parsed RFC 3161 Timestamp Request.
+ * The TSA engine's input: a parsed RFC 3161 Timestamp Request on the protocol path, or one the platform synthesizes for
+ * in-process issuance.
  *
  * <p>
- * Before this record reaches the TSA engine, {@link TspRequestValidator} has already checked:
+ * Before this record reaches the engine, these have already been checked — by {@link TspRequestValidator} on the
+ * protocol path, and by {@link com.otilm.core.signing.tsa.InternalTimestampSource} in-process:
  * <ul>
  * <li>Hash algorithm — on the profile's allowed-digest-algorithm list.</li>
- * <li>Policy OID — if present, on the profile's allowed-policy-id list.</li>
+ * <li>Policy OID — if present, on the profile's allowed-policy-id list (in-process issuance requests none).</li>
  * </ul>
  * Client request extensions are accepted as-is (any well-formed extension is allowed) and carried through in
  * {@code requestExtensions}; the validator does not filter them. The engine is responsible for effective-policy

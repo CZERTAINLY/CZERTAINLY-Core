@@ -123,7 +123,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class SigningProfileServiceImpl implements SigningProfileExternalService, SigningProfileInternalService {
 
     /**
-     * Defines which signing protocols are allowed for each workflow type.
+     * Defines which signing protocols an operator may enable per workflow type. Only protocols a client can actually
+     * reach belong here; {@code SigningProfileSupportedProtocolsTest} holds that line.
      */
     private static final Map<SigningWorkflowType, Set<SigningProtocol>> SUPPORTED_PROTOCOLS = Map
             .of(SigningWorkflowType.TIMESTAMPING, EnumSet.of(SigningProtocol.TSP));

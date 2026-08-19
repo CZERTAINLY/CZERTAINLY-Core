@@ -1,0 +1,37 @@
+package com.otilm.core.service.impl;
+
+import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.otilm.api.model.core.signing.SigningProtocol;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Guards the protocol list an operator may enable on a Signing Profile. Some {@link SigningProtocol} values record an
+ * invocation the platform makes on its own and have no client edge to authenticate, so offering one as enableable would
+ * advertise a route no caller can take.
+ */
+class SigningProfileSupportedProtocolsTest {
+
+    private final SigningProfileServiceImpl service = new SigningProfileServiceImpl();
+
+    @ParameterizedTest
+    @EnumSource(SigningWorkflowType.class)
+    void offersOnlyProtocolsAnOperatorCanEnable(SigningWorkflowType workflowType) {
+        // when
+        var supported = service.listSupportedProtocols(workflowType);
+
+        // then
+        assertThat(supported).allMatch(SigningProtocol::isEnableableOnProfile);
+        assertThat(supported).doesNotContain(SigningProtocol.INTERNAL_TSA);
+    }
+
+    /** Keeps the guard above from passing merely because nothing is offered at all. */
+    @ParameterizedTest
+    @EnumSource(value = SigningWorkflowType.class, names = "TIMESTAMPING")
+    void offersTheTimestampingProtocolForTimestampingProfiles(SigningWorkflowType workflowType) {
+        // when / then
+        assertThat(service.listSupportedProtocols(workflowType)).containsExactly(SigningProtocol.TSP);
+    }
+}

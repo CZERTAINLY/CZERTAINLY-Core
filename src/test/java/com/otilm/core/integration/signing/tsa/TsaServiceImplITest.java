@@ -1,6 +1,5 @@
 package com.otilm.core.integration.signing.tsa;
 
-import com.otilm.api.exception.ConnectorServerException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
@@ -28,7 +27,6 @@ import com.otilm.core.service.TokenInstanceExternalService;
 import com.otilm.core.service.TokenProfileExternalService;
 import com.otilm.core.service.TspProfileExternalService;
 import com.otilm.core.service.v2.ConnectorExternalService;
-import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.tsa.ManagedTimestampEngine;
 import com.otilm.core.signing.tsa.TimestampTokenTestUtil;
 import com.otilm.core.signing.tsa.TsaExternalService;
@@ -369,20 +367,20 @@ class TsaServiceImplITest extends BaseSpringBootTest {
         }
 
         @Test
-        void throwsSystemFailure_whenFormattingConnectorFails() throws Exception {
+        void rejectsWithSystemFailure_whenFormattingConnectorFails() throws Exception {
             // given — the signature formatting is unavailable during token assembly
             SigningProfileDto profile = createTimestampingSigningProfile("sp-formatting-down");
             timestampingFormattingMock.stubTokenAssemblyFailure();
 
-            // when / then — the controller renders this service exception as a TSP rejection
-            assertThatThrownBy(
-                    () -> tsaService.processTspRequestForSigningProfile(profile.getName(), aTspRequest().build()))
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE))
-                    .hasMessageContaining("Signature formatting connector communication failed during DTBS phase")
-                    .hasCauseInstanceOf(SigningEngineException.class)
-                    .hasRootCauseInstanceOf(ConnectorServerException.class);
+            // when
+            TspResponse response = tsaService
+                    .processTspRequestForSigningProfile(profile.getName(), aTspRequest().build());
+
+            // then — the connector's own detail stays in the log; only the wire-safe text reaches the caller
+            assertThat(response).isInstanceOfSatisfying(TspResponse.Rejected.class, rejected -> {
+                assertThat(rejected.failureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+                assertThat(rejected.statusString()).isEqualTo("Internal error during DTBS formatting");
+            });
         }
     }
 }
