@@ -1,5 +1,6 @@
 package com.otilm.core.integration.repository;
 
+import com.otilm.api.model.connector.discovery.v2.DiscoveryProgressDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryResourceProgressDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
@@ -21,10 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Schema proof for the discovery v2 run columns. The critical case is {@code progressByResource}, the first enum-keyed
- * map under {@code @JdbcTypeCode(SqlTypes.JSON)} in any core entity: {@link Resource} keys serialize by wire code via
- * {@code @JsonValue}, and enum-as-map-key handling through Hibernate's Jackson mapper is exactly the kind of mapping
- * that only fails at read time.
+ * Schema proof for the discovery v2 run columns. The critical case is {@code DiscoveryProgressDto#byResource}, the
+ * first enum-keyed map persisted under {@code @JdbcTypeCode(SqlTypes.JSON)} in any core entity: {@link Resource} keys
+ * serialize by wire code via {@code @JsonValue}, and enum-as-map-key handling through Hibernate's Jackson mapper is
+ * exactly the kind of mapping that only fails at read time.
  */
 @Transactional
 class DiscoveryRepositoryITest extends BaseSpringBootTest {
@@ -38,6 +39,11 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
     void v2RunColumnsRoundTrip() {
         DiscoveryResourceProgressDto keyProgress = new DiscoveryResourceProgressDto();
         keyProgress.setProcessed(3L);
+        DiscoveryProgressDto progress = new DiscoveryProgressDto();
+        progress.setProcessed(11L);
+        progress.setTotalEstimate(40L);
+        progress.setPhase("scanning");
+        progress.setByResource(Map.of(Resource.CRYPTOGRAPHIC_KEY, keyProgress));
 
         Discovery run = new Discovery();
         run.setName("nightly-scan");
@@ -52,10 +58,7 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         run.setRunMeta(Map.of("connectorRunId", "run-42"));
         run.setResources(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY));
         run.setLastAppliedSequence(17L);
-        run.setProgressProcessed(11L);
-        run.setProgressTotalEstimate(40L);
-        run.setProgressByResource(Map.of(Resource.CRYPTOGRAPHIC_KEY, keyProgress));
-        run.setProgressPhase("scanning");
+        run.setProgress(progress);
         run.setRunMessages(List.of("host 10.0.0.7 refused the connection"));
         run.setStoppedAt(stoppedAt);
         run.setConnectorState("running");
@@ -68,11 +71,11 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         assertThat(back.getRunMeta()).containsEntry("connectorRunId", "run-42");
         assertThat(back.getResources()).containsExactly(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY);
         assertThat(back.getLastAppliedSequence()).isEqualTo(17L);
-        assertThat(back.getProgressProcessed()).isEqualTo(11L);
-        assertThat(back.getProgressTotalEstimate()).isEqualTo(40L);
-        assertThat(back.getProgressByResource()).containsOnlyKeys(Resource.CRYPTOGRAPHIC_KEY);
-        assertThat(back.getProgressByResource().get(Resource.CRYPTOGRAPHIC_KEY).getProcessed()).isEqualTo(3L);
-        assertThat(back.getProgressPhase()).isEqualTo("scanning");
+        assertThat(back.getProgress().getProcessed()).isEqualTo(11L);
+        assertThat(back.getProgress().getTotalEstimate()).isEqualTo(40L);
+        assertThat(back.getProgress().getPhase()).isEqualTo("scanning");
+        assertThat(back.getProgress().getByResource()).containsOnlyKeys(Resource.CRYPTOGRAPHIC_KEY);
+        assertThat(back.getProgress().getByResource().get(Resource.CRYPTOGRAPHIC_KEY).getProcessed()).isEqualTo(3L);
         assertThat(back.getRunMessages()).containsExactly("host 10.0.0.7 refused the connection");
         assertThat(back.getConnectorState()).isEqualTo("running");
         // Compared as instants: the driver may hand the timestamptz back under a different zone offset.

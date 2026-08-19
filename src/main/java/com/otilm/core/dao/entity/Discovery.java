@@ -3,7 +3,7 @@ package com.otilm.core.dao.entity;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryListDto;
-import com.otilm.api.model.connector.discovery.v2.DiscoveryResourceProgressDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryProgressDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.workflows.Trigger;
@@ -102,8 +102,10 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> runMeta;
 
-    @Column(name = "resources", columnDefinition = "jsonb")
-    @JdbcTypeCode(SqlTypes.JSON)
+    // TEXT[] of enum member names, the platform's shape for a flat enum list (connector_interface.features).
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resources", columnDefinition = "text[]")
+    @JdbcTypeCode(SqlTypes.ARRAY)
     private List<Resource> resources;
 
     // Run-wide highest item sequence applied to staging — the drain cursor. Item sequences start at 1, so 0
@@ -111,19 +113,13 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "last_applied_sequence", nullable = false)
     private long lastAppliedSequence;
 
-    @Column(name = "progress_processed")
-    private Long progressProcessed;
-
-    @Column(name = "progress_total_estimate")
-    private Long progressTotalEstimate;
-
-    @SuppressWarnings("java:S1948") // see runMeta
-    @Column(name = "progress_by_resource", columnDefinition = "jsonb")
+    // The connector's latest progress report, written and read as one snapshot: a single value makes a torn
+    // snapshot — fields mixed from two reports — unrepresentable under the concurrent writers (status poll,
+    // progress event). S1948: see runMeta.
+    @SuppressWarnings("java:S1948")
+    @Column(name = "progress", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private Map<Resource, DiscoveryResourceProgressDto> progressByResource;
-
-    @Column(name = "progress_phase")
-    private String progressPhase;
+    private DiscoveryProgressDto progress;
 
     @Column(name = "run_messages", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
