@@ -20,6 +20,7 @@ import com.otilm.api.model.common.events.data.CertificateExpiringEventData;
 import com.otilm.api.model.common.events.data.CertificateNotCompliantEventData;
 import com.otilm.api.model.common.events.data.CertificateRegisteredEventData;
 import com.otilm.api.model.common.events.data.CertificateStatusChangedEventData;
+import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.common.events.data.DiscoveryFinishedEventData;
 import com.otilm.api.model.common.events.data.EventData;
 import com.otilm.api.model.common.events.data.InternalNotificationEventData;
@@ -888,6 +889,24 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 yield new InternalNotificationEventData("%s scheduled task has finished for %s with result %s"
                         .formatted(data.getJobType(), data.getJobName(), data.getStatus()), null);
             }
+            case COMMENT_CREATED -> {
+                CommentEventData data = (CommentEventData) eventData;
+                yield new InternalNotificationEventData(
+                        "%s %s on %s '%s'"
+                                .formatted(data.getAuthorUsername(),
+                                        data.getParentUuid() == null ? "commented" : "replied to a comment thread",
+                                        data.getResource().getLabel(), data.getObjectName()),
+                        abbreviateCommentBody(data.getBody()));
+            }
+            case COMMENT_RESOLVED -> {
+                CommentEventData data = (CommentEventData) eventData;
+                yield new InternalNotificationEventData(
+                        "%s %s a comment thread on %s '%s'"
+                                .formatted(data.getResolvedByUsername(),
+                                        Boolean.TRUE.equals(data.getResolved()) ? "resolved" : "reopened",
+                                        data.getResource().getLabel(), data.getObjectName()),
+                        abbreviateCommentBody(data.getBody()));
+            }
             case CERTIFICATE_REGISTERED -> {
                 CertificateRegisteredEventData data = (CertificateRegisteredEventData) eventData;
                 // Informational only — the credential is delivered on the external-provider path and must never be
@@ -900,6 +919,15 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                                 : "Issuance must be completed by %s".formatted(data.getCompletionDeadline()));
             }
         };
+    }
+
+    // The notification text/detail is persisted to the notifications table, so a comment body of up to the
+    // contract maximum must not land there in full.
+    private static String abbreviateCommentBody(String body) {
+        if (body == null || body.length() <= 500) {
+            return body;
+        }
+        return body.substring(0, 500) + "…";
     }
 
     private EventData getEventData(ResourceEvent event, Object data) {
