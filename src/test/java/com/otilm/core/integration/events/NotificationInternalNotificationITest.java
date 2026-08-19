@@ -3,16 +3,20 @@ package com.otilm.core.integration.events;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.model.common.events.data.CertificateStatusChangedEventData;
+import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.other.ResourceEvent;
+import com.otilm.core.dao.entity.OwnerAssociation;
 import com.otilm.core.dao.entity.notifications.Notification;
+import com.otilm.core.dao.repository.OwnerAssociationRepository;
 import com.otilm.core.dao.repository.notifications.NotificationRepository;
 import com.otilm.core.messaging.jms.listeners.NotificationListener;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -36,6 +40,8 @@ class NotificationInternalNotificationITest extends BaseSpringBootTest {
     private NotificationListener notificationListener;
     @Autowired
     private NotificationRepository notificationRepository;
+    @Autowired
+    private OwnerAssociationRepository ownerAssociationRepository;
 
     private WireMockServer mockServer;
 
@@ -78,6 +84,50 @@ class NotificationInternalNotificationITest extends BaseSpringBootTest {
     @AfterEach
     void stopAuthServiceMock() {
         mockServer.stop();
+    }
+
+    @Test
+    void ownerRecipientResolvesToTheSubjectObjectsOwner() {
+        UUID objectUuid = UUID.randomUUID();
+        UUID ownerUuid = UUID.randomUUID();
+        OwnerAssociation association = new OwnerAssociation();
+        association.setResource(Resource.RA_PROFILE);
+        association.setObjectUuid(objectUuid);
+        association.setOwnerUuid(ownerUuid);
+        association.setOwnerUsername("tst-owner");
+        ownerAssociationRepository.save(association);
+
+        notificationListener
+                .processMessage(commentCreatedMessage(objectUuid,
+                        List.of(new NotificationRecipient(RecipientType.OWNER, null))));
+
+        List<Notification> notifications = notificationRepository.findAll();
+        Assertions.assertEquals(1, notifications.size());
+        Assertions.assertEquals(objectUuid.toString(), notifications.getFirst().getTargetObjectIdentification());
+    }
+
+    @Test
+    void ownerRecipientWithoutAssociationResolvesToNobody() {
+        notificationListener
+                .processMessage(commentCreatedMessage(UUID.randomUUID(),
+                        List.of(new NotificationRecipient(RecipientType.OWNER, null))));
+
+        Assertions.assertEquals(0, notificationRepository.findAll().size());
+    }
+
+    private static NotificationMessage commentCreatedMessage(UUID objectUuid, List<NotificationRecipient> recipients) {
+        CommentEventData data = new CommentEventData();
+        data.setCommentUuid(UUID.randomUUID());
+        data.setResource(Resource.RA_PROFILE);
+        data.setObjectUuid(objectUuid);
+        data.setObjectName("tst-ra-profile");
+        data.setAuthorUuid(UUID.randomUUID());
+        data.setAuthorUsername("tst-author");
+        data.setCreatedAt(OffsetDateTime.now());
+        data.setBody("A **markdown** request");
+
+        return new NotificationMessage(ResourceEvent.COMMENT_CREATED, Resource.RA_PROFILE, objectUuid, null, recipients,
+                data);
     }
 
     /**
