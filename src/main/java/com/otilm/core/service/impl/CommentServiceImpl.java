@@ -10,6 +10,7 @@ import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
+import com.otilm.core.aop.AuditOperationDataOverride;
 import com.otilm.core.dao.entity.Comment;
 import com.otilm.core.dao.repository.CommentRepository;
 import com.otilm.core.dao.repository.OwnerAssociationRepository;
@@ -28,6 +29,7 @@ import com.otilm.core.service.ResourceExtensionService;
 import com.otilm.core.service.writer.CommentWriter;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.RequestValidatorHelper;
+import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.context.request.RequestContextHolder;
 
 @Service
 public class CommentServiceImpl implements CommentExternalService, CommentInternalService {
@@ -53,6 +56,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     private AuthorizationEnforcer authorizationEnforcer;
     private OwnerAssociationRepository ownerAssociationRepository;
     private EventProducer eventProducer;
+    private AuditOperationDataOverride auditOperationDataOverride;
 
     @Autowired
     public void setCommentRepository(CommentRepository commentRepository) {
@@ -83,6 +87,11 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     @Autowired
     public void setEventProducer(EventProducer eventProducer) {
         this.eventProducer = eventProducer;
+    }
+
+    @Autowired
+    public void setAuditOperationDataOverride(AuditOperationDataOverride auditOperationDataOverride) {
+        this.auditOperationDataOverride = auditOperationDataOverride;
     }
 
     @Override
@@ -134,6 +143,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         Comment saved = commentWriter.create(comment);
 
         CommentEventData eventData = baseEventData(saved, hostObject.getName());
+        recordAuditData(eventData);
         publishAfterCommit(new EventMessage(ResourceEvent.COMMENT_CREATED, Resource.COMMENT, saved.getUuid(), null,
                 null, eventData, saved.getAuthorUuid(), null));
         return CommentMapper.toDto(saved, null);
@@ -158,7 +168,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void deleteComment(UUID uuid) throws NotFoundException {
         Comment comment = getComment(uuid);
-        readGate(comment);
+        NameAndUuidDto hostObject = readGate(comment);
         NameAndUuidDto actor = AuthHelper.getUserIdentification();
         boolean isAuthor = actor.getUuid().equals(comment.getAuthorUuid().toString());
         boolean rootWithReplies = comment.getParentUuid() == null && commentRepository.existsByParentUuid(uuid);
@@ -172,6 +182,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
             throw new AccessDeniedException("Access denied to delete comment %s on %s %s"
                     .formatted(uuid, comment.getResource().getCode(), comment.getObjectUuid()));
         }
+        recordAuditData(baseEventData(comment, hostObject.getName()));
         commentWriter.delete(uuid);
     }
 
@@ -205,6 +216,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         eventData.setResolvedByUuid(UUID.fromString(actor.getUuid()));
         eventData.setResolvedByUsername(actor.getName());
         eventData.setResolvedAt(changedAt);
+        recordAuditData(eventData);
         publishAfterCommit(new EventMessage(ResourceEvent.COMMENT_RESOLVED, Resource.COMMENT, uuid, null, null,
                 eventData, UUID.fromString(actor.getUuid()), null));
     }
@@ -273,6 +285,14 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         eventData.setCreatedAt(comment.getCreatedAt());
         eventData.setBody(comment.getBody());
         return eventData;
+    }
+
+    // The override is request-scoped; outside an HTTP request (internal callers, tests hitting the service
+    // directly) there is no audit frame to enrich.
+    private void recordAuditData(Serializable data) {
+        if (RequestContextHolder.getRequestAttributes() != null) {
+            auditOperationDataOverride.set(data);
+        }
     }
 
     private void publishAfterCommit(EventMessage eventMessage) {

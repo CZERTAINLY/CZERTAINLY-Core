@@ -57,6 +57,8 @@ public class AuditLogAspect {
 
     private AuditResultOverride auditResultOverride;
 
+    private AuditOperationDataOverride auditOperationDataOverride;
+
     @Autowired
     public void setAuditLogEnhancer(AuditLogEnhancer auditLogEnhancer) {
         this.auditLogEnhancer = auditLogEnhancer;
@@ -65,6 +67,11 @@ public class AuditLogAspect {
     @Autowired
     public void setAuditResultOverride(AuditResultOverride auditResultOverride) {
         this.auditResultOverride = auditResultOverride;
+    }
+
+    @Autowired
+    public void setAuditOperationDataOverride(AuditOperationDataOverride auditOperationDataOverride) {
+        this.auditOperationDataOverride = auditOperationDataOverride;
     }
 
     @Autowired
@@ -387,6 +394,9 @@ public class AuditLogAspect {
             if (response instanceof Loggable loggable) {
                 responseOperationData = loggable.toLogData();
             }
+        }
+        if (responseOperationData == null && RequestContextHolder.getRequestAttributes() != null) {
+            responseOperationData = auditOperationDataOverride.consume();
         }
         builder.operationData(responseOperationData);
     }
