@@ -157,6 +157,7 @@ import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapter;
 import com.otilm.core.service.handler.authority.AuthorityProviderAdapterFactory;
 import com.otilm.core.service.handler.authority.lifecycle.CertificateStateMachine;
+import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.service.writer.CertificateValidationWriter;
 import com.otilm.core.service.writer.DiscoveryCertificateContentWriter;
 import com.otilm.core.service.writer.registration.CertificateRegistrationAuthorizationWriter;
@@ -296,6 +297,7 @@ public class CertificateServiceImpl
     private AcmeAccountRepository acmeAccountRepository;
 
     private AttributeEngine attributeEngine;
+    private ExtendedAttributeService extendedAttributeService;
     private ResourceObjectAssociationService objectAssociationService;
     private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     private ApplicationEventPublisher applicationEventPublisher;
@@ -523,6 +525,11 @@ public class CertificateServiceImpl
     }
 
     @Autowired
+    public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
+        this.extendedAttributeService = extendedAttributeService;
+    }
+
+    @Autowired
     public void setObjectAssociationService(ResourceObjectAssociationService objectAssociationService) {
         this.objectAssociationService = objectAssociationService;
     }
@@ -697,6 +704,26 @@ public class CertificateServiceImpl
                                             .getConnectorUuid())
                                     .operation(AttributeOperation.CERTIFICATE_REGISTER)
                                     .build()));
+            dto
+                    .setRenewAttributes(attributeEngine
+                            .getObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                    .connector(certificate
+                                            .getRaProfile()
+                                            .getAuthorityInstanceReference()
+                                            .getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_RENEW)
+                                    .build()));
+            dto
+                    .setIdentifyAttributes(attributeEngine
+                            .getObjectDataAttributesContent(ObjectAttributeContentInfo
+                                    .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                    .connector(certificate
+                                            .getRaProfile()
+                                            .getAuthorityInstanceReference()
+                                            .getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
+                                    .build()));
         }
         // Registration request-attribute values are persisted without a connector under the null operation slot by
         // the register flow, and read here for every certificate so a registered placeholder that has no certificate
@@ -867,7 +894,8 @@ public class CertificateServiceImpl
                         request.getGroupUuids(), request.getOwnerUuid());
         if (request.getRaProfileUuid() != null) {
             switchRaProfile(uuid,
-                    request.getRaProfileUuid().isEmpty() ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
+                    request.getRaProfileUuid().isEmpty() ? null : SecuredUUID.fromString(request.getRaProfileUuid()),
+                    request.getAttributes());
         }
         if (request.getGroupUuids() != null) {
             this
@@ -1017,8 +1045,10 @@ public class CertificateServiceImpl
             updateOwner(certificateUuid, ownerUuid);
         }
         if (request.getRaProfileUuid() != null) {
+            // One raProfileUuid governs the whole batch, so one identify-attribute set applies to every certificate.
             switchRaProfile(certificateUuid,
-                    removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
+                    removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()),
+                    request.getAttributes());
         }
     }
 
@@ -3021,7 +3051,7 @@ public class CertificateServiceImpl
         }
     }
 
-    public void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid)
+    public void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid, List<RequestAttribute> identifyAttributes)
             throws NotFoundException, CertificateOperationException, AttributeException {
         Certificate certificate = getCertificateEntity(uuid);
         if (certificate.isArchived()) {
@@ -3055,7 +3085,7 @@ public class CertificateServiceImpl
                     .findByUuid(raProfileUuid)
                     .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
             newRaProfileName = newRaProfile.getName();
-            identifiedMeta = identifyByNewAuthority(certificate, newRaProfile);
+            identifiedMeta = identifyByNewAuthority(certificate, newRaProfile, identifyAttributes);
         }
 
         certificate.setRaProfile(newRaProfile);
@@ -3069,6 +3099,17 @@ public class CertificateServiceImpl
                             ObjectAttributeContentInfo
                                     .builder(Resource.CERTIFICATE, certificate.getUuid())
                                     .connector(currentRaProfile.getAuthorityInstanceReference().getConnectorUuid())
+                                    .build());
+            // The previous authority's identify values are relationship state, not provenance, and may carry
+            // operator-typed secrets (the identify schema is connector-defined) — they must not linger on a
+            // certificate that authority no longer governs. Issue/renew values stay: they record how the
+            // certificate was created.
+            attributeEngine
+                    .deleteOperationObjectAttributesContent(AttributeType.DATA,
+                            ObjectAttributeContentInfo
+                                    .builder(Resource.CERTIFICATE, certificate.getUuid())
+                                    .connector(currentRaProfile.getAuthorityInstanceReference().getConnectorUuid())
+                                    .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
                                     .build());
         }
 
@@ -3099,8 +3140,8 @@ public class CertificateServiceImpl
      * Every failure here is reported to the operator and then raised checked, so the caller's transaction survives to
      * keep that report -- for a discovery action trigger, an unchecked one would cost the trigger its history.
      */
-    private List<MetadataAttribute> identifyByNewAuthority(Certificate certificate, RaProfile newRaProfile)
-            throws CertificateOperationException {
+    private List<MetadataAttribute> identifyByNewAuthority(Certificate certificate, RaProfile newRaProfile,
+            List<RequestAttribute> identifyAttributes) throws CertificateOperationException {
         if (newRaProfile.getAuthorityInstanceReference() == null) {
             // The connector is never contacted, so this is not a rejection and must not be reported as one.
             certificateEventHistoryService
@@ -3114,10 +3155,43 @@ public class CertificateServiceImpl
                     .format("Cannot switch RA profile for certificate. RA profile %s has no authority instance, so the certificate cannot be identified. Certificate: %s",
                             newRaProfile.getName(), certificate.toStringShort()));
         }
+        // Validate the connector's identify-operation attributes against the schema — always, so a required
+        // identify attribute is enforced even when the operator sends none. Kept outside the connector try below,
+        // so a platform-side schema rejection is never attributed to a connector that was not contacted (the
+        // structural failures raise ValidationException, which the connector try reports as a CA rejection).
+        try {
+            extendedAttributeService.mergeAndValidateIdentifyAttributes(newRaProfile, identifyAttributes);
+        } catch (ConnectorException e) {
+            // The identify schema listing itself failed — a genuine connector failure, not a schema rejection.
+            certificateEventHistoryService
+                    .addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE,
+                            CertificateEventStatus.FAILED,
+                            String
+                                    .format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.",
+                                            newRaProfile.getName()),
+                            null);
+            throw new CertificateOperationException(String
+                    .format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s",
+                            newRaProfile.getName(), certificate.toStringShort()));
+        } catch (ValidationException | AttributeException | NotFoundException e) {
+            certificateEventHistoryService
+                    .addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE,
+                            CertificateEventStatus.FAILED,
+                            String
+                                    .format("Identify attributes rejected by schema of new RA profile %s: %s",
+                                            newRaProfile.getName(), e.getMessage()),
+                            null);
+            throw new CertificateOperationException(String
+                    .format("Cannot switch RA profile for certificate. Identify attributes rejected by schema of new RA profile %s: %s. Certificate: %s",
+                            newRaProfile.getName(), e.getMessage(), certificate.toStringShort()));
+        }
+        List<MetadataAttribute> identifiedMeta;
         try {
             AuthorityProviderAdapter adapter = adapterFactory
                     .forAuthority(newRaProfile.getAuthorityInstanceReference());
-            return adapter.identify(newRaProfile, certificate.getCertificateContent().getContent());
+            identifiedMeta = adapter
+                    .identify(newRaProfile, certificate.getCertificateContent().getContent(),
+                            identifyAttributes != null ? identifyAttributes : List.of());
         } catch (ConnectorException e) {
             certificateEventHistoryService
                     .addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE,
@@ -3159,6 +3233,28 @@ public class CertificateServiceImpl
                     .format("Cannot switch RA profile for certificate. Authority of RA profile %s uses a connector interface version this platform does not support. Certificate: %s",
                             newRaProfile.getName(), certificate.toStringShort()));
         }
+        // Persist only after the authority accepted the identification: the adapter takes the values as a
+        // parameter, so nothing needs the write earlier, a rejected identification leaves no write behind, and no
+        // row lock is held across the connector round trips. The write replaces this (certificate, connector)
+        // slot, so re-identifying against a connector the certificate was assigned to before cannot resurface a
+        // previous stint's values.
+        try {
+            attributeEngine
+                    .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                            .builder(Resource.CERTIFICATE, certificate.getUuid())
+                            .connector(newRaProfile.getAuthorityInstanceReference().getConnectorUuid())
+                            .operation(AttributeOperation.CERTIFICATE_IDENTIFY)
+                            .build(), identifyAttributes);
+        } catch (AttributeException | NotFoundException | ValidationException e) {
+            certificateEventHistoryService
+                    .addEventHistorySurvivingRollback(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE,
+                            CertificateEventStatus.FAILED,
+                            String.format("Failed to persist identify attributes: %s", e.getMessage()), null);
+            throw new CertificateOperationException(String
+                    .format("Cannot switch RA profile for certificate. Failed to persist identify attributes: %s. Certificate: %s",
+                            e.getMessage(), certificate.toStringShort()));
+        }
+        return identifiedMeta;
     }
 
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)

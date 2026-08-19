@@ -60,8 +60,11 @@ public interface AuthorityProviderAdapter {
      * @param raProfile the RA profile whose authority performs the identification — may differ from the certificate's
      * current RA profile (RA profile switch)
      * @param certificateContent Base64 certificate content to identify
+     * @param attributes identify-operation attribute values, validated by the caller against
+     * {@link #listIdentifyAttributes}; v3 carries them on the wire, v2 ignores them (its contract has no such field).
+     * Never {@code null} — callers pass an empty list when the operator supplied none.
      */
-    List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent)
+    List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent, List<RequestAttribute> attributes)
             throws ValidationException, ConnectorException;
 
     /**
@@ -94,6 +97,33 @@ public interface AuthorityProviderAdapter {
 
     /** See {@link #listIssueAttributes} — identical semantics for revoke. */
     List<BaseAttribute> listRevokeAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
+            throws ConnectorException;
+
+    /**
+     * Lists the connector's certificate-request attribute schema (subject RDNs, SANs, extensions the CA asks for).
+     * <p>
+     * Optional on the connector: v3 resolves 404, {@code OPERATION_NOT_SUPPORTED} (501) and an empty array to an empty
+     * list; v2 has no such endpoint and always returns empty.
+     * <p>
+     * Not consumed by any flow today; {@code GET /v1/certificates/csr/attributes} resolves CSR attributes
+     * platform-side.
+     */
+    List<BaseAttribute> listCertificateRequestAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
+            throws ConnectorException;
+
+    /**
+     * Lists the connector's renew-operation attribute schema. Rekey funnels into {@link #renew}, so this schema covers
+     * rekey too. Optional on the connector — same empty-resolution semantics as
+     * {@link #listCertificateRequestAttributes}.
+     */
+    List<BaseAttribute> listRenewAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
+            throws ConnectorException;
+
+    /**
+     * Lists the connector's identify-operation attribute schema. Optional on the connector — same empty-resolution
+     * semantics as {@link #listCertificateRequestAttributes}.
+     */
+    List<BaseAttribute> listIdentifyAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
             throws ConnectorException;
 
     /**

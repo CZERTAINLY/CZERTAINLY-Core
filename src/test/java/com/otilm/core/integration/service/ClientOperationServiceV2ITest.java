@@ -11,7 +11,7 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV2;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.certificate.CancelPendingCertificateRequestDto;
-import com.otilm.api.model.client.certificate.UploadCertificateRequestDto;
+import com.otilm.api.model.client.certificate.ManuallyIssueCertificateRequestDto;
 import com.otilm.api.model.common.NameAndIdDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
@@ -305,6 +305,29 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
                         SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
                         SecuredUUID.fromUUID(raProfile.getUuid()));
         Assertions.assertNotNull(attributes);
+    }
+
+    @Test
+    void testListRenewCertificateAttributes_resolvesEmptyOnV2Authority() throws ConnectorException, NotFoundException {
+        // A v2 authority has no renew schema endpoint; resolution is empty without any connector call.
+        Assertions
+                .assertEquals(List.of(),
+                        clientOperationService
+                                .listRenewCertificateAttributes(
+                                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                        SecuredUUID.fromUUID(raProfile.getUuid())));
+    }
+
+    @Test
+    void testListIdentifyCertificateAttributes_resolvesEmptyOnV2Authority()
+            throws ConnectorException, NotFoundException {
+        // A v2 authority has no identify schema endpoint; resolution is empty without any connector call.
+        Assertions
+                .assertEquals(List.of(),
+                        clientOperationService
+                                .listIdentifyCertificateAttributes(
+                                        SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                                        SecuredUUID.fromUUID(raProfile.getUuid())));
     }
 
     @Test
@@ -2030,7 +2053,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         ValidationException ex = Assertions
                 .assertThrows(ValidationException.class,
-                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid));
+                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid, List.of()));
         Assertions
                 .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
                         "expected error message to mention pending state, got: " + ex.getMessage());
@@ -2045,7 +2068,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredUUID raProfileSecuredUuid = raProfile.getSecuredUuid();
         ValidationException ex = Assertions
                 .assertThrows(ValidationException.class,
-                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid));
+                        () -> certificateService.switchRaProfile(certSecuredUuid, raProfileSecuredUuid, List.of()));
         Assertions
                 .assertTrue(ex.getMessage().toLowerCase().contains("pending"),
                         "expected error message to mention pending state, got: " + ex.getMessage());
@@ -2107,7 +2130,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
                         .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
                         .willReturn(WireMock.okJson("{\"meta\":[]}")));
 
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate(certBase64);
         req.setCustomAttributes(List.of());
 
@@ -2122,7 +2145,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
     @Test
     void manuallyIssueCertificate_blocksWhenCertNotInPendingIssue() {
         // certificate is in ISSUED state from setUp()
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate("dGVzdA==");
         req.setCustomAttributes(List.of());
 
@@ -2163,7 +2186,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
                 .when(certificateRepository)
                 .findAndLockWithAssociationsByUuid(certificate.getUuid());
 
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate(certBase64);
         req.setCustomAttributes(List.of());
 
@@ -2233,7 +2256,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
                         .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
                         .willReturn(WireMock.okJson("{\"meta\":[]}")));
 
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate(mismatchedCertBase64);
         req.setCustomAttributes(List.of());
 
@@ -2586,7 +2609,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
                                 .withHeader("Content-Type", "application/json")
                                 .withBody("[\"Certificate not issued by the configured CA\"]")));
 
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate(certBase64);
         req.setCustomAttributes(List.of());
 
@@ -2665,7 +2688,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
                         .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
                         .willReturn(WireMock.okJson("{\"meta\":[]}")));
 
-        UploadCertificateRequestDto finalizeReq = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto finalizeReq = new ManuallyIssueCertificateRequestDto();
         finalizeReq.setCertificate(certBase64);
         finalizeReq.setCustomAttributes(List.of());
 
@@ -2720,7 +2743,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
                         .post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push"))
                         .willReturn(WireMock.okJson("{\"withKey\": false}")));
 
-        UploadCertificateRequestDto finalizeReq = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto finalizeReq = new ManuallyIssueCertificateRequestDto();
         finalizeReq.setCertificate(buildSelfSignedCertBase64(kp, "finalized-loc-push"));
         finalizeReq.setCustomAttributes(List.of());
 
@@ -2891,7 +2914,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         foreignRaProfile.setEnabled(true);
         raProfileRepository.save(foreignRaProfile);
 
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate("dGVzdA==");
         req.setCustomAttributes(List.of());
 
@@ -2973,7 +2996,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         certificate.setState(CertificateState.PENDING_ISSUE);
         certificateRepository.save(certificate);
 
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate("dGVzdA==");
         req.setCustomAttributes(List.of());
 
@@ -3029,7 +3052,7 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         SecuredParentUUID authority = SecuredParentUUID.fromUUID(authorityInstanceReference.getUuid());
         SecuredUUID raProfileSecured = raProfile.getSecuredUuid();
         String missingId = UUID.randomUUID().toString();
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate("dGVzdA==");
 
         Assertions

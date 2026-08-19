@@ -24,6 +24,12 @@ public interface ExtendedAttributeService {
     List<BaseAttribute> listRegisterCertificateAttributes(RaProfile raProfile)
             throws ConnectorException, NotFoundException;
 
+    List<BaseAttribute> listRenewCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException;
+
+    List<BaseAttribute> listIdentifyCertificateAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException;
+
     void validateRevokeCertificateAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
             throws ConnectorException, ValidationException, NotFoundException;
 
@@ -34,6 +40,12 @@ public interface ExtendedAttributeService {
             throws ConnectorException, AttributeException, NotFoundException;
 
     void mergeAndValidateRegisterAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException;
+
+    void mergeAndValidateRenewAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
+            throws ConnectorException, AttributeException, NotFoundException;
+
+    void mergeAndValidateIdentifyAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
             throws ConnectorException, AttributeException, NotFoundException;
 
     void validateLegacyConnector(Connector connector) throws NotFoundException;

@@ -1,7 +1,7 @@
 package com.otilm.core.api.v2.client;
 
 import com.otilm.api.model.client.certificate.CancelPendingCertificateRequestDto;
-import com.otilm.api.model.client.certificate.UploadCertificateRequestDto;
+import com.otilm.api.model.client.certificate.ManuallyIssueCertificateRequestDto;
 import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -38,12 +38,12 @@ class ClientOperationControllerImplTest {
 
     @Test
     void manuallyIssueCertificate_delegatesToService() throws Exception {
-        UploadCertificateRequestDto request = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto request = new ManuallyIssueCertificateRequestDto();
         CertificateDetailDto expected = new CertificateDetailDto();
         Mockito
                 .when(service
                         .manuallyIssueCertificate(Mockito.any(SecuredParentUUID.class), Mockito.any(SecuredUUID.class),
-                                Mockito.eq(certificateUuid), Mockito.any(UploadCertificateRequestDto.class)))
+                                Mockito.eq(certificateUuid), Mockito.any(ManuallyIssueCertificateRequestDto.class)))
                 .thenReturn(expected);
 
         CertificateDetailDto actual = controller

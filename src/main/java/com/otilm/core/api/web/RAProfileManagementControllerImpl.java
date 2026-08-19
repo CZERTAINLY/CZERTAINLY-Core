@@ -345,4 +345,26 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
                         SecuredUUID.fromString(raProfileUuid));
     }
 
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "renew",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listRenewCertificateAttributes(String authorityUuid,
+            @LogResource(uuid = true, affiliated = true) String raProfileUuid)
+            throws ConnectorException, NotFoundException {
+        return raProfileService
+                .listRenewCertificateAttributes(SecuredParentUUID.fromString(authorityUuid),
+                        SecuredUUID.fromString(raProfileUuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "identify",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listIdentifyCertificateAttributes(String authorityUuid,
+            @LogResource(uuid = true, affiliated = true) String raProfileUuid)
+            throws ConnectorException, NotFoundException {
+        return raProfileService
+                .listIdentifyCertificateAttributes(SecuredParentUUID.fromString(authorityUuid),
+                        SecuredUUID.fromString(raProfileUuid));
+    }
+
 }

@@ -77,7 +77,8 @@ public class CertificateTriggerEvaluator extends TriggerEvaluator<Certificate> {
                 ? null
                 : SecuredUUID.fromUUID(propertyUuid != null ? propertyUuid : propertyUuids.getFirst());
         switch (searchableField) {
-            case RA_PROFILE_NAME -> certificateService.switchRaProfile(certificateUuid, newPropertyUuid);
+            // Trigger-driven switches carry no operator input, so no identify attributes are supplied.
+            case RA_PROFILE_NAME -> certificateService.switchRaProfile(certificateUuid, newPropertyUuid, List.of());
             case GROUP_NAME -> certificateService
                     .updateCertificateGroups(object.getSecuredUuid(),
                             removeValue
