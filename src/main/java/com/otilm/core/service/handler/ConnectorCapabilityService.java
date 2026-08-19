@@ -20,21 +20,29 @@ import org.springframework.stereotype.Service;
  * </ul>
  *
  * <p>
- * The ENFORCED/INFORMATIONAL gate is generic over any {@link FeatureFlag}; the current entry point resolves per
- * authority instance.
+ * The ENFORCED/INFORMATIONAL gate is generic over any {@link FeatureFlag}; entry points resolve per bound interface
+ * row, or per authority instance for the authority-typed convenience overload.
  */
 @Service
 public class ConnectorCapabilityService {
 
     /**
-     * Per-authority check — reads the authority's own bound interface entity directly, so it is correct even when the
-     * connector exposes multiple versions of the AUTHORITY interface.
+     * Per-interface-row check — keyed on the bound {@link ConnectorInterfaceEntity} rather than (connector, code), so
+     * it is correct even when the connector exposes multiple versions of the same interface. Callers holding a bound
+     * row (an authority's interface, a discovery run's {@code connector_interface_uuid} target) pass it directly.
      */
-    public boolean supports(AuthorityInstanceReference authority, FeatureFlag flag) {
+    public boolean supports(ConnectorInterfaceEntity iface, FeatureFlag flag) {
         if (flag.getBehavior() == FeatureFlagBehavior.INFORMATIONAL) {
             return true;
         }
-        return authority != null && advertises(authority.getConnectorInterface(), flag);
+        return advertises(iface, flag);
+    }
+
+    /**
+     * Per-authority check — reads the authority's own bound interface entity directly.
+     */
+    public boolean supports(AuthorityInstanceReference authority, FeatureFlag flag) {
+        return supports(authority != null ? authority.getConnectorInterface() : null, flag);
     }
 
     private static boolean advertises(ConnectorInterfaceEntity iface, FeatureFlag flag) {
