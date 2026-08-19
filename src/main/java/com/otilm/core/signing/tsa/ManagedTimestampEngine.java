@@ -24,6 +24,7 @@ import com.otilm.core.util.serialnumber.SerialNumberGenerator;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.Objects;
 import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.tsp.TSPValidationException;
 import org.bouncycastle.tsp.TimeStampToken;
@@ -91,10 +92,11 @@ public class ManagedTimestampEngine {
     public IssuedTimestamp issue(TspRequest request, SigningProfileModel<?, ?> signingProfile,
             ResolvedManagedTimestampingProfile timestampingProfile, SigningProtocol protocol)
             throws SigningEngineException {
+        Objects.requireNonNull(protocol, "protocol");
         try {
             return issueToken(request, signingProfile, timestampingProfile, protocol);
         } catch (SigningEngineException e) {
-            logFailure(timestampingProfile, e);
+            logFailure(timestampingProfile, protocol, e);
             throw e;
         }
     }
@@ -124,7 +126,7 @@ public class ManagedTimestampEngine {
             return new IssuedTimestamp(encodedToken, serialNumber, genTime);
 
         } catch (SigningEngineException e) {
-            // keeps engine failures out of catch (Exception) below, which would collapse their classification
+            // keeps engine failures out of the catch-all below, which would collapse their classification
             throw e;
         } catch (TSPValidationException e) {
             throw new SigningEngineException(SigningEngineFailure.SIGNER_FAULT, "timestamp signature validation failed",
@@ -206,15 +208,16 @@ public class ManagedTimestampEngine {
      * A fault in the platform's own signing path is an operational alert; a rejection the requester or the operator
      * caused is not. Both entry points log here, because {@link #issue} is the one place every failure passes through.
      */
-    private static void logFailure(ResolvedManagedTimestampingProfile timestampingProfile, SigningEngineException e) {
+    private static void logFailure(ResolvedManagedTimestampingProfile timestampingProfile, SigningProtocol protocol,
+            SigningEngineException e) {
         if (isPlatformFault(e.failure())) {
             logger
-                    .error("Timestamp issuance failed for signing profile '{}': {}", timestampingProfile.name(),
-                            e.operatorMessage(), e);
+                    .error("Timestamp issuance failed for signing profile '{}' via {}: {}", timestampingProfile.name(),
+                            protocol, e.operatorMessage(), e);
         } else {
             logger
-                    .warn("Rejecting timestamp request for signing profile '{}': {}", timestampingProfile.name(),
-                            e.operatorMessage(), e);
+                    .warn("Refusing to issue a timestamp for signing profile '{}' via {}: {}",
+                            timestampingProfile.name(), protocol, e.operatorMessage(), e);
         }
     }
 

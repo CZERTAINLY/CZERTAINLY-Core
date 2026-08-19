@@ -23,8 +23,9 @@ class SigningProfileSupportedProtocolsTest {
         var supported = service.listSupportedProtocols(workflowType);
 
         // then
-        assertThat(supported).allMatch(SigningProtocol::isEnableableOnProfile);
-        assertThat(supported).doesNotContain(SigningProtocol.INTERNAL_TSA);
+        assertThat(supported)
+                .allMatch(SigningProtocol::isEnableableOnProfile)
+                .doesNotContain(SigningProtocol.INTERNAL_TSA);
     }
 
     /** Keeps the guard above from passing merely because nothing is offered at all. */

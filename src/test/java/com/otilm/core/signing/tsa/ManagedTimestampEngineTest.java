@@ -169,7 +169,7 @@ class ManagedTimestampEngineTest {
     }
 
     @Test
-    void failsIssuanceWithTimeUnavailable_whenTheClockDriftedDuringSerialNumberGeneration() throws Exception {
+    void failsIssuanceWithTimeUnavailable_whenTheClockDriftedDuringSerialNumberGeneration() {
         // given
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
         when(signingCertificateValidator.validate(any(), any(), anyBoolean())).thenReturn(ValidationResult.ok());
@@ -183,7 +183,7 @@ class ManagedTimestampEngineTest {
 
     /** The validator already speaks engine currency, so issuance must surface its verdict rather than restate it. */
     @Test
-    void failsIssuanceWithTheValidatorsVerdict_whenCertificateValidationFails() throws Exception {
+    void failsIssuanceWithTheValidatorsVerdict_whenCertificateValidationFails() {
         // given
         when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
         when(signingCertificateValidator.validate(any(), any(), anyBoolean()))
