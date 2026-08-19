@@ -128,7 +128,6 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
         assertThatThrownBy(() -> post(resource, objectUuid, null)).isInstanceOf(AccessDeniedException.class);
     }
 
-    // Profile 2 — read plus COMMENT, without UPDATE on the host: sees threads and can post.
     @ParameterizedTest
     @MethodSource("commentableResources")
     void readerWithCommentCapabilityPostsWithoutUpdateRights(Resource resource) throws NotFoundException {
