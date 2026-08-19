@@ -2,8 +2,11 @@ package com.otilm.core.service.handler.authority;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.clients.ApiClientConnectorInfo;
+import com.otilm.api.exception.ConnectorCommunicationException;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.ConnectorProblemException;
+import com.otilm.api.exception.ConnectorServerException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.client.v3.AuthoritySyncApiClient;
@@ -34,6 +37,7 @@ import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatus;
 import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatusRequestDtoV3;
 import com.otilm.api.model.connector.v3.certificate.CertificateOperationStatusResponseDto;
 import com.otilm.api.model.connector.v3.certificate.CertificateRegistrationRequestDtoV3;
+import com.otilm.api.model.connector.v3.certificate.CertificateRenewRequestDtoV3;
 import com.otilm.api.model.connector.v3.certificate.CertificateRevocationRequestDtoV3;
 import com.otilm.api.model.connector.v3.certificate.CertificateSignRequestDtoV3;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
@@ -79,6 +83,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -453,7 +458,7 @@ class AuthorityProviderV3AdapterTest {
         when(certClientV3.identify(eq(connectorInfo), any(CertificateIdentificationRequestDtoV3.class)))
                 .thenReturn(response);
 
-        List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=");
+        List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of());
 
         assertSame(meta, result);
         ArgumentCaptor<CertificateIdentificationRequestDtoV3> captor = ArgumentCaptor
@@ -467,7 +472,21 @@ class AuthorityProviderV3AdapterTest {
         when(certClientV3.identify(eq(connectorInfo), any(CertificateIdentificationRequestDtoV3.class)))
                 .thenReturn(new CertificateIdentificationResponseDto());
 
-        assertEquals(List.of(), adapter.identify(raProfile, "dGVzdGNlcnQ="));
+        assertEquals(List.of(), adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of()));
+    }
+
+    @Test
+    void identifyPutsAttributesOnTheWire() throws ConnectorException {
+        List<RequestAttribute> identifyValues = List.of(new RequestAttributeV3());
+        when(certClientV3.identify(eq(connectorInfo), any(CertificateIdentificationRequestDtoV3.class)))
+                .thenReturn(new CertificateIdentificationResponseDto());
+
+        adapter.identify(raProfile, "dGVzdGNlcnQ=", identifyValues);
+
+        ArgumentCaptor<CertificateIdentificationRequestDtoV3> wire = ArgumentCaptor
+                .forClass(CertificateIdentificationRequestDtoV3.class);
+        verify(certClientV3).identify(eq(connectorInfo), wire.capture());
+        assertEquals(identifyValues, wire.getValue().getAttributes());
     }
 
     // ---- getCaCertificates ----
@@ -849,6 +868,24 @@ class AuthorityProviderV3AdapterTest {
         assertEquals(AdapterOperationOutcome.ASYNC_ACCEPTED, result.outcome());
     }
 
+    @Test
+    void renewPutsPersistedRenewAttributesOnTheWire() throws ConnectorException {
+        List<RequestAttribute> renewValues = List.of(new RequestAttributeV3());
+        when(attributeEngine
+                .getRequestObjectDataAttributesContent(
+                        argThat(info -> info != null && AttributeOperation.CERTIFICATE_RENEW.equals(info.operation()))))
+                .thenReturn(renewValues);
+        when(certClientV3.renew(eq(connectorInfo), any()))
+                .thenReturn(ResponseEntity.ok(new CertificateDataResponseDto()));
+
+        // null request DTO = the rekey path; the wire attributes must come from the engine either way.
+        adapter.renew(oldCert, cert, null);
+
+        ArgumentCaptor<CertificateRenewRequestDtoV3> wire = ArgumentCaptor.forClass(CertificateRenewRequestDtoV3.class);
+        verify(certClientV3).renew(eq(connectorInfo), wire.capture());
+        assertEquals(renewValues, wire.getValue().getAttributes());
+    }
+
     // ---- attribute listing / validation / connection check ----
 
     @Test
@@ -884,6 +921,113 @@ class AuthorityProviderV3AdapterTest {
         List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
         when(certClientV3.listRegisterAttributes(eq(connectorInfo), any())).thenReturn(expected);
         assertEquals(expected, adapter.listRegisterAttributes(authority, raProfile));
+    }
+
+    // ---- request / renew / identify attribute schemas: optional endpoints, defensive resolution ----
+
+    @Test
+    void listCertificateRequestAttributesDelegates() throws ConnectorException {
+        List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
+        when(certClientV3.listRequestAttributes(eq(connectorInfo), any())).thenReturn(expected);
+        assertEquals(expected, adapter.listCertificateRequestAttributes(authority, raProfile));
+    }
+
+    @Test
+    void listRenewAttributesDelegates() throws ConnectorException {
+        List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
+        when(certClientV3.listRenewAttributes(eq(connectorInfo), any())).thenReturn(expected);
+        assertEquals(expected, adapter.listRenewAttributes(authority, raProfile));
+    }
+
+    @Test
+    void nullRequestSchemaBodyResolvesEmpty() throws ConnectorException {
+        when(certClientV3.listRequestAttributes(eq(connectorInfo), any())).thenReturn(null);
+        assertEquals(List.of(), adapter.listCertificateRequestAttributes(authority, raProfile));
+    }
+
+    @Test
+    void nullRenewSchemaBodyResolvesEmpty() throws ConnectorException {
+        when(certClientV3.listRenewAttributes(eq(connectorInfo), any())).thenReturn(null);
+        assertEquals(List.of(), adapter.listRenewAttributes(authority, raProfile));
+    }
+
+    @Test
+    void nullIdentifySchemaBodyResolvesEmpty() throws ConnectorException {
+        when(certClientV3.listIdentifyAttributes(eq(connectorInfo), any())).thenReturn(null);
+        assertEquals(List.of(), adapter.listIdentifyAttributes(authority, raProfile));
+    }
+
+    @Test
+    void listIdentifyAttributesDelegates() throws ConnectorException {
+        List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
+        when(certClientV3.listIdentifyAttributes(eq(connectorInfo), any())).thenReturn(expected);
+        assertEquals(expected, adapter.listIdentifyAttributes(authority, raProfile));
+    }
+
+    @Test
+    void notServedEndpointResolvesEmpty_404() throws ConnectorException {
+        when(certClientV3.listRenewAttributes(eq(connectorInfo), any()))
+                .thenThrow(new ConnectorEntityNotFoundException("no such route"));
+        assertEquals(List.of(), adapter.listRenewAttributes(authority, raProfile));
+    }
+
+    @Test
+    void operationNotSupportedProblemResolvesEmpty_501() throws ConnectorException {
+        ProblemDetailExtended problem = ProblemDetailExtended
+                .fromErrorCode(ErrorCode.OPERATION_NOT_SUPPORTED, "no renew schema", null, null);
+        when(certClientV3.listRenewAttributes(eq(connectorInfo), any()))
+                .thenThrow(new ConnectorProblemException(problem));
+        assertEquals(List.of(), adapter.listRenewAttributes(authority, raProfile));
+    }
+
+    @Test
+    void bare501WithoutProblemBodyResolvesEmpty() throws ConnectorException {
+        when(certClientV3.listIdentifyAttributes(eq(connectorInfo), any()))
+                .thenThrow(new ConnectorServerException("Not Implemented", HttpStatus.NOT_IMPLEMENTED));
+        assertEquals(List.of(), adapter.listIdentifyAttributes(authority, raProfile));
+    }
+
+    @Test
+    void otherProblemCodesStillPropagate() throws ConnectorException {
+        ProblemDetailExtended problem = ProblemDetailExtended
+                .fromErrorCode(ErrorCode.CREDENTIAL_INVALID, "bad credentials", null, null);
+        when(certClientV3.listRenewAttributes(eq(connectorInfo), any()))
+                .thenThrow(new ConnectorProblemException(problem));
+        assertThrows(ConnectorProblemException.class, () -> adapter.listRenewAttributes(authority, raProfile));
+    }
+
+    @Test
+    void other5xxStillPropagates() throws ConnectorException {
+        when(certClientV3.listRenewAttributes(eq(connectorInfo), any()))
+                .thenThrow(new ConnectorServerException("boom", HttpStatus.INTERNAL_SERVER_ERROR));
+        assertThrows(ConnectorServerException.class, () -> adapter.listRenewAttributes(authority, raProfile));
+    }
+
+    @Test
+    void communicationFailureStillPropagates() throws ConnectorException {
+        when(certClientV3.listRenewAttributes(eq(connectorInfo), any()))
+                .thenThrow(new ConnectorCommunicationException("timeout", connectorInfo));
+        assertThrows(ConnectorCommunicationException.class, () -> adapter.listRenewAttributes(authority, raProfile));
+    }
+
+    @Test
+    void listRenewAttributesFailsClosedWhenConnectorEchoesResolvedSecret() throws Exception {
+        UUID connectorUuid = authority.getConnectorUuid();
+        ResourceObjectContent secretContent = new ResourceObjectContent();
+        secretContent.setData(new ResourceSecretContentData("u", "n", new ApiKeySecretContent("s3cr3t-token")));
+        RequestAttribute resolvedSecret = new RequestAttributeV3(UUID.randomUUID(), "oauthClient",
+                AttributeContentType.RESOURCE, List.<BaseAttributeContentV3<?>>of(secretContent));
+        when(operationAttributeResolver.resolveForConnectorRequestAsSystem(eq(connectorUuid), any()))
+                .thenReturn(List.of(resolvedSecret));
+
+        DataAttributeV3 echoed = new DataAttributeV3();
+        echoed.setName("validityOverride");
+        echoed.setContent(List.of(new StringAttributeContentV3("s3cr3t-token")));
+        when(certClientV3.listRenewAttributes(eq(connectorInfo), any(CertificateAttributeListRequestDtoV3.class)))
+                .thenReturn(List.<BaseAttribute>of(echoed));
+
+        assertThrows(OutboundSecretLeakException.class, () -> adapter.listRenewAttributes(authority, raProfile),
+                "a connector echoing a resolved secret into the renew schema must fail closed");
     }
 
     @Test

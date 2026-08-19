@@ -1171,7 +1171,7 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
                             clientCertificateRenewRequestDto);
         } catch (NotFoundException | IOException | java.security.cert.CertificateException
                 | CertificateOperationException | CertificateRequestException | NoSuchAlgorithmException
-                | InvalidKeyException e) {
+                | InvalidKeyException | ConnectorException | AttributeException e) {
             logger
                     .debug("Failed to renew Certificate for Location {}, {}: {}",
                             certificateLocation.getLocation().getName(), certificateLocation.getLocation().getUuid(),

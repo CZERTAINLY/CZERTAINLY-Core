@@ -9,6 +9,7 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.client.v2.ClientOperationController;
 import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.certificate.ManuallyIssueCertificateRequestDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
@@ -75,7 +76,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid, ClientCertificateRenewRequestDto request)
             throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException,
-            CertificateOperationException, CertificateRequestException {
+            CertificateOperationException, CertificateRequestException, ConnectorException, AttributeException {
         return clientOperationService
                 .renewCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid),
                         certificateUuid, request);
@@ -88,7 +89,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid, ClientCertificateRekeyRequestDto request)
             throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException,
-            CertificateOperationException, CertificateRequestException {
+            CertificateOperationException, CertificateRequestException, ConnectorException, AttributeException {
         return clientOperationService
                 .rekeyCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid),
                         certificateUuid, request);
@@ -114,6 +115,28 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             throws ConnectorException, NotFoundException {
         return clientOperationService
                 .listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid),
+                        SecuredUUID.fromString(raProfileUuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "renew",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listRenewCertificateAttributes(String authorityUuid,
+            @LogResource(uuid = true, affiliated = true) String raProfileUuid)
+            throws ConnectorException, NotFoundException {
+        return clientOperationService
+                .listRenewCertificateAttributes(SecuredParentUUID.fromString(authorityUuid),
+                        SecuredUUID.fromString(raProfileUuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "identify",
+            affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listIdentifyCertificateAttributes(String authorityUuid,
+            @LogResource(uuid = true, affiliated = true) String raProfileUuid)
+            throws ConnectorException, NotFoundException {
+        return clientOperationService
+                .listIdentifyCertificateAttributes(SecuredParentUUID.fromString(authorityUuid),
                         SecuredUUID.fromString(raProfileUuid));
     }
 
@@ -166,9 +189,9 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             affiliatedResource = Resource.RA_PROFILE, operation = Operation.FINALIZE_ISSUE)
     public com.otilm.api.model.core.certificate.CertificateDetailDto manuallyIssueCertificate(String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            @LogResource(uuid = true) String certificateUuid,
-            com.otilm.api.model.client.certificate.UploadCertificateRequestDto request) throws NotFoundException,
-            CertificateException, AlreadyExistException, ConnectorException, AttributeException {
+            @LogResource(uuid = true) String certificateUuid, ManuallyIssueCertificateRequestDto request)
+            throws NotFoundException, CertificateException, AlreadyExistException, ConnectorException,
+            AttributeException {
         return clientOperationService
                 .manuallyIssueCertificate(SecuredParentUUID.fromString(authorityUuid),
                         SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
