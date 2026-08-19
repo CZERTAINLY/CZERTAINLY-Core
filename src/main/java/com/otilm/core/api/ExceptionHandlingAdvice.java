@@ -469,9 +469,12 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
-     * Handler for {@link UnsupportedDiscoveryVersionException} — the discovery twin of the authority handler above,
-     * same reasoning: caller-fixable configuration, fixed body because the message carries an unvalidated
-     * connector-reported version string.
+     * Handler for {@link UnsupportedDiscoveryVersionException}.
+     *
+     * <p>
+     * The discovery twin of {@link #handleUnsupportedAuthorityVersionException}, for the same reasons: an unrecognised
+     * connector interface version is caller-fixable configuration, and the body is fixed because the exception's
+     * message carries an unvalidated connector-reported version string.
      *
      * @return a fixed message that names neither the discovery nor the version
      */

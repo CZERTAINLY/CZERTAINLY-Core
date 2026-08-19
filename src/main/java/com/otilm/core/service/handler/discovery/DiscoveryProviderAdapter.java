@@ -2,6 +2,7 @@ package com.otilm.core.service.handler.discovery;
 
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.exception.UnsupportedDiscoveryVersionException;
 import com.otilm.core.tasks.ScheduledJobInfo;
 import java.util.UUID;
 
@@ -16,24 +17,33 @@ import java.util.UUID;
  */
 public interface DiscoveryProviderAdapter {
 
-    /** Runs the whole provider-side discovery for the run, returning the run detail at handoff or completion. */
+    /**
+     * Runs the whole provider-side discovery for the run, returning the run detail at handoff or completion.
+     *
+     * @throws UnsupportedDiscoveryVersionException when the run cannot be dispatched to this adapter after all — the
+     * routing-refusal signal {@code runDiscovery} converts into a terminal FAILED run rather than an escaping
+     * exception.
+     */
     DiscoveryDetailDto start(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo);
 
     /**
-     * @throws UnsupportedOperationException when the connector version cannot suspend a run (v1 cannot); callers wiring
-     * the lifecycle endpoints must map this to the contract's 422.
+     * @throws UnsupportedOperationException when the connector version can never suspend a run (v1 cannot); callers
+     * wiring the lifecycle endpoints must map this to the contract's 422. An adapter whose implementation is merely
+     * pending signals that with {@link IllegalStateException} instead — a defect, not part of this contract.
      */
     void stop(Discovery discovery);
 
     /**
-     * @throws UnsupportedOperationException when the connector version cannot resume a run (v1 cannot); callers wiring
-     * the lifecycle endpoints must map this to the contract's 422.
+     * @throws UnsupportedOperationException when the connector version can never resume a run (v1 cannot); callers
+     * wiring the lifecycle endpoints must map this to the contract's 422. An adapter whose implementation is merely
+     * pending signals that with {@link IllegalStateException} instead — a defect, not part of this contract.
      */
     void resume(Discovery discovery);
 
     /**
-     * @throws UnsupportedOperationException when the connector version cannot cancel a run (v1 cannot); callers wiring
-     * the lifecycle endpoints must map this to the contract's 422.
+     * @throws UnsupportedOperationException when the connector version can never cancel a run (v1 cannot); callers
+     * wiring the lifecycle endpoints must map this to the contract's 422. An adapter whose implementation is merely
+     * pending signals that with {@link IllegalStateException} instead — a defect, not part of this contract.
      */
     void cancel(Discovery discovery);
 }

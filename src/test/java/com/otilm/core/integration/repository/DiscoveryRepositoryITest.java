@@ -22,10 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Schema proof for the discovery v2 run columns. The critical case is {@code progressByResource}, the first enum-keyed
- * map under {@code @JdbcTypeCode(SqlTypes.JSON)} in any core entity: {@link Resource} keys serialize by wire code via
- * {@code @JsonValue}, and enum-as-map-key handling through Hibernate's Jackson mapper is exactly the kind of mapping
- * that only fails at read time.
+ * Schema proof for the discovery v2 run columns. The critical case is {@code DiscoveryProgressDto#byResource}, the
+ * first enum-keyed map persisted under {@code @JdbcTypeCode(SqlTypes.JSON)} in any core entity: {@link Resource} keys
+ * serialize by wire code via {@code @JsonValue}, and enum-as-map-key handling through Hibernate's Jackson mapper is
+ * exactly the kind of mapping that only fails at read time.
  */
 @Transactional
 class DiscoveryRepositoryITest extends BaseSpringBootTest {

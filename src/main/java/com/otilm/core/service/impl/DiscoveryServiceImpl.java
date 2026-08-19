@@ -372,17 +372,17 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
             // A routing refusal must still end as a terminal, user-visible run state: the async caller swallows
             // whatever escapes here, and the scheduler expects a result rather than an exception.
             logger.warn("Discovery {} cannot be dispatched: {}", discoveryUuid, e.getMessage());
+            // Resolved before the terminal write, so a failed lookup cannot leave the run FAILED without its event.
+            UUID actingUserUuid = AuthHelper.getActingUserUuidOrNull();
             // The curated text, not e.getMessage(): the raw message carries the connector-reported version
             // string, which is unvalidated input — it stays in the log, like the REST handler's fixed body.
-            // The writer also maps the terminal detail; re-reading it here would resolve to this scope's stale
-            // first-level-cached entity (see the writer's javadoc).
+            // The writer maps the detail — see its javadoc for why this scope cannot re-read it.
             DiscoveryDetailDto failedDetail = discoveryWriter
                     .markDispatchRefused(discoveryUuid, UNSUPPORTED_VERSION_MESSAGE)
                     .orElseThrow(() -> e);
             eventProducer
                     .produceMessage(DiscoveryFinishedEventHandler
-                            .constructEventMessage(discoveryUuid,
-                                    UUID.fromString(AuthHelper.getUserIdentification().getUuid()), null,
+                            .constructEventMessage(discoveryUuid, actingUserUuid, null,
                                     new DiscoveryResult(DiscoveryStatus.FAILED, UNSUPPORTED_VERSION_MESSAGE)));
             return failedDetail;
         }

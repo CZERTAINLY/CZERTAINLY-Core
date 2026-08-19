@@ -14,17 +14,25 @@ class V2DiscoveryProviderAdapterTest {
 
     @Test
     void startRefusesAsUnsupportedSoTheRunEndsTerminal() {
-        assertThatThrownBy(() -> adapter.start(UUID.randomUUID(), null))
+        UUID discoveryUuid = UUID.randomUUID();
+
+        assertThatThrownBy(() -> adapter.start(discoveryUuid, null))
                 .isInstanceOf(UnsupportedDiscoveryVersionException.class)
                 .hasMessageContaining("not implemented");
     }
 
     @Test
-    void synchronousOperationsFailLoud() {
-        Discovery run = new Discovery();
+    void stopFailsLoud() {
+        assertThatThrownBy(() -> adapter.stop(new Discovery())).isInstanceOf(IllegalStateException.class);
+    }
 
-        assertThatThrownBy(() -> adapter.stop(run)).isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> adapter.resume(run)).isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> adapter.cancel(run)).isInstanceOf(IllegalStateException.class);
+    @Test
+    void resumeFailsLoud() {
+        assertThatThrownBy(() -> adapter.resume(new Discovery())).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void cancelFailsLoud() {
+        assertThatThrownBy(() -> adapter.cancel(new Discovery())).isInstanceOf(IllegalStateException.class);
     }
 }
