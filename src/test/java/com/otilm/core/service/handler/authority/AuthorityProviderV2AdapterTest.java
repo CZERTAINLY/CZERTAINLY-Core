@@ -53,6 +53,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -315,7 +316,7 @@ class AuthorityProviderV2AdapterTest {
                         any(CertificateIdentificationRequestDto.class)))
                 .thenReturn(response);
 
-        List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=");
+        List<MetadataAttribute> result = adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of());
 
         assertSame(meta, result);
         ArgumentCaptor<CertificateIdentificationRequestDto> captor = ArgumentCaptor
@@ -334,7 +335,7 @@ class AuthorityProviderV2AdapterTest {
                         any(CertificateIdentificationRequestDto.class)))
                 .thenReturn(new CertificateIdentificationResponseDto());
 
-        adapter.identify(raProfile, "dGVzdGNlcnQ=");
+        adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of());
 
         ArgumentCaptor<CertificateIdentificationRequestDto> captor = ArgumentCaptor
                 .forClass(CertificateIdentificationRequestDto.class);
@@ -349,7 +350,7 @@ class AuthorityProviderV2AdapterTest {
                         any(CertificateIdentificationRequestDto.class)))
                 .thenReturn(new CertificateIdentificationResponseDto());
 
-        assertEquals(List.of(), adapter.identify(raProfile, "dGVzdGNlcnQ="));
+        assertEquals(List.of(), adapter.identify(raProfile, "dGVzdGNlcnQ=", List.of()));
     }
 
     // --- getCaCertificates ---
@@ -433,6 +434,15 @@ class AuthorityProviderV2AdapterTest {
         List<BaseAttribute> result = adapter.listRevokeAttributes(authority, null);
 
         assertSame(expected, result);
+    }
+
+    @Test
+    void requestRenewIdentifySchemas_returnEmptyOnV2_withoutTouchingTheConnector() {
+        assertEquals(List.of(), adapter.listCertificateRequestAttributes(authority, raProfile));
+        assertEquals(List.of(), adapter.listRenewAttributes(authority, raProfile));
+        assertEquals(List.of(), adapter.listIdentifyAttributes(authority, raProfile));
+
+        verifyNoInteractions(certClient);
     }
 
     // --- checkAuthorityConnection ---

@@ -4,6 +4,7 @@ import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.core.attribute.engine.AttributeEngine;
@@ -227,6 +228,88 @@ class ExtendedAttributeServiceImplTest {
                 .verify(attributeEngine)
                 .validateUpdateDataAttributes(connector.getUuid(), AttributeOperation.CERTIFICATE_REVOKE, definitions,
                         attrs);
+    }
+
+    // --- listRenewCertificateAttributes / listIdentifyCertificateAttributes ---
+
+    @Test
+    void listRenewCertificateAttributes_delegatesToAdapter() throws Exception {
+        List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
+        when(adapter.listRenewAttributes(authority, raProfile)).thenReturn(expected);
+
+        assertSame(expected, service.listRenewCertificateAttributes(raProfile));
+    }
+
+    @Test
+    void listIdentifyCertificateAttributes_delegatesToAdapter() throws Exception {
+        List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
+        when(adapter.listIdentifyAttributes(authority, raProfile)).thenReturn(expected);
+
+        assertSame(expected, service.listIdentifyCertificateAttributes(raProfile));
+    }
+
+    @Test
+    void listRenewCertificateAttributes_throwsWhenConnectorMissing() {
+        authority.setConnector(null);
+
+        assertThrows(NotFoundException.class, () -> service.listRenewCertificateAttributes(raProfile));
+        verifyNoInteractions(adapterFactory);
+    }
+
+    @Test
+    void listIdentifyCertificateAttributes_throwsWhenConnectorMissing() {
+        authority.setConnector(null);
+
+        assertThrows(NotFoundException.class, () -> service.listIdentifyCertificateAttributes(raProfile));
+        verifyNoInteractions(adapterFactory);
+    }
+
+    // --- mergeAndValidateRenewAttributes / mergeAndValidateIdentifyAttributes ---
+
+    @Test
+    void mergeAndValidateRenewAttributes_validatesAgainstRenewSchema() throws Exception {
+        List<BaseAttribute> definitions = List.of(mock(BaseAttribute.class));
+        when(adapter.listRenewAttributes(authority, raProfile)).thenReturn(definitions);
+
+        service.mergeAndValidateRenewAttributes(raProfile, null);
+
+        verify(attributeEngine)
+                .validateUpdateDataAttributes(authority.getConnectorUuid(), AttributeOperation.CERTIFICATE_RENEW,
+                        definitions, List.of());
+    }
+
+    @Test
+    void mergeAndValidateIdentifyAttributes_validatesAgainstIdentifySchema() throws Exception {
+        List<BaseAttribute> definitions = List.of(mock(BaseAttribute.class));
+        when(adapter.listIdentifyAttributes(authority, raProfile)).thenReturn(definitions);
+
+        service.mergeAndValidateIdentifyAttributes(raProfile, null);
+
+        verify(attributeEngine)
+                .validateUpdateDataAttributes(authority.getConnectorUuid(), AttributeOperation.CERTIFICATE_IDENTIFY,
+                        definitions, List.of());
+    }
+
+    @Test
+    void mergeAndValidateRenewAttributes_rejectsValuesWhenAuthorityOffersNoSchema() throws Exception {
+        when(adapter.listRenewAttributes(authority, raProfile)).thenReturn(List.of());
+
+        RequestAttributeV3 value = new RequestAttributeV3();
+        value.setName("validityOverride");
+        List<RequestAttribute> values = List.of(value);
+        assertThrows(ValidationException.class, () -> service.mergeAndValidateRenewAttributes(raProfile, values));
+        verifyNoInteractions(attributeEngine);
+    }
+
+    @Test
+    void mergeAndValidateIdentifyAttributes_rejectsValuesWhenAuthorityOffersNoSchema() throws Exception {
+        when(adapter.listIdentifyAttributes(authority, raProfile)).thenReturn(List.of());
+
+        RequestAttributeV3 value = new RequestAttributeV3();
+        value.setName("agentReference");
+        List<RequestAttribute> values = List.of(value);
+        assertThrows(ValidationException.class, () -> service.mergeAndValidateIdentifyAttributes(raProfile, values));
+        verifyNoInteractions(attributeEngine);
     }
 
     // --- listRegisterCertificateAttributes ---

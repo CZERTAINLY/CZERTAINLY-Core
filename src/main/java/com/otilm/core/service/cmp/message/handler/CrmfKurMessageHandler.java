@@ -1,7 +1,9 @@
 package com.otilm.core.service.cmp.message.handler;
 
+import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.CertificateOperationException;
 import com.otilm.api.exception.CertificateRequestException;
+import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.cmp.error.CmpBaseException;
@@ -160,7 +162,8 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
             throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     CmpRegistrationResolver.REGISTRATION_REJECTION);
         } catch (NotFoundException | CertificateException | IOException | NoSuchAlgorithmException | InvalidKeyException
-                | CertificateOperationException | CertificateRequestException e) {
+                | CertificateOperationException | CertificateRequestException | ConnectorException
+                | AttributeException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure, "cannot re-key certificate", e);
         }
         // CrmfMessageHandler get certificate in sync manner (via polling ...)

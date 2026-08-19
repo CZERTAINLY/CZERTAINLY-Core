@@ -4,7 +4,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.CancelPendingCertificateRequestDto;
-import com.otilm.api.model.client.certificate.UploadCertificateRequestDto;
+import com.otilm.api.model.client.certificate.ManuallyIssueCertificateRequestDto;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.core.dao.entity.Certificate;
@@ -252,7 +252,7 @@ class V3CancelITest extends BaseSpringBootTest {
         // v3 issue-cancel endpoint — the best-effort hook
         wireMockServer.stubFor(post(urlEqualTo(V3_ISSUE_CANCEL_PATH)).willReturn(aResponse().withStatus(204)));
 
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate(certBase64);
         req.setCustomAttributes(List.of());
 
@@ -284,7 +284,7 @@ class V3CancelITest extends BaseSpringBootTest {
         // v3 issue-cancel: simulate connector error — the hook must swallow this
         wireMockServer.stubFor(post(urlEqualTo(V3_ISSUE_CANCEL_PATH)).willReturn(aResponse().withStatus(500)));
 
-        UploadCertificateRequestDto req = new UploadCertificateRequestDto();
+        ManuallyIssueCertificateRequestDto req = new ManuallyIssueCertificateRequestDto();
         req.setCertificate(certBase64);
         req.setCustomAttributes(List.of());
 

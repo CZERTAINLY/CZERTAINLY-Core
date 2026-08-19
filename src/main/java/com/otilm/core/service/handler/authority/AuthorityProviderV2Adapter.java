@@ -120,8 +120,9 @@ public class AuthorityProviderV2Adapter extends AbstractAuthorityProviderAdapter
     }
 
     @Override
-    public List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent)
-            throws ValidationException, ConnectorException {
+    public List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent,
+            List<RequestAttribute> attributes) throws ValidationException, ConnectorException {
+        // attributes ignored: the v2 identification contract carries no operation attributes.
         AuthorityInstanceReference authority = raProfile.getAuthorityInstanceReference();
 
         CertificateIdentificationRequestDto wire = new CertificateIdentificationRequestDto();
@@ -182,6 +183,26 @@ public class AuthorityProviderV2Adapter extends AbstractAuthorityProviderAdapter
         return connectorApiFactory
                 .getCertificateApiClientV2(connectorDto)
                 .listRevokeCertificateAttributes(connectorDto, authority.getAuthorityInstanceUuid());
+    }
+
+    // The v2 authority contract has no request/renew/identify attribute-schema endpoints. Returning empty here —
+    // rather than throwing — keeps every call site free of interface-version branching (see register's precedent
+    // in ExtendedAttributeServiceImpl).
+
+    @Override
+    public List<BaseAttribute> listCertificateRequestAttributes(AuthorityInstanceReference authority,
+            RaProfile raProfile) {
+        return List.of();
+    }
+
+    @Override
+    public List<BaseAttribute> listRenewAttributes(AuthorityInstanceReference authority, RaProfile raProfile) {
+        return List.of();
+    }
+
+    @Override
+    public List<BaseAttribute> listIdentifyAttributes(AuthorityInstanceReference authority, RaProfile raProfile) {
+        return List.of();
     }
 
     @Override

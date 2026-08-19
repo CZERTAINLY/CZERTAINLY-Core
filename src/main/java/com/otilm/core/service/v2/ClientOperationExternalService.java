@@ -9,7 +9,7 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.CancelPendingCertificateRequestDto;
-import com.otilm.api.model.client.certificate.UploadCertificateRequestDto;
+import com.otilm.api.model.client.certificate.ManuallyIssueCertificateRequestDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.api.model.core.v2.AvailableOperationsDto;
@@ -53,12 +53,12 @@ public interface ClientOperationExternalService {
     ClientCertificateDataResponseDto renewCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             String certificateUuid, ClientCertificateRenewRequestDto request)
             throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException,
-            CertificateOperationException, CertificateRequestException;
+            CertificateOperationException, CertificateRequestException, ConnectorException, AttributeException;
 
     ClientCertificateDataResponseDto rekeyCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             String certificateUuid, ClientCertificateRekeyRequestDto request)
             throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException,
-            CertificateOperationException, CertificateRequestException;
+            CertificateOperationException, CertificateRequestException, ConnectorException, AttributeException;
 
     void revokeCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid,
             ClientCertificateRevocationDto request) throws ConnectorException, AttributeException, NotFoundException;
@@ -69,12 +69,18 @@ public interface ClientOperationExternalService {
     List<BaseAttribute> listRegisterCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid)
             throws ConnectorException, NotFoundException;
 
+    List<BaseAttribute> listRenewCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid)
+            throws ConnectorException, NotFoundException;
+
+    List<BaseAttribute> listIdentifyCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid)
+            throws ConnectorException, NotFoundException;
+
     void validateRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
             List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException;
 
     CertificateDetailDto manuallyIssueCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid,
-            String certificateUuid, UploadCertificateRequestDto request) throws NotFoundException, CertificateException,
-            AlreadyExistException, ConnectorException, AttributeException;
+            String certificateUuid, ManuallyIssueCertificateRequestDto request) throws NotFoundException,
+            CertificateException, AlreadyExistException, ConnectorException, AttributeException;
 
     void manuallyConfirmRevoke(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid)
             throws NotFoundException;

@@ -1,8 +1,10 @@
 package com.otilm.core.service.handler.authority;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.ConnectorProblemException;
+import com.otilm.api.exception.ConnectorServerException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.client.v3.AuthoritySyncApiClient;
 import com.otilm.api.interfaces.client.v3.CertificateSyncApiClient;
@@ -49,7 +51,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
@@ -68,6 +72,7 @@ import org.springframework.stereotype.Component;
  * {@link ConnectorAcceptedButLocalFailureException} — callers must NOT roll back certificate state on this exception.
  * </p>
  */
+@Slf4j
 @Component
 public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
         implements
@@ -127,6 +132,7 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
         }
         wire.setExistingCertificate(oldCert.getCertificateContent().getContent());
         wire.setMeta(loadMeta(oldCert, authority));
+        wire.setAttributes(renewAttributesFor(newCert, authority));
         wire.setAuthorityAttributes(authorityAttributesFor(authority));
         wire.setRaProfileAttributes(resolvedRaProfileAttributes(raProfile, authority));
 
@@ -156,13 +162,14 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
     }
 
     @Override
-    public List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent)
-            throws ValidationException, ConnectorException {
+    public List<MetadataAttribute> identify(RaProfile raProfile, String certificateContent,
+            List<RequestAttribute> attributes) throws ValidationException, ConnectorException {
         AuthorityInstanceReference authority = raProfile.getAuthorityInstanceReference();
         ApiClientConnectorInfo connectorDto = connectorForApiClient(authority);
 
         CertificateIdentificationRequestDtoV3 wire = new CertificateIdentificationRequestDtoV3();
         wire.setCertificate(certificateContent);
+        wire.setAttributes(attributes);
         wire.setAuthorityAttributes(authorityAttributesFor(authority));
         wire.setRaProfileAttributes(resolvedRaProfileAttributes(raProfile, authority));
 
@@ -214,6 +221,39 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
         List<BaseAttribute> response = connectorApiFactory
                 .getCertificateApiClientV3(connectorDto)
                 .listRevokeAttributes(connectorDto, request);
+        return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
+    }
+
+    @Override
+    public List<BaseAttribute> listCertificateRequestAttributes(AuthorityInstanceReference authority,
+            RaProfile raProfile) throws ConnectorException {
+        ApiClientConnectorInfo connectorDto = connectorForApiClient(authority);
+        CertificateAttributeListRequestDtoV3 request = attributeListRequest(authority, raProfile);
+        List<BaseAttribute> response = schemaOrEmpty(() -> connectorApiFactory
+                .getCertificateApiClientV3(connectorDto)
+                .listRequestAttributes(connectorDto, request), "request");
+        return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
+    }
+
+    @Override
+    public List<BaseAttribute> listRenewAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
+            throws ConnectorException {
+        ApiClientConnectorInfo connectorDto = connectorForApiClient(authority);
+        CertificateAttributeListRequestDtoV3 request = attributeListRequest(authority, raProfile);
+        List<BaseAttribute> response = schemaOrEmpty(() -> connectorApiFactory
+                .getCertificateApiClientV3(connectorDto)
+                .listRenewAttributes(connectorDto, request), "renew");
+        return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
+    }
+
+    @Override
+    public List<BaseAttribute> listIdentifyAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
+            throws ConnectorException {
+        ApiClientConnectorInfo connectorDto = connectorForApiClient(authority);
+        CertificateAttributeListRequestDtoV3 request = attributeListRequest(authority, raProfile);
+        List<BaseAttribute> response = schemaOrEmpty(() -> connectorApiFactory
+                .getCertificateApiClientV3(connectorDto)
+                .listIdentifyAttributes(connectorDto, request), "identify");
         return contained(response, request.getAuthorityAttributes(), request.getRaProfileAttributes());
     }
 
@@ -271,9 +311,9 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
     }
 
     /**
-     * Fail closed if the connector echoed back a secret Core expanded into the request. Applied to the four
-     * attribute-list responses only: they flow to the operator's attribute-selection UI and are fetched pre-commitment
-     * (read-only), so refusing on an echo is safe.
+     * Fail closed if the connector echoed back a secret Core expanded into the request. Applied to the seven
+     * attribute-list responses only (RA-profile, issue, revoke, register, request, renew, identify): they flow to the
+     * operator's attribute-selection UI and are fetched pre-commitment (read-only), so refusing on an echo is safe.
      * <p>
      * The operation responses are deliberately NOT scanned — issue/renew/revoke/register/issueRegistered return
      * certificate data plus a connector-owned {@code meta} bag (also returned by {@code pollStatus}) that Core persists
@@ -402,6 +442,55 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
     // ---- private helpers ----
 
     @FunctionalInterface
+    private interface SchemaCall {
+        List<BaseAttribute> get() throws ConnectorException;
+    }
+
+    /**
+     * Resolves "connector does not offer this schema" to an empty list.
+     * <p>
+     * <b>Not-offered signals:</b> HTTP 404 (endpoint absent), {@code OPERATION_NOT_SUPPORTED}, a bare 501, and an empty
+     * response body. Keyed on status because connectors are polyglot and a problem body is not guaranteed.
+     * <p>
+     * <b>Everything else propagates</b> — auth failures, other 5xx, communication failures, malformed bodies. Silently
+     * emptying a schema the connector does have would drop attributes the CA requires.
+     * <p>
+     * <b>Consequence for validation:</b> an empty resolution also means required-attribute enforcement is off for that
+     * operation; the merge/validate callers compensate by rejecting supplied values against an empty schema.
+     */
+    private List<BaseAttribute> schemaOrEmpty(SchemaCall call, String operation) throws ConnectorException {
+        try {
+            List<BaseAttribute> response = call.get();
+            if (response == null) {
+                log
+                        .debug("Connector returned empty body for the {} attribute schema; resolving empty schema",
+                                operation);
+                return List.of();
+            }
+            return response;
+        } catch (ConnectorEntityNotFoundException e) {
+            log
+                    .debug("Optional {} attribute-schema endpoint not served by connector (404); resolving empty schema",
+                            operation);
+            return List.of();
+        } catch (ConnectorProblemException e) {
+            if (e.getProblemDetail().getErrorCode() == ErrorCode.OPERATION_NOT_SUPPORTED) {
+                log
+                        .debug("Connector declines to offer the {} attribute schema (OPERATION_NOT_SUPPORTED); "
+                                + "resolving empty schema", operation);
+                return List.of();
+            }
+            throw e;
+        } catch (ConnectorServerException e) {
+            if (e.getHttpStatus() == HttpStatus.NOT_IMPLEMENTED) {
+                log.debug("Connector answered bare 501 for the {} attribute schema; resolving empty schema", operation);
+                return List.of();
+            }
+            throw e;
+        }
+    }
+
+    @FunctionalInterface
     private interface ConnectorCall {
         ResponseEntity<CertificateDataResponseDto> call() throws ConnectorException;
     }
@@ -436,6 +525,20 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
                         .builder(Resource.CERTIFICATE, cert.getUuid())
                         .connector(authority.getConnectorUuid())
                         .operation(AttributeOperation.CERTIFICATE_ISSUE)
+                        .build());
+    }
+
+    /**
+     * Renew-operation attributes persisted on the successor by the service layer. Renew and rekey both persist under
+     * {@code CERTIFICATE_RENEW} — rekey is a renew at the authority — which is why {@code renew}'s unused request-DTO
+     * parameter stays unused: the values arrive via the engine for both paths.
+     */
+    private List<RequestAttribute> renewAttributesFor(Certificate cert, AuthorityInstanceReference authority) {
+        return attributeEngine
+                .getRequestObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.CERTIFICATE, cert.getUuid())
+                        .connector(authority.getConnectorUuid())
+                        .operation(AttributeOperation.CERTIFICATE_RENEW)
                         .build());
     }
 
