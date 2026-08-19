@@ -194,19 +194,36 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         ResourceObjectDto hostObject = readGate(comment);
         NameAndUuidDto actor = AuthHelper.getUserIdentification();
         boolean isAuthor = actor.getUuid().equals(comment.getAuthorUuid().toString());
-        boolean rootWithReplies = comment.getParentUuid() == null && commentRepository.existsByParentUuid(uuid);
+
+        if (comment.getParentUuid() != null) {
+            if (!isAuthor && !isHostObjectOwner(comment, actor) && !holdsHostObjectUpdate(comment)) {
+                throw deletionDenied(uuid, comment);
+            }
+            recordAuditData(baseEventData(comment, hostObject.getName()));
+            if (commentWriter.delete(uuid) == 0) {
+                throw new NotFoundException(Comment.class, uuid);
+            }
+            return;
+        }
 
         // A root author must not be able to erase other users' words: once a root has replies, only the host
-        // object's owner or an update holder may delete it (the delete cascades to the replies).
-        boolean permitted = rootWithReplies
-                ? isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment)
-                : isAuthor || isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment);
-        if (!permitted) {
-            throw new AccessDeniedException("Access denied to delete comment %s on %s %s"
-                    .formatted(uuid, comment.getResource().getCode(), comment.getObjectUuid()));
+        // object's owner or an update holder may delete it (the delete cascades to the replies). The writer
+        // re-checks for replies under a row lock, so ones racing in between this check and the delete still
+        // block a non-cascading deletion.
+        boolean rootWithReplies = commentRepository.existsByParentUuid(uuid);
+        boolean mayCascade = isAuthor && !rootWithReplies
+                ? false
+                : isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment);
+        if (!((isAuthor && !rootWithReplies) || mayCascade)) {
+            throw deletionDenied(uuid, comment);
         }
         recordAuditData(baseEventData(comment, hostObject.getName()));
-        commentWriter.delete(uuid);
+        commentWriter.deleteRoot(uuid, mayCascade);
+    }
+
+    private AccessDeniedException deletionDenied(UUID uuid, Comment comment) {
+        return new AccessDeniedException("Access denied to delete comment %s on %s %s"
+                .formatted(uuid, comment.getResource().getCode(), comment.getObjectUuid()));
     }
 
     @Override
@@ -228,10 +245,11 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         }
 
         OffsetDateTime changedAt = OffsetDateTime.now();
-        if (resolved) {
-            commentWriter.resolve(uuid, changedAt, UUID.fromString(actor.getUuid()), actor.getName());
-        } else {
-            commentWriter.unresolve(uuid);
+        int updated = resolved
+                ? commentWriter.resolve(uuid, changedAt, UUID.fromString(actor.getUuid()), actor.getName())
+                : commentWriter.unresolve(uuid);
+        if (updated == 0) {
+            throw new NotFoundException(Comment.class, uuid);
         }
 
         CommentEventData eventData = baseEventData(comment, hostObject.getName());

@@ -1,8 +1,10 @@
 package com.otilm.core.integration.dao.repository;
 
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.Comment;
 import com.otilm.core.dao.repository.CommentRepository;
+import com.otilm.core.service.writer.CommentWriter;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -13,12 +15,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CommentRepositoryITest extends BaseSpringBootTest {
 
     @Autowired
     private CommentRepository commentRepository;
+
+    @Autowired
+    private CommentWriter commentWriter;
 
     private Comment newComment(UUID objectUuid, UUID parentUuid) {
         Comment comment = new Comment();
@@ -73,6 +79,27 @@ class CommentRepositoryITest extends BaseSpringBootTest {
 
         assertThatThrownBy(() -> commentRepository.saveAndFlush(reply))
                 .hasStackTraceContaining("ck_comment_reply_not_resolved");
+    }
+
+    @Test
+    void nonCascadingRootDeletionIsBlockedOnceTheThreadHasReplies() {
+        UUID objectUuid = UUID.randomUUID();
+        Comment root = commentRepository.saveAndFlush(newComment(objectUuid, null));
+        commentRepository.saveAndFlush(newComment(objectUuid, root.getUuid()));
+
+        assertThatThrownBy(() -> commentWriter.deleteRoot(root.getUuid(), false))
+                .isInstanceOf(ValidationException.class);
+        assertThat(commentRepository.count()).isEqualTo(2);
+
+        assertThatCode(() -> commentWriter.deleteRoot(root.getUuid(), true)).doesNotThrowAnyException();
+        assertThat(commentRepository.count()).isZero();
+    }
+
+    @Test
+    void resolvingAMissingCommentAffectsNoRows() {
+        assertThat(commentWriter.resolve(UUID.randomUUID(), OffsetDateTime.now(), UUID.randomUUID(), "tst-user"))
+                .isZero();
+        assertThat(commentWriter.unresolve(UUID.randomUUID())).isZero();
     }
 
     @Test

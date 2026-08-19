@@ -2,12 +2,15 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.Comment;
+import jakarta.persistence.LockModeType;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,6 +30,10 @@ public interface CommentRepository extends SecurityFilterRepository<Comment, UUI
     boolean existsByParentUuid(UUID parentUuid);
 
     boolean existsByResourceAndObjectUuid(Resource resource, UUID objectUuid);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Comment c WHERE c.uuid = :uuid")
+    Optional<Comment> findWithLockByUuid(@Param("uuid") UUID uuid);
 
     @Modifying
     @Query("UPDATE Comment c SET c.resolvedAt = :resolvedAt, c.resolvedByUuid = :actorUuid, "
