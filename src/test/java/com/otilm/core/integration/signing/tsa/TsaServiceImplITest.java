@@ -387,8 +387,7 @@ class TsaServiceImplITest extends BaseSpringBootTest {
 
         /**
          * The connector assembles the {@code TSTInfo}, so a token that does not echo the request must not be recorded
-         * or returned. {@code stubTokenAssembly} answers with a pre-built token whose serial number is unrelated to the
-         * one the engine generated, which is exactly the defect the echo check exists to catch.
+         * or returned — which is what {@link TimestampingFormattingConnectorMock#stubTokenAssembly} produces.
          */
         @Test
         void rejectsWithSystemFailure_whenTheConnectorStampsAnotherSerialNumber() throws Exception {
