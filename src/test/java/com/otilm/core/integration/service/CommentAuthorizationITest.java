@@ -204,7 +204,7 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
 
         commentService.deleteComment(reply.getUuid());
 
-        assertThat(list(Resource.RA_PROFILE, objectUuid).getComments().getFirst().getReplies()).isEmpty();
+        assertThat(list(Resource.RA_PROFILE, objectUuid).getComments().getFirst().getReplyCount()).isZero();
     }
 
     @Test

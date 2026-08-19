@@ -12,7 +12,7 @@ public class CommentMapper {
     private CommentMapper() {
     }
 
-    public static CommentDto toDto(Comment comment, List<Comment> replies) {
+    public static CommentDto toDto(Comment comment, Long replyCount) {
         CommentDto dto = new CommentDto();
         dto.setUuid(comment.getUuid());
         dto.setResource(comment.getResource());
@@ -29,7 +29,7 @@ public class CommentMapper {
                                 comment.getResolvedByUsername()));
             }
             dto.setResolvedAt(comment.getResolvedAt());
-            dto.setReplies(replies == null ? List.of() : replies.stream().map(r -> toDto(r, null)).toList());
+            dto.setReplyCount(replyCount);
         }
         return dto;
     }

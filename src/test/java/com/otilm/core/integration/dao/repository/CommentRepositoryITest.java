@@ -38,9 +38,13 @@ class CommentRepositoryITest extends BaseSpringBootTest {
         Comment reply = commentRepository.saveAndFlush(newComment(objectUuid, root.getUuid()));
 
         assertThat(root.getCreatedAt()).isNotNull();
-        assertThat(commentRepository.findByParentUuidInOrderByCreatedAtAsc(List.of(root.getUuid())))
+        assertThat(commentRepository.findByParentUuidOrderByCreatedAtAsc(root.getUuid(), PageRequest.of(0, 10)))
                 .extracting(Comment::getUuid)
                 .containsExactly(reply.getUuid());
+        assertThat(commentRepository.countRepliesByRoots(List.of(root.getUuid()))).singleElement().satisfies(row -> {
+            assertThat(row[0]).isEqualTo(root.getUuid());
+            assertThat(row[1]).isEqualTo(1L);
+        });
         assertThat(commentRepository.existsByParentUuid(root.getUuid())).isTrue();
     }
 

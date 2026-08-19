@@ -14,6 +14,8 @@ public interface CommentExternalService {
     CommentResponseDto listComments(SecuredResource resource, SecuredUUID objectUuid, PaginationRequestDto pagination)
             throws NotFoundException;
 
+    CommentResponseDto listReplies(UUID uuid, PaginationRequestDto pagination) throws NotFoundException;
+
     CommentDto createComment(SecuredResource resource, SecuredUUID objectUuid, CommentCreateRequestDto request)
             throws NotFoundException;
 

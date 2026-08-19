@@ -46,6 +46,13 @@ public class CommentControllerImpl implements CommentController {
     }
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.COMMENT, operation = Operation.LIST)
+    public CommentResponseDto listReplies(@LogResource(uuid = true) UUID uuid, PaginationRequestDto pagination)
+            throws NotFoundException {
+        return commentService.listReplies(uuid, pagination);
+    }
+
+    @Override
     @AuditLogged(module = Module.CORE, resource = Resource.COMMENT, operation = Operation.CREATE)
     public CommentDto createComment(@LogResource(resource = true, affiliated = true) Resource resource,
             @LogResource(uuid = true, affiliated = true) UUID objectUuid, CommentCreateRequestDto request)

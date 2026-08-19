@@ -88,7 +88,8 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
 
         CommentResponseDto threads = list(raProfileUuid);
         assertThat(threads.getComments()).hasSize(1);
-        assertThat(threads.getComments().getFirst().getReplies())
+        assertThat(threads.getComments().getFirst().getReplyCount()).isEqualTo(1L);
+        assertThat(commentService.listReplies(root.getUuid(), new PaginationRequestDto()).getComments())
                 .extracting(CommentDto::getUuid)
                 .containsExactly(reply.getUuid());
     }
@@ -110,6 +111,15 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         UUID otherUuid = raProfileRepository.save(other).getUuid();
 
         assertThatThrownBy(() -> post(otherUuid, "cross-object reply", root.getUuid()))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void repliesAreListedForRootsOnly() throws NotFoundException {
+        CommentDto root = post(raProfileUuid, "root", null);
+        CommentDto reply = post(raProfileUuid, "reply", root.getUuid());
+
+        assertThatThrownBy(() -> commentService.listReplies(reply.getUuid(), new PaginationRequestDto()))
                 .isInstanceOf(ValidationException.class);
     }
 

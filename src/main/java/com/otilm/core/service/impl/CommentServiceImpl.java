@@ -108,18 +108,40 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
                 .findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAsc(hostResource, objectUuid.getValue(),
                         PageRequest.of(pagination.getPageNumber() - 1, pagination.getItemsPerPage()));
         List<UUID> rootUuids = roots.getContent().stream().map(Comment::getUuid).toList();
-        Map<UUID, List<Comment>> repliesByRoot = rootUuids.isEmpty()
+        Map<UUID, Long> replyCountsByRoot = rootUuids.isEmpty()
                 ? Map.of()
                 : commentRepository
-                        .findByParentUuidInOrderByCreatedAtAsc(rootUuids)
+                        .countRepliesByRoots(rootUuids)
                         .stream()
-                        .collect(Collectors.groupingBy(Comment::getParentUuid));
+                        .collect(Collectors.toMap(row -> (UUID) row[0], row -> (Long) row[1]));
         List<CommentDto> threads = roots
                 .getContent()
                 .stream()
-                .map(root -> CommentMapper.toDto(root, repliesByRoot.get(root.getUuid())))
+                .map(root -> CommentMapper.toDto(root, replyCountsByRoot.getOrDefault(root.getUuid(), 0L)))
                 .toList();
         return CommentMapper.toResponseDto(roots, threads);
+    }
+
+    @Override
+    @AnyPrincipalEndpoint
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public CommentResponseDto listReplies(UUID uuid, PaginationRequestDto pagination) throws NotFoundException {
+        Comment root = getComment(uuid);
+        if (root.getParentUuid() != null) {
+            throw new ValidationException("Only a thread root has replies");
+        }
+        readGate(root);
+        RequestValidatorHelper.revalidatePaginationRequestDto(pagination);
+
+        Page<Comment> replies = commentRepository
+                .findByParentUuidOrderByCreatedAtAsc(uuid,
+                        PageRequest.of(pagination.getPageNumber() - 1, pagination.getItemsPerPage()));
+        List<CommentDto> replyDtos = replies
+                .getContent()
+                .stream()
+                .map(reply -> CommentMapper.toDto(reply, null))
+                .toList();
+        return CommentMapper.toResponseDto(replies, replyDtos);
     }
 
     @Override
@@ -147,7 +169,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         recordAuditData(eventData);
         publishAfterCommit(new EventMessage(ResourceEvent.COMMENT_CREATED, Resource.COMMENT, saved.getUuid(), null,
                 null, eventData, saved.getAuthorUuid(), null));
-        return CommentMapper.toDto(saved, null);
+        return CommentMapper.toDto(saved, saved.getParentUuid() == null ? 0L : null);
     }
 
     @Override
