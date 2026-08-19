@@ -96,6 +96,12 @@ public class ContextRefreshListener {
                 saveCoreAttributes(beanName, m, applicationContext);
             }
         }
+        // The COMMENT action is enforced dynamically per host resource, so the annotation scan above cannot see
+        // it; register it for every commentable resource so the auth-service sync does not drop the action and
+        // its grants.
+        for (Resource commentable : Resource.getCommentableResources()) {
+            resourceToAction.computeIfAbsent(commentable, k -> new HashSet<>()).add(ResourceAction.COMMENT.getCode());
+        }
         // Merge listing end point and external annotation end point to get the resource request sync operation
         for (Map.Entry<Resource, Set<String>> entry : resourceToAction.entrySet()) {
             ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
