@@ -378,10 +378,9 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
         List<Notification> notifications = notificationRepository.findAll();
         assertThat(notifications).hasSize(1);
         Notification notification = notifications.getFirst();
-        // The raw Markdown source, never rendered or sanitized into HTML entities, truncated for display
+        // Raw Markdown source — never rendered or sanitized into HTML entities
         assertThat(notification.getDetail()).startsWith(hostile);
         assertThat(notification.getDetail()).hasSize(501).endsWith("…");
-        // The stored comment itself is never truncated
         assertThat(commentRepository.findByUuid(root.getSecuredUuid()).orElseThrow().getBody()).hasSize(body.length());
     }
 }
