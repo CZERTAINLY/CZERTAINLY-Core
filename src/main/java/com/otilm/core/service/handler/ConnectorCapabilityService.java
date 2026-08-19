@@ -28,8 +28,7 @@ public class ConnectorCapabilityService {
 
     /**
      * Per-interface-row check — keyed on the bound {@link ConnectorInterfaceEntity} rather than (connector, code), so
-     * it is correct even when the connector exposes multiple versions of the same interface. Callers holding a bound
-     * row (an authority's interface, a discovery run's {@code connector_interface_uuid} target) pass it directly.
+     * it is correct even when the connector exposes multiple versions of the same interface.
      */
     public boolean supports(ConnectorInterfaceEntity iface, FeatureFlag flag) {
         if (flag.getBehavior() == FeatureFlagBehavior.INFORMATIONAL) {
