@@ -144,9 +144,18 @@ public class CommentableHostObjects {
             }
             case ENTITY -> createEntity();
             case LOCATION -> {
+                EntityInstanceReference entityInstance = new EntityInstanceReference();
+                entityInstance.setName("tst-location-entity");
+                entityInstance.setKind("sample");
+                context.getBean(EntityInstanceReferenceRepository.class).save(entityInstance);
+
                 Location location = new Location();
                 location.setName("tst-location");
-                yield context.getBean(LocationRepository.class).save(location).getUuid();
+                location.setEntityInstanceReference(entityInstance);
+                location.setEntityInstanceReferenceUuid(entityInstance.getUuid());
+                UUID locationUuid = context.getBean(LocationRepository.class).save(location).getUuid();
+                parentByObject.put(locationUuid, entityInstance.getUuid());
+                yield locationUuid;
             }
             case CONNECTOR -> {
                 Connector connector = new Connector();
@@ -197,10 +206,19 @@ public class CommentableHostObjects {
                 yield context.getBean(SigningProfileRepository.class).save(profile).getUuid();
             }
             case TOKEN_PROFILE -> {
+                TokenInstanceReference tokenInstance = new TokenInstanceReference();
+                tokenInstance.setName("tst-token-profile-instance");
+                tokenInstance.setTokenInstanceUuid(UUID.randomUUID().toString());
+                context.getBean(TokenInstanceReferenceRepository.class).save(tokenInstance);
+
                 TokenProfile profile = new TokenProfile();
                 profile.setName("tst-token-profile");
                 profile.setEnabled(true);
-                yield context.getBean(TokenProfileRepository.class).save(profile).getUuid();
+                profile.setTokenInstanceReference(tokenInstance);
+                profile.setTokenInstanceReferenceUuid(tokenInstance.getUuid());
+                UUID profileUuid = context.getBean(TokenProfileRepository.class).save(profile).getUuid();
+                parentByObject.put(profileUuid, tokenInstance.getUuid());
+                yield profileUuid;
             }
             case ACME_PROFILE -> {
                 AcmeProfile profile = new AcmeProfile();
@@ -248,7 +266,7 @@ public class CommentableHostObjects {
             case ENTITY -> context.getBean(EntityInstanceExternalService.class).deleteEntityInstance(securedUuid);
             case LOCATION -> context
                     .getBean(LocationExternalService.class)
-                    .deleteLocation(SecuredParentUUID.fromUUID(UUID.randomUUID()), securedUuid);
+                    .deleteLocation(SecuredParentUUID.fromUUID(parentByObject.get(uuid)), securedUuid);
             case CONNECTOR -> context.getBean(ConnectorExternalService.class).deleteConnector(securedUuid);
             case RA_PROFILE -> context.getBean(RaProfileExternalService.class).deleteRaProfile(securedUuid);
             case VAULT_PROFILE -> context
@@ -262,7 +280,9 @@ public class CommentableHostObjects {
                 context.getBean(NotificationProfileExternalService.class).deleteNotificationProfile(securedUuid);
             case SIGNING_PROFILE ->
                 context.getBean(SigningProfileExternalService.class).deleteSigningProfile(securedUuid);
-            case TOKEN_PROFILE -> context.getBean(TokenProfileExternalService.class).deleteTokenProfile(securedUuid);
+            case TOKEN_PROFILE -> context
+                    .getBean(TokenProfileExternalService.class)
+                    .deleteTokenProfile(SecuredParentUUID.fromUUID(parentByObject.get(uuid)), securedUuid);
             case ACME_PROFILE -> context.getBean(AcmeProfileExternalService.class).deleteAcmeProfile(securedUuid);
             case SCEP_PROFILE -> context.getBean(ScepProfileExternalService.class).deleteScepProfile(securedUuid);
             case CMP_PROFILE -> context.getBean(CmpProfileExternalService.class).deleteCmpProfile(securedUuid);
