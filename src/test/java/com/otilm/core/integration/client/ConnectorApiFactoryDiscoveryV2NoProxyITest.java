@@ -36,7 +36,7 @@ class ConnectorApiFactoryDiscoveryV2NoProxyITest extends BaseSpringBootTest {
         proxy.setCode("proxy-1");
         dto.setProxy(proxy);
 
-        DiscoverySyncApiClient client = connectorApiFactory.getDiscoveryV2ApiClient(dto);
+        DiscoverySyncApiClient client = connectorApiFactory.getDiscoveryApiClientV2(dto);
 
         Assertions.assertInstanceOf(com.otilm.api.clients.discovery.v2.DiscoveryApiClient.class, client);
     }

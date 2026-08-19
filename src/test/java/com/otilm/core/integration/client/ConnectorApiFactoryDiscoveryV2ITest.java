@@ -23,21 +23,21 @@ class ConnectorApiFactoryDiscoveryV2ITest extends BaseSpringBootTest {
 
     @Test
     void directConnectorGetsTheRestClient() {
-        DiscoverySyncApiClient client = connectorApiFactory.getDiscoveryV2ApiClient(savedConnectorDto(null));
+        DiscoverySyncApiClient client = connectorApiFactory.getDiscoveryApiClientV2(savedConnectorDto(null));
 
         Assertions.assertInstanceOf(com.otilm.api.clients.discovery.v2.DiscoveryApiClient.class, client);
     }
 
     @Test
     void proxiedConnectorGetsTheMqClient() {
-        DiscoverySyncApiClient client = connectorApiFactory.getDiscoveryV2ApiClient(savedConnectorDto("proxy-1"));
+        DiscoverySyncApiClient client = connectorApiFactory.getDiscoveryApiClientV2(savedConnectorDto("proxy-1"));
 
         Assertions.assertInstanceOf(com.otilm.api.clients.mq.discovery.v2.DiscoveryApiClient.class, client);
     }
 
     private ConnectorDetailDto savedConnectorDto(String proxyCode) {
         Connector connector = new Connector();
-        connector.setName("discovery-v2-factory-" + proxyCode);
+        connector.setName("discovery-v2-factory-" + (proxyCode != null ? proxyCode : "direct"));
         connector.setUrl("http://localhost");
         connector.setVersion(ConnectorVersion.V2);
         connector.setStatus(ConnectorStatus.CONNECTED);

@@ -304,7 +304,7 @@ public class ConnectorApiFactory {
         return getClient(connector, restAuthorityApiClientV3, mqAuthorityApiClientV3);
     }
 
-    public com.otilm.api.interfaces.client.v2.DiscoverySyncApiClient getDiscoveryV2ApiClient(
+    public com.otilm.api.interfaces.client.v2.DiscoverySyncApiClient getDiscoveryApiClientV2(
             ApiClientConnectorInfo connector) {
         return getClient(connector, restDiscoveryApiClientV2, mqDiscoveryApiClientV2);
     }
