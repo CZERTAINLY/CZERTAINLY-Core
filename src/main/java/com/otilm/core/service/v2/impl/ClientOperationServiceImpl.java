@@ -2818,12 +2818,6 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
     }
 
     /**
-     * Check and get the CSR from the existing certificate
-     *
-     * @param certificate Old certificate
-     * @return Base64 encoded CSR string
-     */
-    /**
      * Persists renew-operation attribute values on the successor certificate, where
      * {@code AuthorityProviderV3Adapter.renewAttributesFor} reads them onto the wire. Shared by renew and rekey — rekey
      * is a renew at the authority, so both persist under {@code CERTIFICATE_RENEW}. Values were already validated
@@ -2843,6 +2837,12 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                         .build(), attributes);
     }
 
+    /**
+     * Check and get the CSR from the existing certificate
+     *
+     * @param certificate Old certificate
+     * @return Base64 encoded CSR string
+     */
     private CertificateRequest getExistingCsr(Certificate certificate) throws CertificateRequestException {
         if (certificate.getCertificateRequest() == null || certificate.getCertificateRequest().getContent() == null) {
             // If the CSR is not found for the existing certificate, then throw error

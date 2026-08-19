@@ -296,8 +296,8 @@ class ExtendedAttributeServiceImplTest {
 
         RequestAttributeV3 value = new RequestAttributeV3();
         value.setName("validityOverride");
-        assertThrows(ValidationException.class,
-                () -> service.mergeAndValidateRenewAttributes(raProfile, List.of(value)));
+        List<RequestAttribute> values = List.of(value);
+        assertThrows(ValidationException.class, () -> service.mergeAndValidateRenewAttributes(raProfile, values));
         verifyNoInteractions(attributeEngine);
     }
 
@@ -307,8 +307,8 @@ class ExtendedAttributeServiceImplTest {
 
         RequestAttributeV3 value = new RequestAttributeV3();
         value.setName("agentReference");
-        assertThrows(ValidationException.class,
-                () -> service.mergeAndValidateIdentifyAttributes(raProfile, List.of(value)));
+        List<RequestAttribute> values = List.of(value);
+        assertThrows(ValidationException.class, () -> service.mergeAndValidateIdentifyAttributes(raProfile, values));
         verifyNoInteractions(attributeEngine);
     }
 
