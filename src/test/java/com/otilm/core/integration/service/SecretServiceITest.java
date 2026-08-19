@@ -65,6 +65,9 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import com.otilm.core.events.SecretContentUpdatedEvent;
 
 import java.io.Serializable;
@@ -73,6 +76,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -115,6 +119,8 @@ class SecretServiceITest extends BaseSpringBootTest {
     private ConnectorRepository connectorRepository;
     @Autowired
     private ActionsListener actionListener;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
     @MockitoBean
     private ActionProducer actionProducer;
     @MockitoBean
@@ -129,12 +135,21 @@ class SecretServiceITest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() throws AlreadyExistException, AttributeException, NoSuchAlgorithmException, JsonProcessingException {
 
-        // Process message instead of sending it to the queue and set approval status to approved to bypass approval in tests
+        // REQUIRES_NEW so the handler runs in its own transaction like the real broker: at afterCommit the producing
+        // transaction has already committed, so an inline handler would join it and its writes would be discarded.
+        final TransactionTemplate listenerTransaction = new TransactionTemplate(transactionManager);
+        listenerTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         Mockito.doAnswer(invocation -> {
                     ActionMessage msg = invocation.getArgument(0);
                     msg.setApprovalStatus(ApprovalStatusEnum.APPROVED);
                     msg.setApprovalUuid(UUID.randomUUID());
-                    actionListener.processMessage(msg);
+                    listenerTransaction.executeWithoutResult(status -> {
+                        try {
+                            actionListener.processMessage(msg);
+                        } catch (MessageHandlingException e) {
+                            throw new IllegalStateException(e);
+                        }
+                    });
                     return null; // because produceMessage returns void
                 }
         ).when(actionProducer).produceMessage(any());
@@ -772,6 +787,31 @@ class SecretServiceITest extends BaseSpringBootTest {
         } finally {
             authServiceMock.stop();
         }
+    }
+
+    @Test
+    void createSecretPublishesActionMessageOnlyAfterCommit() throws NotFoundException, AttributeException, AlreadyExistException, ConnectorException {
+        // Read from a separate REQUIRES_NEW transaction: a publish before commit leaves the secret invisible there,
+        // exactly as it is to the real listener's own transaction.
+        final AtomicBoolean secretVisibleFromSeparateTransaction = new AtomicBoolean();
+        final TransactionTemplate separateTransaction = new TransactionTemplate(transactionManager);
+        separateTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        Mockito.doAnswer(invocation -> {
+            ActionMessage msg = invocation.getArgument(0);
+            secretVisibleFromSeparateTransaction.set(separateTransaction.execute(status -> secretRepository.findByUuid(msg.getResourceUuid()).isPresent()));
+            return null;
+        }).when(actionProducer).produceMessage(any());
+
+        SecretRequestDto request = new SecretRequestDto();
+        request.setName("afterCommitSecret");
+        request.setSecret(new BasicAuthSecretContent());
+
+        secretService.createSecret(request, vaultProfile.getSecuredParentUuid(), vaultInstance.getSecuredUuid());
+
+        assertThat(secretVisibleFromSeparateTransaction.get())
+                .as("action message must be published only after the creating transaction commits")
+                .isTrue();
     }
 
 }
