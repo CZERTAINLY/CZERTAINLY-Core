@@ -27,18 +27,20 @@ class V1DiscoveryProviderAdapterTest {
             mock(CertificateHandler.class), mock(CredentialInternalService.class), mock(ResourceInternalService.class),
             mock(ConnectorApiFactory.class), mock(EventProducer.class));
 
+    private final Discovery run = new Discovery();
+
     @Test
     void stopIsUnsupported() {
-        assertThatThrownBy(() -> adapter.stop(new Discovery())).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> adapter.stop(run)).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
     void resumeIsUnsupported() {
-        assertThatThrownBy(() -> adapter.resume(new Discovery())).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> adapter.resume(run)).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
     void cancelIsUnsupported() {
-        assertThatThrownBy(() -> adapter.cancel(new Discovery())).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> adapter.cancel(run)).isInstanceOf(UnsupportedOperationException.class);
     }
 }

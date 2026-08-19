@@ -361,8 +361,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     void runDiscoveryTreatsARepeatedCertificateAsDuplicate()
             throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         UUID discoveryUuid = createRunnableDiscovery();
-        // Two certificates promised, every page serves the same one: page 2 repeats page 1's content and must
-        // land in the duplicate handling rather than a second staged row.
+        // Two certificates promised, every page serves the same one: page 2 repeats page 1's content.
         stubDiscoveryStart(startResponse(2));
         stubDiscoveryData(dataResponse(2));
 
