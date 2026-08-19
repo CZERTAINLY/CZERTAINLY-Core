@@ -10,9 +10,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The comment service resolves host objects generically through the {@code Map<String, ResourceExtensionService>}
- * registry (bean name = resource code), so every commentable resource must contribute an implementation — the read
- * gate, the existence check and the object name for events all hang off this lookup.
+ * The comment service resolves host objects through {@code ResourceInternalService.getResourceObject}, which looks them
+ * up in the {@code Map<String, ResourceExtensionService>} registry (bean name = resource code), so every commentable
+ * resource must contribute an implementation — the read gate, the existence check and the object name for events all
+ * hang off this lookup.
  */
 class CommentableResourceExtensionITest extends BaseSpringBootTest {
 

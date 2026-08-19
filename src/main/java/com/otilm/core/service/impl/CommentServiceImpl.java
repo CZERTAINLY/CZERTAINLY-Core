@@ -9,6 +9,7 @@ import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
+import com.otilm.api.model.core.other.ResourceObjectDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.aop.AuditOperationDataOverride;
 import com.otilm.core.dao.entity.Comment;
@@ -25,7 +26,7 @@ import com.otilm.core.security.authz.SecuredResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CommentExternalService;
 import com.otilm.core.service.CommentInternalService;
-import com.otilm.core.service.ResourceExtensionService;
+import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.service.writer.CommentWriter;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.RequestValidatorHelper;
@@ -52,7 +53,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
 
     private CommentRepository commentRepository;
     private CommentWriter commentWriter;
-    private Map<String, ResourceExtensionService> resourceExtensionServices;
+    private ResourceInternalService resourceService;
     private AuthorizationEnforcer authorizationEnforcer;
     private OwnerAssociationRepository ownerAssociationRepository;
     private EventProducer eventProducer;
@@ -70,8 +71,8 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
 
     @Lazy
     @Autowired
-    public void setResourceExtensionServices(Map<String, ResourceExtensionService> resourceExtensionServices) {
-        this.resourceExtensionServices = resourceExtensionServices;
+    public void setResourceService(ResourceInternalService resourceService) {
+        this.resourceService = resourceService;
     }
 
     @Autowired
@@ -100,7 +101,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     public CommentResponseDto listComments(SecuredResource resource, SecuredUUID objectUuid,
             PaginationRequestDto pagination) throws NotFoundException {
         Resource hostResource = validateCommentable(resource);
-        resourceExtensionService(hostResource).getResourceObjectInternal(objectUuid.getValue());
+        resourceService.getResourceObject(hostResource, objectUuid.getValue());
         RequestValidatorHelper.revalidatePaginationRequestDto(pagination);
 
         Page<Comment> roots = commentRepository
@@ -127,7 +128,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     public CommentDto createComment(SecuredResource resource, SecuredUUID objectUuid, CommentCreateRequestDto request)
             throws NotFoundException {
         Resource hostResource = validateCommentable(resource);
-        NameAndUuidDto hostObject = resourceExtensionService(hostResource).getResourceObjectExternal(objectUuid);
+        ResourceObjectDto hostObject = resourceService.getResourceObject(hostResource, objectUuid.getValue());
         if (request.getParentUuid() != null) {
             validateParent(hostResource, objectUuid.getValue(), request.getParentUuid());
         }
@@ -168,7 +169,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void deleteComment(UUID uuid) throws NotFoundException {
         Comment comment = getComment(uuid);
-        NameAndUuidDto hostObject = readGate(comment);
+        ResourceObjectDto hostObject = readGate(comment);
         NameAndUuidDto actor = AuthHelper.getUserIdentification();
         boolean isAuthor = actor.getUuid().equals(comment.getAuthorUuid().toString());
         boolean rootWithReplies = comment.getParentUuid() == null && commentRepository.existsByParentUuid(uuid);
@@ -196,7 +197,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         if (comment.getParentUuid() != null) {
             throw new ValidationException("Only a thread root can be resolved or reopened");
         }
-        NameAndUuidDto hostObject = readGate(comment);
+        ResourceObjectDto hostObject = readGate(comment);
         NameAndUuidDto actor = AuthHelper.getUserIdentification();
         if (!actor.getUuid().equals(comment.getAuthorUuid().toString())) {
             authorizationEnforcer
@@ -229,19 +230,14 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         return hostResource;
     }
 
-    private ResourceExtensionService resourceExtensionService(Resource resource) {
-        return resourceExtensionServices.get(resource.getCode());
-    }
-
     private Comment getComment(UUID uuid) throws NotFoundException {
         return commentRepository
                 .findByUuid(SecuredUUID.fromUUID(uuid))
                 .orElseThrow(() -> new NotFoundException(Comment.class, uuid));
     }
 
-    private NameAndUuidDto readGate(Comment comment) throws NotFoundException {
-        return resourceExtensionService(comment.getResource())
-                .getResourceObjectExternal(SecuredUUID.fromUUID(comment.getObjectUuid()));
+    private ResourceObjectDto readGate(Comment comment) throws NotFoundException {
+        return resourceService.getResourceObject(comment.getResource(), comment.getObjectUuid());
     }
 
     private void validateParent(Resource resource, UUID objectUuid, UUID parentUuid) throws NotFoundException {
