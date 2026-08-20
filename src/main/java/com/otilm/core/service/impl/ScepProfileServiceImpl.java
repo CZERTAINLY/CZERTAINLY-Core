@@ -39,6 +39,7 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.RaProfileInternalService;
 import com.otilm.core.service.ScepProfileExternalService;
 import com.otilm.core.service.ScepProfileInternalService;
@@ -67,6 +68,13 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
     private CertificateInternalService certificateService;
     private AttributeEngine attributeEngine;
     private ProtocolCertificateAssociationsRepository certificateAssociationRepository;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setCertificateAssociationRepository(
@@ -626,6 +634,7 @@ public class ScepProfileServiceImpl implements ScepProfileExternalService, ScepP
                                             .collect(Collectors.joining(",")))));
         } else {
             attributeEngine.deleteObjectAttributeContent(Resource.SCEP_PROFILE, scepProfile.getUuid());
+            commentService.removeObjectComments(Resource.SCEP_PROFILE, scepProfile.getUuid());
             scepProfileRepository.delete(scepProfile);
         }
     }

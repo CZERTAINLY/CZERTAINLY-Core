@@ -20,6 +20,7 @@ import com.otilm.api.model.common.events.data.CertificateExpiringEventData;
 import com.otilm.api.model.common.events.data.CertificateNotCompliantEventData;
 import com.otilm.api.model.common.events.data.CertificateRegisteredEventData;
 import com.otilm.api.model.common.events.data.CertificateStatusChangedEventData;
+import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.common.events.data.DiscoveryFinishedEventData;
 import com.otilm.api.model.common.events.data.EventData;
 import com.otilm.api.model.common.events.data.InternalNotificationEventData;
@@ -536,6 +537,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
                 }
             }
+            // Events without a natural default audience resolve to nobody; the profile has to name recipients.
+            default -> {
+            }
         }
 
         return recipients;
@@ -887,6 +891,24 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 ScheduledJobFinishedEventData data = (ScheduledJobFinishedEventData) eventData;
                 yield new InternalNotificationEventData("%s scheduled task has finished for %s with result %s"
                         .formatted(data.getJobType(), data.getJobName(), data.getStatus()), null);
+            }
+            // The comment body stays out of the persisted notification on purpose: the notification points at
+            // the thread, it does not mirror user-authored text.
+            case COMMENT_CREATED -> {
+                CommentEventData data = (CommentEventData) eventData;
+                yield new InternalNotificationEventData("%s %s on %s '%s'"
+                        .formatted(data.getAuthorUsername(),
+                                data.getParentUuid() == null ? "commented" : "replied to a comment thread",
+                                data.getResource().getLabel(), data.getObjectName()),
+                        null);
+            }
+            case COMMENT_RESOLVED -> {
+                CommentEventData data = (CommentEventData) eventData;
+                yield new InternalNotificationEventData("%s %s a comment thread on %s '%s'"
+                        .formatted(data.getResolvedByUsername(),
+                                Boolean.TRUE.equals(data.getResolved()) ? "resolved" : "reopened",
+                                data.getResource().getLabel(), data.getObjectName()),
+                        null);
             }
             case CERTIFICATE_REGISTERED -> {
                 CertificateRegisteredEventData data = (CertificateRegisteredEventData) eventData;

@@ -7,13 +7,16 @@ import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
+import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.connector.secrets.SecretOperationRequest;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
 import com.otilm.api.model.core.connector.v2.ConnectorInterfaceDto;
+import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
@@ -36,6 +39,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.VaultInstanceExternalService;
 import com.otilm.core.service.VaultInstanceInternalService;
 import com.otilm.core.service.v2.ConnectorExternalService;
@@ -56,7 +60,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service
+@Service(Resource.Codes.VAULT)
 @Transactional
 public class VaultInstanceServiceImpl implements VaultInstanceExternalService, VaultInstanceInternalService {
 
@@ -70,6 +74,13 @@ public class VaultInstanceServiceImpl implements VaultInstanceExternalService, V
 
     private AttributeEngine attributeEngine;
     private ConnectorRequestAttributesBuilder connectorRequestAttributesBuilder;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setConnectorRequestAttributesBuilder(
@@ -212,6 +223,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceExternalService, V
             throw new ValidationException(
                     "Vault Instance %s is used in Vault Profiles %s".formatted(uuid, allByVaultInstanceUuid));
         }
+        commentService.removeObjectComments(Resource.VAULT, vaultInstance.getUuid());
         vaultInstanceRepository.delete(vaultInstance);
     }
 
@@ -355,6 +367,31 @@ public class VaultInstanceServiceImpl implements VaultInstanceExternalService, V
     @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.LIST)
     public Long statisticsVaultInstanceCount(SecurityFilter filter) {
         return vaultInstanceRepository.countUsingSecurityFilter(filter, null);
+    }
+
+    @Override
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
+        return vaultInstanceRepository.findResourceObject(objectUuid, VaultInstance_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
+        return vaultInstanceRepository.listResourceObjects(filter, VaultInstance_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getResourceObjectInternal(uuid.getValue());
+        // A vault instance has no parent, so no exclusive parent permission evaluation is needed
     }
 
 }

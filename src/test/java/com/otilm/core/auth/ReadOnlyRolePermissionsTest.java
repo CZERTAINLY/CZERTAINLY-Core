@@ -31,6 +31,20 @@ class ReadOnlyRolePermissionsTest {
     }
 
     /**
+     * Commenting is a mutation (rows, events, notifications), so the derived read-only role must never acquire it even
+     * though it is registered for every commentable resource at startup.
+     */
+    @Test
+    void excludesCommentAction() {
+        List<ResourceSyncRequestDto> catalogue = List
+                .of(resource(Resource.CERTIFICATE, ResourceAction.DETAIL, ResourceAction.COMMENT));
+
+        RolePermissionsRequestDto derived = ReadOnlyRolePermissions.deriveFrom(catalogue);
+
+        assertThat(actionsOf(derived, Resource.CERTIFICATE)).containsExactly(ResourceAction.DETAIL.getCode());
+    }
+
+    /**
      * A sensitive read discloses stored secret material or embedded credentials, so it is not part of "may see
      * everything" - a read-only role must not become a way to exfiltrate them.
      */

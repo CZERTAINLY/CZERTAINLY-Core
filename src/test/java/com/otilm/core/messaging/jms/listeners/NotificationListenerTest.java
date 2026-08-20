@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.otilm.api.interfaces.client.v1.NotificationInstanceSyncApiClient;
 import com.otilm.api.model.common.events.data.CertificateRegisteredEventData;
+import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.other.ResourceEvent;
@@ -26,6 +27,7 @@ import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.notifications.NotificationObjectDataService;
 import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.service.writer.PendingNotificationWriter;
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +38,7 @@ import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -176,4 +179,73 @@ class NotificationListenerTest {
         assertEquals(first, mapped.get(0).getRecipientUuid());
         assertEquals(second, mapped.get(1).getRecipientUuid());
     }
+
+    private CommentEventData commentEventData(UUID parentUuid, String body) {
+        CommentEventData data = new CommentEventData();
+        data.setCommentUuid(UUID.randomUUID());
+        data.setParentUuid(parentUuid);
+        data.setResource(Resource.RA_PROFILE);
+        data.setObjectUuid(UUID.randomUUID());
+        data.setObjectName("web-frontends");
+        data.setAuthorUuid(UUID.randomUUID());
+        data.setAuthorUsername("requester");
+        data.setCreatedAt(OffsetDateTime.now());
+        data.setBody(body);
+        return data;
+    }
+
+    private String[] renderedCommentNotification(ResourceEvent event, CommentEventData data) {
+        UUID recipientUuid = UUID.randomUUID();
+        NotificationMessage message = new NotificationMessage(event, data.getResource(), data.getObjectUuid(), null,
+                List.of(new NotificationRecipient(RecipientType.USER, recipientUuid)), data);
+
+        listener().processMessage(message);
+
+        ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> detail = ArgumentCaptor.forClass(String.class);
+        verify(notificationService)
+                .createNotificationForUser(text.capture(), detail.capture(), eq(recipientUuid.toString()),
+                        eq(data.getResource()), eq(data.getObjectUuid().toString()));
+        return new String[]{text.getValue(), detail.getValue()};
+    }
+
+    @Test
+    void rootCommentRendersTheAuthorActingOnTheHostObject() {
+        String[] rendered = renderedCommentNotification(ResourceEvent.COMMENT_CREATED,
+                commentEventData(null, "please **enable** ACME"));
+
+        assertEquals("requester commented on RA Profile 'web-frontends'", rendered[0]);
+        assertNull(rendered[1], "the persisted notification carries no comment body");
+    }
+
+    @Test
+    void replyRendersAsAThreadReply() {
+        String[] rendered = renderedCommentNotification(ResourceEvent.COMMENT_CREATED,
+                commentEventData(UUID.randomUUID(), "on it"));
+
+        assertEquals("requester replied to a comment thread on RA Profile 'web-frontends'", rendered[0]);
+    }
+
+    @Test
+    void resolutionRendersTheActingUserAndDirection() {
+        CommentEventData resolved = commentEventData(null, "done");
+        resolved.setResolved(true);
+        resolved.setResolvedByUuid(UUID.randomUUID());
+        resolved.setResolvedByUsername("operator");
+
+        assertEquals("operator resolved a comment thread on RA Profile 'web-frontends'",
+                renderedCommentNotification(ResourceEvent.COMMENT_RESOLVED, resolved)[0]);
+    }
+
+    @Test
+    void reopeningRendersTheActingUserAndDirection() {
+        CommentEventData reopened = commentEventData(null, "not done after all");
+        reopened.setResolved(false);
+        reopened.setResolvedByUuid(UUID.randomUUID());
+        reopened.setResolvedByUsername("operator");
+
+        assertEquals("operator reopened a comment thread on RA Profile 'web-frontends'",
+                renderedCommentNotification(ResourceEvent.COMMENT_RESOLVED, reopened)[0]);
+    }
+
 }

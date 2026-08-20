@@ -80,6 +80,7 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.CryptographicOperationInternalService;
 import com.otilm.core.service.RaProfileInternalService;
@@ -577,6 +578,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         }
 
         signingProfileWriter.deleteAllVersionsBySigningProfileUuid(signingProfile.getUuid());
+        commentService.removeObjectComments(Resource.SIGNING_PROFILE, signingProfile.getUuid());
         signingProfileRepository.delete(signingProfile);
         attributeEngine.deleteObjectAttributeContent(Resource.SIGNING_PROFILE, signingProfile.getUuid());
         tspProfileService.evictAllCachedModels();
@@ -1081,6 +1083,13 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
     // ──────────────────────────────────────────────────────────────────────────
     // Dependencies
     // ──────────────────────────────────────────────────────────────────────────
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Lazy
     @Autowired

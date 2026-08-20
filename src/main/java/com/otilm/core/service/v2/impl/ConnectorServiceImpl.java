@@ -65,6 +65,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ConnectorAuthInternalService;
 import com.otilm.core.service.handler.ConnectorAdapter;
 import com.otilm.core.service.v2.ConnectorExternalService;
@@ -122,6 +123,13 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     private CacheEvictor cacheEvictor;
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setNotificationInstanceReferenceRepository(
@@ -790,6 +798,7 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
         UUID deletedUuid = connector.getUuid();
         attributeEngine.deleteObjectAttributeContent(Resource.CONNECTOR, deletedUuid);
+        commentService.removeObjectComments(Resource.CONNECTOR, connector.getUuid());
         connectorRepository.delete(connector);
         evictConnectorCache(deletedUuid);
     }
