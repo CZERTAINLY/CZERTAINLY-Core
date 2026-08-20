@@ -7,8 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * Backoff ladders for discovery v2 work ticks, per {@link DiscoveryWorkType}. The sweep cadence and batch knobs under
- * the same {@code discovery.work} prefix are plain {@code @Value} properties on their consumers, mirroring the
- * status-poll stack.
+ * the same {@code discovery.work} prefix are plain {@code @Value} properties on their consumers.
  */
 @ConfigurationProperties("discovery.work")
 public record DiscoveryWorkProperties(PollSchedule defaults, Map<DiscoveryWorkType, PollSchedule> byType) {

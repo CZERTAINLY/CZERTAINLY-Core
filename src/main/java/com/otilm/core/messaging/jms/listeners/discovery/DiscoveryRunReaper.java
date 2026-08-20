@@ -26,9 +26,9 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  * <li><b>Work lost</b> — an actively driven v2 run with no agenda rows never receives another tick, so nothing would
- * ever end it. Failed with an explicit reason. Runs younger than {@code reap-grace} are skipped: the initiate window
- * legitimately has the run row before its first agenda rows. {@code STOPPED} runs are deliberately exempt — failing one
- * for lost agenda rows would destroy a checkpoint the stop-expiry path still allows to resume.</li>
+ * ever end it. Runs younger than {@code reap-grace} are skipped: the initiate window legitimately has the run row
+ * before its first agenda rows. {@code STOPPED} runs are deliberately exempt — failing one for lost agenda rows would
+ * destroy a checkpoint the stop-expiry path still allows to resume.</li>
  * <li><b>Stop expired</b> — a {@code STOPPED} run not resumed within {@code stopped-max-duration} is cancelled; the
  * connector's checkpoint can no longer be assumed to exist. The connector-side cancel is best-effort and runs outside
  * any transaction; the local cancel proceeds regardless.</li>
@@ -45,8 +45,7 @@ public class DiscoveryRunReaper {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryRunReaper.class);
 
-    // Work-lost candidates: statuses the tick engine actively drives. STOPPED is exempt — stop-expiry
-    // alone owns STOPPED terminality (see class doc).
+    // Statuses the tick engine actively drives; STOPPED is exempt (see class doc).
     private static final List<DiscoveryStatus> WORK_DRIVEN_STATUSES = List
             .of(DiscoveryStatus.IN_PROGRESS, DiscoveryStatus.PROCESSING);
 
