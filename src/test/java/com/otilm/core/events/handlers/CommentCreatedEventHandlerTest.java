@@ -75,8 +75,9 @@ class CommentCreatedEventHandlerTest {
 
     @Test
     void rootNotifiesTheHostObjectOwner() {
+        UUID ownerUuid = UUID.randomUUID();
         when(associationService.getOwner(Resource.RA_PROFILE, HOST_UUID))
-                .thenReturn(new NameAndUuidDto(UUID.randomUUID().toString(), "tst-owner"));
+                .thenReturn(new NameAndUuidDto(ownerUuid.toString(), "tst-owner"));
 
         handler.sendFollowUpEventsNotifications(context(comment(null)));
 
@@ -87,7 +88,8 @@ class CommentCreatedEventHandlerTest {
         assertEquals(Resource.RA_PROFILE, message.getResource());
         assertEquals(HOST_UUID, message.getObjectUuid());
         assertEquals(1, message.getRecipients().size());
-        assertEquals(RecipientType.OWNER, message.getRecipients().getFirst().getRecipientType());
+        assertEquals(RecipientType.USER, message.getRecipients().getFirst().getRecipientType());
+        assertEquals(ownerUuid, message.getRecipients().getFirst().getRecipientUuid());
     }
 
     @Test

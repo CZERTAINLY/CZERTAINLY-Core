@@ -40,6 +40,7 @@ import com.otilm.core.events.handlers.CommentResolvedEventHandler;
 import com.otilm.core.messaging.jms.listeners.NotificationListener;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
+import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.service.ActionExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.service.RuleExternalService;
@@ -384,6 +385,10 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
 
         List<NotificationMessage> followUps = followUpMessages();
         assertThat(followUps).hasSize(1);
+        // The owner is resolved at publish time, so the message already carries them as a plain user
+        assertThat(followUps.getFirst().getRecipients())
+                .extracting(NotificationRecipient::getRecipientUuid)
+                .containsExactly(ownerUuid);
         notificationListener.processMessage(followUps.getFirst());
         assertThat(notificationRepository.findAll()).hasSize(1);
 

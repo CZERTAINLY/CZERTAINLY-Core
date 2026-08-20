@@ -1,7 +1,6 @@
 package com.otilm.core.events.handlers;
 
 import com.otilm.api.model.common.NameAndUuidDto;
-import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.core.dao.entity.Comment;
 import com.otilm.core.dao.repository.CommentRepository;
@@ -43,7 +42,7 @@ public class CommentCreatedEventHandler extends CommentEventsHandler {
             if (owner == null || owner.getUuid().equals(String.valueOf(actingUser))) {
                 return;
             }
-            recipients = List.of(new NotificationRecipient(RecipientType.OWNER, null));
+            recipients = NotificationRecipient.buildUserNotificationRecipient(UUID.fromString(owner.getUuid()));
         } else {
             recipients = threadParticipantsExcept(comment.getParentUuid(), actingUser);
         }

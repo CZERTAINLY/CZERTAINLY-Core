@@ -761,10 +761,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         logger
                 .debug("Sending internal notification. Message: {}. Detail: {}", notificationData.getText(),
                         notificationData.getDetail());
-        List<NotificationRecipient> resolvedRecipients = resolveOwnerRecipients(recipients, resource, objectUuid);
         int notified = 0;
         int failed = 0;
-        for (NotificationRecipient recipient : resolvedRecipients) {
+        for (NotificationRecipient recipient : recipients) {
             try {
                 // Each recipient commits on its own: the listener runs without an ambient transaction, so
                 // every notification-service call opens and commits its own short transaction.
@@ -779,28 +778,7 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                                 recipient.getRecipientType().getLabel(), recipient.getRecipientUuid(), e.getMessage());
             }
         }
-        return new InternalNotificationOutcome(notified, failed, resolvedRecipients.size());
-    }
-
-    /**
-     * OWNER is an indirection over the subject object, resolved on the profile-driven path by {@link #getRecipients};
-     * handler-driven messages carry the subject themselves, so the same owner-association lookup applies here. An
-     * owner-less subject drops the recipient — configuration, not a failure.
-     */
-    private List<NotificationRecipient> resolveOwnerRecipients(List<NotificationRecipient> recipients,
-            Resource resource, UUID objectUuid) {
-        List<NotificationRecipient> resolved = new ArrayList<>();
-        for (NotificationRecipient recipient : recipients) {
-            if (recipient.getRecipientType() != RecipientType.OWNER) {
-                resolved.add(recipient);
-                continue;
-            }
-            NameAndUuidDto owner = resourceObjectAssociationService.getOwner(resource, objectUuid);
-            if (owner != null) {
-                resolved.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(owner.getUuid())));
-            }
-        }
-        return resolved;
+        return new InternalNotificationOutcome(notified, failed, recipients.size());
     }
 
     /**
