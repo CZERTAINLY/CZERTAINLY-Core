@@ -110,6 +110,11 @@ public class TimestampingFormattingConnectorMock extends BaseConnectorMock {
      * regardless of request content — suited to minimal-request unit tests. The token must be structurally parseable as
      * a CMS {@code TimeStampToken}; it need not cryptographically verify unless the profile enables token-signature
      * validation.
+     *
+     * <p>
+     * The engine checks that a token echoes the imprint and serial number it asked for, so a token built independently
+     * of the request is refused as a {@code CONNECTOR_FAULT}. Use this to exercise that refusal; use
+     * {@link #stubFormatDtbs()}/{@link #stubFormatResponse()} whenever a test needs issuance to succeed.
      */
     public TimestampingFormattingConnectorMock stubTokenAssembly(byte[] timestampTokenBytes) {
         String dtbs = Base64.getEncoder().encodeToString("placeholder-dtbs".getBytes(StandardCharsets.UTF_8));

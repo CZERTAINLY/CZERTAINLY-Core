@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.signing.record.SigningRecordInput;
 import com.otilm.core.util.builders.SigningProfileModelBuilder;
 import java.math.BigInteger;
@@ -12,6 +13,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import static com.otilm.core.model.signing.SigningRecordPolicyModelBuilder.aSigningRecordPolicy;
 import static com.otilm.core.signing.tsa.messages.TspRequestBuilder.aTspRequest;
@@ -25,24 +28,37 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Pure unit test for {@link TspSigningRecordFactory}: the assembly of a {@link SigningRecordInput} from a signing
+ * Pure unit test for {@link TimestampSigningRecordFactory}: the assembly of a {@link SigningRecordInput} from a signing
  * profile, TSP request, and the already-encoded granted timestamp token. Uses a real {@link ObjectMapper} (fast and
  * deterministic); the token DER-encoding now happens upstream in the engine, so the factory takes the encoded bytes
  * directly and no token mocking is needed.
  */
-class TspSigningRecordFactoryTest {
+class TimestampSigningRecordFactoryTest {
 
     private static final BigInteger SERIAL = BigInteger.ONE;
     private static final Instant GEN_TIME = Instant.parse("2026-06-16T00:00:00Z");
     private static final byte[] ENCODED_TOKEN = {10, 20, 30};
 
     private ObjectMapper objectMapper;
-    private TspSigningRecordFactory factory;
+    private TimestampSigningRecordFactory factory;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        factory = new TspSigningRecordFactory(objectMapper);
+        factory = new TimestampSigningRecordFactory(objectMapper);
+    }
+
+    /** The record must tell an auditor whether a client asked for the token or the platform issued it itself. */
+    @ParameterizedTest
+    @EnumSource(value = SigningProtocol.class, names = {"TSP", "INTERNAL_TSA"})
+    void build_recordsTheProtocolTheCallerIssuedUnder(SigningProtocol protocol) {
+        // when
+        SigningRecordInput input = factory
+                .source(aRecordingProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, ENCODED_TOKEN, protocol)
+                .build();
+
+        // then
+        assertEquals(protocol, input.getProtocol());
     }
 
     @Test
@@ -58,7 +74,9 @@ class TspSigningRecordFactoryTest {
         var request = aTspRequest().hashAlgorithm(hashAlgorithm).policy(policyOid).nonce(nonce).build();
 
         // when
-        SigningRecordInput input = factory.source(profile, request, serialNumber, GEN_TIME, ENCODED_TOKEN).build();
+        SigningRecordInput input = factory
+                .source(profile, request, serialNumber, GEN_TIME, ENCODED_TOKEN, SigningProtocol.TSP)
+                .build();
 
         // then
         Map<String, Object> metadata = parseMetadata(input.getRequestMetadataJson());
@@ -77,7 +95,7 @@ class TspSigningRecordFactoryTest {
 
         // when
         SigningRecordInput input = factory
-                .source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN, SigningProtocol.TSP)
                 .build();
 
         // then
@@ -91,7 +109,7 @@ class TspSigningRecordFactoryTest {
 
         // when
         SigningRecordInput input = factory
-                .source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN, SigningProtocol.TSP)
                 .build();
 
         // then
@@ -105,7 +123,7 @@ class TspSigningRecordFactoryTest {
 
         // when
         SigningRecordInput input = factory
-                .source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .source(aRecordingProfile().build(), request, SERIAL, GEN_TIME, ENCODED_TOKEN, SigningProtocol.TSP)
                 .build();
 
         // then
@@ -121,7 +139,7 @@ class TspSigningRecordFactoryTest {
 
         // when
         SigningRecordInput input = factory
-                .source(profile, aTspRequest().build(), serialNumber, GEN_TIME, ENCODED_TOKEN)
+                .source(profile, aTspRequest().build(), serialNumber, GEN_TIME, ENCODED_TOKEN, SigningProtocol.TSP)
                 .build();
 
         // then
@@ -135,7 +153,8 @@ class TspSigningRecordFactoryTest {
 
         // when
         SigningRecordInput input = factory
-                .source(aSigningProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, encodedToken)
+                .source(aSigningProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, encodedToken,
+                        SigningProtocol.TSP)
                 .build();
 
         // then
@@ -148,7 +167,8 @@ class TspSigningRecordFactoryTest {
 
         // when
         SigningRecordInput input = factory
-                .source(aSigningProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .source(aSigningProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, ENCODED_TOKEN,
+                        SigningProtocol.TSP)
                 .build();
 
         // then
@@ -161,11 +181,12 @@ class TspSigningRecordFactoryTest {
         // given a mapper that fails to serialize the request metadata
         ObjectMapper failingMapper = mock(ObjectMapper.class);
         when(failingMapper.writeValueAsString(any())).thenThrow(mock(JsonProcessingException.class));
-        var factoryWithFailingMapper = new TspSigningRecordFactory(failingMapper);
+        var factoryWithFailingMapper = new TimestampSigningRecordFactory(failingMapper);
 
         // when
         Executable build = () -> factoryWithFailingMapper
-                .source(aRecordingProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, ENCODED_TOKEN)
+                .source(aRecordingProfile().build(), aTspRequest().build(), SERIAL, GEN_TIME, ENCODED_TOKEN,
+                        SigningProtocol.TSP)
                 .build();
 
         // then

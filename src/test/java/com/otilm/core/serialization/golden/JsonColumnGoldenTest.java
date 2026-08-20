@@ -33,7 +33,7 @@ import com.otilm.core.model.compliance.ComplianceResultDto;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.scheme.SigningSchemeModel;
 import com.otilm.core.model.signing.workflow.SigningWorkflow;
-import com.otilm.core.signing.tsa.TspSigningRecordFactory;
+import com.otilm.core.signing.tsa.TimestampSigningRecordFactory;
 import com.otilm.core.signing.tsa.messages.TspRequest;
 import java.lang.reflect.Type;
 import java.math.BigInteger;
@@ -290,7 +290,8 @@ class JsonColumnGoldenTest {
 
     /**
      * Backs {@code SigningRecord.requestMetadataJson} and {@code SigningRecordOutbox.requestMetadataJson}. Both are
-     * declared {@code String}, so Hibernate stores what {@link TspSigningRecordFactory} built with the wire mapper.
+     * declared {@code String}, so Hibernate stores what {@link TimestampSigningRecordFactory} built with the wire
+     * mapper.
      */
     @Test
     void signingRecordMetadataColumnKeepsTheShapeTheWireMapperGivesItAndIsStoredVerbatim() {
@@ -333,8 +334,9 @@ class JsonColumnGoldenTest {
                 List.of(SigningProtocol.TSP), null, null, null, null);
         TspRequest request = new TspRequest(DigestAlgorithm.SHA_256, new byte[]{1, 2, 3}, policy, nonce, false, null);
 
-        return new TspSigningRecordFactory(webMapper)
-                .source(profile, request, new BigInteger("48879"), FIXED_TIMESTAMP.toInstant(), new byte[]{4, 5})
+        return new TimestampSigningRecordFactory(webMapper)
+                .source(profile, request, new BigInteger("48879"), FIXED_TIMESTAMP.toInstant(), new byte[]{4, 5},
+                        SigningProtocol.TSP)
                 .build()
                 .getRequestMetadataJson();
     }
