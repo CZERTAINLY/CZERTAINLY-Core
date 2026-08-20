@@ -45,6 +45,7 @@ import com.otilm.core.service.ActionExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
 import com.otilm.core.service.RuleExternalService;
 import com.otilm.core.service.TriggerExternalService;
+import com.otilm.core.util.AuthServiceWireMockStubs;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
 import com.otilm.core.util.mockbeans.ProducerMocks;
@@ -124,36 +125,7 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
 
     /** Impersonation of the trigger-association owner authenticates against the auth service. */
     private void mockAuthResponses() {
-        UUID anyUserUuid = UUID.randomUUID();
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(WireMock.okJson("""
-                {
-                    "uuid": "%s",
-                    "username": "tst-association-owner",
-                    "email": "owner@example.com",
-                    "groups": [],
-                    "roles": []
-                }
-                """.formatted(anyUserUuid))));
-        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth")).willReturn(WireMock.okJson("""
-                {
-                    "authenticated": true,
-                    "data": {
-                        "user": {
-                            "uuid": "%s",
-                            "username": "tst-association-owner"
-                        },
-                        "roles": [
-                            {
-                                "name": "superadmin"
-                            }
-                        ],
-                        "permissions": {
-                            "allowAllResources": true,
-                            "resources": []
-                        }
-                    }
-                }
-                """.formatted(anyUserUuid))));
+        AuthServiceWireMockStubs.stubImpersonation(mockServer, UUID.randomUUID(), "tst-association-owner");
     }
 
     private Comment saveComment(UUID objectUuid, UUID parentUuid, UUID authorUuid, String body) {
@@ -314,7 +286,11 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
                 .anySatisfy(message -> assertThat(message.getNotificationProfileUuids()).contains(profileUuid));
 
         notificationListener.processMessage(profileMessages.getFirst());
-        assertThat(notificationRepository.findAll()).isNotEmpty();
+        // The persisted notification deep-links to the host object, not the comment the trigger evaluated
+        assertThat(notificationRepository.findAll()).isNotEmpty().allSatisfy(notification -> {
+            assertThat(notification.getTargetObjectType()).isEqualTo(Resource.RA_PROFILE);
+            assertThat(notification.getTargetObjectIdentification()).isEqualTo(hostUuid.toString());
+        });
     }
 
     @Test

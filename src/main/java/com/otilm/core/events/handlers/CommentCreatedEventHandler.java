@@ -7,7 +7,6 @@ import com.otilm.core.dao.repository.CommentRepository;
 import com.otilm.core.evaluator.TriggerEvaluator;
 import com.otilm.core.events.EventContext;
 import com.otilm.core.messaging.model.NotificationRecipient;
-import com.otilm.core.service.ResourceObjectAssociationService;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,16 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Component(ResourceEvent.Codes.COMMENT_CREATED)
 public class CommentCreatedEventHandler extends CommentEventsHandler {
 
-    private ResourceObjectAssociationService resourceObjectAssociationService;
-
     @Autowired
     protected CommentCreatedEventHandler(CommentRepository repository, TriggerEvaluator<Comment> triggerEvaluator) {
         super(repository, triggerEvaluator);
-    }
-
-    @Autowired
-    public void setResourceObjectAssociationService(ResourceObjectAssociationService resourceObjectAssociationService) {
-        this.resourceObjectAssociationService = resourceObjectAssociationService;
     }
 
     @Override

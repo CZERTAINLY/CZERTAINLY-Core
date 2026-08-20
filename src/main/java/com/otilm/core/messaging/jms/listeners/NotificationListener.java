@@ -203,8 +203,10 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         // sent in corresponding event handlers
         if (sendInternalNotifications) {
             try {
+                // The persisted notification targets the resolved subject, not the event record: for comment
+                // events the deep link has to point at the host object, matching handler-driven follow-ups.
                 InternalNotificationOutcome outcome = sendInternalNotifications(recipients,
-                        getInternalNotificationData(message), message.getResource(), message.getObjectUuid());
+                        getInternalNotificationData(message), subject.resource(), subject.objectUuid());
                 notificationSent = notificationSent || outcome.notified() > 0;
                 reportInternalNotificationGap(outcome, "Notification profile %s in event %s"
                         .formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()),
@@ -452,8 +454,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             return List.of(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
         }
 
-        return getDefaultRecipients(message.getEvent(), message.getData(), message.getResource(),
-                message.getObjectUuid());
+        // Defaults resolve against the subject for the same reason OWNER does: comment events carry the comment,
+        // but their natural audience belongs to the host object.
+        return getDefaultRecipients(message.getEvent(), message.getData(), subject.resource(), subject.objectUuid());
     }
 
     /**
@@ -489,12 +492,12 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         return recipientUuids.stream().map(uuid -> new NotificationRecipient(recipientType, uuid)).toList();
     }
 
-    private List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource,
+    List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource,
             UUID objectUuid) {
         List<NotificationRecipient> recipients = new ArrayList<>();
         switch (event) {
             case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED, CERTIFICATE_EXPIRING,
-                    CERTIFICATE_NOT_COMPLIANT, CERTIFICATE_UPLOADED -> {
+                    CERTIFICATE_NOT_COMPLIANT, CERTIFICATE_UPLOADED, COMMENT_CREATED, COMMENT_RESOLVED -> {
                 NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));

@@ -3,6 +3,7 @@ package com.otilm.core.messaging.jms.listeners;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.otilm.api.interfaces.client.v1.NotificationInstanceSyncApiClient;
+import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.events.data.CertificateRegisteredEventData;
 import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.core.auth.Resource;
@@ -53,6 +54,8 @@ class NotificationListenerTest {
 
     private final NotificationInternalService notificationService = mock(NotificationInternalService.class);
 
+    private final ResourceObjectAssociationService associationService = mock(ResourceObjectAssociationService.class);
+
     private NotificationListener listener() {
         ObjectMapper realMapper = JsonMapper.builder().findAndAddModules().build();
         return new NotificationListener(realMapper, mock(AttributeEngine.class), notificationService,
@@ -60,7 +63,7 @@ class NotificationListenerTest {
                 mock(ConnectorInternalService.class), mock(PendingNotificationRepository.class),
                 mock(NotificationProfileVersionRepository.class), mock(NotificationInstanceReferenceRepository.class),
                 mock(GroupRepository.class), mock(UserManagementApiClient.class), mock(RoleManagementApiClient.class),
-                mock(ResourceObjectAssociationService.class),
+                associationService,
                 // The real handler, invoked directly rather than through its proxy, runs the work without a
                 // transaction -- which is what this unencumbered unit context wants.
                 new TransactionHandler(), mock(PendingNotificationWriter.class),
@@ -155,6 +158,25 @@ class NotificationListenerTest {
                         eq(1));
         // The failed suppression write is not a delivery failure: trigger history stays untouched.
         verifyNoInteractions(triggerService);
+    }
+
+    @Test
+    void defaultRecipientsForCommentEventsResolveToTheHostOwnerAndGroups() {
+        UUID hostUuid = UUID.randomUUID();
+        UUID ownerUuid = UUID.randomUUID();
+        UUID groupUuid = UUID.randomUUID();
+        when(associationService.getOwner(Resource.RA_PROFILE, hostUuid))
+                .thenReturn(new NameAndUuidDto(ownerUuid.toString(), "tst-owner"));
+        when(associationService.getGroupUuids(Resource.RA_PROFILE, hostUuid)).thenReturn(List.of(groupUuid));
+
+        List<NotificationRecipient> recipients = listener()
+                .getDefaultRecipients(ResourceEvent.COMMENT_CREATED, null, Resource.RA_PROFILE, hostUuid);
+
+        assertEquals(2, recipients.size());
+        assertEquals(RecipientType.USER, recipients.get(0).getRecipientType());
+        assertEquals(ownerUuid, recipients.get(0).getRecipientUuid());
+        assertEquals(RecipientType.GROUP, recipients.get(1).getRecipientType());
+        assertEquals(groupUuid, recipients.get(1).getRecipientUuid());
     }
 
     @Test
