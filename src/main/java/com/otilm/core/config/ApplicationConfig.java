@@ -78,7 +78,8 @@ public class ApplicationConfig {
         return BaseApiClient
                 .prepareWebClient(new ClientTuning(connectorApiClientProperties.connectTimeout(),
                         connectorApiClientProperties.responseTimeout(), connectorApiClientProperties.maxConnections(),
-                        connectorApiClientProperties.pendingAcquireTimeout()));
+                        connectorApiClientProperties.pendingAcquireTimeout(),
+                        (int) connectorApiClientProperties.maxInMemorySize().toBytes()));
     }
 
     @Bean
@@ -226,6 +227,12 @@ public class ApplicationConfig {
     public com.otilm.api.clients.v3.AuthorityApiClient authorityApiClientV3(WebClient webClient,
             TrustManager[] defaultTrustManagers) {
         return new com.otilm.api.clients.v3.AuthorityApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public com.otilm.api.clients.discovery.v2.DiscoveryApiClient discoveryApiClientV2(WebClient webClient,
+            TrustManager[] defaultTrustManagers) {
+        return new com.otilm.api.clients.discovery.v2.DiscoveryApiClient(webClient, defaultTrustManagers);
     }
 
     @Bean

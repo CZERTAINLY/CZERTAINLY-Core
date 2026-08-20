@@ -165,12 +165,10 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setTriggers(triggers.stream().map(Trigger::mapToDto).toList());
         dto.setConnectorStatus(connectorStatus);
         dto.setConnectorTotalCertificatesDiscovered(connectorTotalCertificatesDiscovered);
-        // The contract publishes both lists as always present. Every run this Core can hold ran against a
-        // v1 discovery connector, so the v1 synthesis is exact: certificates only, no lifecycle capabilities.
-        // The discovery v2 implementation replaces these constants with the run's stored targets and the
-        // capabilities synced from its connector.
+        // The contract publishes both fields as always present. Every run this Core can hold ran against a
+        // v1 discovery connector, so the v1 synthesis is exact: certificates only, never stoppable.
         dto.setResources(List.of(Resource.CERTIFICATE));
-        dto.setEffectiveCapabilities(List.of());
+        dto.setStoppable(false);
         return dto;
     }
 

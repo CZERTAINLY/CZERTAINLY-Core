@@ -63,6 +63,11 @@ discovery:
     max-parallelism: ${DISCOVERY_PROVIDER_MAX_PARALLELISM:5}
     sleep-time-ms: ${DISCOVERY_PROVIDER_SLEEP_TIME_MS:5000}
     max-wait-time-seconds: ${DISCOVERY_PROVIDER_MAX_WAIT_TIME_SECONDS:21600}
+  # Per-operation timeout budgets for the discovery v2 MQ client (proxy.enabled deployments only)
+  mq-timeouts:
+    status: ${DISCOVERY_MQ_TIMEOUT_STATUS:30s}
+    drain: ${DISCOVERY_MQ_TIMEOUT_DRAIN:30s}
+    control: ${DISCOVERY_MQ_TIMEOUT_CONTROL:30s}
 
 # Authority-provider async (HTTP 202) operation status polling
 provider:
@@ -336,6 +341,7 @@ connector:
     max-connections: ${CONNECTOR_API_CLIENT_MAX_CONNECTIONS:20}
     # Shed load quickly under pool saturation rather than queueing behind the response timeout
     pending-acquire-timeout: ${CONNECTOR_API_CLIENT_PENDING_ACQUIRE_TIMEOUT:10s}
+    max-in-memory-size: ${CONNECTOR_API_CLIENT_MAX_IN_MEMORY_SIZE:16MB}
 
 cbom:
   client:
