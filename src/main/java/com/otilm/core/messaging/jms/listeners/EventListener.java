@@ -35,6 +35,14 @@ public class EventListener implements MessageProcessor<EventMessage> {
         }
 
         IEventHandler eventHandler = eventHandlers.get(eventMessage.getEvent().getCode());
+        if (eventHandler == null) {
+            // An event can be published by a Core version deployed ahead of the one carrying its handler; skipping
+            // beats poisoning the queue with a message no retry can ever process.
+            logger
+                    .warn("No handler is registered for event '{}'. The event is skipped. Message: {}",
+                            eventMessage.getEvent().getLabel(), eventMessage);
+            return;
+        }
         try {
             eventHandler.handleEvent(eventMessage);
         } catch (EventException e) {
