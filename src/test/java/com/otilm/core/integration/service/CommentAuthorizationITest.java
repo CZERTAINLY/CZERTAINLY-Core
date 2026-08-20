@@ -42,9 +42,9 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * The authorization matrix from the issue, parameterized over every commentable resource: visibility equals read access
- * to the host object, posting additionally requires the grantable COMMENT capability, and the resolve/delete rules
- * distinguish authors, owners and update holders.
+ * The comment authorization matrix, parameterized over every commentable resource: visibility equals read access to the
+ * host object, posting additionally requires the grantable COMMENT capability, and the resolve/delete rules distinguish
+ * authors, owners and update holders.
  */
 @Import(ProducerMocks.class)
 @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
@@ -115,8 +115,8 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
         ownerAssociationRepository.save(association);
     }
 
-    // Profile 1 — no read access: sees no comments, cannot post even when COMMENT itself is granted. This is
-    // also the read-gate scoping rule: the COMMENT capability alone opens nothing.
+    // No read access to the host object: sees no comments and cannot post even when COMMENT itself is granted.
+    // The read gate scopes everything, so the COMMENT capability alone opens nothing.
     @ParameterizedTest
     @MethodSource("commentableResources")
     void withoutReadAccessSeesNothingAndCannotPost(Resource resource) {
@@ -143,8 +143,8 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
                 .containsExactly(root.getUuid());
     }
 
-    // Profile 3 — read without COMMENT: sees threads, cannot post. The auditor role is this profile
-    // structurally: COMMENT is WRITE, so the derived read-only role never contains it.
+    // Read access without the COMMENT capability: sees threads, cannot post. A read-only role has this shape
+    // structurally: COMMENT is a WRITE action, so a derived read-only role never contains it.
     @ParameterizedTest
     @MethodSource("commentableResources")
     void readerWithoutCommentCapabilitySeesButCannotPost(Resource resource) throws NotFoundException {
@@ -188,6 +188,23 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
         restrictObjectAccess(Resource.RA_PROFILE, ResourceAction.COMMENT);
         denyResourceAccess(Resource.RA_PROFILE, ResourceAction.COMMENT);
         assertThatThrownBy(() -> commentService.unresolveComment(root.getUuid()))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    // The read gate answers before shape validation, so an unauthorized caller holding a comment UUID cannot
+    // classify it as root or reply from the error type
+    @Test
+    void unauthorizedCallerCannotDistinguishRootsFromReplies() throws NotFoundException {
+        UUID objectUuid = hostObjects.create(Resource.RA_PROFILE);
+        CommentDto root = post(Resource.RA_PROFILE, objectUuid, null);
+        CommentDto reply = post(Resource.RA_PROFILE, objectUuid, root.getUuid());
+
+        restrictObjectAccess(Resource.RA_PROFILE, ResourceAction.DETAIL);
+        denyResourceAccess(Resource.RA_PROFILE, ResourceAction.DETAIL);
+
+        assertThatThrownBy(() -> commentService.listReplies(reply.getUuid(), new PaginationRequestDto()))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> commentService.resolveComment(reply.getUuid()))
                 .isInstanceOf(AccessDeniedException.class);
     }
 

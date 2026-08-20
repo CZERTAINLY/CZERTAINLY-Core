@@ -11,6 +11,7 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.other.ResourceObjectDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
+import com.otilm.core.aop.AuditAffiliationOverride;
 import com.otilm.core.aop.AuditOperationDataOverride;
 import com.otilm.core.dao.entity.Comment;
 import com.otilm.core.dao.repository.CommentRepository;
@@ -62,6 +63,12 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     private OwnerAssociationRepository ownerAssociationRepository;
     private EventProducer eventProducer;
     private AuditOperationDataOverride auditOperationDataOverride;
+    private AuditAffiliationOverride auditAffiliationOverride;
+
+    @Autowired
+    public void setAuditAffiliationOverride(AuditAffiliationOverride auditAffiliationOverride) {
+        this.auditAffiliationOverride = auditAffiliationOverride;
+    }
 
     @Autowired
     public void setCommentRepository(CommentRepository commentRepository) {
@@ -131,10 +138,13 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CommentResponseDto listReplies(UUID uuid, PaginationRequestDto pagination) throws NotFoundException {
         Comment root = getComment(uuid);
+        // Authorization comes before shape validation, so an unauthorized caller cannot tell roots from replies
+        // by the status code
+        readGate(root);
+        recordAuditAffiliation(root);
         if (root.getParentUuid() != null) {
             throw new ValidationException("Only a thread root has replies");
         }
-        readGate(root);
         RequestValidatorHelper.revalidatePaginationRequestDto(pagination);
 
         Page<Comment> replies = commentRepository
@@ -196,6 +206,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     public void deleteComment(UUID uuid) throws NotFoundException {
         Comment comment = getComment(uuid);
         ResourceObjectDto hostObject = readGate(comment);
+        recordAuditAffiliation(comment);
         NameAndUuidDto actor = AuthHelper.getUserIdentification();
         boolean isAuthor = actor.getUuid().equals(comment.getAuthorUuid().toString());
 
@@ -237,10 +248,11 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
 
     private void changeResolution(UUID uuid, boolean resolved) throws NotFoundException {
         Comment comment = getComment(uuid);
+        ResourceObjectDto hostObject = readGate(comment);
+        recordAuditAffiliation(comment);
         if (comment.getParentUuid() != null) {
             throw new ValidationException("Only a thread root can be resolved or reopened");
         }
-        ResourceObjectDto hostObject = readGate(comment);
         NameAndUuidDto actor = AuthHelper.getUserIdentification();
         if (!actor.getUuid().equals(comment.getAuthorUuid().toString())) {
             authorizationEnforcer
@@ -335,6 +347,13 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         }
     }
 
+    // Same request-scope caveat as recordAuditData; the rationale lives on AuditAffiliationOverride.
+    private void recordAuditAffiliation(Comment comment) {
+        if (RequestContextHolder.getRequestAttributes() != null) {
+            auditAffiliationOverride.set(comment.getResource(), comment.getObjectUuid());
+        }
+    }
+
     private void publishAfterCommit(EventMessage eventMessage) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -349,9 +368,9 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     }
 
     /**
-     * The comment mutation has already committed and is the source of truth; the event only drives notifications, which
-     * are best-effort throughout. A broker failure here must not turn the committed write into an apparent request
-     * failure — the client would retry and duplicate the comment — so the event is logged as lost instead.
+     * The committed comment is the source of truth and the event only drives best-effort notifications, so a broker
+     * failure logs the lost event instead of failing a request whose write already succeeded and inviting a duplicating
+     * retry.
      */
     private void produceBestEffort(EventMessage eventMessage) {
         try {

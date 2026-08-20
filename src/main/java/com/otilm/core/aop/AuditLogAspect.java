@@ -59,9 +59,16 @@ public class AuditLogAspect {
 
     private AuditOperationDataOverride auditOperationDataOverride;
 
+    private AuditAffiliationOverride auditAffiliationOverride;
+
     @Autowired
     public void setAuditLogEnhancer(AuditLogEnhancer auditLogEnhancer) {
         this.auditLogEnhancer = auditLogEnhancer;
+    }
+
+    @Autowired
+    public void setAuditAffiliationOverride(AuditAffiliationOverride auditAffiliationOverride) {
+        this.auditAffiliationOverride = auditAffiliationOverride;
     }
 
     @Autowired
@@ -146,6 +153,14 @@ public class AuditLogAspect {
             addDataFromResponse(logBuilder, result);
             setResourceRecords(logData, isDeleteOperation, deletedObjectsIdentities, annotation, logBuilder,
                     deletedAffiliatedObjectsIdentities);
+            // Affiliation declared on parameters or the annotation wins; the override only fills the gap for
+            // methods that discover their affiliated object inside the body.
+            AuditAffiliationOverride.Affiliation affiliation = resolveAffiliationOverride();
+            if (affiliation != null && logData.affiliatedResource() == Resource.NONE) {
+                logBuilder
+                        .affiliatedResource(constructResourceRecord(true, affiliation.resource(),
+                                List.of(affiliation.objectUuid()), null));
+            }
             logBuilder.timestamp(OffsetDateTime.now());
             auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build(), output));
         }
@@ -161,6 +176,14 @@ public class AuditLogAspect {
             return null;
         }
         return auditResultOverride.consume();
+    }
+
+    /** Same request-scope caveat as {@link #resolveResultOverride()}. */
+    private AuditAffiliationOverride.Affiliation resolveAffiliationOverride() {
+        if (RequestContextHolder.getRequestAttributes() == null) {
+            return null;
+        }
+        return auditAffiliationOverride.consume();
     }
 
     private void setResourceRecords(LogData logData, boolean isDeleteOperation,

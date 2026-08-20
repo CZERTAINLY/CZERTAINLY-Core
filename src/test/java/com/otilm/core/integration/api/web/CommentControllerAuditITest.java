@@ -125,14 +125,17 @@ class CommentControllerAuditITest extends BaseSpringBootTest {
         CommentDto root = post("resolve me", null);
 
         commentController.resolveComment(root.getUuid());
-        assertThat(lastMessageOf(Operation.RESOLVE).getLogRecord().operationData())
+        AuditLogMessage resolveMessage = lastMessageOf(Operation.RESOLVE);
+        assertThat(resolveMessage.getLogRecord().operationData())
                 .isInstanceOf(CommentEventData.class)
                 .extracting(data -> ((CommentEventData) data).getBody())
                 .isEqualTo("resolve me");
+        assertAffiliatedHost(resolveMessage);
 
         commentController.unresolveComment(root.getUuid());
-        assertThat(lastMessageOf(Operation.UNRESOLVE).getLogRecord().operationData())
-                .isInstanceOf(CommentEventData.class);
+        AuditLogMessage unresolveMessage = lastMessageOf(Operation.UNRESOLVE);
+        assertThat(unresolveMessage.getLogRecord().operationData()).isInstanceOf(CommentEventData.class);
+        assertAffiliatedHost(unresolveMessage);
     }
 
     @Test
@@ -147,6 +150,14 @@ class CommentControllerAuditITest extends BaseSpringBootTest {
                 .isInstanceOf(CommentEventData.class)
                 .extracting(data -> ((CommentEventData) data).getBody())
                 .isEqualTo("the words being erased");
+        assertAffiliatedHost(message);
+    }
+
+    private void assertAffiliatedHost(AuditLogMessage message) {
+        assertThat(message.getLogRecord().affiliatedResource().type()).isEqualTo(Resource.RA_PROFILE);
+        assertThat(message.getLogRecord().affiliatedResource().objects())
+                .extracting(identity -> identity.uuid())
+                .containsExactly(raProfileUuid);
     }
 
     @Test
