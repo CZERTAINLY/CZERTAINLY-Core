@@ -318,7 +318,7 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
         List<NotificationMessage> followUps = followUpMessages();
         assertThat(followUps).hasSize(1);
         assertThat(followUps.getFirst().getRecipients())
-                .extracting(recipient -> recipient.getRecipientUuid())
+                .extracting(NotificationRecipient::getRecipientUuid)
                 .containsExactlyInAnyOrder(rootAuthor, earlierReplier);
 
         notificationListener.processMessage(followUps.getFirst());
@@ -339,7 +339,7 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
         List<NotificationMessage> followUps = followUpMessages();
         assertThat(followUps).hasSize(1);
         assertThat(followUps.getFirst().getRecipients())
-                .extracting(recipient -> recipient.getRecipientUuid())
+                .extracting(NotificationRecipient::getRecipientUuid)
                 .containsExactly(rootAuthor);
         CommentEventData data = (CommentEventData) followUps.getFirst().getData();
         assertThat(data.getResolvedByUuid()).isEqualTo(actorUuid);
