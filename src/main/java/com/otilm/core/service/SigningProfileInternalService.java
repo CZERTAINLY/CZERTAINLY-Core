@@ -47,6 +47,7 @@ public interface SigningProfileInternalService extends ResourceExtensionService 
      * @throws IllegalArgumentException if the profile's workflow type has no model mapper, or the version declares a
      * scheme the mapper does not support
      */
+    @SuppressWarnings("java:S1452") // wildcards for the same reason as SigningRecordInputSource#signingProfile
     SigningProfileModel<?, ?> loadSigningProfileModel(String name) throws NotFoundException;
 
     /**

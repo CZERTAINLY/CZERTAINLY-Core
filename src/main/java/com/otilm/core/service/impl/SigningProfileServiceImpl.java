@@ -300,7 +300,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
     /** Cache loader. No authorization annotation by design. */
     @Override
     @Cacheable(value = CacheConfig.SIGNING_PROFILE_CACHE, key = "#name", sync = true)
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, noRollbackFor = NotFoundException.class)
     public SigningProfileModel<?, ?> loadSigningProfileModel(String name) throws NotFoundException {
         SigningProfile profile = signingProfileRepository
                 .findByName(name)
