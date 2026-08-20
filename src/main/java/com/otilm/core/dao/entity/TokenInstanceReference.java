@@ -66,6 +66,14 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited
     @Column(name = "connector_name")
     private String connectorName;
 
+    @Column(name = "connector_interface_uuid")
+    private UUID connectorInterfaceUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "connector_interface_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private ConnectorInterfaceEntity connectorInterface;
+
     @OneToMany(mappedBy = "tokenInstanceReference", fetch = FetchType.LAZY)
     @JsonIgnore
     @ToString.Exclude
@@ -75,7 +83,13 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited
         this.connector = connector;
         if (connector != null) {
             this.connectorUuid = connector.getUuid();
+            this.connectorName = connector.getName();
         }
+    }
+
+    public void setConnectorInterface(ConnectorInterfaceEntity connectorInterface) {
+        this.connectorInterface = connectorInterface;
+        this.connectorInterfaceUuid = connectorInterface == null ? null : connectorInterface.getUuid();
     }
 
     @Override
@@ -86,7 +100,7 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited
         dto.setUuid(uuid.toString());
         dto.setTokenProfiles(tokenProfiles.size());
         dto.setConnectorName(connectorName);
-        dto.setConnectorUuid(connectorUuid.toString());
+        dto.setConnectorUuid(connectorUuid == null ? null : connectorUuid.toString());
         dto.setKind(kind);
         return dto;
     }
@@ -101,7 +115,7 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited
         dto.setUuid(uuid.toString());
         dto.setTokenProfiles(tokenProfiles.size());
         dto.setConnectorName(connectorName);
-        dto.setConnectorUuid(connectorUuid.toString());
+        dto.setConnectorUuid(connectorUuid == null ? null : connectorUuid.toString());
         dto.setKind(kind);
         // Custom Attributes and the Metadata should be set in the service
         return dto;

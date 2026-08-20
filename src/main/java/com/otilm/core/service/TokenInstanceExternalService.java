@@ -13,6 +13,8 @@ import com.otilm.api.model.core.cryptography.token.TokenInstanceDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import java.util.List;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public interface TokenInstanceExternalService {
     /**
@@ -22,6 +24,18 @@ public interface TokenInstanceExternalService {
      * @return List of available token instances {@Link TokenInstanceDto}
      */
     List<TokenInstanceDto> listTokenInstances(SecurityFilter filter);
+
+    /**
+     * Lists the attributes required to create a new token instance on the specified connector.
+     *
+     * @param connectorUuid UUID of the connector that provides the token attributes
+     * @param kind token kind used by legacy v1 connectors; ignored by New Generation (V2) connectors
+     * @return list of attributes required to create a new token instance
+     * @throws ConnectorException when there are issues with connector communication or an error from the connector
+     * @throws NotFoundException when the connector is not found
+     */
+    List<BaseAttribute> listTokenAttributes(UUID connectorUuid, @Nullable String kind)
+            throws ConnectorException, NotFoundException;
 
     /**
      * Get the details of the token instance

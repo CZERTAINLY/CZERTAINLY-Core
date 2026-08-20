@@ -1,4 +1,4 @@
-package com.otilm.core.service.v2.impl;
+package com.otilm.core.model.connector;
 
 import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.model.client.attribute.ResponseAttribute;
@@ -9,24 +9,34 @@ import com.otilm.api.model.core.proxy.ProxyDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.util.AttributeDefinitionUtils;
-
 import java.util.List;
 
-/**
- * Immutable snapshot (shallow) of the connector fields required to route an API client call. The cache returns shared
- * instances, so this type must not expose setters — any mutation of a cached value would silently affect every other
- * caller in the JVM.
- */
-record ImmutableConnectorInfo(String uuid, String name, String url, ConnectorStatus status, AuthType authType,
+/** Immutable connector data required to route an API client call. */
+public record ImmutableConnectorInfo(String uuid, String name, String url, ConnectorStatus status, AuthType authType,
         List<ResponseAttribute> authAttributes, ProxyDto proxy) implements ApiClientConnectorInfo {
 
-    static ImmutableConnectorInfo of(Connector connector) {
-        List<ResponseAttribute> attrs = AttributeEngine
-                .getResponseAttributesFromBaseAttributes(
-                        AttributeDefinitionUtils.deserialize(connector.getAuthAttributes(), BaseAttribute.class));
+    public ImmutableConnectorInfo {
+        authAttributes = List.copyOf(authAttributes);
+    }
+
+    public static ImmutableConnectorInfo of(Connector connector) {
+        List<ResponseAttribute> attributes = deserializeAuthAttributes(connector.getAuthAttributes());
         return new ImmutableConnectorInfo(connector.getUuid().toString(), connector.getName(), connector.getUrl(),
-                connector.getStatus(), connector.getAuthType(), attrs == null ? List.of() : List.copyOf(attrs),
+                connector.getStatus(), connector.getAuthType(), attributes,
                 connector.getProxy() == null ? null : connector.getProxy().mapToDtoSimple());
+    }
+
+    public static ImmutableConnectorInfo from(ImmutableConnectorFullModel connector) {
+        List<ResponseAttribute> attributes = connector.authAttributes();
+        return new ImmutableConnectorInfo(connector.uuid().toString(), connector.name(), connector.url(),
+                connector.status(), connector.authType(), attributes, connector.proxy());
+    }
+
+    private static List<ResponseAttribute> deserializeAuthAttributes(String authAttributes) {
+        List<ResponseAttribute> attributes = AttributeEngine
+                .getResponseAttributesFromBaseAttributes(
+                        AttributeDefinitionUtils.deserialize(authAttributes, BaseAttribute.class));
+        return attributes == null ? List.of() : attributes;
     }
 
     @Override

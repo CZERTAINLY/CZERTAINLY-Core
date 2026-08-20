@@ -24,6 +24,7 @@ import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.dao.repository.OwnerAssociationRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.dao.repository.SecurityFilterProjectionSpec;
 import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -234,6 +235,22 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
                 cr) -> cb.equal(root.get(Group_.name), "ABCD");
         groups = groupRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause);
         Assertions.assertEquals(0, groups.size());
+    }
+
+    @Test
+    void findUsingSecurityFilter_returnsProjectedValues() {
+        // given
+        SecurityFilter filter = SecurityFilter.create();
+        String expectedSubject = certificateGroup.getSubjectDn();
+
+        // when
+        List<String> subjects = certificateRepository
+                .findUsingSecurityFilter(filter, String.class,
+                        (root, cb) -> new SecurityFilterProjectionSpec<>(root.get(Certificate_.subjectDn), List.of()));
+
+        // then
+        Assertions.assertTrue(subjects.contains(expectedSubject));
+        Assertions.assertFalse(subjects.stream().anyMatch(Certificate.class::isInstance));
     }
 
     private static SortSpecification propertySort(String fieldIdentifier, SortDirection direction) {

@@ -27,6 +27,7 @@ import com.otilm.api.model.core.acme.ProblemDocument;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.CryptoAssetConstraintTranslator;
 import com.otilm.core.exception.UnsupportedAuthorityVersionException;
+import com.otilm.core.exception.UnsupportedCryptographyProviderVersionException;
 import com.otilm.core.exception.UnsupportedDiscoveryVersionException;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
 import com.otilm.core.security.exception.AuthenticationServiceException;
@@ -472,6 +473,23 @@ public class ExceptionHandlingAdvice {
     public ErrorMessageDto handleUnsupportedAuthorityVersionException(UnsupportedAuthorityVersionException ex) {
         LOG.warn("HTTP 400: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance("The authority's connector interface version is not supported.");
+    }
+
+    /**
+     * Handler for {@link UnsupportedCryptographyProviderVersionException}.
+     *
+     * <p>
+     * The response deliberately omits the connector-reported version while the detailed value remains available in the
+     * warning log.
+     *
+     * @return a fixed message that names neither the token instance nor the version
+     */
+    @ExceptionHandler(UnsupportedCryptographyProviderVersionException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleUnsupportedCryptographyProviderVersionException(
+            UnsupportedCryptographyProviderVersionException ex) {
+        LOG.warn("HTTP 400: {}", ex.getMessage(), ex);
+        return ErrorMessageDto.getInstance("The interface version of the cryptography provider is not supported.");
     }
 
     /**

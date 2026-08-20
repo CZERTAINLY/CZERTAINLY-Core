@@ -95,6 +95,24 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
+    public <R> List<R> findUsingSecurityFilter(SecurityFilter filter, Class<R> resultType,
+            SecurityFilterProjection<T, R> projection) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<R> cr = cb.createQuery(resultType);
+        Root<T> root = cr.from(entityInformation.getJavaType());
+
+        SecurityFilterProjectionSpec<R> projectionSpec = projection.create(root, cb);
+        cr.select(projectionSpec.selection());
+        cr.groupBy(projectionSpec.groupByExpressions());
+
+        List<Predicate> predicates = getPredicates(filter, null, root, cb);
+        if (!predicates.isEmpty()) {
+            cr.where(predicates.toArray(Predicate[]::new));
+        }
+        return entityManager.createQuery(cr).getResultList();
+    }
+
+    @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter, boolean enabled) {
         return findUsingSecurityFilter(filter, List.of(), (root, cb, cr) -> cb.equal(root.get("enabled"), enabled));
     }

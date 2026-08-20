@@ -21,6 +21,8 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.TokenInstanceExternalService;
 import java.util.List;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,6 +41,14 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.LIST)
     public List<TokenInstanceDto> listTokenInstances() {
         return tokenInstanceService.listTokenInstances(SecurityFilter.create());
+    }
+
+    @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.TOKEN,
+            operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listTokenAttributes(UUID connectorUuid, @Nullable String kind)
+            throws ConnectorException, NotFoundException {
+        return tokenInstanceService.listTokenAttributes(connectorUuid, kind);
     }
 
     @Override
