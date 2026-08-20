@@ -124,7 +124,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
 
     /**
      * Defines which signing protocols an operator may enable per workflow type. Only protocols a client can actually
-     * reach belong here; {@code SigningProfileSupportedProtocolsTest} holds that line.
+     * reach belong here.
      */
     private static final Map<SigningWorkflowType, Set<SigningProtocol>> SUPPORTED_PROTOCOLS = Map
             .of(SigningWorkflowType.TIMESTAMPING, EnumSet.of(SigningProtocol.TSP));
@@ -297,17 +297,11 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         return self.loadSigningProfileModel(name);
     }
 
-    /**
-     * Package-private internal cache loader, self-invoked.
-     *
-     * @throws IllegalStateException if the profile has no version row matching its {@code latestVersion}, or the
-     * version declares a managed scheme but its {@code managedSigningType} is {@code null} (DB integrity violations)
-     * @throws IllegalArgumentException if the profile's workflow type has no model mapper, or the version declares a
-     * scheme the mapper does not support
-     */
+    /** Cache loader. No authorization annotation by design. */
+    @Override
     @Cacheable(value = CacheConfig.SIGNING_PROFILE_CACHE, key = "#name", sync = true)
     @Transactional(readOnly = true)
-    SigningProfileModel<?, ?> loadSigningProfileModel(String name) throws NotFoundException {
+    public SigningProfileModel<?, ?> loadSigningProfileModel(String name) throws NotFoundException {
         SigningProfile profile = signingProfileRepository
                 .findByName(name)
                 .orElseThrow(() -> new NotFoundException(SigningProfile.class, name));

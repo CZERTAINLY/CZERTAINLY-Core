@@ -36,6 +36,20 @@ public interface SigningProfileInternalService extends ResourceExtensionService 
             throws NotFoundException;
 
     /**
+     * Returns the same cached model as {@link #getSigningProfileModel}, without the {@code DETAIL} authorization check.
+     *
+     * <p>
+     * Intended for digital signing the platform initiates on its own, such as timestamping a signed document.
+     *
+     * @throws NotFoundException if no signing profile with the given name exists
+     * @throws IllegalStateException if the profile has no version row matching its {@code latestVersion}, or the
+     * version declares a managed scheme but its {@code managedSigningType} is {@code null}
+     * @throws IllegalArgumentException if the profile's workflow type has no model mapper, or the version declares a
+     * scheme the mapper does not support
+     */
+    SigningProfileModel<?, ?> loadSigningProfileModel(String name) throws NotFoundException;
+
+    /**
      * Resolves the governing TSP profile for a request targeting the indirect signing profile-based route, without any
      * authorization check.
      *

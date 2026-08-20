@@ -153,7 +153,7 @@ class InternalTimestampSourceTest {
         // given
         doReturn(aSigningProfile().withEnabled(false).build())
                 .when(signingProfileService)
-                .getSigningProfileModel(PROFILE_NAME);
+                .loadSigningProfileModel(PROFILE_NAME);
 
         // when / then
         assertThat(catchTimestamp().failure()).isEqualTo(SigningEngineFailure.MISCONFIGURED);
@@ -163,7 +163,7 @@ class InternalTimestampSourceTest {
     @Test
     void refusesAProfileThatDoesNotExist() throws Exception {
         // given
-        when(signingProfileService.getSigningProfileModel(PROFILE_NAME))
+        when(signingProfileService.loadSigningProfileModel(PROFILE_NAME))
                 .thenThrow(new NotFoundException("Signing Profile not found: " + PROFILE_NAME));
 
         // when / then
@@ -173,9 +173,34 @@ class InternalTimestampSourceTest {
     }
 
     @Test
+    void refusesAProfileWhoseStoredVersionIsInconsistent() throws Exception {
+        // given
+        when(signingProfileService.loadSigningProfileModel(PROFILE_NAME))
+                .thenThrow(new IllegalStateException(
+                        "Signing Profile '%s' has no row for latestVersion 3".formatted(PROFILE_NAME)));
+
+        // when / then
+        SigningEngineException thrown = catchTimestamp();
+        assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.MISCONFIGURED);
+        assertThat(thrown.operatorMessage()).contains("cannot be loaded", "latestVersion 3");
+    }
+
+    @Test
+    void refusesAProfileTheLoaderCannotMap() throws Exception {
+        // given
+        when(signingProfileService.loadSigningProfileModel(PROFILE_NAME))
+                .thenThrow(new IllegalArgumentException("Unsupported signing scheme for workflow type TIMESTAMPING"));
+
+        // when / then
+        SigningEngineException thrown = catchTimestamp();
+        assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.MISCONFIGURED);
+        assertThat(thrown.operatorMessage()).contains("cannot be loaded", "Unsupported signing scheme");
+    }
+
+    @Test
     void refusesAProfileThatIsNotATimestampingOne() throws Exception {
         // given a content-signing profile, which cannot issue timestamps
-        doReturn(aSigningProfile().build()).when(signingProfileService).getSigningProfileModel(PROFILE_NAME);
+        doReturn(aSigningProfile().build()).when(signingProfileService).loadSigningProfileModel(PROFILE_NAME);
         when(signingProfileResolverFactory.resolve(any()))
                 .thenReturn(new ResolvedManagedContentSigningProfile(UUID.randomUUID(), PROFILE_NAME, null, 1, true,
                         List.of(), List.of(), null, null));
@@ -189,7 +214,7 @@ class InternalTimestampSourceTest {
     @Test
     void refusesAProfileNoResolverCouldResolve() throws Exception {
         // given a resolver that answered with nothing rather than refusing outright
-        doReturn(aSigningProfile().build()).when(signingProfileService).getSigningProfileModel(PROFILE_NAME);
+        doReturn(aSigningProfile().build()).when(signingProfileService).loadSigningProfileModel(PROFILE_NAME);
         when(signingProfileResolverFactory.resolve(any())).thenReturn(null);
 
         // when / then
@@ -235,7 +260,7 @@ class InternalTimestampSourceTest {
 
     private SigningProfileModel<?, ?> givenProfileResolvesTo(ResolvedManagedTimestampingProfile resolved,
             SigningProfileModel<?, ?> profile) throws Exception {
-        doReturn(profile).when(signingProfileService).getSigningProfileModel(PROFILE_NAME);
+        doReturn(profile).when(signingProfileService).loadSigningProfileModel(PROFILE_NAME);
         when(signingProfileResolverFactory.resolve(profile)).thenReturn(resolved);
         return profile;
     }

@@ -21,9 +21,9 @@ import org.springframework.stereotype.Component;
  * Issues the timestamps an AdES signature needs from an ILM-managed TIMESTAMPING Signing Profile, in-process.
  *
  * <p>
- * The call goes below the TSP protocol edge: no HTTP, no TSP profile, no protocol authentication. Being referenced by a
- * content-signing profile is the authorization, so the referenced profile's {@code enabledProtocols} are not consulted
- * — an in-process protocol can never be listed there anyway.
+ * The call goes below the TSP protocol layer, so being referenced by a content-signing profile is the authorization and
+ * the referenced profile's {@code enabledProtocols} are not consulted — an in-process protocol can never be listed
+ * there anyway.
  * </p>
  */
 @Component
@@ -62,13 +62,19 @@ public class InternalTimestampSource {
         }
     }
 
+    /**
+     * Uses the authorization-free loader, per the class-level invariant.
+     */
     private SigningProfileModel<?, ?> loadProfile(String timestampingProfileName) throws SigningEngineException {
         SigningProfileModel<?, ?> profile;
         try {
-            profile = signingProfileService.getSigningProfileModel(timestampingProfileName);
+            profile = signingProfileService.loadSigningProfileModel(timestampingProfileName);
         } catch (NotFoundException e) {
             throw misconfigured("timestamping Signing Profile '%s' does not exist".formatted(timestampingProfileName),
                     e);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw misconfigured("timestamping Signing Profile '%s' cannot be loaded: %s"
+                    .formatted(timestampingProfileName, e.getMessage()), e);
         }
         if (!profile.enabled()) {
             throw misconfigured("timestamping Signing Profile '%s' is disabled".formatted(timestampingProfileName),

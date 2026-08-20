@@ -2,6 +2,8 @@ package com.otilm.core.service.impl;
 
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.core.signing.SigningProtocol;
+import java.util.Arrays;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -16,19 +18,21 @@ class SigningProfileSupportedProtocolsTest {
 
     private final SigningProfileServiceImpl service = new SigningProfileServiceImpl();
 
-    @ParameterizedTest
-    @EnumSource(SigningWorkflowType.class)
-    void offersOnlyProtocolsAnOperatorCanEnable(SigningWorkflowType workflowType) {
+    @Test
+    void offersOnlyProtocolsAnOperatorCanEnable() {
         // when
-        var supported = service.listSupportedProtocols(workflowType);
+        var offered = Arrays
+                .stream(SigningWorkflowType.values())
+                .flatMap(workflowType -> service.listSupportedProtocols(workflowType).stream())
+                .toList();
 
         // then
-        assertThat(supported)
+        assertThat(offered)
+                .isNotEmpty()
                 .allMatch(SigningProtocol::isEnableableOnProfile)
                 .doesNotContain(SigningProtocol.INTERNAL_TSA);
     }
 
-    /** Keeps the guard above from passing merely because nothing is offered at all. */
     @ParameterizedTest
     @EnumSource(value = SigningWorkflowType.class, names = "TIMESTAMPING")
     void offersTheTimestampingProtocolForTimestampingProfiles(SigningWorkflowType workflowType) {

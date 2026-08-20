@@ -204,10 +204,6 @@ public class ManagedTimestampEngine {
         return new SigningEngineException(SigningEngineFailure.CONNECTOR_FAULT, defect, INTERNAL_ERROR_CLIENT_MESSAGE);
     }
 
-    /**
-     * A fault in the platform's own signing path is an operational alert; a rejection the requester or the operator
-     * caused is not. Both entry points log here, because {@link #issue} is the one place every failure passes through.
-     */
     private static void logFailure(ResolvedManagedTimestampingProfile timestampingProfile, SigningProtocol protocol,
             SigningEngineException e) {
         if (isPlatformFault(e.failure())) {
@@ -217,7 +213,7 @@ public class ManagedTimestampEngine {
         } else {
             logger
                     .warn("Refusing to issue a timestamp for signing profile '{}' via {}: {}",
-                            timestampingProfile.name(), protocol, e.operatorMessage(), e);
+                            timestampingProfile.name(), protocol, e.operatorMessage());
         }
     }
 
