@@ -13,7 +13,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -95,6 +97,38 @@ class DiscoveryWorkRepositoryITest extends BaseSpringBootTest {
                 .as("scheduling is a fresh start; in-flight backoff is reschedule()'s job")
                 .isZero();
         assertThat(row.getNextDueAt().toInstant()).isEqualTo(NOW.toInstant());
+    }
+
+    @Test
+    void resetAttemptToLowersOnlyACounterAboveTheFloor() {
+        UUID runUuid = aRun();
+        workRepository.schedule(UUID.randomUUID(), runUuid, DiscoveryWorkType.STATUS.name(), NOW);
+        workRepository.schedule(UUID.randomUUID(), runUuid, DiscoveryWorkType.DRAIN.name(), NOW);
+        workRepository.reschedule(runUuid, DiscoveryWorkType.STATUS, 50, NOW.plusHours(1));
+        workRepository.reschedule(runUuid, DiscoveryWorkType.DRAIN, 3, NOW.plusHours(1));
+
+        workRepository.resetAttemptTo(runUuid, DiscoveryWorkType.STATUS, 6);
+        workRepository.resetAttemptTo(runUuid, DiscoveryWorkType.DRAIN, 6);
+        entityManager.clear();
+
+        Map<DiscoveryWorkType, Integer> attempts = workRepository
+                .findAll()
+                .stream()
+                .collect(Collectors.toMap(DiscoveryWork::getWorkType, DiscoveryWork::getAttempt));
+        assertThat(attempts.get(DiscoveryWorkType.STATUS)).isEqualTo(6);
+        assertThat(attempts.get(DiscoveryWorkType.DRAIN))
+                .as("a still-ramping row stays untouched; the guard lives in the query")
+                .isEqualTo(3);
+    }
+
+    @Test
+    void existsByDiscoveryUuidSeesOnlyTheRunsOwnRows() {
+        UUID runWithWork = aRun();
+        UUID runWithout = aRun();
+        workRepository.schedule(UUID.randomUUID(), runWithWork, DiscoveryWorkType.STATUS.name(), NOW);
+
+        assertThat(workRepository.existsByDiscoveryUuid(runWithWork)).isTrue();
+        assertThat(workRepository.existsByDiscoveryUuid(runWithout)).isFalse();
     }
 
     @Test

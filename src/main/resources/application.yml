@@ -68,8 +68,15 @@ discovery:
     status: ${DISCOVERY_MQ_TIMEOUT_STATUS:30s}
     drain: ${DISCOVERY_MQ_TIMEOUT_DRAIN:30s}
     control: ${DISCOVERY_MQ_TIMEOUT_CONTROL:30s}
-  # Discovery v2 run work (provider.discovery-work queue): backoff ladders per tick type.
+  # Discovery v2 run work (provider.discovery-work queue): sweep cadence and backoff ladders per tick type.
   work:
+    # How often each node scans the discovery_work due-time agenda (one node sweeps at a time).
+    sweep-interval-ms: ${DISCOVERY_WORK_SWEEP_INTERVAL_MS:10000}
+    sweep-batch-size: ${DISCOVERY_WORK_SWEEP_BATCH_SIZE:200}
+    sweep-max-batches-per-run: ${DISCOVERY_WORK_SWEEP_MAX_BATCHES_PER_RUN:10}
+    # How long a non-terminal v2 run may exist with no pending work rows before the reaper fails it.
+    # Covers the initiate window, where the run row exists before its first agenda rows.
+    reap-grace: ${DISCOVERY_WORK_REAP_GRACE:PT5M}
     defaults:
       delays:
         - PT1S
@@ -94,6 +101,10 @@ discovery:
           - PT5S
           - PT30S
         max-attempts: 100
+  run:
+    # How long a stopped run waits for resume before the reaper cancels it (the connector's
+    # checkpoint can no longer be assumed to exist).
+    stopped-max-duration: ${DISCOVERY_RUN_STOPPED_MAX_DURATION:P7D}
 
 # Authority-provider async (HTTP 202) operation status polling
 provider:
