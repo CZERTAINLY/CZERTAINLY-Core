@@ -225,11 +225,10 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         // object's owner or an update holder may delete it (the delete cascades to the replies). The writer
         // re-checks for replies under a row lock, so ones racing in between this check and the delete still
         // block a non-cascading deletion.
-        boolean rootWithReplies = commentRepository.existsByParentUuid(uuid);
-        boolean mayCascade = isAuthor && !rootWithReplies
-                ? false
-                : isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment);
-        if (!((isAuthor && !rootWithReplies) || mayCascade)) {
+        boolean authorDeletesOwnReplylessRoot = isAuthor && !commentRepository.existsByParentUuid(uuid);
+        boolean mayCascade = !authorDeletesOwnReplylessRoot
+                && (isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment));
+        if (!(authorDeletesOwnReplylessRoot || mayCascade)) {
             throw deletionDenied(uuid, comment);
         }
         recordAuditData(baseEventData(comment, hostObject.getName()));

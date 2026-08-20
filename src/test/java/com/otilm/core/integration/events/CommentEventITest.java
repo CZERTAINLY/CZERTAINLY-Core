@@ -21,12 +21,16 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.filter.TypeExcludeFilters;
 import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 
 @Import(ProducerMocks.class)
 @TypeExcludeFilters(ProducerMocks.MockedProducersTypeExcludeFilter.class)
@@ -48,7 +52,7 @@ class CommentEventITest extends BaseSpringBootTest {
 
     @BeforeEach
     void setUpHost() {
-        Mockito.reset(eventProducer);
+        reset(eventProducer);
         RaProfile raProfile = new RaProfile();
         raProfile.setName("tst-ra-profile");
         raProfileUuid = raProfileRepository.save(raProfile).getUuid();
@@ -65,13 +69,13 @@ class CommentEventITest extends BaseSpringBootTest {
 
     private List<EventMessage> capturedMessages() {
         ArgumentCaptor<EventMessage> captor = ArgumentCaptor.forClass(EventMessage.class);
-        Mockito.verify(eventProducer, Mockito.atLeast(0)).produceMessage(captor.capture());
+        verify(eventProducer, atLeast(0)).produceMessage(captor.capture());
         return captor.getAllValues();
     }
 
     @Test
     void brokerFailureAfterCommitDoesNotFailTheRequest() throws NotFoundException {
-        Mockito.doThrow(new RuntimeException("broker down")).when(eventProducer).produceMessage(Mockito.any());
+        doThrow(new RuntimeException("broker down")).when(eventProducer).produceMessage(any());
 
         CommentDto created = post("written despite the broker", null);
 
@@ -107,7 +111,7 @@ class CommentEventITest extends BaseSpringBootTest {
     @Test
     void resolveAndUnresolvePublishCommentResolvedWithTheStateFlag() throws NotFoundException {
         CommentDto root = post("resolve me", null);
-        Mockito.reset(eventProducer);
+        reset(eventProducer);
 
         commentService.resolveComment(root.getUuid());
         commentService.unresolveComment(root.getUuid());
@@ -131,7 +135,7 @@ class CommentEventITest extends BaseSpringBootTest {
     @Test
     void deletePublishesNothing() throws NotFoundException {
         CommentDto root = post("silent delete", null);
-        Mockito.reset(eventProducer);
+        reset(eventProducer);
 
         commentService.deleteComment(root.getUuid());
 

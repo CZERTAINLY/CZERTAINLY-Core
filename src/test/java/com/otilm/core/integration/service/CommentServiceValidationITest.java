@@ -59,13 +59,13 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
 
     @Test
     void nonCommentableResourceIsRejected() {
-        assertThatThrownBy(() -> commentService
-                .createComment(SecuredResource.fromResource(Resource.USER), SecuredUUID.fromUUID(UUID.randomUUID()),
-                        request("hello", null)))
+        SecuredResource userResource = SecuredResource.fromResource(Resource.USER);
+        SecuredUUID objectUuid = SecuredUUID.fromUUID(UUID.randomUUID());
+        CommentCreateRequestDto createRequest = request("hello", null);
+        PaginationRequestDto pagination = new PaginationRequestDto();
+        assertThatThrownBy(() -> commentService.createComment(userResource, objectUuid, createRequest))
                 .isInstanceOf(ValidationException.class);
-        assertThatThrownBy(() -> commentService
-                .listComments(SecuredResource.fromResource(Resource.USER), SecuredUUID.fromUUID(UUID.randomUUID()),
-                        new PaginationRequestDto()))
+        assertThatThrownBy(() -> commentService.listComments(userResource, objectUuid, pagination))
                 .isInstanceOf(ValidationException.class);
     }
 
@@ -98,7 +98,8 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         CommentDto root = post(raProfileUuid, "root", null);
         CommentDto reply = post(raProfileUuid, "reply", root.getUuid());
 
-        assertThatThrownBy(() -> post(raProfileUuid, "reply to reply", reply.getUuid()))
+        UUID replyUuid = reply.getUuid();
+        assertThatThrownBy(() -> post(raProfileUuid, "reply to reply", replyUuid))
                 .isInstanceOf(ValidationException.class);
     }
 
@@ -109,7 +110,8 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         other.setName("tst-ra-profile-2");
         UUID otherUuid = raProfileRepository.save(other).getUuid();
 
-        assertThatThrownBy(() -> post(otherUuid, "cross-object reply", root.getUuid()))
+        UUID rootUuid = root.getUuid();
+        assertThatThrownBy(() -> post(otherUuid, "cross-object reply", rootUuid))
                 .isInstanceOf(ValidationException.class);
     }
 
@@ -118,7 +120,9 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         CommentDto root = post(raProfileUuid, "root", null);
         CommentDto reply = post(raProfileUuid, "reply", root.getUuid());
 
-        assertThatThrownBy(() -> commentService.listReplies(reply.getUuid(), new PaginationRequestDto()))
+        UUID replyUuid = reply.getUuid();
+        PaginationRequestDto pagination = new PaginationRequestDto();
+        assertThatThrownBy(() -> commentService.listReplies(replyUuid, pagination))
                 .isInstanceOf(ValidationException.class);
     }
 
@@ -127,10 +131,9 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         CommentDto root = post(raProfileUuid, "root", null);
         CommentDto reply = post(raProfileUuid, "reply", root.getUuid());
 
-        assertThatThrownBy(() -> commentService.resolveComment(reply.getUuid()))
-                .isInstanceOf(ValidationException.class);
-        assertThatThrownBy(() -> commentService.unresolveComment(reply.getUuid()))
-                .isInstanceOf(ValidationException.class);
+        UUID replyUuid = reply.getUuid();
+        assertThatThrownBy(() -> commentService.resolveComment(replyUuid)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> commentService.unresolveComment(replyUuid)).isInstanceOf(ValidationException.class);
 
         commentService.resolveComment(root.getUuid());
         CommentDto resolved = list(raProfileUuid).getComments().getFirst();

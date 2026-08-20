@@ -87,8 +87,8 @@ class CommentRepositoryITest extends BaseSpringBootTest {
         Comment root = commentRepository.saveAndFlush(newComment(objectUuid, null));
         commentRepository.saveAndFlush(newComment(objectUuid, root.getUuid()));
 
-        assertThatThrownBy(() -> commentWriter.deleteRoot(root.getUuid(), false))
-                .isInstanceOf(ValidationException.class);
+        UUID rootUuid = root.getUuid();
+        assertThatThrownBy(() -> commentWriter.deleteRoot(rootUuid, false)).isInstanceOf(ValidationException.class);
         assertThat(commentRepository.count()).isEqualTo(2);
 
         assertThatCode(() -> commentWriter.deleteRoot(root.getUuid(), true)).doesNotThrowAnyException();

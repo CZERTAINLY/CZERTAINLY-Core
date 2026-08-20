@@ -187,8 +187,8 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
         authenticateAs("tst-plain-reader");
         restrictObjectAccess(Resource.RA_PROFILE, ResourceAction.COMMENT);
         denyResourceAccess(Resource.RA_PROFILE, ResourceAction.COMMENT);
-        assertThatThrownBy(() -> commentService.unresolveComment(root.getUuid()))
-                .isInstanceOf(AccessDeniedException.class);
+        UUID rootUuid = root.getUuid();
+        assertThatThrownBy(() -> commentService.unresolveComment(rootUuid)).isInstanceOf(AccessDeniedException.class);
     }
 
     // The read gate answers before shape validation, so an unauthorized caller holding a comment UUID cannot
@@ -202,10 +202,11 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
         restrictObjectAccess(Resource.RA_PROFILE, ResourceAction.DETAIL);
         denyResourceAccess(Resource.RA_PROFILE, ResourceAction.DETAIL);
 
-        assertThatThrownBy(() -> commentService.listReplies(reply.getUuid(), new PaginationRequestDto()))
+        UUID replyUuid = reply.getUuid();
+        PaginationRequestDto pagination = new PaginationRequestDto();
+        assertThatThrownBy(() -> commentService.listReplies(replyUuid, pagination))
                 .isInstanceOf(AccessDeniedException.class);
-        assertThatThrownBy(() -> commentService.resolveComment(reply.getUuid()))
-                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> commentService.resolveComment(replyUuid)).isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
@@ -234,8 +235,8 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
         restrictObjectAccess(Resource.RA_PROFILE, ResourceAction.UPDATE);
         denyResourceAccess(Resource.RA_PROFILE, ResourceAction.UPDATE);
 
-        assertThatThrownBy(() -> commentService.deleteComment(root.getUuid()))
-                .isInstanceOf(AccessDeniedException.class);
+        UUID rootUuid = root.getUuid();
+        assertThatThrownBy(() -> commentService.deleteComment(rootUuid)).isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

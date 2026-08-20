@@ -537,6 +537,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
                 }
             }
+            // Events without a natural default audience resolve to nobody; the profile has to name recipients.
+            default -> {
+            }
         }
 
         return recipients;
