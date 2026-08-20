@@ -9,10 +9,11 @@ import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @TestPropertySource(properties = "proxy.enabled=false")
 class ConnectorApiFactoryDiscoveryV2NoProxyITest extends BaseSpringBootTest {
@@ -38,6 +39,6 @@ class ConnectorApiFactoryDiscoveryV2NoProxyITest extends BaseSpringBootTest {
 
         DiscoverySyncApiClient client = connectorApiFactory.getDiscoveryApiClientV2(dto);
 
-        Assertions.assertInstanceOf(com.otilm.api.clients.discovery.v2.DiscoveryApiClient.class, client);
+        assertThat(client).isInstanceOf(com.otilm.api.clients.discovery.v2.DiscoveryApiClient.class);
     }
 }

@@ -208,8 +208,8 @@ public class ProxyClientConfig {
     }
 
     /**
-     * Create MQ-based discovery v2 client bean. Unlike its siblings it carries per-operation timeout budgets, because a
-     * drain response can legitimately take far longer than a status probe.
+     * Unlike its sibling beans this one carries per-operation timeout budgets, because a drain response can
+     * legitimately take far longer than a status probe.
      */
     @Bean
     public com.otilm.api.clients.mq.discovery.v2.DiscoveryApiClient mqDiscoveryApiClientV2(ProxyClient proxyClient,

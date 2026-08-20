@@ -9,9 +9,10 @@ import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.util.BaseSpringBootTest;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /** The test context runs with {@code proxy.enabled=true}, so the MQ bean exists here. */
 class ConnectorApiFactoryDiscoveryV2ITest extends BaseSpringBootTest {
@@ -25,14 +26,14 @@ class ConnectorApiFactoryDiscoveryV2ITest extends BaseSpringBootTest {
     void directConnectorGetsTheRestClient() {
         DiscoverySyncApiClient client = connectorApiFactory.getDiscoveryApiClientV2(savedConnectorDto(null));
 
-        Assertions.assertInstanceOf(com.otilm.api.clients.discovery.v2.DiscoveryApiClient.class, client);
+        assertThat(client).isInstanceOf(com.otilm.api.clients.discovery.v2.DiscoveryApiClient.class);
     }
 
     @Test
     void proxiedConnectorGetsTheMqClient() {
         DiscoverySyncApiClient client = connectorApiFactory.getDiscoveryApiClientV2(savedConnectorDto("proxy-1"));
 
-        Assertions.assertInstanceOf(com.otilm.api.clients.mq.discovery.v2.DiscoveryApiClient.class, client);
+        assertThat(client).isInstanceOf(com.otilm.api.clients.mq.discovery.v2.DiscoveryApiClient.class);
     }
 
     private ConnectorDetailDto savedConnectorDto(String proxyCode) {
