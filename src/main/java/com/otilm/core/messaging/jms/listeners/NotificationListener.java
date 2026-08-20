@@ -889,23 +889,23 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 yield new InternalNotificationEventData("%s scheduled task has finished for %s with result %s"
                         .formatted(data.getJobType(), data.getJobName(), data.getStatus()), null);
             }
+            // The comment body stays out of the persisted notification on purpose: the notification points at
+            // the thread, it does not mirror user-authored text.
             case COMMENT_CREATED -> {
                 CommentEventData data = (CommentEventData) eventData;
-                yield new InternalNotificationEventData(
-                        "%s %s on %s '%s'"
-                                .formatted(data.getAuthorUsername(),
-                                        data.getParentUuid() == null ? "commented" : "replied to a comment thread",
-                                        data.getResource().getLabel(), data.getObjectName()),
-                        abbreviateCommentBody(data.getBody()));
+                yield new InternalNotificationEventData("%s %s on %s '%s'"
+                        .formatted(data.getAuthorUsername(),
+                                data.getParentUuid() == null ? "commented" : "replied to a comment thread",
+                                data.getResource().getLabel(), data.getObjectName()),
+                        null);
             }
             case COMMENT_RESOLVED -> {
                 CommentEventData data = (CommentEventData) eventData;
-                yield new InternalNotificationEventData(
-                        "%s %s a comment thread on %s '%s'"
-                                .formatted(data.getResolvedByUsername(),
-                                        Boolean.TRUE.equals(data.getResolved()) ? "resolved" : "reopened",
-                                        data.getResource().getLabel(), data.getObjectName()),
-                        abbreviateCommentBody(data.getBody()));
+                yield new InternalNotificationEventData("%s %s a comment thread on %s '%s'"
+                        .formatted(data.getResolvedByUsername(),
+                                Boolean.TRUE.equals(data.getResolved()) ? "resolved" : "reopened",
+                                data.getResource().getLabel(), data.getObjectName()),
+                        null);
             }
             case CERTIFICATE_REGISTERED -> {
                 CertificateRegisteredEventData data = (CertificateRegisteredEventData) eventData;
@@ -919,15 +919,6 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                                 : "Issuance must be completed by %s".formatted(data.getCompletionDeadline()));
             }
         };
-    }
-
-    // The notification text/detail is persisted to the notifications table, so a comment body of up to the
-    // contract maximum must not land there in full.
-    private static String abbreviateCommentBody(String body) {
-        if (body == null || body.length() <= 500) {
-            return body;
-        }
-        return body.substring(0, 500) + "…";
     }
 
     private EventData getEventData(ResourceEvent event, Object data) {

@@ -38,6 +38,7 @@ import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -214,7 +215,7 @@ class NotificationListenerTest {
                 commentEventData(null, "please **enable** ACME"));
 
         assertEquals("requester commented on RA Profile 'web-frontends'", rendered[0]);
-        assertEquals("please **enable** ACME", rendered[1]);
+        assertNull(rendered[1], "the persisted notification carries no comment body");
     }
 
     @Test
@@ -247,21 +248,4 @@ class NotificationListenerTest {
                 renderedCommentNotification(ResourceEvent.COMMENT_RESOLVED, reopened)[0]);
     }
 
-    @Test
-    void commentBodyAtTheTruncationBoundarySurvivesUnchanged() {
-        String atBoundary = "a".repeat(500);
-
-        assertEquals(atBoundary,
-                renderedCommentNotification(ResourceEvent.COMMENT_CREATED, commentEventData(null, atBoundary))[1]);
-    }
-
-    @Test
-    void commentBodyPastTheTruncationBoundaryIsAbbreviated() {
-        String pastBoundary = "b".repeat(501);
-
-        String detail = renderedCommentNotification(ResourceEvent.COMMENT_CREATED,
-                commentEventData(null, pastBoundary))[1];
-        assertEquals(501, detail.length());
-        assertEquals("b".repeat(500) + "\u2026", detail);
-    }
 }
