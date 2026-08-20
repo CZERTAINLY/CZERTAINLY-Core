@@ -3,16 +3,22 @@ package com.otilm.core.messaging.jms.listeners.discovery;
 import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -38,7 +44,7 @@ class DiscoveryWorkSweeperTest {
 
     @Test
     void noDueRows_sendsNothing() {
-        when(workClaimer.claimDueBatch(BATCH_SIZE)).thenReturn(List.of());
+        when(workClaimer.claimDueBatch(eq(BATCH_SIZE), any(OffsetDateTime.class))).thenReturn(List.of());
 
         sweeper.sweep();
 
@@ -47,7 +53,7 @@ class DiscoveryWorkSweeperTest {
 
     @Test
     void everySweep_reapsUndrivableRuns() {
-        when(workClaimer.claimDueBatch(BATCH_SIZE)).thenReturn(List.of());
+        when(workClaimer.claimDueBatch(eq(BATCH_SIZE), any(OffsetDateTime.class))).thenReturn(List.of());
 
         sweeper.sweep();
 
@@ -58,18 +64,18 @@ class DiscoveryWorkSweeperTest {
     void due_sendsClaimedMessagesOutsideTheClaim() {
         DiscoveryWorkMessage msg = new DiscoveryWorkMessage(UUID.randomUUID(), DiscoveryWorkType.STATUS, 2);
         // A partial batch (< batchSize) ends the loop after one round.
-        when(workClaimer.claimDueBatch(BATCH_SIZE)).thenReturn(List.of(msg));
+        when(workClaimer.claimDueBatch(eq(BATCH_SIZE), any(OffsetDateTime.class))).thenReturn(List.of(msg));
 
         sweeper.sweep();
 
         verify(workProducer).produceMessage(msg);
-        verify(workClaimer).claimDueBatch(anyInt());
+        verify(workClaimer).claimDueBatch(anyInt(), any(OffsetDateTime.class));
     }
 
     @Test
     void sendFailure_doesNotAbortTheSweep() {
         DiscoveryWorkMessage msg = new DiscoveryWorkMessage(UUID.randomUUID(), DiscoveryWorkType.DRAIN, 1);
-        when(workClaimer.claimDueBatch(BATCH_SIZE)).thenReturn(List.of(msg));
+        when(workClaimer.claimDueBatch(eq(BATCH_SIZE), any(OffsetDateTime.class))).thenReturn(List.of(msg));
         doThrow(new RuntimeException("broker down")).when(workProducer).produceMessage(msg);
 
         // One bad send must not propagate — the row is already rescheduled and retries when next due.
@@ -77,5 +83,23 @@ class DiscoveryWorkSweeperTest {
 
         verify(workProducer).produceMessage(msg);
         verify(runReaper).reap();
+    }
+
+    @Test
+    void everyBatchOfOneSweep_usesTheSameDueCutoff() {
+        DiscoveryWorkSweeper singleRowBatches = new DiscoveryWorkSweeper(workClaimer, workProducer, runReaper, 1, 10);
+        DiscoveryWorkMessage msg = new DiscoveryWorkMessage(UUID.randomUUID(), DiscoveryWorkType.DRAIN, 0);
+        // A full first batch keeps the loop going; the second is empty and ends it.
+        when(workClaimer.claimDueBatch(eq(1), any(OffsetDateTime.class)))
+                .thenReturn(List.of(msg))
+                .thenReturn(List.of());
+
+        singleRowBatches.sweep();
+
+        ArgumentCaptor<OffsetDateTime> cutoffs = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(workClaimer, times(2)).claimDueBatch(eq(1), cutoffs.capture());
+        assertThat(cutoffs.getAllValues().get(0))
+                .as("a row rescheduled by the first batch must never be due for the second")
+                .isEqualTo(cutoffs.getAllValues().get(1));
     }
 }

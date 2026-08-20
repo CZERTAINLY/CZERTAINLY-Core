@@ -63,7 +63,7 @@ class DiscoveryRunReaperUnitTest {
     @BeforeEach
     void setUp() {
         reaper = new DiscoveryRunReaper(discoveryRepository, workRepository, workWriter, adapterFactory,
-                transactionHandler, clusterSynchronizer, Duration.ofMinutes(5), Duration.ofDays(7), 200);
+                transactionHandler, clusterSynchronizer, Duration.ofMinutes(5), Duration.ofDays(7));
         // Execute the transactional lambdas inline so the real selection/reap logic runs under the test.
         lenient()
                 .when(transactionHandler.runInNewTransaction(any(Supplier.class)))
@@ -76,7 +76,6 @@ class DiscoveryRunReaperUnitTest {
 
     @Test
     void skipsAllWorkWhenAdvisoryLockNotAcquired() {
-        // Another node holds the cluster lock: this run must select nothing and reap nothing.
         when(clusterSynchronizer.tryLock(ClusterOperationSynchronizer.Operation.DISCOVERY_WORK_SWEEP))
                 .thenReturn(false);
 
@@ -91,7 +90,6 @@ class DiscoveryRunReaperUnitTest {
     void workLost_skipsRunThatGainedAgendaRowsUnderLock() {
         Discovery run = run(DiscoveryStatus.IN_PROGRESS);
         selections(List.of(run.getUuid()), List.of());
-        when(discoveryRepository.findByUuid(run.getUuid())).thenReturn(Optional.of(run));
         when(discoveryRepository.findWithLockByUuid(run.getUuid())).thenReturn(Optional.of(run));
         // Between selection and locking the run gained agenda rows: it is driven again.
         when(workRepository.existsByDiscoveryUuid(run.getUuid())).thenReturn(true);
@@ -107,7 +105,6 @@ class DiscoveryRunReaperUnitTest {
         Discovery healthy = run(DiscoveryStatus.IN_PROGRESS);
         UUID failing = UUID.randomUUID();
         selections(List.of(failing, healthy.getUuid()), List.of());
-        when(discoveryRepository.findByUuid(any(UUID.class))).thenReturn(Optional.empty());
         when(discoveryRepository.findWithLockByUuid(failing)).thenThrow(new RuntimeException("lock timeout"));
         when(discoveryRepository.findWithLockByUuid(healthy.getUuid())).thenReturn(Optional.of(healthy));
         when(workRepository.existsByDiscoveryUuid(healthy.getUuid())).thenReturn(false);
@@ -118,17 +115,34 @@ class DiscoveryRunReaperUnitTest {
     }
 
     @Test
+    void workLost_cancelsOnTheConnectorOnlyWhenRunContextExists() {
+        Discovery withContext = run(DiscoveryStatus.IN_PROGRESS);
+        withContext.setRunMeta(Map.of("cursor", "abc"));
+        Discovery withoutContext = run(DiscoveryStatus.IN_PROGRESS);
+        selections(List.of(withContext.getUuid(), withoutContext.getUuid()), List.of());
+        when(discoveryRepository.findWithLockByUuid(withContext.getUuid())).thenReturn(Optional.of(withContext));
+        when(discoveryRepository.findWithLockByUuid(withoutContext.getUuid())).thenReturn(Optional.of(withoutContext));
+
+        reaper.reap();
+
+        assertThat(withContext.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        assertThat(withoutContext.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        // Only the run with a persisted connector context has anything the connector could drop.
+        verify(adapter).cancel(withContext);
+        verify(adapter, never()).cancel(withoutContext);
+    }
+
+    @Test
     void stopExpired_skipsResumedRunAndCancelsNothingOnTheConnector() {
         // The run escaped its stop between selection and action: status moved off STOPPED, stoppedAt stale.
         Discovery resumed = run(DiscoveryStatus.IN_PROGRESS);
         resumed.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(30));
         selections(List.of(), List.of(resumed.getUuid()));
-        when(discoveryRepository.findByUuid(resumed.getUuid())).thenReturn(Optional.of(resumed));
         when(discoveryRepository.findWithLockByUuid(resumed.getUuid())).thenReturn(Optional.of(resumed));
 
         reaper.reap();
 
-        // The guarded pre-cancel must not fire for a run that no longer satisfies the reap condition.
+        // No terminal transition committed, so nothing may reach the connector.
         verifyNoInteractions(adapterFactory);
         assertThat(resumed.getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
         verify(workWriter, never()).deleteForRun(any());
@@ -139,23 +153,22 @@ class DiscoveryRunReaperUnitTest {
         Discovery healthy = expiredStoppedRun();
         UUID failing = UUID.randomUUID();
         selections(List.of(), List.of(failing, healthy.getUuid()));
-        when(discoveryRepository.findByUuid(any(UUID.class))).thenReturn(Optional.empty());
-        when(discoveryRepository.findByUuid(healthy.getUuid())).thenReturn(Optional.of(healthy));
         when(discoveryRepository.findWithLockByUuid(failing)).thenThrow(new RuntimeException("lock timeout"));
         when(discoveryRepository.findWithLockByUuid(healthy.getUuid())).thenReturn(Optional.of(healthy));
 
         assertThatCode(() -> reaper.reap()).doesNotThrowAnyException();
 
         assertThat(healthy.getStatus()).isEqualTo(DiscoveryStatus.CANCELLED);
-        assertThat(healthy.getRunMeta()).isNull();
         verify(workWriter).deleteForRun(healthy.getUuid());
+        // The cancel fired only after the terminal transition, replaying the pre-wipe run context.
+        verify(adapter).cancel(healthy);
+        assertThat(healthy.getRunMeta()).isNotNull();
     }
 
     @Test
     void stopExpired_connectorCancelFailureDoesNotBlockTheLocalCancel() {
         Discovery expired = expiredStoppedRun();
         selections(List.of(), List.of(expired.getUuid()));
-        when(discoveryRepository.findByUuid(expired.getUuid())).thenReturn(Optional.of(expired));
         when(discoveryRepository.findWithLockByUuid(expired.getUuid())).thenReturn(Optional.of(expired));
         when(adapterFactory.forDiscovery(any())).thenThrow(new IllegalStateException("not implemented"));
 

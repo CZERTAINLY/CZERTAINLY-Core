@@ -41,6 +41,7 @@ class DiscoveryWorkClaimerTest {
     private DiscoveryWorkProperties workProperties;
 
     private static final int BATCH_SIZE = 200;
+    private static final OffsetDateTime CUTOFF = OffsetDateTime.now();
 
     private DiscoveryWorkClaimer claimer;
 
@@ -58,7 +59,7 @@ class DiscoveryWorkClaimerTest {
         when(clusterSynchronizer.tryLock(ClusterOperationSynchronizer.Operation.DISCOVERY_WORK_SWEEP))
                 .thenReturn(false);
 
-        assertThat(claimer.claimDueBatch(BATCH_SIZE)).isEmpty();
+        assertThat(claimer.claimDueBatch(BATCH_SIZE, CUTOFF)).isEmpty();
 
         verify(workRepository, never()).findByNextDueAtLessThanEqualOrderByNextDueAt(any(), any());
         verify(workWriter, never()).reschedule(any(), any(), anyInt(), any());
@@ -71,7 +72,7 @@ class DiscoveryWorkClaimerTest {
                 .findByNextDueAtLessThanEqualOrderByNextDueAt(any(OffsetDateTime.class), any(Pageable.class)))
                 .thenReturn(List.of());
 
-        assertThat(claimer.claimDueBatch(BATCH_SIZE)).isEmpty();
+        assertThat(claimer.claimDueBatch(BATCH_SIZE, CUTOFF)).isEmpty();
 
         verify(workWriter, never()).reschedule(any(), any(), anyInt(), any());
     }
@@ -84,15 +85,16 @@ class DiscoveryWorkClaimerTest {
                 .findByNextDueAtLessThanEqualOrderByNextDueAt(any(OffsetDateTime.class), any(Pageable.class)))
                 .thenReturn(List.of(workRow(runUuid, DiscoveryWorkType.DRAIN, 2)));
 
-        List<DiscoveryWorkMessage> messages = claimer.claimDueBatch(BATCH_SIZE);
+        List<DiscoveryWorkMessage> messages = claimer.claimDueBatch(BATCH_SIZE, CUTOFF);
 
         assertThat(messages).hasSize(1);
         assertThat(messages.get(0).discoveryUuid()).isEqualTo(runUuid);
         assertThat(messages.get(0).workType()).isEqualTo(DiscoveryWorkType.DRAIN);
         assertThat(messages.get(0).attempt()).isEqualTo(2);
 
-        // attempt advanced and next_due_at pushed out so the row is not re-claimed until next due.
         verify(workWriter).reschedule(eq(runUuid), eq(DiscoveryWorkType.DRAIN), eq(3), any(OffsetDateTime.class));
+        // The due query runs against the caller's cutoff, not a fresh now() — the sweep-wide claim window.
+        verify(workRepository).findByNextDueAtLessThanEqualOrderByNextDueAt(eq(CUTOFF), any(Pageable.class));
     }
 
     private DiscoveryWork workRow(UUID runUuid, DiscoveryWorkType type, int attempt) {

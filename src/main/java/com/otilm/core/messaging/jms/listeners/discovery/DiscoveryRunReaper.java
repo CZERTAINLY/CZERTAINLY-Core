@@ -12,8 +12,8 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,8 +30,8 @@ import org.springframework.stereotype.Component;
  * before its first agenda rows. {@code STOPPED} runs are deliberately exempt — failing one for lost agenda rows would
  * destroy a checkpoint the stop-expiry path still allows to resume.</li>
  * <li><b>Stop expired</b> — a {@code STOPPED} run not resumed within {@code stopped-max-duration} is cancelled; the
- * connector's checkpoint can no longer be assumed to exist. The connector-side cancel is best-effort and runs outside
- * any transaction; the local cancel proceeds regardless.</li>
+ * connector's checkpoint can no longer be assumed to exist. The connector-side cancel is best-effort and fires only
+ * after the terminal transition has committed, replaying a pre-wipe snapshot of the run context.</li>
  * </ul>
  *
  * <p>
@@ -49,10 +49,10 @@ public class DiscoveryRunReaper {
     private static final List<DiscoveryStatus> WORK_DRIVEN_STATUSES = List
             .of(DiscoveryStatus.IN_PROGRESS, DiscoveryStatus.PROCESSING);
 
-    // The stop-expired phase issues one synchronous connector cancel per run inside the sweep thread, so
-    // its batch is kept small: the worst-case sweep stall is this many connector timeouts, not
-    // sweep-batch-size of them. The sweep cadence drains any backlog.
-    private static final int STOP_EXPIRY_BATCH_SIZE = 10;
+    // One bounded batch per reap condition per sweep, kept small because each reaped run can cost a
+    // synchronous connector cancel on the sweep thread: the worst-case stall is this many connector
+    // timeouts. The sweep cadence drains any backlog.
+    private static final int REAP_BATCH_SIZE = 10;
 
     private final DiscoveryRepository discoveryRepository;
     private final DiscoveryWorkRepository workRepository;
@@ -62,14 +62,12 @@ public class DiscoveryRunReaper {
     private final ClusterOperationSynchronizer clusterSynchronizer;
     private final Duration reapGrace;
     private final Duration stoppedMaxDuration;
-    private final int batchSize;
 
     public DiscoveryRunReaper(DiscoveryRepository discoveryRepository, DiscoveryWorkRepository workRepository,
             DiscoveryWorkWriter workWriter, DiscoveryProviderAdapterFactory adapterFactory,
             TransactionHandler transactionHandler, ClusterOperationSynchronizer clusterSynchronizer,
             @Value("${discovery.work.reap-grace:PT5M}") Duration reapGrace,
-            @Value("${discovery.run.stopped-max-duration:P7D}") Duration stoppedMaxDuration,
-            @Value("${discovery.work.sweep-batch-size:200}") int batchSize) {
+            @Value("${discovery.run.stopped-max-duration:P7D}") Duration stoppedMaxDuration) {
         this.discoveryRepository = discoveryRepository;
         this.workRepository = workRepository;
         this.workWriter = workWriter;
@@ -78,7 +76,6 @@ public class DiscoveryRunReaper {
         this.clusterSynchronizer = clusterSynchronizer;
         this.reapGrace = reapGrace;
         this.stoppedMaxDuration = stoppedMaxDuration;
-        this.batchSize = batchSize;
     }
 
     /**
@@ -115,32 +112,38 @@ public class DiscoveryRunReaper {
 
     private List<UUID> selectWorkLost() {
         OffsetDateTime threshold = OffsetDateTime.now(ZoneOffset.UTC).minus(reapGrace);
-        return discoveryRepository.findWorkLostRunUuids(WORK_DRIVEN_STATUSES, threshold, PageRequest.of(0, batchSize));
+        return discoveryRepository
+                .findWorkLostRunUuids(WORK_DRIVEN_STATUSES, threshold, PageRequest.of(0, REAP_BATCH_SIZE));
     }
 
     private List<UUID> selectStopExpired() {
         OffsetDateTime threshold = OffsetDateTime.now(ZoneOffset.UTC).minus(stoppedMaxDuration);
-        return discoveryRepository.findExpiredStoppedRunUuids(threshold, PageRequest.of(0, STOP_EXPIRY_BATCH_SIZE));
+        return discoveryRepository.findExpiredStoppedRunUuids(threshold, PageRequest.of(0, REAP_BATCH_SIZE));
     }
 
     private boolean failWorkLost(UUID uuid) {
-        // Best-effort connector-side cancel, mirroring the stop-expired path. Usually a no-op: the
-        // work-lost scenario mostly means the initiate never persisted the connector run context — but
-        // when the context exists, the connector should stop scanning for a run Core is about to fail.
-        bestEffortConnectorCancel(uuid, run -> WORK_DRIVEN_STATUSES.contains(run.getStatus())
-                && run.getRunMeta() != null && !workRepository.existsByDiscoveryUuid(uuid));
         try {
-            return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
+            ReapedRun reaped = transactionHandler.runInNewTransaction(() -> {
                 Discovery run = discoveryRepository.findWithLockByUuid(uuid).orElse(null);
                 // Re-assert under the row lock: the run may have finished, or gained agenda rows,
                 // between selection and locking.
                 if (run == null || !WORK_DRIVEN_STATUSES.contains(run.getStatus())
                         || workRepository.existsByDiscoveryUuid(uuid)) {
-                    return false;
+                    return null;
                 }
+                Map<String, Object> meta = run.getRunMeta();
                 endRun(run, DiscoveryStatus.FAILED, "Discovery work lost; the run can no longer be driven");
-                return true;
-            }));
+                return new ReapedRun(run, meta);
+            });
+            if (reaped == null) {
+                return false;
+            }
+            // Usually there is nothing to cancel: work loss mostly means the initiate never persisted
+            // the connector run context. When it exists, the connector should stop scanning.
+            if (reaped.meta() != null) {
+                bestEffortConnectorCancel(reaped);
+            }
+            return true;
         } catch (RuntimeException e) {
             // One run's failure (e.g. a lock timeout) must not abort the rest of the batch.
             logger.warn("Failed to reap work-lost discovery run {}", uuid, e);
@@ -150,18 +153,23 @@ public class DiscoveryRunReaper {
 
     private boolean cancelExpiredStop(UUID uuid) {
         OffsetDateTime threshold = OffsetDateTime.now(ZoneOffset.UTC).minus(stoppedMaxDuration);
-        bestEffortConnectorCancel(uuid, run -> isStopExpired(run, threshold));
         try {
-            return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
+            ReapedRun reaped = transactionHandler.runInNewTransaction(() -> {
                 Discovery run = discoveryRepository.findWithLockByUuid(uuid).orElse(null);
                 // Re-assert under the row lock: the run may have been resumed or finished in the meantime.
                 if (run == null || !isStopExpired(run, threshold)) {
-                    return false;
+                    return null;
                 }
+                Map<String, Object> meta = run.getRunMeta();
                 endRun(run, DiscoveryStatus.CANCELLED, "Stop expired: the run was not resumed in time");
                 workWriter.deleteForRun(uuid);
-                return true;
-            }));
+                return new ReapedRun(run, meta);
+            });
+            if (reaped == null) {
+                return false;
+            }
+            bestEffortConnectorCancel(reaped);
+            return true;
         } catch (RuntimeException e) {
             logger.warn("Failed to cancel expired stopped discovery run {}", uuid, e);
             return false;
@@ -174,22 +182,26 @@ public class DiscoveryRunReaper {
     }
 
     /**
-     * Fires the connector-side cancel when the freshly read run still satisfies {@code reapCondition} — the same
-     * predicate the locked re-assertion applies, so a run that escaped the reap since selection is not cancelled on the
-     * connector; the residual race window is the read-to-call gap, not the whole batch span. A failure is only a
+     * Tells the connector to drop the run, strictly after the terminal transition has committed — the permanently safe
+     * moment: a terminal run can no longer be resumed, so the cancel cannot race a revival. The entity is detached
+     * here, so restoring the pre-wipe meta snapshot only feeds the cancel call, never the database. A failure is only a
      * warning: a scan the connector was not told to drop keeps running until its own timeout.
      */
-    private void bestEffortConnectorCancel(UUID uuid, Predicate<Discovery> reapCondition) {
+    private void bestEffortConnectorCancel(ReapedRun reaped) {
         try {
-            discoveryRepository
-                    .findByUuid(uuid)
-                    .filter(reapCondition)
-                    .ifPresent(run -> adapterFactory.forDiscovery(run).cancel(run));
+            reaped.run().setRunMeta(reaped.meta());
+            adapterFactory.forDiscovery(reaped.run()).cancel(reaped.run());
         } catch (RuntimeException e) {
             logger
                     .warn("Best-effort connector cancel failed for discovery run {}; the connector-side scan may keep "
-                            + "running until its own timeout", uuid, e);
+                            + "running until its own timeout", reaped.run().getUuid(), e);
         }
+    }
+
+    /**
+     * A run whose terminal transition has committed, plus the pre-wipe run context the connector cancel replays.
+     */
+    private record ReapedRun(Discovery run, Map<String, Object> meta) {
     }
 
     // Connector-side run context is nulled on every terminal transition; connectorStatus keeps the last

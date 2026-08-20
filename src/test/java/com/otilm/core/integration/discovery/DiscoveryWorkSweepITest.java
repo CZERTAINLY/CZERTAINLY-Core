@@ -73,7 +73,7 @@ class DiscoveryWorkSweepITest extends BaseSpringBootTest {
         workWriter.schedule(runUuid, DiscoveryWorkType.STATUS, OffsetDateTime.now(ZoneOffset.UTC).minusHours(1));
         OffsetDateTime beforeClaim = OffsetDateTime.now(ZoneOffset.UTC);
 
-        List<DiscoveryWorkMessage> claimed = claimer.claimDueBatch(10);
+        List<DiscoveryWorkMessage> claimed = claimer.claimDueBatch(10, OffsetDateTime.now(ZoneOffset.UTC));
 
         assertThat(claimed).hasSize(1);
         assertThat(claimed.get(0).discoveryUuid()).isEqualTo(runUuid);
@@ -105,7 +105,9 @@ class DiscoveryWorkSweepITest extends BaseSpringBootTest {
         assertThat(acquired.get(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
 
         try {
-            assertThat(claimer.claimDueBatch(10)).as("contended claim must skip, not block").isEmpty();
+            assertThat(claimer.claimDueBatch(10, OffsetDateTime.now(ZoneOffset.UTC)))
+                    .as("contended claim must skip, not block")
+                    .isEmpty();
             var row = workRepository.findAll().get(0);
             assertThat(row.getAttempt()).as("a skipped claim must not touch the row").isZero();
         } finally {
@@ -114,7 +116,9 @@ class DiscoveryWorkSweepITest extends BaseSpringBootTest {
         lockHolderThread.shutdown();
         assertThat(lockHolderThread.awaitTermination(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
 
-        assertThat(claimer.claimDueBatch(10)).as("released lock frees the window").hasSize(1);
+        assertThat(claimer.claimDueBatch(10, OffsetDateTime.now(ZoneOffset.UTC)))
+                .as("released lock frees the window")
+                .hasSize(1);
     }
 
     // ------------------------------------------------------------------ reaper: work lost

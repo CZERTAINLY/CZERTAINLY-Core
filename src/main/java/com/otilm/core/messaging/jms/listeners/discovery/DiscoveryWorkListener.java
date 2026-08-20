@@ -7,9 +7,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Consumes {@code provider.discovery-work} tick messages. Dispatch to the per-{@code workType} tick workers is not
- * wired yet: nothing schedules {@code discovery_work} rows until the v2 run lifecycle lands, so the queue is unfed and
- * any message here is unexpected — logged and acknowledged, since redelivering it could achieve nothing.
+ * Consumes {@code provider.discovery-work} tick messages. No discovery-work handler is configured in this build —
+ * nothing schedules {@code discovery_work} rows, so the queue is unfed and any message here is unexpected: logged and
+ * acknowledged, since redelivering it could achieve nothing.
  */
 @Component
 public class DiscoveryWorkListener implements MessageProcessor<DiscoveryWorkMessage> {
@@ -19,7 +19,7 @@ public class DiscoveryWorkListener implements MessageProcessor<DiscoveryWorkMess
     @Override
     public void processMessage(DiscoveryWorkMessage message) {
         logger
-                .warn("Discarding discovery work tick (run {}, type {}, attempt {}): no tick worker is wired yet",
-                        message.discoveryUuid(), message.workType(), message.attempt());
+                .warn("Discarding discovery work tick (run {}, type {}, attempt {}): no discovery-work handler is "
+                        + "configured", message.discoveryUuid(), message.workType(), message.attempt());
     }
 }

@@ -3,6 +3,8 @@ package com.otilm.core.messaging.jms.listeners.discovery;
 import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,11 +55,14 @@ public class DiscoveryWorkSweeper {
      * + read + reschedule) happens in {@link DiscoveryWorkClaimer}.
      */
     public void sweep() {
+        // One cutoff for the whole sweep: a claimed row is rescheduled past it (first rung >= PT1S),
+        // so no batch of this sweep can claim the same row twice, however long publishing takes.
+        OffsetDateTime dueCutoff = OffsetDateTime.now(ZoneOffset.UTC);
         int enqueued = 0;
         int batchesRun = 0;
         int batchCount;
         do {
-            List<DiscoveryWorkMessage> due = workClaimer.claimDueBatch(batchSize);
+            List<DiscoveryWorkMessage> due = workClaimer.claimDueBatch(batchSize, dueCutoff);
             batchCount = due.size();
             for (DiscoveryWorkMessage message : due) {
                 try {

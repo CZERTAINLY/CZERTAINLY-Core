@@ -49,19 +49,21 @@ public class DiscoveryWorkClaimer {
     }
 
     /**
-     * Claims up to {@code batchSize} due rows: advances each row's {@code attempt}/{@code next_due_at} by the backoff
-     * curve and returns the tick message to send for each. Returns empty when another node already holds the sweep
-     * lock. The returned messages must be sent by the caller after this method returns (outside the lock/transaction).
+     * Claims up to {@code batchSize} rows due at {@code dueCutoff}: advances each row's
+     * {@code attempt}/{@code next_due_at} by the backoff curve and returns the tick message to send for each. Returns
+     * empty when another node already holds the sweep lock. The returned messages must be sent by the caller after this
+     * method returns (outside the lock/transaction). The caller passes one cutoff for its whole sweep, so a row this
+     * sweep already claimed — rescheduled at least the first rung past its claim — can never be claimed twice by the
+     * same sweep, however long the publishing between batches takes.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public List<DiscoveryWorkMessage> claimDueBatch(int batchSize) {
+    public List<DiscoveryWorkMessage> claimDueBatch(int batchSize, OffsetDateTime dueCutoff) {
         if (!clusterSynchronizer.tryLock(ClusterOperationSynchronizer.Operation.DISCOVERY_WORK_SWEEP)) {
             logger.debug("Discovery work sweep skipped: another instance holds the lock");
             return List.of();
         }
         List<DiscoveryWork> due = workRepository
-                .findByNextDueAtLessThanEqualOrderByNextDueAt(OffsetDateTime.now(ZoneOffset.UTC),
-                        PageRequest.of(0, batchSize));
+                .findByNextDueAtLessThanEqualOrderByNextDueAt(dueCutoff, PageRequest.of(0, batchSize));
         List<DiscoveryWorkMessage> messages = new ArrayList<>(due.size());
         for (DiscoveryWork work : due) {
             messages.add(new DiscoveryWorkMessage(work.getDiscoveryUuid(), work.getWorkType(), work.getAttempt()));
