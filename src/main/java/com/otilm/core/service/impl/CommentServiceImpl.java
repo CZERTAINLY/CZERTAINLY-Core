@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -50,6 +52,8 @@ import org.springframework.web.context.request.RequestContextHolder;
 
 @Service
 public class CommentServiceImpl implements CommentExternalService, CommentInternalService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CommentServiceImpl.class);
 
     private CommentRepository commentRepository;
     private CommentWriter commentWriter;
@@ -336,11 +340,27 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    eventProducer.produceMessage(eventMessage);
+                    produceBestEffort(eventMessage);
                 }
             });
         } else {
+            produceBestEffort(eventMessage);
+        }
+    }
+
+    /**
+     * The comment mutation has already committed and is the source of truth; the event only drives notifications, which
+     * are best-effort throughout. A broker failure here must not turn the committed write into an apparent request
+     * failure — the client would retry and duplicate the comment — so the event is logged as lost instead.
+     */
+    private void produceBestEffort(EventMessage eventMessage) {
+        try {
             eventProducer.produceMessage(eventMessage);
+        } catch (Exception e) {
+            logger
+                    .error("Comment event {} for {} {} could not be published and is lost: {}",
+                            eventMessage.getEvent().getCode(), eventMessage.getResource().getCode(),
+                            eventMessage.getObjectUuid(), e.getMessage());
         }
     }
 }

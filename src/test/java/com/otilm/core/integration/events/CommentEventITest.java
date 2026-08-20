@@ -7,6 +7,7 @@ import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.repository.CommentRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.model.EventMessage;
@@ -38,6 +39,9 @@ class CommentEventITest extends BaseSpringBootTest {
     private RaProfileRepository raProfileRepository;
 
     @Autowired
+    private CommentRepository commentRepository;
+
+    @Autowired
     private EventProducer eventProducer;
 
     private UUID raProfileUuid;
@@ -63,6 +67,16 @@ class CommentEventITest extends BaseSpringBootTest {
         ArgumentCaptor<EventMessage> captor = ArgumentCaptor.forClass(EventMessage.class);
         Mockito.verify(eventProducer, Mockito.atLeast(0)).produceMessage(captor.capture());
         return captor.getAllValues();
+    }
+
+    @Test
+    void brokerFailureAfterCommitDoesNotFailTheRequest() throws NotFoundException {
+        Mockito.doThrow(new RuntimeException("broker down")).when(eventProducer).produceMessage(Mockito.any());
+
+        CommentDto created = post("written despite the broker", null);
+
+        assertThat(created.getUuid()).isNotNull();
+        assertThat(commentRepository.findByUuid(SecuredUUID.fromUUID(created.getUuid()))).isPresent();
     }
 
     @Test
