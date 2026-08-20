@@ -48,10 +48,9 @@ public interface DiscoveryRepository extends SecurityFilterRepository<Discovery,
      * re-asserts the condition under a per-run pessimistic lock before acting.
      *
      * <p>
-     * The grace window is keyed to run <em>creation</em>, so it only covers the initiate gap: a run past it is reapable
-     * the instant its agenda reads empty. Agenda writers must therefore never let a live run's agenda pass through an
-     * observably empty state — replacing the last row happens in one transaction, never as a delete that commits before
-     * the successor's insert.
+     * The grace window is keyed to run <em>creation</em>, so it only covers the initiate gap — see
+     * {@link com.otilm.core.service.writer.discovery.DiscoveryWorkWriter} for the empty-agenda rule that makes this
+     * safe for live runs.
      * </p>
      */
     @Query("SELECT d.uuid FROM Discovery d WHERE d.connectorInterfaceUuid IS NOT NULL AND d.status IN :statuses "

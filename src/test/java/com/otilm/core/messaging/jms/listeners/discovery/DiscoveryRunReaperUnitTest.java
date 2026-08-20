@@ -114,7 +114,6 @@ class DiscoveryRunReaperUnitTest {
 
         assertThatCode(() -> reaper.reap()).doesNotThrowAnyException();
 
-        // The healthy run is still reaped despite the earlier failure.
         assertThat(healthy.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
     }
 

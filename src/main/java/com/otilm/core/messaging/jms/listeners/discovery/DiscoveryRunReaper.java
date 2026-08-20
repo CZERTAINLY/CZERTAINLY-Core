@@ -177,8 +177,8 @@ public class DiscoveryRunReaper {
     /**
      * Fires the connector-side cancel when the freshly read run still satisfies {@code reapCondition} — the same
      * predicate the locked re-assertion applies, so a run that escaped the reap since selection is not cancelled on the
-     * connector; the residual race window is the read-to-call gap, not the whole batch span. Failures must block
-     * nothing, but are warnings: a scan the connector was not told to drop keeps running until its own timeout.
+     * connector; the residual race window is the read-to-call gap, not the whole batch span. A failure is only a
+     * warning: a scan the connector was not told to drop keeps running until its own timeout.
      */
     private void bestEffortConnectorCancel(UUID uuid, Predicate<Discovery> reapCondition) {
         try {
