@@ -7,7 +7,8 @@ import com.otilm.core.signing.engine.error.SigningEngineFailure;
 
 /**
  * Maps the Signing Engine's error currency onto RFC 3161's. Only {@code INVALID_INPUT} and {@code MALFORMED_INPUT} are
- * attributable to the requester, so everything else collapses onto {@code SYSTEM_FAILURE}.
+ * attributable to the requester, and only {@code TIME_UNAVAILABLE} has a failure info of its own, so everything else
+ * collapses onto {@code SYSTEM_FAILURE}.
  */
 public final class TspErrorMapper {
 
@@ -18,6 +19,7 @@ public final class TspErrorMapper {
         return switch (failure) {
             case INVALID_INPUT -> TspFailureInfo.BAD_REQUEST;
             case MALFORMED_INPUT -> TspFailureInfo.BAD_DATA_FORMAT;
+            case TIME_UNAVAILABLE -> TspFailureInfo.TIME_NOT_AVAILABLE;
             case MISCONFIGURED, CONNECTOR_FAULT, BINDING_VIOLATION, SIGNER_FAULT, STEP_FAILED ->
                 TspFailureInfo.SYSTEM_FAILURE;
         };

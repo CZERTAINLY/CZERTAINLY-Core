@@ -11,7 +11,7 @@ import com.otilm.core.model.signing.workflow.SigningWorkflow;
  * {@code requestMetadataJson} serialization, which on the TSA hot path would otherwise be built and discarded for
  * profiles that have recording disabled.
  *
- * @see com.otilm.core.signing.tsa.TspSigningRecordFactory#source
+ * @see com.otilm.core.signing.tsa.TimestampSigningRecordFactory#source
  */
 public interface SigningRecordInputSource {
 

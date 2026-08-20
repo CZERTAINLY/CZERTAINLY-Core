@@ -16,6 +16,7 @@ class TspErrorMapperTest {
     private static final Map<SigningEngineFailure, TspFailureInfo> EXPECTED = Map
             .of(SigningEngineFailure.INVALID_INPUT, TspFailureInfo.BAD_REQUEST, SigningEngineFailure.MALFORMED_INPUT,
                     TspFailureInfo.BAD_DATA_FORMAT, SigningEngineFailure.MISCONFIGURED, TspFailureInfo.SYSTEM_FAILURE,
+                    SigningEngineFailure.TIME_UNAVAILABLE, TspFailureInfo.TIME_NOT_AVAILABLE,
                     SigningEngineFailure.CONNECTOR_FAULT, TspFailureInfo.SYSTEM_FAILURE,
                     SigningEngineFailure.BINDING_VIOLATION, TspFailureInfo.SYSTEM_FAILURE,
                     SigningEngineFailure.SIGNER_FAULT, TspFailureInfo.SYSTEM_FAILURE, SigningEngineFailure.STEP_FAILED,
