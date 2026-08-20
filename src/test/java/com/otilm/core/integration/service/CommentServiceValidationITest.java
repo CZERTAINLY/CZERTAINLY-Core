@@ -83,7 +83,6 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         assertThat(root.getResolved()).isFalse();
 
         CommentDto reply = post(raProfileUuid, "On it", root.getUuid());
-        assertThat(reply.getParentUuid()).isEqualTo(root.getUuid());
         assertThat(reply.getResolved()).isNull();
 
         CommentResponseDto threads = list(raProfileUuid);

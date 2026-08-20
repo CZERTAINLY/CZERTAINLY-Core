@@ -20,7 +20,6 @@ public class CommentMapper {
         dto.setAuthor(new NameAndUuidDto(comment.getAuthorUuid().toString(), comment.getAuthorUsername()));
         dto.setCreatedAt(comment.getCreatedAt());
         dto.setBody(comment.getBody());
-        dto.setParentUuid(comment.getParentUuid());
         if (comment.getParentUuid() == null) {
             dto.setResolved(comment.getResolvedAt() != null);
             if (comment.getResolvedAt() != null) {
