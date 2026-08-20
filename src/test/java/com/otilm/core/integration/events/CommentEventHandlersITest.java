@@ -359,7 +359,7 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
     }
 
     @Test
-    void notificationsCarryTheRawMarkdownTruncatedForDisplayOnly() throws Exception {
+    void notificationsCarryNoCommentBodyWhileTheEventPayloadKeepsItVerbatim() throws Exception {
         String hostile = "<script>alert('x')</script> **bold** [link](javascript:alert(1)) ";
         String body = hostile + "a".repeat(600);
         UUID ownerUuid = UUID.randomUUID();
@@ -373,14 +373,18 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
         Comment root = saveComment(hostUuid, null, actorUuid, body);
         commentCreatedEventHandler.handleEvent(eventMessage(ResourceEvent.COMMENT_CREATED, root, null));
 
-        notificationListener.processMessage(followUpMessages().getFirst());
+        NotificationMessage followUp = followUpMessages().getFirst();
+        // The event payload keeps the raw Markdown source verbatim for operator-bound templates
+        assertThat(((CommentEventData) followUp.getData()).getBody()).isEqualTo(body);
+
+        notificationListener.processMessage(followUp);
 
         List<Notification> notifications = notificationRepository.findAll();
         assertThat(notifications).hasSize(1);
         Notification notification = notifications.getFirst();
-        // Raw Markdown source — never rendered or sanitized into HTML entities
-        assertThat(notification.getDetail()).startsWith(hostile);
-        assertThat(notification.getDetail()).hasSize(501).endsWith("…");
+        // The persisted notification points at the thread and never mirrors user-authored text
+        assertThat(notification.getDetail()).isNull();
+        assertThat(notification.getMessage()).doesNotContain("<script>");
         assertThat(commentRepository.findByUuid(root.getSecuredUuid()).orElseThrow().getBody()).hasSize(body.length());
     }
 }
