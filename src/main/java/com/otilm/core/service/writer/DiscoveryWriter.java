@@ -1,8 +1,13 @@
 package com.otilm.core.service.writer;
 
+import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
+import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,5 +60,27 @@ public class DiscoveryWriter {
     @Transactional
     public void updateProgressMessage(UUID discoveryUuid, String message) {
         discoveryRepository.updateMessage(discoveryUuid, message);
+    }
+
+    /**
+     * Ends a run that was refused before dispatch — terminal FAILED on both statuses, the given user-visible message,
+     * the end timestamp — and returns the terminal detail. Empty for an unknown uuid: the refusal path only fires for a
+     * loaded run.
+     *
+     * <p>
+     * The detail is mapped in here, inside this write's transaction, because the refusing caller cannot safely re-read
+     * it: a {@code NOT_SUPPORTED} caller runs all its reads in one transaction-less synchronization scope sharing a
+     * single {@code EntityManager}, so a re-read there resolves to the pre-refusal entity in its first-level cache.
+     * </p>
+     */
+    @Transactional
+    public Optional<DiscoveryDetailDto> markDispatchRefused(UUID discoveryUuid, String message) {
+        return discoveryRepository.findByUuid(discoveryUuid).map(discovery -> {
+            discovery.setStatus(DiscoveryStatus.FAILED);
+            discovery.setConnectorStatus(DiscoveryStatus.FAILED);
+            discovery.setMessage(message);
+            discovery.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
+            return discovery.mapToDto();
+        });
     }
 }
