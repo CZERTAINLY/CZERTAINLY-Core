@@ -8,12 +8,15 @@ import java.util.List;
 import java.util.UUID;
 import lombok.Setter;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class AbstractExternalAuthorizationManagerTest {
@@ -22,25 +25,50 @@ class AbstractExternalAuthorizationManagerTest {
 
     Authentication authentication = createPlatformAuthentication();
 
+    /**
+     * {@code check} is deprecated but still abstract on Spring Security 6.5, and the interface's own {@code verify}
+     * default routes through it, so its delegation has to keep returning the same decision as {@code authorize} until
+     * the method is removed.
+     *
+     * <p>
+     * Both outcomes are exercised because denial is what every other exit of {@code authorize} returns as well: pinned
+     * to deny alone, a {@code check} that stopped delegating and returned a constant denial would still pass.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @SuppressWarnings("removal")
+    void deprecatedCheckReturnsTheSameDecisionAsAuthorize(boolean granted) {
+        // given
+        manager.setCheckResult(new AuthorizationDecision(granted));
+
+        // when
+        AuthorizationDecision viaCheck = manager.check(() -> authentication, new Object());
+        AuthorizationDecision viaAuthorize = manager.authorize(() -> authentication, new Object());
+
+        // then
+        assertEquals(granted, viaCheck.isGranted());
+        assertEquals(viaAuthorize.isGranted(), viaCheck.isGranted());
+    }
+
     @Test
-    void abstainsIfAuthenticationIsNotOfTypePlatformAuthenticationToken() {
+    void deniesIfAuthenticationIsNotOfTypePlatformAuthenticationToken() {
         // given
         Authentication auth = new UsernamePasswordAuthenticationToken(null, null);
 
         // when
-        AuthorizationDecision result = manager.check(() -> auth, new Object());
+        AuthorizationDecision result = manager.authorize(() -> auth, new Object());
 
         // then
         assertFalse(result.isGranted());
     }
 
     @Test
-    void abstainsIfCantDecideForGivenObject() {
+    void deniesIfCantDecideForGivenObject() {
         // given
         manager.setCanDecideForGivenObject(false);
 
         // when
-        AuthorizationDecision result = manager.check(() -> authentication, new Object());
+        AuthorizationDecision result = manager.authorize(() -> authentication, new Object());
 
         // then
         assertFalse(result.isGranted());
@@ -52,7 +80,7 @@ class AbstractExternalAuthorizationManagerTest {
         manager.setCheckResult(new AuthorizationDecision(false));
 
         // when
-        AuthorizationDecision result = manager.check(() -> authentication, new Object());
+        AuthorizationDecision result = manager.authorize(() -> authentication, new Object());
 
         // then
         assertFalse(result.isGranted());
@@ -64,7 +92,7 @@ class AbstractExternalAuthorizationManagerTest {
         manager.setAnonymousCheckResult(new AuthorizationDecision(false));
 
         // when
-        AuthorizationDecision result = manager.check(this::getAnonymousToken, new Object());
+        AuthorizationDecision result = manager.authorize(this::getAnonymousToken, new Object());
 
         // then
         assertFalse(result.isGranted());

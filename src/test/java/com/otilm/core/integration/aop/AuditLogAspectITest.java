@@ -23,7 +23,9 @@ import com.otilm.core.dao.repository.AuditLogRepository;
 import com.otilm.core.logging.LoggingHelper;
 import com.otilm.core.messaging.jms.listeners.AuditLogsListener;
 import com.otilm.core.messaging.model.AuditLogMessage;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.service.SettingExternalService;
+import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -64,6 +67,27 @@ class AuditLogAspectITest extends BaseSpringBootTest {
         @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SIGNING_RECORD, operation = Operation.SIGN)
         public void performAndSucceed() {
             // no override — aspect must record SUCCESS
+        }
+
+        /**
+         * Denies without recording a denied resource/action pair, the way an OPA transport failure or a token type the
+         * authorization manager does not recognise does.
+         */
+        @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SIGNING_RECORD, operation = Operation.SIGN)
+        public void denyWithoutRecordingPermission() {
+            throw new AccessDeniedException("An error occurred when calling OPA.");
+        }
+
+        /**
+         * Denies after recording a pair, the way {@code ExternalAuthorizationCore} does for every resource-level
+         * decision it returns.
+         */
+        @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SIGNING_RECORD, operation = Operation.SIGN)
+        public void denyRecordingPermission() {
+            AuthHelper
+                    .setDeniedPermissionResourceAction(Resource.SIGNING_RECORD.getCode(),
+                            ResourceAction.LIST.getCode());
+            throw new AccessDeniedException("Access Denied");
         }
     }
 
@@ -207,6 +231,59 @@ class AuditLogAspectITest extends BaseSpringBootTest {
         List<AuditLog> auditLogs = auditLogRepository.findAll();
         Assertions.assertEquals(1, auditLogs.size());
         Assertions.assertEquals(OperationResult.SUCCESS, auditLogs.getFirst().getOperationResult());
+    }
+
+    /**
+     * A denial that recorded no resource/action pair has to pass through the aspect unchanged. The aspect names the
+     * denied permission in its message, and reading that pair without a null guard threw from inside the aspect's own
+     * catch block: the denial was destroyed on its way out, and the audit record was produced with no operation result.
+     */
+    @Test
+    void deniedWithoutRecordedPermission_auditsFailureAndRethrowsTheDenial() {
+        // given
+        Mockito.doAnswer(invocation -> {
+            auditLogsListener.processMessage(invocation.getArgument(0));
+            return null;
+        }).when(auditLogsProducer).produceMessage(Mockito.any());
+        turnOnLogging();
+
+        // when
+        Assertions
+                .assertThrows(AccessDeniedException.class,
+                        () -> runInRequestScope(swallowsAndOverridesBean::denyWithoutRecordingPermission));
+
+        // then
+        List<AuditLog> auditLogs = auditLogRepository.findAll();
+        Assertions.assertEquals(1, auditLogs.size());
+        Assertions.assertEquals(OperationResult.FAILURE, auditLogs.getFirst().getOperationResult());
+    }
+
+    /**
+     * The other half of the same branch: when the authorization layer did record a pair, the audit message has to name
+     * it. An operator reading the audit trail needs to see which permission was missing, not just that access was
+     * denied.
+     */
+    @Test
+    void deniedWithRecordedPermission_namesThePermissionInTheAuditMessage() {
+        // given
+        Mockito.doAnswer(invocation -> {
+            auditLogsListener.processMessage(invocation.getArgument(0));
+            return null;
+        }).when(auditLogsProducer).produceMessage(Mockito.any());
+        turnOnLogging();
+
+        // when
+        Assertions
+                .assertThrows(AccessDeniedException.class,
+                        () -> runInRequestScope(swallowsAndOverridesBean::denyRecordingPermission));
+
+        // then
+        List<AuditLog> auditLogs = auditLogRepository.findAll();
+        Assertions.assertEquals(1, auditLogs.size());
+        Assertions.assertEquals(OperationResult.FAILURE, auditLogs.getFirst().getOperationResult());
+        Assertions
+                .assertEquals("Access Denied. Required 'List' action permission for resource 'Signing Record'",
+                        auditLogs.getFirst().getMessage());
     }
 
     /**

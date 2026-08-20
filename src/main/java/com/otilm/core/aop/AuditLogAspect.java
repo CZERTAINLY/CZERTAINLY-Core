@@ -139,11 +139,7 @@ public class AuditLogAspect {
         } catch (Exception e) {
             String message = e.getMessage();
             if (e instanceof AccessDeniedException) {
-                String resourceNameAccessDenied = AuthHelper.getDeniedPermissionResource();
-                String resourceActionName = AuthHelper.getDeniedPermissionResourceAction();
-                message = "%s. Required '%s' action permission for resource '%s'"
-                        .formatted(message, BeautificationUtil.camelToHumanForm(resourceActionName),
-                                Resource.findByCode(resourceNameAccessDenied).getLabel());
+                message = appendDeniedPermission(message);
             }
 
             logBuilder.operationResult(OperationResult.FAILURE);
@@ -164,6 +160,27 @@ public class AuditLogAspect {
             logBuilder.timestamp(OffsetDateTime.now());
             auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build(), output));
         }
+    }
+
+    /**
+     * Names the denied permission in the audit message, when the authorization layer recorded one.
+     *
+     * <p>
+     * Not every {@link AccessDeniedException} carries a denied resource/action pair — only
+     * {@code ExternalAuthorizationCore} records it, so an object-level OPA failure or a rejected token type arrives
+     * with nothing recorded. {@code Resource.findByCode(null)} throws, and this runs inside the catch block that
+     * re-raises the denial: without the guard the denial is destroyed on its way out and the audit record is built with
+     * no operation result at all.
+     */
+    private static String appendDeniedPermission(String message) {
+        String resourceName = AuthHelper.getDeniedPermissionResource();
+        String resourceActionName = AuthHelper.getDeniedPermissionResourceAction();
+        if (resourceName == null || resourceActionName == null) {
+            return message;
+        }
+        return "%s. Required '%s' action permission for resource '%s'"
+                .formatted(message, BeautificationUtil.camelToHumanForm(resourceActionName),
+                        Resource.findByCode(resourceName).getLabel());
     }
 
     /**
