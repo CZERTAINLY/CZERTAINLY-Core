@@ -44,6 +44,7 @@ import com.otilm.core.dao.entity.CertificateProtocolAssociation_;
 import com.otilm.core.dao.entity.CertificateRelation_;
 import com.otilm.core.dao.entity.CertificateRequestEntity_;
 import com.otilm.core.dao.entity.Certificate_;
+import com.otilm.core.dao.entity.Comment_;
 import com.otilm.core.dao.entity.Connector2FunctionGroup_;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity_;
 import com.otilm.core.dao.entity.Connector_;
@@ -312,6 +313,15 @@ public enum FilterField {
     APPROVAL_CREATED_AT(Resource.APPROVAL, null, null, Approval_.createdAt, "Created At", SearchFieldTypeEnum.DATETIME),
     APPROVAL_EXPIRY_AT(Resource.APPROVAL, null, null, Approval_.expiryAt, "Expiry At", SearchFieldTypeEnum.DATETIME),
     APPROVAL_CLOSED_AT(Resource.APPROVAL, null, null, Approval_.closedAt, "Closed At", SearchFieldTypeEnum.DATETIME),
+
+    // Comment
+    COMMENT_HOST_RESOURCE(Resource.COMMENT, null, null, Comment_.resource, "Host Resource", SearchFieldTypeEnum.LIST,
+            Resource.class),
+    COMMENT_PARENT(Resource.COMMENT, null, null, Comment_.parentUuid, "Parent Comment", SearchFieldTypeEnum.PRESENCE),
+    COMMENT_AUTHOR(Resource.COMMENT, Resource.USER, null, Comment_.authorUsername, "Author", SearchFieldTypeEnum.LIST),
+    COMMENT_BODY(Resource.COMMENT, null, null, Comment_.body, "Body", SearchFieldTypeEnum.STRING),
+    COMMENT_CREATED_AT(Resource.COMMENT, null, null, Comment_.createdAt, "Created At", SearchFieldTypeEnum.DATETIME),
+    COMMENT_RESOLVED_AT(Resource.COMMENT, null, null, Comment_.resolvedAt, "Resolved At", SearchFieldTypeEnum.DATETIME),
 
     // OID Entry
     OID_ENTRY_OID(Resource.OID, null, null, CustomOidEntry_.oid, "OID", SearchFieldTypeEnum.STRING),

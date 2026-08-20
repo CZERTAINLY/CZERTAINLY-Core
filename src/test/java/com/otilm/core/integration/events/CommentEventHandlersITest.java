@@ -9,10 +9,16 @@ import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.other.ResourceEvent;
+import com.otilm.api.model.core.search.FilterConditionOperator;
+import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.workflows.ActionRequestDto;
+import com.otilm.api.model.core.workflows.ConditionItemRequestDto;
+import com.otilm.api.model.core.workflows.ConditionRequestDto;
+import com.otilm.api.model.core.workflows.ConditionType;
 import com.otilm.api.model.core.workflows.ExecutionItemRequestDto;
 import com.otilm.api.model.core.workflows.ExecutionRequestDto;
 import com.otilm.api.model.core.workflows.ExecutionType;
+import com.otilm.api.model.core.workflows.RuleRequestDto;
 import com.otilm.api.model.core.workflows.TriggerRequestDto;
 import com.otilm.api.model.core.workflows.TriggerType;
 import com.otilm.core.dao.entity.Comment;
@@ -28,6 +34,7 @@ import com.otilm.core.dao.repository.OwnerAssociationRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.notifications.NotificationRepository;
 import com.otilm.core.dao.repository.workflows.EventHistoryRepository;
+import com.otilm.core.enums.FilterField;
 import com.otilm.core.events.handlers.CommentCreatedEventHandler;
 import com.otilm.core.events.handlers.CommentResolvedEventHandler;
 import com.otilm.core.messaging.jms.listeners.NotificationListener;
@@ -35,6 +42,7 @@ import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.service.ActionExternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
+import com.otilm.core.service.RuleExternalService;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
@@ -85,6 +93,8 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
     private ActionExternalService actionService;
     @Autowired
     private TriggerExternalService triggerService;
+    @Autowired
+    private RuleExternalService ruleService;
 
     private WireMockServer mockServer;
 
@@ -191,6 +201,11 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
 
     private UUID bindProfileTrigger(ResourceEvent event, Resource associationResource, UUID associationObjectUuid)
             throws AlreadyExistException, NotFoundException {
+        return bindProfileTrigger(event, associationResource, associationObjectUuid, null);
+    }
+
+    private UUID bindProfileTrigger(ResourceEvent event, Resource associationResource, UUID associationObjectUuid,
+            String ruleUuid) throws AlreadyExistException, NotFoundException {
         NotificationProfileRequestDto profileRequest = new NotificationProfileRequestDto();
         profileRequest.setName("tst-profile-" + UUID.randomUUID().toString().substring(0, 8));
         profileRequest.setRecipientType(RecipientType.USER);
@@ -221,12 +236,36 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
         triggerRequest.setType(TriggerType.EVENT);
         triggerRequest.setEvent(event);
         triggerRequest.setActionsUuids(List.of(actionUuid));
+        if (ruleUuid != null) {
+            triggerRequest.setRulesUuids(List.of(ruleUuid));
+        }
         UUID triggerUuid = UUID.fromString(triggerService.createTrigger(triggerRequest).getUuid());
 
         triggerService
                 .createTriggerAssociations(event, associationResource, associationObjectUuid, List.of(triggerUuid),
                         false);
         return profileUuid;
+    }
+
+    /** Roots carry no parent, so a "Parent Comment is empty" condition scopes the trigger to thread roots. */
+    private String rootsOnlyRule() throws AlreadyExistException, NotFoundException {
+        ConditionItemRequestDto conditionItemRequest = new ConditionItemRequestDto();
+        conditionItemRequest.setFieldSource(FilterFieldSource.PROPERTY);
+        conditionItemRequest.setFieldIdentifier(FilterField.COMMENT_PARENT.name());
+        conditionItemRequest.setOperator(FilterConditionOperator.EMPTY);
+
+        ConditionRequestDto conditionRequest = new ConditionRequestDto();
+        conditionRequest.setName("tst-condition-" + UUID.randomUUID().toString().substring(0, 8));
+        conditionRequest.setResource(Resource.COMMENT);
+        conditionRequest.setType(ConditionType.CHECK_FIELD);
+        conditionRequest.setItems(List.of(conditionItemRequest));
+        String conditionUuid = ruleService.createCondition(conditionRequest).getUuid();
+
+        RuleRequestDto ruleRequest = new RuleRequestDto();
+        ruleRequest.setName("tst-rule-" + UUID.randomUUID().toString().substring(0, 8));
+        ruleRequest.setResource(Resource.COMMENT);
+        ruleRequest.setConditionsUuids(List.of(conditionUuid));
+        return ruleService.createRule(ruleRequest).getUuid();
     }
 
     private List<NotificationMessage> profileDrivenMessages() {
@@ -356,6 +395,23 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
         commentCreatedEventHandler.handleEvent(eventMessage(ResourceEvent.COMMENT_CREATED, ownerlessRoot, null));
 
         assertThat(followUpMessages()).isEmpty();
+    }
+
+    @Test
+    void conditionScopedTriggerFiresForRootsAndSkipsReplies() throws Exception {
+        UUID profileUuid = bindProfileTrigger(ResourceEvent.COMMENT_CREATED, null, null, rootsOnlyRule());
+
+        Comment root = saveComment(hostUuid, null, actorUuid, "a root comment");
+        commentCreatedEventHandler.handleEvent(eventMessage(ResourceEvent.COMMENT_CREATED, root, null));
+
+        assertThat(profileDrivenMessages())
+                .anySatisfy(message -> assertThat(message.getNotificationProfileUuids()).contains(profileUuid));
+
+        recordedMessages.clear();
+        Comment reply = saveComment(hostUuid, root.getUuid(), UUID.randomUUID(), "a reply");
+        commentCreatedEventHandler.handleEvent(eventMessage(ResourceEvent.COMMENT_CREATED, reply, null));
+
+        assertThat(profileDrivenMessages()).isEmpty();
     }
 
     @Test
