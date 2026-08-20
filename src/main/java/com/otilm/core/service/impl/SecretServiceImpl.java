@@ -62,6 +62,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.concurrent.DelegatingSecurityContextExecutorService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -370,7 +372,14 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
         actionMessage.setResource(Resource.SECRET);
         actionMessage.setResourceAction(resourceAction);
         actionMessage.setResourceUuid(secret.getUuid());
-        actionProducer.produceMessage(actionMessage);
+        // actionsListener consumes this on another thread in its own transaction; publishing before the creating
+        // transaction commits leaves that transaction unable to load the secret, so defer the send until after commit.
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                actionProducer.produceMessage(actionMessage);
+            }
+        });
     }
 
     @ExternalAuthorization(resource = Resource.SECRET, action = ResourceAction.UPDATE)
