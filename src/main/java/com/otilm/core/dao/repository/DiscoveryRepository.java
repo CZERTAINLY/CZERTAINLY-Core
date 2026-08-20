@@ -46,6 +46,13 @@ public interface DiscoveryRepository extends SecurityFilterRepository<Discovery,
      * Uuids of v2 runs (interface association present) still in one of {@code statuses} whose agenda is empty and that
      * were created before {@code threshold} — the tick engine can never drive them again. No row locking: the caller
      * re-asserts the condition under a per-run pessimistic lock before acting.
+     *
+     * <p>
+     * The grace window is keyed to run <em>creation</em>, so it only covers the initiate gap: a run past it is reapable
+     * the instant its agenda reads empty. Agenda writers must therefore never let a live run's agenda pass through an
+     * observably empty state — replacing the last row happens in one transaction, never as a delete that commits before
+     * the successor's insert.
+     * </p>
      */
     @Query("SELECT d.uuid FROM Discovery d WHERE d.connectorInterfaceUuid IS NOT NULL AND d.status IN :statuses "
             + "AND d.created < :threshold "
@@ -54,11 +61,12 @@ public interface DiscoveryRepository extends SecurityFilterRepository<Discovery,
             @Param("threshold") OffsetDateTime threshold, Pageable pageable);
 
     /**
-     * Uuids of v2 runs still in one of {@code statuses} that were stopped before {@code threshold} — stopped runs whose
-     * resume window has expired. No row locking: see {@link #findWorkLostRunUuids}.
+     * Uuids of v2 runs still {@code STOPPED} that were stopped before {@code threshold} — runs whose resume window has
+     * expired. Constrained to {@code STOPPED} in the query so a resumed run can never match on a leftover
+     * {@code stoppedAt} alone. No row locking: see {@link #findWorkLostRunUuids}.
      */
-    @Query("SELECT d.uuid FROM Discovery d WHERE d.connectorInterfaceUuid IS NOT NULL AND d.status IN :statuses "
-            + "AND d.stoppedAt IS NOT NULL AND d.stoppedAt < :threshold")
-    List<UUID> findExpiredStoppedRunUuids(@Param("statuses") Collection<DiscoveryStatus> statuses,
-            @Param("threshold") OffsetDateTime threshold, Pageable pageable);
+    @Query("SELECT d.uuid FROM Discovery d WHERE d.connectorInterfaceUuid IS NOT NULL "
+            + "AND d.status = com.otilm.api.model.core.discovery.DiscoveryStatus.STOPPED "
+            + "AND d.stoppedAt < :threshold")
+    List<UUID> findExpiredStoppedRunUuids(@Param("threshold") OffsetDateTime threshold, Pageable pageable);
 }

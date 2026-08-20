@@ -26,8 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>
  * One claim runs entirely against the database — no external call — so the advisory lock and the transaction are held
  * only for the duration of the read and the reschedules. The reschedule commits with the same transaction that holds
- * the lock, so a row is either claimed-and-rescheduled or neither; the caller then sends the returned tick messages
- * <em>outside</em> this transaction and lock.
+ * the lock, so a row is either claimed-and-rescheduled or neither.
  * </p>
  */
 @Component

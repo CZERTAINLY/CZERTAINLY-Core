@@ -13,6 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code @Transactional} (per the repository rule); every {@code @Modifying} write goes through this bean. Methods are
  * {@code REQUIRED} so an agenda change commits or rolls back with the run state it supervises — except
  * {@link #resetAttempt}, whose callers run outside any usable transaction.
+ *
+ * <p>
+ * A live run's agenda must never be observably empty: the reaper treats a non-terminal run with no agenda rows past its
+ * creation grace as lost work. A caller replacing a run's last row therefore deletes and schedules in the same
+ * transaction.
+ * </p>
  */
 @Component
 public class DiscoveryWorkWriter {

@@ -84,20 +84,23 @@ discovery:
         - PT15S
         - PT1M
         - PT5M
-      # Counts consecutive unanswered ticks; a clear answer from the connector refreshes the
-      # budget, so a long-running scan the connector keeps reporting on never times out.
+      # Attempt budget for consecutive unanswered ticks. Enforcement belongs to the tick
+      # workers, which reset the counter on every clear connector answer — so a scan the
+      # connector keeps reporting on never times out.
       max-attempts: 720
     by-type:
+      # Ladders start at PT1S, not PT0S: a zero first rung would leave a just-claimed row still
+      # due, so one sweep could claim and publish it twice. Immediate continuations are
+      # direct-published by the workers and never wait on these ladders.
       DRAIN:
         delays:
-          - PT0S
           - PT1S
           - PT5S
           - PT30S
         max-attempts: 100
       PROCESS:
         delays:
-          - PT0S
+          - PT1S
           - PT5S
           - PT30S
         max-attempts: 100

@@ -50,12 +50,12 @@ discovery:
     by-type:
       DRAIN:
         delays:
-          - PT0S
           - PT1S
+          - PT5S
         max-attempts: 100
       PROCESS:
         delays:
-          - PT0S
+          - PT1S
           - PT5S
         max-attempts: 100
 

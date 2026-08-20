@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  * </p>
  *
  * <p>
- * The sweep owns only scheduling recovery; ticks a worker publishes directly on continuation make its ~10s cadence a
+ * The sweep owns only scheduling recovery; ticks a worker publishes directly on continuation make the sweep cadence a
  * recovery latency, never the throughput ceiling. As a final phase the sweep also reaps runs the tick engine can no
  * longer drive (see {@link DiscoveryRunReaper}).
  * </p>
@@ -50,8 +50,7 @@ public class DiscoveryWorkSweeper {
 
     /**
      * The batch cap bounds how long a single run takes; a large backlog is enqueued across several runs. Claiming (lock
-     * + read + reschedule) happens in {@link DiscoveryWorkClaimer}; the sends here run after each claim's transaction
-     * has committed, so neither the lock nor a transaction is held across them.
+     * + read + reschedule) happens in {@link DiscoveryWorkClaimer}.
      */
     public void sweep() {
         int enqueued = 0;
@@ -65,8 +64,7 @@ public class DiscoveryWorkSweeper {
                     workProducer.produceMessage(message);
                     enqueued++;
                 } catch (RuntimeException e) {
-                    // One bad send (broker hiccup) must not abort the rest of the batch. The row is
-                    // already rescheduled, so it is re-enqueued when next due — self-correcting.
+                    // One bad send (broker hiccup) must not abort the rest of the batch.
                     logger
                             .warn("Failed to enqueue discovery work tick for run {} (type {}); will retry when next due",
                                     message.discoveryUuid(), message.workType(), e);
@@ -79,8 +77,6 @@ public class DiscoveryWorkSweeper {
             logger.info("Discovery work sweep enqueued {} tick(s)", enqueued);
         }
 
-        // Final phase: terminate runs the tick engine can no longer drive — non-terminal v2 runs with
-        // no agenda rows, and stopped runs whose resume window has expired.
         runReaper.reap();
     }
 }

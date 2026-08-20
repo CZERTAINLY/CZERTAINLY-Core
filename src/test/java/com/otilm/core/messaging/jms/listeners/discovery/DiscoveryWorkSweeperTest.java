@@ -63,7 +63,6 @@ class DiscoveryWorkSweeperTest {
         sweeper.sweep();
 
         verify(workProducer).produceMessage(msg);
-        // Claiming is the only transactional/lock-holding step; sends happen after it.
         verify(workClaimer).claimDueBatch(anyInt());
     }
 
