@@ -33,6 +33,13 @@ connector:
     connect-timeout: 3s
     max-connections: 20
     pending-acquire-timeout: 10s
+    max-in-memory-size: 16MB
+
+discovery:
+  mq-timeouts:
+    status: 30s
+    drain: 30s
+    control: 30s
 
 # Points at the port com.otilm.core.util.WireMockPorts.AUTH_SERVICE names.
 auth-service:

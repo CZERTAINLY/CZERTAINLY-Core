@@ -15,6 +15,7 @@ import com.otilm.api.clients.mq.LocationApiClient;
 import com.otilm.api.clients.mq.NotificationInstanceApiClient;
 import com.otilm.api.clients.mq.ProxyClient;
 import com.otilm.api.clients.mq.TokenInstanceApiClient;
+import com.otilm.api.clients.mq.discovery.v2.DiscoveryMqTimeouts;
 import com.otilm.api.clients.mq.signing.SignatureFormattingApiClient;
 import com.otilm.api.clients.mq.signing.contentsigning.ContentSigningFormattingApiClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -27,7 +28,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @ConditionalOnProperty(name = "proxy.enabled", havingValue = "true")
-@EnableConfigurationProperties(ProxyProperties.class)
+@EnableConfigurationProperties({ProxyProperties.class, DiscoveryMqTimeoutsProperties.class})
 public class ProxyClientConfig {
 
     /**
@@ -204,6 +205,17 @@ public class ProxyClientConfig {
     @Bean
     public com.otilm.api.clients.mq.v3.AuthorityApiClient mqAuthorityApiClientV3(ProxyClient proxyClient) {
         return new com.otilm.api.clients.mq.v3.AuthorityApiClient(proxyClient);
+    }
+
+    /**
+     * Unlike its sibling beans this one carries per-operation timeout budgets, because a drain response can
+     * legitimately take far longer than a status probe.
+     */
+    @Bean
+    public com.otilm.api.clients.mq.discovery.v2.DiscoveryApiClient mqDiscoveryApiClientV2(ProxyClient proxyClient,
+            DiscoveryMqTimeoutsProperties timeouts) {
+        return new com.otilm.api.clients.mq.discovery.v2.DiscoveryApiClient(proxyClient,
+                new DiscoveryMqTimeouts(timeouts.status(), timeouts.drain(), timeouts.control()));
     }
 
     /**

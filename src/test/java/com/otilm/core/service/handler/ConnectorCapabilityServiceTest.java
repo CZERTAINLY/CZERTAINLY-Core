@@ -50,4 +50,31 @@ class ConnectorCapabilityServiceTest {
         assertFalse(
                 service.supports(authorityWith(authorityInterface("v3", null)), FeatureFlag.CERTIFICATE_REGISTRATION));
     }
+
+    private ConnectorInterfaceEntity discoveryInterface(List<FeatureFlag> features) {
+        ConnectorInterfaceEntity iface = new ConnectorInterfaceEntity();
+        iface.setInterfaceCode(ConnectorInterface.DISCOVERY);
+        iface.setVersion("v2");
+        iface.setFeatures(features);
+        return iface;
+    }
+
+    @Test
+    void interfaceRowKeyedEnforcedFlagSupportedOnlyWhenAdvertised() {
+        assertTrue(service
+                .supports(discoveryInterface(List.of(FeatureFlag.DISCOVERY_STOP_RESUME)),
+                        FeatureFlag.DISCOVERY_STOP_RESUME));
+        assertFalse(service.supports(discoveryInterface(List.of()), FeatureFlag.DISCOVERY_STOP_RESUME));
+    }
+
+    @Test
+    void interfaceRowKeyedInformationalFlagAlwaysPassesThrough() {
+        assertTrue(service.supports(discoveryInterface(List.of()), FeatureFlag.STATELESS));
+    }
+
+    @Test
+    void interfaceRowKeyedEnforcedFlagUnsupportedWhenRowOrFeaturesMissing() {
+        assertFalse(service.supports((ConnectorInterfaceEntity) null, FeatureFlag.DISCOVERY_STOP_RESUME));
+        assertFalse(service.supports(discoveryInterface(null), FeatureFlag.DISCOVERY_STOP_RESUME));
+    }
 }

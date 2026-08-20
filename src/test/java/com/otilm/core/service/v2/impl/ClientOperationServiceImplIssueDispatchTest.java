@@ -158,7 +158,8 @@ class ClientOperationServiceImplIssueDispatchTest {
         // Poll scheduling reloads the cert with the polling graph and re-checks pollability against the adapter.
         when(certificateRepository.findForPollingByUuid(certUuid)).thenReturn(Optional.of(certificate));
         when(capabilityService
-                .supports(ArgumentMatchers.any(), ArgumentMatchers.eq(FeatureFlag.CERTIFICATE_STATUS_POLLING)))
+                .supports(ArgumentMatchers.any(AuthorityInstanceReference.class),
+                        ArgumentMatchers.eq(FeatureFlag.CERTIFICATE_STATUS_POLLING)))
                 .thenReturn(true);
 
         // when
