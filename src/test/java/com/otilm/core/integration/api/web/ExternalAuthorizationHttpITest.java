@@ -58,11 +58,6 @@ class ExternalAuthorizationHttpITest extends BaseSpringBootTest {
                         jsonPath("$.message").value("Access Denied. Required 'List' permission for 'Signing Record'"));
     }
 
-    /**
-     * The denied pair reported to the caller must be the check that actually failed. When the parent is denied the
-     * message has to name the parent resource, otherwise an operator is sent to fix a permission that was never the
-     * problem.
-     */
     @Test
     void namesTheParentResourceWhenTheParentCheckIsDenied() throws Exception {
         denyResourceAccess(Resource.SIGNING_PROFILE, ResourceAction.LIST);
@@ -73,16 +68,6 @@ class ExternalAuthorizationHttpITest extends BaseSpringBootTest {
                         jsonPath("$.message").value("Access Denied. Required 'List' permission for 'Signing Profile'"));
     }
 
-    /**
-     * The other branch of the denied-pair reader: an object-level OPA failure propagates the
-     * {@code AccessDeniedException} that {@code OpaClient} raises straight out of
-     * {@code AuthHelper.loadObjectPermissions}, and nothing on that path records a resource/action pair. The caller
-     * still gets a 403 rather than a 500, with the generic message instead of a named permission.
-     *
-     * <p>
-     * A resource-level denial cannot exercise this branch — {@code ExternalAuthorizationCore.decideBasedOnOpaResult}
-     * records the pair before returning one, including when the OPA call itself failed.
-     */
     @Test
     void returnsForbiddenWhenTheDenialRecordedNoPermissionPair() throws Exception {
         when(opaClient.checkObjectAccess(any(), any(), any(), any()))
@@ -94,10 +79,6 @@ class ExternalAuthorizationHttpITest extends BaseSpringBootTest {
                         jsonPath("$.message").value(startsWith("Access denied for the specified operation")));
     }
 
-    /**
-     * A method taking a {@code SecurityFilter} authorizes the action broadly and narrows the result set afterwards, so
-     * no object UUIDs are submitted. Sending UUIDs here would change the policy input for every list endpoint.
-     */
     @Test
     void sendsNoObjectUuidsForASecurityFilterEndpoint() throws Exception {
         mockMvc.perform(get(STATISTICS_ENDPOINT)).andExpect(status().isOk());
