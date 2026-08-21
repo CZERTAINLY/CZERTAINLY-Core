@@ -26,17 +26,12 @@ import static org.mockito.Mockito.verify;
 
 /**
  * Regression suite for the static {@link com.otilm.core.security.authz.ExternalAuthorization} annotation exercised
- * through the real Spring AOP stack, entered via the advisor wired in {@code MethodSecurityConfig}.
- *
- * <p>
- * The sibling {@code ExternalAuthorizationDynamicITest} covers {@code @ExternalAuthorizationDynamic}, whose resource is
- * resolved from an argument. This class covers the annotation used by every other guarded service method, pinning the
- * request actually sent to OPA: resource, action, object UUIDs and parent-before-child ordering.
+ * through the real Spring AOP stack, pinning the resource, action, object UUIDs and parent-before-child ordering of
+ * what reaches OPA.
  *
  * <p>
  * Both target resources are declared without owner or group associations, so a denied OPA decision is not rescued by
- * the group/owner fallback in {@code ExternalAuthorizationCore.checkGroupOwnerAssociations} and reaches the caller as a
- * denial. Choosing resources with associations would test the fallback instead of the advisor.
+ * the fallback in {@code ExternalAuthorizationCore.checkGroupOwnerAssociations}.
  */
 class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
 
@@ -78,7 +73,6 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
         verify(opaClient, never()).checkResourceAccess(any(), any(), any(), any());
     }
 
-    /** Missing identity, as distinct from the wrong identity above: no authentication at all. */
     @Test
     void deniesWhenThereIsNoAuthentication() {
         SecurityContextHolder.clearContext();

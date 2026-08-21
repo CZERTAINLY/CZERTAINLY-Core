@@ -9,10 +9,7 @@ package com.otilm.core.security.authz;
  */
 public record ExternalAuthorizationConfigAttribute(String attributeName, Object attributeValue) {
 
-    /**
-     * Renders the attribute for the trace logs in {@code OpaSecuredAnnotationMetadataExtractor}, which reference it as
-     * a method reference rather than calling it directly.
-     */
+    /** Renders the attribute for trace logging. */
     public String describe() {
         return "%s=%s".formatted(this.attributeName, this.attributeValue);
     }

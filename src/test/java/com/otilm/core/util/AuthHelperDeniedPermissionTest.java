@@ -61,8 +61,8 @@ class AuthHelperDeniedPermissionTest {
     }
 
     /**
-     * The regression this pins: with the pair held at session scope, a second request on the same session reads the
-     * first request's denial, so a 403 can name a permission that was never checked.
+     * At session scope, a second request on the same session reads the first request's denial, so a 403 can name a
+     * permission that was never checked.
      */
     @Test
     void deniedPairDoesNotLeakIntoALaterRequestOnTheSameSession() {

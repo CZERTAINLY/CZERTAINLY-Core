@@ -20,20 +20,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Regression suite for {@code @ExternalAuthorization} over HTTP: the real security filter chain, the method-security
- * advisor on the service bean behind the controller, and the translation of a denial into a response by
- * {@code ExceptionHandlingAdvice.handleAccessDeniedException}.
+ * advisor behind the controller, and {@code ExceptionHandlingAdvice.handleAccessDeniedException}.
  *
  * <p>
- * The denial cases double as the guard on request-scoped denied-permission recording: the test schema has no Spring
- * Session tables, so if the denied resource/action ever goes back to session scope, recording it creates a session and
- * these tests fail on the {@code core.spring_session} insert. Add the DDL to make that failure go away and the guard is
- * gone with it.
- *
- * <p>
- * {@code /v1/statistics/signingRecords} is the target because {@code SigningRecordServiceImpl} guards it with both a
- * resource and a parent resource, and takes a {@code SecurityFilter} rather than a {@code SecuredUUID} — so one
- * endpoint exercises parent-before-child ordering and the no-object-UUID request shape that
- * {@code ExternalMethodAuthorizationManager} derives from the method arguments.
+ * The denial cases also guard request-scoped denied-permission recording, since the test schema has no Spring Session
+ * tables; {@code /v1/statistics/signingRecords} is the target because it is guarded by both a resource and a parent
+ * resource and takes a {@code SecurityFilter} rather than a {@code SecuredUUID}.
  */
 @AutoConfigureMockMvc
 class ExternalAuthorizationHttpITest extends BaseSpringBootTest {

@@ -163,14 +163,8 @@ public class AuditLogAspect {
     }
 
     /**
-     * Names the denied permission in the audit message, when the authorization layer recorded one.
-     *
-     * <p>
-     * Not every {@link AccessDeniedException} carries a denied resource/action pair — only
-     * {@code ExternalAuthorizationCore} records it, so an object-level OPA failure or a rejected token type arrives
-     * with nothing recorded. {@code Resource.findByCode(null)} throws, and this runs inside the catch block that
-     * re-raises the denial: without the guard the denial is destroyed on its way out and the audit record is built with
-     * no operation result at all.
+     * Appends the recorded denied permission to the audit message, or returns the original message when no permission
+     * was recorded.
      */
     private static String appendDeniedPermission(String message) {
         String resourceName = AuthHelper.getDeniedPermissionResource();

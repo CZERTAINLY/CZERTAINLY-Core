@@ -25,15 +25,6 @@ class AbstractExternalAuthorizationManagerTest {
 
     Authentication authentication = createPlatformAuthentication();
 
-    /**
-     * {@code check} is deprecated but still abstract on Spring Security 6.5, and the interface's own {@code verify}
-     * default routes through it, so its delegation has to keep returning the same decision as {@code authorize} until
-     * the method is removed.
-     *
-     * <p>
-     * Both outcomes are exercised because denial is what every other exit of {@code authorize} returns as well: pinned
-     * to deny alone, a {@code check} that stopped delegating and returned a constant denial would still pass.
-     */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     @SuppressWarnings("removal")
