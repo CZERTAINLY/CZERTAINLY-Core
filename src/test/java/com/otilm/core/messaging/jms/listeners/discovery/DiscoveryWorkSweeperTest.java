@@ -86,6 +86,19 @@ class DiscoveryWorkSweeperTest {
     }
 
     @Test
+    void persistentBacklog_stopsExactlyAtMaxBatchesPerRun() {
+        DiscoveryWorkSweeper cappedSweeper = new DiscoveryWorkSweeper(workClaimer, workProducer, runReaper, 1, 3);
+        DiscoveryWorkMessage msg = new DiscoveryWorkMessage(UUID.randomUUID(), DiscoveryWorkType.STATUS, 0);
+        // Every claim returns a full batch: without the cap this sweep would never yield the scheduler.
+        when(workClaimer.claimDueBatch(eq(1), any(OffsetDateTime.class))).thenReturn(List.of(msg));
+
+        cappedSweeper.sweep();
+
+        verify(workClaimer, times(3)).claimDueBatch(eq(1), any(OffsetDateTime.class));
+        verify(runReaper).reap();
+    }
+
+    @Test
     void everyBatchOfOneSweep_usesTheSameDueCutoff() {
         DiscoveryWorkSweeper singleRowBatches = new DiscoveryWorkSweeper(workClaimer, workProducer, runReaper, 1, 10);
         DiscoveryWorkMessage msg = new DiscoveryWorkMessage(UUID.randomUUID(), DiscoveryWorkType.DRAIN, 0);

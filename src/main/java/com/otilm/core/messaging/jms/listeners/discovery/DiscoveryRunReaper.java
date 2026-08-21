@@ -45,7 +45,6 @@ public class DiscoveryRunReaper {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryRunReaper.class);
 
-    // Statuses the tick engine actively drives; STOPPED is exempt (see class doc).
     private static final List<DiscoveryStatus> WORK_DRIVEN_STATUSES = List
             .of(DiscoveryStatus.IN_PROGRESS, DiscoveryStatus.PROCESSING);
 

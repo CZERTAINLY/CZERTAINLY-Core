@@ -33,10 +33,15 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit coverage for {@link DiscoveryRunReaper#reap()}'s per-run behaviors that a real-DB test cannot exercise
- * deterministically: the under-lock re-assertions (skip a run that gained agenda rows or escaped its stop), the guarded
- * best-effort cancel, and the per-run try/catch (one run's failure must not abort the rest of the batch). Collaborators
- * are mocked; the selection predicates and terminal outcomes are covered against real Postgres in
+ * Unit coverage for {@link DiscoveryRunReaper#reap()}'s per-run behaviors, with collaborators mocked.
+ *
+ * <p>
+ * <b>Unit scope:</b> what a real-DB test cannot exercise deterministically — the under-lock re-assertions (skip a run
+ * that gained agenda rows or escaped its stop), the post-commit connector cancel, and the per-run failure isolation
+ * (one run's exception must not abort the rest of the batch).
+ *
+ * <p>
+ * <b>Integration scope:</b> the selection predicates and terminal outcomes run against real Postgres in
  * {@link com.otilm.core.integration.discovery.DiscoveryWorkSweepITest}.
  */
 @ExtendWith(MockitoExtension.class)

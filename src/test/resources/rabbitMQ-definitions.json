@@ -98,6 +98,15 @@
       "arguments": {
         "x-queue-type": "classic"
       }
+    },
+    {
+      "name": "provider.discovery-work",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
     }
   ],
   "exchanges": [
@@ -207,6 +216,14 @@
       "destination": "provider.status-poll",
       "destination_type": "queue",
       "routing_key": "provider.status-poll",
+      "arguments": {}
+    },
+    {
+      "source": "ilm",
+      "vhost": "/",
+      "destination": "provider.discovery-work",
+      "destination_type": "queue",
+      "routing_key": "provider.discovery-work",
       "arguments": {}
     }
   ]

@@ -49,12 +49,19 @@ public class DiscoveryWorkClaimer {
     }
 
     /**
-     * Claims up to {@code batchSize} rows due at {@code dueCutoff}: advances each row's
-     * {@code attempt}/{@code next_due_at} by the backoff curve and returns the tick message to send for each. Returns
-     * empty when another node already holds the sweep lock. The returned messages must be sent by the caller after this
-     * method returns (outside the lock/transaction). The caller passes one cutoff for its whole sweep, so a row this
-     * sweep already claimed — rescheduled at least the first rung past its claim — can never be claimed twice by the
-     * same sweep, however long the publishing between batches takes.
+     * Claims up to {@code batchSize} rows due at {@code dueCutoff} and returns the tick message to send for each.
+     *
+     * <p>
+     * <b>Locking:</b> returns empty when another node already holds the sweep lock. Each claimed row's
+     * {@code attempt}/{@code next_due_at} advances up the backoff curve within the lock-holding transaction.
+     *
+     * <p>
+     * <b>Publishing:</b> the caller sends the returned messages after this method returns, outside the lock and
+     * transaction.
+     *
+     * <p>
+     * <b>Duplicate prevention:</b> the caller passes one cutoff for its whole sweep. A claimed row is rescheduled at
+     * least the first backoff rung past its claim, so no batch of the same sweep can claim it again.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<DiscoveryWorkMessage> claimDueBatch(int batchSize, OffsetDateTime dueCutoff) {
