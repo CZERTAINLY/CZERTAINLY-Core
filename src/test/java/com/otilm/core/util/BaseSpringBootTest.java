@@ -34,6 +34,7 @@ import org.springframework.test.context.TestExecutionListeners.MergeMode;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
@@ -108,8 +109,7 @@ public class BaseSpringBootTest {
      */
     protected List<OpaRequestedResource> captureOpaRequests() {
         ArgumentCaptor<OpaRequestedResource> captor = ArgumentCaptor.forClass(OpaRequestedResource.class);
-        Mockito
-                .verify(opaClient, Mockito.atLeastOnce())
+        verify(opaClient, Mockito.atLeastOnce())
                 .checkResourceAccess(Mockito.any(), captor.capture(), Mockito.any(), Mockito.any());
         return captor.getAllValues();
     }

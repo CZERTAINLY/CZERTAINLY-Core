@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -77,6 +78,16 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
         verify(opaClient, never()).checkResourceAccess(any(), any(), any(), any());
     }
 
+    /** Missing identity, as distinct from the wrong identity above: no authentication at all. */
+    @Test
+    void deniesWhenThereIsNoAuthentication() {
+        SecurityContextHolder.clearContext();
+
+        assertThatThrownBy(() -> signingRecordService.getSearchableFieldInformation())
+                .isInstanceOf(AuthenticationCredentialsNotFoundException.class);
+        verify(opaClient, never()).checkResourceAccess(any(), any(), any(), any());
+    }
+
     @Test
     void sendsAnnotatedResourceAndActionToOpa() {
         signingRecordService.getSearchableFieldInformation();
@@ -91,8 +102,10 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
 
     @Test
     void checksParentBeforeChild() {
-        assertThatThrownBy(() -> locationService
-                .getLocation(SecuredParentUUID.fromUUID(UUID.randomUUID()), SecuredUUID.fromUUID(UUID.randomUUID())))
+        SecuredParentUUID entity = SecuredParentUUID.fromUUID(UUID.randomUUID());
+        SecuredUUID location = SecuredUUID.fromUUID(UUID.randomUUID());
+
+        assertThatThrownBy(() -> locationService.getLocation(entity, location))
                 .as("authorization passes, so the method body runs and fails to find the location")
                 .isInstanceOf(NotFoundException.class);
 
@@ -110,10 +123,10 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
     void sendsEachCheckItsOwnObjectUuid() {
         UUID entityUuid = UUID.randomUUID();
         UUID locationUuid = UUID.randomUUID();
+        SecuredParentUUID entity = SecuredParentUUID.fromUUID(entityUuid);
+        SecuredUUID location = SecuredUUID.fromUUID(locationUuid);
 
-        assertThatThrownBy(() -> locationService
-                .getLocation(SecuredParentUUID.fromUUID(entityUuid), SecuredUUID.fromUUID(locationUuid)))
-                .isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> locationService.getLocation(entity, location)).isInstanceOf(NotFoundException.class);
 
         List<OpaRequestedResource> requests = captureOpaRequests();
         assertThat(requests).hasSize(2);
@@ -123,9 +136,10 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
 
     @Test
     void omitsInternalRoutingHintsFromTheOpaRequest() {
-        assertThatThrownBy(() -> locationService
-                .getLocation(SecuredParentUUID.fromUUID(UUID.randomUUID()), SecuredUUID.fromUUID(UUID.randomUUID())))
-                .isInstanceOf(NotFoundException.class);
+        SecuredParentUUID entity = SecuredParentUUID.fromUUID(UUID.randomUUID());
+        SecuredUUID location = SecuredUUID.fromUUID(UUID.randomUUID());
+
+        assertThatThrownBy(() -> locationService.getLocation(entity, location)).isInstanceOf(NotFoundException.class);
 
         assertThat(captureOpaRequests())
                 .isNotEmpty()
@@ -136,9 +150,10 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
     @Test
     void skipsChildCheckWhenParentIsDenied() {
         denyResourceAccess(Resource.ENTITY, ResourceAction.DETAIL);
+        SecuredParentUUID entity = SecuredParentUUID.fromUUID(UUID.randomUUID());
+        SecuredUUID location = SecuredUUID.fromUUID(UUID.randomUUID());
 
-        assertThatThrownBy(() -> locationService
-                .getLocation(SecuredParentUUID.fromUUID(UUID.randomUUID()), SecuredUUID.fromUUID(UUID.randomUUID())))
+        assertThatThrownBy(() -> locationService.getLocation(entity, location))
                 .isInstanceOf(AuthorizationDeniedException.class);
 
         assertThat(captureOpaRequests())
