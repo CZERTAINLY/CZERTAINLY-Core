@@ -85,6 +85,8 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
     private static final String EMAIL_NOTIFICATION_PROVIDER_KIND = "EMAIL";
     private static final Set<Resource> OBJECT_RECIPIENT_SUBJECT_RESOURCES = Set.of(Resource.CERTIFICATE);
+    private static final Set<ResourceEvent> SUBJECT_LINKED_EVENTS = EnumSet
+            .of(ResourceEvent.COMMENT_CREATED, ResourceEvent.COMMENT_RESOLVED);
 
     private ObjectMapper mapper;
     private AttributeEngine attributeEngine;
@@ -203,10 +205,10 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         // sent in corresponding event handlers
         if (sendInternalNotifications) {
             try {
-                // The persisted notification targets the resolved subject, not the event record: for comment
-                // events the deep link has to point at the host object, matching handler-driven follow-ups.
+                NotificationSubjectResolver.SubjectRef target = internalNotificationTarget(message.getEvent(),
+                        message.getResource(), message.getObjectUuid(), subject);
                 InternalNotificationOutcome outcome = sendInternalNotifications(recipients,
-                        getInternalNotificationData(message), subject.resource(), subject.objectUuid());
+                        getInternalNotificationData(message), target.resource(), target.objectUuid());
                 notificationSent = notificationSent || outcome.notified() > 0;
                 reportInternalNotificationGap(outcome, "Notification profile %s in event %s"
                         .formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()),
@@ -490,6 +492,19 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             return List.of();
         }
         return recipientUuids.stream().map(uuid -> new NotificationRecipient(recipientType, uuid)).toList();
+    }
+
+    /**
+     * Which object the persisted notification points the reader at. Almost every event names the record the reader acts
+     * on -- an approval notification must open the approval, not the object awaiting it -- so the message's own
+     * coordinates win. A comment has no page of its own, so its notification points at the host object instead,
+     * matching what the comment handlers publish for their follow-ups.
+     */
+    static NotificationSubjectResolver.SubjectRef internalNotificationTarget(ResourceEvent event,
+            Resource messageResource, UUID messageObjectUuid, NotificationSubjectResolver.SubjectRef subject) {
+        return SUBJECT_LINKED_EVENTS.contains(event)
+                ? subject
+                : new NotificationSubjectResolver.SubjectRef(messageResource, messageObjectUuid);
     }
 
     List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource,

@@ -26,6 +26,7 @@ import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.notifications.NotificationObjectDataService;
+import com.otilm.core.service.notifications.NotificationSubjectResolver.SubjectRef;
 import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.service.writer.PendingNotificationWriter;
 import java.time.OffsetDateTime;
@@ -177,6 +178,29 @@ class NotificationListenerTest {
         assertEquals(ownerUuid, recipients.get(0).getRecipientUuid());
         assertEquals(RecipientType.GROUP, recipients.get(1).getRecipientType());
         assertEquals(groupUuid, recipients.get(1).getRecipientUuid());
+    }
+
+    @Test
+    void commentNotificationsPointAtTheHostWhileEveryOtherEventKeepsItsOwnRecord() {
+        UUID approvalUuid = UUID.randomUUID();
+        UUID hostUuid = UUID.randomUUID();
+        SubjectRef approvalTarget = new SubjectRef(Resource.CERTIFICATE, UUID.randomUUID());
+        SubjectRef commentHost = new SubjectRef(Resource.RA_PROFILE, hostUuid);
+
+        // An approval notification has to open the approval, not the object awaiting it
+        assertEquals(new SubjectRef(Resource.APPROVAL, approvalUuid),
+                NotificationListener
+                        .internalNotificationTarget(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid,
+                                approvalTarget));
+        // A comment has no page of its own, so its notification opens the host thread
+        assertEquals(commentHost,
+                NotificationListener
+                        .internalNotificationTarget(ResourceEvent.COMMENT_CREATED, Resource.COMMENT, UUID.randomUUID(),
+                                commentHost));
+        assertEquals(commentHost,
+                NotificationListener
+                        .internalNotificationTarget(ResourceEvent.COMMENT_RESOLVED, Resource.COMMENT, UUID.randomUUID(),
+                                commentHost));
     }
 
     @Test
