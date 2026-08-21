@@ -233,11 +233,6 @@ class AuditLogAspectITest extends BaseSpringBootTest {
         Assertions.assertEquals(OperationResult.SUCCESS, auditLogs.getFirst().getOperationResult());
     }
 
-    /**
-     * A denial that recorded no resource/action pair has to pass through the aspect unchanged. The aspect names the
-     * denied permission in its message, and reading that pair without a null guard threw from inside the aspect's own
-     * catch block: the denial was destroyed on its way out, and the audit record was produced with no operation result.
-     */
     @Test
     void deniedWithoutRecordedPermission_auditsFailureAndRethrowsTheDenial() {
         // given
@@ -258,11 +253,6 @@ class AuditLogAspectITest extends BaseSpringBootTest {
         Assertions.assertEquals(OperationResult.FAILURE, auditLogs.getFirst().getOperationResult());
     }
 
-    /**
-     * The other half of the same branch: when the authorization layer did record a pair, the audit message has to name
-     * it. An operator reading the audit trail needs to see which permission was missing, not just that access was
-     * denied.
-     */
     @Test
     void deniedWithRecordedPermission_namesThePermissionInTheAuditMessage() {
         // given
@@ -286,10 +276,6 @@ class AuditLogAspectITest extends BaseSpringBootTest {
                         auditLogs.getFirst().getMessage());
     }
 
-    /**
-     * Binds a request scope around the action so the request-scoped {@link AuditResultOverride} resolves — production
-     * audited methods always run inside a DispatcherServlet request, but the test invokes the bean directly.
-     */
     private void runInRequestScope(Runnable action) {
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(new MockHttpServletRequest()));
         try {
