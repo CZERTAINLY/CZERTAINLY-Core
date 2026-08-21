@@ -12,6 +12,9 @@ import com.otilm.core.events.EventContextTriggers;
 import com.otilm.core.events.EventHandler;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
+import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.security.authz.AuthorizationEnforcer;
+import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +31,8 @@ public abstract class CommentEventsHandler extends EventHandler<Comment> {
 
     protected ResourceObjectAssociationService resourceObjectAssociationService;
 
+    private AuthorizationEnforcer authorizationEnforcer;
+
     protected CommentEventsHandler(CommentRepository repository, TriggerEvaluator<Comment> triggerEvaluator) {
         super(repository, triggerEvaluator);
         this.commentRepository = repository;
@@ -36,6 +41,11 @@ public abstract class CommentEventsHandler extends EventHandler<Comment> {
     @Autowired
     public void setResourceObjectAssociationService(ResourceObjectAssociationService resourceObjectAssociationService) {
         this.resourceObjectAssociationService = resourceObjectAssociationService;
+    }
+
+    @Autowired
+    public void setAuthorizationEnforcer(AuthorizationEnforcer authorizationEnforcer) {
+        this.authorizationEnforcer = authorizationEnforcer;
     }
 
     @Override
@@ -54,11 +64,19 @@ public abstract class CommentEventsHandler extends EventHandler<Comment> {
         return eventContextTriggers;
     }
 
-    protected List<NotificationRecipient> threadParticipantsExcept(UUID rootUuid, UUID actingUser) {
+    /**
+     * Participants are historical: somebody who commented while they could read the host object may have lost that
+     * access since. Each one is therefore re-authorized against the host before being notified, so a revoked user stops
+     * learning who acts on the object and what it is called.
+     */
+    protected List<NotificationRecipient> threadParticipantsExcept(Comment comment, UUID rootUuid, UUID actingUser) {
+        SecuredUUID hostUuid = SecuredUUID.fromUUID(comment.getObjectUuid());
         return commentRepository
                 .findThreadParticipantUuids(rootUuid)
                 .stream()
                 .filter(participant -> !participant.equals(actingUser))
+                .filter(participant -> authorizationEnforcer
+                        .isAuthorizedAs(participant, comment.getResource(), ResourceAction.DETAIL, hostUuid))
                 .map(participant -> new NotificationRecipient(RecipientType.USER, participant))
                 .toList();
     }

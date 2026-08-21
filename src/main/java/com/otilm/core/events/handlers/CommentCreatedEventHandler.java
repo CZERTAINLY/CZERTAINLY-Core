@@ -37,7 +37,7 @@ public class CommentCreatedEventHandler extends CommentEventsHandler {
             }
             recipients = List.of(new NotificationRecipient(RecipientType.USER, UUID.fromString(owner.getUuid())));
         } else {
-            recipients = threadParticipantsExcept(comment.getParentUuid(), actingUser);
+            recipients = threadParticipantsExcept(comment, comment.getParentUuid(), actingUser);
         }
         publishFollowUpNotification(eventContext, comment, recipients);
     }

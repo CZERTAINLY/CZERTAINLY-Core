@@ -12,6 +12,7 @@ import com.otilm.core.events.EventContext;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
+import com.otilm.core.security.authz.AuthorizationEnforcer;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import java.util.List;
 import java.util.UUID;
@@ -22,6 +23,8 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -33,6 +36,7 @@ class CommentCreatedEventHandlerTest {
     private static final UUID ACTOR_UUID = UUID.randomUUID();
 
     private CommentRepository commentRepository;
+    private AuthorizationEnforcer authorizationEnforcer;
     private ResourceObjectAssociationService associationService;
     private ApplicationEventPublisher publisher;
     private CommentCreatedEventHandler handler;
@@ -44,9 +48,13 @@ class CommentCreatedEventHandlerTest {
         associationService = mock(ResourceObjectAssociationService.class);
         publisher = mock(ApplicationEventPublisher.class);
 
+        authorizationEnforcer = mock(AuthorizationEnforcer.class);
+        when(authorizationEnforcer.isAuthorizedAs(any(), any(), any(), any())).thenReturn(true);
+
         handler = new CommentCreatedEventHandler(commentRepository, mock(TriggerEvaluator.class));
         handler.setResourceObjectAssociationService(associationService);
         handler.setApplicationEventPublisher(publisher);
+        handler.setAuthorizationEnforcer(authorizationEnforcer);
     }
 
     private Comment comment(UUID parentUuid) {
@@ -126,6 +134,23 @@ class CommentCreatedEventHandlerTest {
         assertEquals(List.of(participantB, participantC),
                 captor.getValue().getRecipients().stream().map(NotificationRecipient::getRecipientUuid).toList());
         assertEquals(RecipientType.USER, captor.getValue().getRecipients().getFirst().getRecipientType());
+    }
+
+    @Test
+    void replyDoesNotNotifyParticipantsWhoCanNoLongerReadTheHost() {
+        UUID rootUuid = UUID.randomUUID();
+        UUID stillAllowed = UUID.randomUUID();
+        UUID revoked = UUID.randomUUID();
+        when(commentRepository.findThreadParticipantUuids(rootUuid))
+                .thenReturn(List.of(ACTOR_UUID, stillAllowed, revoked));
+        when(authorizationEnforcer.isAuthorizedAs(eq(revoked), any(), any(), any())).thenReturn(false);
+
+        handler.sendFollowUpEventsNotifications(context(comment(rootUuid)));
+
+        ArgumentCaptor<NotificationMessage> captor = ArgumentCaptor.forClass(NotificationMessage.class);
+        verify(publisher).publishEvent(captor.capture());
+        assertEquals(List.of(stillAllowed),
+                captor.getValue().getRecipients().stream().map(NotificationRecipient::getRecipientUuid).toList());
     }
 
     @Test

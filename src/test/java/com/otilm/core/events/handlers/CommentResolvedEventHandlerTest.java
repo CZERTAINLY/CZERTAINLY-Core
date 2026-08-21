@@ -11,6 +11,7 @@ import com.otilm.core.events.EventContext;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
+import com.otilm.core.security.authz.AuthorizationEnforcer;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -31,6 +33,7 @@ class CommentResolvedEventHandlerTest {
 
     private CommentRepository commentRepository;
     private ApplicationEventPublisher publisher;
+    private AuthorizationEnforcer authorizationEnforcer;
     private CommentResolvedEventHandler handler;
 
     @BeforeEach
@@ -38,9 +41,12 @@ class CommentResolvedEventHandlerTest {
     void setUp() {
         commentRepository = mock(CommentRepository.class);
         publisher = mock(ApplicationEventPublisher.class);
+        authorizationEnforcer = mock(AuthorizationEnforcer.class);
+        when(authorizationEnforcer.isAuthorizedAs(any(), any(), any(), any())).thenReturn(true);
 
         handler = new CommentResolvedEventHandler(commentRepository, mock(TriggerEvaluator.class));
         handler.setApplicationEventPublisher(publisher);
+        handler.setAuthorizationEnforcer(authorizationEnforcer);
     }
 
     private EventContext<Comment> context(Comment root) {
