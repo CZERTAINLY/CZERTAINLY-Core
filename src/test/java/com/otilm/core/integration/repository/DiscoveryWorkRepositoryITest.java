@@ -115,8 +115,8 @@ class DiscoveryWorkRepositoryITest extends BaseSpringBootTest {
                 .findAll()
                 .stream()
                 .collect(Collectors.toMap(DiscoveryWork::getWorkType, DiscoveryWork::getAttempt));
-        assertThat(attempts).containsEntry(DiscoveryWorkType.STATUS, 6);
         assertThat(attempts)
+                .containsEntry(DiscoveryWorkType.STATUS, 6)
                 .as("a still-ramping row stays untouched; the guard lives in the query")
                 .containsEntry(DiscoveryWorkType.DRAIN, 3);
     }

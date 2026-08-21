@@ -13,7 +13,7 @@ class DiscoveryWorkListenerTest {
     void processMessage_acknowledgesWithoutDispatch() {
         DiscoveryWorkMessage message = new DiscoveryWorkMessage(UUID.randomUUID(), DiscoveryWorkType.STATUS, 1);
 
-        // The listener must swallow a message it has no handler for (log + ACK), never throw —
+        // The listener must log and acknowledge a message it has no handler for, never throw:
         // a throw would send an undeliverable message through the broker's redelivery loop.
         assertDoesNotThrow(() -> new DiscoveryWorkListener().processMessage(message));
     }
