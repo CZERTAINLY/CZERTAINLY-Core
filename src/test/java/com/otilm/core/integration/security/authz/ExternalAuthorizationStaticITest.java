@@ -45,10 +45,6 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
     @Autowired
     private LocationExternalService locationService;
 
-    /**
-     * Asserts OPA was consulted as well as that the call succeeded: an unadvised bean would also return a result, so
-     * the return value alone would pass even if the advisor never ran.
-     */
     @Test
     void permitsWhenOpaAuthorizesAnnotatedResourceAndAction() {
         assertThat(signingRecordService.getSearchableFieldInformation())
@@ -57,11 +53,6 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
         assertThat(captureOpaRequests()).isNotEmpty();
     }
 
-    /**
-     * A token-type rejection produces the same {@link AuthorizationDeniedException} without ever consulting OPA. The
-     * captured request is therefore the discriminator: asserting the type alone would stay green even if the platform
-     * token stopped being injected and this path went unexercised.
-     */
     @Test
     void deniesWhenOpaRejectsAnnotatedResourceAndAction() {
         denyResourceAccess(Resource.SIGNING_RECORD, ResourceAction.LIST);
@@ -75,10 +66,6 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
         });
     }
 
-    /**
-     * An unrecognised token type is rejected by {@code AbstractExternalAuthorizationManager} before any policy call, so
-     * the absence of an OPA request is what distinguishes this denial from one OPA itself made.
-     */
     @Test
     void deniesWhenAuthenticationIsNotAPlatformToken() {
         SecurityContextHolder
@@ -102,10 +89,6 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
                 });
     }
 
-    /**
-     * The parent has to be evaluated before the child so that a denied parent can short-circuit the child check, as
-     * {@link #skipsChildCheckWhenParentIsDenied} requires. Submission order is the only evidence of that sequencing.
-     */
     @Test
     void checksParentBeforeChild() {
         assertThatThrownBy(() -> locationService
@@ -123,10 +106,6 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
                 .containsEntry("action", ResourceAction.DETAIL.getCode());
     }
 
-    /**
-     * Each check carries the UUID of the object it guards. A check reusing the other's UUID would ask OPA about an
-     * object the caller never named, and the answer would authorize the wrong one.
-     */
     @Test
     void sendsEachCheckItsOwnObjectUuid() {
         UUID entityUuid = UUID.randomUUID();
@@ -142,9 +121,6 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
         assertThat(requests.get(1).getObjectUUIDs()).containsExactly(locationUuid.toString());
     }
 
-    /**
-     * The {@code parentName} and {@code parentAction} properties are internal routing hints and must not reach OPA.
-     */
     @Test
     void omitsInternalRoutingHintsFromTheOpaRequest() {
         assertThatThrownBy(() -> locationService
@@ -157,10 +133,6 @@ class ExternalAuthorizationStaticITest extends BaseSpringBootTest {
                         .doesNotContainKeys("parentName", "parentAction"));
     }
 
-    /**
-     * A denied parent must short-circuit: the child resource is never submitted to OPA. Without this ordering a caller
-     * denied on the parent could still have the child evaluated, which leaks whether the child permits the action.
-     */
     @Test
     void skipsChildCheckWhenParentIsDenied() {
         denyResourceAccess(Resource.ENTITY, ResourceAction.DETAIL);
