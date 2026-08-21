@@ -7,9 +7,10 @@ import com.otilm.core.evaluator.TriggerEvaluator;
 import com.otilm.core.events.EventContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-@Transactional
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Component(ResourceEvent.Codes.COMMENT_RESOLVED)
 public class CommentResolvedEventHandler extends CommentEventsHandler {
 

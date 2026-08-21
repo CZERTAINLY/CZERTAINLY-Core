@@ -21,10 +21,16 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Unlike the other event handlers, comment handling carries no ambient transaction: deciding who to notify authorizes
+ * every thread participant, which makes blocking OPA calls, and a database connection must not be held across them.
+ * Nothing here writes -- the event-history rows the base class keeps are written through their own short transactions.
+ */
 @Component
-@Transactional
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 public abstract class CommentEventsHandler extends EventHandler<Comment> {
 
     protected final CommentRepository commentRepository;
@@ -64,6 +70,10 @@ public abstract class CommentEventsHandler extends EventHandler<Comment> {
         return eventContextTriggers;
     }
 
+    /**
+     * Delegated to a bean of its own so the authorization calls it makes run with this handler's transaction suspended;
+     * see {@link CommentParticipantResolver}.
+     */
     /**
      * Participants are historical: somebody who commented while they could read the host object may have lost that
      * access since. Each one is therefore re-authorized against the host before being notified, so a revoked user stops

@@ -12,6 +12,7 @@ import com.otilm.core.events.EventContext;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import java.util.List;
@@ -24,6 +25,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -151,6 +153,9 @@ class CommentCreatedEventHandlerTest {
         verify(publisher).publishEvent(captor.capture());
         assertEquals(List.of(stillAllowed),
                 captor.getValue().getRecipients().stream().map(NotificationRecipient::getRecipientUuid).toList());
+        verify(authorizationEnforcer)
+                .isAuthorizedAs(eq(stillAllowed), eq(Resource.RA_PROFILE), eq(ResourceAction.DETAIL),
+                        argThat(uuid -> HOST_UUID.equals(uuid.getValue())));
     }
 
     @Test
