@@ -71,10 +71,6 @@ public abstract class CommentEventsHandler extends EventHandler<Comment> {
     }
 
     /**
-     * Delegated to a bean of its own so the authorization calls it makes run with this handler's transaction suspended;
-     * see {@link CommentParticipantResolver}.
-     */
-    /**
      * Participants are historical: somebody who commented while they could read the host object may have lost that
      * access since. Each one is therefore re-authorized against the host before being notified, so a revoked user stops
      * learning who acts on the object and what it is called.
