@@ -1,0 +1,218 @@
+package com.otilm.core.service.handler.discovery;
+
+import com.otilm.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveredCertificateDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveredItemDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveredKeyDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryEvent;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryProgressDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
+import com.otilm.api.model.connector.discovery.v2.event.DiscoveryErrorEvent;
+import com.otilm.api.model.connector.discovery.v2.event.DiscoveryProgressEvent;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
+import com.otilm.core.model.discovery.DiscoveryWorkType;
+import com.otilm.core.service.handler.CertificateHandler;
+import com.otilm.core.service.writer.discovery.DiscoveryItemWriter;
+import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * The single funnel through which connector-reported discovery data enters Core.
+ *
+ * <p>
+ * <b>Authoritative versus advisory.</b> Only a drain page carries items, and only a drain page moves the ingestion
+ * cursor. Pushed events are advisory: they refresh cosmetic progress, record a connector-side complaint, or ask for a
+ * tick — none of them commits run state, and none of them touches {@code last_applied_sequence}. State transitions are
+ * committed exclusively by the tick workers from an authoritative connector response.
+ *
+ * <p>
+ * <b>Why the run row is locked.</b> A drain page's staged rows and the cursor advance that accounts for them must be
+ * one atomic step, and the reaper takes the same lock before it declares a run's work lost. Holding it here means a
+ * drain in flight can never be reaped out from under itself.
+ */
+@Service
+public class DiscoveryEventIngestor {
+
+    private static final Logger logger = LoggerFactory.getLogger(DiscoveryEventIngestor.class);
+
+    private final DiscoveryRepository discoveryRepository;
+    private final DiscoveryItemWriter itemWriter;
+    private final DiscoveryWorkWriter workWriter;
+    private final CertificateHandler certificateHandler;
+    private final CryptographicKeyItemRepository keyItemRepository;
+
+    public DiscoveryEventIngestor(DiscoveryRepository discoveryRepository, DiscoveryItemWriter itemWriter,
+            DiscoveryWorkWriter workWriter, CertificateHandler certificateHandler,
+            CryptographicKeyItemRepository keyItemRepository) {
+        this.discoveryRepository = discoveryRepository;
+        this.itemWriter = itemWriter;
+        this.workWriter = workWriter;
+        this.certificateHandler = certificateHandler;
+        this.keyItemRepository = keyItemRepository;
+    }
+
+    /**
+     * Stages a drained page and advances the run's ingestion cursor.
+     *
+     * <p>
+     * <b>The cursor advances by the highest item sequence this page actually carried</b> — never by the response's
+     * {@code highestSequence}, which is run-wide and counts items the connector has produced but not yet handed over.
+     * Advancing by the run-wide value would skip every item between the page's last one and it. An empty page moves
+     * nothing.
+     *
+     * <p>
+     * <b>Idempotency</b> comes from two layers: an item at or below the cursor is dropped before staging, and the
+     * staging write itself ignores a {@code uniqueRef} already present for the run. A redelivered page is therefore a
+     * no-op, and a page that overlaps the last one stages only its new tail.
+     */
+    @Transactional
+    public void applyDrainPage(UUID discoveryUuid, DiscoveryResultsResponseDto page) {
+        Optional<Discovery> located = lockRun(discoveryUuid, "drain page");
+        if (located.isEmpty()) {
+            return;
+        }
+        Discovery run = located.get();
+        List<DiscoveredItemDto> items = page.getItems() == null ? List.of() : page.getItems();
+        if (items.isEmpty()) {
+            return;
+        }
+
+        long cursor = run.getLastAppliedSequence();
+        List<DiscoveredItemDto> fresh = items.stream().filter(item -> sequenceOf(item) > cursor).toList();
+        stage(run, fresh);
+
+        long highestReceived = items.stream().mapToLong(DiscoveryEventIngestor::sequenceOf).max().orElse(cursor);
+        if (highestReceived > cursor) {
+            run.setLastAppliedSequence(highestReceived);
+        }
+        logger
+                .debug("Staged {} of {} drained items for discovery {}; cursor {} -> {}", fresh.size(), items.size(),
+                        discoveryUuid, cursor, run.getLastAppliedSequence());
+    }
+
+    /**
+     * Applies one pushed event. Progress is cosmetic, an error joins the run's message log, and the two events that
+     * mean "there is something to fetch" schedule the tick that fetches it authoritatively — a pushed
+     * {@code RESULT_BATCH}'s own items are ignored on purpose, since results enter Core only through a call Core made.
+     *
+     * <p>
+     * Nothing is scheduled for a run that has already finished: its agenda was deleted by the terminal transition, and
+     * re-creating a row there would resurrect work for a run no connector still tracks.
+     */
+    @Transactional
+    public void applyAdvisoryEvent(UUID discoveryUuid, DiscoveryEvent event) {
+        Optional<Discovery> located = lockRun(discoveryUuid, "advisory event");
+        if (located.isEmpty()) {
+            return;
+        }
+        Discovery run = located.get();
+        switch (event.getType()) {
+            case PROGRESS -> run.setProgress(snapshotOf((DiscoveryProgressEvent) event));
+            case ERROR -> {
+                DiscoveryErrorEvent error = (DiscoveryErrorEvent) event;
+                run
+                        .setRunMessages(DiscoveryRunLifecycle
+                                .append(run.getRunMessages(),
+                                        "Connector reported %s: %s".formatted(error.getCode(), error.getMessage())));
+            }
+            case STATE_CHANGED -> scheduleNow(run, DiscoveryWorkType.STATUS);
+            case RESULT_BATCH -> scheduleNow(run, DiscoveryWorkType.DRAIN);
+            case HEARTBEAT -> logger.trace("Heartbeat for discovery {}", discoveryUuid);
+        }
+    }
+
+    private void stage(Discovery run, List<DiscoveredItemDto> items) {
+        List<DiscoveryProviderCertificateDataDto> certificates = new ArrayList<>();
+        for (DiscoveredItemDto item : items) {
+            if (item.getResource() == Resource.CERTIFICATE) {
+                certificates.add(asCertificateData(item));
+            } else {
+                itemWriter.stage(run.getUuid(), item, isNewlyDiscovered(item));
+            }
+        }
+        if (certificates.isEmpty()) {
+            return;
+        }
+        // Certificates keep the v1 staging table and its write, so discovery_certificate stays the single
+        // certificate store until the evidence-gated unification (core#2027).
+        List<String> failures = certificateHandler
+                .stageDiscoveredCertificates("drain@" + run.getLastAppliedSequence(), run, certificates);
+        if (!failures.isEmpty()) {
+            run.setRunMessages(DiscoveryRunLifecycle.append(run.getRunMessages(), failures));
+        }
+    }
+
+    private static DiscoveryProviderCertificateDataDto asCertificateData(DiscoveredItemDto item) {
+        DiscoveryProviderCertificateDataDto data = new DiscoveryProviderCertificateDataDto();
+        // The connector's own dedupe key, so a staging failure is logged under the reference the connector
+        // knows the item by.
+        data.setUuid(item.getUniqueRef());
+        data.setBase64Content(((DiscoveredCertificateDto) item.getPayload()).getCertificateData());
+        data.setMeta(item.getMeta() == null ? List.of() : item.getMeta());
+        return data;
+    }
+
+    /**
+     * Whether the item was absent from inventory when staged — the flag the run detail filters on. Keys correlate on
+     * their intrinsic fingerprint; anything else has no inventory to be absent from yet, so it counts as new.
+     */
+    private boolean isNewlyDiscovered(DiscoveredItemDto item) {
+        if (!(item.getPayload() instanceof DiscoveredKeyDto key) || key.getFingerprint() == null
+                || key.getFingerprint().isBlank()) {
+            return true;
+        }
+        return keyItemRepository.findByFingerprint(key.getFingerprint()).isEmpty();
+    }
+
+    private void scheduleNow(Discovery run, DiscoveryWorkType workType) {
+        if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
+            logger
+                    .debug("Ignoring advisory event asking for a {} tick on discovery {}, already {}", workType,
+                            run.getUuid(), run.getStatus());
+            return;
+        }
+        workWriter.schedule(run.getUuid(), workType, OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    /**
+     * Copied field by field rather than stored as-is: the event is a {@code DiscoveryProgressDto} subclass carrying the
+     * stream's discriminator, and the column holds the plain snapshot the status poll writes too.
+     */
+    private static DiscoveryProgressDto snapshotOf(DiscoveryProgressEvent event) {
+        DiscoveryProgressDto snapshot = new DiscoveryProgressDto();
+        snapshot.setProcessed(event.getProcessed());
+        snapshot.setTotalEstimate(event.getTotalEstimate());
+        snapshot.setPhase(event.getPhase());
+        snapshot.setByResource(event.getByResource());
+        return snapshot;
+    }
+
+    private Optional<Discovery> lockRun(UUID discoveryUuid, String what) {
+        Optional<Discovery> run = discoveryRepository.findWithLockByUuid(discoveryUuid);
+        if (run.isEmpty()) {
+            // The run was deleted while its work was in flight; the agenda rows went with it by cascade, so
+            // this is a redelivery of an obsolete tick rather than a fault.
+            logger.warn("Dropping {} for discovery {}: the run no longer exists", what, discoveryUuid);
+        }
+        return run;
+    }
+
+    private static long sequenceOf(DiscoveredItemDto item) {
+        // Wire-required and validated, so a null here is a non-conformant connector: treat it as below any
+        // cursor rather than failing the whole page on one malformed item.
+        return item.getSequence() == null ? 0L : item.getSequence();
+    }
+}

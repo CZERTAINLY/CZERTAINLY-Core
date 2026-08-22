@@ -33,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -169,9 +170,27 @@ public class CertificateHandler {
         }
     }
 
+    /**
+     * The v1 download path's entry point: each batch commits on its own so a later batch's failure cannot undo it.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void createDiscoveredCertificate(String batch, Discovery discovery,
             List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
+        stageDiscoveredCertificates(batch, discovery, discoveredCertificates);
+    }
+
+    /**
+     * The same staging work joining the caller's transaction — the v2 drain's entry point, where staged rows and the
+     * ingestion cursor that accounts for them must commit together.
+     *
+     * @return one description per certificate that could not be staged. A certificate that fails to parse produces no
+     * row to carry a {@code processed_error}, so v2 folds these into the run's message log instead; the v1 caller
+     * discards them, keeping its log-and-continue behaviour unchanged.
+     */
+    @Transactional
+    public List<String> stageDiscoveredCertificates(String batch, Discovery discovery,
+            List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
+        List<String> failures = new ArrayList<>();
         for (DiscoveryProviderCertificateDataDto certificate : discoveredCertificates) {
             DiscoveryCertificate discoveryCertificate = null;
             try {
@@ -196,15 +215,16 @@ public class CertificateHandler {
 
                 discoveryCertificateRepository.save(discoveryCertificate);
             } catch (Exception e) {
+                String identifier = discoveryCertificate == null
+                        ? certificate.getUuid()
+                        : discoveryCertificate.getCommonName();
                 logger
                         .error("Unable to create discovery certificate {} in batch {} for discovery {}. Message: {}",
-                                discoveryCertificate == null
-                                        ? certificate.getUuid()
-                                        : discoveryCertificate.getCommonName(),
-                                batch, discovery.getName(), e.getMessage(), e);
+                                identifier, batch, discovery.getName(), e.getMessage(), e);
+                failures.add("Certificate %s could not be staged: %s".formatted(identifier, e.getMessage()));
             }
         }
-
+        return failures;
     }
 
     /**
