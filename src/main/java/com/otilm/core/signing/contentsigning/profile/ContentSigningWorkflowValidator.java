@@ -100,7 +100,7 @@ public class ContentSigningWorkflowValidator {
     }
 
     private static boolean declares(Connector connector, ConnectorInterface familyInterface, FeatureFlag flag) {
-        return connector.getInterfaces() != null && connector
+        return connector
                 .getInterfaces()
                 .stream()
                 .filter(i -> i.getInterfaceCode() == familyInterface)
@@ -145,10 +145,12 @@ public class ContentSigningWorkflowValidator {
             throw new ValidationException(
                     "The Signing Profile named as the timestamp source is not ILM-managed, so ILM cannot issue its timestamps");
         }
-        SigningRecordFloor.violation(version.isRecordingEnabled(), version.getPersistenceMode()).ifPresent(reason -> {
+        Optional<String> violation = SigningRecordFloor
+                .violation(version.isRecordingEnabled(), version.getPersistenceMode());
+        if (violation.isPresent()) {
             throw new ValidationException(
                     "The Signing Profile named as the timestamp source does not meet the signing-record floor: "
-                            + reason);
-        });
+                            + violation.get());
+        }
     }
 }

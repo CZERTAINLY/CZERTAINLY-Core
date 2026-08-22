@@ -197,7 +197,7 @@ public class SigningProfileMapper {
                 new ManagedContentSigningWorkflow(version.getSignatureFormattingConnectorUuid(),
                         cacheSafeList(signatureFormattingConnectorAttributes), version.getSignatureFamily(),
                         version.getMaxSignatureLevel(), version.getTimestampSourceProfileUuid(),
-                        version.getDocumentSizeCap(), header.getTimeQualityConfigurationUuid()),
+                        version.getDocumentSizeCap()),
                 buildManagedSchemeModel(version, signingOperationAttributes), buildRecordPolicyModel(version));
     }
 

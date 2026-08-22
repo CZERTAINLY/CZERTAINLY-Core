@@ -6,7 +6,6 @@ import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.common.signature.SignatureFamily;
 import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.core.signing.SigningProtocol;
-import com.otilm.core.model.signing.timequality.TimeQualityConfigurationModel;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,15 +23,13 @@ import java.util.UUID;
  * @param maxLevel Highest level a request may ask for.
  * @param timestampSourceProfileName Name of the TIMESTAMPING profile that issues embedded timestamps, or {@code null}.
  * @param documentSizeCap Largest document accepted for signing, in bytes, or {@code null} for no profile-level cap.
- * @param timeQualityConfiguration Resolved Time Quality Configuration acceptance gates on.
  * @param signatureFormattingConnector Resolved Signature Formatting Provider routing info.
  * @param resolvedScheme Resolved scheme (e.g. resolved certificate).
  */
 public record ResolvedManagedContentSigningProfile(UUID uuid, String name, String description, int version,
         boolean enabled, List<SigningProtocol> enabledProtocols,
         List<RequestAttribute> signatureFormattingConnectorAttributes, SignatureFamily family, SignatureLevel maxLevel,
-        String timestampSourceProfileName, Long documentSizeCap, TimeQualityConfigurationModel timeQualityConfiguration,
-        ApiClientConnectorInfo signatureFormattingConnector,
+        String timestampSourceProfileName, Long documentSizeCap, ApiClientConnectorInfo signatureFormattingConnector,
         ResolvedManagedScheme resolvedScheme) implements ResolvedSigningProfile {
 
     @Override

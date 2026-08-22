@@ -4,9 +4,10 @@ import com.otilm.api.model.client.signing.profile.record.SigningRecordPersistenc
 import java.util.Optional;
 
 /**
- * The content signing record floor: recording cannot be switched off, and the persistence mode must be durable. A
- * signature that leaves no record cannot be traced back to what authorized it, and {@code BEST_EFFORT} is documented as
- * silently lossy.
+ * The floor a content-signing profile requires of the TIMESTAMPING profile it names as its timestamp source: recording
+ * cannot be switched off, and the persistence mode must be durable. A timestamp a signature embeds must trace to a
+ * record of its issuance, and {@code BEST_EFFORT} is documented as silently lossy. This is a requirement on the
+ * referenced source, not on the content-signing profile's own record policy, which stays the operator's to set.
  */
 public final class SigningRecordFloor {
 

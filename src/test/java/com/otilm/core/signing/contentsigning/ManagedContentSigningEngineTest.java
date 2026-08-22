@@ -22,7 +22,6 @@ import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.signing.SigningProtocol;
-import com.otilm.api.model.messaging.timequality.TimeQualityStatus;
 import com.otilm.core.model.crypto.CryptographicKeyItemModel;
 import com.otilm.core.model.crypto.CryptographicKeyItemModelFixtures;
 import com.otilm.core.model.signing.SigningCertificate;
@@ -42,7 +41,6 @@ import com.otilm.core.signing.record.SigningRecordStrategy;
 import com.otilm.core.signing.record.SigningRecordStrategyFactory;
 import com.otilm.core.signing.tsa.messages.IssuedTimestamp;
 import com.otilm.core.signing.tsa.messages.TimestampImprint;
-import com.otilm.core.signing.tsa.timequality.TimeQualityRegister;
 import com.otilm.core.util.clocksource.TestClockSource;
 import java.math.BigInteger;
 import java.security.MessageDigest;
@@ -86,8 +84,6 @@ class ManagedContentSigningEngineTest {
     @Mock
     ContentSigningAcquisitions acquisitions;
     @Mock
-    TimeQualityRegister timeQualityRegister;
-    @Mock
     SigningCertificateValidatorFactory signingCertificateValidatorFactory;
     @Mock
     SigningCertificateValidator signingCertificateValidator;
@@ -102,10 +98,8 @@ class ManagedContentSigningEngineTest {
 
     @BeforeEach
     void createEngine() throws SigningEngineException {
-        engine = new ManagedContentSigningEngine(formattingClient, acquisitions, timeQualityRegister,
-                signingCertificateValidatorFactory, TestClockSource.ofWallTime(PLATFORM_TIME),
-                signingRecordStrategyFactory, recordFactory);
-        lenient().when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.OK);
+        engine = new ManagedContentSigningEngine(formattingClient, acquisitions, signingCertificateValidatorFactory,
+                TestClockSource.ofWallTime(PLATFORM_TIME), signingRecordStrategyFactory, recordFactory);
         lenient().when(signingRecordStrategyFactory.strategyFor(any())).thenReturn(signingRecordStrategy);
         lenient().when(signingCertificateValidatorFactory.getValidator(any())).thenReturn(signingCertificateValidator);
         lenient()
@@ -556,22 +550,6 @@ class ManagedContentSigningEngineTest {
             assertThat(signed.level()).isEqualTo(SignatureLevel.SIGNED);
         }
 
-        @Test
-        void refusesToSignWhenTheTimeReferenceIsNotTrustworthy() throws SigningEngineException {
-            // given: signingTime is minted by the platform, so an untrustworthy clock must stop the run
-            when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.DEGRADED);
-            ResolvedManagedContentSigningProfile profile = aSignedOnlyProfile();
-
-            // when
-            SigningEngineException thrown = catchThrowableOfType(() -> engine
-                    .sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API),
-                    SigningEngineException.class);
-
-            // then
-            assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.TIME_UNAVAILABLE);
-            assertThat(thrown.clientMessage()).doesNotContain("DEGRADED");
-            verify(formattingClient, never()).computeDtbs(any(), any());
-        }
     }
 
     @Nested
@@ -595,30 +573,6 @@ class ManagedContentSigningEngineTest {
             assertThat(signed.timestampSerials()).containsExactly(BigInteger.ONE);
             verify(formattingClient, never()).computeDtbs(any(), any());
             verify(acquisitions, never()).signatureValue(any(), any());
-        }
-
-        /**
-         * The local clock gates the paths where Core mints its own {@code signingTime} claim. Augmentation mints none —
-         * its authoritative time is the referenced TIMESTAMPING profile's, which that profile gates itself — so a
-         * degraded local clock must not block raising a signature that is already made.
-         */
-        @Test
-        void augmentsWhileTheLocalClockIsDegradedBecauseTheTimestampsTimeIsTheTsasOwn() throws SigningEngineException {
-            // given: the clock a signing run would gate on has degraded (lenient: this path must not consult it)
-            lenient().when(timeQualityRegister.getStatus(any())).thenReturn(TimeQualityStatus.DEGRADED);
-            ResolvedManagedContentSigningProfile profile = aTimestampingProfile();
-            stubSignatureTimestampImprint(new byte[32]);
-            stubIssuedTimestamp(BigInteger.ONE);
-            stubEmbedSignatureTimestamp("timestamped foreign document".getBytes());
-
-            // when
-            SignedContent signed = engine
-                    .augment(new AugmentationRequest(SignatureLevel.TIMESTAMPED, "foreign document".getBytes(), null),
-                            aSigningProfile().build(), profile, SigningProtocol.CSC_API);
-
-            // then
-            assertThat(signed.level()).isEqualTo(SignatureLevel.TIMESTAMPED);
-            assertThat(signed.timestampSerials()).containsExactly(BigInteger.ONE);
         }
 
         /**

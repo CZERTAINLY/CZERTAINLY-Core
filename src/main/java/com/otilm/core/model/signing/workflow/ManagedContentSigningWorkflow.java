@@ -14,12 +14,11 @@ import java.util.UUID;
  * @param signatureFormattingConnectorAttributes Attributes controlling DTBS construction.
  * @param family Signature family this profile produces.
  * @param maxLevel Highest level a request may ask for.
- * @param timestampSourceProfileUuid TIMESTAMPING Signing Profile that issues the embedded timestamps.
+ * @param timestampSourceProfileUuid TIMESTAMPING Signing Profile that issues the embedded timestamps. Time quality is
+ * gated on that profile's own configuration; a content-signing profile never names one directly.
  * @param documentSizeCap Largest document accepted for signing, in bytes, or {@code null} for no profile-level cap.
- * @param timeQualityConfigurationUuid Time Quality Configuration, or {@code null} for the local clock.
  */
 public record ManagedContentSigningWorkflow(UUID signatureFormattingConnectorUuid,
         List<RequestAttribute> signatureFormattingConnectorAttributes, SignatureFamily family, SignatureLevel maxLevel,
-        UUID timestampSourceProfileUuid, Long documentSizeCap,
-        UUID timeQualityConfigurationUuid) implements ContentSigningWorkflow {
+        UUID timestampSourceProfileUuid, Long documentSizeCap) implements ContentSigningWorkflow {
 }

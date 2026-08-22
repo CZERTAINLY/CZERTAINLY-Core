@@ -257,7 +257,7 @@ class InternalTimestampSourceTest {
         doReturn(aSigningProfile().build()).when(signingProfileService).loadSigningProfileModel(PROFILE_NAME);
         when(signingProfileResolverFactory.resolve(any()))
                 .thenReturn(new ResolvedManagedContentSigningProfile(UUID.randomUUID(), PROFILE_NAME, null, 1, true,
-                        List.of(), List.of(), null, null, null, null, null, null, null));
+                        List.of(), List.of(), null, null, null, null, null, null));
 
         // when / then
         SigningEngineException thrown = catchTimestamp();

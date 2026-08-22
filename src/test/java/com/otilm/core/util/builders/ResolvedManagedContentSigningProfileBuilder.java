@@ -9,8 +9,6 @@ import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfile;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
-import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
-import com.otilm.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.otilm.core.signing.engine.CertificateChain;
 import com.otilm.core.util.CertificateTestUtil;
 import java.security.cert.X509Certificate;
@@ -30,7 +28,6 @@ public final class ResolvedManagedContentSigningProfileBuilder {
     private SignatureLevel maxLevel = SignatureLevel.TIMESTAMPED;
     private String timestampSourceProfileName = "internal-tsa";
     private Long documentSizeCap = null;
-    private TimeQualityConfigurationModel timeQualityConfiguration = LocalClockTimeQualityConfiguration.INSTANCE;
     private ApiClientConnectorInfo signatureFormattingConnector = null;
     private ResolvedManagedScheme resolvedScheme = defaultScheme();
 
@@ -95,12 +92,6 @@ public final class ResolvedManagedContentSigningProfileBuilder {
         return this;
     }
 
-    public ResolvedManagedContentSigningProfileBuilder withTimeQualityConfiguration(
-            TimeQualityConfigurationModel timeQualityConfiguration) {
-        this.timeQualityConfiguration = timeQualityConfiguration;
-        return this;
-    }
-
     public ResolvedManagedContentSigningProfileBuilder withSignatureFormattingConnector(
             ApiClientConnectorInfo signatureFormattingConnector) {
         this.signatureFormattingConnector = signatureFormattingConnector;
@@ -115,7 +106,7 @@ public final class ResolvedManagedContentSigningProfileBuilder {
     public ResolvedManagedContentSigningProfile build() {
         return new ResolvedManagedContentSigningProfile(uuid, name, description, version, enabled, enabledProtocols,
                 signatureFormattingConnectorAttributes, family, maxLevel, timestampSourceProfileName, documentSizeCap,
-                timeQualityConfiguration, signatureFormattingConnector, resolvedScheme);
+                signatureFormattingConnector, resolvedScheme);
     }
 
     private static ResolvedManagedScheme defaultScheme() {

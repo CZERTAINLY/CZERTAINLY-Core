@@ -12,11 +12,9 @@ import com.otilm.api.model.connector.signatures.contentsigning.common.SignedDocu
 import com.otilm.api.model.connector.signatures.contentsigning.common.SignedDocumentResponseDto;
 import com.otilm.api.model.connector.signatures.contentsigning.common.TimestampImprintResponseDto;
 import com.otilm.api.model.core.signing.SigningProtocol;
-import com.otilm.api.model.messaging.timequality.TimeQualityStatus;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfile;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
-import com.otilm.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.otilm.core.signing.contentsigning.acquisition.ContentSigningAcquisitions;
 import com.otilm.core.signing.contentsigning.formatting.ComputeDtbsRequests;
 import com.otilm.core.signing.contentsigning.formatting.ContentSigningFormattingClient;
@@ -30,7 +28,6 @@ import com.otilm.core.signing.record.SigningRecordInputSource;
 import com.otilm.core.signing.record.SigningRecordStrategyFactory;
 import com.otilm.core.signing.tsa.messages.IssuedTimestamp;
 import com.otilm.core.signing.tsa.messages.TimestampImprint;
-import com.otilm.core.signing.tsa.timequality.TimeQualityRegister;
 import com.otilm.core.util.clocksource.ClockSource;
 import java.math.BigInteger;
 import java.security.cert.CertificateEncodingException;
@@ -56,19 +53,17 @@ public class ManagedContentSigningEngine {
 
     private final ContentSigningFormattingClient formattingClient;
     private final ContentSigningAcquisitions acquisitions;
-    private final TimeQualityRegister timeQualityRegister;
     private final SigningCertificateValidatorFactory signingCertificateValidatorFactory;
     private final ClockSource clockSource;
     private final SigningRecordStrategyFactory signingRecordStrategyFactory;
     private final ContentSigningRecordFactory recordFactory;
 
     public ManagedContentSigningEngine(ContentSigningFormattingClient formattingClient,
-            ContentSigningAcquisitions acquisitions, TimeQualityRegister timeQualityRegister,
+            ContentSigningAcquisitions acquisitions,
             SigningCertificateValidatorFactory signingCertificateValidatorFactory, ClockSource clockSource,
             SigningRecordStrategyFactory signingRecordStrategyFactory, ContentSigningRecordFactory recordFactory) {
         this.formattingClient = formattingClient;
         this.acquisitions = acquisitions;
-        this.timeQualityRegister = timeQualityRegister;
         this.signingCertificateValidatorFactory = signingCertificateValidatorFactory;
         this.clockSource = clockSource;
         this.signingRecordStrategyFactory = signingRecordStrategyFactory;
@@ -94,7 +89,6 @@ public class ManagedContentSigningEngine {
             ResolvedManagedContentSigningProfile profile, SigningProtocol protocol, List<BigInteger> serials)
             throws SigningEngineException {
         requireReachableLevel(request.targetLevel(), profile);
-        requireTrustworthyTime(profile);
         requireAcceptableSigningCertificate(profile);
         Instant signingTime = clockSource.wallTimeInstant();
 
@@ -171,18 +165,6 @@ public class ManagedContentSigningEngine {
             throw new SigningEngineException(SigningEngineFailure.INVALID_INPUT,
                     "level %s was requested, which no step reaches yet".formatted(target),
                     "Signature level %s is not available yet".formatted(target));
-        }
-    }
-
-    /** The signature carries a platform-minted {@code signingTime}, which is the claim an untrusted clock voids. */
-    private void requireTrustworthyTime(ResolvedManagedContentSigningProfile profile) throws SigningEngineException {
-        TimeQualityConfigurationModel configuration = profile.timeQualityConfiguration();
-        TimeQualityStatus status = timeQualityRegister.getStatus(configuration);
-        if (status != TimeQualityStatus.OK) {
-            throw new SigningEngineException(SigningEngineFailure.TIME_UNAVAILABLE,
-                    "time quality status is %s for signing profile '%s' using time quality configuration '%s'"
-                            .formatted(status, profile.name(), configuration.getName()),
-                    "Time quality is not sufficient to sign with Signing Profile '%s'".formatted(profile.name()));
         }
     }
 
@@ -267,8 +249,8 @@ public class ManagedContentSigningEngine {
     }
 
     /**
-     * Steps 4 to 6: the connector says what to stamp, Core stamps it in process, the connector embeds the token. The
-     * serial is collected because it is the only handle a completed operation has on its timestamp record.
+     * Drives {@code computeSignatureTimestampImprint}, the in-process timestamp, and {@code embedSignatureTimestamp}.
+     * The serial is collected because it is the only handle a completed operation has on its timestamp record.
      */
     private byte[] applySignatureTimestamp(ResolvedManagedContentSigningProfile profile, byte[] signedDocument,
             DocumentTransferDto detachedContent, SignatureLevel targetLevel, ContentSigningCursor cursor,

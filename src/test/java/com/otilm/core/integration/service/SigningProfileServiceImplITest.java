@@ -894,7 +894,9 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                             .build());
 
             // then
-            assertThatThrownBy(create).isInstanceOf(ValidationException.class);
+            assertThatThrownBy(create)
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("Signature family is required");
         }
 
         @Test
@@ -912,7 +914,9 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                             .build());
 
             // then
-            assertThatThrownBy(create).isInstanceOf(ValidationException.class);
+            assertThatThrownBy(create)
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("maxLevel is required");
         }
 
         @Test

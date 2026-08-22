@@ -11,7 +11,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Maps a {@link SigningRecordInput} to the entity each persistence strategy stores, applying the per-field
- * {@code record*} toggles of the profile's {@link SigningRecordPolicyModel} in one shared place.
+ * {@code record*} toggles of the profile's {@link SigningRecordPolicyModel} in one shared place. The requester identity
+ * and the timestamp serials are captured unconditionally: they are the trace, so a toggle must not be able to drop
+ * them.
  */
 @Component
 public class SigningRecordInputMapper {
@@ -53,9 +55,7 @@ public class SigningRecordInputMapper {
     }
 
     /**
-     * Unpacks the requester {@link NameAndUuidDto} into the record's denormalized uuid/username columns. Captured
-     * unconditionally — the requester identity and timestamp serials are not gated by the content {@code record*}
-     * toggles.
+     * Unpacks the requester {@link NameAndUuidDto} into the record's denormalized uuid/username columns.
      */
     private void applyRequester(SigningRecordInput input, Consumer<UUID> uuid, Consumer<String> username) {
         NameAndUuidDto requestedBy = input.getRequestedBy();

@@ -33,7 +33,7 @@ class SigningWorkflowModelsTest {
         List<RequestAttribute> attrs = List.of();
 
         ManagedContentSigningWorkflow wf = new ManagedContentSigningWorkflow(connectorUuid, attrs, null, null, null,
-                null, null);
+                null);
 
         assertEquals(SigningWorkflowType.CONTENT_SIGNING, wf.getWorkflowType());
         assertEquals(connectorUuid, wf.signatureFormattingConnectorUuid());

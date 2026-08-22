@@ -14,12 +14,9 @@ import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfil
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
 import com.otilm.core.model.signing.scheme.StaticKeyManagedSigning;
-import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
-import com.otilm.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.otilm.core.model.signing.workflow.ManagedContentSigningWorkflow;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.otilm.core.model.signing.workflow.SigningWorkflow;
-import com.otilm.core.service.TimeQualityConfigurationInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.signing.contentsigning.TimestampSourceResolver;
 import com.otilm.core.signing.engine.error.SigningEngineException;
@@ -42,7 +39,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -53,8 +49,6 @@ class StaticKeyManagedContentSigningResolverTest {
     private ManagedSchemeResolver schemeResolver;
     @Mock
     private ConnectorInternalService connectorService;
-    @Mock
-    private TimeQualityConfigurationInternalService timeQualityConfigurationService;
     @Mock
     private TimestampSourceResolver timestampSourceResolver;
 
@@ -160,7 +154,7 @@ class StaticKeyManagedContentSigningResolverTest {
             // given
             UUID timestampSourceUuid = UUID.fromString("44444444-4444-4444-4444-444444444444");
             SigningProfileModel<?, ?> model = aManagedContentSigningProfile(SignatureFamily.PADES,
-                    SignatureLevel.TIMESTAMPED, timestampSourceUuid, 1024L, null);
+                    SignatureLevel.TIMESTAMPED, timestampSourceUuid, 1024L);
             given(timestampSourceResolver.profileNameFor(timestampSourceUuid)).willReturn("internal-tsa");
 
             // when
@@ -179,7 +173,7 @@ class StaticKeyManagedContentSigningResolverTest {
                 throws Exception {
             // given
             SigningProfileModel<?, ?> model = aManagedContentSigningProfile(SignatureFamily.CADES,
-                    SignatureLevel.SIGNED, null, null, null);
+                    SignatureLevel.SIGNED, null, null);
 
             // when
             ResolvedManagedContentSigningProfile resolved = (ResolvedManagedContentSigningProfile) resolver
@@ -190,49 +184,6 @@ class StaticKeyManagedContentSigningResolverTest {
             verifyNoInteractions(timestampSourceResolver);
         }
 
-        @Test
-        void fallsBackToLocalClock_whenTimeQualityConfigurationUuidIsNull() throws Exception {
-            // when
-            ResolvedManagedContentSigningProfile resolved = (ResolvedManagedContentSigningProfile) resolver
-                    .resolve(aManagedContentSigningProfile());
-
-            // then
-            assertThat(resolved.timeQualityConfiguration()).isSameAs(LocalClockTimeQualityConfiguration.INSTANCE);
-            verify(timeQualityConfigurationService, never()).getTimeQualityConfigurationModel(any());
-        }
-
-        @Test
-        void fetchesTimeQualityConfigurationFromService_whenUuidIsExplicit() throws Exception {
-            // given
-            UUID tqcUuid = UUID.fromString("55555555-5555-5555-5555-555555555555");
-            TimeQualityConfigurationModel tqc = LocalClockTimeQualityConfiguration.INSTANCE;
-            SigningProfileModel<?, ?> model = aManagedContentSigningProfile(SignatureFamily.CADES,
-                    SignatureLevel.SIGNED, null, null, tqcUuid);
-            given(timeQualityConfigurationService.getTimeQualityConfigurationModel(tqcUuid)).willReturn(tqc);
-
-            // when
-            ResolvedManagedContentSigningProfile resolved = (ResolvedManagedContentSigningProfile) resolver
-                    .resolve(model);
-
-            // then
-            assertThat(resolved.timeQualityConfiguration()).isSameAs(tqc);
-        }
-
-        @Test
-        void reportsAMissingTimeQualityConfigurationAsMisconfiguration() throws Exception {
-            // given
-            UUID tqcUuid = UUID.fromString("66666666-6666-6666-6666-666666666666");
-            SigningProfileModel<?, ?> model = aManagedContentSigningProfile(SignatureFamily.CADES,
-                    SignatureLevel.SIGNED, null, null, tqcUuid);
-            given(timeQualityConfigurationService.getTimeQualityConfigurationModel(tqcUuid))
-                    .willThrow(new NotFoundException("tqc", tqcUuid));
-
-            // when / then
-            assertThatThrownBy(() -> resolver.resolve(model))
-                    .isInstanceOf(SigningEngineException.class)
-                    .satisfies(e -> assertThat(((SigningEngineException) e).failure())
-                            .isEqualTo(SigningEngineFailure.MISCONFIGURED));
-        }
     }
 
     // ── fixtures ──────────────────────────────────────────────────────────────
@@ -245,14 +196,13 @@ class StaticKeyManagedContentSigningResolverTest {
     }
 
     private static SigningProfileModel<?, ?> aManagedContentSigningProfile() {
-        return aManagedContentSigningProfile(SignatureFamily.CADES, SignatureLevel.SIGNED, null, null, null);
+        return aManagedContentSigningProfile(SignatureFamily.CADES, SignatureLevel.SIGNED, null, null);
     }
 
     private static SigningProfileModel<?, ?> aManagedContentSigningProfile(SignatureFamily family,
-            SignatureLevel maxLevel, UUID timestampSourceProfileUuid, Long documentSizeCap,
-            UUID timeQualityConfigurationUuid) {
+            SignatureLevel maxLevel, UUID timestampSourceProfileUuid, Long documentSizeCap) {
         return aProfile(new ManagedContentSigningWorkflow(FORMATTING_CONNECTOR_UUID, List.of(A_FORMAT_ATTRIBUTE),
-                family, maxLevel, timestampSourceProfileUuid, documentSizeCap, timeQualityConfigurationUuid));
+                family, maxLevel, timestampSourceProfileUuid, documentSizeCap));
     }
 
     private static SigningProfileModel<?, ?> aManagedTimestampingProfile() {

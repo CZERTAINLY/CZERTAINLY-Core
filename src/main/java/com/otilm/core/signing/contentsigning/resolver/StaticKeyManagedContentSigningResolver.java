@@ -6,10 +6,7 @@ import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfile;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
-import com.otilm.core.model.signing.timequality.LocalClockTimeQualityConfiguration;
-import com.otilm.core.model.signing.timequality.TimeQualityConfigurationModel;
 import com.otilm.core.model.signing.workflow.ManagedContentSigningWorkflow;
-import com.otilm.core.service.TimeQualityConfigurationInternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.signing.contentsigning.TimestampSourceResolver;
 import com.otilm.core.signing.engine.error.SigningEngineException;
@@ -28,16 +25,12 @@ public class StaticKeyManagedContentSigningResolver implements SigningProfileRes
 
     private final ManagedSchemeResolver schemeResolver;
     private final ConnectorInternalService connectorService;
-    private final TimeQualityConfigurationInternalService timeQualityConfigurationService;
     private final TimestampSourceResolver timestampSourceResolver;
 
     public StaticKeyManagedContentSigningResolver(ManagedSchemeResolver schemeResolver,
-            ConnectorInternalService connectorService,
-            TimeQualityConfigurationInternalService timeQualityConfigurationService,
-            TimestampSourceResolver timestampSourceResolver) {
+            ConnectorInternalService connectorService, TimestampSourceResolver timestampSourceResolver) {
         this.schemeResolver = schemeResolver;
         this.connectorService = connectorService;
-        this.timeQualityConfigurationService = timeQualityConfigurationService;
         this.timestampSourceResolver = timestampSourceResolver;
     }
 
@@ -51,8 +44,6 @@ public class StaticKeyManagedContentSigningResolver implements SigningProfileRes
         ManagedContentSigningWorkflow workflow = (ManagedContentSigningWorkflow) model.workflow();
         ResolvedManagedScheme resolvedScheme = schemeResolver.resolve(model.name(), model.signingScheme());
         ApiClientConnectorInfo connector = resolveFormattingConnector(workflow.signatureFormattingConnectorUuid());
-        TimeQualityConfigurationModel timeQualityConfiguration = resolveTimeQualityConfiguration(
-                workflow.timeQualityConfigurationUuid());
         String timestampSourceProfileName = workflow.maxLevel() == SignatureLevel.SIGNED
                 ? null
                 : timestampSourceResolver.profileNameFor(workflow.timestampSourceProfileUuid());
@@ -60,8 +51,7 @@ public class StaticKeyManagedContentSigningResolver implements SigningProfileRes
         return new ResolvedManagedContentSigningProfile(model.uuid(), model.name(), model.description(),
                 model.version(), model.enabled(), model.enabledProtocols(),
                 workflow.signatureFormattingConnectorAttributes(), workflow.family(), workflow.maxLevel(),
-                timestampSourceProfileName, workflow.documentSizeCap(), timeQualityConfiguration, connector,
-                resolvedScheme);
+                timestampSourceProfileName, workflow.documentSizeCap(), connector, resolvedScheme);
     }
 
     private ApiClientConnectorInfo resolveFormattingConnector(UUID connectorUuid) throws SigningEngineException {
@@ -74,17 +64,4 @@ public class StaticKeyManagedContentSigningResolver implements SigningProfileRes
         }
     }
 
-    private TimeQualityConfigurationModel resolveTimeQualityConfiguration(UUID timeQualityConfigurationUuid)
-            throws SigningEngineException {
-        if (timeQualityConfigurationUuid == null) {
-            return LocalClockTimeQualityConfiguration.INSTANCE;
-        }
-        try {
-            return timeQualityConfigurationService.getTimeQualityConfigurationModel(timeQualityConfigurationUuid);
-        } catch (NotFoundException e) {
-            throw new SigningEngineException(SigningEngineFailure.MISCONFIGURED,
-                    "Time Quality Configuration not found: " + timeQualityConfigurationUuid, e,
-                    "Internal error: signing configuration is invalid");
-        }
-    }
 }

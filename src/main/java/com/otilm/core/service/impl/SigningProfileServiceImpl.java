@@ -411,7 +411,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         }
         validateSigningSchemeCoherence(request.getSigningScheme());
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
-        validateManagedContentSigningWorkflow(request);
+        validateContentSigningWorkflow(request);
         List<BaseAttribute> formattingDefinitions = fetchFormattingAttributeDefinitions(request.getWorkflow());
         SigningProfileDto created = self.persistCreate(request, formattingDefinitions);
         evictSigningProfileCache(created.getName());
@@ -458,7 +458,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
             throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
         validateSigningSchemeCoherence(request.getSigningScheme());
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
-        validateManagedContentSigningWorkflow(request);
+        validateContentSigningWorkflow(request);
         List<BaseAttribute> formattingDefinitions = fetchFormattingAttributeDefinitions(request.getWorkflow());
         return self.persistUpdate(uuid, request, formattingDefinitions);
     }
@@ -865,9 +865,6 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
             case ContentSigningWorkflowRequestDto w -> {
                 if (signingScheme == SigningScheme.MANAGED) {
                     applyManagedContentSigning(version, w);
-                } else {
-                    requireNoSignatureFormattingConnector(w);
-                    requireNoLevelLadder(w);
                 }
                 // Stored for both schemes because the cap belongs to request admission, not to leveling.
                 version.setDocumentSizeCap(w.getDocumentSizeCap());
@@ -909,9 +906,17 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         }
     }
 
-    private void validateManagedContentSigningWorkflow(SigningProfileRequestDto request) throws NotFoundException {
-        if (request.getSigningScheme().getSigningScheme() != SigningScheme.MANAGED
-                || !(request.getWorkflow() instanceof ContentSigningWorkflowRequestDto w)) {
+    /**
+     * Runs outside the persistence transaction, so a request the contract already refuses never reaches a connector
+     * round-trip: {@code fetchFormattingAttributeDefinitions} calls the named provider straight after this.
+     */
+    private void validateContentSigningWorkflow(SigningProfileRequestDto request) throws NotFoundException {
+        if (!(request.getWorkflow() instanceof ContentSigningWorkflowRequestDto w)) {
+            return;
+        }
+        if (request.getSigningScheme().getSigningScheme() != SigningScheme.MANAGED) {
+            requireNoSignatureFormattingConnector(w);
+            requireNoLevelLadder(w);
             return;
         }
         contentSigningWorkflowValidator
@@ -930,15 +935,13 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
     }
 
     /**
-     * Resolves the formatting connector an ILM-managed content-signing profile must name, validates the workflow
-     * against the levels that connector actually reaches, then stamps the ladder columns a signing run reads to decide
-     * how high it may go.
+     * Stamps the ladder columns a signing run reads to decide how high it may go. The workflow was already validated by
+     * {@code validateContentSigningWorkflow} before the transaction opened; this only resolves and stores.
      */
     private void applyManagedContentSigning(SigningProfileVersion version, ContentSigningWorkflowRequestDto w)
             throws NotFoundException {
         Connector contentConnector = connectorService
                 .getConnectorEntity(SecuredUUID.fromUUID(requireSignatureFormattingConnectorUuid(w)));
-        contentSigningWorkflowValidator.validate(w, contentConnector);
         version.setSignatureFormattingConnector(contentConnector);
         version.setSignatureFamily(w.getFamily());
         version.setMaxSignatureLevel(w.getMaxLevel());

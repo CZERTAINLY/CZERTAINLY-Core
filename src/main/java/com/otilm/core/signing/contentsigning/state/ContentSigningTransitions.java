@@ -25,7 +25,10 @@ public final class ContentSigningTransitions {
                             new StateTransition<>(ContentSigningCursor.ARCHIVE_TIMESTAMP_ACQUIRED,
                                     ContentSigningCursor.ARCHIVAL)));
 
-    /** The highest rung any step reaches today. OmniTrustILM/core#1977 raises it. */
+    /**
+     * The highest rung any step reaches today. Raising it requires the matching ladder steps to exist here and in the
+     * engine.
+     */
     public static final SignatureLevel HIGHEST_EXECUTABLE_LEVEL = SignatureLevel.TIMESTAMPED;
 
     private ContentSigningTransitions() {
