@@ -109,16 +109,22 @@ public record MessagingProperties(@NotNull MessagingProperties.BrokerType broker
         return producerDestination(routingKey().providerStatusPoll());
     }
 
+    public String produceDestinationProviderDiscoveryWork() {
+        return producerDestination(routingKey().providerDiscoveryWork());
+    }
+
     public record Queue(@NotBlank String actions, @NotBlank String auditLogs, @NotBlank String event,
             @NotBlank String notification, @NotBlank String scheduler, @NotBlank String validation,
             @NotBlank String timeQualityConfigRequest, @NotBlank String timeQualityConfig,
-            @NotBlank String timeQualityResults, @NotBlank String providerStatusPoll) {
+            @NotBlank String timeQualityResults, @NotBlank String providerStatusPoll,
+            @NotBlank String providerDiscoveryWork) {
     }
 
     public record RoutingKey(@NotBlank String actions, @NotBlank String auditLogs, @NotBlank String event,
             @NotBlank String notification, @NotBlank String scheduler, @NotBlank String validation,
             @NotBlank String timeQualityConfigRequest, @NotBlank String timeQualityConfig,
-            @NotBlank String timeQualityResults, @NotBlank String providerStatusPoll) {
+            @NotBlank String timeQualityResults, @NotBlank String providerStatusPoll,
+            @NotBlank String providerDiscoveryWork) {
     }
 
     public record Listener(Long recoveryInterval, // Legacy: fixed interval. Ignored when backoff fields are set.
