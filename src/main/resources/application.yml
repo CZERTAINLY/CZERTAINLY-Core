@@ -108,6 +108,11 @@ discovery:
     # How long a stopped run waits for resume before the reaper cancels it (the connector's
     # checkpoint can no longer be assumed to exist).
     stopped-max-duration: ${DISCOVERY_RUN_STOPPED_MAX_DURATION:P7D}
+  # Bounds on a single DRAIN tick's page. max-bytes is sized for the proxy envelope rather than
+  # the contract's 10 MiB transport cap, so a tunneled page has headroom.
+  drain:
+    max-items: ${DISCOVERY_DRAIN_MAX_ITEMS:500}
+    max-bytes: ${DISCOVERY_DRAIN_MAX_BYTES:5242880}
 
 # Authority-provider async (HTTP 202) operation status polling
 provider:

@@ -1,0 +1,312 @@
+package com.otilm.core.integration.discovery;
+
+import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.ConnectorProblemException;
+import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.common.error.ErrorCode;
+import com.otilm.api.model.common.error.ProblemDetailExtended;
+import com.otilm.api.model.connector.discovery.v2.DiscoveredItemDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveredKeyDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
+import com.otilm.api.model.core.discovery.DiscoveryStatus;
+import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.entity.DiscoveryItem;
+import com.otilm.core.dao.entity.DiscoveryWork;
+import com.otilm.core.dao.repository.DiscoveryItemRepository;
+import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.dao.repository.DiscoveryWorkRepository;
+import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
+import com.otilm.core.messaging.model.DiscoveryWorkMessage;
+import com.otilm.core.model.discovery.DiscoveryWorkType;
+import com.otilm.core.service.handler.discovery.DiscoveryDrainTickWorker;
+import com.otilm.core.service.handler.discovery.DiscoveryV2Client;
+import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.DiscoveryRunMetaFixture;
+import java.net.URI;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * What one drain tick does to a run: what it stages, whether it asks for another tick straight away, and when it hands
+ * the run over to processing. The connector and the broker are both mocked — the assertions are about committed run
+ * state and the agenda, plus the follow-up ticks this worker publishes itself.
+ *
+ * <p>
+ * Not {@code @Transactional}: the worker commits in its own transactions, so seeded data has to be committed too.
+ */
+class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
+
+    @MockitoBean
+    private DiscoveryV2Client client;
+    @MockitoBean
+    private DiscoveryWorkProducer workProducer;
+
+    @Autowired
+    private DiscoveryDrainTickWorker worker;
+    @Autowired
+    private DiscoveryRepository discoveryRepository;
+    @Autowired
+    private DiscoveryItemRepository itemRepository;
+    @Autowired
+    private DiscoveryWorkRepository workRepository;
+    @Autowired
+    private DiscoveryWorkWriter workWriter;
+
+    // ------------------------------------------------------------------ continuation
+
+    @Test
+    void pageWithMoreToCome_stagesItAndPublishesTheFollowUpTickItself() throws Exception {
+        Discovery run = runStillScanning();
+        armDrainRow(run, 0);
+        when(client.results(any(), anyInt(), anyLong()))
+                .thenReturn(page(9L, true, keyItem(1, "key-a"), keyItem(2, "key-b")));
+
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(stagedRefs(run)).containsExactlyInAnyOrder("key-a", "key-b");
+        assertThat(reload(run).getLastAppliedSequence()).isEqualTo(2);
+        assertThat(publishedTicks())
+                .as("the sweep's cadence is the recovery latency, not the drain's throughput ceiling")
+                .containsExactly(new DiscoveryWorkMessage(run.getUuid(), DiscoveryWorkType.DRAIN, 0));
+        assertThat(drainRow(run).getNextDueAt())
+                .as("the row is committed as due now, so a lost publish still gets swept up")
+                .isBeforeOrEqualTo(OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    @Test
+    void threePageRun_drainsEndToEndWithoutSpendingItsAttemptBudget() throws Exception {
+        Discovery run = runStillScanning();
+        armDrainRow(run, 0);
+        when(client.results(any(), anyInt(), anyLong()))
+                .thenReturn(page(3L, true, keyItem(1, "key-a")))
+                .thenReturn(page(3L, true, keyItem(2, "key-b")))
+                .thenReturn(page(3L, false, keyItem(3, "key-c")));
+
+        worker.tick(run.getUuid(), 0);
+        worker.tick(run.getUuid(), 0);
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(stagedRefs(run)).containsExactlyInAnyOrder("key-a", "key-b", "key-c");
+        assertThat(reload(run).getLastAppliedSequence()).isEqualTo(3);
+        assertThat(reload(run).getStatus())
+                .as("the connector is still scanning, so nothing hands over yet")
+                .isEqualTo(DiscoveryStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void quietPageWhileTheConnectorIsStillScanning_slowsDownWithoutSpendingTheBudget() throws Exception {
+        Discovery run = runStillScanning();
+        armDrainRow(run, 40);
+        when(client.results(any(), anyInt(), anyLong())).thenReturn(page(0L, false));
+
+        worker.tick(run.getUuid(), 40);
+
+        verify(workProducer, never()).produceMessage(any());
+        assertThat(drainRow(run).getAttempt())
+                .as("a valid empty answer refreshes the budget; only consecutive failures spend it")
+                .isLessThan(40);
+    }
+
+    // ------------------------------------------------------------------ handover to processing
+
+    @Test
+    void fullyDrainedCompletedRun_swapsToProcessingWithOneProcessRow() throws Exception {
+        Discovery run = runTheConnectorFinished();
+        armDrainRow(run, 0);
+        workWriter.schedule(run.getUuid(), DiscoveryWorkType.STATUS, OffsetDateTime.now(ZoneOffset.UTC).plusHours(1));
+        when(client.results(any(), anyInt(), anyLong()))
+                .thenReturn(page(2L, false, keyItem(1, "key-a"), keyItem(2, "key-b")));
+
+        worker.tick(run.getUuid(), 0);
+
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+        assertThat(reloaded.getRunMeta())
+                .as("the connector owns nothing from here on, so its handle is released")
+                .isNull();
+        assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.PROCESS);
+        assertThat(publishedTicks())
+                .containsExactly(new DiscoveryWorkMessage(run.getUuid(), DiscoveryWorkType.PROCESS, 0));
+    }
+
+    @Test
+    void completedRunWhoseCursorLagsTheRunWideCount_drainsAgainInsteadOfSwapping() throws Exception {
+        Discovery run = runTheConnectorFinished();
+        armDrainRow(run, 0);
+        // more:false, connector completed — but highestSequence is run-wide and still ahead of what was
+        // handed over. Swapping here would strand items 3 and 4 at the connector forever.
+        when(client.results(any(), anyInt(), anyLong()))
+                .thenReturn(page(4L, false, keyItem(1, "key-a"), keyItem(2, "key-b")));
+
+        worker.tick(run.getUuid(), 0);
+
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
+        assertThat(reloaded.getLastAppliedSequence()).isEqualTo(2);
+        assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.DRAIN);
+        assertThat(publishedTicks())
+                .containsExactly(new DiscoveryWorkMessage(run.getUuid(), DiscoveryWorkType.DRAIN, 0));
+    }
+
+    // ------------------------------------------------------------------ unanswered ticks
+
+    @Test
+    void runTheConnectorNoLongerTracks_endsFailedAndReleasesEverything() throws Exception {
+        Discovery run = runStillScanning();
+        armDrainRow(run, 0);
+        when(client.results(any(), anyInt(), anyLong())).thenThrow(notFound());
+
+        worker.tick(run.getUuid(), 0);
+
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        assertThat(reloaded.getRunMeta()).isNull();
+        assertThat(agenda(run)).isEmpty();
+    }
+
+    @Test
+    void lastAllowedAttempt_endsTheRunFailed() throws Exception {
+        Discovery run = runStillScanning();
+        armDrainRow(run, 0);
+        when(client.results(any(), anyInt(), anyLong())).thenThrow(new ConnectorException("connection reset"));
+
+        worker.tick(run.getUuid(), 99);
+
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        assertThat(reloaded.getMessage()).contains("stopped handing over");
+        assertThat(agenda(run)).isEmpty();
+    }
+
+    @Test
+    void transientFailureWithBudgetLeft_leavesTheRunAndItsAgendaAlone() throws Exception {
+        Discovery run = runStillScanning();
+        armDrainRow(run, 2);
+        when(client.results(any(), anyInt(), anyLong())).thenThrow(new ConnectorException("connection reset"));
+
+        worker.tick(run.getUuid(), 2);
+
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
+        assertThat(drainRow(run).getAttempt()).isEqualTo(2);
+        verify(workProducer, never()).produceMessage(any());
+    }
+
+    // ------------------------------------------------------------------ ticks with nothing to do
+
+    @Test
+    void runAlreadyProcessing_dropsTheTickAndClearsItsLeftoverAgenda() throws Exception {
+        Discovery run = runStillScanning();
+        run.setStatus(DiscoveryStatus.PROCESSING);
+        discoveryRepository.saveAndFlush(run);
+        armDrainRow(run, 0);
+
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(agenda(run)).isEmpty();
+        verify(client, never()).results(any(), anyInt(), anyLong());
+    }
+
+    // ------------------------------------------------------------------ fixtures
+
+    private List<DiscoveryWorkMessage> publishedTicks() {
+        ArgumentCaptor<DiscoveryWorkMessage> published = ArgumentCaptor.forClass(DiscoveryWorkMessage.class);
+        verify(workProducer, atLeastOnce()).produceMessage(published.capture());
+        return published.getAllValues();
+    }
+
+    private static DiscoveryResultsResponseDto page(long highestSequence, boolean more, DiscoveredItemDto... items) {
+        DiscoveryResultsResponseDto page = new DiscoveryResultsResponseDto();
+        page.setItems(List.of(items));
+        page.setHighestSequence(highestSequence);
+        page.setMore(more);
+        return page;
+    }
+
+    private static DiscoveredItemDto keyItem(long sequence, String uniqueRef) {
+        DiscoveredKeyDto payload = new DiscoveredKeyDto();
+        payload.setType(KeyType.PUBLIC_KEY);
+        payload.setAlgorithm(KeyAlgorithm.RSA);
+        DiscoveredItemDto item = new DiscoveredItemDto();
+        item.setSequence(sequence);
+        item.setUniqueRef(uniqueRef);
+        item.setPayload(payload);
+        return item;
+    }
+
+    private static ConnectorProblemException notFound() {
+        return new ConnectorProblemException(ProblemDetailExtended
+                .fromErrorCode(ErrorCode.OPERATION_NOT_TRACKED, "unknown run", URI.create("https://example.com"),
+                        null));
+    }
+
+    private void armDrainRow(Discovery run, int attempt) {
+        workWriter.schedule(run.getUuid(), DiscoveryWorkType.DRAIN, OffsetDateTime.now(ZoneOffset.UTC).plusHours(1));
+        workWriter
+                .reschedule(run.getUuid(), DiscoveryWorkType.DRAIN, attempt,
+                        OffsetDateTime.now(ZoneOffset.UTC).plusHours(1));
+    }
+
+    private DiscoveryWork drainRow(Discovery run) {
+        return agenda(run)
+                .stream()
+                .filter(row -> row.getWorkType() == DiscoveryWorkType.DRAIN)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private List<DiscoveryWork> agenda(Discovery run) {
+        return workRepository.findAll().stream().filter(row -> row.getDiscoveryUuid().equals(run.getUuid())).toList();
+    }
+
+    private List<String> stagedRefs(Discovery run) {
+        return itemRepository
+                .findAll()
+                .stream()
+                .filter(item -> item.getDiscoveryUuid().equals(run.getUuid()))
+                .map(DiscoveryItem::getUniqueRef)
+                .toList();
+    }
+
+    private Discovery reload(Discovery run) {
+        return discoveryRepository.findByUuid(run.getUuid()).orElseThrow();
+    }
+
+    private Discovery runStillScanning() {
+        return v2Run("running");
+    }
+
+    private Discovery runTheConnectorFinished() {
+        return v2Run("completed");
+    }
+
+    private Discovery v2Run(String connectorState) {
+        Discovery run = new Discovery();
+        run.setName("v2-scan-" + UUID.randomUUID());
+        run.setKind("IP-HostName");
+        run.setStatus(DiscoveryStatus.IN_PROGRESS);
+        run.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
+        run.setConnectorUuid(UUID.randomUUID());
+        run.setConnectorName("network-discovery");
+        run.setConnectorInterfaceUuid(UUID.randomUUID());
+        run.setConnectorState(connectorState);
+        run.setRunMeta(DiscoveryRunMetaFixture.runMeta("connectorRunId", "run-42"));
+        return discoveryRepository.saveAndFlush(run);
+    }
+}
