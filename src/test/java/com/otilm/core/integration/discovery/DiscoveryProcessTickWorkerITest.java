@@ -10,6 +10,7 @@ import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.events.handlers.CertificateDiscoveredEventHandler;
+import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
 import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
@@ -140,6 +141,33 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     }
 
     @Test
+    void batchThatFellShort_filesItsSummaryOnTheRunAsItGoes() throws Exception {
+        Discovery run = processingRun();
+        stageCertificates(run, 2);
+        importsWith(new DiscoveryRunCounts(1, 0, 0, 0, false));
+
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(reload(run).getRunMessages())
+                .as("an operator watching a long run sees what is going wrong while it is still going wrong")
+                .containsExactly("1 certificate(s) could not be imported into the inventory.");
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+    }
+
+    @Test
+    void cleanBatch_addsNothingToTheRunMessageLog() throws Exception {
+        Discovery run = processingRun();
+        stageCertificates(run, 1);
+        importsCleanly();
+
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(reload(run).getRunMessages())
+                .as("only the terminal line, so a clean run's log is not noise")
+                .containsExactly("Discovery completed successfully.");
+    }
+
+    @Test
     void rowThatRecordedAReason_endsTheRunAsAWarning() throws Exception {
         Discovery run = processingRun();
         List<DiscoveryCertificate> staged = stageCertificates(run, 2);
@@ -194,11 +222,16 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
     /** Stubs the pipeline to do what a clean import does: stamp every row of the batch as processed. */
     private void importsCleanly() throws Exception {
+        importsWith(new DiscoveryRunCounts(0, 0, 0, 0, false));
+    }
+
+    /** The same, but reporting the given gaps — the pipeline stamps its rows either way. */
+    private void importsWith(DiscoveryRunCounts counts) throws Exception {
         doAnswer(invocation -> {
             List<DiscoveryCertificate> batch = invocation.getArgument(1);
             claimedBatchSizes.add(batch.size());
             discoveryWriter.markProcessed(batch.stream().map(DiscoveryCertificate::getUuid).toList(), null);
-            return null;
+            return counts;
         }).when(importHandler).processBatch(any(), anyList());
     }
 

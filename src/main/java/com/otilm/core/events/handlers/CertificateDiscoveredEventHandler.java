@@ -416,30 +416,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         if (counts.allClear()) {
             return new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage);
         }
-        List<String> sentences = new ArrayList<>();
-        if (counts.inventoryGaps() > 0) {
-            sentences
-                    .add("%d certificate(s) could not be imported into the inventory."
-                            .formatted(counts.inventoryGaps()));
-        }
-        if (counts.keyGaps() > 0) {
-            sentences
-                    .add("%d certificate(s) were imported without all of their public keys associated."
-                            .formatted(counts.keyGaps()));
-        }
-        if (counts.notAttempted() > 0) {
-            sentences.add("%d certificate(s) could not be processed to a result.".formatted(counts.notAttempted()));
-        }
-        if (counts.bookkeepingFailures() > 0) {
-            sentences.add("Some per-certificate detail could not be recorded.");
-        }
-        if (counts.validationNotQueued()) {
-            sentences.add("Validation of the discovered certificates could not be requested.");
-        }
-        // Only when some row actually carries a reason to read. A bookkeeping failure means the detail did not get
-        // written, and validation never being requested says nothing about any individual row -- pointing at the
-        // list for either contradicts the sentence before it.
-        if (counts.inventoryGaps() + counts.keyGaps() + counts.notAttempted() > 0) {
+        List<String> sentences = new ArrayList<>(counts.describeGaps());
+        if (counts.hasPerCertificateDetail()) {
             sentences.add("See the discovery certificate list for per-certificate detail.");
         }
         return new DiscoveryResult(DiscoveryStatus.WARNING, String.join(" ", sentences));

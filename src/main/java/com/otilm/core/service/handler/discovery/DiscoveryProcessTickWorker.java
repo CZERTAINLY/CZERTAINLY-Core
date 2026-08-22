@@ -6,10 +6,12 @@ import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.events.handlers.CertificateDiscoveredEventHandler;
+import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
 import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
+import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -52,18 +54,20 @@ public class DiscoveryProcessTickWorker {
     private final DiscoveryWorkWriter workWriter;
     private final DiscoveryWorkProducer workProducer;
     private final DiscoveryRunTerminator terminator;
+    private final DiscoveryWriter discoveryWriter;
     private final int batchSize;
 
     public DiscoveryProcessTickWorker(DiscoveryRepository discoveryRepository,
             DiscoveryCertificateRepository certificateRepository, CertificateDiscoveredEventHandler importHandler,
             DiscoveryWorkWriter workWriter, DiscoveryWorkProducer workProducer, DiscoveryRunTerminator terminator,
-            @Value("${discovery.processing.batch-size:200}") int batchSize) {
+            DiscoveryWriter discoveryWriter, @Value("${discovery.processing.batch-size:200}") int batchSize) {
         this.discoveryRepository = discoveryRepository;
         this.certificateRepository = certificateRepository;
         this.importHandler = importHandler;
         this.workWriter = workWriter;
         this.workProducer = workProducer;
         this.terminator = terminator;
+        this.discoveryWriter = discoveryWriter;
         this.batchSize = batchSize;
     }
 
@@ -109,7 +113,10 @@ public class DiscoveryProcessTickWorker {
     private void importBatch(UUID discoveryUuid, int attempt, List<DiscoveryCertificate> batch) {
         Discovery run = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
         try {
-            importHandler.processBatch(run, batch);
+            DiscoveryRunCounts counts = importHandler.processBatch(run, batch);
+            // Filed as the batch finishes rather than summed up at the end: a long run's operator can see what
+            // is going wrong while it is still going wrong, and the per-row reasons stay on the rows.
+            discoveryWriter.appendRunMessages(discoveryUuid, counts.describeGaps());
         } catch (Exception e) {
             logger
                     .error("Processing batch {} of discovery {} did not complete: {}", attempt, discoveryUuid,
