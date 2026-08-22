@@ -35,6 +35,7 @@ public class SigningRecordMapper {
         signingRecord.setSignedDocument(outbox.getSignedDocument());
         signingRecord.setDtbs(outbox.getDtbs());
         signingRecord.setRequestMetadataJson(outbox.getRequestMetadataJson());
+        signingRecord.setTimestampTokenSerials(outbox.getTimestampTokenSerials());
         return signingRecord;
     }
 

@@ -5,6 +5,7 @@ import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.model.signing.SigningProfileModel;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 
 import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 
@@ -23,6 +24,7 @@ public final class SigningRecordInputBuilder {
     private byte[] signature = "signature".getBytes(StandardCharsets.UTF_8);
     private byte[] signedDocument = "signed-document".getBytes(StandardCharsets.UTF_8);
     private byte[] dtbs = "data-to-be-signed".getBytes(StandardCharsets.UTF_8);
+    private List<String> timestampTokenSerials = List.of("2a");
 
     public static SigningRecordInputBuilder aSigningRecordInput() {
         return new SigningRecordInputBuilder();
@@ -73,6 +75,11 @@ public final class SigningRecordInputBuilder {
         return this;
     }
 
+    public SigningRecordInputBuilder timestampTokenSerials(List<String> timestampTokenSerials) {
+        this.timestampTokenSerials = timestampTokenSerials;
+        return this;
+    }
+
     public SigningRecordInput build() {
         return SigningRecordInput
                 .builder()
@@ -85,6 +92,7 @@ public final class SigningRecordInputBuilder {
                 .signature(signature)
                 .signedDocument(signedDocument)
                 .dtbs(dtbs)
+                .timestampTokenSerials(timestampTokenSerials)
                 .build();
     }
 }

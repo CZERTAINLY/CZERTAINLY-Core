@@ -11,6 +11,7 @@ import com.otilm.core.signing.tsa.messages.TspRequest;
 import java.math.BigInteger;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -65,6 +66,7 @@ public class TimestampSigningRecordFactory {
                 .displayName(signingProfile.name() + " #" + serialHex)
                 .requestMetadataJson(buildRequestMetadataJson(signingProfile, request, serialHex))
                 .signedDocument(encodedToken)
+                .timestampTokenSerials(List.of(serialHex))
                 .build();
     }
 

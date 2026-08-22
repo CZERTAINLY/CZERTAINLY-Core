@@ -27,6 +27,7 @@ public class SigningRecordInputMapper {
         signingRecord.setSigningProfileVersion(input.getSigningProfile().version());
         signingRecord.setSigningTime(input.getSigningTime());
         signingRecord.setProtocol(input.getProtocol());
+        signingRecord.setTimestampTokenSerials(input.getTimestampTokenSerials());
         applyRequester(input, signingRecord::setRequestedByUuid, signingRecord::setRequestedByUsername);
         applyRecordableContent(input, signingRecord::setRequestMetadataJson, signingRecord::setSignatureValue,
                 signingRecord::setSignedDocument, signingRecord::setDtbs);
@@ -44,6 +45,7 @@ public class SigningRecordInputMapper {
         outbox.setSigningProfileVersion(input.getSigningProfile().version());
         outbox.setSigningTime(input.getSigningTime());
         outbox.setProtocol(input.getProtocol());
+        outbox.setTimestampTokenSerials(input.getTimestampTokenSerials());
         applyRequester(input, outbox::setRequestedByUuid, outbox::setRequestedByUsername);
         applyRecordableContent(input, outbox::setRequestMetadataJson, outbox::setSignatureValue,
                 outbox::setSignedDocument, outbox::setDtbs);
@@ -52,7 +54,8 @@ public class SigningRecordInputMapper {
 
     /**
      * Unpacks the requester {@link NameAndUuidDto} into the record's denormalized uuid/username columns. Captured
-     * unconditionally — the requester identity is not gated by the content {@code record*} toggles.
+     * unconditionally — the requester identity and timestamp serials are not gated by the content {@code record*}
+     * toggles.
      */
     private void applyRequester(SigningRecordInput input, Consumer<UUID> uuid, Consumer<String> username) {
         NameAndUuidDto requestedBy = input.getRequestedBy();

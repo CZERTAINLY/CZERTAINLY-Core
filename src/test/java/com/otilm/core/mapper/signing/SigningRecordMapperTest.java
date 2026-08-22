@@ -10,6 +10,7 @@ import com.otilm.core.dao.entity.signing.SigningRecord;
 import com.otilm.core.dao.entity.signing.SigningRecordOutbox;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +35,7 @@ class SigningRecordMapperTest {
         outbox.setSignatureValue("the-signature".getBytes());
         outbox.setSignedDocument("the-signed-document".getBytes());
         outbox.setDtbs("the-data-to-be-signed".getBytes());
+        outbox.setTimestampTokenSerials(List.of("2a"));
         outbox.setProtocol(SigningProtocol.CSC_API);
 
         // when
@@ -51,6 +53,7 @@ class SigningRecordMapperTest {
         assertArrayEquals(outbox.getSignatureValue(), signingRecord.getSignatureValue());
         assertArrayEquals(outbox.getSignedDocument(), signingRecord.getSignedDocument());
         assertArrayEquals(outbox.getDtbs(), signingRecord.getDtbs());
+        assertEquals(outbox.getTimestampTokenSerials(), signingRecord.getTimestampTokenSerials());
         assertEquals(outbox.getProtocol(), signingRecord.getProtocol());
     }
 

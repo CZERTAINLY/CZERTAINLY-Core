@@ -4,6 +4,7 @@ import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.model.signing.SigningProfileModel;
 import java.time.Instant;
+import java.util.List;
 import lombok.Builder;
 import lombok.Value;
 
@@ -19,4 +20,5 @@ public class SigningRecordInput {
     byte[] signature;
     byte[] signedDocument;
     byte[] dtbs;
+    List<String> timestampTokenSerials;
 }
