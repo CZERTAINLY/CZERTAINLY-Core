@@ -113,7 +113,7 @@
     {
       "name": "ilm",
       "vhost": "/",
-      "type": "topic",
+      "type": "direct",
       "durable": true,
       "auto_delete": false,
       "internal": false,
