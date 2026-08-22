@@ -8,6 +8,7 @@ import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapter;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
+import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import com.otilm.core.util.DiscoveryRunMetaFixture;
 import java.time.Duration;
@@ -67,8 +68,12 @@ class DiscoveryRunReaperUnitTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     @BeforeEach
     void setUp() {
+        // A real terminator, not a mock: the reaper delegates the terminal mutation to it, and that mutation
+        // is what these tests assert on. Its collaborators are unused by applyTerminalState.
         reaper = new DiscoveryRunReaper(discoveryRepository, workRepository, workWriter, adapterFactory,
-                transactionHandler, clusterSynchronizer, Duration.ofMinutes(5), Duration.ofDays(7));
+                transactionHandler, clusterSynchronizer,
+                new DiscoveryRunTerminator(discoveryRepository, workWriter, transactionHandler), Duration.ofMinutes(5),
+                Duration.ofDays(7));
         // Execute the transactional lambdas inline so the real selection/reap logic runs under the test.
         lenient()
                 .when(transactionHandler.runInNewTransaction(any(Supplier.class)))
@@ -117,6 +122,9 @@ class DiscoveryRunReaperUnitTest {
         assertThatCode(() -> reaper.reap()).doesNotThrowAnyException();
 
         assertThat(healthy.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        assertThat(healthy.getRunMessages())
+                .as("a reaped run must carry the same ending in its log as one a worker ended")
+                .containsExactly("Discovery work lost; the run can no longer be driven");
     }
 
     @Test

@@ -8,6 +8,7 @@ import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
+import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -59,13 +60,14 @@ public class DiscoveryRunReaper {
     private final DiscoveryProviderAdapterFactory adapterFactory;
     private final TransactionHandler transactionHandler;
     private final ClusterOperationSynchronizer clusterSynchronizer;
+    private final DiscoveryRunTerminator terminator;
     private final Duration reapGrace;
     private final Duration stoppedMaxDuration;
 
     public DiscoveryRunReaper(DiscoveryRepository discoveryRepository, DiscoveryWorkRepository workRepository,
             DiscoveryWorkWriter workWriter, DiscoveryProviderAdapterFactory adapterFactory,
             TransactionHandler transactionHandler, ClusterOperationSynchronizer clusterSynchronizer,
-            @Value("${discovery.work.reap-grace:PT5M}") Duration reapGrace,
+            DiscoveryRunTerminator terminator, @Value("${discovery.work.reap-grace:PT5M}") Duration reapGrace,
             @Value("${discovery.run.stopped-max-duration:P7D}") Duration stoppedMaxDuration) {
         this.discoveryRepository = discoveryRepository;
         this.workRepository = workRepository;
@@ -73,6 +75,7 @@ public class DiscoveryRunReaper {
         this.adapterFactory = adapterFactory;
         this.transactionHandler = transactionHandler;
         this.clusterSynchronizer = clusterSynchronizer;
+        this.terminator = terminator;
         this.reapGrace = reapGrace;
         this.stoppedMaxDuration = stoppedMaxDuration;
     }
@@ -203,12 +206,15 @@ public class DiscoveryRunReaper {
     private record ReapedRun(Discovery run, List<MetadataAttribute> meta) {
     }
 
-    // Connector-side run context is nulled on every terminal transition; connectorStatus keeps the last
-    // report — the connector never confirmed this ending.
+    /**
+     * Ends the run through the terminator's own mutation, so a reaped run is indistinguishable from one a worker ended
+     * — same status, same released handle, same entry in the message log. The re-assert and the row lock stay here:
+     * they are the reaper's conditions, not the terminator's.
+     *
+     * <p>
+     * {@code connectorStatus} is deliberately left at the last report: the connector never confirmed this ending.
+     */
     private void endRun(Discovery run, DiscoveryStatus status, String message) {
-        run.setStatus(status);
-        run.setMessage(message);
-        run.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
-        run.setRunMeta(null);
+        terminator.applyTerminalState(run, status, message);
     }
 }

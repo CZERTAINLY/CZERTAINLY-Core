@@ -55,14 +55,28 @@ public class DiscoveryRunTerminator {
                 logger.debug("Discovery {} is already {}; leaving it alone", discoveryUuid, run.getStatus());
                 return false;
             }
-            run.setStatus(status);
-            run.setMessage(reason);
-            run.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
-            run.setRunMeta(null);
-            run.setRunMessages(DiscoveryRunLifecycle.append(run.getRunMessages(), reason));
+            applyTerminalState(run, status, reason);
             workWriter.deleteForRun(discoveryUuid);
-            logger.info("Discovery {} ended as {}: {}", discoveryUuid, status, reason);
             return true;
         }));
+    }
+
+    /**
+     * Applies the terminal state to a run the caller already holds locked, without opening a transaction or
+     * re-asserting anything.
+     *
+     * <p>
+     * Exists for the one caller that cannot go through {@link #end}: the reaper re-asserts its own conditions — an
+     * empty agenda, or a stop past its window — under a lock it already holds, and calling {@code end} from inside that
+     * would deadlock against its own row lock. Sharing the mutation is what keeps the two paths from drifting: before
+     * this, a reaped run silently lost the ending from its message log.
+     */
+    public void applyTerminalState(Discovery run, DiscoveryStatus status, String reason) {
+        run.setStatus(status);
+        run.setMessage(reason);
+        run.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
+        run.setRunMeta(null);
+        run.setRunMessages(DiscoveryRunLifecycle.append(run.getRunMessages(), reason));
+        logger.info("Discovery {} ended as {}: {}", run.getUuid(), status, reason);
     }
 }
