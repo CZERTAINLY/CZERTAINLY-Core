@@ -51,6 +51,17 @@ public interface DiscoveryWorkRepository extends JpaRepository<DiscoveryWork, UU
     void reschedule(@Param("discoveryUuid") UUID discoveryUuid, @Param("workType") DiscoveryWorkType workType,
             @Param("attempt") int attempt, @Param("nextDueAt") OffsetDateTime nextDueAt);
 
+    /**
+     * Lowers an agenda row's attempt counter to {@code attempt} when it is currently above it.
+     */
+    @Modifying
+    @Query("UPDATE DiscoveryWork w SET w.attempt = :attempt "
+            + "WHERE w.discoveryUuid = :discoveryUuid AND w.workType = :workType AND w.attempt > :attempt")
+    void resetAttemptTo(@Param("discoveryUuid") UUID discoveryUuid, @Param("workType") DiscoveryWorkType workType,
+            @Param("attempt") int attempt);
+
+    boolean existsByDiscoveryUuid(UUID discoveryUuid);
+
     @Modifying
     @Query("DELETE FROM DiscoveryWork w WHERE w.discoveryUuid = :discoveryUuid")
     void deleteByDiscoveryUuid(@Param("discoveryUuid") UUID discoveryUuid);
