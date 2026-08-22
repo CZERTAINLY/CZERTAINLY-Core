@@ -83,7 +83,7 @@ class ObjectMapperFactoryTest {
 
         ZonedDateTime converted = ObjectMapperFactory.storage().convertValue(at, ZonedDateTime.class);
 
-        assertThat(converted.toString()).isEqualTo(at.toString());
+        assertThat(converted).hasToString(at.toString());
         assertThat(converted.getOffset()).isEqualTo(ZoneOffset.ofHours(2));
     }
 
