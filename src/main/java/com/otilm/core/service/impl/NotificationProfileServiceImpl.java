@@ -3,6 +3,7 @@ package com.otilm.core.service.impl;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.notification.NotificationProfileDetailDto;
 import com.otilm.api.model.client.notification.NotificationProfileRequestDto;
 import com.otilm.api.model.client.notification.NotificationProfileResponseDto;
@@ -15,6 +16,7 @@ import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.dao.entity.notifications.NotificationInstanceReference;
 import com.otilm.core.dao.entity.notifications.NotificationProfile;
 import com.otilm.core.dao.entity.notifications.NotificationProfileVersion;
+import com.otilm.core.dao.entity.notifications.NotificationProfile_;
 import com.otilm.core.dao.entity.workflows.Execution;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.otilm.core.dao.repository.notifications.NotificationProfileRepository;
@@ -24,7 +26,9 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.NotificationProfileExternalService;
+import com.otilm.core.service.NotificationProfileInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.notifications.NotificationDataCategoryGate;
 import com.otilm.core.util.RequestValidatorHelper;
@@ -50,9 +54,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service
+@Service(Resource.Codes.NOTIFICATION_PROFILE)
 @Transactional(rollbackFor = Exception.class)
-public class NotificationProfileServiceImpl implements NotificationProfileExternalService {
+public class NotificationProfileServiceImpl
+        implements
+            NotificationProfileExternalService,
+            NotificationProfileInternalService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationProfileServiceImpl.class);
 
@@ -66,6 +73,13 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
     private ExecutionRepository executionRepository;
     private ResourceObjectAssociationService resourceObjectAssociationService;
     private NotificationDataCategoryGate notificationDataCategoryGate;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Lazy
     @Autowired
@@ -170,6 +184,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
                                     executions.stream().map(Execution::getName).collect(Collectors.joining(", "))));
         }
 
+        commentService.removeObjectComments(Resource.NOTIFICATION_PROFILE, notificationProfile.getUuid());
         notificationProfileRepository.delete(notificationProfile);
     }
 
@@ -436,5 +451,30 @@ public class NotificationProfileServiceImpl implements NotificationProfileExtern
                 && currentVersion.isInternalNotification() == requestDto.isInternalNotification()
                 && Objects.equals(currentVersion.getFrequency(), requestDto.getFrequency())
                 && Objects.equals(currentVersion.getRepetitions(), requestDto.getRepetitions());
+    }
+
+    @Override
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
+        return notificationProfileRepository.findResourceObject(objectUuid, NotificationProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
+        return notificationProfileRepository.listResourceObjects(filter, NotificationProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getResourceObjectInternal(uuid.getValue());
+        // A notification profile has no parent, so no exclusive parent permission evaluation is needed
     }
 }

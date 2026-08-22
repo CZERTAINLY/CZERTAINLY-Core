@@ -88,7 +88,14 @@ public class ProxyClientImpl implements ProxyClient {
     @Override
     public <T> ResponseEntity<T> sendRequestForEntity(ApiClientConnectorInfo connector, String path, String method,
             Object body, Class<T> responseType) throws ConnectorException {
-        Duration timeout = proxyProperties.requestTimeout();
+        return sendRequestForEntity(connector, path, method, body, responseType, proxyProperties.requestTimeout());
+    }
+
+    // Overridden so an explicit timeout keeps the status-preserving path: the interface default wraps the bare
+    // body in ResponseEntity.ok, which would turn MQ cancel's 204 into a 200.
+    @Override
+    public <T> ResponseEntity<T> sendRequestForEntity(ApiClientConnectorInfo connector, String path, String method,
+            Object body, Class<T> responseType, Duration timeout) throws ConnectorException {
         try {
             CompletableFuture<ResponseEntity<T>> future = sendRequestForEntityAsync(connector, path, method, body,
                     responseType, timeout);

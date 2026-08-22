@@ -10,12 +10,15 @@ import com.otilm.api.model.client.approvalprofile.ApprovalProfileRequestDto;
 import com.otilm.api.model.client.approvalprofile.ApprovalProfileResponseDto;
 import com.otilm.api.model.client.approvalprofile.ApprovalProfileUpdateRequestDto;
 import com.otilm.api.model.client.approvalprofile.ApprovalStepRequestDto;
+import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
+import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceObjectDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.dao.entity.ApprovalProfile;
 import com.otilm.core.dao.entity.ApprovalProfileRelation;
 import com.otilm.core.dao.entity.ApprovalProfileVersion;
+import com.otilm.core.dao.entity.ApprovalProfile_;
 import com.otilm.core.dao.entity.ApprovalStep;
 import com.otilm.core.dao.repository.ApprovalProfileRelationRepository;
 import com.otilm.core.dao.repository.ApprovalProfileRepository;
@@ -26,6 +29,8 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.ApprovalProfileExternalService;
+import com.otilm.core.service.ApprovalProfileInternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.util.ApprovalRecipientHelper;
 import com.otilm.core.util.RequestValidatorHelper;
@@ -44,10 +49,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service
+@Service(Resource.Codes.APPROVAL_PROFILE)
 @Transactional
 
-public class ApprovalProfileServiceImpl implements ApprovalProfileExternalService {
+public class ApprovalProfileServiceImpl implements ApprovalProfileExternalService, ApprovalProfileInternalService {
 
     private static final Logger logger = LoggerFactory.getLogger(ApprovalProfileServiceImpl.class);
     public static final String RESOURCE_DOES_NOT_SUPPORT_APPROVAL_PROFILES = "Resource %s does not support approval profiles";
@@ -124,6 +129,7 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
             approvalStepRepository.deleteAll(apv.getApprovalSteps());
             approvalProfileVersionRepository.delete(apv);
         });
+        commentService.removeObjectComments(Resource.APPROVAL_PROFILE, approvalProfile.getUuid());
         approvalProfileRepository.delete(approvalProfile);
     }
 
@@ -370,6 +376,13 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
 
     // SETTERs
 
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
+
     @Autowired
     public void setApprovalProfileRepository(ApprovalProfileRepository approvalProfileRepository) {
         this.approvalProfileRepository = approvalProfileRepository;
@@ -399,5 +412,30 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileExternalServic
     public void setApprovalProfileRelationRepository(
             ApprovalProfileRelationRepository approvalProfileRelationRepository) {
         this.approvalProfileRelationRepository = approvalProfileRelationRepository;
+    }
+
+    @Override
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
+        return approvalProfileRepository.findResourceObject(objectUuid, ApprovalProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return getResourceObjectInternal(objectUuid.getValue());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
+        return approvalProfileRepository.listResourceObjects(filter, ApprovalProfile_.name);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getResourceObjectInternal(uuid.getValue());
+        // An approval profile has no parent, so no exclusive parent permission evaluation is needed
     }
 }

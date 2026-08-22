@@ -57,14 +57,28 @@ public class AuditLogAspect {
 
     private AuditResultOverride auditResultOverride;
 
+    private AuditOperationDataOverride auditOperationDataOverride;
+
+    private AuditAffiliationOverride auditAffiliationOverride;
+
     @Autowired
     public void setAuditLogEnhancer(AuditLogEnhancer auditLogEnhancer) {
         this.auditLogEnhancer = auditLogEnhancer;
     }
 
     @Autowired
+    public void setAuditAffiliationOverride(AuditAffiliationOverride auditAffiliationOverride) {
+        this.auditAffiliationOverride = auditAffiliationOverride;
+    }
+
+    @Autowired
     public void setAuditResultOverride(AuditResultOverride auditResultOverride) {
         this.auditResultOverride = auditResultOverride;
+    }
+
+    @Autowired
+    public void setAuditOperationDataOverride(AuditOperationDataOverride auditOperationDataOverride) {
+        this.auditOperationDataOverride = auditOperationDataOverride;
     }
 
     @Autowired
@@ -125,11 +139,7 @@ public class AuditLogAspect {
         } catch (Exception e) {
             String message = e.getMessage();
             if (e instanceof AccessDeniedException) {
-                String resourceNameAccessDenied = AuthHelper.getDeniedPermissionResource();
-                String resourceActionName = AuthHelper.getDeniedPermissionResourceAction();
-                message = "%s. Required '%s' action permission for resource '%s'"
-                        .formatted(message, BeautificationUtil.camelToHumanForm(resourceActionName),
-                                Resource.findByCode(resourceNameAccessDenied).getLabel());
+                message = appendDeniedPermission(message);
             }
 
             logBuilder.operationResult(OperationResult.FAILURE);
@@ -139,9 +149,32 @@ public class AuditLogAspect {
             addDataFromResponse(logBuilder, result);
             setResourceRecords(logData, isDeleteOperation, deletedObjectsIdentities, annotation, logBuilder,
                     deletedAffiliatedObjectsIdentities);
+            // Affiliation declared on parameters or the annotation wins; the override only fills the gap for
+            // methods that discover their affiliated object inside the body.
+            AuditAffiliationOverride.Affiliation affiliation = resolveAffiliationOverride();
+            if (affiliation != null && logData.affiliatedResource() == Resource.NONE) {
+                logBuilder
+                        .affiliatedResource(constructResourceRecord(true, affiliation.resource(),
+                                List.of(affiliation.objectUuid()), null));
+            }
             logBuilder.timestamp(OffsetDateTime.now());
             auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build(), output));
         }
+    }
+
+    /**
+     * Appends the recorded denied permission to the audit message, or returns the original message when no permission
+     * was recorded.
+     */
+    private static String appendDeniedPermission(String message) {
+        String resourceName = AuthHelper.getDeniedPermissionResource();
+        String resourceActionName = AuthHelper.getDeniedPermissionResourceAction();
+        if (resourceName == null || resourceActionName == null) {
+            return message;
+        }
+        return "%s. Required '%s' action permission for resource '%s'"
+                .formatted(message, BeautificationUtil.camelToHumanForm(resourceActionName),
+                        Resource.findByCode(resourceName).getLabel());
     }
 
     /**
@@ -154,6 +187,14 @@ public class AuditLogAspect {
             return null;
         }
         return auditResultOverride.consume();
+    }
+
+    /** Same request-scope caveat as {@link #resolveResultOverride()}. */
+    private AuditAffiliationOverride.Affiliation resolveAffiliationOverride() {
+        if (RequestContextHolder.getRequestAttributes() == null) {
+            return null;
+        }
+        return auditAffiliationOverride.consume();
     }
 
     private void setResourceRecords(LogData logData, boolean isDeleteOperation,
@@ -387,6 +428,9 @@ public class AuditLogAspect {
             if (response instanceof Loggable loggable) {
                 responseOperationData = loggable.toLogData();
             }
+        }
+        if (responseOperationData == null && RequestContextHolder.getRequestAttributes() != null) {
+            responseOperationData = auditOperationDataOverride.consume();
         }
         builder.operationData(responseOperationData);
     }

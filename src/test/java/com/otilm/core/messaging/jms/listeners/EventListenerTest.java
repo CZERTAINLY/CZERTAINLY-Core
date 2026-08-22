@@ -111,6 +111,16 @@ class EventListenerTest {
                 .isNull();
     }
 
+    @Test
+    void eventWithoutARegisteredHandlerIsSkipped() {
+        EventListener listener = new EventListener(authHelper, Map.of());
+
+        assertThatNoException()
+                .isThrownBy(() -> listener
+                        .processMessage(new EventMessage(ResourceEvent.CERTIFICATE_UPLOADED, Resource.CERTIFICATE, null,
+                                null, null, "payload", null, null)));
+    }
+
     private void recordWhatTheHandlerSees() throws Exception {
         doAnswer(invocation -> {
             authenticationSeenByHandler = SecurityContextHolder.getContext().getAuthentication();

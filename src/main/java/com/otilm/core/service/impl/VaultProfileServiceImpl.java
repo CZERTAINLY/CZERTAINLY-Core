@@ -39,6 +39,7 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.VaultProfileExternalService;
 import com.otilm.core.service.VaultProfileInternalService;
 import com.otilm.core.service.v2.ConnectorExternalService;
@@ -71,6 +72,13 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
     private AuthorizationEnforcer authorizationEnforcer;
 
     private ConnectorApiFactory connectorApiFactory;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setAuthorizationEnforcer(AuthorizationEnforcer authorizationEnforcer) {
@@ -212,6 +220,7 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
                     .formatted(vaultProfile.getName(), secretsSync));
         }
         attributeEngine.deleteObjectAttributeContent(Resource.VAULT_PROFILE, securedUUID.getValue());
+        commentService.removeObjectComments(Resource.VAULT_PROFILE, vaultProfile.getUuid());
         vaultProfileRepository.delete(vaultProfile);
     }
 

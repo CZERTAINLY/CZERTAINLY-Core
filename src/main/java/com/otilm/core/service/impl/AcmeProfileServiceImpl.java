@@ -34,6 +34,7 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.AcmeProfileExternalService;
 import com.otilm.core.service.AcmeProfileInternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.RaProfileInternalService;
 import com.otilm.core.service.model.SecuredList;
 import com.otilm.core.service.v2.ExtendedAttributeService;
@@ -60,6 +61,13 @@ public class AcmeProfileServiceImpl implements AcmeProfileExternalService, AcmeP
     private ExtendedAttributeService extendedAttributeService;
     private AttributeEngine attributeEngine;
     private ProtocolCertificateAssociationsRepository certificateAssociationRepository;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setCertificateAssociationRepository(
@@ -544,6 +552,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileExternalService, AcmeP
                                             .collect(Collectors.joining(",")))));
         } else {
             attributeEngine.deleteObjectAttributeContent(Resource.ACME_PROFILE, acmeProfile.getUuid());
+            commentService.removeObjectComments(Resource.ACME_PROFILE, acmeProfile.getUuid());
             acmeProfileRepository.delete(acmeProfile);
         }
     }

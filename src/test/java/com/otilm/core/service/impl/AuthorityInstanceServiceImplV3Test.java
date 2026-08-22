@@ -17,6 +17,7 @@ import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.security.authz.SecuredUUID;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ConnectorExternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.CredentialInternalService;
@@ -82,6 +83,8 @@ class AuthorityInstanceServiceImplV3Test {
     private AuthorityProviderAdapter v3Adapter;
     @Mock
     private TransactionHandler transactionHandler;
+    @Mock
+    private CommentInternalService commentService;
 
     @InjectMocks
     private AuthorityInstanceServiceImpl service;

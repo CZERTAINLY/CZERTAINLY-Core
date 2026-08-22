@@ -38,6 +38,7 @@ import com.otilm.core.model.signing.TspProfileModel;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.SecretInternalService;
 import com.otilm.core.service.SigningProfileInternalService;
 import com.otilm.core.service.TspProfileBasicCredentialInternalService;
@@ -467,6 +468,7 @@ public class TspProfileServiceImpl implements TspProfileExternalService, TspProf
         String name = profile.getName();
         basicCredentialService.deleteSecretsForProfile(profile.getUuid());
         attributeEngine.deleteObjectAttributeContent(Resource.TSP_PROFILE, profile.getUuid());
+        commentService.removeObjectComments(Resource.TSP_PROFILE, profile.getUuid());
         tspProfileRepository.delete(profile);
         evictTspProfileCache(uuid, name);
     }
@@ -495,6 +497,13 @@ public class TspProfileServiceImpl implements TspProfileExternalService, TspProf
     @Override
     public void evictAllCachedModels() {
         cacheEvictor.clear(CacheConfig.TSP_PROFILE_CACHE);
+    }
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
     }
 
     @Autowired

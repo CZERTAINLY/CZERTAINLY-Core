@@ -38,7 +38,7 @@ class NotificationProducerTest {
 
         MessagingProperties.RoutingKey routingKey = new MessagingProperties.RoutingKey("actions", "audit-logs", "event",
                 "notification", "scheduler", "validation", "time-quality.config-request", "time-quality.config",
-                "time-quality.results", "provider.status-poll");
+                "time-quality.results", "provider.status-poll", "provider.discovery-work");
         lenient().when(messagingProperties.routingKey()).thenReturn(routingKey);
 
         producer = new NotificationProducer(jmsTemplate, messagingProperties,

@@ -45,6 +45,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.service.handler.ComplianceProfileRuleHandler;
 import com.otilm.core.service.v2.ComplianceProfileExternalService;
@@ -84,6 +85,13 @@ public class ComplianceProfileServiceImpl
 
     private AttributeEngine attributeEngine;
     private ComplianceProfileRuleHandler ruleHandler;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
@@ -661,6 +669,7 @@ public class ComplianceProfileServiceImpl
         complianceProfileAssociationRepository.deleteByComplianceProfileUuid(complianceProfile.getUuid());
         attributeEngine.deleteObjectAttributeContent(Resource.COMPLIANCE_PROFILE, complianceProfile.getUuid());
 
+        commentService.removeObjectComments(Resource.COMPLIANCE_PROFILE, complianceProfile.getUuid());
         complianceProfileRepository.delete(complianceProfile);
     }
 

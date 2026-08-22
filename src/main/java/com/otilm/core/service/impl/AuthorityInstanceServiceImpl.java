@@ -46,6 +46,7 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.AttributeResourceService;
 import com.otilm.core.service.AuthorityInstanceExternalService;
 import com.otilm.core.service.AuthorityInstanceInternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ConnectorExternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.CredentialInternalService;
@@ -85,6 +86,13 @@ public class AuthorityInstanceServiceImpl
     private ConnectorRepository connectorRepository;
     private AuthorityProviderAdapterFactory adapterFactory;
     private TransactionHandler transactionHandler;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setConnectorService(ConnectorExternalService connectorService) {
@@ -718,6 +726,7 @@ public class AuthorityInstanceServiceImpl
             logger.debug("Deleting authority without a connector-side instance: {}", authorityInstanceRef);
         }
         attributeEngine.deleteObjectAttributeContent(Resource.AUTHORITY, authorityInstanceRef.getUuid());
+        commentService.removeObjectComments(Resource.AUTHORITY, authorityInstanceRef.getUuid());
         authorityInstanceReferenceRepository.delete(authorityInstanceRef);
     }
 

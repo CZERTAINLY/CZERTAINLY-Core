@@ -20,6 +20,7 @@ import com.otilm.api.model.common.events.data.CertificateExpiringEventData;
 import com.otilm.api.model.common.events.data.CertificateNotCompliantEventData;
 import com.otilm.api.model.common.events.data.CertificateRegisteredEventData;
 import com.otilm.api.model.common.events.data.CertificateStatusChangedEventData;
+import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.common.events.data.DiscoveryFinishedEventData;
 import com.otilm.api.model.common.events.data.EventData;
 import com.otilm.api.model.common.events.data.InternalNotificationEventData;
@@ -84,6 +85,8 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
     private static final String EMAIL_NOTIFICATION_PROVIDER_KIND = "EMAIL";
     private static final Set<Resource> OBJECT_RECIPIENT_SUBJECT_RESOURCES = Set.of(Resource.CERTIFICATE);
+    private static final Set<ResourceEvent> SUBJECT_LINKED_EVENTS = EnumSet
+            .of(ResourceEvent.COMMENT_CREATED, ResourceEvent.COMMENT_RESOLVED);
 
     private ObjectMapper mapper;
     private AttributeEngine attributeEngine;
@@ -202,8 +205,10 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         // sent in corresponding event handlers
         if (sendInternalNotifications) {
             try {
+                NotificationSubjectResolver.SubjectRef target = internalNotificationTarget(message.getEvent(),
+                        message.getResource(), message.getObjectUuid(), subject);
                 InternalNotificationOutcome outcome = sendInternalNotifications(recipients,
-                        getInternalNotificationData(message), message.getResource(), message.getObjectUuid());
+                        getInternalNotificationData(message), target.resource(), target.objectUuid());
                 notificationSent = notificationSent || outcome.notified() > 0;
                 reportInternalNotificationGap(outcome, "Notification profile %s in event %s"
                         .formatted(notificationProfileVersion.getNotificationProfile().getName(), message.getEvent()),
@@ -451,8 +456,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
             return List.of(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
         }
 
-        return getDefaultRecipients(message.getEvent(), message.getData(), message.getResource(),
-                message.getObjectUuid());
+        // Defaults resolve against the subject for the same reason OWNER does: comment events carry the comment,
+        // but their natural audience belongs to the host object.
+        return getDefaultRecipients(message.getEvent(), message.getData(), subject.resource(), subject.objectUuid());
     }
 
     /**
@@ -488,12 +494,25 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
         return recipientUuids.stream().map(uuid -> new NotificationRecipient(recipientType, uuid)).toList();
     }
 
-    private List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource,
+    /**
+     * Which object the persisted notification points the reader at. Almost every event names the record the reader acts
+     * on -- an approval notification must open the approval, not the object awaiting it -- so the message's own
+     * coordinates win. A comment has no page of its own, so its notification points at the host object instead,
+     * matching what the comment handlers publish for their follow-ups.
+     */
+    static NotificationSubjectResolver.SubjectRef internalNotificationTarget(ResourceEvent event,
+            Resource messageResource, UUID messageObjectUuid, NotificationSubjectResolver.SubjectRef subject) {
+        return SUBJECT_LINKED_EVENTS.contains(event)
+                ? subject
+                : new NotificationSubjectResolver.SubjectRef(messageResource, messageObjectUuid);
+    }
+
+    List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource,
             UUID objectUuid) {
         List<NotificationRecipient> recipients = new ArrayList<>();
         switch (event) {
             case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED, CERTIFICATE_EXPIRING,
-                    CERTIFICATE_NOT_COMPLIANT, CERTIFICATE_UPLOADED -> {
+                    CERTIFICATE_NOT_COMPLIANT, CERTIFICATE_UPLOADED, COMMENT_CREATED, COMMENT_RESOLVED -> {
                 NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
@@ -535,6 +554,9 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
                 }
+            }
+            // Events without a natural default audience resolve to nobody; the profile has to name recipients.
+            default -> {
             }
         }
 
@@ -887,6 +909,24 @@ public class NotificationListener implements MessageProcessor<NotificationMessag
                 ScheduledJobFinishedEventData data = (ScheduledJobFinishedEventData) eventData;
                 yield new InternalNotificationEventData("%s scheduled task has finished for %s with result %s"
                         .formatted(data.getJobType(), data.getJobName(), data.getStatus()), null);
+            }
+            // The comment body stays out of the persisted notification on purpose: the notification points at
+            // the thread, it does not mirror user-authored text.
+            case COMMENT_CREATED -> {
+                CommentEventData data = (CommentEventData) eventData;
+                yield new InternalNotificationEventData("%s %s on %s '%s'"
+                        .formatted(data.getAuthorUsername(),
+                                data.getParentUuid() == null ? "commented" : "replied to a comment thread",
+                                data.getResource().getLabel(), data.getObjectName()),
+                        null);
+            }
+            case COMMENT_RESOLVED -> {
+                CommentEventData data = (CommentEventData) eventData;
+                yield new InternalNotificationEventData("%s %s a comment thread on %s '%s'"
+                        .formatted(data.getResolvedByUsername(),
+                                Boolean.TRUE.equals(data.getResolved()) ? "resolved" : "reopened",
+                                data.getResource().getLabel(), data.getObjectName()),
+                        null);
             }
             case CERTIFICATE_REGISTERED -> {
                 CertificateRegisteredEventData data = (CertificateRegisteredEventData) eventData;

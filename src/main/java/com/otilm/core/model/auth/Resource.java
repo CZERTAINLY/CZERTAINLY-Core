@@ -56,6 +56,9 @@ public enum Resource {
     APPROVAL_PROFILE("approvalProfiles"),
     APPROVAL("approvals"),
 
+    // COMMENTS
+    COMMENT("comments"),
+
     // NOTIFICATIONS
     NOTIFICATION_PROFILE("notificationProfiles"),
     NOTIFICATION_INSTANCE("notificationInstances"),

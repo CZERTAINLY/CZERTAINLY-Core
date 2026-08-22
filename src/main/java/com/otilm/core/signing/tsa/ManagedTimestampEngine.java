@@ -1,8 +1,7 @@
 package com.otilm.core.signing.tsa;
 
-import com.otilm.api.interfaces.core.tsp.error.TspException;
-import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.api.model.messaging.timequality.TimeQualityStatus;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
@@ -14,6 +13,7 @@ import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
 import com.otilm.core.signing.record.SigningRecordInputSource;
 import com.otilm.core.signing.record.SigningRecordStrategyFactory;
+import com.otilm.core.signing.tsa.messages.IssuedTimestamp;
 import com.otilm.core.signing.tsa.messages.TspRequest;
 import com.otilm.core.signing.tsa.messages.TspResponse;
 import com.otilm.core.signing.tsa.timequality.TimeQualityRegister;
@@ -22,25 +22,29 @@ import com.otilm.core.util.serialnumber.ClockDriftException;
 import com.otilm.core.util.serialnumber.SerialNumberGenerationException;
 import com.otilm.core.util.serialnumber.SerialNumberGenerator;
 import java.math.BigInteger;
+import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.Objects;
 import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.tsp.TSPValidationException;
+import org.bouncycastle.tsp.TimeStampToken;
+import org.bouncycastle.tsp.TimeStampTokenInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Core engine that processes RFC 3161 timestamp requests.
+ * Core engine that issues RFC 3161 timestamp tokens.
  *
  * <p>
- * Validates time quality, generates a serial number, delegates token creation to
- * {@link ManagedTimestampTokenGenerator}, verifies the signer certificate, and optionally validates the token signature
- * before returning the response.
+ * {@link #issue} is the protocol-neutral entry point; {@link #process} wraps it for RFC 3161.
  */
 @Component
 public class ManagedTimestampEngine {
 
     private static final Logger logger = LoggerFactory.getLogger(ManagedTimestampEngine.class);
+
+    private static final String INTERNAL_ERROR_CLIENT_MESSAGE = "Internal error";
 
     private final TimeQualityRegister timeQualityRegister;
     private final SerialNumberGenerator serialNumberGenerator;
@@ -48,115 +52,197 @@ public class ManagedTimestampEngine {
     private final SigningCertificateValidatorFactory signingCertificateValidatorFactory;
     private final ClockSource clockSource;
     private final SigningRecordStrategyFactory signingRecordStrategyFactory;
-    private final TspSigningRecordFactory tspSigningRecordFactory;
+    private final TimestampSigningRecordFactory timestampSigningRecordFactory;
 
     public ManagedTimestampEngine(TimeQualityRegister timeQualityRegister, SerialNumberGenerator serialNumberGenerator,
             ManagedTimestampTokenGenerator tokenGenerator,
             SigningCertificateValidatorFactory signingCertificateValidatorFactory, ClockSource clockSource,
             SigningRecordStrategyFactory signingRecordStrategyFactory,
-            TspSigningRecordFactory tspSigningRecordFactory) {
+            TimestampSigningRecordFactory timestampSigningRecordFactory) {
         this.timeQualityRegister = timeQualityRegister;
         this.serialNumberGenerator = serialNumberGenerator;
         this.tokenGenerator = tokenGenerator;
         this.signingCertificateValidatorFactory = signingCertificateValidatorFactory;
         this.clockSource = clockSource;
         this.signingRecordStrategyFactory = signingRecordStrategyFactory;
-        this.tspSigningRecordFactory = tspSigningRecordFactory;
+        this.timestampSigningRecordFactory = timestampSigningRecordFactory;
     }
 
+    /**
+     * Renders an {@link #issue} run as an RFC 3161 response. A failure becomes a rejection carrying the same failure
+     * info and client text the protocol edge would have produced from the thrown exception.
+     */
     public TspResponse process(TspRequest request, SigningProfileModel<?, ?> signingProfile,
-            ResolvedManagedTimestampingProfile timestampingProfile) throws TspException {
+            ResolvedManagedTimestampingProfile timestampingProfile) {
         try {
-            return processInternal(request, signingProfile, timestampingProfile);
+            return TspResponse
+                    .granted(issue(request, signingProfile, timestampingProfile, SigningProtocol.TSP).encoded());
         } catch (SigningEngineException e) {
-            throw TspErrorMapper.toTspException(e); // TspController maps this to a proper rejection response
+            return TspResponse.rejected(TspErrorMapper.toFailureInfo(e.failure()), e.clientMessage());
         }
     }
 
-    private TspResponse processInternal(TspRequest request, SigningProfileModel<?, ?> signingProfile,
-            ResolvedManagedTimestampingProfile timestampingProfile) throws SigningEngineException {
+    /**
+     * Issues a timestamp token below any protocol edge, reporting failures in the Signing Engine's own currency.
+     *
+     * @param protocol how the issuance was initiated, which is what its signing record will carry
+     * @throws SigningEngineException if the time reference, the signing certificate, or token assembly does not permit
+     * issuing
+     */
+    public IssuedTimestamp issue(TspRequest request, SigningProfileModel<?, ?> signingProfile,
+            ResolvedManagedTimestampingProfile timestampingProfile, SigningProtocol protocol)
+            throws SigningEngineException {
+        Objects.requireNonNull(protocol, "protocol");
+        try {
+            return issueToken(request, signingProfile, timestampingProfile, protocol);
+        } catch (SigningEngineException e) {
+            logFailure(timestampingProfile, protocol, e);
+            throw e;
+        }
+    }
 
+    private IssuedTimestamp issueToken(TspRequest request, SigningProfileModel<?, ?> signingProfile,
+            ResolvedManagedTimestampingProfile timestampingProfile, SigningProtocol protocol)
+            throws SigningEngineException {
         ResolvedManagedScheme signingScheme = timestampingProfile.resolvedScheme();
-        var signerCertificateValidator = signingCertificateValidatorFactory.getValidator(signingScheme);
-        TimeQualityConfigurationModel timeQualityConfiguration = timestampingProfile.timeQualityConfiguration();
+        requireTrustworthyTime(timestampingProfile);
+        requireAcceptableSigningCertificate(timestampingProfile, signingScheme);
 
-        var timeStatus = timeQualityRegister.getStatus(timeQualityConfiguration);
+        try {
+            BigInteger serialNumber = serialNumberGenerator.generate();
+            Instant genTime = clockSource.wallTimeInstant();
+            var certificateChain = signingScheme.chain();
+
+            TimeStampToken token = tokenGenerator
+                    .generate(request, timestampingProfile, certificateChain, serialNumber, genTime);
+            if (Boolean.TRUE.equals(timestampingProfile.validateTokenSignature())) {
+                token.validate(new JcaSimpleSignerInfoVerifierBuilder().build(certificateChain.signingCertificate()));
+            }
+
+            requireTokenBoundToRequest(token, request, serialNumber);
+
+            byte[] encodedToken = token.getEncoded();
+            recordSigning(signingProfile, request, serialNumber, genTime, encodedToken, protocol);
+            return new IssuedTimestamp(encodedToken, serialNumber, genTime);
+
+        } catch (SigningEngineException e) {
+            // keeps engine failures out of the catch-all below, which would collapse their classification
+            throw e;
+        } catch (TSPValidationException e) {
+            throw new SigningEngineException(SigningEngineFailure.SIGNER_FAULT, "timestamp signature validation failed",
+                    e, "Timestamp signature validation failed");
+        } catch (ClockDriftException e) {
+            throw new SigningEngineException(SigningEngineFailure.TIME_UNAVAILABLE,
+                    "clock drift detected during timestamp generation", e, "Clock drift detected");
+        } catch (SerialNumberGenerationException e) {
+            throw new SigningEngineException(SigningEngineFailure.STEP_FAILED, "timestamp generation interrupted", e,
+                    INTERNAL_ERROR_CLIENT_MESSAGE);
+        } catch (Exception e) {
+            throw new SigningEngineException(SigningEngineFailure.STEP_FAILED,
+                    "unexpected error during timestamp generation", e, INTERNAL_ERROR_CLIENT_MESSAGE);
+        }
+    }
+
+    /**
+     * A timestamp asserts that a document existed at a stated moment, so an untrustworthy time reference must stop
+     * issuance rather than produce a token nobody can rely on.
+     */
+    private void requireTrustworthyTime(ResolvedManagedTimestampingProfile timestampingProfile)
+            throws SigningEngineException {
+        TimeQualityConfigurationModel timeQualityConfiguration = timestampingProfile.timeQualityConfiguration();
+        TimeQualityStatus timeStatus = timeQualityRegister.getStatus(timeQualityConfiguration);
         if (timeStatus != TimeQualityStatus.OK) {
-            logger
-                    .warn("Rejecting timestamp request for timestampingProfile '{}' using timeQualityProfile '{}': time quality status is {}",
-                            timestampingProfile.name(), timeQualityConfiguration.getName(), timeStatus);
-            return TspResponse
-                    .rejected(TspFailureInfo.TIME_NOT_AVAILABLE,
-                            "Time quality is not sufficient for timestampingProfile '%s'"
-                                    .formatted(timestampingProfile.name()));
+            throw new SigningEngineException(SigningEngineFailure.TIME_UNAVAILABLE,
+                    "time quality status is %s for timestampingProfile '%s' using timeQualityProfile '%s'"
+                            .formatted(timeStatus, timestampingProfile.name(), timeQualityConfiguration.getName()),
+                    "Time quality is not sufficient for timestampingProfile '%s'"
+                            .formatted(timestampingProfile.name()));
         }
         logger
                 .info("Time quality status for time quality configuration '{}': {}", timeQualityConfiguration.getName(),
                         timeStatus);
+    }
 
-        var validationResult = signerCertificateValidator
+    private void requireAcceptableSigningCertificate(ResolvedManagedTimestampingProfile timestampingProfile,
+            ResolvedManagedScheme signingScheme) throws SigningEngineException {
+        ValidationResult result = signingCertificateValidatorFactory
+                .getValidator(signingScheme)
                 .validate(signingScheme, SigningWorkflowType.TIMESTAMPING, timestampingProfile.isQualifiedTimestamp());
-        if (validationResult instanceof ValidationResult.Nok(SigningEngineFailure failure, String logMessage, String clientMessage)) {
-            logger
-                    .warn("Rejecting timestamp request for signing profile '{}': {}", timestampingProfile.name(),
-                            logMessage);
-            return TspResponse.rejected(TspErrorMapper.toFailureInfo(failure), clientMessage);
+        if (result instanceof ValidationResult.Nok(SigningEngineFailure failure, String logMessage, String clientMessage)) {
+            throw new SigningEngineException(failure,
+                    "signing certificate of timestampingProfile '%s' is not acceptable: %s"
+                            .formatted(timestampingProfile.name(), logMessage),
+                    clientMessage);
         }
-
-        try {
-            var serialNumber = serialNumberGenerator.generate();
-            var genTime = clockSource.wallTimeInstant();
-            var certificateChain = signingScheme.chain();
-
-            var token = tokenGenerator.generate(request, timestampingProfile, certificateChain, serialNumber, genTime);
-
-            if (Boolean.TRUE.equals(timestampingProfile.validateTokenSignature())) {
-                var verifier = new JcaSimpleSignerInfoVerifierBuilder().build(certificateChain.signingCertificate());
-                token.validate(verifier);
-            }
-
-            byte[] encodedToken = token.getEncoded();
-            recordSigning(signingProfile, request, serialNumber, genTime, encodedToken);
-
-            return TspResponse.granted(encodedToken);
-
-        } catch (SigningEngineException e) {
-            // keeps engine failures out of catch (Exception) below, which would collapse them into SYSTEM_FAILURE
-            throw e;
-        } catch (TSPValidationException e) {
-            logger.error("Timestamp signature validation failed", e);
-            return TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "Timestamp signature validation failed");
-        } catch (ClockDriftException e) {
-            logger.error("Clock drift detected during timestamp generation", e);
-            return TspResponse.rejected(TspFailureInfo.TIME_NOT_AVAILABLE, "Clock drift detected");
-        } catch (SerialNumberGenerationException e) {
-            logger.error("Timestamp generation interrupted", e);
-            return TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "Internal error");
-        } catch (Exception e) {
-            logger.error("Unexpected error during timestamp generation", e);
-            return TspResponse.rejected(TspFailureInfo.SYSTEM_FAILURE, "Internal error");
-        }
-
     }
 
     /**
-     * Records the granted timestamp. The signature has already been produced by the managed key, so a recording failure
-     * must never downgrade the response: it is logged and swallowed, leaving the granted token intact. The engine hands
-     * the strategy a deferred {@link SigningRecordInputSource} so the strategy's {@code recordingEnabled} gate
+     * The connector assembles the {@code TSTInfo}, so the token it returns is only as trustworthy as its echo of what
+     * was asked for. On the RFC 3161 path the client checks this itself against its own request; in-process issuance
+     * has no such counterparty, and the token goes straight into a signature. The generation time is deliberately not
+     * compared: its encoded precision is the connector's choice, so an exact match would be brittle without adding
+     * assurance the imprint and serial do not already give.
+     */
+    private static void requireTokenBoundToRequest(TimeStampToken token, TspRequest request, BigInteger serialNumber)
+            throws SigningEngineException {
+        TimeStampTokenInfo info = token.getTimeStampInfo();
+        String stampedAlgorithm = info.getMessageImprintAlgOID().getId();
+        if (!request.hashAlgorithm().getOid().equals(stampedAlgorithm)) {
+            throw brokenEcho("connector stamped a %s imprint but %s was requested"
+                    .formatted(stampedAlgorithm, request.hashAlgorithm().getCode()));
+        }
+        if (!MessageDigest.isEqual(request.hashedMessage(), info.getMessageImprintDigest())) {
+            throw brokenEcho("connector stamped an imprint other than the one requested");
+        }
+        if (!serialNumber.equals(info.getSerialNumber())) {
+            throw brokenEcho("connector stamped serial number %s but %s was issued"
+                    .formatted(info.getSerialNumber().toString(16), serialNumber.toString(16)));
+        }
+    }
+
+    private static SigningEngineException brokenEcho(String defect) {
+        return new SigningEngineException(SigningEngineFailure.CONNECTOR_FAULT, defect, INTERNAL_ERROR_CLIENT_MESSAGE);
+    }
+
+    private static void logFailure(ResolvedManagedTimestampingProfile timestampingProfile, SigningProtocol protocol,
+            SigningEngineException e) {
+        if (isPlatformFault(e.failure())) {
+            logger
+                    .error("Timestamp issuance failed for signing profile '{}' via {}: {}", timestampingProfile.name(),
+                            protocol, e.operatorMessage(), e);
+        } else {
+            logger
+                    .warn("Refusing to issue a timestamp for signing profile '{}' via {}: {}",
+                            timestampingProfile.name(), protocol, e.operatorMessage());
+        }
+    }
+
+    /** Exhaustive so that a new failure class has to choose its log level rather than inherit one. */
+    private static boolean isPlatformFault(SigningEngineFailure failure) {
+        return switch (failure) {
+            case SIGNER_FAULT, STEP_FAILED, CONNECTOR_FAULT -> true;
+            case INVALID_INPUT, MALFORMED_INPUT, MISCONFIGURED, TIME_UNAVAILABLE, BINDING_VIOLATION -> false;
+        };
+    }
+
+    /**
+     * Records the issued timestamp. The signature has already been produced by the managed key, so a recording failure
+     * must never withdraw it: it is logged and swallowed, leaving the issued token intact. The engine hands the
+     * strategy a deferred {@link SigningRecordInputSource} so the strategy's {@code recordingEnabled} gate
      * short-circuits disabled profiles before the input — and its request-metadata serialization — is assembled on the
-     * TSA hot path.
+     * hot path.
      */
     private void recordSigning(SigningProfileModel<?, ?> signingProfile, TspRequest request, BigInteger serialNumber,
-            Instant genTime, byte[] encodedToken) {
+            Instant genTime, byte[] encodedToken, SigningProtocol protocol) {
         try {
-            SigningRecordInputSource source = tspSigningRecordFactory
-                    .source(signingProfile, request, serialNumber, genTime, encodedToken);
+            SigningRecordInputSource source = timestampSigningRecordFactory
+                    .source(signingProfile, request, serialNumber, genTime, encodedToken, protocol);
             signingRecordStrategyFactory
                     .strategyFor(signingProfile.recordPolicy().persistenceMode())
                     .recordSigning(source);
         } catch (Exception e) {
             logger
-                    .error("Failed to record signing for signing profile '{}'; the timestamp was granted regardless",
+                    .error("Failed to record signing for signing profile '{}'; the timestamp was issued regardless",
                             signingProfile.name(), e);
         }
     }

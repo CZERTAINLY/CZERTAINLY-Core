@@ -2,6 +2,7 @@ package com.otilm.core.messaging.jms.configuration;
 
 import com.otilm.core.messaging.jms.listeners.actions.ActionsJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.auditlogs.AuditLogsJmsEndpointConfig;
+import com.otilm.core.messaging.jms.listeners.discovery.DiscoveryWorkJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.event.EventJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.notification.NotificationJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.poll.PollJmsEndpointConfig;
@@ -32,6 +33,7 @@ public class JmsListenersConfigurerImpl implements JmsListenerConfigurer {
     private final Optional<TimeQualityConfigurationJmsEndpointConfig> timeQualityConfigurationJmsEndpointConfig;
     private final Optional<TimeQualityResultsJmsEndpointConfig> timeQualityResultsJmsEndpointConfig;
     private final PollJmsEndpointConfig pollJmsEndpointConfig;
+    private final DiscoveryWorkJmsEndpointConfig discoveryWorkJmsEndpointConfig;
     private final Optional<InstanceProxyMessageJmsEndpointConfig> instanceProxyMessageJmsEndpointConfig;
     private final Optional<SharedProxyMessageJmsEndpointConfig> sharedProxyMessageJmsEndpointConfig;
 
@@ -46,6 +48,7 @@ public class JmsListenersConfigurerImpl implements JmsListenerConfigurer {
         timeQualityConfigurationJmsEndpointConfig.ifPresent(c -> registrar.registerEndpoint(c.listenerEndpoint()));
         timeQualityResultsJmsEndpointConfig.ifPresent(c -> registrar.registerEndpoint(c.listenerEndpoint()));
         registrar.registerEndpoint(pollJmsEndpointConfig.listenerEndpoint());
+        registrar.registerEndpoint(discoveryWorkJmsEndpointConfig.listenerEndpoint());
         instanceProxyMessageJmsEndpointConfig.ifPresent(c -> registrar.registerEndpoint(c.listenerEndpoint()));
         sharedProxyMessageJmsEndpointConfig.ifPresent(c -> registrar.registerEndpoint(c.listenerEndpoint()));
     }

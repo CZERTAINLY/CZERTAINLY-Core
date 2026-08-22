@@ -3,7 +3,9 @@ package com.otilm.core.messaging.jms.listeners;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.otilm.api.interfaces.client.v1.NotificationInstanceSyncApiClient;
+import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.events.data.CertificateRegisteredEventData;
+import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.notification.RecipientType;
 import com.otilm.api.model.core.other.ResourceEvent;
@@ -24,8 +26,10 @@ import com.otilm.core.service.NotificationInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.notifications.NotificationObjectDataService;
+import com.otilm.core.service.notifications.NotificationSubjectResolver.SubjectRef;
 import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.service.writer.PendingNotificationWriter;
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +40,7 @@ import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -50,6 +55,8 @@ class NotificationListenerTest {
 
     private final NotificationInternalService notificationService = mock(NotificationInternalService.class);
 
+    private final ResourceObjectAssociationService associationService = mock(ResourceObjectAssociationService.class);
+
     private NotificationListener listener() {
         ObjectMapper realMapper = JsonMapper.builder().findAndAddModules().build();
         return new NotificationListener(realMapper, mock(AttributeEngine.class), notificationService,
@@ -57,7 +64,7 @@ class NotificationListenerTest {
                 mock(ConnectorInternalService.class), mock(PendingNotificationRepository.class),
                 mock(NotificationProfileVersionRepository.class), mock(NotificationInstanceReferenceRepository.class),
                 mock(GroupRepository.class), mock(UserManagementApiClient.class), mock(RoleManagementApiClient.class),
-                mock(ResourceObjectAssociationService.class),
+                associationService,
                 // The real handler, invoked directly rather than through its proxy, runs the work without a
                 // transaction -- which is what this unencumbered unit context wants.
                 new TransactionHandler(), mock(PendingNotificationWriter.class),
@@ -155,6 +162,48 @@ class NotificationListenerTest {
     }
 
     @Test
+    void defaultRecipientsForCommentEventsResolveToTheHostOwnerAndGroups() {
+        UUID hostUuid = UUID.randomUUID();
+        UUID ownerUuid = UUID.randomUUID();
+        UUID groupUuid = UUID.randomUUID();
+        when(associationService.getOwner(Resource.RA_PROFILE, hostUuid))
+                .thenReturn(new NameAndUuidDto(ownerUuid.toString(), "tst-owner"));
+        when(associationService.getGroupUuids(Resource.RA_PROFILE, hostUuid)).thenReturn(List.of(groupUuid));
+
+        List<NotificationRecipient> recipients = listener()
+                .getDefaultRecipients(ResourceEvent.COMMENT_CREATED, null, Resource.RA_PROFILE, hostUuid);
+
+        assertEquals(2, recipients.size());
+        assertEquals(RecipientType.USER, recipients.get(0).getRecipientType());
+        assertEquals(ownerUuid, recipients.get(0).getRecipientUuid());
+        assertEquals(RecipientType.GROUP, recipients.get(1).getRecipientType());
+        assertEquals(groupUuid, recipients.get(1).getRecipientUuid());
+    }
+
+    @Test
+    void commentNotificationsPointAtTheHostWhileEveryOtherEventKeepsItsOwnRecord() {
+        UUID approvalUuid = UUID.randomUUID();
+        UUID hostUuid = UUID.randomUUID();
+        SubjectRef approvalTarget = new SubjectRef(Resource.CERTIFICATE, UUID.randomUUID());
+        SubjectRef commentHost = new SubjectRef(Resource.RA_PROFILE, hostUuid);
+
+        // An approval notification has to open the approval, not the object awaiting it
+        assertEquals(new SubjectRef(Resource.APPROVAL, approvalUuid),
+                NotificationListener
+                        .internalNotificationTarget(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approvalUuid,
+                                approvalTarget));
+        // A comment has no page of its own, so its notification opens the host thread
+        assertEquals(commentHost,
+                NotificationListener
+                        .internalNotificationTarget(ResourceEvent.COMMENT_CREATED, Resource.COMMENT, UUID.randomUUID(),
+                                commentHost));
+        assertEquals(commentHost,
+                NotificationListener
+                        .internalNotificationTarget(ResourceEvent.COMMENT_RESOLVED, Resource.COMMENT, UUID.randomUUID(),
+                                commentHost));
+    }
+
+    @Test
     void explicitRecipientsYieldsNoneWhenUuidListMissing() {
         // A profile configured with an explicit recipient type but no UUIDs must not dereference the null list.
         assertTrue(NotificationListener.explicitRecipients(RecipientType.GROUP, null).isEmpty(),
@@ -176,4 +225,73 @@ class NotificationListenerTest {
         assertEquals(first, mapped.get(0).getRecipientUuid());
         assertEquals(second, mapped.get(1).getRecipientUuid());
     }
+
+    private CommentEventData commentEventData(UUID parentUuid, String body) {
+        CommentEventData data = new CommentEventData();
+        data.setCommentUuid(UUID.randomUUID());
+        data.setParentUuid(parentUuid);
+        data.setResource(Resource.RA_PROFILE);
+        data.setObjectUuid(UUID.randomUUID());
+        data.setObjectName("web-frontends");
+        data.setAuthorUuid(UUID.randomUUID());
+        data.setAuthorUsername("requester");
+        data.setCreatedAt(OffsetDateTime.now());
+        data.setBody(body);
+        return data;
+    }
+
+    private String[] renderedCommentNotification(ResourceEvent event, CommentEventData data) {
+        UUID recipientUuid = UUID.randomUUID();
+        NotificationMessage message = new NotificationMessage(event, data.getResource(), data.getObjectUuid(), null,
+                List.of(new NotificationRecipient(RecipientType.USER, recipientUuid)), data);
+
+        listener().processMessage(message);
+
+        ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> detail = ArgumentCaptor.forClass(String.class);
+        verify(notificationService)
+                .createNotificationForUser(text.capture(), detail.capture(), eq(recipientUuid.toString()),
+                        eq(data.getResource()), eq(data.getObjectUuid().toString()));
+        return new String[]{text.getValue(), detail.getValue()};
+    }
+
+    @Test
+    void rootCommentRendersTheAuthorActingOnTheHostObject() {
+        String[] rendered = renderedCommentNotification(ResourceEvent.COMMENT_CREATED,
+                commentEventData(null, "please **enable** ACME"));
+
+        assertEquals("requester commented on RA Profile 'web-frontends'", rendered[0]);
+        assertNull(rendered[1], "the persisted notification carries no comment body");
+    }
+
+    @Test
+    void replyRendersAsAThreadReply() {
+        String[] rendered = renderedCommentNotification(ResourceEvent.COMMENT_CREATED,
+                commentEventData(UUID.randomUUID(), "on it"));
+
+        assertEquals("requester replied to a comment thread on RA Profile 'web-frontends'", rendered[0]);
+    }
+
+    @Test
+    void resolutionRendersTheActingUserAndDirection() {
+        CommentEventData resolved = commentEventData(null, "done");
+        resolved.setResolved(true);
+        resolved.setResolvedByUuid(UUID.randomUUID());
+        resolved.setResolvedByUsername("operator");
+
+        assertEquals("operator resolved a comment thread on RA Profile 'web-frontends'",
+                renderedCommentNotification(ResourceEvent.COMMENT_RESOLVED, resolved)[0]);
+    }
+
+    @Test
+    void reopeningRendersTheActingUserAndDirection() {
+        CommentEventData reopened = commentEventData(null, "not done after all");
+        reopened.setResolved(false);
+        reopened.setResolvedByUuid(UUID.randomUUID());
+        reopened.setResolvedByUsername("operator");
+
+        assertEquals("operator reopened a comment thread on RA Profile 'web-frontends'",
+                renderedCommentNotification(ResourceEvent.COMMENT_RESOLVED, reopened)[0]);
+    }
+
 }

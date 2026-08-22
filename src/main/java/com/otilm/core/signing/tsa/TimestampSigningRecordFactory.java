@@ -15,8 +15,9 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
- * Builds the {@link SigningRecordInput} for a granted RFC 3161 timestamp from the signing profile, the request, and the
- * artifacts produced during token assembly.
+ * Builds the {@link SigningRecordInput} for an issued timestamp from the signing profile, the request, and the
+ * artifacts produced during token assembly. The caller supplies the {@link SigningProtocol} so the record distinguishes
+ * a client's RFC 3161 request from issuance the platform made on its own.
  *
  * <p>
  * The per-field {@code record*} content toggles are applied downstream by the signing-record mapper, which is the
@@ -25,14 +26,14 @@ import org.springframework.stereotype.Component;
  *
  * <p>
  * {@code requestedBy} is left {@code null}: the TSP caller identity is resolved in the protocol layer and is not
- * currently threaded down to the TSA engine.
+ * currently threaded down to the TSA engine, and in-process issuance has no caller identity of its own.
  */
 @Component
-public class TspSigningRecordFactory {
+public class TimestampSigningRecordFactory {
 
     private final ObjectMapper objectMapper;
 
-    public TspSigningRecordFactory(ObjectMapper objectMapper) {
+    public TimestampSigningRecordFactory(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
@@ -43,22 +44,22 @@ public class TspSigningRecordFactory {
      * called, so disabled profiles never pay for it.
      */
     public SigningRecordInputSource source(SigningProfileModel<?, ?> signingProfile, TspRequest request,
-            BigInteger serialNumber, Instant genTime, byte[] encodedToken) {
+            BigInteger serialNumber, Instant genTime, byte[] encodedToken, SigningProtocol protocol) {
         return new DeferredSigningRecordInputSource(signingProfile,
-                () -> build(signingProfile, request, serialNumber, genTime, encodedToken));
+                () -> build(signingProfile, request, serialNumber, genTime, encodedToken, protocol));
     }
 
     private SigningRecordInput build(SigningProfileModel<?, ?> signingProfile, TspRequest request,
-            BigInteger serialNumber, Instant genTime, byte[] encodedToken) {
+            BigInteger serialNumber, Instant genTime, byte[] encodedToken, SigningProtocol protocol) {
         String serialHex = serialNumber.toString(16);
 
         // The timestamp token is the self-contained signed artifact: it already embeds the signature value and the
         // signed attributes (DTBS), so both are recoverable from it. Storing them again under signature/dtbs would
-        // duplicate substrings of the token, so only signedDocument is populated for the TSP path.
+        // duplicate substrings of the token, so only signedDocument is populated.
         return SigningRecordInput
                 .builder()
                 .signingProfile(signingProfile)
-                .protocol(SigningProtocol.TSP)
+                .protocol(protocol)
                 .signingTime(genTime)
                 .requestedBy(null)
                 .displayName(signingProfile.name() + " #" + serialHex)

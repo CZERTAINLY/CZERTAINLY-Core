@@ -1,6 +1,5 @@
 package com.otilm.core.integration.signing.tsa;
 
-import com.otilm.api.exception.ConnectorServerException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
@@ -28,7 +27,6 @@ import com.otilm.core.service.TokenInstanceExternalService;
 import com.otilm.core.service.TokenProfileExternalService;
 import com.otilm.core.service.TspProfileExternalService;
 import com.otilm.core.service.v2.ConnectorExternalService;
-import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.tsa.ManagedTimestampEngine;
 import com.otilm.core.signing.tsa.TimestampTokenTestUtil;
 import com.otilm.core.signing.tsa.TsaExternalService;
@@ -76,6 +74,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class TsaServiceImplITest extends BaseSpringBootTest {
 
+    private static final String DEFAULT_POLICY_ID = "1.2.3";
+
     @Autowired
     private TsaExternalService tsaService;
 
@@ -113,7 +113,6 @@ class TsaServiceImplITest extends BaseSpringBootTest {
     private TimestampingFormattingConnectorMock timestampingFormattingMock;
     private ConnectorDetailDto timestampingFormattingConnector;
     private Certificate signingCertificate;
-    private byte[] timestampTokenBytes;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -157,10 +156,10 @@ class TsaServiceImplITest extends BaseSpringBootTest {
                 .createTrustedCa("CN=Test Root CA")
                 .issueTimestampingCertificate(keyPair, "CN=Test TSA");
 
-        // The connector signs the DTBS and assembles the token; the assembled token is a real RFC 3161 token.
-        timestampTokenBytes = TimestampTokenTestUtil.createTimestampToken().getEncoded();
+        // The connector assembles the token from the request it is given, so what comes back echoes the imprint and
+        // the serial the engine asked for. The engine verifies that echo before recording.
         cryptographyProviderMock.stubSignData("connector-signature".getBytes(StandardCharsets.UTF_8));
-        timestampingFormattingMock.stubFormattingAttributes().stubTokenAssembly(timestampTokenBytes);
+        timestampingFormattingMock.stubFormattingAttributes().stubFormatDtbs().stubFormatResponse();
     }
 
     @AfterEach
@@ -192,6 +191,7 @@ class TsaServiceImplITest extends BaseSpringBootTest {
                         .withTimestamping(aTimestampingWorkflow()
                                 .withSignatureFormattingConnector(
                                         UUID.fromString(timestampingFormattingConnector.getUuid()))
+                                .withDefaultPolicyId(DEFAULT_POLICY_ID)
                                 .withValidateTokenSignature(false)
                                 .withQualifiedTimestamp(false)
                                 .withAllowedDigestAlgorithms(allowedDigestAlgorithms)
@@ -369,20 +369,43 @@ class TsaServiceImplITest extends BaseSpringBootTest {
         }
 
         @Test
-        void throwsSystemFailure_whenFormattingConnectorFails() throws Exception {
+        void rejectsWithSystemFailure_whenFormattingConnectorFails() throws Exception {
             // given — the signature formatting is unavailable during token assembly
             SigningProfileDto profile = createTimestampingSigningProfile("sp-formatting-down");
             timestampingFormattingMock.stubTokenAssemblyFailure();
 
-            // when / then — the controller renders this service exception as a TSP rejection
-            assertThatThrownBy(
-                    () -> tsaService.processTspRequestForSigningProfile(profile.getName(), aTspRequest().build()))
-                    .isInstanceOf(TspException.class)
-                    .satisfies(ex -> assertThat(((TspException) ex).getFailureInfo())
-                            .isEqualTo(TspFailureInfo.SYSTEM_FAILURE))
-                    .hasMessageContaining("Signature formatting connector communication failed during DTBS phase")
-                    .hasCauseInstanceOf(SigningEngineException.class)
-                    .hasRootCauseInstanceOf(ConnectorServerException.class);
+            // when
+            TspResponse response = tsaService
+                    .processTspRequestForSigningProfile(profile.getName(), aTspRequest().build());
+
+            // then — the connector's own detail stays in the log; only the wire-safe text reaches the caller
+            assertThat(response).isInstanceOfSatisfying(TspResponse.Rejected.class, rejected -> {
+                assertThat(rejected.failureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE);
+                assertThat(rejected.statusString()).isEqualTo("Internal error during DTBS formatting");
+            });
+        }
+
+        /**
+         * The connector assembles the {@code TSTInfo}, so a token that does not echo the request must not be recorded
+         * or returned — which is what {@link TimestampingFormattingConnectorMock#stubTokenAssembly} produces.
+         */
+        @Test
+        void rejectsWithSystemFailure_whenTheConnectorStampsAnotherSerialNumber() throws Exception {
+            // given
+            SigningProfileDto profile = createTimestampingSigningProfile("sp-unbound-token");
+            timestampingFormattingMock.stubTokenAssembly(TimestampTokenTestUtil.createTimestampToken().getEncoded());
+
+            // when
+            TspResponse response = tsaService
+                    .processTspRequestForSigningProfile(profile.getName(), aTspRequest().build());
+
+            // then
+            assertThat(response)
+                    .isInstanceOfSatisfying(TspResponse.Rejected.class,
+                            rejected -> assertThat(rejected.failureInfo()).isEqualTo(TspFailureInfo.SYSTEM_FAILURE));
+            assertThat(signingRecordService
+                    .listSigningRecords(aSearchRequest().build(), SecurityFilter.create())
+                    .getItems()).isEmpty();
         }
     }
 }

@@ -179,9 +179,11 @@ class ClientOperationServiceImplRegisterBoundIssueTest {
         // binding by certificate UUID — a pre-registered placeholder has one.
         when(certificateRegistrationRepository.findByCertificateUuid(certUuid)).thenReturn(Optional.of(binding));
         when(certificateRegistrationRepository.findAndLockByCertificateUuid(certUuid)).thenReturn(Optional.of(binding));
-        when(capabilityService.supports(ArgumentMatchers.any(), ArgumentMatchers.any())).thenReturn(false);
+        when(capabilityService.supports(ArgumentMatchers.any(AuthorityInstanceReference.class), ArgumentMatchers.any()))
+                .thenReturn(false);
         when(capabilityService
-                .supports(ArgumentMatchers.any(), ArgumentMatchers.eq(FeatureFlag.CERTIFICATE_REGISTRATION)))
+                .supports(ArgumentMatchers.any(AuthorityInstanceReference.class),
+                        ArgumentMatchers.eq(FeatureFlag.CERTIFICATE_REGISTRATION)))
                 .thenReturn(true);
     }
 

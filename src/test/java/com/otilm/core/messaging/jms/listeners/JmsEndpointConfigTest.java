@@ -5,6 +5,7 @@ import com.otilm.core.messaging.jms.configuration.MessagingConcurrencyProperties
 import com.otilm.core.messaging.jms.configuration.MessagingProperties;
 import com.otilm.core.messaging.jms.listeners.actions.ActionsJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.auditlogs.AuditLogsJmsEndpointConfig;
+import com.otilm.core.messaging.jms.listeners.discovery.DiscoveryWorkJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.event.EventJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.notification.NotificationJmsEndpointConfig;
 import com.otilm.core.messaging.jms.listeners.poll.PollJmsEndpointConfig;
@@ -58,11 +59,12 @@ class JmsEndpointConfigTest {
     void setUpSharedMocks() {
         queue = new MessagingProperties.Queue("core.actions", "core.audit-logs", "core.events", "core.notifications",
                 "core.scheduler", "core.validation", "time-quality.config-request", "time-quality.config",
-                "time-quality.results", "provider.status-poll");
+                "time-quality.results", "provider.status-poll", "provider.discovery-work");
         routingKey = new MessagingProperties.RoutingKey("action", "audit-logs", "event", "notification", "scheduler",
                 "validation", "time-quality.config-request", "time-quality.config", "time-quality.results",
-                "provider.status-poll");
-        concurrencyProperties = new MessagingConcurrencyProperties("10", "5", "5", "3", "10", "5", "1", "1", "1-5");
+                "provider.status-poll", "provider.discovery-work");
+        concurrencyProperties = new MessagingConcurrencyProperties("10", "5", "5", "3", "10", "5", "1", "1", "1-5",
+                "1-3");
 
         when(messagingProperties.queue()).thenReturn(queue);
         when(messagingProperties.routingKey()).thenReturn(routingKey);
@@ -292,6 +294,34 @@ class JmsEndpointConfigTest {
         void serviceBus_setsTopicDestination_subscriptionAndSelector() {
             givenServiceBus("provider.status-poll");
             assertServiceBus(config.listenerEndpoint(), "provider.status-poll", "provider.status-poll");
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // DiscoveryWorkJmsEndpointConfig
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class DiscoveryWorkEndpointConfigTests {
+
+        private DiscoveryWorkJmsEndpointConfig config;
+
+        @BeforeEach
+        void setUp() {
+            config = new DiscoveryWorkJmsEndpointConfig(new ObjectMapper(), mockProcessor(), retryTemplate,
+                    messagingProperties, concurrencyProperties);
+        }
+
+        @Test
+        void rabbitMQ_setsQueueDestination_noSubscriptionOrSelector() {
+            givenRabbitMQ("provider.discovery-work");
+            assertRabbitMQ(config.listenerEndpoint(), "provider.discovery-work");
+        }
+
+        @Test
+        void serviceBus_setsTopicDestination_subscriptionAndSelector() {
+            givenServiceBus("provider.discovery-work");
+            assertServiceBus(config.listenerEndpoint(), "provider.discovery-work", "provider.discovery-work");
         }
     }
 }

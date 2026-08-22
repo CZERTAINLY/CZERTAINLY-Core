@@ -33,6 +33,7 @@ import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ConnectorExternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.CredentialInternalService;
@@ -70,6 +71,13 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
     // Repositories
     // --------------------------------------------------------------------------------
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setResourceService(ResourceInternalService resourceService) {
@@ -524,6 +532,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         }
         logger.debug("Deleting token instance attributes");
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN, tokenInstanceReference.getUuid());
+        commentService.removeObjectComments(Resource.TOKEN, tokenInstanceReference.getUuid());
         tokenInstanceReferenceRepository.delete(tokenInstanceReference);
         logger.info("Token instance removed: {}", tokenInstanceReference);
     }

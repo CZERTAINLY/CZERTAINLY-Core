@@ -40,6 +40,7 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.CmpProfileExternalService;
 import com.otilm.core.service.CmpProfileInternalService;
+import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.RaProfileInternalService;
 import com.otilm.core.service.model.SecuredList;
 import com.otilm.core.service.v2.ExtendedAttributeService;
@@ -72,6 +73,13 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
     private CertificateInternalService certificateService;
     private AttributeEngine attributeEngine;
     private ProtocolCertificateAssociationsRepository certificateAssociationRepository;
+
+    private CommentInternalService commentService;
+
+    @Autowired
+    public void setCommentService(CommentInternalService commentService) {
+        this.commentService = commentService;
+    }
 
     @Autowired
     public void setCertificateAssociationRepository(
@@ -669,6 +677,7 @@ public class CmpProfileServiceImpl implements CmpProfileExternalService, CmpProf
                                             .collect(Collectors.joining(",")))));
         } else {
             attributeEngine.deleteObjectAttributeContent(Resource.CMP_PROFILE, cmpProfile.getUuid());
+            commentService.removeObjectComments(Resource.CMP_PROFILE, cmpProfile.getUuid());
             cmpProfileRepository.delete(cmpProfile);
         }
     }
