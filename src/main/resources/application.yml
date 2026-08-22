@@ -113,6 +113,9 @@ discovery:
   drain:
     max-items: ${DISCOVERY_DRAIN_MAX_ITEMS:500}
     max-bytes: ${DISCOVERY_DRAIN_MAX_BYTES:5242880}
+  # How many staged rows one PROCESS tick imports before handing the run back to the queue.
+  processing:
+    batch-size: ${DISCOVERY_PROCESSING_BATCH_SIZE:200}
 
 # Authority-provider async (HTTP 202) operation status polling
 provider:

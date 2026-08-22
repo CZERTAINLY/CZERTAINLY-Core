@@ -3,6 +3,7 @@ package com.otilm.core.messaging.jms.listeners.discovery;
 import com.otilm.core.messaging.jms.listeners.MessageProcessor;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.service.handler.discovery.DiscoveryDrainTickWorker;
+import com.otilm.core.service.handler.discovery.DiscoveryProcessTickWorker;
 import com.otilm.core.service.handler.discovery.DiscoveryStatusTickWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,10 +29,13 @@ public class DiscoveryWorkListener implements MessageProcessor<DiscoveryWorkMess
 
     private final DiscoveryStatusTickWorker statusWorker;
     private final DiscoveryDrainTickWorker drainWorker;
+    private final DiscoveryProcessTickWorker processWorker;
 
-    public DiscoveryWorkListener(DiscoveryStatusTickWorker statusWorker, DiscoveryDrainTickWorker drainWorker) {
+    public DiscoveryWorkListener(DiscoveryStatusTickWorker statusWorker, DiscoveryDrainTickWorker drainWorker,
+            DiscoveryProcessTickWorker processWorker) {
         this.statusWorker = statusWorker;
         this.drainWorker = drainWorker;
+        this.processWorker = processWorker;
     }
 
     @Override
@@ -40,9 +44,7 @@ public class DiscoveryWorkListener implements MessageProcessor<DiscoveryWorkMess
             switch (message.workType()) {
                 case STATUS -> statusWorker.tick(message.discoveryUuid(), message.attempt());
                 case DRAIN -> drainWorker.tick(message.discoveryUuid(), message.attempt());
-                case PROCESS -> logger
-                        .warn("Discarding {} tick for discovery {}: no worker is wired for it yet", message.workType(),
-                                message.discoveryUuid());
+                case PROCESS -> processWorker.tick(message.discoveryUuid(), message.attempt());
             }
         } catch (RuntimeException e) {
             logger

@@ -26,6 +26,19 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
     List<DiscoveryCertificate> findByDiscoveryUuidAndNewlyDiscovered(UUID discoveryUuid, boolean newlyDiscovered,
             Pageable pageable);
 
+    /**
+     * The v2 processing claim: the run's newly-discovered rows that no batch has handled yet, oldest first so a run
+     * chews through its backlog in a stable order rather than revisiting the same page.
+     */
+    @EntityGraph(attributePaths = {"certificateContent"})
+    List<DiscoveryCertificate> findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseOrderByCreatedAsc(
+            UUID discoveryUuid, Pageable pageable);
+
+    long countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalse(UUID discoveryUuid);
+
+    /** Whether any row of the run recorded a reason it could not be imported — what makes a run end WARNING. */
+    boolean existsByDiscoveryUuidAndProcessedErrorIsNotNull(UUID discoveryUuid);
+
     Long countByDiscovery(Discovery history);
 
     Long countByDiscoveryAndNewlyDiscovered(Discovery history, boolean newlyDiscovered);

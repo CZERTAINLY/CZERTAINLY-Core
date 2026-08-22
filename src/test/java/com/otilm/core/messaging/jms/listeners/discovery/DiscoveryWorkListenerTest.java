@@ -3,6 +3,7 @@ package com.otilm.core.messaging.jms.listeners.discovery;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.discovery.DiscoveryDrainTickWorker;
+import com.otilm.core.service.handler.discovery.DiscoveryProcessTickWorker;
 import com.otilm.core.service.handler.discovery.DiscoveryStatusTickWorker;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,12 +24,14 @@ class DiscoveryWorkListenerTest {
     private DiscoveryStatusTickWorker statusWorker;
     @Mock
     private DiscoveryDrainTickWorker drainWorker;
+    @Mock
+    private DiscoveryProcessTickWorker processWorker;
 
     private DiscoveryWorkListener listener;
 
     @BeforeEach
     void setUp() {
-        listener = new DiscoveryWorkListener(statusWorker, drainWorker);
+        listener = new DiscoveryWorkListener(statusWorker, drainWorker, processWorker);
     }
 
     @Test
@@ -51,11 +54,12 @@ class DiscoveryWorkListenerTest {
     }
 
     @Test
-    void tickWithNoWorkerWired_isAcknowledgedRatherThanRedelivered() {
-        assertThatCode(() -> listener
-                .processMessage(new DiscoveryWorkMessage(UUID.randomUUID(), DiscoveryWorkType.PROCESS, 0)))
-                .doesNotThrowAnyException();
+    void processTick_reachesTheProcessWorkerWithItsAttemptCount() {
+        UUID runUuid = UUID.randomUUID();
 
+        listener.processMessage(new DiscoveryWorkMessage(runUuid, DiscoveryWorkType.PROCESS, 7));
+
+        verify(processWorker).tick(runUuid, 7);
         verifyNoInteractions(statusWorker, drainWorker);
     }
 
