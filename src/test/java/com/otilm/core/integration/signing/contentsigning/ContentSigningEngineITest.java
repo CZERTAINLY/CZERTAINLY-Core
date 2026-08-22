@@ -74,17 +74,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 /**
- * End-to-end test of a managed content-signing run over a real Spring context and Postgres: the profile is saved
- * through the service, resolved exactly as a request would resolve it, and driven through
- * {@link ManagedContentSigningEngine} — including the in-process timestamp the {@code TIMESTAMPED} rung needs and the
- * signing records both profiles leave behind.
- *
- * <p>
- * The only mocks are the external connectors, served by WireMock: the content-signing formatting connector, the
- * cryptography provider that signs, and the timestamping formatting connector that assembles the RFC 3161 token. No
- * formatting connector implementation exists yet, so that half is a mock by necessity — the documents it returns are
- * opaque markers, not real PAdES structures.
- * </p>
+ * End-to-end test of a managed content-signing run over a real Spring context and Postgres.
  */
 class ContentSigningEngineITest extends BaseSpringBootTest {
 
@@ -179,8 +169,6 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
                         SecuredParentUUID.fromString(tokenProfile.getUuid()), KeyRequestType.KEY_PAIR,
                         aKeyPairRequest().withName("soft-key-pair").build());
 
-        // One token-backed leaf serves both profiles: the timestamping rules are the stricter of the two, and content
-        // signing defines no certificate-purpose rule of its own.
         signingCertificate = testCertificateAuthority
                 .createTrustedCa("CN=Test Root CA")
                 .issueTimestampingCertificate(keyPair, "CN=Test TSA");
@@ -329,7 +317,6 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /** The marker each embed operation returns, which names the operation whose output the run actually delivered. */
     private static String documentText(SignedContent signed) {
         return new String(signed.signedDocument(), StandardCharsets.UTF_8);
     }
@@ -348,10 +335,6 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
         return (ResolvedManagedContentSigningProfile) resolverFactory.resolve(modelOf(profile));
     }
 
-    /**
-     * Creates the ILM-managed TIMESTAMPING profile a content-signing profile names as its timestamp source. No TSP
-     * profile is attached: in-process issuance goes below the TSP protocol layer.
-     */
     private SigningProfileDto createTimestampingProfile(String name) throws Exception {
         SigningProfileDto profile = signingProfileService
                 .createSigningProfile(aSigningProfileRequest()
@@ -392,7 +375,6 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
         return profile;
     }
 
-    /** Each parameterized run saves its own profile, so the name has to carry the family it was created for. */
     private static String profileName(String prefix, SignatureFamily family) {
         return prefix + "-" + family.getCode();
     }
@@ -406,7 +388,6 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
                 .build();
     }
 
-    /** The serials column is not on the wire DTOs yet, so the join is asserted on the entity. */
     private List<SigningRecord> recordEntitiesFor(SigningProfileDto signingProfile) {
         UUID profileUuid = UUID.fromString(signingProfile.getUuid());
         return signingRecordRepository

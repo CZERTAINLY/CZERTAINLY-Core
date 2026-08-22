@@ -19,8 +19,7 @@ import java.util.UUID;
 /**
  * Mock of a V2 content-signing formatting connector, backing {@code CONTENT_SIGNING} workflow profiles. Advertises
  * {@link FeatureFlag#CONTENT_SIGNING} on the four AdES family interfaces, plus
- * {@link ConnectorInterface#SIGNATURE_FORMATTING} for the legacy flat attributes route and the per-operation routes
- * stubbed below.
+ * {@link ConnectorInterface#SIGNATURE_FORMATTING} for the legacy flat attributes route and the per-operation routes.
  */
 public class ContentSigningFormattingMock extends BaseConnectorMock {
 
@@ -31,20 +30,11 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
         advertiseFamilyInterfaces(List.of(FeatureFlag.CONTENT_SIGNING));
     }
 
-    /**
-     * Re-advertises the family interfaces with the {@code TIMESTAMPED} rung, which a profile whose ceiling is
-     * {@code TIMESTAMPED} needs the connector to declare at save. Call before registering the connector, because that
-     * is when the platform reads {@code /v2/info}.
-     */
     public ContentSigningFormattingMock advertiseTimestampedRung() {
         advertiseFamilyInterfaces(List.of(FeatureFlag.CONTENT_SIGNING, FeatureFlag.LEVEL_TIMESTAMPED));
         return this;
     }
 
-    /**
-     * Re-advertises the family interfaces carrying no features, which is a formatting connector that cannot serve
-     * content signing at all. Call before registering the connector, because that is when {@code /v2/info} is read.
-     */
     public ContentSigningFormattingMock advertiseNoContentSigningFeature() {
         advertiseFamilyInterfaces(List.of());
         return this;
@@ -62,10 +52,6 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
                         interfaceInfo(ConnectorInterface.JADES_FORMATTING, familyFeatures)));
     }
 
-    /**
-     * Stubs the operations a B+T run executes. {@code computeDtbs} echoes the SHA-256 of the document it was given, so
-     * the platform's binding check sees a connector that committed to the authorized document.
-     */
     public ContentSigningFormattingMock stubBaselineAndTimestampOperations() {
         stubComputeDtbs(ComputeDtbsEchoTransformer.NAME);
         stubOperation(ContentSigningFormattingOperation.EMBED_SIGNATURE_VALUE, signedDocumentJson("signed-document"));
@@ -76,7 +62,6 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
         return this;
     }
 
-    /** Echoes a digest of different content, so the binding check has a mismatch to catch. */
     public ContentSigningFormattingMock stubComputeDtbsEchoingForeignDigest() {
         stubComputeDtbs(ComputeDtbsEchoTransformer.FOREIGN_NAME);
         return this;
@@ -131,19 +116,10 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
         return this;
     }
 
-    /**
-     * Stubs the signature-formatting attributes endpoint to advertise a single optional STRING attribute definition.
-     * Takes precedence over {@link #stubFormattingAttributes()} when called after it.
-     */
     public ContentSigningFormattingMock stubFormattingAttributeDefinition(UUID attrUuid, String attrName) {
         return stubFormattingAttributeDefinition(attrUuid, attrName, false);
     }
 
-    /**
-     * Stubs the signature-formatting attributes endpoint to advertise a single STRING attribute definition. When
-     * {@code required=true}, the service must reject requests that omit this attribute. Takes precedence over
-     * {@link #stubFormattingAttributes()} when called after it.
-     */
     public ContentSigningFormattingMock stubFormattingAttributeDefinition(UUID attrUuid, String attrName,
             boolean required) {
         try {
@@ -160,7 +136,6 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
         return this;
     }
 
-    /** Stubs every per-operation attribute route the AdES content-signing client calls to advertise no attributes. */
     public ContentSigningFormattingMock stubPerOperationFormattingAttributes() {
         for (ContentSigningFormattingOperation operation : ContentSigningFormattingOperation.values()) {
             server
@@ -171,18 +146,10 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
         return this;
     }
 
-    /**
-     * Stubs every per-operation attribute route to advertise the same single optional STRING attribute definition,
-     * mirroring {@link #stubFormattingAttributeDefinition(UUID, String)} for the per-operation contract.
-     */
     public ContentSigningFormattingMock stubPerOperationFormattingAttributeDefinition(UUID attrUuid, String attrName) {
         return stubPerOperationFormattingAttributeDefinition(attrUuid, attrName, false);
     }
 
-    /**
-     * Stubs every per-operation attribute route to advertise the same single STRING attribute definition. When
-     * {@code required=true}, the service must reject requests that omit this attribute.
-     */
     public ContentSigningFormattingMock stubPerOperationFormattingAttributeDefinition(UUID attrUuid, String attrName,
             boolean required) {
         try {

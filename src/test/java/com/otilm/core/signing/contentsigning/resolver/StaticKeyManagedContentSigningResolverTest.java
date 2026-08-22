@@ -245,7 +245,6 @@ class StaticKeyManagedContentSigningResolverTest {
     }
 
     private static SigningProfileModel<?, ?> aManagedContentSigningProfile() {
-        // SIGNED so the tests unrelated to the level ladder never need to stub the timestamp source resolver.
         return aManagedContentSigningProfile(SignatureFamily.CADES, SignatureLevel.SIGNED, null, null, null);
     }
 

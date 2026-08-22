@@ -127,12 +127,10 @@ public class SigningProfileRequestDtoBuilder {
         return withWorkflow(new RawSigningWorkflowRequestDto());
     }
 
-    /** A delegated content-signing request carries no formatting connector and no level ladder, so this stamps none. */
     public SigningProfileRequestDtoBuilder withDelegatedContentSigning() {
         return withWorkflow(new ContentSigningWorkflowRequestDto());
     }
 
-    /** Adds the ladder an ILM-managed content-signing profile must carry to pass profile save. */
     public SigningProfileRequestDtoBuilder withManagedContentSigning(UUID signatureFormattingConnectorUuid) {
         ContentSigningWorkflowRequestDto contentSigningWorkflow = new ContentSigningWorkflowRequestDto();
         contentSigningWorkflow.setSignatureFormattingConnectorUuid(signatureFormattingConnectorUuid);

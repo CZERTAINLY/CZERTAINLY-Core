@@ -13,11 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Mock of a V1 cryptography-provider connector — stubs {@code GET /v1} to report the {@code CRYPTOGRAPHY_PROVIDER}
- * function group (kind {@code SOFT}) advertising every required endpoint. Starting the mock also seeds the function
- * group and its required endpoints into the test database from the same endpoint list, so
- * {@code ConnectorV1Adapter#validateFunctionGroups} performs the real production check at registration: DB-required
- * endpoints vs. what this mock advertises.
+ * Mock of a V1 cryptography-provider connector.
  */
 public class CryptographyProviderConnectorMock extends BaseConnectorMock {
 
@@ -105,11 +101,6 @@ public class CryptographyProviderConnectorMock extends BaseConnectorMock {
         return endpoints;
     }
 
-    /**
-     * Stubs the runtime endpoints hit by {@code TokenInstanceExternalService#createTokenInstance}: kind attribute
-     * listing/validation, token creation, and status. {@code tokenUuid} is the UUID the connector reports for the
-     * created token instance — Core persists it and uses it on every subsequent token call.
-     */
     public CryptographyProviderConnectorMock stubTokenInstanceCreation(UUID tokenUuid) {
         server
                 .stubFor(WireMock
@@ -130,10 +121,6 @@ public class CryptographyProviderConnectorMock extends BaseConnectorMock {
         return this;
     }
 
-    /**
-     * Stubs the token-profile attribute listing/validation endpoints hit by
-     * {@code TokenProfileExternalService#createTokenProfile}.
-     */
     public CryptographyProviderConnectorMock stubTokenProfileCreation() {
         server
                 .stubFor(WireMock
@@ -148,21 +135,10 @@ public class CryptographyProviderConnectorMock extends BaseConnectorMock {
         return this;
     }
 
-    /**
-     * Stubs the create-key-pair endpoints hit by {@code CryptographicKeyExternalService#createKey}. The public key is
-     * reported in {@code SubjectPublicKeyInfo} format with the given Base64-encoded SPKI, so Core derives the same
-     * fingerprint a certificate built from the matching public key will carry — letting the two be associated later.
-     */
     public CryptographyProviderConnectorMock stubKeyPairCreation(String base64Spki) {
         return stubKeyPairCreation(base64Spki, KeyAlgorithm.RSA, UUID.randomUUID());
     }
 
-    /**
-     * Variant of {@link #stubKeyPairCreation(String)} for a specific key algorithm. The caller supplies
-     * {@code privateKeyUuid} — the key-reference UUID the connector reports for the private key item — so it can later
-     * register the matching real {@link PrivateKey} via {@link #registerSigningKey(UUID, PrivateKey, String)} for
-     * {@link #stubRealSigning()}.
-     */
     public CryptographyProviderConnectorMock stubKeyPairCreation(String base64Spki, KeyAlgorithm algorithm,
             UUID privateKeyUuid) {
         server
@@ -189,11 +165,6 @@ public class CryptographyProviderConnectorMock extends BaseConnectorMock {
         return this;
     }
 
-    /**
-     * Stubs the sign endpoint to produce a <em>real</em> signature: each request's DTBS is signed with the registered
-     * {@link PrivateKey} matching the key-reference UUID in the request URL. Register keys via
-     * {@link #registerSigningKey(UUID, PrivateKey, String)}.
-     */
     public CryptographyProviderConnectorMock stubRealSigning() {
         server
                 .stubFor(WireMock
@@ -206,21 +177,12 @@ public class CryptographyProviderConnectorMock extends BaseConnectorMock {
         return this;
     }
 
-    /**
-     * Registers the real private key backing a key-reference UUID for {@link #stubRealSigning()}.
-     * {@code jcaSignatureAlgorithm} is the JCA name used to sign (e.g. {@code SHA256withRSA}, {@code ML-DSA-65}).
-     */
     public CryptographyProviderConnectorMock registerSigningKey(UUID keyReferenceUuid, PrivateKey privateKey,
             String jcaSignatureAlgorithm) {
         realSignerTransformer.registerKey(keyReferenceUuid, privateKey, jcaSignatureAlgorithm);
         return this;
     }
 
-    /**
-     * Stubs the data-signing endpoint hit by {@code CryptographicOperationInternalService#signDataWithoutEventHistory},
-     * returning the given signature bytes (base64-encoded) under {@code signatures[0].data}. The bytes need not be a
-     * valid signature — downstream consumers in tests treat them as opaque.
-     */
     public CryptographyProviderConnectorMock stubSignData(byte[] signature) {
         String sig = Base64.getEncoder().encodeToString(signature);
         server
@@ -230,10 +192,6 @@ public class CryptographyProviderConnectorMock extends BaseConnectorMock {
         return this;
     }
 
-    /**
-     * Asserts the signing key was never exercised. Lets a test prove a gate refused before key release, rather than
-     * inferring it from the absence of a later side effect.
-     */
     public CryptographyProviderConnectorMock verifyNoDataWasSigned() {
         server
                 .verify(0, WireMock

@@ -118,7 +118,6 @@ public final class ResolvedManagedContentSigningProfileBuilder {
                 timeQualityConfiguration, signatureFormattingConnector, resolvedScheme);
     }
 
-    /** Mirrors {@code ManagedTimestampEngineTest}'s scheme setup: a real end-entity certificate, no CA chain needed. */
     private static ResolvedManagedScheme defaultScheme() {
         try {
             X509Certificate certificate = CertificateTestUtil.createCertificateWithoutEku();

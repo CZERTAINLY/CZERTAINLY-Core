@@ -162,11 +162,6 @@ class InternalTimestampSourceTest {
         verify(engine, never()).issue(any(), any(), any(), any());
     }
 
-    /**
-     * A content-signing profile's reference to this one is resolved per request, so a profile edited below the record
-     * floor after it was referenced must be refused here -- otherwise the signature embeds a timestamp no record
-     * traces.
-     */
     @Test
     void refusesAProfileWhoseRecordingWasSwitchedOffAfterItWasReferenced() throws Exception {
         // given
@@ -201,7 +196,6 @@ class InternalTimestampSourceTest {
         verify(engine, never()).issue(any(), any(), any(), any());
     }
 
-    /** The floor violation names the referenced profile's own configuration, so only the operator may read it. */
     @Test
     void keepsTheRecordFloorViolationOutOfTheClientMessage() throws Exception {
         // given

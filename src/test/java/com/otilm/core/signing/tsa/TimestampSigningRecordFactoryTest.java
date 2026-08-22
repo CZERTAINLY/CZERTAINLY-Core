@@ -147,7 +147,6 @@ class TimestampSigningRecordFactoryTest {
         assertEquals(profileName + " #ff", input.getDisplayName());
     }
 
-    /** The column is what a content-signing record joins to; the display name is a label, not a join key. */
     @Test
     void build_carriesItsOwnSerial_inTheTimestampTokenSerialsColumn() {
         // when

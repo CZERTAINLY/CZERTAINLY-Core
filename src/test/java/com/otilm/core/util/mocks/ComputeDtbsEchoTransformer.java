@@ -12,15 +12,7 @@ import java.security.MessageDigest;
 import java.util.Base64;
 
 /**
- * WireMock extension backing {@link ContentSigningFormattingMock#stubBaselineAndTimestampOperations()}: answers
- * {@code computeDtbs} with the SHA-256 of the document the request carried, which is the echo the platform's binding
- * check compares against the authorized digest.
- *
- * <p>
- * Constructed with fixed content instead, it echoes the digest of that content and ignores the request — a connector
- * that committed to a different document than the one it was handed. Both variants are registered under distinct names,
- * because a WireMock extension can only be registered at server creation.
- * </p>
+ * WireMock extension backing {@link ContentSigningFormattingMock#stubBaselineAndTimestampOperations()}.
  */
 class ComputeDtbsEchoTransformer implements ResponseDefinitionTransformerV2 {
 

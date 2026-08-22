@@ -195,7 +195,6 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
     @Autowired
     private AttributeRelationRepository attributeRelationRepository;
 
-    /** The rung must be advertised before registration: that is when the platform reads {@code /v2/info}. */
     private ConnectorDetailDto registerTimestampedRungConnector(ContentSigningFormattingMock mock, String name)
             throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mock.advertiseTimestampedRung().stubPerOperationFormattingAttributes();
@@ -670,7 +669,6 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
     @Nested
     class CreateTests {
 
-        /** The version row stores only the referenced uuid, so the name has to be resolved for the API to carry it. */
         @Test
         void contentSigningWorkflow_returnsTheTimestampSourceByName() throws Exception {
             // given
@@ -767,14 +765,6 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                                                     .withInternalTimestampSource(UUID.randomUUID())));
         }
 
-        /**
-         * The level ladder is ILM's own signing configuration, so a delegated profile -- whose signature the signer
-         * connector builds end to end -- must not carry one: ignoring it would still let maxLevel decide which
-         * formatting operations' attributes are stored against a version whose ladder columns are NULL. Each field is
-         * refused on its own, and the assertion names the ladder guard's whole message so that no neighbouring guard
-         * can satisfy it. The timestamp source is a uuid that resolves to nothing, which proves the refusal precedes
-         * any lookup.
-         */
         @ParameterizedTest(name = "{0}")
         @MethodSource("ladderFields")
         void delegatedScheme_contentSigningWorkflowCarryingOneLadderField_throwsValidationException(String field,
@@ -794,10 +784,6 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                             "family, maxLevel and timestampSource must be omitted for delegated content signing");
         }
 
-        /**
-         * The cap is enforced when a signing request arrives, whoever formats the signature, so it is the one workflow
-         * field a delegated profile may set -- and the value it sets has to survive the save.
-         */
         @Test
         void delegatedScheme_contentSigningWorkflowCarryingADocumentSizeCap_persistsTheCap()
                 throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
@@ -820,10 +806,6 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                     .isEqualTo(1024L);
         }
 
-        /**
-         * An ILM-managed profile formats the signature through the connector it names, so that connector has to
-         * advertise the content-signing feature on the interface serving the family the profile asked for.
-         */
         @Test
         void managedScheme_contentSigningWorkflowWithAConnectorLackingTheFeature_throwsValidationException()
                 throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
@@ -855,10 +837,6 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             }
         }
 
-        /**
-         * The signer connector builds the data to be signed, so a delegated request naming a formatting connector is
-         * configuration the platform would never honour -- and the API contract refuses it too.
-         */
         @Test
         void delegatedScheme_contentSigningWorkflowCarryingAFormattingConnector_throwsValidationException() {
             // when
@@ -879,7 +857,6 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                             "signatureFormattingConnectorUuid must be omitted for delegated content signing");
         }
 
-        /** Formatting attributes have no connector to configure once the formatting connector itself is refused. */
         @Test
         void delegatedScheme_contentSigningWorkflowCarryingFormattingAttributes_throwsValidationException() {
             // when
