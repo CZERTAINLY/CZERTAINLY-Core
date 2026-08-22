@@ -9,11 +9,11 @@ import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapter;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import com.otilm.core.util.DiscoveryRunMetaFixture;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -122,7 +122,7 @@ class DiscoveryRunReaperUnitTest {
     @Test
     void workLost_cancelsOnTheConnectorOnlyWhenRunContextExists() {
         Discovery withContext = run(DiscoveryStatus.IN_PROGRESS);
-        withContext.setRunMeta(Map.of("cursor", "abc"));
+        withContext.setRunMeta(DiscoveryRunMetaFixture.runMeta("cursor", "abc"));
         Discovery withoutContext = run(DiscoveryStatus.IN_PROGRESS);
         selections(List.of(withContext.getUuid(), withoutContext.getUuid()), List.of());
         when(discoveryRepository.findWithLockByUuid(withContext.getUuid())).thenReturn(Optional.of(withContext));
@@ -199,7 +199,7 @@ class DiscoveryRunReaperUnitTest {
     private static Discovery expiredStoppedRun() {
         Discovery run = run(DiscoveryStatus.STOPPED);
         run.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(8));
-        run.setRunMeta(Map.of("cursor", "abc"));
+        run.setRunMeta(DiscoveryRunMetaFixture.runMeta("cursor", "abc"));
         return run;
     }
 }

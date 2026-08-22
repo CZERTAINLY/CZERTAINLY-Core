@@ -3,6 +3,7 @@ package com.otilm.core.dao.entity;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryListDto;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryProgressDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
@@ -26,7 +27,6 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -94,13 +94,14 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "connector_interface_uuid")
     private UUID connectorInterfaceUuid;
 
-    // Connector-side run context the lifecycle calls replay; nulled on every terminal transition.
-    // S1948: every entity is Serializable via UniquelyIdentifiedObject, but nothing Java-serializes them —
-    // Jackson owns this JSONB field's persistence shape (same situation as Certificate's attribute lists).
+    // The connector's opaque run handle, replayed verbatim on every lifecycle call and nulled on every
+    // terminal transition. Typed as the wire's own handle shape so it round-trips untouched — Core never reads
+    // into it. S1948: every entity is Serializable via UniquelyIdentifiedObject, but nothing Java-serializes
+    // them — Jackson owns this JSONB field's persistence shape (same situation as Certificate's attribute lists).
     @SuppressWarnings("java:S1948")
     @Column(name = "run_meta", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, Object> runMeta;
+    private List<MetadataAttribute> runMeta;
 
     // TEXT[] of enum member names, the platform's shape for a flat enum list (connector_interface.features).
     @Enumerated(EnumType.STRING)

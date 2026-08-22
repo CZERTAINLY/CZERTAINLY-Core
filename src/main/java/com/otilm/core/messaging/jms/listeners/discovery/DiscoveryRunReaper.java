@@ -1,5 +1,6 @@
 package com.otilm.core.messaging.jms.listeners.discovery;
 
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.dao.entity.Discovery;
@@ -12,7 +13,6 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
@@ -130,7 +130,7 @@ public class DiscoveryRunReaper {
                         || workRepository.existsByDiscoveryUuid(uuid)) {
                     return null;
                 }
-                Map<String, Object> meta = run.getRunMeta();
+                List<MetadataAttribute> meta = run.getRunMeta();
                 endRun(run, DiscoveryStatus.FAILED, "Discovery work lost; the run can no longer be driven");
                 return new ReapedRun(run, meta);
             });
@@ -159,7 +159,7 @@ public class DiscoveryRunReaper {
                 if (run == null || !isStopExpired(run, threshold)) {
                     return null;
                 }
-                Map<String, Object> meta = run.getRunMeta();
+                List<MetadataAttribute> meta = run.getRunMeta();
                 endRun(run, DiscoveryStatus.CANCELLED, "Stop expired: the run was not resumed in time");
                 workWriter.deleteForRun(uuid);
                 return new ReapedRun(run, meta);
@@ -200,7 +200,7 @@ public class DiscoveryRunReaper {
     /**
      * A run whose terminal transition has committed, plus the pre-wipe run context the connector cancel replays.
      */
-    private record ReapedRun(Discovery run, Map<String, Object> meta) {
+    private record ReapedRun(Discovery run, List<MetadataAttribute> meta) {
     }
 
     // Connector-side run context is nulled on every terminal transition; connectorStatus keeps the last
