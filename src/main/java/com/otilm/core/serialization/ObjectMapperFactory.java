@@ -58,13 +58,21 @@ public final class ObjectMapperFactory {
     }
 
     /**
-     * Jackson's own defaults, for code that serializes JSON by hand before storing it. No migration guards persisted
-     * JSON, so a shape change here splits a table into rows written before it and rows written after.
+     * The recipe for code that serializes JSON by hand before storing it. A date is written as text keeping the offset
+     * it arrived with, and read back without being re-zoned, so a value survives the round trip as the caller sent it.
+     *
+     * <p>
+     * Only the time module is registered. Discovery would also install the JDK8 module and unwrap {@code Optional},
+     * which is a shape change for the callers {@link #emptyBeanTolerantStorage()} exists for. No migration guards
+     * persisted JSON, so a shape change here splits a table into rows written before it and rows written after.
      *
      * @see #jsonColumn()
      */
     public static ObjectMapper storage() {
-        return new ObjectMapper();
+        return new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .disable(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE);
     }
 
     /**
