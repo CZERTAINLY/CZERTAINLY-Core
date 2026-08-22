@@ -95,7 +95,7 @@ public class DiscoveryDrainTickWorker {
         } catch (NotFoundException | AttributeException e) {
             terminator
                     .end(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The discovery run can no longer be addressed at its connector: " + e.getMessage());
+                            "The discovery run can no longer be addressed at its connector");
             return;
         }
 
@@ -185,7 +185,8 @@ public class DiscoveryDrainTickWorker {
         if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.DRAIN).maxAttempts()) {
             terminator
                     .end(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The connector stopped handing over discovered items for this run: " + e.getMessage());
+                            "The connector stopped handing over discovered items for this run: "
+                                    + DiscoveryConnectorErrors.describe(e));
             return;
         }
         logger

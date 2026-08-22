@@ -81,7 +81,7 @@ public class DiscoveryStatusTickWorker {
             // Retrying cannot repair that, and the run has no way to make progress.
             terminator
                     .end(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The discovery run can no longer be addressed at its connector: " + e.getMessage());
+                            "The discovery run can no longer be addressed at its connector");
             return;
         }
 
@@ -106,7 +106,8 @@ public class DiscoveryStatusTickWorker {
         if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.STATUS).maxAttempts()) {
             terminator
                     .end(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The connector stopped answering status polls for this run: " + e.getMessage());
+                            "The connector stopped answering status polls for this run: "
+                                    + DiscoveryConnectorErrors.describe(e));
             return;
         }
         logger

@@ -15,6 +15,7 @@ import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.events.handlers.discovery.DiscoveryFailureReason;
 import com.otilm.core.events.handlers.discovery.DiscoverySource;
 import com.otilm.core.events.transaction.CertificateValidationEvent;
 import com.otilm.core.events.transaction.TransactionHandler;
@@ -221,7 +222,9 @@ public class CertificateHandler {
                 logger
                         .error("Unable to create discovery certificate {} in batch {} for discovery {}. Message: {}",
                                 identifier, batch, discovery.getName(), e.getMessage(), e);
-                failures.add("Certificate %s could not be staged: %s".formatted(identifier, e.getMessage()));
+                failures
+                        .add("Certificate %s could not be staged: %s"
+                                .formatted(identifier, DiscoveryFailureReason.shape(e)));
             }
         }
         return failures;
