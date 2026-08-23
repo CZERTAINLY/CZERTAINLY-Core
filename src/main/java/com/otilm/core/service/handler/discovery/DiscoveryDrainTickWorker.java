@@ -145,12 +145,32 @@ public class DiscoveryDrainTickWorker {
             idleUntilNextDue(discoveryUuid);
             return;
         }
+        if (!hasCaughtUp(discoveryUuid, page.getHighestSequence())) {
+            // Before the acknowledgement, never after: the ack tells the connector it may discard everything up
+            // to highestSequence, so sending it while the cursor lags would authorise discarding the very items
+            // Core is still waiting for.
+            awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
+            return;
+        }
         sendFullAck(run, page.getHighestSequence());
         if (swapToProcessing(discoveryUuid, page.getHighestSequence())) {
             workProducer.produceMessage(new DiscoveryWorkMessage(discoveryUuid, DiscoveryWorkType.PROCESS, 0));
             return;
         }
         awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
+    }
+
+    /** Whether ingestion has taken every item the connector counted. */
+    private boolean hasCaughtUp(UUID discoveryUuid, Long highestSequence) {
+        if (highestSequence == null) {
+            return false;
+        }
+        return Boolean.TRUE
+                .equals(transactionHandler
+                        .runInNewTransaction(() -> discoveryRepository
+                                .findByUuid(discoveryUuid)
+                                .map(run -> run.getLastAppliedSequence() >= highestSequence)
+                                .orElse(false)));
     }
 
     /**
@@ -203,7 +223,11 @@ public class DiscoveryDrainTickWorker {
     private boolean swapToProcessing(UUID discoveryUuid, Long highestSequence) {
         return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
             Discovery locked = discoveryRepository.findWithLockByUuid(discoveryUuid).orElse(null);
-            if (locked == null || DiscoveryRunLifecycle.isTerminal(locked.getStatus())) {
+            // The snapshot this decision started from predates the connector call. Re-assert both halves of the
+            // precondition: a concurrent STATUS tick may have paused the run, and another drain may already have
+            // handed it over — swapping again would publish a second PROCESS tick against the same run.
+            if (locked == null || locked.getStatus() != DiscoveryStatus.IN_PROGRESS
+                    || !DiscoveryRunState.COMPLETED.getCode().equals(locked.getConnectorState())) {
                 return false;
             }
             long acknowledged = locked.getLastAppliedSequence();

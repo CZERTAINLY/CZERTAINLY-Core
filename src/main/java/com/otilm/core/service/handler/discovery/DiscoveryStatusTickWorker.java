@@ -86,6 +86,14 @@ public class DiscoveryStatusTickWorker {
             return;
         }
 
+        if (status.getState() == null) {
+            // Required on the wire, so its absence is not an answer. Without this the null reaches
+            // state.getCode() inside the transaction, escapes the connector-call catch, and is merely
+            // acknowledged -- the tick then retries past its budget forever.
+            handleNonConformant(discoveryUuid, attempt);
+            return;
+        }
+
         if (apply(discoveryUuid, status)) {
             // A clear answer refreshes the budget without restarting the backoff ramp: the counter drops to
             // the rung where the ladder already reached its slowest delay.
@@ -117,6 +125,21 @@ public class DiscoveryStatusTickWorker {
     }
 
     /**
+     * A status answer Core cannot act on. Counted against the budget like any other unanswered tick, so a connector
+     * that keeps omitting the run state ends the run rather than stalling it forever.
+     */
+    private void handleNonConformant(UUID discoveryUuid, int attempt) {
+        if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.STATUS).maxAttempts()) {
+            terminator
+                    .end(discoveryUuid, DiscoveryStatus.FAILED, "The connector's status answers omitted the run state");
+            return;
+        }
+        logger
+                .warn("Status poll {} for discovery {} returned no run state; retrying when next due", attempt,
+                        discoveryUuid);
+    }
+
+    /**
      * Commits what the connector reported.
      *
      * @return whether the run is still live and its budget should be refreshed — false once the answer was itself
@@ -124,21 +147,28 @@ public class DiscoveryStatusTickWorker {
      */
     private boolean apply(UUID discoveryUuid, DiscoveryStatusResponseDto status) {
         DiscoveryRunState state = status.getState();
-        if (state == DiscoveryRunState.FAILED || state == DiscoveryRunState.CANCELLED) {
-            terminator
-                    .end(discoveryUuid, terminalStatusFor(state), "The connector reported the run " + state.getCode());
-            return false;
-        }
         return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
             Discovery locked = discoveryRepository.findWithLockByUuid(discoveryUuid).orElse(null);
             // Re-assert under the row lock: another tick may have ended the run, or the drain may have handed it
-            // over to processing, while this status call was in flight.
+            // over to processing, while this status call was in flight. Terminal answers come through here too --
+            // routed around this check they would end a run the drain had already handed over safely.
             if (locked == null || DiscoveryRunLifecycle.hasLeftTheConnector(locked.getStatus())) {
                 return false;
             }
+            // What the connector reported is recorded whatever it was, including on the endings: connector_state
+            // and connector_status are its view of the run, and losing them on the one answer that matters most
+            // leaves the operator without the reason.
             locked.setConnectorState(state.getCode());
+            locked.setConnectorStatus(connectorStatusFor(state));
             if (status.getProgress() != null) {
                 locked.setProgress(status.getProgress());
+            }
+            if (state == DiscoveryRunState.FAILED || state == DiscoveryRunState.CANCELLED) {
+                terminator
+                        .applyTerminalState(locked, terminalStatusFor(state),
+                                "The connector reported the run " + state.getCode());
+                workWriter.deleteForRun(discoveryUuid);
+                return false;
             }
             applyLiveState(locked, state);
             return true;

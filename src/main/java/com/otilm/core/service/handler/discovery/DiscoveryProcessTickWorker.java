@@ -124,11 +124,17 @@ public class DiscoveryProcessTickWorker {
             DiscoveryRunCounts counts = importHandler.processBatch(run, batch);
             discoveryWriter.appendRunMessages(run.getUuid(), counts.describeGaps());
         } catch (Exception e) {
+            // Swallowed rather than rethrown, and deliberately so. A throw here reaches the listener, which logs
+            // and acknowledges, so the budget is never spent and a persistent pre-batch failure -- an
+            // authorization refusal, a trigger that cannot be set up -- strands the run in PROCESSING forever,
+            // the exact failure this worker exists to close. The batch stamped nothing, so the caller sees an
+            // unchanged backlog and takes the stall path, which is bounded and ends the run with a reason.
             logger
                     .error("Processing batch {} of discovery {} did not complete: {}", attempt, run.getUuid(),
                             e.getMessage(), e);
-            throw new IllegalStateException(
-                    "Discovery " + run.getUuid() + " could not process a batch of discovered certificates", e);
+            discoveryWriter
+                    .appendRunMessages(run.getUuid(),
+                            List.of("A batch of discovered certificates could not be processed."));
         }
     }
 
@@ -174,7 +180,15 @@ public class DiscoveryProcessTickWorker {
      * the run a WARNING, so a partial success is never reported as a clean one.
      */
     private void finish(UUID discoveryUuid) {
-        boolean anyFailed = certificateRepository.existsByDiscoveryUuidAndProcessedErrorIsNotNull(discoveryUuid);
+        // Two kinds of evidence, because not every shortfall lands on a row. A bookkeeping write that itself
+        // failed, or validation never being requested, is a run-level gap with every row still clean -- reading
+        // only the rows would report such a run as a clean success. On a v2 run every writer into the message
+        // log is reporting a problem, so a non-empty log is exactly the run-level evidence needed.
+        boolean anyFailed = certificateRepository.existsByDiscoveryUuidAndProcessedErrorIsNotNull(discoveryUuid)
+                || discoveryRepository
+                        .findByUuid(discoveryUuid)
+                        .map(run -> run.getRunMessages() != null && !run.getRunMessages().isEmpty())
+                        .orElse(false);
         if (anyFailed) {
             terminator
                     .end(discoveryUuid, DiscoveryStatus.WARNING,

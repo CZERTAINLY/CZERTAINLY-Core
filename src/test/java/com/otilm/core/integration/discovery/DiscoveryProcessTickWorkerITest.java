@@ -31,7 +31,6 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.atLeastOnce;
@@ -116,7 +115,7 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         stageCertificates(run, 2);
         doThrow(new IllegalStateException("pod died mid-batch")).when(importHandler).processBatch(any(), anyList());
 
-        assertThatThrownBy(() -> worker.tick(run.getUuid(), 0)).isInstanceOf(IllegalStateException.class);
+        worker.tick(run.getUuid(), 0);
 
         // Nothing stamped its rows, so the backlog is exactly what it was: the cursor is the only progress
         // record, and a batch that never committed made none.
@@ -124,6 +123,12 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
                 .countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(run.getUuid()))
                 .isEqualTo(2);
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+        // The failure must not escape to the listener, which logs and acknowledges it: the budget would go
+        // unspent and a persistent failure would strand the run in PROCESSING forever.
+        assertThat(processRow(run).getAttempt())
+                .as("a batch that failed wholesale spends budget like any other tick that made no progress")
+                .isEqualTo(1);
+        verify(workProducer, never()).produceMessage(any());
     }
 
     @Test
