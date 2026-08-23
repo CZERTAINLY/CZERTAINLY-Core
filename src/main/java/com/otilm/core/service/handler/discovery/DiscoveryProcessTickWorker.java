@@ -36,19 +36,6 @@ import org.springframework.stereotype.Component;
  * picks the run up on the next tick and continues where the cursor stands.
  *
  * <p>
- * <b>The agenda row is a backstop, not a second publisher.</b> When a batch leaves work behind, the row is committed
- * due one backstop interval out and the follow-up tick is published directly. Committing it due <em>now</em> instead
- * would let the sweep claim that same row and publish a competing tick, and two ticks against one run read the same
- * unclaimed rows and import them twice — duplicate event histories, duplicate action triggers, duplicate notifications.
- * The backstop fires only if the direct publish was lost or its pod died.
- *
- * <p>
- * <b>A tick that accounts for nothing spends budget instead of retrying at once.</b> The pipeline records an outcome
- * for every row it reaches, but a row it never reaches keeps {@code processed = false}; the claim therefore excludes
- * rows already carrying a reason, so those cannot be re-claimed forever. Should a batch still return having changed
- * nothing, it climbs the backoff ladder and eventually ends the run rather than looping on the broker.
- *
- * <p>
  * <b>Scope:</b> certificates only. Keys and every future resource are staged by the ingestor but have no import
  * pipeline yet, so this worker neither claims them nor waits on them (core#1965). Counting rows it cannot process would
  * leave every run with keys spinning in {@code PROCESSING} forever.

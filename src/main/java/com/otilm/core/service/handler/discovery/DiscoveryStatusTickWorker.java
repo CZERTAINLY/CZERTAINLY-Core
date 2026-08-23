@@ -27,11 +27,6 @@ import org.springframework.stereotype.Component;
  * <b>This is the only place a connector-reported state becomes Core state.</b> Pushed events merely ask for this tick;
  * what the connector answers here is what commits.
  *
- * <p>
- * <b>The attempt budget counts consecutive unanswered ticks, not elapsed time.</b> Any clear answer — the run is
- * running, the run is paused — pulls the counter back down to the ladder's ceiling, so a scan that takes a week and a
- * pause that lasts days both keep their budget as long as the connector keeps answering. The budget only runs out when
- * the connector stops answering at all, which is exactly the case where retrying forever is pointless.
  */
 @Component
 public class DiscoveryStatusTickWorker {

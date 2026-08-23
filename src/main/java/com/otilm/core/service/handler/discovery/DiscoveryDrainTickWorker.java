@@ -28,17 +28,10 @@ import org.springframework.stereotype.Component;
  * The {@code DRAIN} tick: one bounded page of results, ingested, then a decision about what comes next.
  *
  * <p>
- * <b>Continuations are direct-published and table-backstopped.</b> When the connector says more items are waiting, this
- * worker commits the cursor advance and the agenda row's new due time, then publishes the follow-up tick itself. The
- * sweep's cadence is therefore the recovery latency after a lost message or a dead pod, never the throughput ceiling. A
- * duplicate from the publish-and-sweep overlap costs nothing: the cursor filter makes a repeated page a no-op.
- *
- * <p>
- * <b>The handover to processing needs a full acknowledgement, not just an empty page.</b> The connector reporting
- * {@code completed} and this page reporting {@code more: false} together still allow the run's cursor to sit below the
- * run-wide {@code highestSequence} — items the connector has produced but not yet handed over. Swapping to
- * {@code PROCESSING} there would strand them permanently, so the swap happens only once the cursor has caught up, and
- * anything short of that drains again immediately.
+ * <b>Only a fully acknowledged run hands over.</b> A connector reporting {@code completed} and a page reporting
+ * {@code more: false} still leave the cursor free to sit below the run-wide {@code highestSequence} — items produced
+ * but not handed over — so the swap to {@code PROCESSING} waits for the cursor to catch up. Every other decision this
+ * worker makes is documented on the method that makes it.
  */
 @Component
 public class DiscoveryDrainTickWorker {
