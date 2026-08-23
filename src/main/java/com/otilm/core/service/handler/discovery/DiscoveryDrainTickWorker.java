@@ -15,6 +15,7 @@ import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -54,12 +55,15 @@ public class DiscoveryDrainTickWorker {
     private final TransactionHandler transactionHandler;
     private final int maxItems;
     private final long maxBytes;
+    private final Duration continuationBackstop;
 
     public DiscoveryDrainTickWorker(DiscoveryRepository discoveryRepository, DiscoveryV2Client client,
             DiscoveryEventIngestor ingestor, DiscoveryWorkWriter workWriter, DiscoveryWorkProducer workProducer,
             DiscoveryRunTerminator terminator, DiscoveryWorkProperties workProperties,
             TransactionHandler transactionHandler, @Value("${discovery.drain.max-items:500}") int maxItems,
-            @Value("${discovery.drain.max-bytes:5242880}") long maxBytes) {
+            @Value("${discovery.drain.max-bytes:5242880}") long maxBytes,
+            @Value("${discovery.work.continuation-backstop:PT1M}") Duration continuationBackstop) {
+        this.continuationBackstop = continuationBackstop;
         this.discoveryRepository = discoveryRepository;
         this.client = client;
         this.ingestor = ingestor;
@@ -78,10 +82,12 @@ public class DiscoveryDrainTickWorker {
             logger.debug("Dropping drain tick for discovery {}: the run no longer exists", discoveryUuid);
             return;
         }
-        if (DiscoveryRunLifecycle.isTerminal(run.getStatus()) || run.getStatus() == DiscoveryStatus.PROCESSING) {
-            // Nothing is left at the connector once processing owns the run.
+        if (DiscoveryRunLifecycle.hasLeftTheConnector(run.getStatus())) {
+            // Nothing is left at the connector once the run has finished or handed over. Only this tick's own row
+            // goes: a PROCESSING run still needs its PROCESS row, and taking the whole agenda would strand the
+            // import and leave the reaper reading a live run as work-lost.
             logger.debug("Dropping drain tick for discovery {}: already {}", discoveryUuid, run.getStatus());
-            workWriter.deleteForRun(discoveryUuid);
+            workWriter.deleteForRun(discoveryUuid, DiscoveryWorkType.DRAIN);
             return;
         }
 
@@ -89,7 +95,11 @@ public class DiscoveryDrainTickWorker {
         try {
             // Outside any transaction, by the platform's connector-call rule.
             page = client.results(run, maxItems, maxBytes);
-        } catch (ConnectorException e) {
+        } catch (ConnectorException | RuntimeException e) {
+            // RuntimeException too: the client's own javadoc warns its declared throws is incomplete — over MQ a
+            // 422 arrives as an unchecked ValidationException, and a bodiless 2xx as IllegalStateException. Left
+            // to escape, those reach the listener's log-and-acknowledge and the tick retries forever having spent
+            // no budget, which is exactly the immortal run the budget exists to prevent.
             handleUnanswered(discoveryUuid, attempt, e);
             return;
         } catch (NotFoundException | AttributeException e) {
@@ -99,15 +109,39 @@ public class DiscoveryDrainTickWorker {
             return;
         }
 
+        if (page.getMore() == null || page.getHighestSequence() == null) {
+            // Both are required on the wire precisely so their absence cannot be read as an answer. Treating a
+            // missing "more" as "no more items" would hand a half-drained run to processing and release the
+            // connector handle -- permanent, silent loss. Spend the budget on it instead.
+            handleNonConformant(discoveryUuid, attempt);
+            return;
+        }
+
         ingestor.applyDrainPage(discoveryUuid, page);
-        continueAfter(discoveryUuid, run, page);
+        continueAfter(discoveryUuid, run, attempt, page);
+    }
+
+    /**
+     * A page Core cannot act on. Counted against the drain budget like any other unanswered tick, so a connector that
+     * keeps omitting required fields ends the run rather than stalling it forever.
+     */
+    private void handleNonConformant(UUID discoveryUuid, int attempt) {
+        if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.DRAIN).maxAttempts()) {
+            terminator
+                    .end(discoveryUuid, DiscoveryStatus.FAILED,
+                            "The connector's results did not say whether more items remain");
+            return;
+        }
+        logger
+                .warn("Drain {} for discovery {} returned a page missing more/highestSequence; retrying when next due",
+                        attempt, discoveryUuid);
     }
 
     /**
      * Decides the run's next drain step from what the page said, and — where the answer is "there is more, now" —
      * publishes that step rather than waiting for a sweep to notice.
      */
-    private void continueAfter(UUID discoveryUuid, Discovery run, DiscoveryResultsResponseDto page) {
+    private void continueAfter(UUID discoveryUuid, Discovery run, int attempt, DiscoveryResultsResponseDto page) {
         if (Boolean.TRUE.equals(page.getMore())) {
             drainAgain(discoveryUuid, "the connector reports more items");
             return;
@@ -118,11 +152,54 @@ public class DiscoveryDrainTickWorker {
             idleUntilNextDue(discoveryUuid);
             return;
         }
+        sendFullAck(run, page.getHighestSequence());
         if (swapToProcessing(discoveryUuid, page.getHighestSequence())) {
             workProducer.produceMessage(new DiscoveryWorkMessage(discoveryUuid, DiscoveryWorkType.PROCESS, 0));
             return;
         }
-        drainAgain(discoveryUuid, "the run has items the connector has not handed over yet");
+        awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
+    }
+
+    /**
+     * The contract's full acknowledgement: a drain at {@code afterSequence == highestSequence}, which tells the
+     * connector every item was received and it may discard the run's state. Best-effort by design — the connector
+     * retains that state for 24 hours regardless, so a failure here costs retention, not data.
+     *
+     * <p>
+     * Sent here, immediately before the handover releases {@code run_meta}, because this is the last moment Core still
+     * holds the handle to send it with. The contract frames the ack as following the run's terminal state, which Core
+     * only reaches later in processing; reconciling the two belongs to the lifecycle work.
+     */
+    private void sendFullAck(Discovery run, Long highestSequence) {
+        try {
+            client.acknowledge(run, highestSequence);
+        } catch (ConnectorException | NotFoundException | AttributeException | RuntimeException e) {
+            logger
+                    .warn("Full-ack drain failed for discovery {}; the connector keeps the run's state until its own "
+                            + "retention expires", run.getUuid(), e);
+        }
+    }
+
+    /**
+     * The connector reported itself complete but counted more items than it handed over. Climbing the ladder rather
+     * than draining again at once matters here: this is the one branch that can repeat without making progress, and a
+     * due-now retry would be an unbounded stream of {@code results} calls against a connector that may never catch up.
+     * Spending the budget ends the run with a reason instead.
+     */
+    private void awaitTheRest(UUID discoveryUuid, int attempt, Long highestSequence) {
+        int next = attempt + 1;
+        if (next >= workProperties.scheduleFor(DiscoveryWorkType.DRAIN).maxAttempts()) {
+            terminator
+                    .end(discoveryUuid, DiscoveryStatus.FAILED,
+                            "The connector reported %d item(s) but never handed them all over"
+                                    .formatted(highestSequence));
+            return;
+        }
+        workWriter
+                .reschedule(discoveryUuid, DiscoveryWorkType.DRAIN, next,
+                        OffsetDateTime
+                                .now(ZoneOffset.UTC)
+                                .plus(workProperties.scheduleFor(DiscoveryWorkType.DRAIN).delayFor(next)));
     }
 
     /**
@@ -157,13 +234,19 @@ public class DiscoveryDrainTickWorker {
     }
 
     /**
-     * Commits the row as due now — which also clears the attempt counter this successful page earned back — and then
-     * publishes the follow-up tick. The row is committed first so a publish that never lands still leaves the sweep a
-     * due row to pick up.
+     * Commits the agenda row as the backstop for the next page — which also clears the attempt counter this successful
+     * page earned back — and then publishes the follow-up tick directly.
+     *
+     * <p>
+     * The row is committed first, so a publish that never lands is still picked up, and one backstop interval out
+     * rather than due-now: a due-now row is one the sweep will claim and publish itself, turning the table from a
+     * backstop into a second publisher racing this one.
      */
     private void drainAgain(UUID discoveryUuid, String why) {
         logger.debug("Draining discovery {} again immediately: {}", discoveryUuid, why);
-        workWriter.reschedule(discoveryUuid, DiscoveryWorkType.DRAIN, 0, OffsetDateTime.now(ZoneOffset.UTC));
+        workWriter
+                .reschedule(discoveryUuid, DiscoveryWorkType.DRAIN, 0,
+                        OffsetDateTime.now(ZoneOffset.UTC).plus(continuationBackstop));
         workProducer.produceMessage(new DiscoveryWorkMessage(discoveryUuid, DiscoveryWorkType.DRAIN, 0));
     }
 
@@ -177,7 +260,7 @@ public class DiscoveryDrainTickWorker {
                         workProperties.scheduleFor(DiscoveryWorkType.DRAIN).ceilingAttempt());
     }
 
-    private void handleUnanswered(UUID discoveryUuid, int attempt, ConnectorException e) {
+    private void handleUnanswered(UUID discoveryUuid, int attempt, Throwable e) {
         if (DiscoveryConnectorErrors.isRunNoLongerTracked(e)) {
             terminator.end(discoveryUuid, DiscoveryStatus.FAILED, "The connector no longer tracks this run");
             return;

@@ -27,14 +27,20 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
             Pageable pageable);
 
     /**
-     * The v2 processing claim: the run's newly-discovered rows that no batch has handled yet, oldest first so a run
-     * chews through its backlog in a stable order rather than revisiting the same page.
+     * The v2 processing claim: the run's newly-discovered rows that no batch has accounted for yet, oldest first so a
+     * run chews through its backlog in a stable order rather than revisiting the same page.
+     *
+     * <p>
+     * <b>Accounted for, not processed.</b> The import pipeline deliberately leaves {@code processed = false} on a row
+     * it never reached, writing only the reason (see {@code CertificateDiscoveredEventHandler.writeBookkeeping}).
+     * Claiming on {@code processed} alone would hand those same unreachable rows back on every tick and the backlog
+     * would never drain. A recorded reason is an outcome, so a row carrying one is done with.
      */
     @EntityGraph(attributePaths = {"certificateContent"})
-    List<DiscoveryCertificate> findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseOrderByCreatedAsc(
+    List<DiscoveryCertificate> findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNullOrderByCreatedAsc(
             UUID discoveryUuid, Pageable pageable);
 
-    long countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalse(UUID discoveryUuid);
+    long countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(UUID discoveryUuid);
 
     /** Whether any row of the run recorded a reason it could not be imported — what makes a run end WARNING. */
     boolean existsByDiscoveryUuidAndProcessedErrorIsNotNull(UUID discoveryUuid);

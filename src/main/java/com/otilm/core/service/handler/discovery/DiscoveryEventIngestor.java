@@ -21,8 +21,10 @@ import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +39,11 @@ import org.springframework.transaction.annotation.Transactional;
  * cursor. Pushed events are advisory: they refresh cosmetic progress, record a connector-side complaint, or ask for a
  * tick — none of them commits run state, and none of them touches {@code last_applied_sequence}. State transitions are
  * committed exclusively by the tick workers from an authoritative connector response.
+ *
+ * <p>
+ * <b>The advisory half has no caller yet.</b> {@code applyDrainPage} is reached from the drain worker; nothing invokes
+ * {@code applyAdvisoryEvent} until the AMQP binding and the NDJSON stream land with the push slice. It is groundwork,
+ * not a live path.
  *
  * <p>
  * <b>Why the run row is locked.</b> A drain page's staged rows and the cursor advance that accounts for them must be
@@ -74,9 +81,10 @@ public class DiscoveryEventIngestor {
      * nothing.
      *
      * <p>
-     * <b>Idempotency</b> comes from two layers: an item at or below the cursor is dropped before staging, and the
-     * staging write itself ignores a {@code uniqueRef} already present for the run. A redelivered page is therefore a
-     * no-op, and a page that overlaps the last one stages only its new tail.
+     * <b>Idempotency</b> comes from two layers. Across pages, an item at or below the cursor is dropped before staging,
+     * so a redelivered page is a no-op and an overlapping one stages only its new tail. Within a page, the
+     * {@code uniqueRef} decides: {@code discovery_item} refuses a repeat in the write itself, and certificates — whose
+     * table carries no such constraint — are deduped here before the staging call.
      */
     @Transactional
     public void applyDrainPage(UUID discoveryUuid, DiscoveryResultsResponseDto page) {
@@ -85,10 +93,17 @@ public class DiscoveryEventIngestor {
             return;
         }
         Discovery run = located.get();
+        if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
+            // The run ended while this page was in flight. Its staging table and cursor are frozen at the moment
+            // it ended, so nothing here may still land on it.
+            logger.warn("Dropping drain page for discovery {}: the run ended as {}", discoveryUuid, run.getStatus());
+            return;
+        }
         List<DiscoveredItemDto> items = page.getItems() == null ? List.of() : page.getItems();
         if (items.isEmpty()) {
             return;
         }
+        recordMalformed(run, items);
 
         long cursor = run.getLastAppliedSequence();
         List<DiscoveredItemDto> fresh = items.stream().filter(item -> sequenceOf(item) > cursor).toList();
@@ -119,6 +134,15 @@ public class DiscoveryEventIngestor {
             return;
         }
         Discovery run = located.get();
+        if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
+            // Every branch of this switch writes to the run, not just the two that schedule work. A late progress
+            // snapshot would overwrite the run's final one, and a late error would append below the terminal
+            // reason, so a finished run would no longer read as ending with its ending.
+            logger
+                    .debug("Ignoring {} event for discovery {}: the run ended as {}", event.getType(), discoveryUuid,
+                            run.getStatus());
+            return;
+        }
         switch (event.getType()) {
             case PROGRESS -> run.setProgress(snapshotOf((DiscoveryProgressEvent) event));
             case ERROR -> {
@@ -134,33 +158,78 @@ public class DiscoveryEventIngestor {
         }
     }
 
-    private void stage(Discovery run, List<DiscoveredItemDto> items) {
-        List<DiscoveryProviderCertificateDataDto> certificates = new ArrayList<>();
-        for (DiscoveredItemDto item : items) {
-            if (item.getResource() == Resource.CERTIFICATE) {
-                certificates.add(asCertificateData(item));
-            } else {
-                itemWriter.stage(run.getUuid(), item, isNewlyDiscovered(item));
-            }
-        }
-        if (certificates.isEmpty()) {
+    /**
+     * Records, on the run, items a connector sent without the sequence the wire requires. They cannot be staged — a
+     * sequence is what the cursor is made of — so without this line they would vanish leaving no row, no message and
+     * nothing for the connector's author to notice.
+     */
+    private void recordMalformed(Discovery run, List<DiscoveredItemDto> items) {
+        List<String> refs = items
+                .stream()
+                .filter(item -> item.getSequence() == null)
+                .map(DiscoveredItemDto::getUniqueRef)
+                .toList();
+        if (refs.isEmpty()) {
             return;
         }
-        // Certificates keep the v1 staging table and its write, so discovery_certificate stays the single
-        // certificate store until the evidence-gated unification (core#2027).
-        List<String> failures = certificateHandler
-                .stageDiscoveredCertificates("drain@" + run.getLastAppliedSequence(), run, certificates);
-        if (!failures.isEmpty()) {
-            run.setRunMessages(DiscoveryRunLifecycle.append(run.getRunMessages(), failures));
+        logger.warn("Discovery {} received {} item(s) with no sequence: {}", run.getUuid(), refs.size(), refs);
+        run
+                .setRunMessages(DiscoveryRunLifecycle
+                        .append(run.getRunMessages(),
+                                "%d item(s) arrived without a sequence and were skipped".formatted(refs.size())));
+    }
+
+    private void stage(Discovery run, List<DiscoveredItemDto> items) {
+        List<DiscoveryProviderCertificateDataDto> certificates = new ArrayList<>();
+        Set<String> stagedCertificateRefs = new HashSet<>();
+        List<String> malformedPayloads = new ArrayList<>();
+        for (DiscoveredItemDto item : items) {
+            if (item.getResource() != Resource.CERTIFICATE) {
+                itemWriter.stage(run.getUuid(), item, isNewlyDiscovered(item));
+            } else if (stagedCertificateRefs.add(item.getUniqueRef())) {
+                // discovery_certificate has no unique_ref constraint to lean on, so the page is deduped here
+                // instead. Across pages the cursor filter does the same job; within one page nothing else would.
+                DiscoveryProviderCertificateDataDto data = asCertificateData(item);
+                if (data == null) {
+                    malformedPayloads.add(item.getUniqueRef());
+                } else {
+                    certificates.add(data);
+                }
+            }
+        }
+        List<String> problems = new ArrayList<>();
+        malformedPayloads
+                .forEach(ref -> problems
+                        .add("Certificate %s could not be staged: its payload was not a certificate".formatted(ref)));
+        if (!certificates.isEmpty()) {
+            // Certificates keep the v1 staging table and its write, so discovery_certificate stays the single
+            // certificate store until the evidence-gated unification (core#2027).
+            problems.addAll(certificateHandler.stageDiscoveredCertificates(batchLabel(items), run, certificates));
+        }
+        if (!problems.isEmpty()) {
+            run.setRunMessages(DiscoveryRunLifecycle.append(run.getRunMessages(), problems));
         }
     }
 
+    /** Names the page by what it carried, not by where the cursor stood before it. */
+    private static String batchLabel(List<DiscoveredItemDto> items) {
+        return "drain@" + items.stream().mapToLong(DiscoveryEventIngestor::sequenceOf).max().orElse(0L);
+    }
+
+    /**
+     * @return the v1 staging shape, or {@code null} when the payload does not match the resource it declared — one
+     * malformed item costs itself rather than throwing and rolling back the whole page, which would leave the cursor
+     * unadvanced and the same poison page redelivered forever
+     */
     private static DiscoveryProviderCertificateDataDto asCertificateData(DiscoveredItemDto item) {
+        if (!(item.getPayload() instanceof DiscoveredCertificateDto certificate)) {
+            return null;
+        }
         DiscoveryProviderCertificateDataDto data = new DiscoveryProviderCertificateDataDto();
         // The connector's own dedupe key, so a staging failure is logged under the reference the connector
         // knows the item by.
         data.setUuid(item.getUniqueRef());
-        data.setBase64Content(((DiscoveredCertificateDto) item.getPayload()).getCertificateData());
+        data.setBase64Content(certificate.getCertificateData());
         data.setMeta(item.getMeta() == null ? List.of() : item.getMeta());
         return data;
     }
@@ -178,7 +247,9 @@ public class DiscoveryEventIngestor {
     }
 
     private void scheduleNow(Discovery run, DiscoveryWorkType workType) {
-        if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
+        if (DiscoveryRunLifecycle.hasLeftTheConnector(run.getStatus())) {
+            // Covers PROCESSING as well as the terminal states: the connector released the run at the swap,
+            // so re-arming a STATUS or DRAIN row here would drive a tick against a handle that no longer exists.
             logger
                     .debug("Ignoring advisory event asking for a {} tick on discovery {}, already {}", workType,
                             run.getUuid(), run.getStatus());

@@ -80,12 +80,30 @@ public class DiscoveryV2Client {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public DiscoveryResultsResponseDto results(Discovery run, int maxItems, long maxBytes)
             throws ConnectorException, NotFoundException, AttributeException {
+        return drain(run, run.getLastAppliedSequence(), maxItems, maxBytes);
+    }
+
+    /**
+     * The contract's full acknowledgement — a drain positioned past the last item the connector counted, which tells it
+     * every item was received and its run state may be discarded. Asks for a single item because the response body is
+     * not the point; the cursor it carries is.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void acknowledge(Discovery run, long highestSequence)
+            throws ConnectorException, NotFoundException, AttributeException {
+        drain(run, highestSequence, 1, 1024L);
+    }
+
+    private DiscoveryResultsResponseDto drain(Discovery run, long afterSequence, int maxItems, long maxBytes)
+            throws ConnectorException, NotFoundException, AttributeException {
         ConnectorDto connector = connectorOf(run);
         DiscoveryDrainRequestDto request = new DiscoveryDrainRequestDto();
         populate(request, run, connector);
-        request.setAfterSequence(run.getLastAppliedSequence());
+        request.setAfterSequence(afterSequence);
         request.setMaxItems(maxItems);
-        request.setMaxBytes(maxBytes);
+        // Clamped rather than trusted: the cap is the contract's, and a configured value above it produces a
+        // request the connector rejects on every single drain.
+        request.setMaxBytes(Math.min(maxBytes, DiscoveryDrainRequestDto.MAX_BYTES_CAP));
         return connectorApiFactory.getDiscoveryApiClientV2(connector).results(connector, request);
     }
 

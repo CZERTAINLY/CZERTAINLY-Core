@@ -7,12 +7,14 @@ import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.events.handlers.CertificateDiscoveredEventHandler;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
+import com.otilm.core.messaging.jms.configuration.DiscoveryWorkProperties;
 import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -30,13 +32,21 @@ import org.springframework.stereotype.Component;
  * <p>
  * <b>Why this exists at all.</b> The v1 flow processed a whole run inside one message handler, so a pod that died
  * halfway left the run stuck in {@code PROCESSING} forever with no way back. Here the backlog is a database cursor —
- * rows the run has not marked processed — and a batch that dies is simply a batch that never stamped its rows. Any pod
+ * rows no batch has accounted for — and a batch that dies is simply a batch that never recorded an outcome. Any pod
  * picks the run up on the next tick and continues where the cursor stands.
  *
  * <p>
- * <b>One row of work, not a fan-out.</b> A run has exactly one {@code PROCESS} agenda row (the table's unique
- * constraint), so batches never run in parallel against the same run. The run chews through its backlog as a
- * self-perpetuating chain: each batch commits its rows, then publishes the tick for the next one.
+ * <b>The agenda row is a backstop, not a second publisher.</b> When a batch leaves work behind, the row is committed
+ * due one backstop interval out and the follow-up tick is published directly. Committing it due <em>now</em> instead
+ * would let the sweep claim that same row and publish a competing tick, and two ticks against one run read the same
+ * unclaimed rows and import them twice — duplicate event histories, duplicate action triggers, duplicate notifications.
+ * The backstop fires only if the direct publish was lost or its pod died.
+ *
+ * <p>
+ * <b>A tick that accounts for nothing spends budget instead of retrying at once.</b> The pipeline records an outcome
+ * for every row it reaches, but a row it never reaches keeps {@code processed = false}; the claim therefore excludes
+ * rows already carrying a reason, so those cannot be re-claimed forever. Should a batch still return having changed
+ * nothing, it climbs the backoff ladder and eventually ends the run rather than looping on the broker.
  *
  * <p>
  * <b>Scope:</b> certificates only. Keys and every future resource are staged by the ingestor but have no import
@@ -55,12 +65,16 @@ public class DiscoveryProcessTickWorker {
     private final DiscoveryWorkProducer workProducer;
     private final DiscoveryRunTerminator terminator;
     private final DiscoveryWriter discoveryWriter;
+    private final DiscoveryWorkProperties workProperties;
     private final int batchSize;
+    private final Duration continuationBackstop;
 
     public DiscoveryProcessTickWorker(DiscoveryRepository discoveryRepository,
             DiscoveryCertificateRepository certificateRepository, CertificateDiscoveredEventHandler importHandler,
             DiscoveryWorkWriter workWriter, DiscoveryWorkProducer workProducer, DiscoveryRunTerminator terminator,
-            DiscoveryWriter discoveryWriter, @Value("${discovery.processing.batch-size:200}") int batchSize) {
+            DiscoveryWriter discoveryWriter, DiscoveryWorkProperties workProperties,
+            @Value("${discovery.processing.batch-size:200}") int batchSize,
+            @Value("${discovery.work.continuation-backstop:PT1M}") Duration continuationBackstop) {
         this.discoveryRepository = discoveryRepository;
         this.certificateRepository = certificateRepository;
         this.importHandler = importHandler;
@@ -68,7 +82,9 @@ public class DiscoveryProcessTickWorker {
         this.workProducer = workProducer;
         this.terminator = terminator;
         this.discoveryWriter = discoveryWriter;
+        this.workProperties = workProperties;
         this.batchSize = batchSize;
+        this.continuationBackstop = continuationBackstop;
     }
 
     public void tick(UUID discoveryUuid, int attempt) {
@@ -89,51 +105,81 @@ public class DiscoveryProcessTickWorker {
             return;
         }
 
+        long before = backlogOf(discoveryUuid);
         List<DiscoveryCertificate> batch = certificateRepository
-                .findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseOrderByCreatedAsc(discoveryUuid,
-                        PageRequest.of(0, batchSize));
+                .findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNullOrderByCreatedAsc(
+                        discoveryUuid, PageRequest.of(0, batchSize));
         if (!batch.isEmpty()) {
-            importBatch(discoveryUuid, attempt, batch);
+            importBatch(run, attempt, batch);
         }
 
-        long remaining = certificateRepository
-                .countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalse(discoveryUuid);
-        if (remaining > 0) {
+        long remaining = backlogOf(discoveryUuid);
+        if (remaining == 0) {
+            finish(discoveryUuid);
+        } else if (remaining < before) {
             continueProcessing(discoveryUuid, remaining);
-            return;
+        } else {
+            stall(discoveryUuid, attempt, remaining);
         }
-        finish(discoveryUuid);
+    }
+
+    private long backlogOf(UUID discoveryUuid) {
+        return certificateRepository
+                .countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(discoveryUuid);
     }
 
     /**
-     * Runs the batch through the unchanged import pipeline. A batch that fails wholesale leaves its rows unstamped, so
-     * the next tick reclaims exactly them — but it also leaves the run no closer to finishing, so the failure is
-     * recorded on the run where an operator can see it before the tick is retried.
+     * Runs the batch through the unchanged import pipeline and files what it could not import on the run, so an
+     * operator watching a long run sees the trouble while it is still happening.
      */
-    private void importBatch(UUID discoveryUuid, int attempt, List<DiscoveryCertificate> batch) {
-        Discovery run = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+    private void importBatch(Discovery run, int attempt, List<DiscoveryCertificate> batch) {
         try {
             DiscoveryRunCounts counts = importHandler.processBatch(run, batch);
-            // Filed as the batch finishes rather than summed up at the end: a long run's operator can see what
-            // is going wrong while it is still going wrong, and the per-row reasons stay on the rows.
-            discoveryWriter.appendRunMessages(discoveryUuid, counts.describeGaps());
+            discoveryWriter.appendRunMessages(run.getUuid(), counts.describeGaps());
         } catch (Exception e) {
             logger
-                    .error("Processing batch {} of discovery {} did not complete: {}", attempt, discoveryUuid,
+                    .error("Processing batch {} of discovery {} did not complete: {}", attempt, run.getUuid(),
                             e.getMessage(), e);
             throw new IllegalStateException(
-                    "Discovery " + discoveryUuid + " could not process a batch of discovered certificates", e);
+                    "Discovery " + run.getUuid() + " could not process a batch of discovered certificates", e);
         }
     }
 
     /**
-     * Commits the row as due now, then publishes the next batch's tick directly. The row is committed first so a
-     * publish that never lands still leaves the sweep something due to pick up.
+     * Commits the agenda row as the backstop for the next batch, then publishes that batch directly. The row is
+     * committed first so a publish that never lands is still picked up, and one backstop interval out rather than
+     * due-now so the sweep cannot publish a competing tick against the same run.
      */
     private void continueProcessing(UUID discoveryUuid, long remaining) {
         logger.debug("Discovery {} has {} certificates left to process", discoveryUuid, remaining);
-        workWriter.reschedule(discoveryUuid, DiscoveryWorkType.PROCESS, 0, OffsetDateTime.now(ZoneOffset.UTC));
+        workWriter
+                .reschedule(discoveryUuid, DiscoveryWorkType.PROCESS, 0,
+                        OffsetDateTime.now(ZoneOffset.UTC).plus(continuationBackstop));
         workProducer.produceMessage(new DiscoveryWorkMessage(discoveryUuid, DiscoveryWorkType.PROCESS, 0));
+    }
+
+    /**
+     * A tick that accounted for nothing. Rather than publishing again — which is how a stalled run becomes a tight loop
+     * on the broker — the row climbs its backoff ladder, and once the budget is spent the run ends rather than sitting
+     * in {@code PROCESSING} forever, which is the failure this worker exists to prevent.
+     */
+    private void stall(UUID discoveryUuid, int attempt, long remaining) {
+        int next = attempt + 1;
+        if (next >= workProperties.scheduleFor(DiscoveryWorkType.PROCESS).maxAttempts()) {
+            terminator
+                    .end(discoveryUuid, DiscoveryStatus.WARNING,
+                            ("Processing stopped with %d certificate(s) that could not be imported. See the discovery "
+                                    + "certificate list for per-certificate detail.").formatted(remaining));
+            return;
+        }
+        logger
+                .warn("Process tick {} for discovery {} accounted for none of its {} remaining certificates; backing "
+                        + "off", attempt, discoveryUuid, remaining);
+        workWriter
+                .reschedule(discoveryUuid, DiscoveryWorkType.PROCESS, next,
+                        OffsetDateTime
+                                .now(ZoneOffset.UTC)
+                                .plus(workProperties.scheduleFor(DiscoveryWorkType.PROCESS).delayFor(next)));
     }
 
     /**

@@ -64,4 +64,18 @@ public class DiscoveryWorkWriter {
     public void deleteForRun(UUID discoveryUuid) {
         workRepository.deleteByDiscoveryUuid(discoveryUuid);
     }
+
+    /**
+     * Drops only the run's pending row for {@code workType}.
+     *
+     * <p>
+     * Distinct from {@link #deleteForRun} because the two mean opposite things. A worker that finds its own kind of
+     * work obsolete — a drain tick arriving after the run already handed over to processing — must not take the rest of
+     * the agenda with it: deleting the {@code PROCESS} row there would strand the run's import and leave the reaper
+     * reading a live run as work-lost.
+     */
+    @Transactional
+    public void deleteForRun(UUID discoveryUuid, DiscoveryWorkType workType) {
+        workRepository.deleteByDiscoveryUuidAndWorkType(discoveryUuid, workType);
+    }
 }

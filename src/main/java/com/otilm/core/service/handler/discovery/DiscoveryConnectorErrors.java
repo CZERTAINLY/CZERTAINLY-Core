@@ -1,8 +1,9 @@
 package com.otilm.core.service.handler.discovery;
 
-import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.ConnectorEntityNotFoundException;
 import com.otilm.api.exception.ConnectorProblemException;
-import com.otilm.api.model.common.error.ErrorCode;
+import com.otilm.api.model.common.error.ProblemDetailExtended;
+import com.otilm.core.service.handler.authority.ConnectorOperationErrorCodes;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -11,18 +12,11 @@ import org.springframework.http.HttpStatus;
  */
 public final class DiscoveryConnectorErrors {
 
+    private static final String UNANSWERED = "the connector did not answer";
+
     private DiscoveryConnectorErrors() {
     }
 
-    /**
-     * True when the connector says it no longer tracks the run. The contract makes this definitive — the connector-side
-     * run and its checkpoint are gone, so no amount of retrying brings them back and the run ends FAILED.
-     *
-     * <p>
-     * Both signals are checked because the two transports carry different amounts of detail: over REST the connector's
-     * RFC 9457 body survives as an {@link ErrorCode}, while the AMQP proxy classifies by HTTP status alone and discards
-     * the body. Reading only the error code would miss every tunneled 404.
-     */
     /**
      * Text describing a connector failure that is safe to put on the run, where API clients read it.
      *
@@ -32,20 +26,40 @@ public final class DiscoveryConnectorErrors {
      * messages. The one thing that is forwarded is an RFC 9457 {@code detail}, which the contract already obliges the
      * connector to curate. Everything else is classified. The full exception still reaches the log.
      */
-    public static String describe(ConnectorException e) {
+    public static String describe(Throwable e) {
         if (e instanceof ConnectorProblemException problem && problem.getProblemDetail() != null
                 && problem.getProblemDetail().getDetail() != null
                 && !problem.getProblemDetail().getDetail().isBlank()) {
             return problem.getProblemDetail().getDetail();
         }
-        return "the connector did not answer";
+        return UNANSWERED;
     }
 
-    public static boolean isRunNoLongerTracked(ConnectorException e) {
-        if (!(e instanceof ConnectorProblemException problem) || problem.getProblemDetail() == null) {
-            return false;
+    /**
+     * True when the connector says it no longer tracks the run. The contract makes this definitive — the connector-side
+     * run and its checkpoint are gone, so no amount of retrying brings them back and the run ends FAILED.
+     *
+     * <p>
+     * Both shapes a 404 arrives in are accepted, because the two transports carry different amounts of detail. Over
+     * REST the connector's RFC 9457 body survives and the error code is readable; over the AMQP proxy the body is
+     * discarded and the client raises {@link ConnectorEntityNotFoundException}, a plain {@code ConnectorException} — so
+     * testing only for a problem exception would miss every tunneled 404 and leave the run burning its whole attempt
+     * budget against a connector that has already forgotten it.
+     *
+     * <p>
+     * <b>The status gates the code, not the other way round.</b> {@code REGISTRATION_NOT_FOUND} — which the shared
+     * predicate accepts as authority's flavour of not-tracked — is declared on a 422, and a 422 means something else
+     * entirely here. Read as an {@code int} rather than through {@code getHttpStatus()}, which calls
+     * {@code HttpStatus.valueOf} and throws for a valid code with no enum constant such as 499, replacing the
+     * connector's own failure with an unrelated one. This mirrors {@code DiscoveryApiClient.isRunNotTracked}, the
+     * library's own predicate for the same question.
+     */
+    public static boolean isRunNoLongerTracked(Throwable e) {
+        if (e instanceof ConnectorProblemException problem) {
+            ProblemDetailExtended detail = problem.getProblemDetail();
+            return detail != null && detail.getStatus() == HttpStatus.NOT_FOUND.value()
+                    && ConnectorOperationErrorCodes.isOperationNotTracked(detail.getErrorCode());
         }
-        ErrorCode code = problem.getProblemDetail().getErrorCode();
-        return code == ErrorCode.OPERATION_NOT_TRACKED || problem.getHttpStatus() == HttpStatus.NOT_FOUND;
+        return e instanceof ConnectorEntityNotFoundException;
     }
 }

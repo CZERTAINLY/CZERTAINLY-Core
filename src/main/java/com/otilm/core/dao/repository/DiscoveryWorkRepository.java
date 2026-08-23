@@ -65,4 +65,13 @@ public interface DiscoveryWorkRepository extends JpaRepository<DiscoveryWork, UU
     @Modifying
     @Query("DELETE FROM DiscoveryWork w WHERE w.discoveryUuid = :discoveryUuid")
     void deleteByDiscoveryUuid(@Param("discoveryUuid") UUID discoveryUuid);
+
+    /**
+     * Drops one kind of pending work, leaving the run's other rows alone — what a tick uses when it is the tick that
+     * has become obsolete, rather than the run.
+     */
+    @Modifying
+    @Query("DELETE FROM DiscoveryWork w WHERE w.discoveryUuid = :discoveryUuid AND w.workType = :workType")
+    void deleteByDiscoveryUuidAndWorkType(@Param("discoveryUuid") UUID discoveryUuid,
+            @Param("workType") DiscoveryWorkType workType);
 }

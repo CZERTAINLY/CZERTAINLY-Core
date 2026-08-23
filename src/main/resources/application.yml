@@ -77,6 +77,10 @@ discovery:
     # How long a non-terminal v2 run may exist with no pending work rows before the reaper fails it.
     # Covers the initiate window, where the run row exists before its first agenda rows.
     reap-grace: ${DISCOVERY_WORK_REAP_GRACE:PT5M}
+    # How far out a worker parks the agenda row when it direct-publishes the next tick itself. The row is
+    # the backstop for a lost message, not a second publisher: parked due-now, the sweep would claim it and
+    # publish a competing tick against the same run. Must comfortably exceed one tick's duration.
+    continuation-backstop: ${DISCOVERY_WORK_CONTINUATION_BACKSTOP:PT1M}
     defaults:
       delays:
         - PT1S

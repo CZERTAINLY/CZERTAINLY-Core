@@ -63,9 +63,11 @@ public class DiscoveryStatusTickWorker {
             logger.debug("Dropping status tick for discovery {}: the run no longer exists", discoveryUuid);
             return;
         }
-        if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
+        if (DiscoveryRunLifecycle.hasLeftTheConnector(run.getStatus())) {
+            // Terminal, or handed over to processing: either way the connector no longer owns this run and its
+            // handle is gone, so calling status would read a 404 as "the run vanished" and end a healthy import.
             logger.debug("Dropping status tick for discovery {}: already {}", discoveryUuid, run.getStatus());
-            workWriter.deleteForRun(discoveryUuid);
+            workWriter.deleteForRun(discoveryUuid, DiscoveryWorkType.STATUS);
             return;
         }
 
@@ -73,7 +75,11 @@ public class DiscoveryStatusTickWorker {
         try {
             // Outside any transaction, by the platform's connector-call rule.
             status = client.status(run);
-        } catch (ConnectorException e) {
+        } catch (ConnectorException | RuntimeException e) {
+            // RuntimeException too: the client's own javadoc warns its declared throws is incomplete — over MQ a
+            // 422 arrives as an unchecked ValidationException, and a bodiless 2xx as IllegalStateException. Left
+            // to escape, those reach the listener's log-and-acknowledge and the tick retries forever having spent
+            // no budget, which is exactly the immortal run the budget exists to prevent.
             handleUnanswered(discoveryUuid, attempt, e);
             return;
         } catch (NotFoundException | AttributeException e) {
@@ -98,7 +104,7 @@ public class DiscoveryStatusTickWorker {
      * Decides what an unanswered tick costs. A definitive refusal ends the run at once; otherwise the run keeps its
      * agenda row — the claimer already pushed it up the backoff ladder — until the budget is spent.
      */
-    private void handleUnanswered(UUID discoveryUuid, int attempt, ConnectorException e) {
+    private void handleUnanswered(UUID discoveryUuid, int attempt, Throwable e) {
         if (DiscoveryConnectorErrors.isRunNoLongerTracked(e)) {
             terminator.end(discoveryUuid, DiscoveryStatus.FAILED, "The connector no longer tracks this run");
             return;
@@ -130,8 +136,9 @@ public class DiscoveryStatusTickWorker {
         }
         return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
             Discovery locked = discoveryRepository.findWithLockByUuid(discoveryUuid).orElse(null);
-            // Re-assert under the row lock: another tick may have ended the run since the call went out.
-            if (locked == null || DiscoveryRunLifecycle.isTerminal(locked.getStatus())) {
+            // Re-assert under the row lock: another tick may have ended the run, or the drain may have handed it
+            // over to processing, while this status call was in flight.
+            if (locked == null || DiscoveryRunLifecycle.hasLeftTheConnector(locked.getStatus())) {
                 return false;
             }
             locked.setConnectorState(state.getCode());

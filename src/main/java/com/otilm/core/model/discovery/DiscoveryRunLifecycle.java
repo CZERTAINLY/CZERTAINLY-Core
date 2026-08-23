@@ -33,6 +33,21 @@ public final class DiscoveryRunLifecycle {
     }
 
     /**
+     * Whether the connector has stopped owning the run — it has either finished for good, or handed everything over and
+     * been released at the swap into {@code PROCESSING}.
+     *
+     * <p>
+     * The distinction from {@link #isTerminal} is load-bearing for the connector-driven ticks. A {@code PROCESSING} run
+     * is very much alive, but its {@code run_meta} was nulled when the drain handed over, so a {@code STATUS} or
+     * {@code DRAIN} tick still in flight from before the swap would call the connector with no handle — and read the
+     * resulting 404 as "this run no longer exists", ending a healthy run mid-import. Anything that talks to the
+     * connector, or schedules work that will, asks this rather than {@code isTerminal}.
+     */
+    public static boolean hasLeftTheConnector(DiscoveryStatus status) {
+        return isTerminal(status) || status == DiscoveryStatus.PROCESSING;
+    }
+
+    /**
      * Returns the run's message log with {@code messages} appended, oldest lines dropped once the cap is reached.
      *
      * <p>
