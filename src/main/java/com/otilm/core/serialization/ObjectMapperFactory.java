@@ -58,13 +58,10 @@ public final class ObjectMapperFactory {
     }
 
     /**
-     * The recipe for code that serializes JSON by hand before storing it. A date is written as text keeping the offset
-     * it arrived with, and read back without being re-zoned, so a value survives the round trip as the caller sent it.
-     *
-     * <p>
-     * Only the time module is registered. Discovery would also install the JDK8 module and unwrap {@code Optional},
-     * which is a shape change for the callers {@link #emptyBeanTolerantStorage()} exists for. No migration guards
-     * persisted JSON, so a shape change here splits a table into rows written before it and rows written after.
+     * The recipe for code that serializes JSON by hand before storing it. A date is written as text keeping its offset
+     * and read back without being re-zoned; only the time module is registered, because discovery would also unwrap
+     * {@code Optional} for the callers {@link #emptyBeanTolerantStorage()} exists for and nothing migrates JSON already
+     * stored in that shape.
      *
      * @see #jsonColumn()
      */

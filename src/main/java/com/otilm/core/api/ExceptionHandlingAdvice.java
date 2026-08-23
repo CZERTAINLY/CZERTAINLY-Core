@@ -140,9 +140,9 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
-     * Handler for {@link IllegalArgumentException}. The message is logged but not returned: this handler sees whatever
-     * the JDK and third-party libraries throw, which can carry internal class names or a serializer's reference chain.
-     * A request rejected deliberately raises {@link ValidationException}, whose message we shape and do return.
+     * Handler for {@link IllegalArgumentException}. The message is logged but not returned, because this handler also
+     * sees what the JDK and third-party libraries throw — an internal class name or a serializer's reference chain; a
+     * rejection whose message the caller should read belongs in {@link ValidationException} instead.
      *
      * @return
      */

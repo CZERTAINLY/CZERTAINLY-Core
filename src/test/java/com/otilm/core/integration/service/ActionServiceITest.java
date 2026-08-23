@@ -66,12 +66,8 @@ class ActionServiceITest extends BaseSpringBootTest {
     }
 
     /**
-     * A DATETIME custom attribute reaches {@code ExecutionItem.mapToDto}, whose storage mapper needs a handler for
-     * {@code ZonedDateTime}; without one the conversion throws and the request is answered with a 400.
-     *
-     * <p>
-     * The offset in the asserted value comes from the content class's own {@code @JsonFormat} and deserializer rather
-     * than from the recipe's zone setting, which {@code ObjectMapperFactoryTest} pins separately.
+     * Covers {@code ExecutionItem.mapToDto}; the mapper's own zone handling is pinned by
+     * {@code ObjectMapperFactoryTest}.
      */
     @Test
     void datetimeCustomAttribute_answersWithTheValueInTheOffsetItWasSent() throws Exception {
