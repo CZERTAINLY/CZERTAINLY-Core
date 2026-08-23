@@ -21,18 +21,26 @@ public final class DiscoveryConnectorErrors {
      * Text describing a connector failure that is safe to put on the run, where API clients read it.
      *
      * <p>
-     * A raw {@code getMessage()} is never forwarded: it carries transport and provider internals — host names, TLS
-     * details, driver text — and the published schema for these fields promises curated text and no raw exception
-     * messages. The one thing that is forwarded is an RFC 9457 {@code detail}, which the contract already obliges the
-     * connector to curate. Everything else is classified. The full exception still reaches the log.
+     * Nothing the connector wrote is forwarded — not {@code getMessage()}, and not the RFC 9457 {@code detail} either.
+     * The contract obliges a connector to curate that field, but an obligation is not a guarantee, and the run's
+     * message is a user-visible surface whose own schema promises no provider, host or transport internals. What
+     * survives is the error *code*, which is a closed vocabulary, mapped here to text Core wrote. The connector's own
+     * wording still reaches the log, where an operator debugging the connector can read it.
      */
     public static String describe(Throwable e) {
-        if (e instanceof ConnectorProblemException problem && problem.getProblemDetail() != null
-                && problem.getProblemDetail().getDetail() != null
-                && !problem.getProblemDetail().getDetail().isBlank()) {
-            return problem.getProblemDetail().getDetail();
+        if (!(e instanceof ConnectorProblemException problem) || problem.getProblemDetail() == null) {
+            return UNANSWERED;
         }
-        return UNANSWERED;
+        return switch (problem.getProblemDetail().getErrorCode()) {
+            case OPERATION_NOT_TRACKED -> "the connector no longer tracks the run";
+            case CHECKPOINT_LOST -> "the connector lost the run's checkpoint";
+            case UNAUTHORIZED, FORBIDDEN, CREDENTIAL_INVALID -> "the connector refused Core's credentials";
+            case SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT, REQUEST_TIMEOUT -> "the connector was unreachable";
+            case UPSTREAM_ERROR -> "the connector's own upstream failed";
+            case RATE_LIMIT_EXCEEDED -> "the connector rate-limited Core";
+            case INTERNAL_SERVER_ERROR -> "the connector reported an internal error";
+            case null, default -> UNANSWERED;
+        };
     }
 
     /**

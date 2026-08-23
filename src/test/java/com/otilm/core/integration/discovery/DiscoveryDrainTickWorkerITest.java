@@ -230,6 +230,69 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
         verify(client, never()).results(any(), anyInt(), anyLong());
     }
 
+    @Test
+    void pageMissingTheRequiredFields_isNotReadAsFinished() throws Exception {
+        Discovery run = runTheConnectorFinished();
+        armDrainRow(run, 0);
+        DiscoveryResultsResponseDto malformed = new DiscoveryResultsResponseDto();
+        malformed.setItems(List.of());
+        when(client.results(any(), anyInt(), anyLong())).thenReturn(malformed);
+
+        worker.tick(run.getUuid(), 0);
+
+        // Reading a missing "more" as "no more items" would hand a half-drained run to processing and release
+        // the connector handle, which is permanent silent loss.
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
+        assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.DRAIN);
+        verify(workProducer, never()).produceMessage(any());
+    }
+
+    @Test
+    void connectorThatKeepsOmittingRequiredFields_endsTheRun() throws Exception {
+        Discovery run = runTheConnectorFinished();
+        armDrainRow(run, 0);
+        DiscoveryResultsResponseDto malformed = new DiscoveryResultsResponseDto();
+        malformed.setItems(List.of());
+        when(client.results(any(), anyInt(), anyLong())).thenReturn(malformed);
+
+        worker.tick(run.getUuid(), 99);
+
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        assertThat(reloaded.getMessage()).contains("did not say whether more items remain");
+    }
+
+    @Test
+    void ingestionFailure_spendsBudgetRatherThanEscapingToTheListener() throws Exception {
+        Discovery run = runStillScanning();
+        armDrainRow(run, 0);
+        // A genuinely unstageable page: unique_ref is NOT NULL, so the staging insert fails deterministically
+        // however many times it is retried.
+        when(client.results(any(), anyInt(), anyLong())).thenReturn(page(1L, false, keyItem(1, null)));
+
+        worker.tick(run.getUuid(), 0);
+
+        // Left to escape, a deterministic page failure is acknowledged by the listener and the same poison page
+        // is redelivered forever without the budget ever advancing.
+        assertThat(drainRow(run).getAttempt()).isEqualTo(0);
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void staleFailureAfterHandover_leavesTheProcessingRunAlone() throws Exception {
+        Discovery run = runTheConnectorFinished();
+        run.setStatus(DiscoveryStatus.PROCESSING);
+        discoveryRepository.saveAndFlush(run);
+        workWriter.schedule(run.getUuid(), DiscoveryWorkType.PROCESS, OffsetDateTime.now(ZoneOffset.UTC).plusHours(1));
+
+        // A drain request that went out before the handover, answering 404 after it. Ending the run here would
+        // fail a healthy import and delete the PROCESS row driving it.
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+        assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.PROCESS);
+    }
+
     // ------------------------------------------------------------------ fixtures
 
     private List<DiscoveryWorkMessage> publishedTicks() {

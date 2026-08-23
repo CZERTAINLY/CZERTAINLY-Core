@@ -97,7 +97,7 @@ public class DiscoveryDrainTickWorker {
             return;
         } catch (NotFoundException | AttributeException e) {
             terminator
-                    .end(discoveryUuid, DiscoveryStatus.FAILED,
+                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
                             "The discovery run can no longer be addressed at its connector");
             return;
         }
@@ -110,7 +110,17 @@ public class DiscoveryDrainTickWorker {
             return;
         }
 
-        ingestor.applyDrainPage(discoveryUuid, page);
+        try {
+            ingestor.applyDrainPage(discoveryUuid, page);
+        } catch (RuntimeException e) {
+            // Staging sits outside the connector-call catch, so without this a deterministic page failure -- a
+            // payload that will not serialize, a constraint violation -- escapes to the listener, which
+            // acknowledges it. The agenda would go on retrying the same poison page forever, never reaching the
+            // budget. The page's transaction has already rolled back, so the cursor is untouched either way.
+            logger.error("Ingesting a drained page for discovery {} failed: {}", discoveryUuid, e.getMessage(), e);
+            handleUnanswered(discoveryUuid, attempt, e);
+            return;
+        }
         continueAfter(discoveryUuid, run, attempt, page);
     }
 
@@ -121,7 +131,7 @@ public class DiscoveryDrainTickWorker {
     private void handleNonConformant(UUID discoveryUuid, int attempt) {
         if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.DRAIN).maxAttempts()) {
             terminator
-                    .end(discoveryUuid, DiscoveryStatus.FAILED,
+                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
                             "The connector's results did not say whether more items remain");
             return;
         }
@@ -203,7 +213,7 @@ public class DiscoveryDrainTickWorker {
         int next = attempt + 1;
         if (next >= workProperties.scheduleFor(DiscoveryWorkType.DRAIN).maxAttempts()) {
             terminator
-                    .end(discoveryUuid, DiscoveryStatus.FAILED,
+                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
                             "The connector reported %d item(s) but never handed them all over"
                                     .formatted(highestSequence));
             return;
@@ -244,7 +254,11 @@ public class DiscoveryDrainTickWorker {
             // Delete then schedule inside one transaction: a live run's agenda must never be observably
             // empty, or the reaper would read it as lost work.
             workWriter.deleteForRun(discoveryUuid);
-            workWriter.schedule(discoveryUuid, DiscoveryWorkType.PROCESS, OffsetDateTime.now(ZoneOffset.UTC));
+            // Parked, not due-now: the caller publishes this tick directly, and a due-now row is one the sweep
+            // would claim and publish as well, putting two workers onto the same unclaimed certificate batch.
+            workWriter
+                    .schedule(discoveryUuid, DiscoveryWorkType.PROCESS,
+                            OffsetDateTime.now(ZoneOffset.UTC).plus(continuationBackstop));
             logger.info("Discovery {} drained {} items in full; processing them now", discoveryUuid, acknowledged);
             return true;
         }));
@@ -279,12 +293,14 @@ public class DiscoveryDrainTickWorker {
 
     private void handleUnanswered(UUID discoveryUuid, int attempt, Throwable e) {
         if (DiscoveryConnectorErrors.isRunNoLongerTracked(e)) {
-            terminator.end(discoveryUuid, DiscoveryStatus.FAILED, "The connector no longer tracks this run");
+            terminator
+                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
+                            "The connector no longer tracks this run");
             return;
         }
         if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.DRAIN).maxAttempts()) {
             terminator
-                    .end(discoveryUuid, DiscoveryStatus.FAILED,
+                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
                             "The connector stopped handing over discovered items for this run: "
                                     + DiscoveryConnectorErrors.describe(e));
             return;

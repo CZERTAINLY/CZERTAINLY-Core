@@ -9,6 +9,7 @@ import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -43,15 +44,38 @@ public class DiscoveryRunTerminator {
     }
 
     /**
+     * Ends a run on the strength of something the connector said.
+     *
+     * <p>
+     * Refuses a run that has left the connector, which {@link #end} cannot do for itself: processing legitimately ends
+     * a {@code PROCESSING} run, so the plain entry point has to accept that state. A connector-driven ending must not.
+     * A status or drain request started before the handover can return 404 after it, and treating that as "the run no
+     * longer exists" would fail a healthy import and delete the agenda row driving it.
+     *
+     * @return whether this call was the one that ended the run
+     */
+    public boolean endConnectorOwned(UUID discoveryUuid, DiscoveryStatus status, String reason) {
+        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::hasLeftTheConnector);
+    }
+
+    /**
      * @return whether this call was the one that ended the run
      */
     public boolean end(UUID discoveryUuid, DiscoveryStatus status, String reason) {
+        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::isTerminal);
+    }
+
+    /**
+     * @param alreadyPast states from which this ending is no longer the caller's to make
+     */
+    private boolean endIf(UUID discoveryUuid, DiscoveryStatus status, String reason,
+            Predicate<DiscoveryStatus> alreadyPast) {
         return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
             Discovery run = discoveryRepository.findWithLockByUuid(discoveryUuid).orElse(null);
             if (run == null) {
                 return false;
             }
-            if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
+            if (alreadyPast.test(run.getStatus())) {
                 logger.debug("Discovery {} is already {}; leaving it alone", discoveryUuid, run.getStatus());
                 return false;
             }

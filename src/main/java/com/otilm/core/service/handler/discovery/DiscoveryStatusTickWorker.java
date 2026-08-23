@@ -81,7 +81,7 @@ public class DiscoveryStatusTickWorker {
             // The call could not be assembled at all: the connector row or the run's attributes are gone.
             // Retrying cannot repair that, and the run has no way to make progress.
             terminator
-                    .end(discoveryUuid, DiscoveryStatus.FAILED,
+                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
                             "The discovery run can no longer be addressed at its connector");
             return;
         }
@@ -109,12 +109,14 @@ public class DiscoveryStatusTickWorker {
      */
     private void handleUnanswered(UUID discoveryUuid, int attempt, Throwable e) {
         if (DiscoveryConnectorErrors.isRunNoLongerTracked(e)) {
-            terminator.end(discoveryUuid, DiscoveryStatus.FAILED, "The connector no longer tracks this run");
+            terminator
+                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
+                            "The connector no longer tracks this run");
             return;
         }
         if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.STATUS).maxAttempts()) {
             terminator
-                    .end(discoveryUuid, DiscoveryStatus.FAILED,
+                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
                             "The connector stopped answering status polls for this run: "
                                     + DiscoveryConnectorErrors.describe(e));
             return;
@@ -131,7 +133,8 @@ public class DiscoveryStatusTickWorker {
     private void handleNonConformant(UUID discoveryUuid, int attempt) {
         if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.STATUS).maxAttempts()) {
             terminator
-                    .end(discoveryUuid, DiscoveryStatus.FAILED, "The connector's status answers omitted the run state");
+                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
+                            "The connector's status answers omitted the run state");
             return;
         }
         logger

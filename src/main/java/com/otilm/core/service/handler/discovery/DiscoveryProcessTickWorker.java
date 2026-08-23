@@ -161,8 +161,8 @@ public class DiscoveryProcessTickWorker {
         if (next >= workProperties.scheduleFor(DiscoveryWorkType.PROCESS).maxAttempts()) {
             terminator
                     .end(discoveryUuid, DiscoveryStatus.WARNING,
-                            ("Processing stopped with %d certificate(s) that could not be imported. See the discovery "
-                                    + "certificate list for per-certificate detail.").formatted(remaining));
+                            ("Processing stopped with %d certificate(s) that could not be imported. See this run's "
+                                    + "messages for what went wrong.").formatted(remaining));
             return;
         }
         logger
@@ -192,8 +192,8 @@ public class DiscoveryProcessTickWorker {
         if (anyFailed) {
             terminator
                     .end(discoveryUuid, DiscoveryStatus.WARNING,
-                            "Discovery completed with warnings. See the discovery certificate list for "
-                                    + "per-certificate detail.");
+                            "Discovery completed with warnings. See this run's messages, and the discovery "
+                                    + "certificate list for per-certificate detail.");
         } else {
             terminator.end(discoveryUuid, DiscoveryStatus.COMPLETED, "Discovery completed successfully.");
         }
