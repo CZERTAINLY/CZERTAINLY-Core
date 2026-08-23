@@ -181,14 +181,18 @@ public class CertificateHandler {
     }
 
     /**
-     * The same staging work joining the caller's transaction — the v2 drain's entry point, where staged rows and the
-     * ingestion cursor that accounts for them must commit together.
+     * The same staging work, running in whatever transaction the caller already has — the v2 drain's entry point, where
+     * staged rows and the ingestion cursor that accounts for them must commit together.
+     *
+     * <p>
+     * Deliberately not annotated. The v1 entry point above reaches it by self-invocation, which Spring's proxy does not
+     * intercept, so a {@code @Transactional} here would be silently inert and would misdescribe what the method does.
+     * Callers supply the boundary: v1 through its own {@code REQUIRES_NEW}, v2 through the ingestor's.
      *
      * @return one description per certificate that could not be staged. A certificate that fails to parse produces no
      * row to carry a {@code processed_error}, so v2 folds these into the run's message log instead; the v1 caller
      * discards them, keeping its log-and-continue behaviour unchanged.
      */
-    @Transactional
     public List<String> stageDiscoveredCertificates(String batch, Discovery discovery,
             List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
         List<String> failures = new ArrayList<>();

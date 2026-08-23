@@ -32,6 +32,9 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
      * driver has no jsonb binding of its own
      * @param meta serialized {@code MetadataAttribute} list, or {@code null}
      */
+    // S107: a native query binds each column individually, so the parameter count is the column count. A
+    // parameter object cannot be bound by @Param and would have to be unpacked at the only call site anyway.
+    @SuppressWarnings("java:S107")
     @Modifying
     @Query(value = """
             INSERT INTO {h-schema}discovery_item
