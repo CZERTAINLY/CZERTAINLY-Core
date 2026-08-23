@@ -8,10 +8,9 @@ import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfil
 import com.otilm.core.signing.record.DeferredSigningRecordInputSource;
 import com.otilm.core.signing.record.SigningRecordInput;
 import com.otilm.core.signing.record.SigningRecordInputSource;
-import java.math.BigInteger;
+import com.otilm.core.signing.record.TimestampTokenSerialNumbers;
 import java.time.Instant;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -54,7 +53,7 @@ public class ContentSigningRecordFactory {
                 .signedDocument(result.signedDocument())
                 .signature(signatureValue)
                 .dtbs(dtbs)
-                .timestampTokenSerialNumbers(hexSerials(result.timestampSerials()))
+                .timestampTokenSerialNumbers(TimestampTokenSerialNumbers.hex(result.timestampSerials()))
                 .build();
     }
 
@@ -66,7 +65,7 @@ public class ContentSigningRecordFactory {
         metadata.put("signingProfileVersion", signingProfile.version());
         metadata.put("family", profile.family().name());
         metadata.put("signatureLevel", result.level().name());
-        metadata.put("timestampTokenSerialNumbers", hexSerials(result.timestampSerials()));
+        metadata.put("timestampTokenSerialNumbers", TimestampTokenSerialNumbers.hex(result.timestampSerials()));
         try {
             return objectMapper.writeValueAsString(metadata);
         } catch (JsonProcessingException e) {
@@ -74,7 +73,4 @@ public class ContentSigningRecordFactory {
         }
     }
 
-    private static List<String> hexSerials(List<BigInteger> serials) {
-        return serials.stream().map(serial -> serial.toString(16)).toList();
-    }
 }

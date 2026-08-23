@@ -7,6 +7,7 @@ import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.signing.record.DeferredSigningRecordInputSource;
 import com.otilm.core.signing.record.SigningRecordInput;
 import com.otilm.core.signing.record.SigningRecordInputSource;
+import com.otilm.core.signing.record.TimestampTokenSerialNumbers;
 import com.otilm.core.signing.tsa.messages.TspRequest;
 import java.math.BigInteger;
 import java.time.Instant;
@@ -52,7 +53,7 @@ public class TimestampSigningRecordFactory {
 
     private SigningRecordInput build(SigningProfileModel<?, ?> signingProfile, TspRequest request,
             BigInteger serialNumber, Instant genTime, byte[] encodedToken, SigningProtocol protocol) {
-        String serialHex = serialNumber.toString(16);
+        String serialHex = TimestampTokenSerialNumbers.hex(serialNumber);
 
         // The timestamp token is the self-contained signed artifact: it already embeds the signature value and the
         // signed attributes (DTBS), so both are recoverable from it. Storing them again under signature/dtbs would

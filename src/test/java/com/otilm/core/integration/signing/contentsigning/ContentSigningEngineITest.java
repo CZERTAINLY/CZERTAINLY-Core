@@ -215,9 +215,11 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
         // and: the join key survives whatever the record-policy toggles are set to
         assertThat(recordEntitiesFor(contentProfile))
                 .singleElement()
-                .satisfies(record -> assertThat(record.getTimestampTokenSerialNumbers()).containsExactly(serialHex));
+                .satisfies(signingRecord -> assertThat(signingRecord.getTimestampTokenSerialNumbers())
+                        .containsExactly(serialHex));
         assertThat(recordEntitiesFor(tsaProfile))
-                .anySatisfy(record -> assertThat(record.getTimestampTokenSerialNumbers()).containsExactly(serialHex));
+                .anySatisfy(signingRecord -> assertThat(signingRecord.getTimestampTokenSerialNumbers())
+                        .containsExactly(serialHex));
     }
 
     @ParameterizedTest

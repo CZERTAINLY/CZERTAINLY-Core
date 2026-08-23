@@ -26,6 +26,7 @@ import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
 import com.otilm.core.signing.record.SigningRecordInputSource;
 import com.otilm.core.signing.record.SigningRecordStrategyFactory;
+import com.otilm.core.signing.record.TimestampTokenSerialNumbers;
 import com.otilm.core.signing.tsa.messages.IssuedTimestamp;
 import com.otilm.core.signing.tsa.messages.TimestampImprint;
 import com.otilm.core.util.clocksource.ClockSource;
@@ -116,8 +117,7 @@ public class ManagedContentSigningEngine {
 
     /**
      * Raises a signature made elsewhere, entering the machine at the signature-timestamp imprint with {@code SIGNED} as
-     * the given cursor. Deliberately has no caller: the machine is augmentation-ready, and the door is not opened in
-     * v1.
+     * the given cursor.
      */
     public SignedContent augment(AugmentationRequest request, SigningProfileModel<?, ?> signingProfile,
             ResolvedManagedContentSigningProfile profile, SigningProtocol protocol) throws SigningEngineException {
@@ -149,8 +149,8 @@ public class ManagedContentSigningEngine {
     }
 
     /**
-     * Both refusals are level names an operator configured, so they are safe to put on the wire; the second one goes
-     * away once the higher rungs gain steps of their own.
+     * Both refusals name levels an operator configured, so both are safe to put on the wire. The ceiling
+     * {@link ContentSigningTransitions#HIGHEST_EXECUTABLE_LEVEL} imposes is the one that moves as rungs gain steps.
      */
     private static void requireReachableLevel(SignatureLevel target, ResolvedManagedContentSigningProfile profile)
             throws SigningEngineException {
@@ -361,18 +361,13 @@ public class ManagedContentSigningEngine {
             logger
                     .error("Content signing failed for signing profile '{}' at step '{}' targeting level {}, "
                             + "timestamp serials already issued {}: {}", profile.name(), step, targetLevel,
-                            hexSerials(serials), e.operatorMessage(), e);
+                            TimestampTokenSerialNumbers.hex(serials), e.operatorMessage(), e);
         } else {
             logger
                     .warn("Refusing to sign content for signing profile '{}' at step '{}' targeting level {}, "
                             + "timestamp serials already issued {}: {}", profile.name(), step, targetLevel,
-                            hexSerials(serials), e.operatorMessage());
+                            TimestampTokenSerialNumbers.hex(serials), e.operatorMessage());
         }
-    }
-
-    /** Hex, which is how a timestamp record names the serial these have to be matched against. */
-    private static List<String> hexSerials(List<BigInteger> serials) {
-        return serials.stream().map(serial -> serial.toString(16)).toList();
     }
 
     /** Exhaustive so that a new failure class has to choose its log level rather than inherit one. */

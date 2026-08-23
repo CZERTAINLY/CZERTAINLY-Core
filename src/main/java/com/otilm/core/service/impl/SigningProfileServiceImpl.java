@@ -98,6 +98,7 @@ import com.otilm.core.signing.contentsigning.profile.TimestampSourceRequests;
 import com.otilm.core.util.CertificateEligibilityUtil;
 import com.otilm.core.util.FilterPredicatesBuilder;
 import com.otilm.core.util.SearchHelper;
+import jakarta.annotation.Nullable;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -411,7 +412,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         }
         validateSigningSchemeCoherence(request.getSigningScheme());
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
-        validateContentSigningWorkflow(request);
+        validateContentSigningWorkflow(request, null);
         List<BaseAttribute> formattingDefinitions = fetchFormattingAttributeDefinitions(request.getWorkflow());
         SigningProfileDto created = self.persistCreate(request, formattingDefinitions);
         evictSigningProfileCache(created.getName());
@@ -458,7 +459,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
             throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
         validateSigningSchemeCoherence(request.getSigningScheme());
         attributeEngine.validateCustomAttributesContent(Resource.SIGNING_PROFILE, request.getCustomAttributes());
-        validateContentSigningWorkflow(request);
+        validateContentSigningWorkflow(request, uuid.getValue());
         List<BaseAttribute> formattingDefinitions = fetchFormattingAttributeDefinitions(request.getWorkflow());
         return self.persistUpdate(uuid, request, formattingDefinitions);
     }
@@ -580,7 +581,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         }
         if (!supersededOnlyNames.isEmpty()) {
             blockers
-                    .add("it is named as the timestamp source only in superseded version(s) of Signing Profile(s) (released only by deleting the Signing Profile): "
+                    .add("it is named as the timestamp source only in superseded version(s) of the referencing Signing Profile(s), and a superseded version cannot be edited, so the hold is released only by deleting the referencing profile, which first requires deleting its signing records: "
                             + String.join(", ", supersededOnlyNames));
         }
         return blockers;
@@ -910,7 +911,8 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
      * Runs outside the persistence transaction, so a request the contract already refuses never reaches a connector
      * round-trip: {@code fetchFormattingAttributeDefinitions} calls the named provider straight after this.
      */
-    private void validateContentSigningWorkflow(SigningProfileRequestDto request) throws NotFoundException {
+    private void validateContentSigningWorkflow(SigningProfileRequestDto request, @Nullable UUID targetProfileUuid)
+            throws NotFoundException {
         if (!(request.getWorkflow() instanceof ContentSigningWorkflowRequestDto w)) {
             return;
         }
@@ -919,11 +921,24 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
             requireNoLevelLadder(w);
             return;
         }
+        requireStaticKeyManagedSigning(request.getSigningScheme());
         contentSigningWorkflowValidator
                 .validate(w,
                         connectorService
                                 .getConnectorEntityWithInterfaces(
-                                        SecuredUUID.fromUUID(requireSignatureFormattingConnectorUuid(w))));
+                                        SecuredUUID.fromUUID(requireSignatureFormattingConnectorUuid(w))),
+                        targetProfileUuid);
+    }
+
+    /**
+     * Only the static-key scheme resolves for content signing, so a one-time-key profile would save cleanly and then
+     * fail on every request.
+     */
+    private static void requireStaticKeyManagedSigning(SigningSchemeRequestDto scheme) {
+        if (!(scheme instanceof StaticKeyManagedSigningRequestDto)) {
+            throw new ValidationException("Managed content signing requires the %s managed signing type"
+                    .formatted(ManagedSigningType.STATIC_KEY));
+        }
     }
 
     private static UUID requireSignatureFormattingConnectorUuid(ContentSigningWorkflowRequestDto w) {

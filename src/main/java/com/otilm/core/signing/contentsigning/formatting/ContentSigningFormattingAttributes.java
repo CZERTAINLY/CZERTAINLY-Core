@@ -15,8 +15,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,9 +29,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ContentSigningFormattingAttributes {
 
-    private static final Logger logger = LoggerFactory.getLogger(ContentSigningFormattingAttributes.class);
-
-    private static final ObjectMapper CANONICAL_FORM = ObjectMapperFactory.storage();
+    private static final ObjectMapper CANONICAL_FORM = ObjectMapperFactory.jsonColumn();
 
     private final ConnectorApiFactory connectorApiFactory;
 
@@ -91,10 +87,11 @@ public class ContentSigningFormattingAttributes {
         try {
             return CANONICAL_FORM.writeValueAsString(existing).equals(CANONICAL_FORM.writeValueAsString(declared));
         } catch (JsonProcessingException e) {
-            // Logged because the caller turns this into a message blaming the connector for an inconsistent
-            // declaration, which is the wrong diagnosis when the real fault is ours.
-            logger.warn("Failed to render formatting attribute '{}' to its canonical form", declared.getName(), e);
-            return false;
+            // Our own serialization fault, so it must not surface as the caller's "the connector declares it
+            // differently" message, which sends the operator to the wrong vendor.
+            throw new IllegalStateException(
+                    "Failed to render formatting attribute '%s' to its canonical form".formatted(declared.getName()),
+                    e);
         }
     }
 

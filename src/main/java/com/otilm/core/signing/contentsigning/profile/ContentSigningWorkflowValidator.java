@@ -3,6 +3,7 @@ package com.otilm.core.signing.contentsigning.profile;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
+import com.otilm.api.model.client.signing.profile.scheme.ManagedSigningType;
 import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
 import com.otilm.api.model.client.signing.profile.workflow.ContentSigningWorkflowRequestDto;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
@@ -14,6 +15,7 @@ import com.otilm.core.dao.entity.signing.SigningProfileVersion;
 import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.signing.contentsigning.state.ContentSigningTransitions;
 import com.otilm.core.signing.record.SigningRecordFloor;
+import jakarta.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,7 +34,11 @@ public class ContentSigningWorkflowValidator {
         this.versionRepository = versionRepository;
     }
 
-    public void validate(ContentSigningWorkflowRequestDto workflow, Connector connector) {
+    /**
+     * @param targetProfileUuid the profile being written, or {@code null} when the profile is being created
+     */
+    public void validate(ContentSigningWorkflowRequestDto workflow, Connector connector,
+            @Nullable UUID targetProfileUuid) {
         SignatureFamily family = requireFamily(workflow);
         SignatureLevel maxLevel = requireMaxLevel(workflow);
         ConnectorInterface familyInterface = SignatureFamilyInterfaces.of(family);
@@ -41,7 +47,7 @@ public class ContentSigningWorkflowValidator {
         rungFlagFor(maxLevel)
                 .ifPresent(flag -> requireRung(connector, familyInterface, flag, maxLevel, family.getLabel()));
         requireExecutableMaxLevel(maxLevel);
-        validateTimestampSource(workflow, maxLevel);
+        validateTimestampSource(workflow, maxLevel, targetProfileUuid);
     }
 
     private static SignatureFamily requireFamily(ContentSigningWorkflowRequestDto workflow) {
@@ -109,7 +115,8 @@ public class ContentSigningWorkflowValidator {
                 .anyMatch(features -> features.contains(flag));
     }
 
-    private void validateTimestampSource(ContentSigningWorkflowRequestDto workflow, SignatureLevel maxLevel) {
+    private void validateTimestampSource(ContentSigningWorkflowRequestDto workflow, SignatureLevel maxLevel,
+            @Nullable UUID targetProfileUuid) {
         UUID referenced = TimestampSourceRequests.internalProfileUuid(workflow.getTimestampSource());
         boolean timestampsEmbedded = maxLevel != SignatureLevel.SIGNED;
 
@@ -124,7 +131,19 @@ public class ContentSigningWorkflowValidator {
             throw new ValidationException(
                     "A timestamp source is required when maxLevel is %s or higher".formatted(maxLevel.name()));
         }
+        requireDistinctTimestampSource(referenced, targetProfileUuid);
         requireUsableTimestampingProfile(referenced);
+    }
+
+    /**
+     * A self-reference outlives the version that made it: once superseded it holds the profile's own deletion open with
+     * no way to release it.
+     */
+    private static void requireDistinctTimestampSource(UUID referenced, @Nullable UUID targetProfileUuid) {
+        if (referenced.equals(targetProfileUuid)) {
+            throw new ValidationException(
+                    "A Signing Profile cannot name itself as its timestamp source; name a TIMESTAMPING Signing Profile instead");
+        }
     }
 
     /**
@@ -144,6 +163,11 @@ public class ContentSigningWorkflowValidator {
         if (version.getSigningScheme() != SigningScheme.MANAGED) {
             throw new ValidationException(
                     "The Signing Profile named as the timestamp source is not ILM-managed, so ILM cannot issue its timestamps");
+        }
+        if (version.getManagedSigningType() != ManagedSigningType.STATIC_KEY) {
+            throw new ValidationException(
+                    "The Signing Profile named as the timestamp source uses managed signing type %s; only %s can be resolved for issuance"
+                            .formatted(version.getManagedSigningType(), ManagedSigningType.STATIC_KEY));
         }
         Optional<String> violation = SigningRecordFloor
                 .violation(version.isRecordingEnabled(), version.getPersistenceMode());

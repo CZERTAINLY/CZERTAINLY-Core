@@ -692,6 +692,20 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
         }
 
         @Test
+        void managedContentSigning_withAOneTimeKeyScheme_throwsValidationException() {
+            // given: a one-time-key scheme, which no content-signing resolver can resolve
+            ThrowableAssert.ThrowingCallable create = () -> signingProfileService
+                    .createSigningProfile(aSigningProfileRequest()
+                            .withName("ct-managed-content-one-time-key")
+                            .withOneTimeKeyManagedSigning(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())
+                            .withManagedContentSigning(UUID.fromString(contentSigningFormattingConnector.getUuid()))
+                            .build());
+
+            // then
+            assertThatThrownBy(create).isInstanceOf(ValidationException.class).hasMessageContaining("STATIC_KEY");
+        }
+
+        @Test
         void delegatedScheme_rawWorkflow_setsExpectedAttributes()
                 throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
             // when
@@ -1442,7 +1456,8 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                         .satisfies(thrown -> assertThat(firstErrorMessage((ValidationException) thrown))
                                 .contains("repointed-content-signing-profile")
                                 .contains("only in superseded version(s)")
-                                .contains("released only by deleting the Signing Profile")
+                                .contains("deleting the referencing profile")
+                                .contains("deleting its signing records")
                                 .doesNotContain("repoint them"));
             } finally {
                 formattingMock.stop();
