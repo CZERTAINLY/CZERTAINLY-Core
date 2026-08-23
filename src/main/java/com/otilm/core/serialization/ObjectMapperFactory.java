@@ -59,9 +59,7 @@ public final class ObjectMapperFactory {
 
     /**
      * The recipe for code that serializes JSON by hand before storing it. A date is written as text keeping its offset
-     * and read back without being re-zoned; only the time module is registered, because discovery would also unwrap
-     * {@code Optional} for the callers {@link #emptyBeanTolerantStorage()} exists for and nothing migrates JSON already
-     * stored in that shape.
+     * and read back without being re-zoned.
      *
      * @see #jsonColumn()
      */
