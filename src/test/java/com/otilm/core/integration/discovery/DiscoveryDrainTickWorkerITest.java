@@ -86,8 +86,9 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
                 .as("the sweep's cadence is the recovery latency, not the drain's throughput ceiling")
                 .containsExactly(new DiscoveryWorkMessage(run.getUuid(), DiscoveryWorkType.DRAIN, 0));
         assertThat(drainRow(run).getNextDueAt())
-                .as("the row is committed as due now, so a lost publish still gets swept up")
-                .isBeforeOrEqualTo(OffsetDateTime.now(ZoneOffset.UTC));
+                .as("parked as a backstop, not due-now: a due-now row is one the sweep would claim and publish "
+                        + "itself, racing the tick this worker just published")
+                .isAfter(OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     @Test
@@ -161,8 +162,11 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
         assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
         assertThat(reloaded.getLastAppliedSequence()).isEqualTo(2);
         assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.DRAIN);
-        assertThat(publishedTicks())
-                .containsExactly(new DiscoveryWorkMessage(run.getUuid(), DiscoveryWorkType.DRAIN, 0));
+        // Backs off up the ladder instead of publishing again: this branch can repeat without progress, and a
+        // due-now retry would be an unbounded stream of results calls at a connector that may never catch up.
+        verify(workProducer, never()).produceMessage(any());
+        assertThat(drainRow(run).getAttempt()).isEqualTo(1);
+        assertThat(drainRow(run).getNextDueAt()).isAfter(OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     // ------------------------------------------------------------------ unanswered ticks
@@ -211,15 +215,18 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
     // ------------------------------------------------------------------ ticks with nothing to do
 
     @Test
-    void runAlreadyProcessing_dropsTheTickAndClearsItsLeftoverAgenda() throws Exception {
+    void runAlreadyProcessing_dropsItsOwnRowAndLeavesTheProcessRowDriving() throws Exception {
         Discovery run = runStillScanning();
         run.setStatus(DiscoveryStatus.PROCESSING);
         discoveryRepository.saveAndFlush(run);
         armDrainRow(run, 0);
+        workWriter.schedule(run.getUuid(), DiscoveryWorkType.PROCESS, OffsetDateTime.now(ZoneOffset.UTC).plusHours(1));
 
         worker.tick(run.getUuid(), 0);
 
-        assertThat(agenda(run)).isEmpty();
+        // Taking the whole agenda here would delete the PROCESS row that drives the remaining import, and the
+        // reaper would then read a live run with no work as lost and fail it.
+        assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.PROCESS);
         verify(client, never()).results(any(), anyInt(), anyLong());
     }
 

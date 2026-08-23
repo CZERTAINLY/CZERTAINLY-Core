@@ -120,9 +120,43 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
         // Nothing stamped its rows, so the backlog is exactly what it was: the cursor is the only progress
         // record, and a batch that never committed made none.
-        assertThat(certificateRepository.countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalse(run.getUuid()))
+        assertThat(certificateRepository
+                .countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(run.getUuid()))
                 .isEqualTo(2);
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+    }
+
+    @Test
+    void batchThatAccountsForNothing_backsOffInsteadOfLoopingOnTheBroker() throws Exception {
+        Discovery run = processingRun();
+        stageCertificates(run, 2);
+        // What the pipeline does with a row it never reached: records the reason, leaves processed false.
+        importsWithoutStamping();
+
+        worker.tick(run.getUuid(), 0);
+
+        // Publishing here is what turns a stalled run into a tight loop against the broker, re-running the whole
+        // import pipeline forever and never ending the run.
+        verify(workProducer, never()).produceMessage(any());
+        assertThat(processRow(run).getAttempt()).isEqualTo(1);
+        assertThat(processRow(run).getNextDueAt()).isAfter(OffsetDateTime.now(ZoneOffset.UTC));
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+    }
+
+    @Test
+    void rowsCarryingAReason_areNotReclaimedForever() throws Exception {
+        Discovery run = processingRun();
+        List<DiscoveryCertificate> staged = stageCertificates(run, 1);
+        // The pipeline recorded why it could not import this row without stamping processed. That is an
+        // outcome, so the backlog must not keep handing it back.
+        discoveryWriter
+                .recordProcessedError(List.of(staged.get(0).getUuid()), "the import transaction was rolled back");
+        importsCleanly();
+
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.WARNING);
+        verify(importHandler, never()).processBatch(any(), anyList());
     }
 
     // ------------------------------------------------------------------ ending the run
@@ -225,6 +259,18 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         importsWith(new DiscoveryRunCounts(0, 0, 0, 0, false));
     }
 
+    /** A pipeline pass that records reasons but stamps nothing — what an unreachable batch looks like. */
+    private void importsWithoutStamping() throws Exception {
+        doAnswer(invocation -> {
+            claimedBatchSizes.add(((List<?>) invocation.getArgument(1)).size());
+            return new DiscoveryRunCounts(0, 0, 1, 0, false);
+        }).when(importHandler).processBatch(any(), anyList());
+    }
+
+    private DiscoveryWork processRow(Discovery run) {
+        return agenda(run).stream().findFirst().orElseThrow();
+    }
+
     /** The same, but reporting the given gaps — the pipeline stamps its rows either way. */
     private void importsWith(DiscoveryRunCounts counts) throws Exception {
         doAnswer(invocation -> {
@@ -264,8 +310,8 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
             certificateRepository.saveAndFlush(staged);
         }
         return certificateRepository
-                .findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseOrderByCreatedAsc(run.getUuid(),
-                        PageRequest.of(0, 100));
+                .findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNullOrderByCreatedAsc(
+                        run.getUuid(), PageRequest.of(0, 100));
     }
 
     private Discovery processingRun() {

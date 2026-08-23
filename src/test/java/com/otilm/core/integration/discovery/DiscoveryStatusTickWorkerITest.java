@@ -33,6 +33,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -244,6 +246,26 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
 
         assertThat(agenda(run)).isEmpty();
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.COMPLETED);
+    }
+
+    @Test
+    void runHandedOverToProcessing_dropsTheTickWithoutCallingTheConnector() throws Exception {
+        Discovery run = v2Run(DiscoveryStatus.PROCESSING);
+        run.setRunMeta(null);
+        discoveryRepository.saveAndFlush(run);
+        armStatusRow(run, 0);
+        workWriter.schedule(run.getUuid(), DiscoveryWorkType.PROCESS, OffsetDateTime.now(ZoneOffset.UTC).plusHours(1));
+
+        worker.tick(run.getUuid(), 0);
+
+        // The swap released the connector handle. Calling status here would read the resulting 404 as "the run
+        // vanished" and end a healthy import as FAILED.
+        verify(client, never()).status(any());
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+        assertThat(agenda(run))
+                .as("only the obsolete STATUS row goes; the PROCESS row still drives the import")
+                .extracting(DiscoveryWork::getWorkType)
+                .containsExactly(DiscoveryWorkType.PROCESS);
     }
 
     @Test
