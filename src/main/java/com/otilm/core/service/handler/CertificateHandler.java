@@ -172,27 +172,20 @@ public class CertificateHandler {
     }
 
     /**
-     * The v1 download path's entry point: each batch commits on its own so a later batch's failure cannot undo it.
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void createDiscoveredCertificate(String batch, Discovery discovery,
-            List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
-        stageDiscoveredCertificates(batch, discovery, discoveredCertificates);
-    }
-
-    /**
-     * The same staging work, running in whatever transaction the caller already has — the v2 drain's entry point, where
-     * staged rows and the ingestion cursor that accounts for them must commit together.
+     * Stages a batch of discovered certificates — the single entry point for both discovery generations, reached
+     * through the proxy by each of them rather than by self-invocation, which would leave this boundary inert.
      *
      * <p>
-     * Deliberately not annotated. The v1 entry point above reaches it by self-invocation, which Spring's proxy does not
-     * intercept, so a {@code @Transactional} here would be silently inert and would misdescribe what the method does.
-     * Callers supply the boundary: v1 through its own {@code REQUIRES_NEW}, v2 through the ingestor's.
+     * {@code REQUIRED} serves both, because their callers differ in exactly the right way. The v1 download path calls
+     * from a virtual thread holding no transaction, so each batch opens and commits its own and a later batch's failure
+     * cannot undo it. The v2 drain calls from inside the ingestor's transaction and joins it, so staged rows and the
+     * ingestion cursor accounting for them commit together.
      *
      * @return one description per certificate that could not be staged. A certificate that fails to parse produces no
      * row to carry a {@code processed_error}, so v2 folds these into the run's message log instead; the v1 caller
      * discards them, keeping its log-and-continue behaviour unchanged.
      */
+    @Transactional
     public List<String> stageDiscoveredCertificates(String batch, Discovery discovery,
             List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
         List<String> failures = new ArrayList<>();
@@ -235,7 +228,7 @@ public class CertificateHandler {
     }
 
     /**
-     * Called after {@link #createDiscoveredCertificate} returns: reporting from inside that transaction cost a second
+     * Called after {@link #stageDiscoveredCertificates} returns: reporting from inside that transaction cost a second
      * pooled connection per batch and held the discovery row's write lock, serialising the batches on it.
      * <p>
      * Failures are swallowed -- progress is cosmetic, and letting one out would have the caller log the batch as

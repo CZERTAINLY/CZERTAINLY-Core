@@ -475,7 +475,7 @@ public class DiscoveryProviderV1Adapter implements DiscoveryProviderAdapter {
                                 discovery.getName());
 
                 certificateHandler
-                        .createDiscoveredCertificate(String.valueOf(currentPage), discovery, discoveredCertificates);
+                        .stageDiscoveredCertificates(String.valueOf(currentPage), discovery, discoveredCertificates);
                 // After the batch commits, so the write needs neither a nested transaction nor a second connection.
                 certificateHandler.reportDownloadProgress(discovery);
             } catch (InterruptedException e) {
