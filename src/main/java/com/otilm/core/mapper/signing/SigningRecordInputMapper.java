@@ -29,7 +29,7 @@ public class SigningRecordInputMapper {
         signingRecord.setSigningProfileVersion(input.getSigningProfile().version());
         signingRecord.setSigningTime(input.getSigningTime());
         signingRecord.setProtocol(input.getProtocol());
-        signingRecord.setTimestampTokenSerials(input.getTimestampTokenSerials());
+        signingRecord.setTimestampTokenSerialNumbers(input.getTimestampTokenSerialNumbers());
         applyRequester(input, signingRecord::setRequestedByUuid, signingRecord::setRequestedByUsername);
         applyRecordableContent(input, signingRecord::setRequestMetadataJson, signingRecord::setSignatureValue,
                 signingRecord::setSignedDocument, signingRecord::setDtbs);
@@ -47,7 +47,7 @@ public class SigningRecordInputMapper {
         outbox.setSigningProfileVersion(input.getSigningProfile().version());
         outbox.setSigningTime(input.getSigningTime());
         outbox.setProtocol(input.getProtocol());
-        outbox.setTimestampTokenSerials(input.getTimestampTokenSerials());
+        outbox.setTimestampTokenSerialNumbers(input.getTimestampTokenSerialNumbers());
         applyRequester(input, outbox::setRequestedByUuid, outbox::setRequestedByUsername);
         applyRecordableContent(input, outbox::setRequestMetadataJson, outbox::setSignatureValue,
                 outbox::setSignedDocument, outbox::setDtbs);

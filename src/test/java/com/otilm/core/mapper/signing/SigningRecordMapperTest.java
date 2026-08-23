@@ -35,7 +35,7 @@ class SigningRecordMapperTest {
         outbox.setSignatureValue("the-signature".getBytes());
         outbox.setSignedDocument("the-signed-document".getBytes());
         outbox.setDtbs("the-data-to-be-signed".getBytes());
-        outbox.setTimestampTokenSerials(List.of("2a"));
+        outbox.setTimestampTokenSerialNumbers(List.of("2a"));
         outbox.setProtocol(SigningProtocol.CSC_API);
 
         // when
@@ -53,7 +53,7 @@ class SigningRecordMapperTest {
         assertArrayEquals(outbox.getSignatureValue(), signingRecord.getSignatureValue());
         assertArrayEquals(outbox.getSignedDocument(), signingRecord.getSignedDocument());
         assertArrayEquals(outbox.getDtbs(), signingRecord.getDtbs());
-        assertEquals(outbox.getTimestampTokenSerials(), signingRecord.getTimestampTokenSerials());
+        assertEquals(outbox.getTimestampTokenSerialNumbers(), signingRecord.getTimestampTokenSerialNumbers());
         assertEquals(outbox.getProtocol(), signingRecord.getProtocol());
     }
 
@@ -81,6 +81,56 @@ class SigningRecordMapperTest {
 
         // then
         assertEquals(SigningProtocol.CSC_API, dto.getProtocol());
+    }
+
+    @Test
+    void toDto_exposesTheTimestampTokenSerialNumbers() {
+        // given
+        SigningRecord signingRecord = aPersistedRecord();
+        signingRecord.setTimestampTokenSerialNumbers(List.of("2a", "2b"));
+
+        // when
+        SigningRecordDto dto = SigningRecordMapper.toDto(signingRecord);
+
+        // then
+        assertEquals(List.of("2a", "2b"), dto.getTimestampTokenSerialNumbers());
+    }
+
+    @Test
+    void toDto_rendersARecordWithoutSerialNumbersAsAnEmptyList() {
+        // given a record that embedded no timestamp token, so the column is null
+        SigningRecord signingRecord = aPersistedRecord();
+
+        // when
+        SigningRecordDto dto = SigningRecordMapper.toDto(signingRecord);
+
+        // then
+        assertEquals(List.of(), dto.getTimestampTokenSerialNumbers());
+    }
+
+    @Test
+    void toListDto_exposesTheTimestampTokenSerialNumbers() {
+        // given
+        SigningRecord signingRecord = aPersistedRecord();
+        signingRecord.setTimestampTokenSerialNumbers(List.of("2a"));
+
+        // when
+        SigningRecordListDto dto = SigningRecordMapper.toListDto(signingRecord);
+
+        // then
+        assertEquals(List.of("2a"), dto.getTimestampTokenSerialNumbers());
+    }
+
+    @Test
+    void toListDto_rendersARecordWithoutSerialNumbersAsAnEmptyList() {
+        // given a record that embedded no timestamp token, so the column is null
+        SigningRecord signingRecord = aPersistedRecord();
+
+        // when
+        SigningRecordListDto dto = SigningRecordMapper.toListDto(signingRecord);
+
+        // then
+        assertEquals(List.of(), dto.getTimestampTokenSerialNumbers());
     }
 
     /**

@@ -54,7 +54,7 @@ public class ContentSigningRecordFactory {
                 .signedDocument(result.signedDocument())
                 .signature(signatureValue)
                 .dtbs(dtbs)
-                .timestampTokenSerials(hexSerials(result.timestampSerials()))
+                .timestampTokenSerialNumbers(hexSerials(result.timestampSerials()))
                 .build();
     }
 
@@ -66,7 +66,7 @@ public class ContentSigningRecordFactory {
         metadata.put("signingProfileVersion", signingProfile.version());
         metadata.put("family", profile.family().name());
         metadata.put("signatureLevel", result.level().name());
-        metadata.put("timestampTokenSerials", hexSerials(result.timestampSerials()));
+        metadata.put("timestampTokenSerialNumbers", hexSerials(result.timestampSerials()));
         try {
             return objectMapper.writeValueAsString(metadata);
         } catch (JsonProcessingException e) {

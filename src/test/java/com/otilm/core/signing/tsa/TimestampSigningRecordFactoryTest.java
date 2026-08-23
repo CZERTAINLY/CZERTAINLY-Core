@@ -148,7 +148,7 @@ class TimestampSigningRecordFactoryTest {
     }
 
     @Test
-    void build_carriesItsOwnSerial_inTheTimestampTokenSerialsColumn() {
+    void build_carriesItsOwnSerial_inTheTimestampTokenSerialNumbersColumn() {
         // when
         SigningRecordInput input = factory
                 .source(aSigningProfile().build(), aTspRequest().build(), BigInteger.valueOf(255), GEN_TIME,
@@ -156,7 +156,7 @@ class TimestampSigningRecordFactoryTest {
                 .build();
 
         // then
-        assertEquals(List.of("ff"), input.getTimestampTokenSerials());
+        assertEquals(List.of("ff"), input.getTimestampTokenSerialNumbers());
     }
 
     @Test

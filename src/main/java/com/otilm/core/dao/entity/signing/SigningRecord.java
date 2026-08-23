@@ -93,9 +93,9 @@ public class SigningRecord extends UniquelyIdentifiedAndAudited implements Secur
      * Hex serials of the timestamp tokens this operation embedded, or the single serial a timestamp record was issued
      * under.
      */
-    @Column(name = "timestamp_token_serials")
+    @Column(name = "timestamp_token_serial_numbers")
     @JdbcTypeCode(SqlTypes.ARRAY)
-    private List<String> timestampTokenSerials;
+    private List<String> timestampTokenSerialNumbers;
 
     @Column(name = "signed_document_retrieved_at")
     private Instant signedDocumentRetrievedAt;

@@ -122,7 +122,7 @@ class SigningRecordInputMapperTest {
     }
 
     @Test
-    void toRecord_capturesTimestampTokenSerials_evenWhenPolicyRecordsNothing() {
+    void toRecord_capturesTimestampTokenSerialNumbers_evenWhenPolicyRecordsNothing() {
         // given the serials are the only join from an operation to the records of its timestamps
         SigningRecordInput input = inputWithPolicy(notRecording().build());
 
@@ -130,7 +130,7 @@ class SigningRecordInputMapperTest {
         SigningRecord signingRecord = mapper.toRecord(input);
 
         // then
-        assertEquals(input.getTimestampTokenSerials(), signingRecord.getTimestampTokenSerials());
+        assertEquals(input.getTimestampTokenSerialNumbers(), signingRecord.getTimestampTokenSerialNumbers());
     }
 
     @Test
@@ -284,7 +284,7 @@ class SigningRecordInputMapperTest {
     }
 
     @Test
-    void toOutbox_capturesTimestampTokenSerials_evenWhenPolicyRecordsNothing() {
+    void toOutbox_capturesTimestampTokenSerialNumbers_evenWhenPolicyRecordsNothing() {
         // given a deferred record must reach the record table carrying the same join key
         SigningRecordInput input = inputWithPolicy(notRecording().build());
 
@@ -292,7 +292,7 @@ class SigningRecordInputMapperTest {
         SigningRecordOutbox outbox = mapper.toOutbox(input);
 
         // then
-        assertEquals(input.getTimestampTokenSerials(), outbox.getTimestampTokenSerials());
+        assertEquals(input.getTimestampTokenSerialNumbers(), outbox.getTimestampTokenSerialNumbers());
     }
 
     @Test

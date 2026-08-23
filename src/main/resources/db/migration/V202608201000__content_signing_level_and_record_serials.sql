@@ -14,8 +14,8 @@ ALTER TABLE "signing_profile_version"
 CREATE INDEX idx_spv_timestamp_source_profile_uuid
     ON "signing_profile_version" ("timestamp_source_profile_uuid");
 
-ALTER TABLE "signing_record" ADD COLUMN "timestamp_token_serials" TEXT[];
-ALTER TABLE "signing_record_outbox" ADD COLUMN "timestamp_token_serials" TEXT[];
+ALTER TABLE "signing_record" ADD COLUMN "timestamp_token_serial_numbers" TEXT[];
+ALTER TABLE "signing_record_outbox" ADD COLUMN "timestamp_token_serial_numbers" TEXT[];
 
-CREATE INDEX idx_sr_timestamp_token_serials
-    ON "signing_record" USING GIN ("timestamp_token_serials");
+CREATE INDEX idx_sr_timestamp_token_serial_numbers
+    ON "signing_record" USING GIN ("timestamp_token_serial_numbers");

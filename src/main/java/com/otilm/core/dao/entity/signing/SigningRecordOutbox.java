@@ -60,9 +60,9 @@ public class SigningRecordOutbox {
     @JdbcTypeCode(SqlTypes.JSON)
     private String requestMetadataJson;
 
-    @Column(name = "timestamp_token_serials")
+    @Column(name = "timestamp_token_serial_numbers")
     @JdbcTypeCode(SqlTypes.ARRAY)
-    private List<String> timestampTokenSerials;
+    private List<String> timestampTokenSerialNumbers;
 
     @Column(name = "attempts", nullable = false)
     private int attempts = 0;

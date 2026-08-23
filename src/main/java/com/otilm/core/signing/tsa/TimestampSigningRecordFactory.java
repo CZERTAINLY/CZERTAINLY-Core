@@ -66,7 +66,7 @@ public class TimestampSigningRecordFactory {
                 .displayName(signingProfile.name() + " #" + serialHex)
                 .requestMetadataJson(buildRequestMetadataJson(signingProfile, request, serialHex))
                 .signedDocument(encodedToken)
-                .timestampTokenSerials(List.of(serialHex))
+                .timestampTokenSerialNumbers(List.of(serialHex))
                 .build();
     }
 

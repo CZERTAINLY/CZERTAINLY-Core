@@ -24,7 +24,7 @@ public final class SigningRecordInputBuilder {
     private byte[] signature = "signature".getBytes(StandardCharsets.UTF_8);
     private byte[] signedDocument = "signed-document".getBytes(StandardCharsets.UTF_8);
     private byte[] dtbs = "data-to-be-signed".getBytes(StandardCharsets.UTF_8);
-    private List<String> timestampTokenSerials = List.of("2a");
+    private List<String> timestampTokenSerialNumbers = List.of("2a");
 
     public static SigningRecordInputBuilder aSigningRecordInput() {
         return new SigningRecordInputBuilder();
@@ -75,8 +75,8 @@ public final class SigningRecordInputBuilder {
         return this;
     }
 
-    public SigningRecordInputBuilder timestampTokenSerials(List<String> timestampTokenSerials) {
-        this.timestampTokenSerials = timestampTokenSerials;
+    public SigningRecordInputBuilder timestampTokenSerialNumbers(List<String> timestampTokenSerialNumbers) {
+        this.timestampTokenSerialNumbers = timestampTokenSerialNumbers;
         return this;
     }
 
@@ -92,7 +92,7 @@ public final class SigningRecordInputBuilder {
                 .signature(signature)
                 .signedDocument(signedDocument)
                 .dtbs(dtbs)
-                .timestampTokenSerials(timestampTokenSerials)
+                .timestampTokenSerialNumbers(timestampTokenSerialNumbers)
                 .build();
     }
 }

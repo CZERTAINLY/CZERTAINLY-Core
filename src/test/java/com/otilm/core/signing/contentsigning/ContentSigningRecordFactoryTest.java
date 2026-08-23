@@ -66,7 +66,7 @@ class ContentSigningRecordFactoryTest {
             SigningRecordInput input = source(SignatureLevel.TIMESTAMPED, List.of(BigInteger.valueOf(0x2a))).build();
 
             // then
-            assertThat(input.getTimestampTokenSerials()).containsExactly("2a");
+            assertThat(input.getTimestampTokenSerialNumbers()).containsExactly("2a");
         }
 
         @Test
@@ -75,7 +75,7 @@ class ContentSigningRecordFactoryTest {
             SigningRecordInput input = source(SignatureLevel.SIGNED, List.of()).build();
 
             // then
-            assertThat(input.getTimestampTokenSerials()).isEmpty();
+            assertThat(input.getTimestampTokenSerialNumbers()).isEmpty();
         }
 
         @Test
@@ -100,7 +100,7 @@ class ContentSigningRecordFactoryTest {
             assertThat(input.getRequestMetadataJson())
                     .contains("\"signatureLevel\":\"TIMESTAMPED\"")
                     .contains("\"family\":\"PADES\"")
-                    .contains("\"timestampTokenSerials\":[\"2a\"]");
+                    .contains("\"timestampTokenSerialNumbers\":[\"2a\"]");
         }
 
         @Test
@@ -112,7 +112,7 @@ class ContentSigningRecordFactoryTest {
             assertThat(input.getRequestMetadataJson())
                     .contains("\"signingProfileName\":\"test-profile\"")
                     .contains("\"signingProfileVersion\":1")
-                    .contains("\"timestampTokenSerials\":[]");
+                    .contains("\"timestampTokenSerialNumbers\":[]");
         }
 
         @Test

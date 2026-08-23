@@ -20,5 +20,5 @@ public class SigningRecordInput {
     byte[] signature;
     byte[] signedDocument;
     byte[] dtbs;
-    List<String> timestampTokenSerials;
+    List<String> timestampTokenSerialNumbers;
 }
