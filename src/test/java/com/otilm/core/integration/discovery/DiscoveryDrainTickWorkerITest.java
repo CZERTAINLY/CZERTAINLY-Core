@@ -274,7 +274,7 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
 
         // Left to escape, a deterministic page failure is acknowledged by the listener and the same poison page
         // is redelivered forever without the budget ever advancing.
-        assertThat(drainRow(run).getAttempt()).isEqualTo(0);
+        assertThat(drainRow(run).getAttempt()).isZero();
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
     }
 

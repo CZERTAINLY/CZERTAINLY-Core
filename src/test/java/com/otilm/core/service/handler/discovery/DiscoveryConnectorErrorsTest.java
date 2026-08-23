@@ -82,8 +82,9 @@ class DiscoveryConnectorErrorsTest {
 
         // The run's message is a user-visible surface. An obligation on the connector to curate its detail is not
         // a guarantee, so nothing it wrote is forwarded — only text keyed on the closed error-code vocabulary.
-        assertThat(described).isEqualTo("the connector reported an internal error");
-        assertThat(described).doesNotContain("10.0.0.7", "priv.pem", "NullPointerException");
+        assertThat(described)
+                .isEqualTo("the connector reported an internal error")
+                .doesNotContain("10.0.0.7", "priv.pem", "NullPointerException");
     }
 
     @Test
