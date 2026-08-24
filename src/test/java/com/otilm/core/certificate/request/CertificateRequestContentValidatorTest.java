@@ -404,10 +404,14 @@ class CertificateRequestContentValidatorTest {
 
         @Test
         void passes_whenRequiredMappedExtensionPresent() {
-            // given — the set requires the extendedKeyUsage extension and the CSR carries it
+            // given — the set requires the basicConstraints extension and the CSR carries it
             List<BaseAttribute> definitions = List
-                    .of(aMappedDataAttribute().withName("eku").required().mappingExtension("2.5.29.37").build());
-            var content = content(List.of(), List.of(), List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+                    .of(aMappedDataAttribute()
+                            .withName("basicConstraints")
+                            .required()
+                            .mappingExtension("2.5.29.19")
+                            .build());
+            var content = content(List.of(), List.of(), List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
@@ -421,7 +425,11 @@ class CertificateRequestContentValidatorTest {
         void reportsError_whenRequiredMappedExtensionMissing() {
             // given — required extension mapping, but the CSR carries no extensions
             List<BaseAttribute> definitions = List
-                    .of(aMappedDataAttribute().withName("eku").required().mappingExtension("2.5.29.37").build());
+                    .of(aMappedDataAttribute()
+                            .withName("basicConstraints")
+                            .required()
+                            .mappingExtension("2.5.29.19")
+                            .build());
             var content = content(List.of(), List.of(), List.of());
 
             // when
@@ -439,7 +447,7 @@ class CertificateRequestContentValidatorTest {
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute().withName("cn").required().mappingRdn("CN").build());
             var content = content(List.of(rdn("CN", "host.example.com")), List.of(),
-                    List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+                    List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
@@ -447,7 +455,7 @@ class CertificateRequestContentValidatorTest {
 
             // then
             assertThat(result.isValid()).isFalse();
-            assertThat(result.getErrors()).anyMatch(e -> e.contains("2.5.29.37") && e.contains("not allowed"));
+            assertThat(result.getErrors()).anyMatch(e -> e.contains("2.5.29.19") && e.contains("not allowed"));
         }
 
         @Test
@@ -456,7 +464,7 @@ class CertificateRequestContentValidatorTest {
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute().withName("cn").required().mappingRdn("CN").build());
             var content = content(List.of(rdn("CN", "host.example.com")), List.of(),
-                    List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+                    List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
@@ -470,8 +478,8 @@ class CertificateRequestContentValidatorTest {
         void doesNotFlagWhitelist_whenExtensionMappingCoversPresentExtension() {
             // given — the CSR carries an extension that the set explicitly maps
             List<BaseAttribute> definitions = List
-                    .of(aMappedDataAttribute().withName("eku").mappingExtension("2.5.29.37").build());
-            var content = content(List.of(), List.of(), List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+                    .of(aMappedDataAttribute().withName("basicConstraints").mappingExtension("2.5.29.19").build());
+            var content = content(List.of(), List.of(), List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
@@ -487,12 +495,12 @@ class CertificateRequestContentValidatorTest {
             // constraint against the opaque DER bytes would wrongly reject a valid uploaded CSR
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute()
-                            .withName("eku")
+                            .withName("basicConstraints")
                             .required()
                             .withRegex("^[0-9]+$")
-                            .mappingExtension("2.5.29.37")
+                            .mappingExtension("2.5.29.19")
                             .build());
-            var content = content(List.of(), List.of(), List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+            var content = content(List.of(), List.of(), List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
