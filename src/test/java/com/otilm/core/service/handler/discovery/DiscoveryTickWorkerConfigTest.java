@@ -1,6 +1,7 @@
 package com.otilm.core.service.handler.discovery;
 
 import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -33,13 +34,37 @@ class DiscoveryTickWorkerConfigTest {
                 .withMessageContaining("discovery.drain.max-bytes");
     }
 
+    @Test
+    void nonPositiveContinuationBackstop_isRefusedAtStartup() {
+        // Both workers park their backstop row and publish the continuation themselves. A backstop that is not
+        // in the future leaves a due-now row for the sweep to claim and publish alongside it, so the failure
+        // reads as duplicate processing rather than as the misconfiguration it is.
+        for (Duration notABackstop : List.of(Duration.ZERO, Duration.ofSeconds(-1))) {
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> processWorkerWith(200, notABackstop))
+                    .withMessageContaining("discovery.work.continuation-backstop");
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> drainWorkerWith(500, 1024, notABackstop))
+                    .withMessageContaining("discovery.work.continuation-backstop");
+        }
+    }
+
     private static DiscoveryProcessTickWorker processWorkerWithBatchSize(int batchSize) {
+        return processWorkerWith(batchSize, Duration.ofMinutes(1));
+    }
+
+    private static DiscoveryProcessTickWorker processWorkerWith(int batchSize, Duration continuationBackstop) {
         return new DiscoveryProcessTickWorker(null, null, null, null, null, null, null, null, batchSize,
-                Duration.ofMinutes(1));
+                continuationBackstop);
     }
 
     private static DiscoveryDrainTickWorker drainWorkerWith(int maxItems, long maxBytes) {
+        return drainWorkerWith(maxItems, maxBytes, Duration.ofMinutes(1));
+    }
+
+    private static DiscoveryDrainTickWorker drainWorkerWith(int maxItems, long maxBytes,
+            Duration continuationBackstop) {
         return new DiscoveryDrainTickWorker(null, null, null, null, null, null, null, null, null, maxItems, maxBytes,
-                Duration.ofMinutes(1));
+                continuationBackstop);
     }
 }

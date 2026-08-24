@@ -298,10 +298,12 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         EventHistory eventHistoryPlatform = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, null, null);
 
         List<DiscoveryContentGroup> groups = groupByContent(batch);
+        // null totalGroups: this batch is not the run, so it has no percentage to report. The PROCESS worker owns
+        // v2's progress message, because it is the only party that knows what the run still has left.
         DiscoveryRunContext runContext = new DiscoveryRunContext(discovery.getUuid(), discovery.getName(),
                 discovery.getConnectorUuid(), discovery.getConnectorName(), discovery.getKind(), context.getUserUuid(),
                 mergedIgnoreTriggers, mergedTriggers, eventHistoryDiscovery.getUuid(), eventHistoryPlatform.getUuid(),
-                groups.size(), context);
+                null, context);
         try {
             return importGroups(runContext, groups, eventHistoryDiscovery, eventHistoryPlatform);
         } catch (RuntimeException e) {
@@ -600,6 +602,11 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * failed progress write escape the loop would abandon both for the whole run.
      */
     void reportProgressSafely(DiscoveryRunContext context, DiscoveryRunAccumulator accumulator, int completedGroups) {
+        if (context.totalGroups() == null) {
+            // A caller that sees one batch rather than the whole run reports its own progress: a percentage of
+            // the batch would read as a percentage of the run and reach 100% once per batch.
+            return;
+        }
         try {
             reportProgress(context, completedGroups);
         } catch (Exception e) {

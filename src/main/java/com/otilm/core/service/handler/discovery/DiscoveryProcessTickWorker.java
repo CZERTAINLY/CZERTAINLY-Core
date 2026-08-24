@@ -78,6 +78,13 @@ public class DiscoveryProcessTickWorker {
         if (batchSize <= 0) {
             throw new IllegalArgumentException("discovery.processing.batch-size must be positive");
         }
+        // A backstop that is not in the future is not a backstop. The row would be parked due-now while this
+        // worker also publishes the continuation directly, so the sweep would claim it and publish a second tick
+        // against the same unclaimed batch -- the race the backstop exists to prevent, surfacing as duplicate
+        // processing rather than as the misconfiguration it is.
+        if (continuationBackstop.isZero() || continuationBackstop.isNegative()) {
+            throw new IllegalArgumentException("discovery.work.continuation-backstop must be positive");
+        }
         this.batchSize = batchSize;
         this.continuationBackstop = continuationBackstop;
     }
@@ -184,6 +191,12 @@ public class DiscoveryProcessTickWorker {
      */
     private void continueProcessing(UUID discoveryUuid, long remaining) {
         logger.debug("Discovery {} has {} certificates left to process", discoveryUuid, remaining);
+        // The run's progress message, which the import pipeline cannot write for a v2 run: it sees one bounded
+        // batch, and a percentage of that batch reaches 100% once per batch while the run still has a backlog.
+        // Reported as what is left rather than as a fraction, since the backlog is what a tick actually measures.
+        discoveryWriter
+                .updateProgressMessage(discoveryUuid,
+                        "Importing discovered certificates (%d remaining)".formatted(remaining));
         workWriter
                 .reschedule(discoveryUuid, DiscoveryWorkType.PROCESS, 0,
                         OffsetDateTime.now(ZoneOffset.UTC).plus(continuationBackstop));

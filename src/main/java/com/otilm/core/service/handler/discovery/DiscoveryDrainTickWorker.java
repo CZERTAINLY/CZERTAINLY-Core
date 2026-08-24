@@ -76,6 +76,12 @@ public class DiscoveryDrainTickWorker {
         if (maxBytes <= 0) {
             throw new IllegalArgumentException("discovery.drain.max-bytes must be positive");
         }
+        // Parked due-now or in the past, the backstop row is one the sweep claims and publishes alongside the
+        // continuation this worker publishes itself -- two drains against the same run, which is the race the
+        // backstop exists to prevent.
+        if (continuationBackstop.isZero() || continuationBackstop.isNegative()) {
+            throw new IllegalArgumentException("discovery.work.continuation-backstop must be positive");
+        }
         this.maxItems = maxItems;
         this.maxBytes = maxBytes;
     }

@@ -103,6 +103,19 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     }
 
     @Test
+    void batchThatLeavesWorkBehind_reportsWhatIsLeftRatherThanItsOwnCompletion() throws Exception {
+        Discovery run = processingRun();
+        stageCertificates(run, 3);
+        importsCleanly();
+
+        worker.tick(run.getUuid(), 0);
+
+        // The import pipeline counts progress against the batch it was handed. For a v2 run that batch is not
+        // the run, so every batch would finish at 100% while the backlog is still draining.
+        assertThat(reload(run).getMessage()).isEqualTo("Importing discovered certificates (2 remaining)");
+    }
+
+    @Test
     void repeatedTicks_walkTheBacklogToTheEndWithoutReprocessingARow() throws Exception {
         Discovery run = processingRun();
         stageCertificates(run, 3);
