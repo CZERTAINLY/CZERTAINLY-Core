@@ -293,7 +293,7 @@ class CertificateRequestContentValidatorTest {
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute().withName("cn").required().mappingRdn("CN").build());
             var parsed = new ParsedRequestContent(content(List.of(rdn("CN", "host.example.com")), List.of()),
-                    List.of("x400Address"));
+                    List.of("x400Address"), List.of());
 
             // when
             var result = CertificateRequestContentValidator
@@ -310,7 +310,7 @@ class CertificateRequestContentValidatorTest {
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute().withName("cn").required().mappingRdn("CN").build());
             var parsed = new ParsedRequestContent(content(List.of(rdn("CN", "host.example.com")), List.of()),
-                    List.of("x400Address"));
+                    List.of("x400Address"), List.of());
 
             // when
             var result = CertificateRequestContentValidator

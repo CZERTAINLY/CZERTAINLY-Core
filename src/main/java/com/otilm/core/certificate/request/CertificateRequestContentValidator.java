@@ -73,6 +73,11 @@ public class CertificateRequestContentValidator {
                         "SAN %s cannot be represented for validation and is not allowed by the request-attribute set"
                                 .formatted(sanKind));
             }
+            for (String item : parsed.unrepresentableExtensionValues()) {
+                recordViolation(result, policy,
+                        "%s cannot be represented for validation and is not allowed by the request-attribute set"
+                                .formatted(item));
+            }
         }
         return result;
     }
