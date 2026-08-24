@@ -297,7 +297,27 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
 
         Discovery reloaded = reload(run);
         assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
-        assertThat(reloaded.getMessage()).contains("did not say whether more items remain");
+        assertThat(reloaded.getMessage()).contains("omitted a field the contract requires");
+    }
+
+    @Test
+    void pageOmittingItemsEntirely_isNotReadAsAPageWithNoItems() throws Exception {
+        Discovery run = runTheConnectorFinished();
+        armDrainRow(run, 0);
+        // The contract requires an explicit empty array for a page with no items, so a null is a non-answer
+        // like a null "more" is. Read as "no discoveries" this page is fully drained and caught up, and the
+        // run would hand over and release the connector handle with items still at the connector.
+        DiscoveryResultsResponseDto noItemsField = new DiscoveryResultsResponseDto();
+        noItemsField.setMore(false);
+        noItemsField.setHighestSequence(0L);
+        when(client.results(any(), anyInt(), anyLong())).thenReturn(noItemsField);
+
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
+        assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.DRAIN);
+        verify(workProducer, never()).produceMessage(any());
+        verify(client, never()).acknowledge(any(), anyLong());
     }
 
     @Test

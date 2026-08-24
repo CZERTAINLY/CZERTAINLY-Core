@@ -17,6 +17,7 @@ import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.discovery.DiscoveryProcessTickWorker;
 import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
+import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator.Ending;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import com.otilm.core.util.BaseSpringBootTest;
@@ -366,12 +367,31 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         // between counting an empty backlog and ending the run. Ending on the earlier count would leave them
         // staged, counted by nobody and never imported.
         boolean ended = terminator
-                .endWhile(run.getUuid(), DiscoveryStatus.COMPLETED, "Discovery completed successfully.",
-                        () -> backlog(run) == 0);
+                .endWith(run.getUuid(),
+                        locked -> backlog(run) > 0
+                                ? null
+                                : new Ending(DiscoveryStatus.COMPLETED, "Discovery completed successfully."));
 
         assertThat(ended).isFalse();
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
         assertThat(agenda(run)).as("the run is still live, so its agenda must not be taken").hasSize(1);
+    }
+
+    @Test
+    void endingDecidedUnderTheLock_readsTheRunAsItStandsWhenTheEndingCommits() {
+        Discovery run = processingRun();
+        // A late drain page appended a complaint after the worker had already read the run. Deciding from the
+        // caller's stale copy would report this run as completed successfully while it carries a warning.
+        discoveryWriter.appendRunMessages(run.getUuid(), List.of("2 item(s) arrived without a sequence"));
+
+        boolean ended = terminator
+                .endWith(run.getUuid(),
+                        locked -> locked.getRunMessages().isEmpty()
+                                ? new Ending(DiscoveryStatus.COMPLETED, "Discovery completed successfully.")
+                                : new Ending(DiscoveryStatus.WARNING, "Discovery completed with warnings."));
+
+        assertThat(ended).isTrue();
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.WARNING);
     }
 
     // ------------------------------------------------------------------ fixtures

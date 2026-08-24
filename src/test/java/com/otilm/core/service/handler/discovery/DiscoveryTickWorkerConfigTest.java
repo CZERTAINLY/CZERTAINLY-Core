@@ -1,0 +1,45 @@
+package com.otilm.core.service.handler.discovery;
+
+import java.time.Duration;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+
+/**
+ * The bounds a misconfigured deployment could set to nonsense. Each is checked where it is injected, so the context
+ * refuses to start rather than the failure surfacing one tick at a time against live runs.
+ */
+class DiscoveryTickWorkerConfigTest {
+
+    @Test
+    void nonPositiveProcessingBatchSize_isRefusedAtStartup() {
+        // Left to a tick, this throws inside PageRequest.of before the worker reaches any bounded path, so the
+        // listener acknowledges it and nothing ever ends the run: PROCESSING forever.
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> processWorkerWithBatchSize(0))
+                .withMessageContaining("discovery.processing.batch-size");
+        assertThatIllegalArgumentException().isThrownBy(() -> processWorkerWithBatchSize(-1));
+    }
+
+    @Test
+    void nonPositiveDrainBounds_areRefusedAtStartup() {
+        // Bounded, unlike the batch size -- the connector rejects the request and the budget eventually ends the
+        // run -- but a typo that fails every healthy run is still a startup problem, not a runtime one.
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> drainWorkerWith(0, 1024))
+                .withMessageContaining("discovery.drain.max-items");
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> drainWorkerWith(500, 0))
+                .withMessageContaining("discovery.drain.max-bytes");
+    }
+
+    private static DiscoveryProcessTickWorker processWorkerWithBatchSize(int batchSize) {
+        return new DiscoveryProcessTickWorker(null, null, null, null, null, null, null, null, batchSize,
+                Duration.ofMinutes(1));
+    }
+
+    private static DiscoveryDrainTickWorker drainWorkerWith(int maxItems, long maxBytes) {
+        return new DiscoveryDrainTickWorker(null, null, null, null, null, null, null, null, null, maxItems, maxBytes,
+                Duration.ofMinutes(1));
+    }
+}

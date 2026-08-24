@@ -12,6 +12,7 @@ import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
+import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator.Ending;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.Duration;
@@ -71,6 +72,12 @@ public class DiscoveryProcessTickWorker {
         this.terminator = terminator;
         this.discoveryWriter = discoveryWriter;
         this.workProperties = workProperties;
+        // Fail at startup, not at the first tick. A non-positive size throws inside PageRequest.of before the
+        // tick reaches any bounded path, so the throw escapes to the listener, which logs and acknowledges it:
+        // nothing would ever end the run and it would sit in PROCESSING forever.
+        if (batchSize <= 0) {
+            throw new IllegalArgumentException("discovery.processing.batch-size must be positive");
+        }
         this.batchSize = batchSize;
         this.continuationBackstop = continuationBackstop;
     }
@@ -208,27 +215,10 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Ends the run on the evidence it carries, and only while the backlog is still empty.
-     *
-     * <p>
-     * The emptiness this tick measured was read outside any lock. Re-reading it inside the terminal transaction orders
-     * the ending against staging, which holds the same run row lock: a drain page still in flight either commits in
-     * time to be imported, or lands after the ending and is refused as terminal.
+     * Ends the run, or discovers it is not finished after all and keeps processing.
      */
     private void finish(UUID discoveryUuid) {
-        // Two kinds of evidence, because not every shortfall lands on a row. A bookkeeping write that itself
-        // failed, or validation never being requested, is a run-level gap with every row still clean -- reading
-        // only the rows would report such a run as a clean success. On a v2 run every writer into the message
-        // log is reporting a problem, so a non-empty log is exactly the run-level evidence needed.
-        boolean rowsFailed = certificateRepository.existsByDiscoveryUuidAndProcessedErrorIsNotNull(discoveryUuid);
-        boolean runLevelGaps = discoveryRepository
-                .findByUuid(discoveryUuid)
-                .map(run -> run.getRunMessages() != null && !run.getRunMessages().isEmpty())
-                .orElse(false);
-        DiscoveryStatus status = rowsFailed || runLevelGaps ? DiscoveryStatus.WARNING : DiscoveryStatus.COMPLETED;
-        if (!terminator
-                .endWhile(discoveryUuid, status, endingReason(status, rowsFailed),
-                        () -> backlogOf(discoveryUuid) == 0)) {
+        if (!terminator.endWith(discoveryUuid, this::decideEnding)) {
             long late = backlogOf(discoveryUuid);
             if (late > 0) {
                 continueProcessing(discoveryUuid, late);
@@ -237,16 +227,34 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Sends the operator only where there is something to find: a run warned on run-level evidence alone has no row
-     * carrying a reason.
+     * Decides the run's ending from inside the terminal transaction, where the run row is locked.
+     *
+     * <p>
+     * Every input is read here rather than by the caller, and that is the point: a drain page in flight across the
+     * handover takes the same lock, and it can both stage rows and append to the run's message log. Deciding outside
+     * would let it land between the reads and the ending — a run reported as completed successfully while carrying a
+     * warning, or ended while rows it staged sit counted by nobody.
+     *
+     * @return the ending, or {@code null} when a late page left work to do
      */
-    private static String endingReason(DiscoveryStatus status, boolean rowsFailed) {
-        if (status != DiscoveryStatus.WARNING) {
-            return "Discovery completed successfully.";
+    private Ending decideEnding(Discovery run) {
+        if (backlogOf(run.getUuid()) > 0) {
+            return null;
         }
-        return rowsFailed
+        // Two kinds of evidence, because not every shortfall lands on a row. A bookkeeping write that itself
+        // failed, or validation never being requested, is a run-level gap with every row still clean -- reading
+        // only the rows would report such a run as a clean success. On a v2 run every writer into the message
+        // log is reporting a problem, so a non-empty log is exactly the run-level evidence needed.
+        boolean rowsFailed = certificateRepository.existsByDiscoveryUuidAndProcessedErrorIsNotNull(run.getUuid());
+        boolean runLevelGaps = run.getRunMessages() != null && !run.getRunMessages().isEmpty();
+        if (!rowsFailed && !runLevelGaps) {
+            return new Ending(DiscoveryStatus.COMPLETED, "Discovery completed successfully.");
+        }
+        // Sends the operator only where there is something to find: a run warned on run-level evidence alone
+        // has no row carrying a reason.
+        return new Ending(DiscoveryStatus.WARNING, rowsFailed
                 ? "Discovery completed with warnings. See this run's messages, and the discovery certificate list "
                         + "for per-certificate detail."
-                : "Discovery completed with warnings. See this run's messages.";
+                : "Discovery completed with warnings. See this run's messages.");
     }
 }

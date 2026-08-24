@@ -68,6 +68,14 @@ public class DiscoveryDrainTickWorker {
         this.budget = budget;
         this.workProperties = workProperties;
         this.transactionHandler = transactionHandler;
+        // Fail at startup rather than on every drain. A non-positive bound produces a request the connector
+        // rejects each time it is sent, so a typo here ends healthy runs once their budget is spent.
+        if (maxItems <= 0) {
+            throw new IllegalArgumentException("discovery.drain.max-items must be positive");
+        }
+        if (maxBytes <= 0) {
+            throw new IllegalArgumentException("discovery.drain.max-bytes must be positive");
+        }
         this.maxItems = maxItems;
         this.maxBytes = maxBytes;
     }
@@ -104,10 +112,11 @@ public class DiscoveryDrainTickWorker {
             return;
         }
 
-        if (page.getMore() == null || page.getHighestSequence() == null) {
-            // Both are required on the wire precisely so their absence cannot be read as an answer. Treating a
-            // missing "more" as "no more items" would hand a half-drained run to processing and release the
-            // connector handle -- permanent, silent loss. Spend the budget on it instead.
+        if (page.getItems() == null || page.getMore() == null || page.getHighestSequence() == null) {
+            // All three are required on the wire precisely so their absence cannot be read as an answer. A
+            // page that means "no items" sends an empty array; a missing "items" or a missing "more" read as
+            // an answer hands a half-drained run to processing and releases the connector handle, which is
+            // permanent, silent loss. Spend the budget on it instead.
             handleNonConformant(discoveryUuid, attempt);
             return;
         }
@@ -133,10 +142,10 @@ public class DiscoveryDrainTickWorker {
     private void handleNonConformant(UUID discoveryUuid, int attempt) {
         if (!budget
                 .spend(discoveryUuid, DiscoveryWorkType.DRAIN, attempt,
-                        "The connector's results did not say whether more items remain")) {
+                        "The connector's results omitted a field the contract requires")) {
             logger
-                    .warn("Drain {} for discovery {} returned a page missing more/highestSequence; retrying when next "
-                            + "due", attempt, discoveryUuid);
+                    .warn("Drain {} for discovery {} returned a page missing items, more or highestSequence; retrying "
+                            + "when next due", attempt, discoveryUuid);
         }
     }
 

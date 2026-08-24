@@ -9,7 +9,7 @@ import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
-import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,36 +56,35 @@ public class DiscoveryRunTerminator {
      * @return whether this call was the one that ended the run
      */
     public boolean endConnectorOwned(UUID discoveryUuid, DiscoveryStatus status, String reason) {
-        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::hasLeftTheConnector, () -> true);
+        return endIf(discoveryUuid, DiscoveryRunLifecycle::hasLeftTheConnector, run -> new Ending(status, reason));
     }
 
     /**
      * @return whether this call was the one that ended the run
      */
     public boolean end(UUID discoveryUuid, DiscoveryStatus status, String reason) {
-        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::isTerminal, () -> true);
+        return endIf(discoveryUuid, DiscoveryRunLifecycle::isTerminal, run -> new Ending(status, reason));
     }
 
     /**
-     * Ends a run only while {@code stillTrue} holds, re-checked under the run row's lock.
+     * Ends a run on a decision taken under the run row's lock, against the locked entity.
      *
      * <p>
-     * Re-reading it under the lock serialises the ending against whatever could falsify it — anything that can takes
-     * the same row lock.
+     * For an ending whose inputs another transaction can still change — anything that could change them takes the same
+     * lock, so deciding here is what orders the two.
      *
-     * @return whether this call was the one that ended the run — false both when the run had already ended and when
-     * {@code stillTrue} no longer holds
+     * @param decide the ending to apply, or {@code null} to leave the run alone
+     * @return whether this call was the one that ended the run
      */
-    public boolean endWhile(UUID discoveryUuid, DiscoveryStatus status, String reason, BooleanSupplier stillTrue) {
-        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::isTerminal, stillTrue);
+    public boolean endWith(UUID discoveryUuid, Function<Discovery, Ending> decide) {
+        return endIf(discoveryUuid, DiscoveryRunLifecycle::isTerminal, decide);
     }
 
     /**
      * @param alreadyPast states from which this ending is no longer the caller's to make
-     * @param stillTrue the caller's own precondition, re-read inside the locked transaction
      */
-    private boolean endIf(UUID discoveryUuid, DiscoveryStatus status, String reason,
-            Predicate<DiscoveryStatus> alreadyPast, BooleanSupplier stillTrue) {
+    private boolean endIf(UUID discoveryUuid, Predicate<DiscoveryStatus> alreadyPast,
+            Function<Discovery, Ending> decide) {
         return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
             Discovery run = discoveryRepository.findWithLockByUuid(discoveryUuid).orElse(null);
             if (run == null) {
@@ -95,14 +94,19 @@ public class DiscoveryRunTerminator {
                 logger.debug("Discovery {} is already {}; leaving it alone", discoveryUuid, run.getStatus());
                 return false;
             }
-            if (!stillTrue.getAsBoolean()) {
-                logger.debug("Discovery {} is no longer ready to end; leaving it alone", discoveryUuid);
+            Ending ending = decide.apply(run);
+            if (ending == null) {
+                logger.debug("Discovery {} is not ready to end after all; leaving it alone", discoveryUuid);
                 return false;
             }
-            applyTerminalState(run, status, reason);
+            applyTerminalState(run, ending.status(), ending.reason());
             workWriter.deleteForRun(discoveryUuid);
             return true;
         }));
+    }
+
+    /** The status and reason a run ends with. */
+    public record Ending(DiscoveryStatus status, String reason) {
     }
 
     /**
