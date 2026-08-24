@@ -7,7 +7,6 @@ import com.otilm.api.model.connector.discovery.v2.DiscoveredKeyDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
 import com.otilm.api.model.connector.discovery.v2.event.DiscoveryResultBatchEvent;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
-import com.otilm.core.dao.entity.CryptographicKeyItem;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
@@ -17,6 +16,7 @@ import com.otilm.core.service.writer.discovery.DiscoveryItemWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,7 +84,7 @@ class DiscoveryEventIngestorTest {
     @Test
     void keyAlreadyInInventory_isStagedAsNotNewlyDiscovered() {
         Discovery run = run();
-        when(keyItemRepository.findByFingerprint("fp-known")).thenReturn(Optional.of(new CryptographicKeyItem()));
+        when(keyItemRepository.findKnownFingerprints(Set.of("fp-known"))).thenReturn(List.of("fp-known"));
 
         ingestor.applyDrainPage(run.getUuid(), page(keyItem(1, "key-a", "fp-known")));
 
@@ -94,7 +94,7 @@ class DiscoveryEventIngestorTest {
     @Test
     void keyMissingFromInventory_isStagedAsNewlyDiscovered() {
         Discovery run = run();
-        when(keyItemRepository.findByFingerprint("fp-new")).thenReturn(Optional.empty());
+        when(keyItemRepository.findKnownFingerprints(Set.of("fp-new"))).thenReturn(List.of());
 
         ingestor.applyDrainPage(run.getUuid(), page(keyItem(1, "key-a", "fp-new")));
 
@@ -107,7 +107,7 @@ class DiscoveryEventIngestorTest {
 
         ingestor.applyDrainPage(run.getUuid(), page(keyItem(1, "key-a", null)));
 
-        verify(keyItemRepository, never()).findByFingerprint(any());
+        verify(keyItemRepository, never()).findKnownFingerprints(any());
         verify(itemWriter).stage(eq(run.getUuid()), any(DiscoveredItemDto.class), eq(true));
     }
 

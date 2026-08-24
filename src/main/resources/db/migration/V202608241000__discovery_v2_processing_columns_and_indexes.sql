@@ -1,3 +1,11 @@
+-- Who started the run, so the work it schedules can act as them. A v2 run imports its certificates from an agenda
+-- tick rather than from the request that started it, and authorization reads the principal on the calling thread --
+-- with none installed, CERTIFICATE:CREATE is refused and every batch fails. The v1 flow solves this by carrying the
+-- user on its CERTIFICATE_DISCOVERED event; a tick has no event to carry one, so the run holds it instead.
+--
+-- Nullable: runs created before this column, and any created without an authenticated caller, have no user to name.
+ALTER TABLE "discovery" ADD COLUMN "started_by_user_uuid" UUID;
+
 -- The connector's own key for a staged certificate, which the wire contract defines as what Core dedupes an
 -- item by "across drains and retries". discovery_item has carried it since the v2 schema; this table, which
 -- predates v2, had nowhere to put it, so v2 certificate dedupe was per-page and in memory.

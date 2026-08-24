@@ -334,6 +334,10 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         Discovery discovery = new Discovery();
         discovery.setName(request.getName());
         discovery.setConnectorName(connector.getName());
+        // Captured here rather than at start: this is where a caller is still on the thread. A v2 run's import
+        // runs from an agenda tick with no principal of its own, and authorization refuses CERTIFICATE:CREATE
+        // without one, so the run has to remember who to act as.
+        discovery.setStartedByUserUuid(AuthHelper.getActingUserUuidOrNull());
         discovery.setStartTime(OffsetDateTime.now(ZoneOffset.UTC));
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);

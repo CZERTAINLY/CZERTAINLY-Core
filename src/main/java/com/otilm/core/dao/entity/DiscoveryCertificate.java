@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Date;
@@ -29,7 +30,11 @@ import org.hibernate.type.SqlTypes;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "discovery_certificate")
+// The unique constraint is mapped, not just migrated: tests generate their schema from these entities, so a
+// constraint that lives only in the migration is one the tests cannot exercise. Nulls do not collide in
+// PostgreSQL, which is what keeps v1 rows -- who have no such key -- outside it, exactly as the partial index does.
+@Table(name = "discovery_certificate", uniqueConstraints = @UniqueConstraint(name = "uq_discovery_certificate_ref",
+        columnNames = {"discovery_uuid", "unique_ref"}))
 public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited
         implements
             Serializable,

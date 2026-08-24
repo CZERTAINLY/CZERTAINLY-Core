@@ -20,6 +20,7 @@ import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
 import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator.Ending;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -62,6 +63,10 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     private CertificateDiscoveredEventHandler importHandler;
     @MockitoBean
     private DiscoveryWorkProducer workProducer;
+    // No auth service runs in the ITest, so the real authenticateAsUser would throw. Mocked to keep the identity
+    // step observable: what matters here is that the worker installs the run's user before importing.
+    @MockitoBean
+    private AuthHelper authHelper;
 
     @Autowired
     private DiscoveryProcessTickWorker worker;
@@ -82,6 +87,8 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     @Autowired
     private DiscoveryWorkWriter workWriter;
 
+    private static final UUID RUN_OWNER = UUID.fromString("3f1d9a52-0000-4000-8000-00000000beef");
+
     private final List<Integer> claimedBatchSizes = new ArrayList<>();
 
     // ------------------------------------------------------------------ batching
@@ -100,6 +107,20 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         assertThat(publishedTicks())
                 .containsExactly(new DiscoveryWorkMessage(run.getUuid(), DiscoveryWorkType.PROCESS, 0));
         assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.PROCESS);
+    }
+
+    @Test
+    void importRunsAsTheUserWhoStartedTheRun() throws Exception {
+        Discovery run = processingRun();
+        stageCertificates(run, 1);
+        importsCleanly();
+
+        worker.tick(run.getUuid(), 0);
+
+        // A tick arrives on a JMS thread with no principal, and the pipeline enforces CERTIFICATE:CREATE against
+        // whatever is on it. Without this the import is refused, and because importBatch swallows to reach its
+        // bounded stall path, the refusal surfaces as a run that quietly imported nothing.
+        verify(authHelper).authenticateAsUser(RUN_OWNER);
     }
 
     @Test
@@ -515,6 +536,7 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         run.setConnectorUuid(UUID.randomUUID());
         run.setConnectorName("network-discovery");
         run.setConnectorInterfaceUuid(UUID.randomUUID());
+        run.setStartedByUserUuid(RUN_OWNER);
         Discovery saved = discoveryRepository.saveAndFlush(run);
         workWriter
                 .schedule(saved.getUuid(), DiscoveryWorkType.PROCESS, OffsetDateTime.now(ZoneOffset.UTC).plusHours(1));

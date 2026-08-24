@@ -15,6 +15,7 @@ import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator.Ending;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import com.otilm.core.util.AuthHelper;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -54,6 +55,7 @@ public class DiscoveryProcessTickWorker {
     private final DiscoveryWorkProducer workProducer;
     private final DiscoveryRunTerminator terminator;
     private final DiscoveryWriter discoveryWriter;
+    private final AuthHelper authHelper;
     private final DiscoveryWorkProperties workProperties;
     private final int batchSize;
     private final Duration continuationBackstop;
@@ -61,7 +63,7 @@ public class DiscoveryProcessTickWorker {
     public DiscoveryProcessTickWorker(DiscoveryRepository discoveryRepository,
             DiscoveryCertificateRepository certificateRepository, CertificateDiscoveredEventHandler importHandler,
             DiscoveryWorkWriter workWriter, DiscoveryWorkProducer workProducer, DiscoveryRunTerminator terminator,
-            DiscoveryWriter discoveryWriter, DiscoveryWorkProperties workProperties,
+            DiscoveryWriter discoveryWriter, AuthHelper authHelper, DiscoveryWorkProperties workProperties,
             @Value("${discovery.processing.batch-size:200}") int batchSize,
             @Value("${discovery.work.continuation-backstop:PT1M}") Duration continuationBackstop) {
         this.discoveryRepository = discoveryRepository;
@@ -71,6 +73,7 @@ public class DiscoveryProcessTickWorker {
         this.workProducer = workProducer;
         this.terminator = terminator;
         this.discoveryWriter = discoveryWriter;
+        this.authHelper = authHelper;
         this.workProperties = workProperties;
         // Fail at startup, not at the first tick. A non-positive size throws inside PageRequest.of before the
         // tick reaches any bounded path, so the throw escapes to the listener, which logs and acknowledges it:
@@ -167,6 +170,7 @@ public class DiscoveryProcessTickWorker {
      */
     private void importBatch(Discovery run, int attempt, List<DiscoveryCertificate> batch) {
         try {
+            authenticateAsTheRunsUser(run);
             DiscoveryRunCounts counts = importHandler.processBatch(run, batch);
             discoveryWriter.appendRunMessages(run.getUuid(), counts.describeGaps());
         } catch (Exception e) {
@@ -182,6 +186,28 @@ public class DiscoveryProcessTickWorker {
                     .appendRunMessages(run.getUuid(),
                             List.of("A batch of discovered certificates could not be processed."));
         }
+    }
+
+    /**
+     * Puts the run's own user on the thread before the import pipeline asks whether it may create certificates.
+     *
+     * <p>
+     * A tick arrives on a JMS thread with no principal, and the pipeline enforces {@code CERTIFICATE:CREATE} against
+     * whatever is on the thread — so without this every batch is refused, and because {@link #importBatch} swallows to
+     * reach the bounded stall path, the refusal would surface as a run that quietly imported nothing. The v1 flow gets
+     * the same identity from the user its {@code CERTIFICATE_DISCOVERED} event carries.
+     *
+     * <p>
+     * A run with no user recorded cannot be imported at all, so it is left to the stall path rather than retried: no
+     * later tick will find an identity the run never had.
+     */
+    private void authenticateAsTheRunsUser(Discovery run) {
+        if (run.getStartedByUserUuid() == null) {
+            throw new IllegalStateException(
+                    "Discovery %s records no user to act as, so its certificates cannot be imported"
+                            .formatted(run.getUuid()));
+        }
+        authHelper.authenticateAsUser(run.getStartedByUserUuid());
     }
 
     /**

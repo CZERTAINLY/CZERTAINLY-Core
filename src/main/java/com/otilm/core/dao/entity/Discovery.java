@@ -118,6 +118,12 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     // snapshot — fields mixed from two reports — unrepresentable under the concurrent writers (status poll,
     // progress event). S1948: see runMeta.
     @SuppressWarnings("java:S1948")
+    // Who started the run, so the agenda-driven work it schedules can act as them. The v1 flow carries this on its
+    // CERTIFICATE_DISCOVERED event and the event listener authenticates from there; a tick arrives with no such
+    // envelope, so the run is where it lives. Null for runs started without an authenticated caller.
+    @Column(name = "started_by_user_uuid")
+    private UUID startedByUserUuid;
+
     @Column(name = "progress", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private DiscoveryProgressDto progress;

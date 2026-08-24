@@ -237,10 +237,11 @@ public class DiscoveryEventIngestor {
     private void stage(Discovery run, List<DiscoveredItemDto> items) {
         List<DiscoveryProviderCertificateDataDto> certificates = new ArrayList<>();
         Set<String> stagedCertificateRefs = alreadyStagedRefs(run, items);
+        Set<String> knownKeyFingerprints = knownKeyFingerprints(items);
         List<String> malformedPayloads = new ArrayList<>();
         for (DiscoveredItemDto item : items) {
             if (item.getResource() != Resource.CERTIFICATE) {
-                itemWriter.stage(run.getUuid(), item, isNewlyDiscovered(item));
+                itemWriter.stage(run.getUuid(), item, isNewlyDiscovered(item, knownKeyFingerprints));
             } else if (stagedCertificateRefs.add(item.getUniqueRef())) {
                 DiscoveryProviderCertificateDataDto data = asCertificateData(item);
                 if (data == null) {
@@ -316,12 +317,34 @@ public class DiscoveryEventIngestor {
      * Whether the item was absent from inventory when staged — the flag the run detail filters on. Keys correlate on
      * their intrinsic fingerprint; anything else has no inventory to be absent from yet, so it counts as new.
      */
-    private boolean isNewlyDiscovered(DiscoveredItemDto item) {
+    private static boolean isNewlyDiscovered(DiscoveredItemDto item, Set<String> knownKeyFingerprints) {
         if (!(item.getPayload() instanceof DiscoveredKeyDto key) || key.getFingerprint() == null
                 || key.getFingerprint().isBlank()) {
             return true;
         }
-        return keyItemRepository.findByFingerprint(key.getFingerprint()).isEmpty();
+        return !knownKeyFingerprints.contains(key.getFingerprint());
+    }
+
+    /**
+     * The page's key fingerprints that inventory already holds, read in one query.
+     *
+     * <p>
+     * Asked once per page rather than once per key: this runs inside the transaction holding the run's row lock, so a
+     * 500-key page would otherwise be 500 round trips with everything about the run — status commits, the reaper,
+     * message appends — queued behind them.
+     */
+    private Set<String> knownKeyFingerprints(List<DiscoveredItemDto> items) {
+        Set<String> fingerprints = items
+                .stream()
+                .map(DiscoveredItemDto::getPayload)
+                .filter(DiscoveredKeyDto.class::isInstance)
+                .map(payload -> ((DiscoveredKeyDto) payload).getFingerprint())
+                .filter(fingerprint -> fingerprint != null && !fingerprint.isBlank())
+                .collect(Collectors.toSet());
+        if (fingerprints.isEmpty()) {
+            return Set.of();
+        }
+        return Set.copyOf(keyItemRepository.findKnownFingerprints(fingerprints));
     }
 
     private void scheduleNow(Discovery run, DiscoveryWorkType workType) {

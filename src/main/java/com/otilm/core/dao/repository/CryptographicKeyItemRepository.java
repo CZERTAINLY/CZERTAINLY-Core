@@ -2,6 +2,7 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +18,13 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
     Optional<CryptographicKeyItem> findByUuid(UUID uuid);
 
     Optional<CryptographicKeyItem> findByFingerprint(String fingerprint);
+
+    /**
+     * The fingerprints from {@code fingerprints} that inventory already holds — one query for a whole page, where
+     * asking per item costs a round trip each while the caller holds a row lock.
+     */
+    @Query("SELECT k.fingerprint FROM CryptographicKeyItem k WHERE k.fingerprint IN :fingerprints")
+    List<String> findKnownFingerprints(@Param("fingerprints") Collection<String> fingerprints);
 
     Optional<CryptographicKeyItem> findByUuidAndKey(UUID uuid, CryptographicKey cryptographicKey);
 

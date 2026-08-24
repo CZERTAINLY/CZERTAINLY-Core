@@ -20,6 +20,7 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -191,15 +192,15 @@ public class DiscoveryDrainTickWorker {
         }
         // The swap is the only catch-up check there is, and deliberately so: it re-asserts the cursor against
         // highestSequence under the run row's lock, which a separate pre-check could only do without one.
-        List<MetadataAttribute> handle = swapToProcessing(discoveryUuid, page.getHighestSequence());
-        if (handle == null) {
+        Optional<Handover> handover = swapToProcessing(discoveryUuid, page.getHighestSequence());
+        if (handover.isEmpty()) {
             awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
             return;
         }
         // Strictly after the handover commits. The acknowledgement lets the connector discard the run's whole
         // state, so sending it before a swap that might roll back would licence throwing away a run Core never
         // finished taking over. The handle is replayed onto the detached entity purely to make this one call.
-        run.setRunMeta(handle);
+        run.setRunMeta(handover.get().releasedHandle());
         sendFullAck(run, page.getHighestSequence());
         workProducer.produceMessage(new DiscoveryWorkMessage(discoveryUuid, DiscoveryWorkType.PROCESS, 0));
     }
@@ -252,7 +253,7 @@ public class DiscoveryDrainTickWorker {
      * @return the connector handle this swap released, or {@code null} when no swap happened — the cursor is still
      * behind, or another tick got there first
      */
-    private List<MetadataAttribute> swapToProcessing(UUID discoveryUuid, Long highestSequence) {
+    private Optional<Handover> swapToProcessing(UUID discoveryUuid, Long highestSequence) {
         return transactionHandler.runInNewTransaction(() -> {
             Discovery locked = discoveryRepository.findWithLockByUuid(discoveryUuid).orElse(null);
             // The snapshot this decision started from predates the connector call. Re-assert both halves of the
@@ -260,14 +261,14 @@ public class DiscoveryDrainTickWorker {
             // handed it over — swapping again would publish a second PROCESS tick against the same run.
             if (locked == null || locked.getStatus() != DiscoveryStatus.IN_PROGRESS
                     || !DiscoveryRunState.COMPLETED.getCode().equals(locked.getConnectorState())) {
-                return null;
+                return Optional.empty();
             }
             long acknowledged = locked.getLastAppliedSequence();
             if (highestSequence != null && acknowledged < highestSequence) {
                 logger
                         .info("Discovery {} drained to {} of {} items; staying in the drain", discoveryUuid,
                                 acknowledged, highestSequence);
-                return null;
+                return Optional.empty();
             }
             List<MetadataAttribute> handle = locked.getRunMeta();
             locked.setStatus(DiscoveryStatus.PROCESSING);
@@ -283,7 +284,7 @@ public class DiscoveryDrainTickWorker {
                     .schedule(discoveryUuid, DiscoveryWorkType.PROCESS,
                             OffsetDateTime.now(ZoneOffset.UTC).plus(continuationBackstop));
             logger.info("Discovery {} drained {} items in full; processing them now", discoveryUuid, acknowledged);
-            return handle;
+            return Optional.of(new Handover(handle));
         });
     }
 
@@ -318,6 +319,18 @@ public class DiscoveryDrainTickWorker {
      * A tick the connector did not answer. Below the budget the run keeps its agenda row; a direct-published
      * continuation that fails gets one turn at its own cadence before the sweep's claimer takes over the ladder.
      */
+    /**
+     * A handover that happened, carrying the connector handle it released.
+     *
+     * <p>
+     * A type rather than a nullable handle, because the handle itself is legitimately absent: the contract marks a
+     * run's {@code meta} optional, so "no handle" and "no handover" are different answers that a bare null conflated —
+     * and reading a handle-less handover as "no swap" skipped both the {@code PROCESS} publication and the full
+     * acknowledgement for a run that had in fact handed over.
+     */
+    private record Handover(List<MetadataAttribute> releasedHandle) {
+    }
+
     private void handleUnanswered(UUID discoveryUuid, int attempt, Throwable e) {
         if (!budget
                 .spendOnUnanswered(discoveryUuid, DiscoveryWorkType.DRAIN, attempt, e,
