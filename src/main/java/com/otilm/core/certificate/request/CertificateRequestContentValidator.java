@@ -22,6 +22,7 @@ import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.util.AttributeDefinitionUtils;
+import com.otilm.core.util.StructuredExtensionCodec;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -233,10 +234,13 @@ public class CertificateRequestContentValidator {
      * <p>
      * The rules are the attribute semantics the platform already has, not new ones: a predefined list is a
      * <em>permitted</em> set (membership, as {@code AttributeEngine} enforces for any list attribute), {@code required}
-     * demands a non-empty one, and {@code extensibleList} lifts the restriction. There is no pinned-set case:
-     * {@code readOnly} would express it, but a read-only attribute cannot be a list and a set-valued target must be
-     * one. Whitelisting is handled by {@link #checkStructuredWhitelist}, because the parser diverts these OIDs out of
-     * the extension list and the generic extension pass cannot see them.
+     * demands a non-empty one, and {@code extensibleList} lifts the restriction — except for an item the platform
+     * cannot name at all, which {@code X509RequestContentParser} reports through
+     * {@code ParsedRequestContent.unrepresentableExtensionValues} and the whitelist pass rejects regardless. An
+     * unnameable item can never be judged against a vocabulary, so it fails closed even here. There is no pinned-set
+     * case: {@code readOnly} would express it, but a read-only attribute cannot be a list and a set-valued target must
+     * be one. Whitelisting is handled by {@link #checkStructuredWhitelist}, because the parser diverts these OIDs out
+     * of the extension list and the generic extension pass cannot see them.
      */
     private static void validateStructuredTarget(DataAttributeV3 def, String extensionOid, X509RequestContent content,
             boolean required, RequestAttributePolicy policy, RequestAttributeValidationResult result) {
@@ -273,11 +277,14 @@ public class CertificateRequestContentValidator {
             RequestAttributePolicy policy, RequestAttributeValidationResult result) {
         for (String extensionOid : List
                 .of(StructuredExtensionCodec.KEY_USAGE_OID, StructuredExtensionCodec.EXTENDED_KEY_USAGE_OID)) {
-            if (mappedStructuredOids.contains(extensionOid) || structuredValues(extensionOid, content).isEmpty()) {
+            List<String> present = structuredValues(extensionOid, content);
+            if (mappedStructuredOids.contains(extensionOid) || present.isEmpty()) {
                 continue;
             }
-            recordViolation(result, policy, "%s is not allowed by the request-attribute set"
-                    .formatted(StructuredExtensionCodec.structuredTargetName(extensionOid)));
+            // Name the requested items, as the RDN, SAN and extension passes do — "not allowed" without
+            // saying what was asked for leaves the operator guessing.
+            recordViolation(result, policy, "%s %s is not allowed by the request-attribute set"
+                    .formatted(StructuredExtensionCodec.structuredTargetName(extensionOid), present));
         }
     }
 

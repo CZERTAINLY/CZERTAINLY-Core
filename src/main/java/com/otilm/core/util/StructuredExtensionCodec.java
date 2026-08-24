@@ -1,4 +1,4 @@
-package com.otilm.core.certificate.request;
+package com.otilm.core.util;
 
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
@@ -32,6 +32,11 @@ import org.bouncycastle.asn1.DERSequence;
  * <p>
  * Both directions speak the extension's <em>inner value</em> DER, base64-encoded — what
  * {@code getExtnValue().getOctets()} yields and what {@code ExtensionsGenerator.addExtension} consumes.
+ *
+ * <p>
+ * Lives beside {@link X509RequestContentRenderer}, which is its only encoding caller, so that
+ * {@code com.otilm.core.util} gains no dependency on {@code com.otilm.core.certificate.request} — that package already
+ * depends on this one, and the reverse edge would close a cycle.
  *
  * <p>
  * No Spring context required; all methods are static.

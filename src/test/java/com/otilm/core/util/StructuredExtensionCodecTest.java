@@ -1,4 +1,4 @@
-package com.otilm.core.certificate.request;
+package com.otilm.core.util;
 
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.v3.mapping.ExtendedKeyUsageMappedField;

@@ -15,6 +15,7 @@ import com.otilm.core.model.request.Pkcs10CertificateRequest;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.util.PlatformX500NameStyle;
+import com.otilm.core.util.StructuredExtensionCodec;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;

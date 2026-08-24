@@ -7,7 +7,6 @@ import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
-import com.otilm.core.certificate.request.StructuredExtensionCodec;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import java.io.IOException;
