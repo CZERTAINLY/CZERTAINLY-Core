@@ -16,6 +16,7 @@ import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.discovery.DiscoveryProcessTickWorker;
+import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import com.otilm.core.util.BaseSpringBootTest;
@@ -63,6 +64,8 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
     @Autowired
     private DiscoveryProcessTickWorker worker;
+    @Autowired
+    private DiscoveryRunTerminator terminator;
     @Autowired
     private DiscoveryWorkProperties workProperties;
     @Autowired
@@ -113,7 +116,36 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     }
 
     @Test
-    void batchThatDied_isReclaimedByTheNextTickRatherThanSkipped() throws Exception {
+    void batchThatDiedPartWayThrough_reclaimsOnlyTheRowsItNeverStamped() throws Exception {
+        Discovery run = processingRun();
+        // One content carrying three rows, so a single batch can die with part of its work committed. The
+        // pipeline stamps a group's rows in their own transaction, so what it committed outlives the throw.
+        stageCertificatesSharingContent(run, 3);
+        stampsOneRowThenDies();
+
+        worker.tick(run.getUuid(), 0);
+
+        // A stamped row is an outcome, and the cursor is the only record of progress there is: reclaiming it
+        // would run its triggers, histories and validation a second time.
+        assertThat(backlog(run)).isEqualTo(2);
+        assertThat(processRow(run).getAttempt())
+                .as("a tick that accounted for something is progress, not a stall")
+                .isZero();
+
+        importsCleanly();
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(claimedBatchSizes)
+                .as("the second tick claims the remainder, never the stamped row")
+                .containsExactly(3, 2);
+        assertThat(backlog(run)).isZero();
+        // WARNING rather than COMPLETED: the caught batch failure appended to the run's message log, and the
+        // terminal decision reads that log as evidence. Narrowing it to unrecovered problems is core#2127.
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.WARNING);
+    }
+
+    @Test
+    void batchThatFailedBeforeStampingAnything_leavesTheBacklogIntact() throws Exception {
         Discovery run = processingRun();
         stageCertificates(run, 2);
         doThrow(new IllegalStateException("pod died mid-batch")).when(importHandler).processBatch(any(), anyList());
@@ -308,11 +340,60 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         assertThat(workRepository.findAll()).isEmpty();
     }
 
+    // ------------------------------------------------------------------ how a run ends
+
+    @Test
+    void warningFromRunLevelEvidenceAlone_doesNotSendTheOperatorToTheCertificateList() throws Exception {
+        Discovery run = processingRun();
+        // A run-level gap with every row clean: a bookkeeping write that failed, or validation never queued.
+        discoveryWriter.appendRunMessages(run.getUuid(), List.of("Validation was not requested for 3 certificates."));
+
+        worker.tick(run.getUuid(), 0);
+
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.WARNING);
+        assertThat(reloaded.getMessage())
+                .as("no row carries a reason, so the certificate list has nothing for the operator to find")
+                .isEqualTo("Discovery completed with warnings. See this run's messages.");
+    }
+
+    @Test
+    void rowStagedBeforeTheEndingCommits_stopsTheRunFromEnding() {
+        Discovery run = processingRun();
+        stageCertificates(run, 1);
+
+        // What a drain page in flight across the handover does: its rows land while the process worker is
+        // between counting an empty backlog and ending the run. Ending on the earlier count would leave them
+        // staged, counted by nobody and never imported.
+        boolean ended = terminator
+                .endWhile(run.getUuid(), DiscoveryStatus.COMPLETED, "Discovery completed successfully.",
+                        () -> backlog(run) == 0);
+
+        assertThat(ended).isFalse();
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+        assertThat(agenda(run)).as("the run is still live, so its agenda must not be taken").hasSize(1);
+    }
+
     // ------------------------------------------------------------------ fixtures
 
     /** Stubs the pipeline to do what a clean import does: stamp every row of the batch as processed. */
     private void importsCleanly() throws Exception {
         importsWith(new DiscoveryRunCounts(0, 0, 0, 0, false));
+    }
+
+    /** A pipeline pass that commits one row's outcome and then dies — a pod lost part way through a batch. */
+    private void stampsOneRowThenDies() throws Exception {
+        doAnswer(invocation -> {
+            List<DiscoveryCertificate> batch = invocation.getArgument(1);
+            claimedBatchSizes.add(batch.size());
+            discoveryWriter.markProcessed(List.of(batch.get(0).getUuid()), null);
+            throw new IllegalStateException("pod died mid-batch");
+        }).when(importHandler).processBatch(any(), anyList());
+    }
+
+    private long backlog(Discovery run) {
+        return certificateRepository
+                .countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(run.getUuid());
     }
 
     /** A pipeline pass that records reasons but stamps nothing — what an unreachable batch looks like. */

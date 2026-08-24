@@ -9,6 +9,7 @@ import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,21 +56,37 @@ public class DiscoveryRunTerminator {
      * @return whether this call was the one that ended the run
      */
     public boolean endConnectorOwned(UUID discoveryUuid, DiscoveryStatus status, String reason) {
-        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::hasLeftTheConnector);
+        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::hasLeftTheConnector, () -> true);
     }
 
     /**
      * @return whether this call was the one that ended the run
      */
     public boolean end(UUID discoveryUuid, DiscoveryStatus status, String reason) {
-        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::isTerminal);
+        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::isTerminal, () -> true);
+    }
+
+    /**
+     * Ends a run only while {@code stillTrue} holds, re-checked under the run row's lock.
+     *
+     * <p>
+     * For an ending whose precondition another transaction can invalidate between the caller reading it and the ending
+     * committing. Reading it again here is what serialises the two: anything that could falsify it takes the same row
+     * lock, so it either commits before this check sees it or waits until after the run has ended.
+     *
+     * @return whether this call was the one that ended the run — false both when the run had already ended and when
+     * {@code stillTrue} no longer holds
+     */
+    public boolean endWhile(UUID discoveryUuid, DiscoveryStatus status, String reason, BooleanSupplier stillTrue) {
+        return endIf(discoveryUuid, status, reason, DiscoveryRunLifecycle::isTerminal, stillTrue);
     }
 
     /**
      * @param alreadyPast states from which this ending is no longer the caller's to make
+     * @param stillTrue the caller's own precondition, re-read inside the locked transaction
      */
     private boolean endIf(UUID discoveryUuid, DiscoveryStatus status, String reason,
-            Predicate<DiscoveryStatus> alreadyPast) {
+            Predicate<DiscoveryStatus> alreadyPast, BooleanSupplier stillTrue) {
         return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
             Discovery run = discoveryRepository.findWithLockByUuid(discoveryUuid).orElse(null);
             if (run == null) {
@@ -77,6 +94,10 @@ public class DiscoveryRunTerminator {
             }
             if (alreadyPast.test(run.getStatus())) {
                 logger.debug("Discovery {} is already {}; leaving it alone", discoveryUuid, run.getStatus());
+                return false;
+            }
+            if (!stillTrue.getAsBoolean()) {
+                logger.debug("Discovery {} is no longer ready to end; leaving it alone", discoveryUuid);
                 return false;
             }
             applyTerminalState(run, status, reason);

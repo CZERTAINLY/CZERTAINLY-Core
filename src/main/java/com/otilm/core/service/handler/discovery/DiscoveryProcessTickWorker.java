@@ -208,26 +208,47 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Ends the run on the evidence its own rows carry: any row that recorded a reason it could not be imported makes
-     * the run a WARNING, so a partial success is never reported as a clean one.
+     * Ends the run on the evidence it carries, and only while the backlog is still empty.
+     *
+     * <p>
+     * The emptiness this tick measured was read outside any lock, and a drain page in flight across the handover can
+     * still stage rows into a {@code PROCESSING} run. Re-reading the backlog inside the terminal transaction is what
+     * orders the two: staging holds the run row's lock across its whole page, so a late page either commits before this
+     * check counts it — and the run carries on processing — or lands after the ending and is refused as terminal.
+     * Ending on the unlocked count instead would leave those rows staged, counted by nobody and never imported.
      */
     private void finish(UUID discoveryUuid) {
         // Two kinds of evidence, because not every shortfall lands on a row. A bookkeeping write that itself
         // failed, or validation never being requested, is a run-level gap with every row still clean -- reading
         // only the rows would report such a run as a clean success. On a v2 run every writer into the message
         // log is reporting a problem, so a non-empty log is exactly the run-level evidence needed.
-        boolean anyFailed = certificateRepository.existsByDiscoveryUuidAndProcessedErrorIsNotNull(discoveryUuid)
-                || discoveryRepository
-                        .findByUuid(discoveryUuid)
-                        .map(run -> run.getRunMessages() != null && !run.getRunMessages().isEmpty())
-                        .orElse(false);
-        if (anyFailed) {
-            terminator
-                    .end(discoveryUuid, DiscoveryStatus.WARNING,
-                            "Discovery completed with warnings. See this run's messages, and the discovery "
-                                    + "certificate list for per-certificate detail.");
-        } else {
-            terminator.end(discoveryUuid, DiscoveryStatus.COMPLETED, "Discovery completed successfully.");
+        boolean rowsFailed = certificateRepository.existsByDiscoveryUuidAndProcessedErrorIsNotNull(discoveryUuid);
+        boolean runLevelGaps = discoveryRepository
+                .findByUuid(discoveryUuid)
+                .map(run -> run.getRunMessages() != null && !run.getRunMessages().isEmpty())
+                .orElse(false);
+        DiscoveryStatus status = rowsFailed || runLevelGaps ? DiscoveryStatus.WARNING : DiscoveryStatus.COMPLETED;
+        if (!terminator
+                .endWhile(discoveryUuid, status, endingReason(status, rowsFailed),
+                        () -> backlogOf(discoveryUuid) == 0)) {
+            long late = backlogOf(discoveryUuid);
+            if (late > 0) {
+                continueProcessing(discoveryUuid, late);
+            }
         }
+    }
+
+    /**
+     * Sends the operator only where there is something to find. A run warned on run-level evidence alone has no row
+     * carrying a reason, so pointing it at the certificate list would be pointing at a list of clean rows.
+     */
+    private static String endingReason(DiscoveryStatus status, boolean rowsFailed) {
+        if (status != DiscoveryStatus.WARNING) {
+            return "Discovery completed successfully.";
+        }
+        return rowsFailed
+                ? "Discovery completed with warnings. See this run's messages, and the discovery certificate list "
+                        + "for per-certificate detail."
+                : "Discovery completed with warnings. See this run's messages.";
     }
 }

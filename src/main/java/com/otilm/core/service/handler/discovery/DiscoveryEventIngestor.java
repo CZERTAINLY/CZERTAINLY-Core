@@ -101,8 +101,9 @@ public class DiscoveryEventIngestor {
         if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
             // Terminal only, where every other guard in the engine uses hasLeftTheConnector. PROCESSING is
             // deliberately still open to staging: a page in flight across the handover carries items the run has
-            // not imported yet, and the process worker recounts its backlog every tick, so they are picked up
-            // rather than lost. Refusing them here is the one way this page's items could vanish silently.
+            // not imported yet, and the process worker picks them up on its next tick. What makes that safe is
+            // the run row lock held here -- the worker re-reads the backlog under the same lock before it ends
+            // the run, so a page either lands in time to be imported or finds the run already terminal here.
             logger.warn("Dropping drain page for discovery {}: the run ended as {}", discoveryUuid, run.getStatus());
             return false;
         }
