@@ -14,8 +14,8 @@ class DiscoveryTickWorkerConfigTest {
 
     @Test
     void nonPositiveProcessingBatchSize_isRefusedAtStartup() {
-        // Left to a tick, this throws inside PageRequest.of before the worker reaches any bounded path, so the
-        // listener acknowledges it and nothing ever ends the run: PROCESSING forever.
+        // Left to a tick, this throws inside PageRequest.of and reaches the listener's log-and-acknowledge
+        // instead (see DiscoveryProcessTickWorker).
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> processWorkerWithBatchSize(0))
                 .withMessageContaining("discovery.processing.batch-size");
@@ -36,9 +36,8 @@ class DiscoveryTickWorkerConfigTest {
 
     @Test
     void nonPositiveContinuationBackstop_isRefusedAtStartup() {
-        // Both workers park their backstop row and publish the continuation themselves. A backstop that is not
-        // in the future leaves a due-now row for the sweep to claim and publish alongside it, so the failure
-        // reads as duplicate processing rather than as the misconfiguration it is.
+        // Both workers park their backstop row and publish the continuation themselves; see DiscoveryWorkWriter
+        // for why it must be due in the future.
         for (Duration notABackstop : List.of(Duration.ZERO, Duration.ofSeconds(-1))) {
             assertThatIllegalArgumentException()
                     .isThrownBy(() -> processWorkerWith(200, notABackstop))

@@ -42,8 +42,8 @@ import static org.mockito.Mockito.when;
  * point of these tests is what each answer does to the run row and its agenda, not how the call is transported.
  *
  * <p>
- * Not {@code @Transactional}: the worker commits in its own transactions, so seeded data has to be committed too
- * ({@code TestDatabaseCleaner} wipes it between tests).
+ * The worker commits in its own transactions, so seeded data has to be committed too ({@code TestDatabaseCleaner} wipes
+ * it between tests).
  */
 class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
 
@@ -60,8 +60,6 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
     private DiscoveryWorkWriter workWriter;
     @Autowired
     private DiscoveryWorkProperties workProperties;
-
-    // ------------------------------------------------------------------ live answers
 
     @Test
     void runningAnswer_keepsTheRunInProgressAndRefreshesTheBudget() throws Exception {
@@ -160,8 +158,6 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
                 .containsExactlyInAnyOrder(DiscoveryWorkType.STATUS, DiscoveryWorkType.DRAIN);
     }
 
-    // ------------------------------------------------------------------ terminal answers
-
     @Test
     void failedAnswer_endsTheRunAndReleasesItsAgendaAndHandle() throws Exception {
         Discovery run = v2Run(DiscoveryStatus.IN_PROGRESS);
@@ -188,8 +184,6 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.CANCELLED);
         assertThat(agenda(run)).isEmpty();
     }
-
-    // ------------------------------------------------------------------ unanswered ticks
 
     @Test
     void runTheConnectorNoLongerTracks_endsFailedWithoutWaitingOutTheBudget() throws Exception {
@@ -245,9 +239,8 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
 
         worker.tick(run.getUuid(), 3);
 
-        // The state is required on the wire, so its absence is not an answer. Reading it as one would put the
-        // null through state.getCode() inside the transaction, where it escapes the connector-call catch and is
-        // merely acknowledged -- and the tick then retries past its budget forever.
+        // The state is required on the wire, so its absence must not be read as an answer (see
+        // DiscoveryStatusTickWorker#tick).
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
         assertThat(statusRow(run).getAttempt())
                 .as("a non-answer must not refresh the budget it is spending")
@@ -268,8 +261,6 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
         assertThat(reloaded.getMessage()).contains("omitted the run state");
         assertThat(agenda(run)).isEmpty();
     }
-
-    // ------------------------------------------------------------------ ticks with nothing to do
 
     @Test
     void terminalRun_dropsTheTickAndClearsAnyLeftoverAgenda() throws Exception {
@@ -308,8 +299,6 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
 
         assertThat(workRepository.findAll()).isEmpty();
     }
-
-    // ------------------------------------------------------------------ fixtures
 
     private void answers(DiscoveryStatusResponseDto response) throws Exception {
         when(client.status(any())).thenReturn(response);

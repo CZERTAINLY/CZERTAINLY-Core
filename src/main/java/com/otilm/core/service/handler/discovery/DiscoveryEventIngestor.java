@@ -258,7 +258,7 @@ public class DiscoveryEventIngestor {
                         .add("Certificate %s could not be staged: its payload was not a certificate".formatted(ref)));
         if (!certificates.isEmpty()) {
             // Certificates keep the v1 staging table and its write, so discovery_certificate stays the single
-            // certificate store until the evidence-gated unification (core#2027).
+            // certificate store.
             problems.addAll(certificateHandler.stageDiscoveredCertificates(batchLabel(items), run, certificates, true));
         }
         if (!problems.isEmpty()) {
@@ -275,7 +275,7 @@ public class DiscoveryEventIngestor {
      * connector may re-send an item under a newer sequence, where the cursor filter no longer catches it. Only the
      * page's own references are looked up rather than the run's whole set, which on a large run is every certificate it
      * has found. Every drain for a run is serialised by the row lock this method runs under, so reading and filtering
-     * is enough; the table's partial unique index is the backstop, not the mechanism.
+     * does the dedupe; the table's partial unique index only backstops it.
      */
     private Set<String> alreadyStagedRefs(Discovery run, List<DiscoveredItemDto> items) {
         Set<String> refs = items
@@ -290,7 +290,7 @@ public class DiscoveryEventIngestor {
         return new HashSet<>(certificateRepository.findStagedRefs(run.getUuid(), refs));
     }
 
-    /** Names the page by what it carried, not by where the cursor stood before it. */
+    /** Names the page by what it carried. */
     private static String batchLabel(List<DiscoveredItemDto> items) {
         return "drain@" + items.stream().mapToLong(DiscoveryEventIngestor::sequenceOf).max().orElse(0L);
     }
@@ -356,8 +356,8 @@ public class DiscoveryEventIngestor {
                             run.getUuid(), run.getStatus());
             return;
         }
-        // Expedited, not armed: a pushed event is not an answer from the connector, so it may bring the tick
-        // forward but must not refresh a failure budget no successful call has earned.
+        // Only brings the tick forward: a pushed event is not an answer from the connector, so it must not
+        // refresh a budget no successful call has earned.
         workWriter.expedite(run.getUuid(), workType, OffsetDateTime.now(ZoneOffset.UTC));
     }
 

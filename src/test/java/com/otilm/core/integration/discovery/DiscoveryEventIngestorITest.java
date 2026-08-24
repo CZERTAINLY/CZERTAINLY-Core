@@ -58,8 +58,6 @@ class DiscoveryEventIngestorITest extends BaseSpringBootTest {
     @PersistenceContext
     private EntityManager entityManager;
 
-    // ------------------------------------------------------------------ drain pages
-
     @Test
     void drainPage_stagesItsItemsAndAdvancesTheCursorToTheHighestOneReceived() {
         Discovery run = v2Run(DiscoveryStatus.IN_PROGRESS);
@@ -158,8 +156,6 @@ class DiscoveryEventIngestorITest extends BaseSpringBootTest {
         assertThat(certificateRepository.countByDiscovery(reload(second))).isEqualTo(1);
     }
 
-    // ------------------------------------------------------------------ advisory events
-
     @Test
     void stateChangedEvent_asksForAStatusTickWithoutCommittingTheStateItReports() {
         Discovery run = v2Run(DiscoveryStatus.IN_PROGRESS);
@@ -242,8 +238,6 @@ class DiscoveryEventIngestorITest extends BaseSpringBootTest {
                 .as("the terminal transition deleted this run's agenda; nothing may put work back")
                 .isEmpty();
     }
-
-    // ------------------------------------------------------------------ fixtures
 
     private DiscoveryResultsResponseDto page(long highestSequence, boolean more, DiscoveredItemDto... items) {
         DiscoveryResultsResponseDto page = new DiscoveryResultsResponseDto();

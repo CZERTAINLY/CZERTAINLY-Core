@@ -77,9 +77,8 @@ public class DiscoveryDrainTickWorker {
         if (maxBytes <= 0) {
             throw new IllegalArgumentException("discovery.drain.max-bytes must be positive");
         }
-        // Parked due-now or in the past, the backstop row is one the sweep claims and publishes alongside the
-        // continuation this worker publishes itself -- two drains against the same run, which is the race the
-        // backstop exists to prevent.
+        // Must be positive: see DiscoveryWorkWriter's backstop invariant -- a due-now value races the sweep into
+        // publishing a duplicate drain against the same run.
         if (continuationBackstop.isZero() || continuationBackstop.isNegative()) {
             throw new IllegalArgumentException("discovery.work.continuation-backstop must be positive");
         }
@@ -108,8 +107,8 @@ public class DiscoveryDrainTickWorker {
             page = client.results(run, maxItems, maxBytes);
         } catch (ConnectorException | RuntimeException e) {
             // RuntimeException too: over MQ a 422 arrives as an unchecked ValidationException and a bodiless 2xx
-            // as IllegalStateException. Left to escape, both reach the listener's log-and-acknowledge and the
-            // tick retries forever having spent no budget.
+            // as IllegalStateException. Left to escape, both reach the listener's log-and-acknowledge (see
+            // DiscoveryWorkListener) and spend no budget.
             handleUnanswered(discoveryUuid, attempt, e);
             return;
         } catch (NotFoundException | AttributeException e) {
@@ -133,9 +132,9 @@ public class DiscoveryDrainTickWorker {
             advanced = ingestor.applyDrainPage(discoveryUuid, page);
         } catch (RuntimeException e) {
             // Staging sits outside the connector-call catch, so without this a deterministic page failure -- a
-            // payload that will not serialize, a constraint violation -- escapes to the listener, which
-            // acknowledges it. The agenda would go on retrying the same poison page forever, never reaching the
-            // budget. The page's transaction has already rolled back, so the cursor is untouched either way.
+            // payload that will not serialize, a constraint violation -- escapes to the listener's
+            // log-and-acknowledge and the same poison page retries forever, never reaching the budget. The page's
+            // transaction has already rolled back, so the cursor is untouched either way.
             handleUnstageable(discoveryUuid, attempt, e);
             return;
         }
@@ -278,8 +277,8 @@ public class DiscoveryDrainTickWorker {
             // Delete then schedule inside one transaction: a live run's agenda must never be observably
             // empty, or the reaper would read it as lost work.
             workWriter.deleteForRun(discoveryUuid);
-            // Parked, not due-now: the caller publishes this tick directly, and a due-now row is one the sweep
-            // would claim and publish as well, putting two workers onto the same unclaimed certificate batch.
+            // Parked ahead of due-now: this tick is published directly, and a due-now row here would let the
+            // sweep claim and publish it too, putting two workers onto the same unclaimed certificate batch.
             workWriter
                     .schedule(discoveryUuid, DiscoveryWorkType.PROCESS,
                             OffsetDateTime.now(ZoneOffset.UTC).plus(continuationBackstop));
@@ -290,12 +289,8 @@ public class DiscoveryDrainTickWorker {
 
     /**
      * Commits the agenda row as the backstop for the next page — which also clears the attempt counter this successful
-     * page earned back — and then publishes the follow-up tick directly.
-     *
-     * <p>
-     * The row is committed first, so a publish that never lands is still picked up, and one backstop interval out
-     * rather than due-now: a due-now row is one the sweep will claim and publish itself, turning the table from a
-     * backstop into a second publisher racing this one.
+     * page earned back — and then publishes the follow-up tick directly. Committed first, so a publish that never lands
+     * is still picked up; see {@link DiscoveryWorkWriter} for why the row is due one backstop interval out.
      */
     private void drainAgain(UUID discoveryUuid, String why) {
         logger.debug("Draining discovery {} again immediately: {}", discoveryUuid, why);
@@ -319,6 +314,16 @@ public class DiscoveryDrainTickWorker {
      * A tick the connector did not answer. Below the budget the run keeps its agenda row; a direct-published
      * continuation that fails gets one turn at its own cadence before the sweep's claimer takes over the ladder.
      */
+    private void handleUnanswered(UUID discoveryUuid, int attempt, Throwable e) {
+        if (!budget
+                .spendOnUnanswered(discoveryUuid, DiscoveryWorkType.DRAIN, attempt, e,
+                        "The connector stopped handing over discovered items for this run")) {
+            logger
+                    .warn("Drain {} for discovery {} failed, retrying when next due: {}", attempt, discoveryUuid,
+                            e.getMessage());
+        }
+    }
+
     /**
      * A handover that happened, carrying the connector handle it released.
      *
@@ -329,15 +334,5 @@ public class DiscoveryDrainTickWorker {
      * acknowledgement for a run that had in fact handed over.
      */
     private record Handover(List<MetadataAttribute> releasedHandle) {
-    }
-
-    private void handleUnanswered(UUID discoveryUuid, int attempt, Throwable e) {
-        if (!budget
-                .spendOnUnanswered(discoveryUuid, DiscoveryWorkType.DRAIN, attempt, e,
-                        "The connector stopped handing over discovered items for this run")) {
-            logger
-                    .warn("Drain {} for discovery {} failed, retrying when next due: {}", attempt, discoveryUuid,
-                            e.getMessage());
-        }
     }
 }

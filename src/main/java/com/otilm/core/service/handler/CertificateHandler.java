@@ -172,22 +172,15 @@ public class CertificateHandler {
     }
 
     /**
-     * Stages a batch of discovered certificates — the single entry point for both discovery generations, reached
-     * through the proxy by each of them rather than by self-invocation, which would leave this boundary inert.
+     * Stages a batch of discovered certificates, the single entry point for both discovery generations. {@code
+     * REQUIRED} so it joins whichever caller's transaction is active: v1's own per-batch transaction, or v2's ingestor
+     * transaction so staged rows commit together with the cursor advance.
      *
-     * <p>
-     * {@code REQUIRED} serves both, because their callers differ in exactly the right way. The v1 download path calls
-     * from a virtual thread holding no transaction, so each batch opens and commits its own and a later batch's failure
-     * cannot undo it. The v2 drain calls from inside the ingestor's transaction and joins it, so staged rows and the
-     * ingestion cursor accounting for them commit together.
-     *
-     * @param refsDedupeWithinRun whether each certificate's {@code uuid} is the connector's key for <i>this
-     * occurrence</i>, unique within the run. True only for v2, whose contract defines it that way; the reference is
-     * then stored and the run's unique index holds callers to it. A v1 provider uuid names a certificate rather than an
-     * occurrence, so it is not stored and the constraint does not apply to v1 rows.
-     * @return one description per certificate that could not be staged. A certificate that fails to parse produces no
-     * row to carry a {@code processed_error}, so v2 folds these into the run's message log instead; the v1 caller
-     * discards them, keeping its log-and-continue behaviour unchanged.
+     * @param refsDedupeWithinRun true only for v2: the certificate's {@code uuid} is the connector's per-occurrence
+     * key, stored as {@code uniqueRef} and enforced by the run's unique index. A v1 provider uuid names the certificate
+     * itself, so it is not stored.
+     * @return one description per certificate that could not be staged; v1 discards these, v2 files them in the run's
+     * message log.
      */
     @Transactional
     public List<String> stageDiscoveredCertificates(String batch, Discovery discovery,

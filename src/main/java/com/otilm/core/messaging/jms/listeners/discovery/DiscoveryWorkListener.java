@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
  * Consumes {@code provider.discovery-work} ticks and hands each to the worker for its type.
  *
  * <p>
- * <b>No {@code @Transactional} here:</b> a tick calls the connector, and a connector call must never run inside a
- * transaction or hold a row lock. Each worker opens its own short transactions around the writes its answer justifies.
+ * Transaction-free: a tick calls the connector, and a connector call must never run inside a transaction or hold a row
+ * lock. Each worker opens its own short transactions around the writes its answer justifies.
  *
  * <p>
  * <b>A failed tick is acknowledged, not redelivered.</b> Retry is the {@code discovery_work} agenda's job: the row was

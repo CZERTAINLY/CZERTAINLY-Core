@@ -19,8 +19,6 @@ class DiscoveryConnectorErrorsTest {
 
     private static final URI INSTANCE = URI.create("https://example.com/discovery");
 
-    // ------------------------------------------------------------------ is the run still tracked
-
     @Test
     void notTrackedOn404_isDefinitive() {
         assertThat(DiscoveryConnectorErrors.isRunNoLongerTracked(problem(ErrorCode.OPERATION_NOT_TRACKED))).isTrue();
@@ -28,16 +26,15 @@ class DiscoveryConnectorErrorsTest {
 
     @Test
     void terse404WithNoProblemBody_isDefinitiveToo() {
-        // What the AMQP proxy leaves after discarding the problem body. Reading only the error code would miss
-        // every tunneled 404 and leave the run burning its whole budget against a connector that has forgotten it.
+        // What the AMQP proxy leaves after discarding the problem body (see
+        // DiscoveryConnectorErrors#isRunNoLongerTracked for why both shapes are accepted).
         assertThat(DiscoveryConnectorErrors.isRunNoLongerTracked(new ConnectorEntityNotFoundException("gone")))
                 .isTrue();
     }
 
     @Test
     void notTrackedCodeOnANon404_isNotDefinitive() {
-        // REGISTRATION_NOT_FOUND is declared on a 422, where it means something else entirely. The status has to
-        // gate the code, or a 422 would be answered as "this run no longer exists".
+        // REGISTRATION_NOT_FOUND is also declared on a 422, meaning something else entirely there.
         assertThat(DiscoveryConnectorErrors.isRunNoLongerTracked(problem(ErrorCode.REGISTRATION_NOT_FOUND))).isFalse();
     }
 
@@ -56,8 +53,6 @@ class DiscoveryConnectorErrorsTest {
     void nonConnectorFailure_isNotDefinitive() {
         assertThat(DiscoveryConnectorErrors.isRunNoLongerTracked(new IllegalStateException("boom"))).isFalse();
     }
-
-    // ------------------------------------------------------------------ what an operator is told
 
     @Test
     void knownCodes_yieldCoreAuthoredText() {

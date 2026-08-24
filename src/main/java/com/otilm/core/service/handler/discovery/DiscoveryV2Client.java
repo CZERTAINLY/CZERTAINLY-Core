@@ -101,8 +101,8 @@ public class DiscoveryV2Client {
         populate(request, run, connector);
         request.setAfterSequence(afterSequence);
         request.setMaxItems(maxItems);
-        // Clamped rather than trusted: the cap is the contract's, and a configured value above it produces a
-        // request the connector rejects on every single drain.
+        // Clamped to the contract's cap: a configured value above it would produce a request the connector
+        // rejects on every single drain.
         request.setMaxBytes(Math.min(maxBytes, DiscoveryDrainRequestDto.MAX_BYTES_CAP));
         return connectorApiFactory.getDiscoveryApiClientV2(connector).results(connector, request);
     }

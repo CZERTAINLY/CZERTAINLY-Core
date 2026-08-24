@@ -44,23 +44,18 @@ public final class DiscoveryConnectorErrors {
     }
 
     /**
-     * True when the connector says it no longer tracks the run. The contract makes this definitive — the connector-side
-     * run and its checkpoint are gone, so no amount of retrying brings them back and the run ends FAILED.
+     * True when the connector says it no longer tracks the run — the contract's own definitive signal that retrying
+     * cannot recover the run, which ends FAILED.
      *
      * <p>
-     * Both shapes a 404 arrives in are accepted, because the two transports carry different amounts of detail. Over
-     * REST the connector's RFC 9457 body survives and the error code is readable; over the AMQP proxy the body is
-     * discarded and the client raises {@link ConnectorEntityNotFoundException}, a plain {@code ConnectorException} — so
-     * testing only for a problem exception would miss every tunneled 404 and leave the run burning its whole attempt
-     * budget against a connector that has already forgotten it.
-     *
-     * <p>
-     * <b>The status gates the code, not the other way round.</b> {@code REGISTRATION_NOT_FOUND} — which the shared
-     * predicate accepts as authority's flavour of not-tracked — is declared on a 422, and a 422 means something else
-     * entirely here. Read as an {@code int} rather than through {@code getHttpStatus()}, which calls
-     * {@code HttpStatus.valueOf} and throws for a valid code with no enum constant such as 499, replacing the
-     * connector's own failure with an unrelated one. This mirrors {@code DiscoveryApiClient.isRunNotTracked}, the
-     * library's own predicate for the same question.
+     * Accepts both shapes a 404 arrives in: over REST the connector's RFC 9457 body survives and the error code is
+     * readable, but over the AMQP proxy the body is discarded and the client raises a plain
+     * {@link ConnectorEntityNotFoundException} — testing only for a problem exception would miss every tunneled 404 and
+     * burn the run's whole attempt budget against a connector that has already forgotten it. The status gates the code
+     * rather than the reverse, since {@code REGISTRATION_NOT_FOUND} is also declared on a 422 meaning something else
+     * entirely; read as an {@code int} rather than through {@code getHttpStatus()}, which throws for a valid code with
+     * no enum constant such as 499. Mirrors {@code DiscoveryApiClient.isRunNotTracked}, the library's own predicate for
+     * the same question.
      */
     public static boolean isRunNoLongerTracked(Throwable e) {
         if (e instanceof ConnectorProblemException problem) {

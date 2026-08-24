@@ -96,8 +96,9 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
 
     // The connector's opaque run handle, replayed verbatim on every lifecycle call and nulled on every
     // terminal transition. Typed as the wire's own handle shape so it round-trips untouched — Core never reads
-    // into it. S1948: every entity is Serializable via UniquelyIdentifiedObject, but nothing Java-serializes
-    // them — Jackson owns this JSONB field's persistence shape (same situation as Certificate's attribute lists).
+    // into it. S1948: every entity is Serializable via UniquelyIdentifiedObject, but nothing Java-serializes them
+    // today -- Jackson owns this JSONB field's persistence shape -- so the suppression holds only until Discovery
+    // enters a second-level cache or a distributed session, where it really would be Java-serialized.
     @SuppressWarnings("java:S1948")
     @Column(name = "run_meta", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
@@ -116,17 +117,20 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
 
     // The connector's latest progress report, written and read as one snapshot: a single value makes a torn
     // snapshot — fields mixed from two reports — unrepresentable under the concurrent writers (status poll,
-    // progress event). S1948: see runMeta.
+    // progress event). S1948: every entity is Serializable via UniquelyIdentifiedObject, but nothing
+    // Java-serializes them today -- Jackson owns this JSONB field's persistence shape -- so the suppression holds
+    // only until Discovery enters a second-level cache or a distributed session, where it really would be
+    // Java-serialized.
     @SuppressWarnings("java:S1948")
-    // Who started the run, so the agenda-driven work it schedules can act as them. The v1 flow carries this on its
-    // CERTIFICATE_DISCOVERED event and the event listener authenticates from there; a tick arrives with no such
-    // envelope, so the run is where it lives. Null for runs started without an authenticated caller.
-    @Column(name = "started_by_user_uuid")
-    private UUID startedByUserUuid;
-
     @Column(name = "progress", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private DiscoveryProgressDto progress;
+
+    // Who started the run, so the agenda-driven work it schedules can act as them. A tick arrives with no principal
+    // of its own, and the import pipeline enforces against whatever is on the thread. Null for runs started without
+    // an authenticated caller.
+    @Column(name = "started_by_user_uuid")
+    private UUID startedByUserUuid;
 
     @Column(name = "run_messages", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)

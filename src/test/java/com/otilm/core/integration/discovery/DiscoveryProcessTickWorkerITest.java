@@ -53,7 +53,7 @@ import static org.mockito.Mockito.verify;
  * behaviour has its own tests.
  *
  * <p>
- * Not {@code @Transactional}: the worker commits in its own transactions, so seeded data has to be committed too.
+ * The worker commits in its own transactions, so seeded data has to be committed too.
  */
 // One row per batch, so the walk through a backlog is observable rather than a single all-at-once pass.
 @TestPropertySource(properties = "discovery.processing.batch-size=1")
@@ -91,8 +91,6 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
     private final List<Integer> claimedBatchSizes = new ArrayList<>();
 
-    // ------------------------------------------------------------------ batching
-
     @Test
     void backlogLargerThanOneBatch_asksForTheNextBatchItself() throws Exception {
         Discovery run = processingRun();
@@ -117,9 +115,8 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
         worker.tick(run.getUuid(), 0);
 
-        // A tick arrives on a JMS thread with no principal, and the pipeline enforces CERTIFICATE:CREATE against
-        // whatever is on it. Without this the import is refused, and because importBatch swallows to reach its
-        // bounded stall path, the refusal surfaces as a run that quietly imported nothing.
+        // A tick arrives on a JMS thread with no principal, so without this the pipeline's CERTIFICATE:CREATE
+        // check refuses every batch (see DiscoveryProcessTickWorker#authenticateAsTheRunsUser).
         verify(authHelper).authenticateAsUser(RUN_OWNER);
     }
 
@@ -175,7 +172,7 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
                 .containsExactly(3, 2);
         assertThat(backlog(run)).isZero();
         // WARNING rather than COMPLETED: the caught batch failure appended to the run's message log, and the
-        // terminal decision reads that log as evidence. Narrowing it to unrecovered problems is core#2127.
+        // terminal decision reads that log as evidence.
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.WARNING);
     }
 
@@ -193,8 +190,7 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
                 .countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(run.getUuid()))
                 .isEqualTo(2);
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
-        // The failure must not escape to the listener, which logs and acknowledges it: the budget would go
-        // unspent and a persistent failure would strand the run in PROCESSING forever.
+        // Caught here, not left to the listener's log-and-acknowledge, which would spend no budget.
         assertThat(processRow(run).getAttempt())
                 .as("a batch that failed wholesale spends budget like any other tick that made no progress")
                 .isEqualTo(1);
@@ -227,8 +223,7 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
         worker.tick(run.getUuid(), lastAttempt);
 
-        // Stranded in PROCESSING forever is the v1 failure this worker exists to close, so the budget has to end
-        // the run — with a reason naming what was left behind — rather than back off indefinitely.
+        // The budget ends the run with a reason naming what was left behind, rather than backing off forever.
         Discovery reloaded = reload(run);
         assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.WARNING);
         assertThat(reloaded.getMessage()).contains("2 certificate(s) that could not be imported");
@@ -281,8 +276,6 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
                 .containsExactly(3);
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
     }
-
-    // ------------------------------------------------------------------ ending the run
 
     @Test
     void emptyBacklogWithNoFailures_endsTheRunCompleted() throws Exception {
@@ -341,8 +334,6 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         assertThat(agenda(run)).isEmpty();
     }
 
-    // ------------------------------------------------------------------ ticks with nothing to do
-
     @Test
     void runThatIsNotProcessing_dropsTheTickWithoutImportingAnything() throws Exception {
         Discovery run = processingRun();
@@ -374,8 +365,6 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
         assertThat(workRepository.findAll()).isEmpty();
     }
-
-    // ------------------------------------------------------------------ how a run ends
 
     @Test
     void warningFromRunLevelEvidenceAlone_doesNotSendTheOperatorToTheCertificateList() throws Exception {
@@ -427,8 +416,6 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         assertThat(ended).isTrue();
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.WARNING);
     }
-
-    // ------------------------------------------------------------------ fixtures
 
     /** Stubs the pipeline to do what a clean import does: stamp every row of the batch as processed. */
     private void importsCleanly() throws Exception {

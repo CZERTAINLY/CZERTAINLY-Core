@@ -18,6 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
  * A live run's agenda must never be observably empty: the reaper treats a non-terminal run with no agenda rows past its
  * creation grace as lost work. A caller replacing a run's last row therefore deletes and schedules in the same
  * transaction.
+ *
+ * <p>
+ * <b>A backstop row is due in the future, never due-now.</b> A worker that publishes its own continuation tick also
+ * writes a row here as a backstop for a publish that never lands. Due-now, that row races the sweep, which would claim
+ * and publish it too, putting two workers onto the same unclaimed work — so callers using {@link #schedule} or
+ * {@link #reschedule} this way pass a due time comfortably in the future.
  * </p>
  */
 @Component

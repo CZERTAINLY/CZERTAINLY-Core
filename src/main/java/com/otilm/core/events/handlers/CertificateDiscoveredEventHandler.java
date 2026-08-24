@@ -262,18 +262,10 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     /**
-     * Imports one bounded batch of a run's discovered certificates and reports what it counted — the v2 processing
-     * tick's entry point into the pipeline the v1 flow runs in a single pass.
-     *
-     * <p>
-     * Deliberately says nothing about the run as a whole: it emits no {@code DISCOVERY_FINISHED}, decides no final
-     * status, and does not care whether more batches follow. A v2 run is finished by its {@code PROCESS} worker, which
-     * is the only party that knows the backlog is empty. Per-certificate outcomes are still recorded exactly as the v1
-     * pass records them, so a row's reason for failing reads the same whichever flow imported it.
-     *
-     * <p>
-     * No user identity flows in: a tick is driven by the agenda, not by a request, so the event histories it writes are
-     * attributed the same way any other system-initiated work is.
+     * Imports one bounded batch of a run's discovered certificates and reports what it counted, without deciding the
+     * run's fate — v2's {@code PROCESS} worker does that once the backlog is empty, unlike v1 which finishes a run in
+     * one pass. Event histories are attributed as system-initiated work, since a tick carries no user identity of its
+     * own.
      *
      * @param batch rows already claimed by the caller; an empty batch is a no-op with all-clear counts
      */

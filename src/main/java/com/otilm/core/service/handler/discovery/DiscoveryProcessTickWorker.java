@@ -40,8 +40,8 @@ import org.springframework.stereotype.Component;
  *
  * <p>
  * <b>Scope:</b> certificates only. Keys and every future resource are staged by the ingestor but have no import
- * pipeline yet, so this worker neither claims them nor waits on them (core#1965). Counting rows it cannot process would
- * leave every run with keys spinning in {@code PROCESSING} forever.
+ * pipeline yet, so this worker skips them; counting them against the backlog would leave every run with keys spinning
+ * in {@code PROCESSING} forever.
  */
 @Component
 public class DiscoveryProcessTickWorker {
@@ -75,16 +75,14 @@ public class DiscoveryProcessTickWorker {
         this.discoveryWriter = discoveryWriter;
         this.authHelper = authHelper;
         this.workProperties = workProperties;
-        // Fail at startup, not at the first tick. A non-positive size throws inside PageRequest.of before the
-        // tick reaches any bounded path, so the throw escapes to the listener, which logs and acknowledges it:
-        // nothing would ever end the run and it would sit in PROCESSING forever.
+        // Validated at construction, not at the first tick: a non-positive size throws inside PageRequest.of, and
+        // left to a tick that throw would reach the listener's log-and-acknowledge and leave the run in
+        // PROCESSING forever.
         if (batchSize <= 0) {
             throw new IllegalArgumentException("discovery.processing.batch-size must be positive");
         }
-        // A backstop that is not in the future is not a backstop. The row would be parked due-now while this
-        // worker also publishes the continuation directly, so the sweep would claim it and publish a second tick
-        // against the same unclaimed batch -- the race the backstop exists to prevent, surfacing as duplicate
-        // processing rather than as the misconfiguration it is.
+        // Must be positive: see DiscoveryWorkWriter's backstop invariant -- a due-now value races the sweep into
+        // publishing a duplicate tick against the same unclaimed batch.
         if (continuationBackstop.isZero() || continuationBackstop.isNegative()) {
             throw new IllegalArgumentException("discovery.work.continuation-backstop must be positive");
         }
@@ -133,15 +131,12 @@ public class DiscoveryProcessTickWorker {
 
     /**
      * Picks the contents this tick will import, bounded by the rows they carry rather than by how many contents they
-     * are. Selects, but does not claim: nothing marks these rows as taken, so a concurrent tick would select them too
-     * (core#2130).
+     * are. Selects, but does not claim: nothing marks these rows as taken, so a concurrent tick would select them too.
      *
      * <p>
-     * Two constraints pull against each other. A content's rows must travel together, or the pipeline runs that group's
-     * triggers and histories once per page; and a tick must stay small enough to finish. They reconcile except in one
-     * case — a certificate found on more hosts than the whole budget — and there the group wins: it is taken alone,
-     * making the tick as small as it can be while still whole. The bound is therefore exact for any batch of ordinary
-     * groups and best-effort for a single oversized one.
+     * A content's rows must travel together, or the pipeline runs that group's triggers and histories once per page —
+     * so a certificate found on more hosts than the whole budget is taken alone rather than split, making the bound
+     * exact for any batch of ordinary groups and best-effort for a single oversized one.
      */
     private List<Long> selectPendingContents(UUID discoveryUuid) {
         List<Object[]> pending = certificateRepository
@@ -174,11 +169,10 @@ public class DiscoveryProcessTickWorker {
             DiscoveryRunCounts counts = importHandler.processBatch(run, batch);
             discoveryWriter.appendRunMessages(run.getUuid(), counts.describeGaps());
         } catch (Exception e) {
-            // Swallowed rather than rethrown, and deliberately so. A throw here reaches the listener, which logs
-            // and acknowledges, so the budget is never spent and a persistent pre-batch failure -- an
-            // authorization refusal, a trigger that cannot be set up -- strands the run in PROCESSING forever,
-            // the exact failure this worker exists to close. The batch stamped nothing, so the caller sees an
-            // unchanged backlog and takes the stall path, which is bounded and ends the run with a reason.
+            // Swallowed, not rethrown: escaping to the listener's log-and-acknowledge would spend no budget and
+            // strand the run in PROCESSING forever on a persistent pre-batch failure (an authorization refusal, a
+            // trigger that cannot be set up). The batch stamped nothing, so the caller's unchanged backlog takes
+            // the bounded stall path instead.
             logger
                     .error("Processing batch {} of discovery {} did not complete: {}", attempt, run.getUuid(),
                             e.getMessage(), e);
@@ -211,9 +205,9 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Commits the agenda row as the backstop for the next batch, then publishes that batch directly. The row is
-     * committed first so a publish that never lands is still picked up, and one backstop interval out rather than
-     * due-now so the sweep cannot publish a competing tick against the same run.
+     * Commits the agenda row as the backstop for the next batch, then publishes that batch directly. Committed first so
+     * a publish that never lands is still picked up; see {@link DiscoveryWorkWriter} for why the row is due one
+     * backstop interval out.
      */
     private void continueProcessing(UUID discoveryUuid, long remaining) {
         logger.debug("Discovery {} has {} certificates left to process", discoveryUuid, remaining);
@@ -230,9 +224,8 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * A tick that accounted for nothing. Rather than publishing again — which is how a stalled run becomes a tight loop
-     * on the broker — the row climbs its backoff ladder, and once the budget is spent the run ends rather than sitting
-     * in {@code PROCESSING} forever, which is the failure this worker exists to prevent.
+     * A tick that accounted for nothing. Rather than publishing again — which would turn a stalled run into a tight
+     * loop on the broker — the row climbs its backoff ladder until the budget ends the run instead.
      */
     private void stall(UUID discoveryUuid, int attempt, long remaining) {
         int next = attempt + 1;

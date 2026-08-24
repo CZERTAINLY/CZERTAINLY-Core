@@ -27,24 +27,17 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
             Pageable pageable);
 
     /**
-     * The v2 processing claim: the certificate contents a run still has work for, oldest first, each with the number of
-     * rows it carries so the caller can bound a batch by rows rather than by group count.
+     * The v2 processing claim: certificate contents a run still has work for, oldest first, each with its row count so
+     * a batch can be bounded by rows rather than by group count.
      *
      * <p>
-     * Pages by <b>content</b> rather than by row because the import pipeline groups rows by content and acts once per
-     * group. Paging rows would let one content's rows straddle a page boundary, and the group would then be imported by
-     * two separate ticks, running its triggers, histories and validation twice.
-     *
-     * <p>
-     * Ordered oldest-first, breaking ties on the content id. The tiebreak is not decoration: {@code i_cre} comes from
-     * the JVM clock and a staging loop writes rows faster than it advances, so without it two groups stamped in the
-     * same tick could swap places between pages.
-     *
-     * <p>
-     * <b>Accounted for, not processed.</b> The pipeline deliberately leaves {@code processed = false} on a row it never
-     * reached, writing only the reason (see {@code CertificateDiscoveredEventHandler.writeBookkeeping}), so claiming on
-     * {@code processed} alone would hand those same unreachable rows back on every tick and the backlog would never
-     * drain. A recorded reason is an outcome.
+     * Pages by content, not by row, so one content's rows cannot straddle a page boundary and be imported by two
+     * separate ticks, running its triggers, histories and validation twice; breaks ties on content id, since
+     * {@code i_cre} comes from the JVM clock and two groups stamped in the same tick could otherwise swap places
+     * between pages. Claims on a recorded outcome rather than on {@code processed}, since a row the pipeline never
+     * reached keeps {@code processed = false} with only its reason written (see
+     * {@code CertificateDiscoveredEventHandler.writeBookkeeping}) — claiming on {@code processed} alone would hand it
+     * back on every tick and the backlog would never drain.
      */
     @Query("SELECT dc.certificateContentId, COUNT(dc) FROM DiscoveryCertificate dc "
             + "WHERE dc.discoveryUuid = :discoveryUuid AND dc.newlyDiscovered = true AND dc.processed = false "

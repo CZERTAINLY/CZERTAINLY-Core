@@ -51,7 +51,7 @@ import static org.mockito.Mockito.when;
  * state and the agenda, plus the follow-up ticks this worker publishes itself.
  *
  * <p>
- * Not {@code @Transactional}: the worker commits in its own transactions, so seeded data has to be committed too.
+ * The worker commits in its own transactions, so seeded data has to be committed too.
  */
 class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
 
@@ -70,8 +70,6 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
     private DiscoveryWorkRepository workRepository;
     @Autowired
     private DiscoveryWorkWriter workWriter;
-
-    // ------------------------------------------------------------------ continuation
 
     @Test
     void pageWithMoreToCome_stagesItAndPublishesTheFollowUpTickItself() throws Exception {
@@ -126,8 +124,6 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
                 .as("a valid empty answer refreshes the budget; only consecutive failures spend it")
                 .isLessThan(40);
     }
-
-    // ------------------------------------------------------------------ handover to processing
 
     @Test
     void fullyDrainedCompletedRun_swapsToProcessingWithOneProcessRow() throws Exception {
@@ -207,8 +203,6 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
         assertThat(drainRow(run).getNextDueAt()).isAfter(OffsetDateTime.now(ZoneOffset.UTC));
     }
 
-    // ------------------------------------------------------------------ unanswered ticks
-
     @Test
     void runTheConnectorNoLongerTracks_endsFailedAndReleasesEverything() throws Exception {
         Discovery run = runStillScanning();
@@ -249,8 +243,6 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
         assertThat(drainRow(run).getAttempt()).isEqualTo(2);
         verify(workProducer, never()).produceMessage(any());
     }
-
-    // ------------------------------------------------------------------ ticks with nothing to do
 
     @Test
     void runAlreadyProcessing_dropsItsOwnRowAndLeavesTheProcessRowDriving() throws Exception {
@@ -330,8 +322,7 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
 
         worker.tick(run.getUuid(), 0);
 
-        // Left to escape, the failure reaches the listener, which logs and acknowledges it -- so the same poison
-        // page is redelivered forever and the run never ends. Contained here, the agenda row survives for the
+        // Contained here rather than left to the listener's log-and-acknowledge: the agenda row survives for the
         // sweep's claimer to push up the ladder, and the cursor is untouched by the rolled-back page.
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
         assertThat(reload(run).getLastAppliedSequence()).isZero();
@@ -370,8 +361,6 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
         assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.PROCESS);
     }
-
-    // ------------------------------------------------------------------ fixtures
 
     private List<DiscoveryWorkMessage> publishedTicks() {
         ArgumentCaptor<DiscoveryWorkMessage> published = ArgumentCaptor.forClass(DiscoveryWorkMessage.class);

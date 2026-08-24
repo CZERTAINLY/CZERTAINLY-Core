@@ -74,8 +74,8 @@ public class DiscoveryStatusTickWorker {
             status = client.status(run);
         } catch (ConnectorException | RuntimeException e) {
             // RuntimeException too: over MQ a 422 arrives as an unchecked ValidationException and a bodiless 2xx
-            // as IllegalStateException. Left to escape, both reach the listener's log-and-acknowledge and the
-            // tick retries forever having spent no budget.
+            // as IllegalStateException. Left to escape, both reach the listener's log-and-acknowledge (see
+            // DiscoveryWorkListener) and spend no budget.
             handleUnanswered(discoveryUuid, attempt, e);
             return;
         } catch (NotFoundException | AttributeException e) {
@@ -88,9 +88,9 @@ public class DiscoveryStatusTickWorker {
         }
 
         if (status.getState() == null) {
-            // Required on the wire, so its absence is not an answer. Without this the null reaches
-            // state.getCode() inside the transaction, escapes the connector-call catch, and is merely
-            // acknowledged -- the tick then retries past its budget forever.
+            // Required on the wire, so its absence is not an answer: unguarded, the null would reach
+            // state.getCode() inside the transaction and escape to the listener's log-and-acknowledge instead of
+            // spending the budget.
             handleNonConformant(discoveryUuid, attempt);
             return;
         }

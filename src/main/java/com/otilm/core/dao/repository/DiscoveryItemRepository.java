@@ -10,8 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /**
- * Staging store for every discovered resource except certificates, which keep their own v1 table until the
- * evidence-gated unification (core#2027).
+ * Staging store for every discovered resource except certificates, which keep their own v1 table.
  */
 @Repository
 public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UUID> {

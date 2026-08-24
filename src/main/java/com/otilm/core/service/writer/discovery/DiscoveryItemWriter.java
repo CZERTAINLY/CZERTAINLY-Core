@@ -33,7 +33,7 @@ public class DiscoveryItemWriter {
     @Transactional
     public void stage(UUID discoveryUuid, DiscoveredItemDto item, boolean newlyDiscovered) {
         itemRepository
-                // The enum's name, not its wire code: the column is read back through EnumType.STRING.
+                // Stores the enum's name, since the column is read back through EnumType.STRING.
                 .stage(UUID.randomUUID(), discoveryUuid, item.getResource().name(), item.getSequence(),
                         item.getUniqueRef(), asJson(item.getPayload()), item.getDiscoveredAt(), newlyDiscovered,
                         item.getMeta() == null ? null : asJson(item.getMeta()));
