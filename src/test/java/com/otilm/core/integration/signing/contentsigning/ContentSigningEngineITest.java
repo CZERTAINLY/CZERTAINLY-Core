@@ -287,7 +287,7 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
         // given: a connector advertising content signing but no rung above SIGNED
         SigningProfileDto tsaProfile = createTimestampingProfile("unreachable-ceiling-tsa");
         ContentSigningFormattingMock baselineOnlyMock = connectorMockFactory
-                .startSecondContentSigningFormatting()
+                .startContentSigningFormatting()
                 .stubPerOperationFormattingAttributes();
         try {
             ConnectorDetailDto baselineOnlyConnector = connectorService

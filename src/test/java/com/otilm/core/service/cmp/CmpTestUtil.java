@@ -7,7 +7,7 @@ import com.otilm.api.model.common.attribute.v2.BaseAttributeV2;
 import com.otilm.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.data.SignatureResponseData;
 import com.otilm.core.service.cmp.mock.CertTestUtil;
-import com.otilm.core.util.WireMockPorts;
+import com.otilm.core.util.LoopbackWireMock;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -96,15 +96,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CmpTestUtil {
 
-    /**
-     * Starts a cryptography-provider stub that signs with the platform key, on {@link WireMockPorts#CONNECTOR}. The
-     * caller must stop the returned server before either factory runs again, since both share that port.
-     */
     public static WireMockServer createSigningPlatform() {
         // prepare mock server - for cryptographic provider
-        WireMockServer mockServer = new WireMockServer(WireMockPorts.CONNECTOR);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
+        WireMockServer mockServer = LoopbackWireMock.start();
+        WireMock.configureFor(LoopbackWireMock.HOST, mockServer.port());
 
         // -- if there is a need something to sign (mock server is called)
         // see
@@ -122,15 +117,10 @@ public class CmpTestUtil {
         return mockServer;
     }
 
-    /**
-     * Starts a cryptography-provider stub that issues certificates, on {@link WireMockPorts#CONNECTOR}. The caller must
-     * stop the returned server before either factory runs again, since both share that port.
-     */
     public static WireMockServer createIssuingPlatform() {
         // prepare mock server - for cryptographic provider
-        WireMockServer mockServer = new WireMockServer(WireMockPorts.CONNECTOR);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
+        WireMockServer mockServer = LoopbackWireMock.start();
+        WireMock.configureFor(LoopbackWireMock.HOST, mockServer.port());
 
         // -- if there is a need something to sign (mock server is called)
         // see

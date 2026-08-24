@@ -4,19 +4,17 @@ package com.otilm.core.util;
  * Fixed ports for the WireMock stubs that stand in for external services, plus the property assignments that bind those
  * services to them.
  * <p>
- * <b>Why fixed ports are safe</b> — Surefire runs test classes sequentially in one fork, so no two stubs contend for a
- * port, and every class stops its server when it finishes. A fixed port below the 49152 ephemeral floor is also immune
- * to the collisions {@code dynamicPort()} suffers when another process asks for an ephemeral port.
+ * <b>When a fixed port is warranted</b> — only when the URL must be known before the Spring context is created, so it
+ * can be written into a {@code @TestPropertySource} or the test {@code application.yml}. That is the case for the three
+ * services below, which the code under test reaches through an injected base URL. A stub whose URL is instead handed
+ * over at runtime needs no constant here: it takes an OS-chosen port on the loopback address, which lets several of its
+ * kind run at once and keeps test classes independent of each other's port usage. The connector stubs behind
+ * {@link com.otilm.core.util.mocks.ConnectorMockFactory} work that way.
  * <p>
  * <b>Why the ports are off the context signature</b> — a per-class {@code @TestPropertySource} forks a context, because
  * {@link com.otilm.core.architecture.ContextSignature} compares the annotation's source text. The
  * {@code *_URL_PROPERTY} assignments below are instead declared once on {@link BaseSpringBootTest} and
- * {@link BaseSpringBootTestNoAuth}, so every subclass inherits identical text and none of them forks. Whether two
- * classes stubbing the same service also share a cached context depends on their other context axes; the port is not
- * one of them, which is the point.
- * <p>
- * <b>When a new constant is warranted</b> — only when two stubs must be alive at the same time. That happens within a
- * single class, since separate classes run in sequence and share one port.
+ * {@link BaseSpringBootTestNoAuth}, so every subclass inherits identical text and none of them forks.
  * <p>
  * <b>Duplication in YAML</b> — the test {@code application.yml} repeats these ports as literals, because it cannot
  * reference constants, as the floor for the context-loading tests that extend neither base class.
@@ -32,30 +30,6 @@ public final class WireMockPorts {
 
     /** scheduler stub. */
     public static final int SCHEDULER = 10011;
-
-    /**
-     * The connector stub a test class starts for itself, whatever function group it impersonates. One constant serves
-     * them all, because each class stops its server before the next begins.
-     */
-    public static final int CONNECTOR = 10020;
-
-    /** {@link com.otilm.core.util.mocks.CryptographyProviderConnectorMock}. */
-    public static final int CRYPTOGRAPHY_PROVIDER = 10021;
-
-    /** {@link com.otilm.core.util.mocks.ContentSigningFormattingMock}. */
-    public static final int CONTENT_SIGNING_FORMATTING = 10022;
-
-    /**
-     * A second {@link com.otilm.core.util.mocks.ContentSigningFormattingMock}, for tests that need one alive alongside
-     * the one their class already started.
-     */
-    public static final int CONTENT_SIGNING_FORMATTING_SECONDARY = 10023;
-
-    /** {@link com.otilm.core.util.mocks.TimestampingFormattingConnectorMock}. */
-    public static final int TIMESTAMPING_FORMATTING = 10024;
-
-    /** {@link com.otilm.core.util.mocks.SignerConnectorMock}. */
-    public static final int SIGNER = 10025;
 
     public static final String AUTH_SERVICE_URL_KEY = "auth-service.base-url";
 

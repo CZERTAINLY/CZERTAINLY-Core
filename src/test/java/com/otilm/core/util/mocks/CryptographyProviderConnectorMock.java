@@ -5,7 +5,6 @@ import com.otilm.api.model.client.connector.InfoResponse;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.core.connector.EndpointDto;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
-import com.otilm.core.util.WireMockPorts;
 import com.otilm.core.util.seeders.FunctionGroupSeeder;
 import java.security.PrivateKey;
 import java.util.ArrayList;
@@ -26,7 +25,7 @@ public class CryptographyProviderConnectorMock extends BaseConnectorMock {
 
     private CryptographyProviderConnectorMock(FunctionGroupSeeder functionGroupSeeder,
             RealSignerTransformer realSignerTransformer) {
-        super(WireMockPorts.CRYPTOGRAPHY_PROVIDER, realSignerTransformer);
+        super(realSignerTransformer);
         this.realSignerTransformer = realSignerTransformer;
         List<EndpointDto> endpoints = cryptographyProviderEndpoints();
         functionGroupSeeder.seed(FunctionGroupCode.CRYPTOGRAPHY_PROVIDER, endpoints);

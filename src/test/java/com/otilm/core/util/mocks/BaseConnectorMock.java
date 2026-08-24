@@ -4,12 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.extension.Extension;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.ConnectorInterfaceInfo;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.client.connector.v2.InfoResponse;
+import com.otilm.core.util.LoopbackWireMock;
 import java.util.List;
 
 import static com.otilm.core.util.builders.ConnectorInfoBuilder.aConnectorInfo;
@@ -30,13 +30,12 @@ public abstract class BaseConnectorMock {
     protected final WireMockServer server;
 
     /**
-     * Takes the fixed port its concrete flavour owns. Extensions are optional and, when present, are response
-     * transformers computing responses per request (e.g. real signing or token assembly): WireMock can only register
-     * those at server creation time.
+     * Starts on a free loopback port; see {@link LoopbackWireMock} for why the bind address is named rather than left
+     * to the wildcard. Extensions are optional and, when present, are response transformers computing responses per
+     * request (e.g. real signing or token assembly): WireMock can only register those at server creation time.
      */
-    protected BaseConnectorMock(int port, Extension... extensions) {
-        this.server = new WireMockServer(WireMockConfiguration.options().port(port).extensions(extensions));
-        this.server.start();
+    protected BaseConnectorMock(Extension... extensions) {
+        this.server = LoopbackWireMock.start(extensions);
     }
 
     protected static ConnectorInterfaceInfo interfaceInfo(ConnectorInterface code, List<FeatureFlag> features) {
@@ -48,7 +47,7 @@ public abstract class BaseConnectorMock {
     }
 
     public String getUrl() {
-        return "http://localhost:" + server.port();
+        return LoopbackWireMock.url(server);
     }
 
     public void stop() {
