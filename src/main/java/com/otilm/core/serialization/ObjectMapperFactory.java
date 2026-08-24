@@ -58,13 +58,16 @@ public final class ObjectMapperFactory {
     }
 
     /**
-     * Jackson's own defaults, for code that serializes JSON by hand before storing it. No migration guards persisted
-     * JSON, so a shape change here splits a table into rows written before it and rows written after.
+     * The recipe for code that serializes JSON by hand before storing it. A date is written as text keeping its offset
+     * and read back without being re-zoned.
      *
      * @see #jsonColumn()
      */
     public static ObjectMapper storage() {
-        return new ObjectMapper();
+        return new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .disable(DeserializationFeature.ADJUST_DATES_TO_CONTEXT_TIME_ZONE);
     }
 
     /**
