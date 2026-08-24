@@ -428,6 +428,27 @@ class CertificateRequestAttributeProjectorTest {
                 .hasMessageContaining("2.5.29.15");
     }
 
+    @Test
+    void stillProjectsAStoredDerMapping_toAnOidThatNowHasAStructuredTarget() {
+        // given — a definition stored before the structured targets existed, mapping key usage as opaque
+        // base64 DER. Authoring one is now rejected, but projection never re-validates, so an existing
+        // definition must keep producing exactly what it produced before. This is the whole
+        // no-migration-required promise.
+        var uuid = UUID.randomUUID();
+        var def = dataAttribute(uuid, extensionMapping("2.5.29.15"));
+        var values = List.of(stringValue(uuid, "AwIFoA=="));
+
+        // when
+        X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
+
+        // then — still an opaque extension, untouched, and not diverted into the typed field
+        assertThat(content.getKeyUsage()).isNull();
+        assertThat(content.getExtensions()).singleElement().satisfies(ext -> {
+            assertThat(ext.getOid()).isEqualTo("2.5.29.15");
+            assertThat(ext.getValue()).isEqualTo("AwIFoA==");
+        });
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     /** OID of the subjectAltName extension; SAN entries render into this OID. */
