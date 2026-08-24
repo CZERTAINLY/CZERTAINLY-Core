@@ -35,6 +35,11 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
      * two separate ticks, running its triggers, histories and validation twice.
      *
      * <p>
+     * Ordered oldest-first, breaking ties on the content id. The tiebreak is not decoration: {@code i_cre} comes from
+     * the JVM clock and a staging loop writes rows faster than it advances, so without it two groups stamped in the
+     * same tick could swap places between pages.
+     *
+     * <p>
      * <b>Accounted for, not processed.</b> The pipeline deliberately leaves {@code processed = false} on a row it never
      * reached, writing only the reason (see {@code CertificateDiscoveredEventHandler.writeBookkeeping}), so claiming on
      * {@code processed} alone would hand those same unreachable rows back on every tick and the backlog would never
@@ -42,7 +47,8 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
      */
     @Query("SELECT dc.certificateContentId FROM DiscoveryCertificate dc "
             + "WHERE dc.discoveryUuid = :discoveryUuid AND dc.newlyDiscovered = true AND dc.processed = false "
-            + "AND dc.processedError IS NULL " + "GROUP BY dc.certificateContentId ORDER BY MIN(dc.created)")
+            + "AND dc.processedError IS NULL "
+            + "GROUP BY dc.certificateContentId ORDER BY MIN(dc.created), dc.certificateContentId")
     List<Long> findPendingContentIds(@Param("discoveryUuid") UUID discoveryUuid, Pageable pageable);
 
     /** Every pending row of the given contents, so a claimed group is always whole. */
