@@ -5,11 +5,8 @@ package com.otilm.core.util;
  * services to them.
  * <p>
  * <b>When a fixed port is warranted</b> — only when the URL must be known before the Spring context is created, so it
- * can be written into a {@code @TestPropertySource} or the test {@code application.yml}. That is the case for the three
- * services below, which the code under test reaches through an injected base URL. A stub whose URL is instead handed
- * over at runtime needs no constant here: it takes an OS-chosen port on the loopback address, which lets several of its
- * kind run at once and keeps test classes independent of each other's port usage. The connector stubs behind
- * {@link com.otilm.core.util.mocks.ConnectorMockFactory} work that way.
+ * can be written into a {@code @TestPropertySource} or the test {@code application.yml}. The three services below
+ * qualify; stubs that hand their URL over at runtime use {@link LoopbackWireMock}.
  * <p>
  * <b>Why the ports are off the context signature</b> — a per-class {@code @TestPropertySource} forks a context, because
  * {@link com.otilm.core.architecture.ContextSignature} compares the annotation's source text. The

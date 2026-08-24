@@ -30,9 +30,8 @@ public abstract class BaseConnectorMock {
     protected final WireMockServer server;
 
     /**
-     * Starts on a free loopback port; see {@link LoopbackWireMock} for why the bind address is named rather than left
-     * to the wildcard. Extensions are optional and, when present, are response transformers computing responses per
-     * request (e.g. real signing or token assembly): WireMock can only register those at server creation time.
+     * Extensions are response transformers computing responses per request, such as real signing or token assembly.
+     * WireMock registers them only at server creation, so they arrive through the constructor.
      */
     protected BaseConnectorMock(Extension... extensions) {
         this.server = LoopbackWireMock.start(extensions);

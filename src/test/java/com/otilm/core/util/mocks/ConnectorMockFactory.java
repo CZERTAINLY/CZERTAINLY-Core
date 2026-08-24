@@ -11,8 +11,7 @@ import org.springframework.stereotype.Component;
  * mock needs at start. It is the only way to start a mock (constructors are package-private), which guarantees the
  * cryptography-provider mock always seeds its function-group reference data consistently with what it advertises.
  * <p>
- * Each start yields an independent server, so a test may hold several mocks of the same kind at once, and callers reach
- * each through its own {@link BaseConnectorMock#getUrl()}.
+ * Each start yields an independent server, so a test may hold several mocks of the same kind at once.
  */
 @Component
 public class ConnectorMockFactory {
