@@ -70,9 +70,8 @@ public class DiscoveryRunTerminator {
      * Ends a run only while {@code stillTrue} holds, re-checked under the run row's lock.
      *
      * <p>
-     * For an ending whose precondition another transaction can invalidate between the caller reading it and the ending
-     * committing. Reading it again here is what serialises the two: anything that could falsify it takes the same row
-     * lock, so it either commits before this check sees it or waits until after the run has ended.
+     * Re-reading it under the lock serialises the ending against whatever could falsify it — anything that can takes
+     * the same row lock.
      *
      * @return whether this call was the one that ended the run — false both when the run had already ended and when
      * {@code stillTrue} no longer holds

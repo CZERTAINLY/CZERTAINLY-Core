@@ -211,11 +211,9 @@ public class DiscoveryProcessTickWorker {
      * Ends the run on the evidence it carries, and only while the backlog is still empty.
      *
      * <p>
-     * The emptiness this tick measured was read outside any lock, and a drain page in flight across the handover can
-     * still stage rows into a {@code PROCESSING} run. Re-reading the backlog inside the terminal transaction is what
-     * orders the two: staging holds the run row's lock across its whole page, so a late page either commits before this
-     * check counts it — and the run carries on processing — or lands after the ending and is refused as terminal.
-     * Ending on the unlocked count instead would leave those rows staged, counted by nobody and never imported.
+     * The emptiness this tick measured was read outside any lock. Re-reading it inside the terminal transaction orders
+     * the ending against staging, which holds the same run row lock: a drain page still in flight either commits in
+     * time to be imported, or lands after the ending and is refused as terminal.
      */
     private void finish(UUID discoveryUuid) {
         // Two kinds of evidence, because not every shortfall lands on a row. A bookkeeping write that itself
@@ -239,8 +237,8 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Sends the operator only where there is something to find. A run warned on run-level evidence alone has no row
-     * carrying a reason, so pointing it at the certificate list would be pointing at a list of clean rows.
+     * Sends the operator only where there is something to find: a run warned on run-level evidence alone has no row
+     * carrying a reason.
      */
     private static String endingReason(DiscoveryStatus status, boolean rowsFailed) {
         if (status != DiscoveryStatus.WARNING) {

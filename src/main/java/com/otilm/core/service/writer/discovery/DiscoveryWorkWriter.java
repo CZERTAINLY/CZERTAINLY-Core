@@ -30,9 +30,8 @@ public class DiscoveryWorkWriter {
     }
 
     /**
-     * Schedules the run's pending row for {@code workType}, due at {@code nextDueAt} — or re-arms the existing one (due
-     * time moved, backoff counter reset). Scheduling is a fresh start; in-flight backoff belongs to
-     * {@link #reschedule}.
+     * Schedules the run's pending row for {@code workType}, due at {@code nextDueAt}, or re-arms an existing one — a
+     * fresh start, counter included.
      */
     @Transactional
     public void schedule(UUID discoveryUuid, DiscoveryWorkType workType, OffsetDateTime nextDueAt) {
@@ -40,8 +39,7 @@ public class DiscoveryWorkWriter {
     }
 
     /**
-     * Asks for the run's {@code workType} work to run at {@code nextDueAt} without refreshing what it has already spent
-     * — the answer to "something changed, look now", as opposed to {@link #schedule}'s fresh start.
+     * Brings the run's {@code workType} work forward to {@code nextDueAt} without refreshing what it has already spent.
      */
     @Transactional
     public void expedite(UUID discoveryUuid, DiscoveryWorkType workType, OffsetDateTime nextDueAt) {

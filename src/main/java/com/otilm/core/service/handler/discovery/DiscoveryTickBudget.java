@@ -13,8 +13,7 @@ import org.springframework.stereotype.Component;
  * <p>
  * Shared by every tick worker rather than repeated in each. The accounting is identical whatever went unanswered — a
  * connector that will not respond, an answer missing a required field, a page Core could not stage — and only the
- * terminal reason differs. Two copies of this had already drifted into slightly different shapes; one copy is what
- * keeps a fix to the accounting from landing in one worker and not the other.
+ * terminal reason differs. One copy, so a fix to it cannot land in one worker and not the other.
  */
 @Component
 public class DiscoveryTickBudget {

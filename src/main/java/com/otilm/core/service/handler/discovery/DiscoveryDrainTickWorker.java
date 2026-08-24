@@ -92,10 +92,9 @@ public class DiscoveryDrainTickWorker {
             // Outside any transaction, by the platform's connector-call rule.
             page = client.results(run, maxItems, maxBytes);
         } catch (ConnectorException | RuntimeException e) {
-            // RuntimeException too: the client's own javadoc warns its declared throws is incomplete — over MQ a
-            // 422 arrives as an unchecked ValidationException, and a bodiless 2xx as IllegalStateException. Left
-            // to escape, those reach the listener's log-and-acknowledge and the tick retries forever having spent
-            // no budget, which is exactly the immortal run the budget exists to prevent.
+            // RuntimeException too: over MQ a 422 arrives as an unchecked ValidationException and a bodiless 2xx
+            // as IllegalStateException. Left to escape, both reach the listener's log-and-acknowledge and the
+            // tick retries forever having spent no budget.
             handleUnanswered(discoveryUuid, attempt, e);
             return;
         } catch (NotFoundException | AttributeException e) {
