@@ -40,6 +40,15 @@ public class DiscoveryWorkWriter {
     }
 
     /**
+     * Asks for the run's {@code workType} work to run at {@code nextDueAt} without refreshing what it has already spent
+     * — the answer to "something changed, look now", as opposed to {@link #schedule}'s fresh start.
+     */
+    @Transactional
+    public void expedite(UUID discoveryUuid, DiscoveryWorkType workType, OffsetDateTime nextDueAt) {
+        workRepository.expedite(UUID.randomUUID(), discoveryUuid, workType.name(), nextDueAt);
+    }
+
+    /**
      * Advances an agenda row's {@code attempt}/{@code next_due_at}. {@code REQUIRED} (not {@code REQUIRES_NEW}) so it
      * joins the sweep claimer's lock-holding transaction — a row is claimed and rescheduled atomically, or neither.
      */

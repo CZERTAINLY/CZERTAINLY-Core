@@ -43,6 +43,26 @@ public interface DiscoveryWorkRepository extends JpaRepository<DiscoveryWork, UU
     void schedule(@Param("uuid") UUID uuid, @Param("discoveryUuid") UUID discoveryUuid,
             @Param("workType") String workType, @Param("nextDueAt") OffsetDateTime nextDueAt);
 
+    /**
+     * Brings a row forward to {@code nextDueAt} without touching what it has already spent, inserting it at attempt
+     * zero if the run has none.
+     *
+     * <p>
+     * The difference from {@link #schedule} is the missing {@code attempt = 0} in the conflict branch, and it is the
+     * whole point. Arming a row is a fresh start and resets the budget; asking for one sooner is not. A caller that
+     * merely wants work to run now — a pushed event saying something changed — must not refresh a failure budget that
+     * no successful call has earned, or a connector whose endpoint is broken could keep a dead run alive by pushing
+     * events at it.
+     */
+    @Modifying
+    @Query(value = """
+            INSERT INTO {h-schema}discovery_work (uuid, discovery_uuid, work_type, attempt, next_due_at)
+            VALUES (:uuid, :discoveryUuid, :workType, 0, :nextDueAt)
+            ON CONFLICT (discovery_uuid, work_type) DO UPDATE SET next_due_at = EXCLUDED.next_due_at
+            """, nativeQuery = true)
+    void expedite(@Param("uuid") UUID uuid, @Param("discoveryUuid") UUID discoveryUuid,
+            @Param("workType") String workType, @Param("nextDueAt") OffsetDateTime nextDueAt);
+
     // Addressed by the natural key, not the row uuid: schedule() discards the passed uuid on conflict, so a
     // caller-retained row uuid can silently address nothing — (run, work type) always addresses the live row.
     @Modifying

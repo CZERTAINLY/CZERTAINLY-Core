@@ -1,5 +1,7 @@
 package com.otilm.core.service.handler.discovery;
 
+import com.otilm.api.model.common.attribute.common.AttributeContent;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveredCertificateDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveredItemDto;
@@ -21,8 +23,10 @@ import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -186,6 +190,44 @@ public class DiscoveryEventIngestor {
                                 "%d item(s) arrived without a sequence and were skipped".formatted(refs.size())));
     }
 
+    /**
+     * Registers the page's metadata definitions before any of its rows reach the import pipeline.
+     *
+     * <p>
+     * The pipeline imports content groups in parallel, and each group applies its rows' metadata. Two groups carrying
+     * the same new definition would then race to insert it, and the loser's whole group rolls back and is recorded as
+     * failed — a certificate reported as unimportable for no reason but timing. Registering once up front removes the
+     * race, which is why the v1 download path does the same thing before submitting its batch.
+     *
+     * <p>
+     * The registration commits in its own transaction, so a page that later rolls back does not withdraw a definition
+     * another page may already be relying on.
+     */
+    private void registerMetadataDefinitions(Discovery run, List<DiscoveredItemDto> items) {
+        List<MetadataAttribute> definitions = new ArrayList<>();
+        Map<String, Set<AttributeContent>> contentsByDefinition = new HashMap<>();
+        for (DiscoveredItemDto item : items) {
+            if (item.getMeta() == null) {
+                continue;
+            }
+            for (MetadataAttribute attribute : item.getMeta()) {
+                Set<AttributeContent> contents = contentsByDefinition.get(attribute.getUuid());
+                if (contents == null) {
+                    definitions.add(attribute);
+                    contents = new HashSet<>();
+                    contentsByDefinition.put(attribute.getUuid(), contents);
+                }
+                contents.addAll(attribute.getContent());
+            }
+        }
+        if (definitions.isEmpty()) {
+            return;
+        }
+        certificateHandler
+                .updateMetadataDefinition(definitions, contentsByDefinition, run.getConnectorUuid(),
+                        run.getConnectorName());
+    }
+
     private void stage(Discovery run, List<DiscoveredItemDto> items) {
         List<DiscoveryProviderCertificateDataDto> certificates = new ArrayList<>();
         Set<String> stagedCertificateRefs = new HashSet<>();
@@ -204,6 +246,7 @@ public class DiscoveryEventIngestor {
                 }
             }
         }
+        registerMetadataDefinitions(run, items);
         List<String> problems = new ArrayList<>();
         malformedPayloads
                 .forEach(ref -> problems
@@ -262,7 +305,9 @@ public class DiscoveryEventIngestor {
                             run.getUuid(), run.getStatus());
             return;
         }
-        workWriter.schedule(run.getUuid(), workType, OffsetDateTime.now(ZoneOffset.UTC));
+        // Expedited, not armed: a pushed event is not an answer from the connector, so it may bring the tick
+        // forward but must not refresh a failure budget no successful call has earned.
+        workWriter.expedite(run.getUuid(), workType, OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     /**
