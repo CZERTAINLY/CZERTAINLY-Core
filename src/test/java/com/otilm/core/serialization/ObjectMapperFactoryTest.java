@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -60,6 +61,41 @@ class ObjectMapperFactoryTest {
         ObjectMapper wire = ObjectMapperFactory.wire();
 
         assertThatThrownBy(() -> wire.writeValueAsString(Map.of("present", Optional.of("value"))))
+                .isInstanceOf(InvalidDefinitionException.class);
+    }
+
+    @Test
+    void storageWritesADateAsTextKeepingTheOffsetItWasGiven() throws JsonProcessingException {
+        ZonedDateTime at = ZonedDateTime.of(2026, 8, 21, 17, 0, 0, 0, ZoneOffset.ofHours(2));
+
+        String json = ObjectMapperFactory.storage().writeValueAsString(Map.of("at", at));
+
+        assertThat(json).isEqualTo("{\"at\":\"2026-08-21T17:00:00+02:00\"}");
+    }
+
+    /**
+     * Left at Jackson's default, a date read back through this recipe would carry the context zone instead, reporting a
+     * different wall-clock time than was written.
+     */
+    @Test
+    void storageRoundTripsADateWithoutReZoningIt() {
+        ZonedDateTime at = ZonedDateTime.of(2026, 8, 21, 17, 0, 0, 0, ZoneOffset.ofHours(2));
+
+        ZonedDateTime converted = ObjectMapperFactory.storage().convertValue(at, ZonedDateTime.class);
+
+        assertThat(converted).hasToString(at.toString());
+        assertThat(converted.getOffset()).isEqualTo(ZoneOffset.ofHours(2));
+    }
+
+    /**
+     * Discovery would unwrap {@code Optional} for every caller of {@link ObjectMapperFactory#storage()}, so the time
+     * module is registered on its own.
+     */
+    @Test
+    void storageDoesNotRegisterTheDiscoveredJdk8Module() {
+        ObjectMapper storage = ObjectMapperFactory.storage();
+
+        assertThatThrownBy(() -> storage.writeValueAsString(Map.of("present", Optional.of("value"))))
                 .isInstanceOf(InvalidDefinitionException.class);
     }
 }

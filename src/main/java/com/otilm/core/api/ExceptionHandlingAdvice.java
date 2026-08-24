@@ -140,7 +140,9 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
-     * Handler for {@link IllegalArgumentException}.
+     * Handler for {@link IllegalArgumentException}. The message is logged but not returned, because this handler also
+     * sees what the JDK and third-party libraries throw — an internal class name or a serializer's reference chain; a
+     * rejection whose message the caller should read belongs in {@link ValidationException} instead.
      *
      * @return
      */
@@ -148,7 +150,7 @@ public class ExceptionHandlingAdvice {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorMessageDto handleIllegalArgumentException(IllegalArgumentException ex) {
         LOG.info("HTTP 400: {}", ex.getMessage());
-        return ErrorMessageDto.getInstance(ex.getMessage());
+        return ErrorMessageDto.getInstance("The request could not be processed.");
     }
 
     /**
