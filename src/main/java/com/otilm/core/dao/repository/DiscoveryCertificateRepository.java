@@ -27,22 +27,18 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
             Pageable pageable);
 
     /**
-     * The v2 processing claim: the run's newly-discovered rows that no batch has accounted for yet, oldest first so a
-     * run chews through its backlog in a stable order rather than revisiting the same page.
+     * The v2 processing claim: the certificate contents a run still has work for, oldest first, one page at a time.
      *
      * <p>
-     * <b>Accounted for, not processed.</b> The import pipeline deliberately leaves {@code processed = false} on a row
-     * it never reached, writing only the reason (see {@code CertificateDiscoveredEventHandler.writeBookkeeping}).
-     * Claiming on {@code processed} alone would hand those same unreachable rows back on every tick and the backlog
-     * would never drain. A recorded reason is an outcome, so a row carrying one is done with.
-     */
-    /**
-     * The certificate contents a run still has work for, oldest first, one page at a time.
+     * Pages by <b>content</b> rather than by row because the import pipeline groups rows by content and acts once per
+     * group. Paging rows would let one content's rows straddle a page boundary, and the group would then be imported by
+     * two separate ticks, running its triggers, histories and validation twice.
      *
      * <p>
-     * The claim pages by <b>content</b> rather than by row because the import pipeline groups rows by content and acts
-     * once per group. Paging rows would let one content's rows straddle a page boundary, and the group would then be
-     * imported by two separate ticks — running its triggers, histories and validation twice.
+     * <b>Accounted for, not processed.</b> The pipeline deliberately leaves {@code processed = false} on a row it never
+     * reached, writing only the reason (see {@code CertificateDiscoveredEventHandler.writeBookkeeping}), so claiming on
+     * {@code processed} alone would hand those same unreachable rows back on every tick and the backlog would never
+     * drain. A recorded reason is an outcome.
      */
     @Query("SELECT dc.certificateContentId FROM DiscoveryCertificate dc "
             + "WHERE dc.discoveryUuid = :discoveryUuid AND dc.newlyDiscovered = true AND dc.processed = false "
