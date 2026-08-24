@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
@@ -58,6 +59,10 @@ public class SigningRecordOutbox {
     @Column(name = "request_metadata_json", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private String requestMetadataJson;
+
+    @Column(name = "timestamp_token_serial_numbers")
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    private List<String> timestampTokenSerialNumbers;
 
     @Column(name = "attempts", nullable = false)
     private int attempts = 0;
