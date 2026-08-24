@@ -1,6 +1,9 @@
 package com.otilm.core.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.mapping.ExtendedKeyUsageMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.ExtensionMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.KeyUsageMappedField;
@@ -200,6 +203,31 @@ class StructuredExtensionCodecTest {
         void readsBackTheExtendedKeyUsageOpensslWrote() {
             assertThat(StructuredExtensionCodec.decodeExtendedKeyUsage(OPENSSL_EXTENDED_KEY_USAGE))
                     .containsExactly("1.3.6.1.5.5.7.3.1", "1.3.6.1.5.5.7.3.3");
+        }
+    }
+
+    @Nested
+    class PermittedItems {
+
+        @Test
+        void readsContentDeserializedFromJson() throws Exception {
+            // Exercises the real API path: a v3 attribute whose content items carry their own contentType,
+            // which is what AttributeContentDeserializer requires to produce v3 content.
+            String json = """
+                    {
+                      "uuid": "3f2b1c40-0000-4000-8000-000000000001",
+                      "name": "keyUsage",
+                      "type": "data",
+                      "version": 3,
+                      "contentType": "string",
+                      "properties": { "label": "Key Usage", "list": true },
+                      "content": [ { "contentType": "string", "data": "digitalSignature" } ],
+                      "fieldMapping": { "objectType": "x509Certificate", "fields": [ { "fieldType": "keyUsage" } ] }
+                    }
+                    """;
+            DataAttributeV3 definition = (DataAttributeV3) new ObjectMapper().readValue(json, BaseAttribute.class);
+
+            assertThat(StructuredExtensionCodec.permittedItems(definition)).containsExactly("digitalSignature");
         }
     }
 
