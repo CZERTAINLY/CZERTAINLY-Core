@@ -37,16 +37,18 @@ public class DiscoveryStatusTickWorker {
     private final DiscoveryV2Client client;
     private final DiscoveryWorkWriter workWriter;
     private final DiscoveryRunTerminator terminator;
+    private final DiscoveryTickBudget budget;
     private final DiscoveryWorkProperties workProperties;
     private final TransactionHandler transactionHandler;
 
     public DiscoveryStatusTickWorker(DiscoveryRepository discoveryRepository, DiscoveryV2Client client,
-            DiscoveryWorkWriter workWriter, DiscoveryRunTerminator terminator, DiscoveryWorkProperties workProperties,
-            TransactionHandler transactionHandler) {
+            DiscoveryWorkWriter workWriter, DiscoveryRunTerminator terminator, DiscoveryTickBudget budget,
+            DiscoveryWorkProperties workProperties, TransactionHandler transactionHandler) {
         this.discoveryRepository = discoveryRepository;
         this.client = client;
         this.workWriter = workWriter;
         this.terminator = terminator;
+        this.budget = budget;
         this.workProperties = workProperties;
         this.transactionHandler = transactionHandler;
     }
@@ -104,26 +106,17 @@ public class DiscoveryStatusTickWorker {
     }
 
     /**
-     * Decides what an unanswered tick costs. A definitive refusal ends the run at once; otherwise the run keeps its
-     * agenda row — the claimer already pushed it up the backoff ladder — until the budget is spent.
+     * A tick the connector did not answer. Below the budget the run keeps its agenda row, which the sweep's claimer
+     * pushes up the backoff ladder when it takes it next.
      */
     private void handleUnanswered(UUID discoveryUuid, int attempt, Throwable e) {
-        if (DiscoveryConnectorErrors.isRunNoLongerTracked(e)) {
-            terminator
-                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The connector no longer tracks this run");
-            return;
+        if (!budget
+                .spendOnUnanswered(discoveryUuid, DiscoveryWorkType.STATUS, attempt, e,
+                        "The connector stopped answering status polls for this run")) {
+            logger
+                    .warn("Status poll {} for discovery {} failed, retrying when next due: {}", attempt, discoveryUuid,
+                            e.getMessage());
         }
-        if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.STATUS).maxAttempts()) {
-            terminator
-                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The connector stopped answering status polls for this run: "
-                                    + DiscoveryConnectorErrors.describe(e));
-            return;
-        }
-        logger
-                .warn("Status poll {} for discovery {} failed, retrying when next due: {}", attempt, discoveryUuid,
-                        e.getMessage());
     }
 
     /**
@@ -131,15 +124,13 @@ public class DiscoveryStatusTickWorker {
      * that keeps omitting the run state ends the run rather than stalling it forever.
      */
     private void handleNonConformant(UUID discoveryUuid, int attempt) {
-        if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.STATUS).maxAttempts()) {
-            terminator
-                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The connector's status answers omitted the run state");
-            return;
+        if (!budget
+                .spend(discoveryUuid, DiscoveryWorkType.STATUS, attempt,
+                        "The connector's status answers omitted the run state")) {
+            logger
+                    .warn("Status poll {} for discovery {} returned no run state; retrying when next due", attempt,
+                            discoveryUuid);
         }
-        logger
-                .warn("Status poll {} for discovery {} returned no run state; retrying when next due", attempt,
-                        discoveryUuid);
     }
 
     /**
@@ -180,7 +171,6 @@ public class DiscoveryStatusTickWorker {
     }
 
     private void applyLiveState(Discovery run, DiscoveryRunState state, String previousConnectorState) {
-        run.setConnectorStatus(connectorStatusFor(state));
         switch (state) {
             case RUNNING -> {
                 run.setStatus(DiscoveryStatus.IN_PROGRESS);

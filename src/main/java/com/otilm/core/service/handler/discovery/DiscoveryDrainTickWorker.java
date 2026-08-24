@@ -45,6 +45,7 @@ public class DiscoveryDrainTickWorker {
     private final DiscoveryWorkWriter workWriter;
     private final DiscoveryWorkProducer workProducer;
     private final DiscoveryRunTerminator terminator;
+    private final DiscoveryTickBudget budget;
     private final DiscoveryWorkProperties workProperties;
     private final TransactionHandler transactionHandler;
     private final int maxItems;
@@ -53,7 +54,7 @@ public class DiscoveryDrainTickWorker {
 
     public DiscoveryDrainTickWorker(DiscoveryRepository discoveryRepository, DiscoveryV2Client client,
             DiscoveryEventIngestor ingestor, DiscoveryWorkWriter workWriter, DiscoveryWorkProducer workProducer,
-            DiscoveryRunTerminator terminator, DiscoveryWorkProperties workProperties,
+            DiscoveryRunTerminator terminator, DiscoveryTickBudget budget, DiscoveryWorkProperties workProperties,
             TransactionHandler transactionHandler, @Value("${discovery.drain.max-items:500}") int maxItems,
             @Value("${discovery.drain.max-bytes:5242880}") long maxBytes,
             @Value("${discovery.work.continuation-backstop:PT1M}") Duration continuationBackstop) {
@@ -64,6 +65,7 @@ public class DiscoveryDrainTickWorker {
         this.workWriter = workWriter;
         this.workProducer = workProducer;
         this.terminator = terminator;
+        this.budget = budget;
         this.workProperties = workProperties;
         this.transactionHandler = transactionHandler;
         this.maxItems = maxItems;
@@ -119,8 +121,7 @@ public class DiscoveryDrainTickWorker {
             // payload that will not serialize, a constraint violation -- escapes to the listener, which
             // acknowledges it. The agenda would go on retrying the same poison page forever, never reaching the
             // budget. The page's transaction has already rolled back, so the cursor is untouched either way.
-            logger.error("Ingesting a drained page for discovery {} failed: {}", discoveryUuid, e.getMessage(), e);
-            handleUnanswered(discoveryUuid, attempt, e);
+            handleUnstageable(discoveryUuid, attempt, e);
             return;
         }
         continueAfter(discoveryUuid, run, attempt, page, advanced);
@@ -131,15 +132,25 @@ public class DiscoveryDrainTickWorker {
      * keeps omitting required fields ends the run rather than stalling it forever.
      */
     private void handleNonConformant(UUID discoveryUuid, int attempt) {
-        if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.DRAIN).maxAttempts()) {
-            terminator
-                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The connector's results did not say whether more items remain");
-            return;
+        if (!budget
+                .spend(discoveryUuid, DiscoveryWorkType.DRAIN, attempt,
+                        "The connector's results did not say whether more items remain")) {
+            logger
+                    .warn("Drain {} for discovery {} returned a page missing more/highestSequence; retrying when next "
+                            + "due", attempt, discoveryUuid);
         }
-        logger
-                .warn("Drain {} for discovery {} returned a page missing more/highestSequence; retrying when next due",
-                        attempt, discoveryUuid);
+    }
+
+    /**
+     * A page the connector delivered and Core could not stage. Charged to the same budget — a page that will never
+     * stage must not retry forever — but ended with Core named as the party that failed, because on this path the
+     * connector answered and answered correctly.
+     */
+    private void handleUnstageable(UUID discoveryUuid, int attempt, RuntimeException e) {
+        logger.error("Ingesting a drained page for discovery {} failed: {}", discoveryUuid, e.getMessage(), e);
+        budget
+                .spend(discoveryUuid, DiscoveryWorkType.DRAIN, attempt,
+                        "Core could not store the discovered items this run's connector handed over");
     }
 
     /**
@@ -164,13 +175,8 @@ public class DiscoveryDrainTickWorker {
             idleUntilNextDue(discoveryUuid);
             return;
         }
-        if (!hasCaughtUp(discoveryUuid, page.getHighestSequence())) {
-            // Before the acknowledgement, never after: the ack tells the connector it may discard everything up
-            // to highestSequence, so sending it while the cursor lags would authorise discarding the very items
-            // Core is still waiting for.
-            awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
-            return;
-        }
+        // The swap is the only catch-up check there is, and deliberately so: it re-asserts the cursor against
+        // highestSequence under the run row's lock, which a separate pre-check could only do without one.
         List<MetadataAttribute> handle = swapToProcessing(discoveryUuid, page.getHighestSequence());
         if (handle == null) {
             awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
@@ -182,19 +188,6 @@ public class DiscoveryDrainTickWorker {
         run.setRunMeta(handle);
         sendFullAck(run, page.getHighestSequence());
         workProducer.produceMessage(new DiscoveryWorkMessage(discoveryUuid, DiscoveryWorkType.PROCESS, 0));
-    }
-
-    /** Whether ingestion has taken every item the connector counted. */
-    private boolean hasCaughtUp(UUID discoveryUuid, Long highestSequence) {
-        if (highestSequence == null) {
-            return false;
-        }
-        return Boolean.TRUE
-                .equals(transactionHandler
-                        .runInNewTransaction(() -> discoveryRepository
-                                .findByUuid(discoveryUuid)
-                                .map(run -> run.getLastAppliedSequence() >= highestSequence)
-                                .orElse(false)));
     }
 
     /**
@@ -307,22 +300,17 @@ public class DiscoveryDrainTickWorker {
                         workProperties.scheduleFor(DiscoveryWorkType.DRAIN).ceilingAttempt());
     }
 
+    /**
+     * A tick the connector did not answer. Below the budget the run keeps its agenda row; a direct-published
+     * continuation that fails gets one turn at its own cadence before the sweep's claimer takes over the ladder.
+     */
     private void handleUnanswered(UUID discoveryUuid, int attempt, Throwable e) {
-        if (DiscoveryConnectorErrors.isRunNoLongerTracked(e)) {
-            terminator
-                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The connector no longer tracks this run");
-            return;
+        if (!budget
+                .spendOnUnanswered(discoveryUuid, DiscoveryWorkType.DRAIN, attempt, e,
+                        "The connector stopped handing over discovered items for this run")) {
+            logger
+                    .warn("Drain {} for discovery {} failed, retrying when next due: {}", attempt, discoveryUuid,
+                            e.getMessage());
         }
-        if (attempt + 1 >= workProperties.scheduleFor(DiscoveryWorkType.DRAIN).maxAttempts()) {
-            terminator
-                    .endConnectorOwned(discoveryUuid, DiscoveryStatus.FAILED,
-                            "The connector stopped handing over discovered items for this run: "
-                                    + DiscoveryConnectorErrors.describe(e));
-            return;
-        }
-        logger
-                .warn("Drain {} for discovery {} failed, retrying when next due: {}", attempt, discoveryUuid,
-                        e.getMessage());
     }
 }

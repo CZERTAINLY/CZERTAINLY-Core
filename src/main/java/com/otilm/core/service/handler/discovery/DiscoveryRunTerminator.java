@@ -90,9 +90,10 @@ public class DiscoveryRunTerminator {
      * re-asserting anything.
      *
      * <p>
-     * Exists for the one caller that cannot go through {@link #end}: the reaper re-asserts its own conditions — an
-     * empty agenda, or a stop past its window — under a lock it already holds, and calling {@code end} from inside that
-     * would deadlock against its own row lock. Sharing the mutation is what keeps the two paths from drifting.
+     * For callers that reached their decision inside their own locked transaction — the reaper, and the status tick
+     * committing a connector-reported ending — {@link #end} is not available: it takes the same row lock and would
+     * deadlock against the one already held. Such a caller owes the rest of the terminal transition itself, which for
+     * both of them means deleting the run's agenda in that same transaction.
      */
     public void applyTerminalState(Discovery run, DiscoveryStatus status, String reason) {
         run.setStatus(status);

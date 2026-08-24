@@ -94,7 +94,7 @@ public class DiscoveryProcessTickWorker {
         }
 
         long before = backlogOf(discoveryUuid);
-        List<Long> contents = claimContents(discoveryUuid);
+        List<Long> contents = selectPendingContents(discoveryUuid);
         List<DiscoveryCertificate> batch = contents.isEmpty()
                 ? List.of()
                 : certificateRepository
@@ -116,29 +116,30 @@ public class DiscoveryProcessTickWorker {
 
     /**
      * Picks the contents this tick will import, bounded by the rows they carry rather than by how many contents they
-     * are.
+     * are. Selects, but does not claim: nothing marks these rows as taken, so a concurrent tick would select them too
+     * (core#2130).
      *
      * <p>
      * Two constraints pull against each other. A content's rows must travel together, or the pipeline runs that group's
      * triggers and histories once per page; and a tick must stay small enough to finish. They reconcile except in one
-     * case — a certificate found on more hosts than the whole budget — and there the group wins: it is claimed alone,
+     * case — a certificate found on more hosts than the whole budget — and there the group wins: it is taken alone,
      * making the tick as small as it can be while still whole. The bound is therefore exact for any batch of ordinary
      * groups and best-effort for a single oversized one.
      */
-    private List<Long> claimContents(UUID discoveryUuid) {
+    private List<Long> selectPendingContents(UUID discoveryUuid) {
         List<Object[]> pending = certificateRepository
                 .findPendingContentWeights(discoveryUuid, PageRequest.of(0, batchSize));
-        List<Long> claimed = new ArrayList<>();
+        List<Long> selected = new ArrayList<>();
         long rows = 0;
         for (Object[] candidate : pending) {
             long weight = ((Number) candidate[1]).longValue();
-            if (!claimed.isEmpty() && rows + weight > batchSize) {
+            if (!selected.isEmpty() && rows + weight > batchSize) {
                 break;
             }
-            claimed.add((Long) candidate[0]);
+            selected.add((Long) candidate[0]);
             rows += weight;
         }
-        return claimed;
+        return selected;
     }
 
     private long backlogOf(UUID discoveryUuid) {

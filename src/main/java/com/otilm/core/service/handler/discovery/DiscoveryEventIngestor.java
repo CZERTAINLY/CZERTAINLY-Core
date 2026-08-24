@@ -83,15 +83,13 @@ public class DiscoveryEventIngestor {
      * nothing.
      *
      * <p>
-     *
-     * @return whether the cursor advanced. A page that carried nothing new is how a connector loops, so the caller
-     * needs to tell "more is coming" from "the same page again".
-     *
-     * <p>
      * <b>Idempotency</b> comes from two layers. Across pages, an item at or below the cursor is dropped before staging,
      * so a redelivered page is a no-op and an overlapping one stages only its new tail. Within a page, the
      * {@code uniqueRef} decides: {@code discovery_item} refuses a repeat in the write itself, and certificates — whose
      * table carries no such constraint — are deduped here before the staging call.
+     *
+     * @return whether the cursor advanced. A page that carried nothing new is how a connector loops, so the caller
+     * needs to tell "more is coming" from "the same page again".
      */
     @Transactional
     public boolean applyDrainPage(UUID discoveryUuid, DiscoveryResultsResponseDto page) {
@@ -101,8 +99,10 @@ public class DiscoveryEventIngestor {
         }
         Discovery run = located.get();
         if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
-            // The run ended while this page was in flight. Its staging table and cursor are frozen at the moment
-            // it ended, so nothing here may still land on it.
+            // Terminal only, where every other guard in the engine uses hasLeftTheConnector. PROCESSING is
+            // deliberately still open to staging: a page in flight across the handover carries items the run has
+            // not imported yet, and the process worker recounts its backlog every tick, so they are picked up
+            // rather than lost. Refusing them here is the one way this page's items could vanish silently.
             logger.warn("Dropping drain page for discovery {}: the run ended as {}", discoveryUuid, run.getStatus());
             return false;
         }
