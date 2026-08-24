@@ -143,10 +143,6 @@ class BrandingSettingsITest extends BaseSpringBootTest {
     }
 
     /**
-     * The platform settings read is on the hot path for every page render, so a theme code that no longer maps to
-     * anything is dropped rather than allowed to fail the whole read.
-     */
-    /**
      * Each field is written by looking for its row and inserting when there is none, so two first updates racing each
      * other could both find nothing and insert the same field twice. The lock is held by this test on a connection of
      * its own, which is enough to show the update waits for it rather than reading rows out from under a concurrent
@@ -181,6 +177,10 @@ class BrandingSettingsITest extends BaseSpringBootTest {
         Assertions.assertEquals(PRIMARY, settingService.getBrandingSettings().getPrimaryColor());
     }
 
+    /**
+     * The platform settings read is on the hot path for every page render, so a theme code that no longer maps to
+     * anything is dropped rather than allowed to fail the whole read.
+     */
     @Test
     void anUnknownStoredThemeIsIgnoredRatherThanFailingTheRead() {
         Setting theme = new Setting();

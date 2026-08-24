@@ -350,10 +350,12 @@ class BrandingLogoValidatorTest {
     /** Every rejection has to name the slot, or the Appearance form cannot say which upload was refused. */
     @Test
     void everyRejectionNamesTheFieldItCameFrom() {
+        String logo = pngLogo(500, 100);
+
         Assertions
                 .assertTrue(Assertions
                         .assertThrows(ValidationException.class,
-                                () -> BrandingLogoValidator.validateAndSanitize("darkLogo", pngLogo(500, 100)))
+                                () -> BrandingLogoValidator.validateAndSanitize("darkLogo", logo))
                         .getMessage()
                         .contains("'darkLogo'"));
     }
