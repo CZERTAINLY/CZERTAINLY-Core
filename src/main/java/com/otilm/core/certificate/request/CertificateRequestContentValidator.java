@@ -4,6 +4,7 @@ import com.otilm.api.exception.CertificateRequestValidationException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.model.common.attribute.common.AttributeContent;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.mapping.ExtensionMappedField;
@@ -12,6 +13,7 @@ import com.otilm.api.model.common.attribute.v3.mapping.MappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
 import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.SanMappedField;
+import com.otilm.api.model.common.enums.IPlatformEnum;
 import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
@@ -22,6 +24,7 @@ import com.otilm.core.oid.OidHandler;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -113,6 +116,7 @@ public class CertificateRequestContentValidator {
         Set<GeneralNameType> mappedSanTypes = new HashSet<>();
         Set<String> mappedOtherNameOids = new HashSet<>();
         Set<String> mappedExtensionOids = new HashSet<>();
+        Set<String> mappedStructuredOids = new HashSet<>();
 
         for (BaseAttribute def : definitions) {
             if (!(def instanceof DataAttributeV3 v3) || !isX509CertificateMapping(v3.getFieldMapping())) {
@@ -121,6 +125,12 @@ public class CertificateRequestContentValidator {
             boolean required = v3.getProperties() != null && v3.getProperties().isRequired();
 
             for (MappedField field : v3.getFieldMapping().getFields()) {
+                String structuredOid = StructuredExtensionCodec.oidFor(field);
+                if (structuredOid != null) {
+                    mappedStructuredOids.add(structuredOid);
+                    validateStructuredTarget(v3, structuredOid, content, required, policy, result);
+                    continue;
+                }
                 List<String> matchedValues = collectMatchedValues(field, subject, sans, extensions, mappedRdnKeys,
                         mappedSanTypes, mappedOtherNameOids, mappedExtensionOids, codeToOid);
 
@@ -130,7 +140,8 @@ public class CertificateRequestContentValidator {
                 }
                 // Extension values are stored as Base64(DER) by X509RequestContentParser; running the definition's
                 // REGEXP/RANGE constraints against that opaque blob would reject valid CSRs, so only RDN/SAN
-                // (logical string) values are constraint-checked. Extension presence is still enforced above.
+                // (logical string) values are constraint-checked. Extension presence is still enforced above, and
+                // a structured target is value-checked by validateStructuredTarget instead.
                 if (!matchedValues.isEmpty() && !(field instanceof ExtensionMappedField)) {
                     validateConstraints(v3, matchedValues, policy, result);
                 }
@@ -140,6 +151,7 @@ public class CertificateRequestContentValidator {
         if (policy.whitelist()) {
             checkWhitelist(subject, sans, extensions, mappedRdnKeys, mappedSanTypes, mappedOtherNameOids,
                     mappedExtensionOids, codeToOid, policy, result);
+            checkStructuredWhitelist(content, mappedStructuredOids, policy, result);
         }
         return result;
     }
@@ -213,6 +225,79 @@ public class CertificateRequestContentValidator {
             }
         }
         return values;
+    }
+
+    /**
+     * Compares a structured extension's values against what the definition permits.
+     *
+     * <p>
+     * The rules are the attribute semantics the platform already has, not new ones: a predefined list is a
+     * <em>permitted</em> set (membership, as {@code AttributeEngine} enforces for any list attribute), {@code required}
+     * demands a non-empty one, and {@code extensibleList} lifts the restriction. There is no pinned-set case:
+     * {@code readOnly} would express it, but a read-only attribute cannot be a list and a set-valued target must be
+     * one. Whitelisting is handled by {@link #checkStructuredWhitelist}, because the parser diverts these OIDs out of
+     * the extension list and the generic extension pass cannot see them.
+     */
+    private static void validateStructuredTarget(DataAttributeV3 def, String extensionOid, X509RequestContent content,
+            boolean required, RequestAttributePolicy policy, RequestAttributeValidationResult result) {
+        String target = StructuredExtensionCodec.structuredTargetName(extensionOid);
+        List<String> present = structuredValues(extensionOid, content);
+
+        if (present.isEmpty()) {
+            if (required) {
+                recordViolation(result, policy,
+                        "Missing required mapped field for attribute '%s' (%s)".formatted(label(def), target));
+            }
+            return;
+        }
+
+        DataAttributeProperties properties = def.getProperties();
+        if (properties != null && properties.isExtensibleList()) {
+            return;
+        }
+        Set<String> permitted = new LinkedHashSet<>(StructuredExtensionCodec.permittedItems(def));
+        for (String item : present) {
+            if (!permitted.contains(item)) {
+                recordViolation(result, policy,
+                        "%s '%s' is not allowed by the request-attribute set".formatted(target, item));
+            }
+        }
+    }
+
+    /**
+     * Flags a structured extension the CSR carries that no definition maps. The parser diverts these OIDs out of the
+     * extension list, so {@link #checkWhitelist}'s extension pass can never see them - without this, a CSR requesting
+     * an unmapped key usage would pass a strict policy and reach the CA unfiltered.
+     */
+    private static void checkStructuredWhitelist(X509RequestContent content, Set<String> mappedStructuredOids,
+            RequestAttributePolicy policy, RequestAttributeValidationResult result) {
+        for (String extensionOid : List
+                .of(StructuredExtensionCodec.KEY_USAGE_OID, StructuredExtensionCodec.EXTENDED_KEY_USAGE_OID)) {
+            if (mappedStructuredOids.contains(extensionOid) || structuredValues(extensionOid, content).isEmpty()) {
+                continue;
+            }
+            recordViolation(result, policy, "%s is not allowed by the request-attribute set"
+                    .formatted(StructuredExtensionCodec.structuredTargetName(extensionOid)));
+        }
+    }
+
+    /** The CSR's values for a structured target, as the codes the definition's content is written in. */
+    private static List<String> structuredValues(String extensionOid, X509RequestContent content) {
+        if (StructuredExtensionCodec.KEY_USAGE_OID.equals(extensionOid)) {
+            return codes(content.getKeyUsage());
+        }
+        return content.getExtendedKeyUsage() == null ? List.of() : content.getExtendedKeyUsage();
+    }
+
+    private static List<String> codes(List<? extends IPlatformEnum> values) {
+        if (values == null) {
+            return List.of();
+        }
+        List<String> codes = new ArrayList<>(values.size());
+        for (IPlatformEnum value : values) {
+            codes.add(value.getCode());
+        }
+        return codes;
     }
 
     private static void validateConstraints(DataAttributeV3 def, List<String> values, RequestAttributePolicy policy,
