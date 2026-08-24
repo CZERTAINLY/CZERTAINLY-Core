@@ -11,6 +11,7 @@ import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.events.handlers.CertificateDiscoveredEventHandler;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
+import com.otilm.core.messaging.jms.configuration.DiscoveryWorkProperties;
 import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
@@ -62,6 +63,8 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
     @Autowired
     private DiscoveryProcessTickWorker worker;
+    @Autowired
+    private DiscoveryWorkProperties workProperties;
     @Autowired
     private DiscoveryRepository discoveryRepository;
     @Autowired
@@ -146,6 +149,23 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         assertThat(processRow(run).getAttempt()).isEqualTo(1);
         assertThat(processRow(run).getNextDueAt()).isAfter(OffsetDateTime.now(ZoneOffset.UTC));
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+    }
+
+    @Test
+    void runThatNeverAccountsForItsBacklog_endsRatherThanStayingInProcessing() throws Exception {
+        Discovery run = processingRun();
+        stageCertificates(run, 2);
+        importsWithoutStamping();
+        int lastAttempt = workProperties.scheduleFor(DiscoveryWorkType.PROCESS).maxAttempts() - 1;
+
+        worker.tick(run.getUuid(), lastAttempt);
+
+        // Stranded in PROCESSING forever is the v1 failure this worker exists to close, so the budget has to end
+        // the run — with a reason naming what was left behind — rather than back off indefinitely.
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.WARNING);
+        assertThat(reloaded.getMessage()).contains("2 certificate(s) that could not be imported");
+        assertThat(agenda(run)).isEmpty();
     }
 
     @Test

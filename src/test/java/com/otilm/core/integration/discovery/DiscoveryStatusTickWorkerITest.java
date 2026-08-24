@@ -235,6 +235,40 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
         assertThat(agenda(run)).isEmpty();
     }
 
+    @Test
+    void answerWithoutARunState_isNotTreatedAsAnAnswer() throws Exception {
+        Discovery run = v2Run(DiscoveryStatus.IN_PROGRESS);
+        armStatusRow(run, 3);
+        DiscoveryStatusResponseDto stateless = new DiscoveryStatusResponseDto();
+        stateless.setHighestSequence(0L);
+        answers(stateless);
+
+        worker.tick(run.getUuid(), 3);
+
+        // The state is required on the wire, so its absence is not an answer. Reading it as one would put the
+        // null through state.getCode() inside the transaction, where it escapes the connector-call catch and is
+        // merely acknowledged -- and the tick then retries past its budget forever.
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
+        assertThat(statusRow(run).getAttempt())
+                .as("a non-answer must not refresh the budget it is spending")
+                .isEqualTo(3);
+    }
+
+    @Test
+    void connectorThatKeepsOmittingTheRunState_endsTheRun() throws Exception {
+        Discovery run = v2Run(DiscoveryStatus.IN_PROGRESS);
+        armStatusRow(run, 0);
+        answers(new DiscoveryStatusResponseDto());
+        int lastAttempt = workProperties.scheduleFor(DiscoveryWorkType.STATUS).maxAttempts() - 1;
+
+        worker.tick(run.getUuid(), lastAttempt);
+
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        assertThat(reloaded.getMessage()).contains("omitted the run state");
+        assertThat(agenda(run)).isEmpty();
+    }
+
     // ------------------------------------------------------------------ ticks with nothing to do
 
     @Test

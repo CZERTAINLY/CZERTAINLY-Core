@@ -38,7 +38,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -142,6 +144,42 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
         assertThat(reloaded.getRunMeta())
                 .as("the connector owns nothing from here on, so its handle is released")
                 .isNull();
+        assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.PROCESS);
+        assertThat(publishedTicks())
+                .containsExactly(new DiscoveryWorkMessage(run.getUuid(), DiscoveryWorkType.PROCESS, 0));
+        // The contract's full acknowledgement, and the only call that licences the connector to discard the
+        // run's state: a drain at afterSequence == highestSequence, sent once the handover is durable.
+        verify(client).acknowledge(any(), eq(2L));
+    }
+
+    @Test
+    void cursorStillBehind_neverSendsTheFullAcknowledgement() throws Exception {
+        Discovery run = runTheConnectorFinished();
+        armDrainRow(run, 0);
+        when(client.results(any(), anyInt(), anyLong()))
+                .thenReturn(page(4L, false, keyItem(1, "key-a"), keyItem(2, "key-b")));
+
+        worker.tick(run.getUuid(), 0);
+
+        // Acknowledging here would tell the connector it may discard items 3 and 4 — the very ones Core is
+        // still waiting for.
+        verify(client, never()).acknowledge(any(), anyLong());
+    }
+
+    @Test
+    void acknowledgementThatFails_leavesTheHandoverStanding() throws Exception {
+        Discovery run = runTheConnectorFinished();
+        armDrainRow(run, 0);
+        when(client.results(any(), anyInt(), anyLong())).thenReturn(page(1L, false, keyItem(1, "key-a")));
+        doThrow(new ConnectorException("connection reset")).when(client).acknowledge(any(), anyLong());
+
+        worker.tick(run.getUuid(), 0);
+
+        // Best-effort by design: the connector retains the run's state for 24 hours regardless, so a failed ack
+        // costs retention, not data. Rolling the handover back would cost the import instead.
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+        assertThat(reloaded.getRunMeta()).isNull();
         assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.PROCESS);
         assertThat(publishedTicks())
                 .containsExactly(new DiscoveryWorkMessage(run.getUuid(), DiscoveryWorkType.PROCESS, 0));
@@ -263,7 +301,7 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
     }
 
     @Test
-    void ingestionFailure_spendsBudgetRatherThanEscapingToTheListener() throws Exception {
+    void unstageablePageWithBudgetLeft_isContainedInsteadOfEscapingToTheListener() throws Exception {
         Discovery run = runStillScanning();
         armDrainRow(run, 0);
         // A genuinely unstageable page: unique_ref is NOT NULL, so the staging insert fails deterministically
@@ -272,10 +310,30 @@ class DiscoveryDrainTickWorkerITest extends BaseSpringBootTest {
 
         worker.tick(run.getUuid(), 0);
 
-        // Left to escape, a deterministic page failure is acknowledged by the listener and the same poison page
-        // is redelivered forever without the budget ever advancing.
-        assertThat(drainRow(run).getAttempt()).isZero();
+        // Left to escape, the failure reaches the listener, which logs and acknowledges it -- so the same poison
+        // page is redelivered forever and the run never ends. Contained here, the agenda row survives for the
+        // sweep's claimer to push up the ladder, and the cursor is untouched by the rolled-back page.
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
+        assertThat(reload(run).getLastAppliedSequence()).isZero();
+        assertThat(agenda(run)).extracting(DiscoveryWork::getWorkType).containsExactly(DiscoveryWorkType.DRAIN);
+        verify(workProducer, never()).produceMessage(any());
+    }
+
+    @Test
+    void pageCoreKeepsFailingToStage_endsTheRunWithoutBlamingTheConnector() throws Exception {
+        Discovery run = runStillScanning();
+        armDrainRow(run, 0);
+        when(client.results(any(), anyInt(), anyLong())).thenReturn(page(1L, false, keyItem(1, null)));
+
+        worker.tick(run.getUuid(), 99);
+
+        // The connector answered, and answered correctly. Reporting this as "the connector stopped handing over
+        // items" would send an operator to the wrong system.
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        assertThat(reloaded.getMessage())
+                .isEqualTo("Core could not store the discovered items this run's connector " + "handed over");
+        assertThat(agenda(run)).isEmpty();
     }
 
     @Test
