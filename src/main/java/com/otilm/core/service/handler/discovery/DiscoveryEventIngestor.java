@@ -41,9 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
  * committed exclusively by the tick workers from an authoritative connector response.
  *
  * <p>
- * <b>The advisory half has no caller yet.</b> {@code applyDrainPage} is reached from the drain worker; nothing invokes
- * {@code applyAdvisoryEvent} until the AMQP binding and the NDJSON stream land with the push slice. It is groundwork,
- * not a live path.
+ * {@code applyAdvisoryEvent} has no production caller yet — it is groundwork, not a live path.
  *
  * <p>
  * <b>Why the run row is locked.</b> A drain page's staged rows and the cursor advance that accounts for them must be
@@ -81,27 +79,32 @@ public class DiscoveryEventIngestor {
      * nothing.
      *
      * <p>
+     *
+     * @return whether the cursor advanced. A page that carried nothing new is how a connector loops, so the caller
+     * needs to tell "more is coming" from "the same page again".
+     *
+     * <p>
      * <b>Idempotency</b> comes from two layers. Across pages, an item at or below the cursor is dropped before staging,
      * so a redelivered page is a no-op and an overlapping one stages only its new tail. Within a page, the
      * {@code uniqueRef} decides: {@code discovery_item} refuses a repeat in the write itself, and certificates — whose
      * table carries no such constraint — are deduped here before the staging call.
      */
     @Transactional
-    public void applyDrainPage(UUID discoveryUuid, DiscoveryResultsResponseDto page) {
+    public boolean applyDrainPage(UUID discoveryUuid, DiscoveryResultsResponseDto page) {
         Optional<Discovery> located = lockRun(discoveryUuid, "drain page");
         if (located.isEmpty()) {
-            return;
+            return false;
         }
         Discovery run = located.get();
         if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
             // The run ended while this page was in flight. Its staging table and cursor are frozen at the moment
             // it ended, so nothing here may still land on it.
             logger.warn("Dropping drain page for discovery {}: the run ended as {}", discoveryUuid, run.getStatus());
-            return;
+            return false;
         }
         List<DiscoveredItemDto> items = page.getItems() == null ? List.of() : page.getItems();
         if (items.isEmpty()) {
-            return;
+            return false;
         }
         recordMalformed(run, items);
 
@@ -116,6 +119,7 @@ public class DiscoveryEventIngestor {
         logger
                 .debug("Staged {} of {} drained items for discovery {}; cursor {} -> {}", fresh.size(), items.size(),
                         discoveryUuid, cursor, run.getLastAppliedSequence());
+        return run.getLastAppliedSequence() > cursor;
     }
 
     /**

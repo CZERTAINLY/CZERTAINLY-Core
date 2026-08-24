@@ -161,6 +161,7 @@ public class DiscoveryStatusTickWorker {
             // What the connector reported is recorded whatever it was, including on the endings: connector_state
             // and connector_status are its view of the run, and losing them on the one answer that matters most
             // leaves the operator without the reason.
+            String previousConnectorState = locked.getConnectorState();
             locked.setConnectorState(state.getCode());
             locked.setConnectorStatus(connectorStatusFor(state));
             if (status.getProgress() != null) {
@@ -173,12 +174,12 @@ public class DiscoveryStatusTickWorker {
                 workWriter.deleteForRun(discoveryUuid);
                 return false;
             }
-            applyLiveState(locked, state);
+            applyLiveState(locked, state, previousConnectorState);
             return true;
         }));
     }
 
-    private void applyLiveState(Discovery run, DiscoveryRunState state) {
+    private void applyLiveState(Discovery run, DiscoveryRunState state, String previousConnectorState) {
         run.setConnectorStatus(connectorStatusFor(state));
         switch (state) {
             case RUNNING -> {
@@ -198,7 +199,12 @@ public class DiscoveryStatusTickWorker {
             case COMPLETED -> {
                 run.setStatus(DiscoveryStatus.IN_PROGRESS);
                 clearResumeWindow(run);
-                workWriter.schedule(run.getUuid(), DiscoveryWorkType.DRAIN, OffsetDateTime.now(ZoneOffset.UTC));
+                // Only on the transition. Scheduling re-arms a row from scratch, counter included, so doing it
+                // on every repeated COMPLETED answer would reset the drain's budget faster than the drain can
+                // spend it and a permanently failing drain would never end the run.
+                if (!DiscoveryRunState.COMPLETED.getCode().equals(previousConnectorState)) {
+                    workWriter.schedule(run.getUuid(), DiscoveryWorkType.DRAIN, OffsetDateTime.now(ZoneOffset.UTC));
+                }
             }
             default -> throw new IllegalStateException("Unhandled live discovery run state " + state);
         }

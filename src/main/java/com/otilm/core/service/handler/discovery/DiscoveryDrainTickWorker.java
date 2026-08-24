@@ -3,6 +3,7 @@ package com.otilm.core.service.handler.discovery;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunState;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
@@ -18,6 +19,7 @@ import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,8 +32,7 @@ import org.springframework.stereotype.Component;
  * <p>
  * <b>Only a fully acknowledged run hands over.</b> A connector reporting {@code completed} and a page reporting
  * {@code more: false} still leave the cursor free to sit below the run-wide {@code highestSequence} — items produced
- * but not handed over — so the swap to {@code PROCESSING} waits for the cursor to catch up. Every other decision this
- * worker makes is documented on the method that makes it.
+ * but not handed over — so the swap to {@code PROCESSING} waits for the cursor to catch up.
  */
 @Component
 public class DiscoveryDrainTickWorker {
@@ -110,8 +111,9 @@ public class DiscoveryDrainTickWorker {
             return;
         }
 
+        boolean advanced;
         try {
-            ingestor.applyDrainPage(discoveryUuid, page);
+            advanced = ingestor.applyDrainPage(discoveryUuid, page);
         } catch (RuntimeException e) {
             // Staging sits outside the connector-call catch, so without this a deterministic page failure -- a
             // payload that will not serialize, a constraint violation -- escapes to the listener, which
@@ -121,7 +123,7 @@ public class DiscoveryDrainTickWorker {
             handleUnanswered(discoveryUuid, attempt, e);
             return;
         }
-        continueAfter(discoveryUuid, run, attempt, page);
+        continueAfter(discoveryUuid, run, attempt, page, advanced);
     }
 
     /**
@@ -144,9 +146,16 @@ public class DiscoveryDrainTickWorker {
      * Decides the run's next drain step from what the page said, and — where the answer is "there is more, now" —
      * publishes that step rather than waiting for a sweep to notice.
      */
-    private void continueAfter(UUID discoveryUuid, Discovery run, int attempt, DiscoveryResultsResponseDto page) {
+    private void continueAfter(UUID discoveryUuid, Discovery run, int attempt, DiscoveryResultsResponseDto page,
+            boolean advanced) {
         if (Boolean.TRUE.equals(page.getMore())) {
-            drainAgain(discoveryUuid, "the connector reports more items");
+            if (advanced) {
+                drainAgain(discoveryUuid, "the connector reports more items");
+            } else {
+                // "More to come" that carried nothing new is a connector repeating itself. Publishing again
+                // would spin as fast as it answers, so this climbs the ladder and eventually ends the run.
+                awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
+            }
             return;
         }
         if (!DiscoveryRunState.COMPLETED.getCode().equals(run.getConnectorState())) {
@@ -162,12 +171,17 @@ public class DiscoveryDrainTickWorker {
             awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
             return;
         }
-        sendFullAck(run, page.getHighestSequence());
-        if (swapToProcessing(discoveryUuid, page.getHighestSequence())) {
-            workProducer.produceMessage(new DiscoveryWorkMessage(discoveryUuid, DiscoveryWorkType.PROCESS, 0));
+        List<MetadataAttribute> handle = swapToProcessing(discoveryUuid, page.getHighestSequence());
+        if (handle == null) {
+            awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
             return;
         }
-        awaitTheRest(discoveryUuid, attempt, page.getHighestSequence());
+        // Strictly after the handover commits. The acknowledgement lets the connector discard the run's whole
+        // state, so sending it before a swap that might roll back would licence throwing away a run Core never
+        // finished taking over. The handle is replayed onto the detached entity purely to make this one call.
+        run.setRunMeta(handle);
+        sendFullAck(run, page.getHighestSequence());
+        workProducer.produceMessage(new DiscoveryWorkMessage(discoveryUuid, DiscoveryWorkType.PROCESS, 0));
     }
 
     /** Whether ingestion has taken every item the connector counted. */
@@ -189,9 +203,9 @@ public class DiscoveryDrainTickWorker {
      * retains that state for 24 hours regardless, so a failure here costs retention, not data.
      *
      * <p>
-     * Sent here, immediately before the handover releases {@code run_meta}, because this is the last moment Core still
-     * holds the handle to send it with. The contract frames the ack as following the run's terminal state, which Core
-     * only reaches later in processing; reconciling the two belongs to the lifecycle work.
+     * Sent after the handover commits, against the handle it released. The contract frames the ack as following the
+     * run's terminal state, which Core reaches later, in processing — so this is the earliest point at which the
+     * handover is durable and the latest at which the handle still exists.
      */
     private void sendFullAck(Discovery run, Long highestSequence) {
         try {
@@ -228,25 +242,27 @@ public class DiscoveryDrainTickWorker {
     /**
      * Commits the handover to Core-side processing, but only once every item the connector counted has been ingested.
      *
-     * @return whether the swap happened; false means the cursor is still behind and the run must drain again
+     * @return the connector handle this swap released, or {@code null} when no swap happened — the cursor is still
+     * behind, or another tick got there first
      */
-    private boolean swapToProcessing(UUID discoveryUuid, Long highestSequence) {
-        return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
+    private List<MetadataAttribute> swapToProcessing(UUID discoveryUuid, Long highestSequence) {
+        return transactionHandler.runInNewTransaction(() -> {
             Discovery locked = discoveryRepository.findWithLockByUuid(discoveryUuid).orElse(null);
             // The snapshot this decision started from predates the connector call. Re-assert both halves of the
             // precondition: a concurrent STATUS tick may have paused the run, and another drain may already have
             // handed it over — swapping again would publish a second PROCESS tick against the same run.
             if (locked == null || locked.getStatus() != DiscoveryStatus.IN_PROGRESS
                     || !DiscoveryRunState.COMPLETED.getCode().equals(locked.getConnectorState())) {
-                return false;
+                return null;
             }
             long acknowledged = locked.getLastAppliedSequence();
             if (highestSequence != null && acknowledged < highestSequence) {
                 logger
                         .info("Discovery {} drained to {} of {} items; staying in the drain", discoveryUuid,
                                 acknowledged, highestSequence);
-                return false;
+                return null;
             }
+            List<MetadataAttribute> handle = locked.getRunMeta();
             locked.setStatus(DiscoveryStatus.PROCESSING);
             // The connector owns nothing from here on, so its run handle is released with the same write
             // that hands the run to processing.
@@ -260,8 +276,8 @@ public class DiscoveryDrainTickWorker {
                     .schedule(discoveryUuid, DiscoveryWorkType.PROCESS,
                             OffsetDateTime.now(ZoneOffset.UTC).plus(continuationBackstop));
             logger.info("Discovery {} drained {} items in full; processing them now", discoveryUuid, acknowledged);
-            return true;
-        }));
+            return handle;
+        });
     }
 
     /**

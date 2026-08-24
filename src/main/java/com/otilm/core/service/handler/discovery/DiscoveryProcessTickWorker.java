@@ -93,9 +93,14 @@ public class DiscoveryProcessTickWorker {
         }
 
         long before = backlogOf(discoveryUuid);
-        List<DiscoveryCertificate> batch = certificateRepository
-                .findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNullOrderByCreatedAsc(
-                        discoveryUuid, PageRequest.of(0, batchSize));
+        // Paged by content, not by row: the pipeline acts once per certificate content, so a group split across
+        // two pages would have its triggers and histories run twice.
+        List<Long> contents = certificateRepository.findPendingContentIds(discoveryUuid, PageRequest.of(0, batchSize));
+        List<DiscoveryCertificate> batch = contents.isEmpty()
+                ? List.of()
+                : certificateRepository
+                        .findByDiscoveryUuidAndCertificateContentIdInAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(
+                                discoveryUuid, contents);
         if (!batch.isEmpty()) {
             importBatch(run, attempt, batch);
         }

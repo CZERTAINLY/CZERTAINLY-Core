@@ -36,9 +36,23 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
      * Claiming on {@code processed} alone would hand those same unreachable rows back on every tick and the backlog
      * would never drain. A recorded reason is an outcome, so a row carrying one is done with.
      */
+    /**
+     * The certificate contents a run still has work for, oldest first, one page at a time.
+     *
+     * <p>
+     * The claim pages by <b>content</b> rather than by row because the import pipeline groups rows by content and acts
+     * once per group. Paging rows would let one content's rows straddle a page boundary, and the group would then be
+     * imported by two separate ticks — running its triggers, histories and validation twice.
+     */
+    @Query("SELECT dc.certificateContentId FROM DiscoveryCertificate dc "
+            + "WHERE dc.discoveryUuid = :discoveryUuid AND dc.newlyDiscovered = true AND dc.processed = false "
+            + "AND dc.processedError IS NULL " + "GROUP BY dc.certificateContentId ORDER BY MIN(dc.created)")
+    List<Long> findPendingContentIds(@Param("discoveryUuid") UUID discoveryUuid, Pageable pageable);
+
+    /** Every pending row of the given contents, so a claimed group is always whole. */
     @EntityGraph(attributePaths = {"certificateContent"})
-    List<DiscoveryCertificate> findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNullOrderByCreatedAsc(
-            UUID discoveryUuid, Pageable pageable);
+    List<DiscoveryCertificate> findByDiscoveryUuidAndCertificateContentIdInAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(
+            UUID discoveryUuid, Collection<Long> certificateContentIds);
 
     long countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(UUID discoveryUuid);
 

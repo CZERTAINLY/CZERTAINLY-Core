@@ -164,6 +164,20 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         verify(importHandler, never()).processBatch(any(), anyList());
     }
 
+    @Test
+    void contentGroupLargerThanTheBatch_isClaimedWholeRatherThanSplit() throws Exception {
+        Discovery run = processingRun();
+        // One certificate found on three hosts: three rows, one content. batch-size is 1, so paging by row
+        // would hand this group to three separate ticks and run its triggers and histories three times.
+        stageCertificatesSharingContent(run, 3);
+        importsCleanly();
+
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(claimedBatchSizes).as("the group travels together, whatever the batch size says").containsExactly(3);
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.COMPLETED);
+    }
+
     // ------------------------------------------------------------------ ending the run
 
     @Test
@@ -315,8 +329,26 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
             certificateRepository.saveAndFlush(staged);
         }
         return certificateRepository
-                .findByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNullOrderByCreatedAsc(
-                        run.getUuid(), PageRequest.of(0, 100));
+                .findByDiscoveryUuidAndCertificateContentIdInAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(
+                        run.getUuid(),
+                        certificateRepository.findPendingContentIds(run.getUuid(), PageRequest.of(0, 100)));
+    }
+
+    /** Rows for one shared certificate content — the same certificate found on several hosts. */
+    private void stageCertificatesSharingContent(Discovery run, int rows) {
+        CertificateContent content = new CertificateContent();
+        content.setFingerprint(UUID.randomUUID().toString());
+        content.setContent("shared-content");
+        CertificateContent saved = certificateContentRepository.saveAndFlush(content);
+        for (int i = 0; i < rows; i++) {
+            DiscoveryCertificate staged = new DiscoveryCertificate();
+            staged.setCertificateContent(saved);
+            staged.setDiscovery(run);
+            staged.setNewlyDiscovered(true);
+            staged.setProcessed(false);
+            staged.setCommonName("host-" + i + ".example.com");
+            certificateRepository.saveAndFlush(staged);
+        }
     }
 
     private Discovery processingRun() {
