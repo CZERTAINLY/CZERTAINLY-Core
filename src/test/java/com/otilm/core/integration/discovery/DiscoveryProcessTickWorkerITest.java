@@ -178,6 +178,23 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.COMPLETED);
     }
 
+    @Test
+    void oneContentBiggerThanTheBudget_isStillClaimedWholeAndAlone() throws Exception {
+        Discovery run = processingRun();
+        // batch-size is 1, so this group is three times the budget. Splitting it would run its triggers and
+        // histories three times; the group therefore wins and the tick carries it alone.
+        stageCertificatesSharingContent(run, 3);
+        stageCertificates(run, 1);
+        importsCleanly();
+
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(claimedBatchSizes)
+                .as("the oversized group travels whole, and nothing else rides along with it")
+                .containsExactly(3);
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+    }
+
     // ------------------------------------------------------------------ ending the run
 
     @Test
@@ -331,7 +348,11 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
         return certificateRepository
                 .findByDiscoveryUuidAndCertificateContentIdInAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(
                         run.getUuid(),
-                        certificateRepository.findPendingContentIds(run.getUuid(), PageRequest.of(0, 100)));
+                        certificateRepository
+                                .findPendingContentWeights(run.getUuid(), PageRequest.of(0, 100))
+                                .stream()
+                                .map(weighted -> (Long) weighted[0])
+                                .toList());
     }
 
     /** Rows for one shared certificate content — the same certificate found on several hosts. */

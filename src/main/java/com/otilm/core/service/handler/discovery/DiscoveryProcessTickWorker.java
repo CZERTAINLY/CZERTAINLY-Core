@@ -17,6 +17,7 @@ import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -93,9 +94,7 @@ public class DiscoveryProcessTickWorker {
         }
 
         long before = backlogOf(discoveryUuid);
-        // Paged by content, not by row: the pipeline acts once per certificate content, so a group split across
-        // two pages would have its triggers and histories run twice.
-        List<Long> contents = certificateRepository.findPendingContentIds(discoveryUuid, PageRequest.of(0, batchSize));
+        List<Long> contents = claimContents(discoveryUuid);
         List<DiscoveryCertificate> batch = contents.isEmpty()
                 ? List.of()
                 : certificateRepository
@@ -113,6 +112,33 @@ public class DiscoveryProcessTickWorker {
         } else {
             stall(discoveryUuid, attempt, remaining);
         }
+    }
+
+    /**
+     * Picks the contents this tick will import, bounded by the rows they carry rather than by how many contents they
+     * are.
+     *
+     * <p>
+     * Two constraints pull against each other. A content's rows must travel together, or the pipeline runs that group's
+     * triggers and histories once per page; and a tick must stay small enough to finish. They reconcile except in one
+     * case — a certificate found on more hosts than the whole budget — and there the group wins: it is claimed alone,
+     * making the tick as small as it can be while still whole. The bound is therefore exact for any batch of ordinary
+     * groups and best-effort for a single oversized one.
+     */
+    private List<Long> claimContents(UUID discoveryUuid) {
+        List<Object[]> pending = certificateRepository
+                .findPendingContentWeights(discoveryUuid, PageRequest.of(0, batchSize));
+        List<Long> claimed = new ArrayList<>();
+        long rows = 0;
+        for (Object[] candidate : pending) {
+            long weight = ((Number) candidate[1]).longValue();
+            if (!claimed.isEmpty() && rows + weight > batchSize) {
+                break;
+            }
+            claimed.add((Long) candidate[0]);
+            rows += weight;
+        }
+        return claimed;
     }
 
     private long backlogOf(UUID discoveryUuid) {

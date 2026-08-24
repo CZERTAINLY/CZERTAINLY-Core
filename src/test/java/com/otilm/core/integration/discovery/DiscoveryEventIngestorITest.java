@@ -165,8 +165,11 @@ class DiscoveryEventIngestorITest extends BaseSpringBootTest {
         ingestor.applyAdvisoryEvent(run.getUuid(), event);
 
         Discovery reloaded = reload(run);
+        // The code is a connector-declared identifier; the message beside it is connector prose, and this log
+        // is read through the API -- so the prose stays in the log and never on the run.
         assertThat(reloaded.getRunMessages())
-                .containsExactly("Connector reported HOST_UNREACHABLE: 10.0.0.7 did not answer");
+                .containsExactly("Connector reported HOST_UNREACHABLE")
+                .noneMatch(message -> message.contains("10.0.0.7"));
         assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
         assertThat(agenda(run)).isEmpty();
     }

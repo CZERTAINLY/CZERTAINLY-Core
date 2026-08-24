@@ -27,7 +27,8 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
             Pageable pageable);
 
     /**
-     * The v2 processing claim: the certificate contents a run still has work for, oldest first, one page at a time.
+     * The v2 processing claim: the certificate contents a run still has work for, oldest first, each with the number of
+     * rows it carries so the caller can bound a batch by rows rather than by group count.
      *
      * <p>
      * Pages by <b>content</b> rather than by row because the import pipeline groups rows by content and acts once per
@@ -45,11 +46,11 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
      * {@code processed} alone would hand those same unreachable rows back on every tick and the backlog would never
      * drain. A recorded reason is an outcome.
      */
-    @Query("SELECT dc.certificateContentId FROM DiscoveryCertificate dc "
+    @Query("SELECT dc.certificateContentId, COUNT(dc) FROM DiscoveryCertificate dc "
             + "WHERE dc.discoveryUuid = :discoveryUuid AND dc.newlyDiscovered = true AND dc.processed = false "
             + "AND dc.processedError IS NULL "
             + "GROUP BY dc.certificateContentId ORDER BY MIN(dc.created), dc.certificateContentId")
-    List<Long> findPendingContentIds(@Param("discoveryUuid") UUID discoveryUuid, Pageable pageable);
+    List<Object[]> findPendingContentWeights(@Param("discoveryUuid") UUID discoveryUuid, Pageable pageable);
 
     /** Every pending row of the given contents, so a claimed group is always whole. */
     @EntityGraph(attributePaths = {"certificateContent"})

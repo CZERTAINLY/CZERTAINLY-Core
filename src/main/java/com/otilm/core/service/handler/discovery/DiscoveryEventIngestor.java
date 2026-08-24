@@ -151,10 +151,13 @@ public class DiscoveryEventIngestor {
             case PROGRESS -> run.setProgress(snapshotOf((DiscoveryProgressEvent) event));
             case ERROR -> {
                 DiscoveryErrorEvent error = (DiscoveryErrorEvent) event;
+                // The code only. The message beside it is connector-authored prose, and run_messages is read
+                // through the API -- the same reason DiscoveryConnectorErrors.describe forwards nothing a
+                // connector wrote. The full text goes to the log instead.
+                logger.warn("Discovery {} connector error {}: {}", discoveryUuid, error.getCode(), error.getMessage());
                 run
                         .setRunMessages(DiscoveryRunLifecycle
-                                .append(run.getRunMessages(),
-                                        "Connector reported %s: %s".formatted(error.getCode(), error.getMessage())));
+                                .append(run.getRunMessages(), "Connector reported %s".formatted(error.getCode())));
             }
             case STATE_CHANGED -> scheduleNow(run, DiscoveryWorkType.STATUS);
             case RESULT_BATCH -> scheduleNow(run, DiscoveryWorkType.DRAIN);
