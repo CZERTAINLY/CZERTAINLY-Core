@@ -78,6 +78,12 @@ public class AuthHelper {
     /** {@code AuthResourceSynchronizer} rederives this role's grants from the resource catalogue on every startup. */
     public static final String AUDITOR_ROLE_NAME = "auditor";
 
+    /**
+     * The anonymous branding endpoint. Named here because whoever opens the path anonymously and whoever decides how it
+     * may be cached have to be talking about the same path.
+     */
+    public static final String BRANDING_ENDPOINT = "/v?/branding";
+
     /** Served without authentication for any HTTP method. */
     public static final List<String> PERMITTED_ENDPOINTS = List.of("/v?/health/**", "/v?/connector/register");
 
@@ -87,7 +93,7 @@ public class AuthHelper {
      * nothing else. Opening only {@code GET} keeps a write against the path refused by the security chain rather than
      * by the handler mapping happening to register no other method.
      */
-    public static final List<String> GET_PERMITTED_ENDPOINTS = List.of("/v?/branding");
+    public static final List<String> GET_PERMITTED_ENDPOINTS = List.of(BRANDING_ENDPOINT);
     public static final List<String> OAUTH2_ENDPOINTS = List
             .of("/login", "/oauth2/**", "/v?/oauth2/**", "/v?/health/**", "/v?/connector/register");
 

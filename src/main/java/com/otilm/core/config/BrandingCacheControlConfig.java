@@ -1,5 +1,6 @@
 package com.otilm.core.config;
 
+import com.otilm.core.util.AuthHelper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
@@ -25,8 +26,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class BrandingCacheControlConfig implements WebMvcConfigurer {
 
-    private static final String BRANDING_PATH = "/v?/branding";
-
     /** Short enough that an operator who changes the branding sees it on the login page within the minute. */
     private static final String BRANDING_CACHE_CONTROL = CacheControl
             .maxAge(Duration.ofMinutes(1))
@@ -35,7 +34,7 @@ public class BrandingCacheControlConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new CacheControlInterceptor()).addPathPatterns(BRANDING_PATH);
+        registry.addInterceptor(new CacheControlInterceptor()).addPathPatterns(AuthHelper.BRANDING_ENDPOINT);
     }
 
     private static final class CacheControlInterceptor implements HandlerInterceptor {
