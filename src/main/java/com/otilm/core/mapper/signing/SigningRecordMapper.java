@@ -10,6 +10,7 @@ import com.otilm.core.dao.entity.signing.SigningRecordOutbox;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 public class SigningRecordMapper {
 
@@ -35,6 +36,7 @@ public class SigningRecordMapper {
         signingRecord.setSignedDocument(outbox.getSignedDocument());
         signingRecord.setDtbs(outbox.getDtbs());
         signingRecord.setRequestMetadataJson(outbox.getRequestMetadataJson());
+        signingRecord.setTimestampTokenSerialNumbers(outbox.getTimestampTokenSerialNumbers());
         return signingRecord;
     }
 
@@ -57,6 +59,7 @@ public class SigningRecordMapper {
         dto.setSignedDocument(signingRecord.getSignedDocument());
         dto.setDtbs(signingRecord.getDtbs());
         dto.setRequestMetadataJson(signingRecord.getRequestMetadataJson());
+        dto.setTimestampTokenSerialNumbers(serialNumbers(signingRecord));
         if (signingRecord.getSignedDocumentRetrievedAt() != null) {
             dto.setSignedDocumentRetrievedAt(signingRecord.getSignedDocumentRetrievedAt());
         }
@@ -73,7 +76,13 @@ public class SigningRecordMapper {
         OffsetDateTime createdAtZoned = signingRecord.getCreated();
         dto.setCreatedAt(createdAtZoned.toInstant());
         dto.setSigningProfile(toSigningProfileListDto(signingRecord));
+        dto.setTimestampTokenSerialNumbers(serialNumbers(signingRecord));
         return dto;
+    }
+
+    private static List<String> serialNumbers(SigningRecord signingRecord) {
+        List<String> serialNumbers = signingRecord.getTimestampTokenSerialNumbers();
+        return serialNumbers == null ? List.of() : List.copyOf(serialNumbers);
     }
 
     /**
