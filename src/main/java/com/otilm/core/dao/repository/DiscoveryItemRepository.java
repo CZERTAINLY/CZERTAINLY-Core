@@ -18,21 +18,10 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
     /**
      * Stages one drained item, ignoring a repeat of one already staged for the run.
      *
-     * <p>
-     * <b>Idempotency:</b> the connector's {@code uniqueRef} is the contract's dedupe key, so a redelivered page or an
-     * overlapping cursor cannot double-stage. The conflict target is the whole natural key — the same {@code uniqueRef}
-     * under a different resource is a different item.
-     *
-     * <p>
-     * Native rather than an entity save because {@code ON CONFLICT DO NOTHING} has no JPA equivalent: a pre-read of the
-     * existing refs would still miss duplicates within the page itself.
-     *
-     * @param payload the item's connector-reported union, already serialized — bound as text and cast, since the JDBC
-     * driver has no jsonb binding of its own
+     * @param payload the item's payload, pre-serialized to JSON text
      * @param meta serialized {@code MetadataAttribute} list, or {@code null}
      */
-    // S107: a native query binds each column individually, so the parameter count is the column count. A
-    // parameter object cannot be bound by @Param and would have to be unpacked at the only call site anyway.
+    // S107: native query binds one parameter per column.
     @SuppressWarnings("java:S107")
     @Modifying
     @Query(value = """

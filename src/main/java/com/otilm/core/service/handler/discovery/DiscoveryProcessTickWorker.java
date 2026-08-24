@@ -30,18 +30,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * The {@code PROCESS} tick: one bounded batch of staged rows through the import pipeline, then either another tick or
- * the end of the run.
- *
- * <p>
- * <b>Why this exists at all.</b> The v1 flow processed a whole run inside one message handler, so a pod that died
- * halfway left the run stuck in {@code PROCESSING} forever with no way back. Here the backlog is a database cursor —
- * rows no batch has accounted for — and a batch that dies is simply a batch that never recorded an outcome. Any pod
- * picks the run up on the next tick and continues where the cursor stands.
- *
- * <p>
- * <b>Scope:</b> certificates only. Keys and every future resource are staged by the ingestor but have no import
- * pipeline yet, so this worker skips them; counting them against the backlog would leave every run with keys spinning
- * in {@code PROCESSING} forever.
+ * the end of the run. Only certificates have an import pipeline; other staged resources are skipped.
  */
 @Component
 public class DiscoveryProcessTickWorker {
@@ -75,14 +64,11 @@ public class DiscoveryProcessTickWorker {
         this.discoveryWriter = discoveryWriter;
         this.authHelper = authHelper;
         this.workProperties = workProperties;
-        // Validated at construction, not at the first tick: a non-positive size throws inside PageRequest.of, and
-        // left to a tick that throw would reach the listener's log-and-acknowledge and leave the run in
-        // PROCESSING forever.
+        // Fails at construction, not at the first tick.
         if (batchSize <= 0) {
             throw new IllegalArgumentException("discovery.processing.batch-size must be positive");
         }
-        // Must be positive: see DiscoveryWorkWriter's backstop invariant -- a due-now value races the sweep into
-        // publishing a duplicate tick against the same unclaimed batch.
+        // See DiscoveryWorkWriter's backstop invariant.
         if (continuationBackstop.isZero() || continuationBackstop.isNegative()) {
             throw new IllegalArgumentException("discovery.work.continuation-backstop must be positive");
         }
@@ -97,8 +83,7 @@ public class DiscoveryProcessTickWorker {
             return;
         }
         if (run.getStatus() != DiscoveryStatus.PROCESSING) {
-            // Processing is entered once, by the drain's handover. A tick that finds the run anywhere else is a
-            // redelivery from before the run ended, or from before it got here.
+            // A tick finding the run anywhere else is a stale redelivery.
             logger
                     .debug("Dropping process tick for discovery {}: the run is {}, not PROCESSING", discoveryUuid,
                             run.getStatus());
@@ -130,13 +115,8 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Picks the contents this tick will import, bounded by the rows they carry rather than by how many contents they
-     * are. Selects, but does not claim: nothing marks these rows as taken, so a concurrent tick would select them too.
-     *
-     * <p>
-     * A content's rows must travel together, or the pipeline runs that group's triggers and histories once per page —
-     * so a certificate found on more hosts than the whole budget is taken alone rather than split, making the bound
-     * exact for any batch of ordinary groups and best-effort for a single oversized one.
+     * Picks the contents this tick will import, bounded by the rows they carry. Selects but does not claim: a
+     * concurrent tick could select the same contents.
      */
     private List<Long> selectPendingContents(UUID discoveryUuid) {
         List<Object[]> pending = certificateRepository
@@ -160,8 +140,7 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Runs the batch through the unchanged import pipeline and files what it could not import on the run, so an
-     * operator watching a long run sees the trouble while it is still happening.
+     * Runs the batch through the import pipeline and files what it could not import on the run.
      */
     private void importBatch(Discovery run, int attempt, List<DiscoveryCertificate> batch) {
         try {
@@ -169,10 +148,8 @@ public class DiscoveryProcessTickWorker {
             DiscoveryRunCounts counts = importHandler.processBatch(run, batch);
             discoveryWriter.appendRunMessages(run.getUuid(), counts.describeGaps());
         } catch (Exception e) {
-            // Swallowed, not rethrown: escaping to the listener's log-and-acknowledge would spend no budget and
-            // strand the run in PROCESSING forever on a persistent pre-batch failure (an authorization refusal, a
-            // trigger that cannot be set up). The batch stamped nothing, so the caller's unchanged backlog takes
-            // the bounded stall path instead.
+            // Swallowed, not rethrown: an unchanged backlog sends this batch to the bounded stall path instead of
+            // the listener's log-and-acknowledge.
             logger
                     .error("Processing batch {} of discovery {} did not complete: {}", attempt, run.getUuid(),
                             e.getMessage(), e);
@@ -183,17 +160,7 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Puts the run's own user on the thread before the import pipeline asks whether it may create certificates.
-     *
-     * <p>
-     * A tick arrives on a JMS thread with no principal, and the pipeline enforces {@code CERTIFICATE:CREATE} against
-     * whatever is on the thread — so without this every batch is refused, and because {@link #importBatch} swallows to
-     * reach the bounded stall path, the refusal would surface as a run that quietly imported nothing. The v1 flow gets
-     * the same identity from the user its {@code CERTIFICATE_DISCOVERED} event carries.
-     *
-     * <p>
-     * A run with no user recorded cannot be imported at all, so it is left to the stall path rather than retried: no
-     * later tick will find an identity the run never had.
+     * Puts the run's own user on the thread before the import pipeline enforces {@code CERTIFICATE:CREATE}.
      */
     private void authenticateAsTheRunsUser(Discovery run) {
         if (run.getStartedByUserUuid() == null) {
@@ -205,15 +172,11 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Commits the agenda row as the backstop for the next batch, then publishes that batch directly. Committed first so
-     * a publish that never lands is still picked up; see {@link DiscoveryWorkWriter} for why the row is due one
-     * backstop interval out.
+     * Commits the agenda row as the backstop, then publishes the next batch directly (see {@link DiscoveryWorkWriter}).
      */
     private void continueProcessing(UUID discoveryUuid, long remaining) {
         logger.debug("Discovery {} has {} certificates left to process", discoveryUuid, remaining);
-        // The run's progress message, which the import pipeline cannot write for a v2 run: it sees one bounded
-        // batch, and a percentage of that batch reaches 100% once per batch while the run still has a backlog.
-        // Reported as what is left rather than as a fraction, since the backlog is what a tick actually measures.
+        // Reported here, not by the pipeline, which sees only one batch and would report each as 100% complete.
         discoveryWriter
                 .updateProgressMessage(discoveryUuid,
                         "Importing discovered certificates (%d remaining)".formatted(remaining));
@@ -259,13 +222,8 @@ public class DiscoveryProcessTickWorker {
     }
 
     /**
-     * Decides the run's ending from inside the terminal transaction, where the run row is locked.
-     *
-     * <p>
-     * Every input is read here rather than by the caller, and that is the point: a drain page in flight across the
-     * handover takes the same lock, and it can both stage rows and append to the run's message log. Deciding outside
-     * would let it land between the reads and the ending — a run reported as completed successfully while carrying a
-     * warning, or ended while rows it staged sit counted by nobody.
+     * Decides the run's ending from inside the terminal transaction, where the run row is locked against a concurrent
+     * drain page.
      *
      * @return the ending, or {@code null} when a late page left work to do
      */
@@ -273,17 +231,14 @@ public class DiscoveryProcessTickWorker {
         if (backlogOf(run.getUuid()) > 0) {
             return null;
         }
-        // Two kinds of evidence, because not every shortfall lands on a row. A bookkeeping write that itself
-        // failed, or validation never being requested, is a run-level gap with every row still clean -- reading
-        // only the rows would report such a run as a clean success. On a v2 run every writer into the message
-        // log is reporting a problem, so a non-empty log is exactly the run-level evidence needed.
+        // Run-level gaps (a failed bookkeeping write, validation never requested) leave every row clean, so the
+        // message log is checked too.
         boolean rowsFailed = certificateRepository.existsByDiscoveryUuidAndProcessedErrorIsNotNull(run.getUuid());
         boolean runLevelGaps = run.getRunMessages() != null && !run.getRunMessages().isEmpty();
         if (!rowsFailed && !runLevelGaps) {
             return new Ending(DiscoveryStatus.COMPLETED, "Discovery completed successfully.");
         }
-        // Sends the operator only where there is something to find: a run warned on run-level evidence alone
-        // has no row carrying a reason.
+        // Points to the certificate list only when a row actually carries a reason.
         return new Ending(DiscoveryStatus.WARNING, rowsFailed
                 ? "Discovery completed with warnings. See this run's messages, and the discovery certificate list "
                         + "for per-certificate detail."

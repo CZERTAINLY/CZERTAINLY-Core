@@ -39,21 +39,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The single funnel through which connector-reported discovery data enters Core.
- *
- * <p>
- * <b>Authoritative versus advisory.</b> Only a drain page carries items, and only a drain page moves the ingestion
- * cursor. Pushed events are advisory: they refresh cosmetic progress, record a connector-side complaint, or ask for a
- * tick — none of them commits run state, and none of them touches {@code last_applied_sequence}. State transitions are
- * committed exclusively by the tick workers from an authoritative connector response.
- *
- * <p>
- * {@code applyAdvisoryEvent} has no production caller yet — it is groundwork, not a live path.
- *
- * <p>
- * <b>Why the run row is locked.</b> A drain page's staged rows and the cursor advance that accounts for them must be
- * one atomic step, and the reaper takes the same lock before it declares a run's work lost. Holding it here means a
- * drain in flight can never be reaped out from under itself.
+ * The single funnel through which connector-reported discovery data enters Core: only a drain page moves the ingestion
+ * cursor, and pushed events are advisory.
  */
 @Service
 public class DiscoveryEventIngestor {
@@ -79,22 +66,11 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * Stages a drained page and advances the run's ingestion cursor.
+     * Stages a drained page and advances the run's ingestion cursor by the highest item sequence this page actually
+     * carried — never by the response's {@code highestSequence}, which is run-wide and counts items the connector has
+     * produced but not yet handed over.
      *
-     * <p>
-     * <b>The cursor advances by the highest item sequence this page actually carried</b> — never by the response's
-     * {@code highestSequence}, which is run-wide and counts items the connector has produced but not yet handed over.
-     * Advancing by the run-wide value would skip every item between the page's last one and it. An empty page moves
-     * nothing.
-     *
-     * <p>
-     * <b>Idempotency</b> comes from two layers. The cursor handles redelivery: an item at or below it is dropped before
-     * staging, so a repeated page is a no-op and an overlapping one stages only its new tail. The {@code uniqueRef}
-     * handles everything the cursor cannot — a repeat inside one page, and a re-send under a newer sequence, which the
-     * contract permits and the cursor lets through. Both tables carry a unique index over it per run.
-     *
-     * @return whether the cursor advanced. A page that carried nothing new is how a connector loops, so the caller
-     * needs to tell "more is coming" from "the same page again".
+     * @return whether the cursor advanced
      */
     @Transactional
     public boolean applyDrainPage(UUID discoveryUuid, DiscoveryResultsResponseDto page) {
@@ -104,11 +80,8 @@ public class DiscoveryEventIngestor {
         }
         Discovery run = located.get();
         if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
-            // Terminal only, where every other guard in the engine uses hasLeftTheConnector. PROCESSING is
-            // deliberately still open to staging: a page in flight across the handover carries items the run has
-            // not imported yet, and the process worker picks them up on its next tick. What makes that safe is
-            // the run row lock held here -- the worker re-reads the backlog under the same lock before it ends
-            // the run, so a page either lands in time to be imported or finds the run already terminal here.
+            // Terminal only, not hasLeftTheConnector: the row lock ensures a page still in flight during the
+            // handover either lands before PROCESSING ends or finds the run already terminal.
             logger.warn("Dropping drain page for discovery {}: the run ended as {}", discoveryUuid, run.getStatus());
             return false;
         }
@@ -133,13 +106,8 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * Applies one pushed event. Progress is cosmetic, an error joins the run's message log, and the two events that
-     * mean "there is something to fetch" schedule the tick that fetches it authoritatively — a pushed
-     * {@code RESULT_BATCH}'s own items are ignored on purpose, since results enter Core only through a call Core made.
-     *
-     * <p>
-     * Nothing is scheduled for a run that has already finished: its agenda was deleted by the terminal transition, and
-     * re-creating a row there would resurrect work for a run no connector still tracks.
+     * Applies one pushed event: progress and errors update the run, {@code STATE_CHANGED} and {@code RESULT_BATCH} ask
+     * for a tick.
      */
     @Transactional
     public void applyAdvisoryEvent(UUID discoveryUuid, DiscoveryEvent event) {
@@ -149,9 +117,7 @@ public class DiscoveryEventIngestor {
         }
         Discovery run = located.get();
         if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
-            // Every branch of this switch writes to the run, not just the two that schedule work. A late progress
-            // snapshot would overwrite the run's final one, and a late error would append below the terminal
-            // reason, so a finished run would no longer read as ending with its ending.
+            // Every branch writes to the run; a late event must not overwrite how it already ended.
             logger
                     .debug("Ignoring {} event for discovery {}: the run ended as {}", event.getType(), discoveryUuid,
                             run.getStatus());
@@ -161,9 +127,8 @@ public class DiscoveryEventIngestor {
             case PROGRESS -> run.setProgress(snapshotOf((DiscoveryProgressEvent) event));
             case ERROR -> {
                 DiscoveryErrorEvent error = (DiscoveryErrorEvent) event;
-                // The code only. The message beside it is connector-authored prose, and run_messages is read
-                // through the API -- the same reason DiscoveryConnectorErrors.describe forwards nothing a
-                // connector wrote. The full text goes to the log instead.
+                // Only the code is recorded; connector-authored prose goes to the log, not the API-visible
+                // run_messages.
                 logger.warn("Discovery {} connector error {}: {}", discoveryUuid, error.getCode(), error.getMessage());
                 run
                         .setRunMessages(DiscoveryRunLifecycle
@@ -176,9 +141,7 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * Records, on the run, items a connector sent without the sequence the wire requires. They cannot be staged — a
-     * sequence is what the cursor is made of — so without this line they would vanish leaving no row, no message and
-     * nothing for the connector's author to notice.
+     * Records items a connector sent without the required sequence, since they cannot be staged.
      */
     private void recordMalformed(Discovery run, List<DiscoveredItemDto> items) {
         List<String> refs = items
@@ -197,17 +160,8 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * Registers the page's metadata definitions before any of its rows reach the import pipeline.
-     *
-     * <p>
-     * The pipeline imports content groups in parallel, and each group applies its rows' metadata. Two groups carrying
-     * the same new definition would then race to insert it, and the loser's whole group rolls back and is recorded as
-     * failed — a certificate reported as unimportable for no reason but timing. Registering once up front removes the
-     * race, which is why the v1 download path does the same thing before submitting its batch.
-     *
-     * <p>
-     * The registration commits in its own transaction, so a page that later rolls back does not withdraw a definition
-     * another page may already be relying on.
+     * Registers the page's metadata definitions before any row reaches the import pipeline, so parallel content groups
+     * cannot race to insert the same new definition. Commits in its own transaction, independent of the page's.
      */
     private void registerMetadataDefinitions(Discovery run, List<DiscoveredItemDto> items) {
         List<MetadataAttribute> definitions = new ArrayList<>();
@@ -257,8 +211,6 @@ public class DiscoveryEventIngestor {
                 .forEach(ref -> problems
                         .add("Certificate %s could not be staged: its payload was not a certificate".formatted(ref)));
         if (!certificates.isEmpty()) {
-            // Certificates keep the v1 staging table and its write, so discovery_certificate stays the single
-            // certificate store.
             problems.addAll(certificateHandler.stageDiscoveredCertificates(batchLabel(items), run, certificates, true));
         }
         if (!problems.isEmpty()) {
@@ -267,15 +219,8 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * The certificate references from this page that the run has already staged, as the starting state of the page's
-     * own dedupe set — so one set answers both "twice in this page" and "already staged by an earlier drain".
-     *
-     * <p>
-     * The contract makes {@code uniqueRef} the key Core dedupes an item by <b>across drains and retries</b>, so a
-     * connector may re-send an item under a newer sequence, where the cursor filter no longer catches it. Only the
-     * page's own references are looked up rather than the run's whole set, which on a large run is every certificate it
-     * has found. Every drain for a run is serialised by the row lock this method runs under, so reading and filtering
-     * does the dedupe; the table's partial unique index only backstops it.
+     * The certificate references from this page the run has already staged, seeding the page's own dedupe set so a
+     * reference re-sent under a newer sequence is still caught.
      */
     private Set<String> alreadyStagedRefs(Discovery run, List<DiscoveredItemDto> items) {
         Set<String> refs = items
@@ -296,17 +241,13 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * @return the v1 staging shape, or {@code null} when the payload does not match the resource it declared — one
-     * malformed item costs itself rather than throwing and rolling back the whole page, which would leave the cursor
-     * unadvanced and the same poison page redelivered forever
+     * @return the v1 staging shape, or {@code null} when the payload does not match the declared resource
      */
     private static DiscoveryProviderCertificateDataDto asCertificateData(DiscoveredItemDto item) {
         if (!(item.getPayload() instanceof DiscoveredCertificateDto certificate)) {
             return null;
         }
         DiscoveryProviderCertificateDataDto data = new DiscoveryProviderCertificateDataDto();
-        // The connector's own dedupe key, so a staging failure is logged under the reference the connector
-        // knows the item by.
         data.setUuid(item.getUniqueRef());
         data.setBase64Content(certificate.getCertificateData());
         data.setMeta(item.getMeta() == null ? List.of() : item.getMeta());
@@ -314,8 +255,8 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * Whether the item was absent from inventory when staged — the flag the run detail filters on. Keys correlate on
-     * their intrinsic fingerprint; anything else has no inventory to be absent from yet, so it counts as new.
+     * Whether the item was absent from inventory when staged; only keys correlate by fingerprint, so anything else
+     * counts as new.
      */
     private static boolean isNewlyDiscovered(DiscoveredItemDto item, Set<String> knownKeyFingerprints) {
         if (!(item.getPayload() instanceof DiscoveredKeyDto key) || key.getFingerprint() == null
@@ -326,12 +267,7 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * The page's key fingerprints that inventory already holds, read in one query.
-     *
-     * <p>
-     * Asked once per page rather than once per key: this runs inside the transaction holding the run's row lock, so a
-     * 500-key page would otherwise be 500 round trips with everything about the run — status commits, the reaper,
-     * message appends — queued behind them.
+     * The page's key fingerprints that inventory already holds, read in one query rather than one per key.
      */
     private Set<String> knownKeyFingerprints(List<DiscoveredItemDto> items) {
         Set<String> fingerprints = items
@@ -349,21 +285,18 @@ public class DiscoveryEventIngestor {
 
     private void scheduleNow(Discovery run, DiscoveryWorkType workType) {
         if (DiscoveryRunLifecycle.hasLeftTheConnector(run.getStatus())) {
-            // Covers PROCESSING as well as the terminal states: the connector released the run at the swap,
-            // so re-arming a STATUS or DRAIN row here would drive a tick against a handle that no longer exists.
+            // Covers PROCESSING too: the connector released its handle at the swap.
             logger
                     .debug("Ignoring advisory event asking for a {} tick on discovery {}, already {}", workType,
                             run.getUuid(), run.getStatus());
             return;
         }
-        // Only brings the tick forward: a pushed event is not an answer from the connector, so it must not
-        // refresh a budget no successful call has earned.
+        // Expedites only; a pushed event must not refresh a budget no successful call has earned.
         workWriter.expedite(run.getUuid(), workType, OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     /**
-     * Copied field by field rather than stored as-is: the event is a {@code DiscoveryProgressDto} subclass carrying the
-     * stream's discriminator, and the column holds the plain snapshot the status poll writes too.
+     * Copies fields rather than storing the event as-is, since the column holds the plain snapshot shape.
      */
     private static DiscoveryProgressDto snapshotOf(DiscoveryProgressEvent event) {
         DiscoveryProgressDto snapshot = new DiscoveryProgressDto();
@@ -377,16 +310,14 @@ public class DiscoveryEventIngestor {
     private Optional<Discovery> lockRun(UUID discoveryUuid, String what) {
         Optional<Discovery> run = discoveryRepository.findWithLockByUuid(discoveryUuid);
         if (run.isEmpty()) {
-            // The run was deleted while its work was in flight; the agenda rows went with it by cascade, so
-            // this is a redelivery of an obsolete tick rather than a fault.
+            // Deleted mid-flight; this is a redelivery of an obsolete tick, not a fault.
             logger.warn("Dropping {} for discovery {}: the run no longer exists", what, discoveryUuid);
         }
         return run;
     }
 
     private static long sequenceOf(DiscoveredItemDto item) {
-        // Wire-required and validated, so a null here is a non-conformant connector: treat it as below any
-        // cursor rather than failing the whole page on one malformed item.
+        // A null here is a non-conformant connector; treated as below any cursor.
         return item.getSequence() == null ? 0L : item.getSequence();
     }
 }

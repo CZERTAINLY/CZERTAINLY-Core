@@ -27,17 +27,12 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
             Pageable pageable);
 
     /**
-     * The v2 processing claim: certificate contents a run still has work for, oldest first, each with its row count so
-     * a batch can be bounded by rows rather than by group count.
+     * The v2 processing claim: certificate contents a run still has work for, oldest first, each with its row count.
      *
      * <p>
-     * Pages by content, not by row, so one content's rows cannot straddle a page boundary and be imported by two
-     * separate ticks, running its triggers, histories and validation twice; breaks ties on content id, since
-     * {@code i_cre} comes from the JVM clock and two groups stamped in the same tick could otherwise swap places
-     * between pages. Claims on a recorded outcome rather than on {@code processed}, since a row the pipeline never
-     * reached keeps {@code processed = false} with only its reason written (see
-     * {@code CertificateDiscoveredEventHandler.writeBookkeeping}) — claiming on {@code processed} alone would hand it
-     * back on every tick and the backlog would never drain.
+     * Claims on a recorded outcome, not on {@code processed}: a row the pipeline never reached keeps
+     * {@code processed = false} with only its reason written, so claiming on {@code processed} alone would hand it back
+     * forever.
      */
     @Query("SELECT dc.certificateContentId, COUNT(dc) FROM DiscoveryCertificate dc "
             + "WHERE dc.discoveryUuid = :discoveryUuid AND dc.newlyDiscovered = true AND dc.processed = false "
@@ -56,9 +51,7 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
     boolean existsByDiscoveryUuidAndProcessedErrorIsNotNull(UUID discoveryUuid);
 
     /**
-     * Which of {@code refs} the run has already staged. Asked per drain page rather than for the run's whole set, which
-     * on a large run is every certificate it has found; the page bounds the IN-list, and
-     * {@code uq_discovery_certificate_ref} serves the lookup.
+     * Which of {@code refs} the run has already staged.
      */
     @Query("SELECT dc.uniqueRef FROM DiscoveryCertificate dc "
             + "WHERE dc.discoveryUuid = :discoveryUuid AND dc.uniqueRef IN :refs")

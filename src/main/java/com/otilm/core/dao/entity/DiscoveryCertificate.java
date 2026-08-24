@@ -30,9 +30,8 @@ import org.hibernate.type.SqlTypes;
 @ToString
 @RequiredArgsConstructor
 @Entity
-// The unique constraint is mapped, not just migrated: tests generate their schema from these entities, so a
-// constraint that lives only in the migration is one the tests cannot exercise. Nulls do not collide in
-// PostgreSQL, which is what keeps v1 rows -- who have no such key -- outside it, exactly as the partial index does.
+// Mapped here too, not just migrated: tests build their schema from entities, so a constraint that lives only
+// in the migration is one they never exercise.
 @Table(name = "discovery_certificate", uniqueConstraints = @UniqueConstraint(name = "uq_discovery_certificate_ref",
         columnNames = {"discovery_uuid", "unique_ref"}))
 public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited
@@ -74,8 +73,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited
     @Column(name = "discovery_uuid", nullable = false)
     private UUID discoveryUuid;
 
-    // The connector's own key for this occurrence, deduping it across drains and retries. Null on v1 rows,
-    // whose provider uuid names a certificate rather than an occurrence of one.
+    // The connector's per-occurrence dedupe key. Null on v1 rows.
     @Column(name = "unique_ref")
     private String uniqueRef;
 

@@ -16,17 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Ends a discovery v2 run, the one way every tick worker does it.
- *
- * <p>
- * A terminal transition is three writes that must land together: the status and reason a user sees, the release of the
- * connector's run handle, and the deletion of the run's agenda so nothing ticks for it again. Splitting them across
- * call sites is how a run ends up finished but still scheduled, or finished while still holding a handle to a
- * connector-side run nobody will ever cancel.
- *
- * <p>
- * The transition re-asserts under the run row's lock that the run has not already ended. Two ticks of the same run can
- * be in flight at once — a direct-published continuation racing a sweep redelivery — and the first ending wins.
+ * Ends a discovery v2 run, the one way every tick worker does it: sets the status and reason, releases the connector
+ * handle, and deletes the run's agenda.
  */
 @Component
 public class DiscoveryRunTerminator {
@@ -45,13 +36,8 @@ public class DiscoveryRunTerminator {
     }
 
     /**
-     * Ends a run on the strength of something the connector said.
-     *
-     * <p>
-     * Refuses a run that has left the connector, which {@link #end} cannot do for itself: processing legitimately ends
-     * a {@code PROCESSING} run, so the plain entry point has to accept that state. A connector-driven ending must not.
-     * A status or drain request started before the handover can return 404 after it, and treating that as "the run no
-     * longer exists" would fail a healthy import and delete the agenda row driving it.
+     * Ends a run on the strength of something the connector said. Refuses a run that has left the connector, which
+     * {@link #end} accepts but a connector-driven ending must not.
      *
      * @return whether this call was the one that ended the run
      */
@@ -68,10 +54,6 @@ public class DiscoveryRunTerminator {
 
     /**
      * Ends a run on a decision taken under the run row's lock, against the locked entity.
-     *
-     * <p>
-     * For an ending whose inputs another transaction can still change — anything that could change them takes the same
-     * lock, so deciding here is what orders the two.
      *
      * @param decide the ending to apply, or {@code null} to leave the run alone
      * @return whether this call was the one that ended the run
@@ -110,14 +92,8 @@ public class DiscoveryRunTerminator {
     }
 
     /**
-     * Applies the terminal state to a run the caller already holds locked, without opening a transaction or
-     * re-asserting anything.
-     *
-     * <p>
-     * For callers that reached their decision inside their own locked transaction — the reaper, and the status tick
-     * committing a connector-reported ending — {@link #end} is not available: it takes the same row lock and would
-     * deadlock against the one already held. Such a caller owes the rest of the terminal transition itself, which for
-     * both of them means deleting the run's agenda in that same transaction.
+     * Applies the terminal state without opening a transaction, for callers (the reaper, and the status tick) that
+     * already hold the run row's lock and would deadlock against {@link #end}'s own.
      */
     public void applyTerminalState(Discovery run, DiscoveryStatus status, String reason) {
         run.setStatus(status);

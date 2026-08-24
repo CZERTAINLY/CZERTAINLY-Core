@@ -20,8 +20,7 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
     Optional<CryptographicKeyItem> findByFingerprint(String fingerprint);
 
     /**
-     * The fingerprints from {@code fingerprints} that inventory already holds — one query for a whole page, where
-     * asking per item costs a round trip each while the caller holds a row lock.
+     * The fingerprints from {@code fingerprints} that inventory already holds.
      */
     @Query("SELECT k.fingerprint FROM CryptographicKeyItem k WHERE k.fingerprint IN :fingerprints")
     List<String> findKnownFingerprints(@Param("fingerprints") Collection<String> fingerprints);
