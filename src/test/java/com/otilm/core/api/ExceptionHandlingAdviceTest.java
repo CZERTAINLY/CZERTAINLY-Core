@@ -91,6 +91,17 @@ class ExceptionHandlingAdviceTest {
     }
 
     @Test
+    void handleIllegalArgumentException_ShouldNotExposeTheExceptionMessage() {
+        IllegalArgumentException ex = new IllegalArgumentException(
+                "Java 8 date/time type `java.time.ZonedDateTime` not supported by default (through reference chain: "
+                        + "java.util.ArrayList[0]->DateTimeAttributeContentV3[\"data\"])");
+
+        ErrorMessageDto response = advice.handleIllegalArgumentException(ex);
+
+        assertEquals("The request could not be processed.", response.getMessage());
+    }
+
+    @Test
     void handleMethodArgumentNotValidException_ShouldReturnStringArray() throws NoSuchMethodException {
         BeanPropertyBindingResult binding = new BeanPropertyBindingResult(new Object(), "request");
         binding.addError(new FieldError("request", "name", "must not be blank"));
