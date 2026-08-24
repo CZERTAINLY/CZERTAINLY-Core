@@ -6,7 +6,10 @@ import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
+import com.otilm.api.model.core.oid.OidCategory;
+import com.otilm.core.certificate.request.StructuredExtensionCodec;
 import com.otilm.core.oid.OidHandler;
+import com.otilm.core.oid.OidRecord;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
@@ -86,6 +89,11 @@ public final class X509RequestContentRenderer {
             gen.addExtension(Extension.subjectAlternativeName, isSubjectEmpty(x509), new GeneralNames(names));
         }
 
+        addStructuredExtension(gen, seenOids, StructuredExtensionCodec.KEY_USAGE_OID,
+                StructuredExtensionCodec.encodeKeyUsage(orEmpty(x509.getKeyUsage())));
+        addStructuredExtension(gen, seenOids, StructuredExtensionCodec.EXTENDED_KEY_USAGE_OID,
+                StructuredExtensionCodec.encodeExtendedKeyUsage(orEmpty(x509.getExtendedKeyUsage())));
+
         List<RequestedExtension> extensions = x509.getExtensions() == null ? List.of() : x509.getExtensions();
         for (RequestedExtension ext : extensions) {
             ASN1ObjectIdentifier oid = parseOid(ext.getOid());
@@ -100,6 +108,37 @@ public final class X509RequestContentRenderer {
         }
 
         return gen.generate();
+    }
+
+    /**
+     * Adds a structured extension whose value the codec has already encoded. A null value means the selection was
+     * empty: RFC 5280 forbids an empty key usage bit string and an empty extended key usage sequence, so nothing is
+     * emitted rather than an extension the CA would reject.
+     */
+    private static void addStructuredExtension(ExtensionsGenerator gen, Set<String> seenOids, String extensionOid,
+            String base64Value) throws IOException {
+        if (base64Value == null) {
+            return;
+        }
+        ASN1ObjectIdentifier oid = parseOid(extensionOid);
+        rejectDuplicateOid(seenOids, oid);
+        gen
+                .addExtension(oid, effectiveCritical(extensionOid, registryCritical(extensionOid)),
+                        encodeExtensionValue(base64Value, ExtensionValueEncoding.DER));
+    }
+
+    /**
+     * The criticality the CERTIFICATE_EXTENSION registry declares for an OID, defaulting to non-critical when the OID
+     * is not registered — the same rule the projector applies to an opaque extension mapping.
+     */
+    private static boolean registryCritical(String extensionOid) {
+        Map<String, OidRecord> registry = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION);
+        OidRecord record = registry == null ? null : registry.get(extensionOid);
+        return record != null && Boolean.TRUE.equals(record.defaultCritical());
+    }
+
+    private static <T> List<T> orEmpty(List<T> values) {
+        return values == null ? List.of() : values;
     }
 
     /**
