@@ -4,6 +4,8 @@ import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.otilm.api.model.common.signature.SignatureFamily;
+import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.SigningProfileModel;
@@ -16,12 +18,15 @@ import com.otilm.core.model.signing.workflow.ManagedContentSigningWorkflow;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.otilm.core.model.signing.workflow.SigningWorkflow;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import com.otilm.core.signing.contentsigning.TimestampSourceResolver;
 import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
 import com.otilm.core.signing.engine.resolver.ManagedSchemeResolver;
 import com.otilm.core.util.builders.RequestAttributeV3Builder;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -32,8 +37,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class StaticKeyManagedContentSigningResolverTest {
@@ -42,6 +49,8 @@ class StaticKeyManagedContentSigningResolverTest {
     private ManagedSchemeResolver schemeResolver;
     @Mock
     private ConnectorInternalService connectorService;
+    @Mock
+    private TimestampSourceResolver timestampSourceResolver;
 
     @InjectMocks
     private StaticKeyManagedContentSigningResolver resolver;
@@ -125,6 +134,58 @@ class StaticKeyManagedContentSigningResolverTest {
         assertThatThrownBy(() -> resolver.resolve(aManagedContentSigningProfile())).isSameAs(schemeFailure);
     }
 
+    // ── level-ladder and timestamp-source resolution ────────────────────────────
+
+    @Nested
+    class LevelLadderResolution {
+
+        @BeforeEach
+        void stubHappyPathCollaborators() throws Exception {
+            // lenient: not every test in this group needs both collaborators stubbed
+            lenient()
+                    .when(schemeResolver.resolve(any(), any()))
+                    .thenReturn(new ResolvedStaticKeyManagedSigning(SigningCertificateBuilder.valid(), List.of(), null,
+                            List.of()));
+            lenient().when(connectorService.getConnectorForApiClient(any())).thenReturn(CONNECTOR_INFO);
+        }
+
+        @Test
+        void resolvesFamilyMaxLevelTimestampSourceAndDocumentSizeCap_forATimestampedProfile() throws Exception {
+            // given
+            UUID timestampSourceUuid = UUID.fromString("44444444-4444-4444-4444-444444444444");
+            SigningProfileModel<?, ?> model = aManagedContentSigningProfile(SignatureFamily.PADES,
+                    SignatureLevel.TIMESTAMPED, timestampSourceUuid, 1024L);
+            given(timestampSourceResolver.profileNameFor(timestampSourceUuid)).willReturn("internal-tsa");
+
+            // when
+            ResolvedManagedContentSigningProfile resolved = (ResolvedManagedContentSigningProfile) resolver
+                    .resolve(model);
+
+            // then
+            assertThat(resolved.family()).isEqualTo(SignatureFamily.PADES);
+            assertThat(resolved.maxLevel()).isEqualTo(SignatureLevel.TIMESTAMPED);
+            assertThat(resolved.timestampSourceProfileName()).isEqualTo("internal-tsa");
+            assertThat(resolved.documentSizeCap()).isEqualTo(1024L);
+        }
+
+        @Test
+        void leavesTimestampSourceProfileNameNull_forASignedOnlyProfile_withoutConsultingTheResolver()
+                throws Exception {
+            // given
+            SigningProfileModel<?, ?> model = aManagedContentSigningProfile(SignatureFamily.CADES,
+                    SignatureLevel.SIGNED, null, null);
+
+            // when
+            ResolvedManagedContentSigningProfile resolved = (ResolvedManagedContentSigningProfile) resolver
+                    .resolve(model);
+
+            // then
+            assertThat(resolved.timestampSourceProfileName()).isNull();
+            verifyNoInteractions(timestampSourceResolver);
+        }
+
+    }
+
     // ── fixtures ──────────────────────────────────────────────────────────────
 
     private ResolvedManagedScheme givenSchemeResolutionSucceeds() throws Exception {
@@ -135,7 +196,13 @@ class StaticKeyManagedContentSigningResolverTest {
     }
 
     private static SigningProfileModel<?, ?> aManagedContentSigningProfile() {
-        return aProfile(new ManagedContentSigningWorkflow(FORMATTING_CONNECTOR_UUID, List.of(A_FORMAT_ATTRIBUTE)));
+        return aManagedContentSigningProfile(SignatureFamily.CADES, SignatureLevel.SIGNED, null, null);
+    }
+
+    private static SigningProfileModel<?, ?> aManagedContentSigningProfile(SignatureFamily family,
+            SignatureLevel maxLevel, UUID timestampSourceProfileUuid, Long documentSizeCap) {
+        return aProfile(new ManagedContentSigningWorkflow(FORMATTING_CONNECTOR_UUID, List.of(A_FORMAT_ATTRIBUTE),
+                family, maxLevel, timestampSourceProfileUuid, documentSizeCap));
     }
 
     private static SigningProfileModel<?, ?> aManagedTimestampingProfile() {

@@ -9,6 +9,7 @@ import com.otilm.core.signing.record.SigningRecordInput;
 import com.otilm.core.util.builders.SigningProfileModelBuilder;
 import java.math.BigInteger;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -144,6 +145,18 @@ class TimestampSigningRecordFactoryTest {
 
         // then
         assertEquals(profileName + " #ff", input.getDisplayName());
+    }
+
+    @Test
+    void build_carriesItsOwnSerial_inTheTimestampTokenSerialNumbersColumn() {
+        // when
+        SigningRecordInput input = factory
+                .source(aSigningProfile().build(), aTspRequest().build(), BigInteger.valueOf(255), GEN_TIME,
+                        ENCODED_TOKEN, SigningProtocol.INTERNAL_TSA)
+                .build();
+
+        // then
+        assertEquals(List.of("ff"), input.getTimestampTokenSerialNumbers());
     }
 
     @Test
