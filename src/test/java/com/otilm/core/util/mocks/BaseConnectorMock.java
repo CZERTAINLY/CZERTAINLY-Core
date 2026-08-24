@@ -29,14 +29,10 @@ public abstract class BaseConnectorMock {
 
     protected final WireMockServer server;
 
-    protected BaseConnectorMock(int port) {
-        this.server = new WireMockServer(port);
-        this.server.start();
-    }
-
     /**
-     * Variant for mocks whose responses are computed per request (e.g. real signing or token assembly): WireMock
-     * response transformers can only be registered at server creation time.
+     * Takes the fixed port its concrete flavour owns. Extensions are optional and, when present, are response
+     * transformers computing responses per request (e.g. real signing or token assembly): WireMock can only register
+     * those at server creation time.
      */
     protected BaseConnectorMock(int port, Extension... extensions) {
         this.server = new WireMockServer(WireMockConfiguration.options().port(port).extensions(extensions));
