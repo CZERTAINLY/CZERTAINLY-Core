@@ -1891,25 +1891,37 @@ public class AttributeEngine {
                     attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
         for (String item : items) {
-            if (!isPermittedStructuredItem(extensionOid, item)) {
-                throw new AttributeException(
-                        "fieldMapping %s target declares '%s', which is not a permitted item for it"
-                                .formatted(target, item),
+            String rejection = rejectStructuredItem(extensionOid, item);
+            if (rejection != null) {
+                throw new AttributeException("fieldMapping %s target %s".formatted(target, rejection),
                         attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
             }
         }
     }
 
-    private static boolean isPermittedStructuredItem(String extensionOid, String item) {
+    /**
+     * Why {@code item} is not something the target accepts, or {@code null} when it is. The three cases are worth
+     * distinguishing: an operator who types an extended-key-usage code where an OID belongs, and one who names a
+     * purpose nobody registered, need different things done about it.
+     */
+    private static String rejectStructuredItem(String extensionOid, String item) {
         if (StructuredExtensionCodec.KEY_USAGE_OID.equals(extensionOid)) {
             try {
                 CertificateKeyUsage.fromCode(item);
-                return true;
+                return null;
             } catch (IllegalArgumentException e) {
-                return false;
+                return "declares '%s', which is not a key usage".formatted(item);
             }
         }
-        return isRegisteredExtendedKeyUsagePurpose(item);
+        if (!OidHandler.isOid(item)) {
+            return "declares '%s', which is not a dotted-decimal OID; extended key usage purposes are identified by OID"
+                    .formatted(item);
+        }
+        if (!isRegisteredExtendedKeyUsagePurpose(item)) {
+            return "declares '%s', which is not registered as an extended key usage purpose; register it under the %s OID category first"
+                    .formatted(item, OidCategory.EXTENDED_KEY_USAGE.getLabel());
+        }
+        return null;
     }
 
     /** A purpose is valid when it is a system EXTENDED_KEY_USAGE OID or a row registered under that category. */

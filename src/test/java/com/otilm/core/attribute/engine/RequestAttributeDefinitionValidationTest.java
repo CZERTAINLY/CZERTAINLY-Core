@@ -274,13 +274,21 @@ class RequestAttributeDefinitionValidationTest {
     @Test
     void unknownKeyUsageItemRejected() {
         DataAttributeV3 definition = structuredDefinition(keyUsageField(), false, "digitalSignature", "notABit");
-        assertRejected(definition, "notABit");
+        assertRejected(definition, "'notABit', which is not a key usage");
     }
 
     @Test
     void unregisteredExtendedKeyUsagePurposeRejected() {
         DataAttributeV3 definition = structuredDefinition(extendedKeyUsageField(), false, "1.3.6.1.4.1.99999.42");
-        assertRejected(definition, "1.3.6.1.4.1.99999.42");
+        // Naming the registry is the actionable part: the operator has to register the purpose, not guess.
+        assertRejected(definition, "register it under the Extended Key Usage OID category");
+    }
+
+    @Test
+    void extendedKeyUsagePurposeGivenAsACodeRejected() {
+        // A plausible mistake: authoring "serverAuth" where the purpose OID belongs.
+        DataAttributeV3 definition = structuredDefinition(extendedKeyUsageField(), false, "serverAuth");
+        assertRejected(definition, "not a dotted-decimal OID");
     }
 
     @Test
