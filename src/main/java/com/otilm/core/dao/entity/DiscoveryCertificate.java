@@ -69,6 +69,11 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited
     @Column(name = "discovery_uuid", nullable = false)
     private UUID discoveryUuid;
 
+    // The connector's own key for this occurrence, deduping it across drains and retries. Null on v1 rows,
+    // whose provider uuid names a certificate rather than an occurrence of one.
+    @Column(name = "unique_ref")
+    private String uniqueRef;
+
     @Column(name = "newly_discovered", nullable = false)
     private boolean newlyDiscovered;
 

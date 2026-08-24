@@ -62,6 +62,15 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
     /** Whether any row of the run recorded a reason it could not be imported — what makes a run end WARNING. */
     boolean existsByDiscoveryUuidAndProcessedErrorIsNotNull(UUID discoveryUuid);
 
+    /**
+     * Which of {@code refs} the run has already staged. Asked per drain page rather than for the run's whole set, which
+     * on a large run is every certificate it has found; the page bounds the IN-list, and
+     * {@code uq_discovery_certificate_ref} serves the lookup.
+     */
+    @Query("SELECT dc.uniqueRef FROM DiscoveryCertificate dc "
+            + "WHERE dc.discoveryUuid = :discoveryUuid AND dc.uniqueRef IN :refs")
+    List<String> findStagedRefs(@Param("discoveryUuid") UUID discoveryUuid, @Param("refs") Collection<String> refs);
+
     Long countByDiscovery(Discovery history);
 
     Long countByDiscoveryAndNewlyDiscovered(Discovery history, boolean newlyDiscovered);

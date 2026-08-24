@@ -10,6 +10,7 @@ import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.service.handler.CertificateHandler;
 import com.otilm.core.service.writer.discovery.DiscoveryItemWriter;
@@ -47,13 +48,15 @@ class DiscoveryEventIngestorTest {
     private CertificateHandler certificateHandler;
     @Mock
     private CryptographicKeyItemRepository keyItemRepository;
+    @Mock
+    private DiscoveryCertificateRepository certificateRepository;
 
     private DiscoveryEventIngestor ingestor;
 
     @BeforeEach
     void setUp() {
         ingestor = new DiscoveryEventIngestor(discoveryRepository, itemWriter, workWriter, certificateHandler,
-                keyItemRepository);
+                keyItemRepository, certificateRepository);
     }
 
     @Test

@@ -128,6 +128,36 @@ class DiscoveryEventIngestorITest extends BaseSpringBootTest {
         assertThat(reload(run).getLastAppliedSequence()).isEqualTo(2);
     }
 
+    @Test
+    void certificateRefReSentUnderANewerSequence_isStagedOnce() {
+        Discovery run = v2Run(DiscoveryStatus.IN_PROGRESS);
+        ingestor.applyDrainPage(run.getUuid(), page(1L, true, certificateItem(1, "cert-a")));
+
+        // The contract makes uniqueRef the key Core dedupes by across drains and retries, so a connector may
+        // re-send an item under a newer sequence -- above the cursor, where the cursor filter no longer sees it.
+        ingestor.applyDrainPage(run.getUuid(), page(2L, false, certificateItem(2, "cert-a")));
+
+        entityManager.flush();
+        assertThat(certificateRepository.countByDiscovery(reload(run))).isEqualTo(1);
+        assertThat(reload(run).getLastAppliedSequence())
+                .as("the item was received, so the cursor accounts for it even though it staged nothing")
+                .isEqualTo(2);
+    }
+
+    @Test
+    void sameCertificateRefInTwoRuns_isStagedForEach() {
+        Discovery first = v2Run(DiscoveryStatus.IN_PROGRESS);
+        Discovery second = v2Run(DiscoveryStatus.IN_PROGRESS);
+
+        ingestor.applyDrainPage(first.getUuid(), page(1L, false, certificateItem(1, "cert-a")));
+        ingestor.applyDrainPage(second.getUuid(), page(1L, false, certificateItem(1, "cert-a")));
+
+        // Dedupe is per run, not global: two runs scanning the same estate both legitimately find it.
+        entityManager.flush();
+        assertThat(certificateRepository.countByDiscovery(reload(first))).isEqualTo(1);
+        assertThat(certificateRepository.countByDiscovery(reload(second))).isEqualTo(1);
+    }
+
     // ------------------------------------------------------------------ advisory events
 
     @Test

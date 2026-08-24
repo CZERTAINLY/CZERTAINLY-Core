@@ -14,6 +14,7 @@ import com.otilm.api.model.connector.discovery.v2.event.DiscoveryProgressEvent;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
+import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
@@ -27,9 +28,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -62,15 +65,17 @@ public class DiscoveryEventIngestor {
     private final DiscoveryWorkWriter workWriter;
     private final CertificateHandler certificateHandler;
     private final CryptographicKeyItemRepository keyItemRepository;
+    private final DiscoveryCertificateRepository certificateRepository;
 
     public DiscoveryEventIngestor(DiscoveryRepository discoveryRepository, DiscoveryItemWriter itemWriter,
             DiscoveryWorkWriter workWriter, CertificateHandler certificateHandler,
-            CryptographicKeyItemRepository keyItemRepository) {
+            CryptographicKeyItemRepository keyItemRepository, DiscoveryCertificateRepository certificateRepository) {
         this.discoveryRepository = discoveryRepository;
         this.itemWriter = itemWriter;
         this.workWriter = workWriter;
         this.certificateHandler = certificateHandler;
         this.keyItemRepository = keyItemRepository;
+        this.certificateRepository = certificateRepository;
     }
 
     /**
@@ -83,10 +88,10 @@ public class DiscoveryEventIngestor {
      * nothing.
      *
      * <p>
-     * <b>Idempotency</b> comes from two layers. Across pages, an item at or below the cursor is dropped before staging,
-     * so a redelivered page is a no-op and an overlapping one stages only its new tail. Within a page, the
-     * {@code uniqueRef} decides: {@code discovery_item} refuses a repeat in the write itself, and certificates — whose
-     * table carries no such constraint — are deduped here before the staging call.
+     * <b>Idempotency</b> comes from two layers. The cursor handles redelivery: an item at or below it is dropped before
+     * staging, so a repeated page is a no-op and an overlapping one stages only its new tail. The {@code uniqueRef}
+     * handles everything the cursor cannot — a repeat inside one page, and a re-send under a newer sequence, which the
+     * contract permits and the cursor lets through. Both tables carry a unique index over it per run.
      *
      * @return whether the cursor advanced. A page that carried nothing new is how a connector loops, so the caller
      * needs to tell "more is coming" from "the same page again".
@@ -231,14 +236,12 @@ public class DiscoveryEventIngestor {
 
     private void stage(Discovery run, List<DiscoveredItemDto> items) {
         List<DiscoveryProviderCertificateDataDto> certificates = new ArrayList<>();
-        Set<String> stagedCertificateRefs = new HashSet<>();
+        Set<String> stagedCertificateRefs = alreadyStagedRefs(run, items);
         List<String> malformedPayloads = new ArrayList<>();
         for (DiscoveredItemDto item : items) {
             if (item.getResource() != Resource.CERTIFICATE) {
                 itemWriter.stage(run.getUuid(), item, isNewlyDiscovered(item));
             } else if (stagedCertificateRefs.add(item.getUniqueRef())) {
-                // discovery_certificate has no unique_ref constraint to lean on, so the page is deduped here
-                // instead. Across pages the cursor filter does the same job; within one page nothing else would.
                 DiscoveryProviderCertificateDataDto data = asCertificateData(item);
                 if (data == null) {
                     malformedPayloads.add(item.getUniqueRef());
@@ -255,11 +258,35 @@ public class DiscoveryEventIngestor {
         if (!certificates.isEmpty()) {
             // Certificates keep the v1 staging table and its write, so discovery_certificate stays the single
             // certificate store until the evidence-gated unification (core#2027).
-            problems.addAll(certificateHandler.stageDiscoveredCertificates(batchLabel(items), run, certificates));
+            problems.addAll(certificateHandler.stageDiscoveredCertificates(batchLabel(items), run, certificates, true));
         }
         if (!problems.isEmpty()) {
             run.setRunMessages(DiscoveryRunLifecycle.append(run.getRunMessages(), problems));
         }
+    }
+
+    /**
+     * The certificate references from this page that the run has already staged, as the starting state of the page's
+     * own dedupe set — so one set answers both "twice in this page" and "already staged by an earlier drain".
+     *
+     * <p>
+     * The contract makes {@code uniqueRef} the key Core dedupes an item by <b>across drains and retries</b>, so a
+     * connector may re-send an item under a newer sequence, where the cursor filter no longer catches it. Only the
+     * page's own references are looked up rather than the run's whole set, which on a large run is every certificate it
+     * has found. Every drain for a run is serialised by the row lock this method runs under, so reading and filtering
+     * is enough; the table's partial unique index is the backstop, not the mechanism.
+     */
+    private Set<String> alreadyStagedRefs(Discovery run, List<DiscoveredItemDto> items) {
+        Set<String> refs = items
+                .stream()
+                .filter(item -> item.getResource() == Resource.CERTIFICATE)
+                .map(DiscoveredItemDto::getUniqueRef)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (refs.isEmpty()) {
+            return new HashSet<>();
+        }
+        return new HashSet<>(certificateRepository.findStagedRefs(run.getUuid(), refs));
     }
 
     /** Names the page by what it carried, not by where the cursor stood before it. */

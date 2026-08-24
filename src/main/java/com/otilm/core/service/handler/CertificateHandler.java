@@ -181,13 +181,17 @@ public class CertificateHandler {
      * cannot undo it. The v2 drain calls from inside the ingestor's transaction and joins it, so staged rows and the
      * ingestion cursor accounting for them commit together.
      *
+     * @param refsDedupeWithinRun whether each certificate's {@code uuid} is the connector's key for <i>this
+     * occurrence</i>, unique within the run. True only for v2, whose contract defines it that way; the reference is
+     * then stored and the run's unique index holds callers to it. A v1 provider uuid names a certificate rather than an
+     * occurrence, so it is not stored and the constraint does not apply to v1 rows.
      * @return one description per certificate that could not be staged. A certificate that fails to parse produces no
      * row to carry a {@code processed_error}, so v2 folds these into the run's message log instead; the v1 caller
      * discards them, keeping its log-and-continue behaviour unchanged.
      */
     @Transactional
     public List<String> stageDiscoveredCertificates(String batch, Discovery discovery,
-            List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
+            List<DiscoveryProviderCertificateDataDto> discoveredCertificates, boolean refsDedupeWithinRun) {
         List<String> failures = new ArrayList<>();
         for (DiscoveryProviderCertificateDataDto certificate : discoveredCertificates) {
             DiscoveryCertificate discoveryCertificate = null;
@@ -200,6 +204,9 @@ public class CertificateHandler {
                 discoveryCertificate.setDiscovery(discovery);
                 discoveryCertificate.setNewlyDiscovered(existingCertificate == null);
                 discoveryCertificate.setMeta(certificate.getMeta());
+                if (refsDedupeWithinRun) {
+                    discoveryCertificate.setUniqueRef(certificate.getUuid());
+                }
 
                 if (existingCertificate == null) {
                     discoveryCertificate

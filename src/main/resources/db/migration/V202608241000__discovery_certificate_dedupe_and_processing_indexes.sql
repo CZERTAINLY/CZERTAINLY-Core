@@ -1,3 +1,19 @@
+-- The connector's own key for a staged certificate, which the wire contract defines as what Core dedupes an
+-- item by "across drains and retries". discovery_item has carried it since the v2 schema; this table, which
+-- predates v2, had nowhere to put it, so v2 certificate dedupe was per-page and in memory.
+--
+-- Nullable because v1 discovery has no such key. Its provider uuid identifies a certificate rather than an
+-- occurrence of one, so writing it here would hand the v1 flow a uniqueness guarantee no provider has ever
+-- been asked to meet.
+ALTER TABLE "discovery_certificate" ADD COLUMN "unique_ref" VARCHAR;
+
+-- What makes the reference a dedupe key rather than a label: one reference may be staged once per run,
+-- however many drains carry it. Partial, so v1's null rows sit outside the constraint entirely. One
+-- certificate found on several hosts is several items with several references, so it stays several rows.
+CREATE UNIQUE INDEX "uq_discovery_certificate_ref"
+    ON "discovery_certificate" ("discovery_uuid", "unique_ref")
+    WHERE "unique_ref" IS NOT NULL;
+
 -- discovery_certificate has carried no index since it was created: the foreign key to discovery is a
 -- constraint, and PostgreSQL does not index the referencing side, so every predicate below is a sequential
 -- scan today. The v2 processing claim runs them on every tick.
