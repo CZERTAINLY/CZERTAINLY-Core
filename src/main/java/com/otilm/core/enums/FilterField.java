@@ -67,6 +67,7 @@ import com.otilm.core.dao.entity.VaultInstance_;
 import com.otilm.core.dao.entity.VaultProfile_;
 import com.otilm.core.dao.entity.acme.AcmeAccount_;
 import com.otilm.core.dao.entity.acme.AcmeProfile_;
+import com.otilm.core.dao.entity.cbom.CryptoAsset_;
 import com.otilm.core.dao.entity.cmp.CmpProfile_;
 import com.otilm.core.dao.entity.oid.CustomOidEntry_;
 import com.otilm.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry_;
@@ -379,6 +380,39 @@ public enum FilterField {
             SearchFieldTypeEnum.NUMBER),
     CBOM_TOTAL_ASSETS_COUNT(Resource.CBOM, null, null, Cbom_.totalAssetsCount, "Total Assets Count",
             SearchFieldTypeEnum.NUMBER),
+    CBOM_ASSET_SYNC_STATE(Resource.CBOM, null, null, Cbom_.assetSyncState, "Asset Sync State",
+            SearchFieldTypeEnum.LIST),
+    CBOM_ASSETS_SYNCED_AT(Resource.CBOM, null, null, Cbom_.assetsSyncedAt, "Assets Synced At",
+            SearchFieldTypeEnum.DATETIME),
+
+    // CBOM cryptographic asset inventory.
+    //
+    // The root resource is null, not a placeholder value: the ratified resource is CBOM_ASSET, which lives in the
+    // interfaces artifact and is added by interfaces#874, out of scope here. getEnumsForResource compares roots by
+    // identity, so a null root matches no resource and these entries are declared but unroutable until that lands and
+    // one word per entry changes. Resource.CBOM would have served crypto-asset fields to the CBOM search surface,
+    // where resolving a CryptoAsset_ attribute against a Cbom root then fails; Resource.NONE is a value a client can
+    // pass to the filter-field endpoint. CryptoAssetFilterFieldPlaceholderTest pins this state.
+    //
+    // No entry for identity_key, and there must never be one: given the key, its low-entropy preimage falls to a
+    // dictionary attack, and IdentityKeyExposureFenceArchTest fails the build if one appears.
+    CBOM_ASSET_TYPE(null, null, null, CryptoAsset_.assetType, "Asset Type", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_NAME(null, null, null, CryptoAsset_.name, "Name", SearchFieldTypeEnum.STRING),
+    CBOM_ASSET_OID(null, null, null, CryptoAsset_.oid, "OID", SearchFieldTypeEnum.STRING),
+    CBOM_ASSET_ALGORITHM_FAMILY(null, null, null, CryptoAsset_.algorithmFamily, "Algorithm Family",
+            SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_PRIMITIVE(null, null, null, CryptoAsset_.primitive, "Primitive", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_PARAMETER_SET(null, null, null, CryptoAsset_.parameterSet, "Parameter Set", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_CURVE(null, null, null, CryptoAsset_.curve, "Elliptic Curve", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_MODE(null, null, null, CryptoAsset_.mode, "Mode", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_PADDING(null, null, null, CryptoAsset_.padding, "Padding", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_VARIANT(null, null, null, CryptoAsset_.variant, "Variant", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_PQC_VERDICT(null, null, null, CryptoAsset_.pqcVerdict, "PQC Readiness", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_PQC_RULESET_VERSION(null, null, null, CryptoAsset_.pqcRulesetVersion, "PQC Rule Set Version",
+            SearchFieldTypeEnum.NUMBER),
+    CBOM_ASSET_RULESET_VERSION(null, null, null, CryptoAsset_.rulesetVersion, "Identity Rule Set Version",
+            SearchFieldTypeEnum.NUMBER),
+    CBOM_ASSET_SOURCE_COUNT(null, null, null, CryptoAsset_.sourceCount, "Source CBOMs", SearchFieldTypeEnum.NUMBER),
 
     // Signing Profile
     SIGNING_PROFILE_NAME(Resource.SIGNING_PROFILE, null, null, SigningProfile_.name, "Name",
