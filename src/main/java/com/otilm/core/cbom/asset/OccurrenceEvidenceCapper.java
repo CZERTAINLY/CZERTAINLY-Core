@@ -1,0 +1,105 @@
+package com.otilm.core.cbom.asset;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.otilm.core.serialization.ObjectMapperFactory;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Bounds the occurrence evidence retained for one CBOM's contribution to one asset.
+ *
+ * <p>
+ * Capping <b>drops</b>; it never truncates. The CycloneDX 1.7 schema documents an occurrence's
+ * {@code additionalContext} as "e.g. a code snippet", and at a secret-scanner finding the snippet <em>is</em> the
+ * secret line -- a truncated secret is still a secret, and a truncated one is worse than none because it looks handled.
+ * The same rule holds for every other field: an occurrence that will not fit is removed whole rather than shortened.
+ *
+ * <p>
+ * Applied in order:
+ * <ol>
+ * <li>keep at most {@link #MAX_OCCURRENCES}, in producer order;</li>
+ * <li>if the rendering still exceeds {@link #MAX_EVIDENCE_BYTES}, remove {@code additionalContext} entirely, at every
+ * depth, from every retained occurrence;</li>
+ * <li>if it still exceeds the budget, drop whole occurrences from the tail until it fits.</li>
+ * </ol>
+ *
+ * <p>
+ * The caller records the <em>unclipped</em> occurrence count on the row, so the gap between that count and the retained
+ * array is the visible record that capping happened. No separate flag is needed, and none can drift.
+ */
+public final class OccurrenceEvidenceCapper {
+
+    /** Enough occurrences to characterise a finding; far short of enough to make the row a document store. */
+    public static final int MAX_OCCURRENCES = 50;
+
+    /** Budget for the rendered evidence array of a single source row. */
+    public static final int MAX_EVIDENCE_BYTES = 64 * 1024;
+
+    static final String ADDITIONAL_CONTEXT = "additionalContext";
+
+    private static final ObjectWriter WRITER = ObjectMapperFactory.jsonColumn().writer();
+
+    private OccurrenceEvidenceCapper() {
+    }
+
+    /**
+     * The evidence to store for the given occurrences. {@code null} in, {@code null} out: a source that reported no
+     * evidence is distinct from one that reported evidence which capping emptied.
+     */
+    public static List<Map<String, Object>> cap(List<Map<String, Object>> occurrences) {
+        if (occurrences == null) {
+            return null;
+        }
+        List<Map<String, Object>> kept = new ArrayList<>(
+                occurrences.size() > MAX_OCCURRENCES ? occurrences.subList(0, MAX_OCCURRENCES) : occurrences);
+        if (renderedSize(kept) <= MAX_EVIDENCE_BYTES) {
+            return List.copyOf(kept);
+        }
+
+        kept.replaceAll(OccurrenceEvidenceCapper::withoutAdditionalContext);
+        while (!kept.isEmpty() && renderedSize(kept) > MAX_EVIDENCE_BYTES) {
+            kept.removeLast();
+        }
+        return List.copyOf(kept);
+    }
+
+    /**
+     * The occurrence without {@code additionalContext} at any depth. Depth matters: a producer nesting the snippet one
+     * level down would otherwise keep it, and the nested snippet is the same secret.
+     */
+    private static Map<String, Object> withoutAdditionalContext(Map<String, Object> occurrence) {
+        Map<String, Object> stripped = new LinkedHashMap<>();
+        occurrence.forEach((key, value) -> {
+            if (ADDITIONAL_CONTEXT.equals(key)) {
+                return;
+            }
+            stripped.put(key, strip(value));
+        });
+        return stripped;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Object strip(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return withoutAdditionalContext((Map<String, Object>) map);
+        }
+        if (value instanceof Collection<?> collection) {
+            return collection.stream().map(OccurrenceEvidenceCapper::strip).toList();
+        }
+        return value;
+    }
+
+    private static int renderedSize(List<Map<String, Object>> occurrences) {
+        try {
+            return WRITER.writeValueAsBytes(occurrences).length;
+        } catch (JsonProcessingException e) {
+            // The evidence came from parsed JSON, so it is maps, lists and scalars; nothing here can fail to
+            // serialize. The message deliberately carries no evidence content.
+            throw new IllegalStateException("Occurrence evidence could not be rendered for capping");
+        }
+    }
+}
