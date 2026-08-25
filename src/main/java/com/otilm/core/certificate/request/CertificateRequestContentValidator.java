@@ -254,8 +254,8 @@ public class CertificateRequestContentValidator {
      * <p>
      * Authoring one is rejected now, but a definition saved before the structured targets existed still loads, and the
      * parser diverts its OID out of {@code extensions}. Without recognising it here, a legacy required mapping would
-     * report as missing and the whitelist would flag the CSR's value as unmapped - a strict profile would start
-     * rejecting requests it used to accept, which is not what "stored definitions keep working" promised.
+     * report as missing and the whitelist would flag the CSR's value as unmapped, so a strict profile would start
+     * rejecting requests it used to accept.
      */
     private static String legacyStructuredOid(MappedField field) {
         if (!(field instanceof ExtensionMappedField ext)) {

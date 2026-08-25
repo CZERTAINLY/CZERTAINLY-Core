@@ -432,8 +432,7 @@ class CertificateRequestAttributeProjectorTest {
     void stillProjectsAStoredDerMapping_toAnOidThatNowHasAStructuredTarget() {
         // given — a definition stored before the structured targets existed, mapping key usage as opaque
         // base64 DER. Authoring one is now rejected, but projection never re-validates, so an existing
-        // definition must keep producing exactly what it produced before. This is the whole
-        // no-migration-required promise.
+        // definition must keep producing exactly what it produced before.
         var uuid = UUID.randomUUID();
         var def = dataAttribute(uuid, extensionMapping("2.5.29.15"));
         var values = List.of(stringValue(uuid, "AwIFoA=="));
