@@ -77,6 +77,9 @@ discovery:
     # How long a non-terminal v2 run may exist with no pending work rows before the reaper fails it.
     # Covers the initiate window, where the run row exists before its first agenda rows.
     reap-grace: ${DISCOVERY_WORK_REAP_GRACE:PT5M}
+    # How far out a worker parks the agenda row when it direct-publishes the next tick itself, so a due-now
+    # row cannot let the sweep publish a competing tick. Must comfortably exceed one tick's duration.
+    continuation-backstop: ${DISCOVERY_WORK_CONTINUATION_BACKSTOP:PT1M}
     defaults:
       delays:
         - PT1S
@@ -108,6 +111,14 @@ discovery:
     # How long a stopped run waits for resume before the reaper cancels it (the connector's
     # checkpoint can no longer be assumed to exist).
     stopped-max-duration: ${DISCOVERY_RUN_STOPPED_MAX_DURATION:P7D}
+  # Bounds on a single DRAIN tick's page. max-bytes is sized for the proxy envelope rather than
+  # the contract's 10 MiB transport cap, so a tunneled page has headroom.
+  drain:
+    max-items: ${DISCOVERY_DRAIN_MAX_ITEMS:500}
+    max-bytes: ${DISCOVERY_DRAIN_MAX_BYTES:5242880}
+  # How many staged rows one PROCESS tick imports before handing the run back to the queue.
+  processing:
+    batch-size: ${DISCOVERY_PROCESSING_BATCH_SIZE:200}
 
 # Authority-provider async (HTTP 202) operation status polling
 provider:
