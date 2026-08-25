@@ -15,6 +15,7 @@ import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.events.handlers.discovery.DiscoveryFailureReason;
 import com.otilm.core.events.handlers.discovery.DiscoverySource;
 import com.otilm.core.events.transaction.CertificateValidationEvent;
 import com.otilm.core.events.transaction.TransactionHandler;
@@ -33,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -169,9 +171,21 @@ public class CertificateHandler {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void createDiscoveredCertificate(String batch, Discovery discovery,
-            List<DiscoveryProviderCertificateDataDto> discoveredCertificates) {
+    /**
+     * Stages a batch of discovered certificates, the single entry point for both discovery generations. {@code
+     * REQUIRED} so it joins whichever caller's transaction is active: v1's own per-batch transaction, or v2's ingestor
+     * transaction so staged rows commit together with the cursor advance.
+     *
+     * @param refsDedupeWithinRun true only for v2: the certificate's {@code uuid} is the connector's per-occurrence
+     * key, stored as {@code uniqueRef} and enforced by the run's unique index. A v1 provider uuid names the certificate
+     * itself, so it is not stored.
+     * @return one description per certificate that could not be staged; v1 discards these, v2 files them in the run's
+     * message log.
+     */
+    @Transactional
+    public List<String> stageDiscoveredCertificates(String batch, Discovery discovery,
+            List<DiscoveryProviderCertificateDataDto> discoveredCertificates, boolean refsDedupeWithinRun) {
+        List<String> failures = new ArrayList<>();
         for (DiscoveryProviderCertificateDataDto certificate : discoveredCertificates) {
             DiscoveryCertificate discoveryCertificate = null;
             try {
@@ -183,6 +197,9 @@ public class CertificateHandler {
                 discoveryCertificate.setDiscovery(discovery);
                 discoveryCertificate.setNewlyDiscovered(existingCertificate == null);
                 discoveryCertificate.setMeta(certificate.getMeta());
+                if (refsDedupeWithinRun) {
+                    discoveryCertificate.setUniqueRef(certificate.getUuid());
+                }
 
                 if (existingCertificate == null) {
                     discoveryCertificate
@@ -196,19 +213,22 @@ public class CertificateHandler {
 
                 discoveryCertificateRepository.save(discoveryCertificate);
             } catch (Exception e) {
+                String identifier = discoveryCertificate == null
+                        ? certificate.getUuid()
+                        : discoveryCertificate.getCommonName();
                 logger
                         .error("Unable to create discovery certificate {} in batch {} for discovery {}. Message: {}",
-                                discoveryCertificate == null
-                                        ? certificate.getUuid()
-                                        : discoveryCertificate.getCommonName(),
-                                batch, discovery.getName(), e.getMessage(), e);
+                                identifier, batch, discovery.getName(), e.getMessage(), e);
+                failures
+                        .add("Certificate %s could not be staged: %s"
+                                .formatted(identifier, DiscoveryFailureReason.shape(e)));
             }
         }
-
+        return failures;
     }
 
     /**
-     * Called after {@link #createDiscoveredCertificate} returns: reporting from inside that transaction cost a second
+     * Called after {@link #stageDiscoveredCertificates} returns: reporting from inside that transaction cost a second
      * pooled connection per batch and held the discovery row's write lock, serialising the batches on it.
      * <p>
      * Failures are swallowed -- progress is cosmetic, and letting one out would have the caller log the batch as

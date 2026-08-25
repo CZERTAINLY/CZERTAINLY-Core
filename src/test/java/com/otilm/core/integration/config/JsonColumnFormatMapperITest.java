@@ -1,9 +1,12 @@
 package com.otilm.core.integration.config;
 
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.converter.ObjectToJsonConverter;
 import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.entity.DiscoveryItem;
 import com.otilm.core.dao.entity.ScheduledJob;
+import com.otilm.core.dao.repository.DiscoveryItemRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.ScheduledJobsRepository;
 import com.otilm.core.util.BaseSpringBootTest;
@@ -23,14 +26,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Proof that {@code JsonColumnFormatMapperConfig} reaches Hibernate and shapes what every
- * {@code @JdbcTypeCode(SqlTypes.JSON)} column stores. {@link Discovery} is the vehicle for the persisted-shape case,
- * {@link ScheduledJob} for the columns that a converter keeps out of the stated mapper's reach.
+ * {@code @JdbcTypeCode(SqlTypes.JSON)} column stores. {@link DiscoveryItem} is the vehicle for the persisted-shape
+ * case, {@link ScheduledJob} for the columns that a converter keeps out of the stated mapper's reach.
  */
 @Transactional
 class JsonColumnFormatMapperITest extends BaseSpringBootTest {
 
     @Autowired
     private DiscoveryRepository discoveryRepository;
+    @Autowired
+    private DiscoveryItemRepository discoveryItemRepository;
     @PersistenceContext
     private EntityManager entityManager;
     @Autowired
@@ -59,9 +64,9 @@ class JsonColumnFormatMapperITest extends BaseSpringBootTest {
      */
     @Test
     void jsonColumnsKeepNullMembers() {
-        Map<String, Object> metaWithUnsetMember = new HashMap<>();
-        metaWithUnsetMember.put("connectorRunId", "run-42");
-        metaWithUnsetMember.put("connectorBuild", null);
+        Map<String, Object> payloadWithUnsetMember = new HashMap<>();
+        payloadWithUnsetMember.put("connectorRunId", "run-42");
+        payloadWithUnsetMember.put("connectorBuild", null);
 
         Discovery run = new Discovery();
         run.setName("mapper-proof");
@@ -70,13 +75,20 @@ class JsonColumnFormatMapperITest extends BaseSpringBootTest {
         run.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
         run.setConnectorUuid(UUID.randomUUID());
         run.setConnectorName("network-discovery");
-        run.setRunMeta(metaWithUnsetMember);
         UUID runUuid = discoveryRepository.saveAndFlush(run).getUuid();
+
+        DiscoveryItem item = new DiscoveryItem();
+        item.setDiscoveryUuid(runUuid);
+        item.setResource(Resource.CRYPTOGRAPHIC_KEY);
+        item.setSequence(1L);
+        item.setUniqueRef("mapper-proof-item");
+        item.setPayload(payloadWithUnsetMember);
+        UUID itemUuid = discoveryItemRepository.saveAndFlush(item).getUuid();
         entityManager.clear();
 
         String storedJson = (String) entityManager
-                .createNativeQuery("SELECT run_meta::text FROM discovery WHERE uuid = :uuid")
-                .setParameter("uuid", runUuid)
+                .createNativeQuery("SELECT payload::text FROM discovery_item WHERE uuid = :uuid")
+                .setParameter("uuid", itemUuid)
                 .getSingleResult();
 
         assertThat(storedJson)

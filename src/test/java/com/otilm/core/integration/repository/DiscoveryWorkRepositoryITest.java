@@ -122,6 +122,33 @@ class DiscoveryWorkRepositoryITest extends BaseSpringBootTest {
     }
 
     @Test
+    void expeditingABackedOffRowMovesItWithoutRefundingItsBudget() {
+        UUID runUuid = aRun();
+        workRepository.schedule(UUID.randomUUID(), runUuid, DiscoveryWorkType.STATUS.name(), NOW);
+        workRepository.reschedule(runUuid, DiscoveryWorkType.STATUS, 40, NOW.plusHours(1));
+
+        workRepository.expedite(UUID.randomUUID(), runUuid, DiscoveryWorkType.STATUS.name(), NOW);
+        entityManager.clear();
+
+        DiscoveryWork row = workRepository.findAll().get(0);
+        assertThat(row.getNextDueAt().toInstant()).isEqualTo(NOW.toInstant());
+        assertThat(row.getAttempt())
+                .as("a push saying 'look now' is not an answer from the connector, so it buys no budget back")
+                .isEqualTo(40);
+    }
+
+    @Test
+    void expeditingARunWithNoRowCreatesOneAtTheStartOfItsBudget() {
+        UUID runUuid = aRun();
+
+        workRepository.expedite(UUID.randomUUID(), runUuid, DiscoveryWorkType.DRAIN.name(), NOW);
+
+        DiscoveryWork row = workRepository.findAll().get(0);
+        assertThat(row.getWorkType()).isEqualTo(DiscoveryWorkType.DRAIN);
+        assertThat(row.getAttempt()).isZero();
+    }
+
+    @Test
     void existsByDiscoveryUuidSeesOnlyTheRunsOwnRows() {
         UUID runWithWork = aRun();
         UUID runWithout = aRun();
