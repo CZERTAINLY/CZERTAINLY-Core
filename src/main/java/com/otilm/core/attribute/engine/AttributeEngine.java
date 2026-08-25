@@ -782,9 +782,11 @@ public class AttributeEngine {
             return;
         }
 
-        // check for general attributes validation
-        List<ValidationError> errors = validateAttributesContent(definitionsMapping, requestAttributes);
-        errors.addAll(validateJsonExtensionValues(definitionsMapping, requestAttributes));
+        // JSON extension values first: validateAttributesContent removes each matched definition from the
+        // mapping as it goes (it uses the leftovers to find missing required attributes), so running after it
+        // would see no definition for any attribute that actually carried content.
+        List<ValidationError> errors = validateJsonExtensionValues(definitionsMapping, requestAttributes);
+        errors.addAll(validateAttributesContent(definitionsMapping, requestAttributes));
         if (!errors.isEmpty()) {
             throw new ValidationException(errors);
         }
