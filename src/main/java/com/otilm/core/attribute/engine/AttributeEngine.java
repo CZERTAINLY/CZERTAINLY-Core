@@ -1,6 +1,7 @@
 package com.otilm.core.attribute.engine;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
@@ -23,6 +24,8 @@ import com.otilm.api.model.common.attribute.common.CustomAttribute;
 import com.otilm.api.model.common.attribute.common.DataAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.common.callback.AttributeCallback;
+import com.otilm.api.model.common.attribute.common.constraint.AttributeConstraintType;
+import com.otilm.api.model.common.attribute.common.constraint.BaseAttributeConstraint;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.AttributeContentData;
 import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
@@ -43,6 +46,7 @@ import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
 import com.otilm.api.model.core.auth.AttributeResource;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.GeneralNameType;
+import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.oid.SystemOid;
 import com.otilm.api.model.core.search.FilterFieldSource;
@@ -65,8 +69,10 @@ import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.security.authz.SecurityResourceFilter;
 import com.otilm.core.serialization.ObjectMapperFactory;
+import com.otilm.core.util.AsnJsonCodec;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.AuthHelper;
+import com.otilm.core.util.ExtensionSchemas;
 import com.otilm.core.util.SearchHelper;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
@@ -546,6 +552,7 @@ public class AttributeEngine {
             try {
                 validateAttributeDefinition(v3, null);
                 validateFieldMapping(v3, null, codeToOidMap);
+                validateJsonSchemaDeclarations(v3, null);
             } catch (AttributeException e) {
                 // AttributeException messages are authored inside this class — safe to surface.
                 ValidationException wrapped = new ValidationException(e.getMessage());
@@ -777,9 +784,131 @@ public class AttributeEngine {
 
         // check for general attributes validation
         List<ValidationError> errors = validateAttributesContent(definitionsMapping, requestAttributes);
+        errors.addAll(validateJsonExtensionValues(definitionsMapping, requestAttributes));
         if (!errors.isEmpty()) {
             throw new ValidationException(errors);
         }
+    }
+
+    /**
+     * Registration-time checks for anything JSON-schema-shaped on a definition: a JSON Schema constraint whose data is
+     * not a loadable schema document, and declared default content that its own extension mapping would reject. An
+     * unsatisfiable pairing of registry schema and constraint cannot be detected in general, but a definition that
+     * declares an example value gets it caught here rather than at the first request.
+     */
+    private static void validateJsonSchemaDeclarations(DataAttributeV3 attribute, String connectorUuidStr)
+            throws AttributeException {
+        if (attribute.getConstraints() != null) {
+            for (BaseAttributeConstraint<?> constraint : attribute.getConstraints()) {
+                if (constraint.getType() != AttributeConstraintType.JSON_SCHEMA) {
+                    continue;
+                }
+                try {
+                    ExtensionSchemas.requireValidSchema((String) constraint.getData());
+                } catch (ValidationException e) {
+                    throw new AttributeException(
+                            "JSON Schema constraint of attribute '%s': %s"
+                                    .formatted(attribute.getName(), e.getMessage()),
+                            attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+                }
+            }
+        }
+        if (attribute.getContent() == null || attribute.getContent().isEmpty()) {
+            return;
+        }
+        RequestAttributeV3 declaredContent = new RequestAttributeV3(UUID.fromString(attribute.getUuid()),
+                attribute.getName(), attribute.getContentType(), attribute.getContent());
+        List<ValidationError> errors = validateJsonExtensionValues(attribute, declaredContent);
+        if (!errors.isEmpty()) {
+            throw new AttributeException(errors.get(0).getErrorDescription(), attribute.getUuid(), attribute.getName(),
+                    attribute.getType(), connectorUuidStr);
+        }
+    }
+
+    /**
+     * Grammar and registry-shape layers for JSON values of DER-encoded extension mappings. The constraint layer is not
+     * here: it already runs with the other constraint types in the general content validation above. Only JSON values
+     * (starting with '{') are checked; base64 values are the legacy path and were never shape-checked.
+     */
+    private static List<ValidationError> validateJsonExtensionValues(
+            Map<String, AttributeDefinition> definitionsMapping, List<RequestAttribute> requestAttributes) {
+        List<ValidationError> errors = new ArrayList<>();
+        for (RequestAttribute requestAttribute : requestAttributes) {
+            AttributeDefinition definition = definitionsMapping.get(requestAttribute.getName());
+            if (definition == null || !(definition.getDefinition() instanceof DataAttributeV3 v3)) {
+                continue;
+            }
+            errors.addAll(validateJsonExtensionValues(v3, requestAttribute));
+        }
+        return errors;
+    }
+
+    /**
+     * Grammar and registry-shape layers for one definition's submitted values. Package-private so the layering can be
+     * driven directly in a unit test; the map-based caller above is what production goes through.
+     */
+    static List<ValidationError> validateJsonExtensionValues(DataAttributeV3 definition,
+            RequestAttribute requestAttribute) {
+        List<ValidationError> errors = new ArrayList<>();
+        List<String> extensionOids = derExtensionOids(definition);
+        List<?> content = requestAttribute.getContent();
+        if (extensionOids.isEmpty() || content == null) {
+            return errors;
+        }
+        String label = definition.getProperties() != null && definition.getProperties().getLabel() != null
+                ? definition.getProperties().getLabel()
+                : definition.getName();
+        for (Object item : content) {
+            if (!(item instanceof AttributeContent attributeContent)
+                    || !(attributeContent.getData() instanceof String value) || !value.startsWith("{")) {
+                continue;
+            }
+            JsonNode tree;
+            try {
+                AsnJsonCodec.encodeFromString(value);
+                tree = ATTRIBUTES_OBJECT_MAPPER.readTree(value);
+            } catch (ValidationException e) {
+                errors.add(ValidationError.create("Extension value of attribute {}: {}", label, e.getMessage()));
+                continue;
+            } catch (JsonProcessingException e) {
+                // encodeFromString already accepted it, so this cannot happen; fail closed regardless.
+                errors.add(ValidationError.create("Extension value of attribute {} is not well-formed JSON", label));
+                continue;
+            }
+            for (String extensionOid : extensionOids) {
+                for (String violation : ExtensionSchemas.validateShape(extensionOid, tree)) {
+                    errors.add(ValidationError.create("Extension value of attribute {} {}", label, violation));
+                }
+            }
+        }
+        return errors;
+    }
+
+    /** The DER-encoded extension OIDs a definition maps, resolved against the registry cache. */
+    private static List<String> derExtensionOids(DataAttributeV3 definition) {
+        if (definition.getFieldMapping() == null || definition.getFieldMapping().getFields() == null) {
+            return List.of();
+        }
+        Map<String, OidRecord> registry = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION);
+        List<String> oids = new ArrayList<>();
+        for (MappedField field : definition.getFieldMapping().getFields()) {
+            if (!(field instanceof ExtensionMappedField ext) || ext.getExtensionOid() == null) {
+                continue;
+            }
+            OidRecord record = registry == null ? null : registry.get(ext.getExtensionOid());
+            ExtensionValueEncoding encoding = record != null
+                    ? record.valueEncoding()
+                    : systemExtensionEncoding(ext.getExtensionOid());
+            if (encoding == ExtensionValueEncoding.DER) {
+                oids.add(ext.getExtensionOid());
+            }
+        }
+        return oids;
+    }
+
+    private static ExtensionValueEncoding systemExtensionEncoding(String oid) {
+        SystemOid systemOid = SystemOid.fromOID(oid);
+        return systemOid == null ? null : systemOid.getValueEncoding();
     }
 
     public void updateDataAttributeDefinitions(UUID connectorUuid, String operation,
@@ -839,6 +968,7 @@ public class AttributeEngine {
             // operation the definition registers under (issuance definitions register with operation=null),
             // so validity is intrinsic to the definition and not gated on the operation.
             validateFieldMapping(v3, connectorUuid != null ? connectorUuid.toString() : null, codeToOidMap);
+            validateJsonSchemaDeclarations(v3, connectorUuid != null ? connectorUuid.toString() : null);
         }
 
         // find by connector uuid and name only because attribute uuid could be generated when data attribute was
