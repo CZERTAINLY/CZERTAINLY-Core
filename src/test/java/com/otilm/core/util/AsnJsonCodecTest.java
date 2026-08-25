@@ -42,7 +42,7 @@ class AsnJsonCodecTest {
             assertThat(hex("{\"utf8String\":\"a\"}")).isEqualTo("0C 01 61");
             assertThat(hex("{\"ia5String\":\"a\"}")).isEqualTo("16 01 61");
             assertThat(hex("{\"printableString\":\"a\"}")).isEqualTo("13 01 61");
-            assertThat(hex("{\"null\":true}")).isEqualTo("05 00");
+            assertThat(hex("{\"null\":null}")).isEqualTo("05 00");
         }
 
         @Test
@@ -177,4 +177,26 @@ class AsnJsonCodecTest {
         }
         return rendered.toString();
     }
+
+    @Test
+    void encodesAnAsn1Null() throws Exception {
+        assertThat(AsnJsonCodec.encodeFromString("{\"null\":null}")).isEqualTo(new byte[]{0x05, 0x00});
+    }
+
+    @Test
+    void rejectsANullNodeCarryingAValue() {
+        // ASN.1 NULL has no content, so a value here is a mistake; encoding 05 00 anyway would discard it.
+        assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"null\":123}"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("$.null");
+    }
+
+    @Test
+    void sortsSetMembersAsDerRequires() throws Exception {
+        // DER orders SET components by encoding, so the declared order is not preserved. Documented, not a bug.
+        byte[] declaredOutOfOrder = AsnJsonCodec.encodeFromString("{\"set\":[{\"integer\":5},{\"integer\":1}]}");
+
+        assertThat(declaredOutOfOrder).isEqualTo(new byte[]{0x31, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x05});
+    }
+
 }

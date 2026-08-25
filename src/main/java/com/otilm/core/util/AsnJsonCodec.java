@@ -40,8 +40,11 @@ public final class AsnJsonCodec {
     private AsnJsonCodec() {
     }
 
-    /** Parses {@code json} and encodes it; a string that is not JSON at all is rejected up front. */
-    public static byte[] encodeFromString(String json) {
+    /**
+     * Parses a tree value. This is the one place the dialect's text form is read, so a caller that needs both the tree
+     * and its encoding parses once and cannot end up judging a different tree than it encodes.
+     */
+    public static JsonNode parse(String json) {
         JsonNode tree;
         try {
             tree = MAPPER.readTree(json);
@@ -51,7 +54,12 @@ public final class AsnJsonCodec {
         if (tree == null || !tree.isObject()) {
             throw new ValidationException("Extension value is not well-formed JSON: expected an object node");
         }
-        return encode(tree);
+        return tree;
+    }
+
+    /** Parses {@code json} and encodes it; a string that is not JSON at all is rejected up front. */
+    public static byte[] encodeFromString(String json) {
+        return encode(parse(json));
     }
 
     public static byte[] encode(JsonNode tree) {
@@ -90,12 +98,25 @@ public final class AsnJsonCodec {
             case "bitString" -> parseBitString(value, path + ".bitString");
             case "generalizedTime" ->
                 generalizedTime(requireText(value, path + ".generalizedTime"), path + ".generalizedTime");
-            case "null" -> DERNull.INSTANCE;
+            case "null" -> derNull(value, path + ".null");
             case "sequence" -> new DERSequence(children(value, path + ".sequence"));
+            // DER orders SET components by their encoding, so BouncyCastle sorts here and the declared order of a
+            // set's members is not preserved. That is the encoding rule, not a normalisation this codec chose.
             case "set" -> new DERSet(children(value, path + ".set"));
             case "tagged" -> parseTagged(value, path + ".tagged");
             default -> throw new ValidationException("Unknown node type '%s' at %s".formatted(type, path));
         };
+    }
+
+    /**
+     * ASN.1 NULL carries no content, so the only value that can mean anything is JSON {@code null}. Anything else is an
+     * author's mistake — accepting it silently would encode {@code 05 00} and discard what they wrote.
+     */
+    private static ASN1Encodable derNull(JsonNode value, String path) {
+        if (!value.isNull()) {
+            throw new ValidationException("Node at %s must be null; ASN.1 NULL carries no value".formatted(path));
+        }
+        return DERNull.INSTANCE;
     }
 
     private static ASN1EncodableVector children(JsonNode array, String path) {

@@ -867,14 +867,10 @@ public class AttributeEngine {
             }
             JsonNode tree;
             try {
-                AsnJsonCodec.encodeFromString(value);
-                tree = ATTRIBUTES_OBJECT_MAPPER.readTree(value);
+                tree = AsnJsonCodec.parse(value);
+                AsnJsonCodec.encode(tree);
             } catch (ValidationException e) {
                 errors.add(ValidationError.create("Extension value of attribute {}: {}", label, e.getMessage()));
-                continue;
-            } catch (JsonProcessingException e) {
-                // encodeFromString already accepted it, so this cannot happen; fail closed regardless.
-                errors.add(ValidationError.create("Extension value of attribute {} is not well-formed JSON", label));
                 continue;
             }
             for (String extensionOid : extensionOids) {
