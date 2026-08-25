@@ -1,5 +1,6 @@
 package com.otilm.core.attribute.engine;
 
+import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.constraint.JsonSchemaAttributeConstraint;
@@ -72,6 +73,20 @@ class RequestAttributeDefinitionValidationTest {
         constraint.setData("this is not json");
         definition.setConstraints(List.of(constraint));
         assertRejected(definition, "valid JSON Schema document");
+    }
+
+    @Test
+    void jsonSchemaConstraintCheckedEvenWithoutAFieldMapping() {
+        // The connector registration path used to run this check only for mapped attributes, so a connector
+        // attribute carrying a broken schema document was never told.
+        DataAttributeV3 definition = validDefinition();
+        definition.setFieldMapping(null);
+        JsonSchemaAttributeConstraint constraint = new JsonSchemaAttributeConstraint();
+        constraint.setData("this is not json");
+        definition.setConstraints(List.of(constraint));
+        Assertions
+                .assertThrows(AttributeException.class,
+                        () -> AttributeEngine.validateJsonSchemaDeclarations(definition, null));
     }
 
     @Test

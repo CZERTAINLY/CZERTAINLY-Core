@@ -139,7 +139,7 @@ public final class X509RequestContentRenderer {
         }
         ExtensionValueEncoding effective = encoding == null ? ExtensionValueEncoding.DER : encoding;
         return switch (effective) {
-            case DER -> value.startsWith("{") ? encodeJsonTree(value) : decodeBase64Der(value);
+            case DER -> value.strip().startsWith("{") ? encodeJsonTree(value) : decodeBase64Der(value);
             case UTF8_STRING -> new DERUTF8String(value).getEncoded(ASN1Encoding.DER);
             case IA5_STRING -> new DERIA5String(value).getEncoded(ASN1Encoding.DER);
             case PRINTABLE_STRING -> new DERPrintableString(value).getEncoded(ASN1Encoding.DER);

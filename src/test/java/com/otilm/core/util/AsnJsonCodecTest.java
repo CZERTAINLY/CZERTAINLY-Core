@@ -2,6 +2,7 @@ package com.otilm.core.util;
 
 import com.otilm.api.exception.ValidationException;
 import java.util.Base64;
+import java.util.List;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -109,6 +110,52 @@ class AsnJsonCodecTest {
             assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"sequence\":[{\"oid\":\"serverAuth\"}]}"))
                     .isInstanceOf(ValidationException.class)
                     .hasMessageContaining("$.sequence[0].oid");
+        }
+
+        @Test
+        void outOfRangePadBitsRejected() {
+            // BouncyCastle throws IllegalArgumentException for these; unguarded they would escape as a 500.
+            for (String padBits : List.of("9", "-1", "99999999999999999999")) {
+                assertThatThrownBy(() -> AsnJsonCodec
+                        .encodeFromString("{\"bitString\":{\"value\":\"oA==\",\"padBits\":" + padBits + "}}"))
+                        .isInstanceOf(ValidationException.class)
+                        .hasMessageContaining("$.bitString.padBits");
+            }
+        }
+
+        @Test
+        void padBitsOnEmptyContentRejected() {
+            assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"bitString\":{\"value\":\"\",\"padBits\":5}}"))
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("$.bitString");
+        }
+
+        @Test
+        void outOfRangeTagNoRejected() {
+            for (String tagNo : List.of("-1", "31", "99999999999999999999")) {
+                assertThatThrownBy(() -> AsnJsonCodec
+                        .encodeFromString("{\"tagged\":{\"tagNo\":" + tagNo + ",\"value\":{\"null\":true}}}"))
+                        .isInstanceOf(ValidationException.class)
+                        .hasMessageContaining("$.tagged.tagNo");
+            }
+        }
+
+        @Test
+        void unparseableGeneralizedTimeRejected() {
+            assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"generalizedTime\":\"hello\"}"))
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("$.generalizedTime");
+        }
+
+        @Test
+        void charsetInvalidStringsRejected() {
+            // The one-arg BC constructors would emit DER that is invalid for the declared string type.
+            assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"printableString\":\"a@b\"}"))
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("$.printableString");
+            assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"ia5String\":\"\u00e9\"}"))
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("$.ia5String");
         }
 
         @Test

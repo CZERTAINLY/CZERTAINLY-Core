@@ -57,10 +57,45 @@ public final class ExtensionSchemas {
      * Schema constraint's data, so a broken document fails at save rather than at first use.
      */
     public static void requireValidSchema(String schemaDocument) {
+        JsonNode parsed;
         try {
-            load(schemaDocument);
+            parsed = MAPPER.readTree(schemaDocument);
+        } catch (IOException e) {
+            throw new ValidationException("Not a valid JSON Schema document: not JSON");
+        }
+        if (parsed == null || !(parsed.isObject() || parsed.isBoolean())) {
+            throw new ValidationException("Not a valid JSON Schema document: the root must be an object or a boolean");
+        }
+        rejectNonLocalRefs(parsed, "$");
+        try {
+            FACTORY.getSchema(parsed);
         } catch (RuntimeException e) {
             throw new ValidationException("Not a valid JSON Schema document: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Rejects a {@code $ref} that points outside the document. Such a reference cannot be resolved without fetching it,
+     * which the platform does not do, so accepting one would register a schema that silently constrains nothing.
+     */
+    private static void rejectNonLocalRefs(JsonNode node, String path) {
+        if (node.isObject()) {
+            for (Map.Entry<String, JsonNode> property : node.properties()) {
+                if ("$ref".equals(property.getKey()) && property.getValue().isTextual()
+                        && !property.getValue().textValue().startsWith("#")) {
+                    throw new ValidationException(
+                            "Not a valid JSON Schema document: $ref at %s points outside the document; only local references such as #/$defs/name are supported"
+                                    .formatted(path));
+                }
+                rejectNonLocalRefs(property.getValue(), path + "." + property.getKey());
+            }
+            return;
+        }
+        if (node.isArray()) {
+            int index = 0;
+            for (JsonNode child : node) {
+                rejectNonLocalRefs(child, "%s[%d]".formatted(path, index++));
+            }
         }
     }
 
@@ -69,7 +104,14 @@ public final class ExtensionSchemas {
      * distinct from the constraint layer's, so an operator sees which schema rejected.
      */
     public static List<String> validateShape(String oid, JsonNode value) {
-        Optional<JsonSchema> schema = resolve(oid);
+        Optional<JsonSchema> schema;
+        try {
+            schema = resolve(oid);
+        } catch (RuntimeException e) {
+            // A schema written straight into the database, or saved before a tightening, must not turn every
+            // request for this extension into a 500.
+            return List.of("cannot be checked: the registered schema for extension %s is not loadable".formatted(oid));
+        }
         if (schema.isEmpty()) {
             return List.of();
         }

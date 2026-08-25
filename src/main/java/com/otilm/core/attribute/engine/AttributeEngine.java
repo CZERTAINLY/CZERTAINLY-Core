@@ -798,7 +798,7 @@ public class AttributeEngine {
      * unsatisfiable pairing of registry schema and constraint cannot be detected in general, but a definition that
      * declares an example value gets it caught here rather than at the first request.
      */
-    private static void validateJsonSchemaDeclarations(DataAttributeV3 attribute, String connectorUuidStr)
+    static void validateJsonSchemaDeclarations(DataAttributeV3 attribute, String connectorUuidStr)
             throws AttributeException {
         if (attribute.getConstraints() != null) {
             for (BaseAttributeConstraint<?> constraint : attribute.getConstraints()) {
@@ -862,7 +862,7 @@ public class AttributeEngine {
                 : definition.getName();
         for (Object item : content) {
             if (!(item instanceof AttributeContent attributeContent)
-                    || !(attributeContent.getData() instanceof String value) || !value.startsWith("{")) {
+                    || !(attributeContent.getData() instanceof String value) || !value.strip().startsWith("{")) {
                 continue;
             }
             JsonNode tree;
@@ -965,12 +965,14 @@ public class AttributeEngine {
     private void updateDataAttributeDefinition(UUID connectorUuid, String operation, DataAttribute dataAttribute,
             Supplier<Map<String, String>> codeToOidMap) throws AttributeException {
         validateAttributeDefinition(dataAttribute, connectorUuid);
+        if (dataAttribute instanceof DataAttributeV3 v3) {
+            validateJsonSchemaDeclarations(v3, connectorUuid != null ? connectorUuid.toString() : null);
+        }
         if (dataAttribute instanceof DataAttributeV3 v3 && v3.getFieldMapping() != null) {
             // A fieldMapping declares projection intent; a malformed one is an authoring error whatever
             // operation the definition registers under (issuance definitions register with operation=null),
             // so validity is intrinsic to the definition and not gated on the operation.
             validateFieldMapping(v3, connectorUuid != null ? connectorUuid.toString() : null, codeToOidMap);
-            validateJsonSchemaDeclarations(v3, connectorUuid != null ? connectorUuid.toString() : null);
         }
 
         // find by connector uuid and name only because attribute uuid could be generated when data attribute was

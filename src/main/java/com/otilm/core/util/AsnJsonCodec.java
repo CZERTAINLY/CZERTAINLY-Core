@@ -59,6 +59,12 @@ public final class AsnJsonCodec {
             return toAsn1(tree, "$").toASN1Primitive().getEncoded(ASN1Encoding.DER);
         } catch (IOException e) {
             throw new ValidationException("Extension value could not be encoded to DER");
+        } catch (ValidationException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            // BouncyCastle rejects some values with its own unchecked exceptions. Callers validate on request
+            // paths, so one escaping would be a 500 rather than a rejection.
+            throw new ValidationException("Extension value could not be encoded to DER: " + e.getMessage());
         }
     }
 
@@ -75,11 +81,15 @@ public final class AsnJsonCodec {
             case "integer" -> new ASN1Integer(requireInteger(value, path + ".integer"));
             case "oid" -> parseOid(value, path + ".oid");
             case "utf8String" -> new DERUTF8String(requireText(value, path + ".utf8String"));
-            case "ia5String" -> new DERIA5String(requireText(value, path + ".ia5String"));
-            case "printableString" -> new DERPrintableString(requireText(value, path + ".printableString"));
+            // The one-arg BC constructors skip charset validation and would emit DER that is invalid
+            // for the declared type; the two-arg form checks it.
+            case "ia5String" -> ia5String(requireText(value, path + ".ia5String"), path + ".ia5String");
+            case "printableString" ->
+                printableString(requireText(value, path + ".printableString"), path + ".printableString");
             case "octetString" -> new DEROctetString(requireBase64(value, path + ".octetString"));
             case "bitString" -> parseBitString(value, path + ".bitString");
-            case "generalizedTime" -> new DERGeneralizedTime(requireText(value, path + ".generalizedTime"));
+            case "generalizedTime" ->
+                generalizedTime(requireText(value, path + ".generalizedTime"), path + ".generalizedTime");
             case "null" -> DERNull.INSTANCE;
             case "sequence" -> new DERSequence(children(value, path + ".sequence"));
             case "set" -> new DERSet(children(value, path + ".set"));
@@ -104,7 +114,7 @@ public final class AsnJsonCodec {
         if (!node.isObject() || !node.has("tagNo") || !node.has("value")) {
             throw new ValidationException("Node at %s must carry tagNo and value".formatted(path));
         }
-        int tagNo = requireInteger(node.get("tagNo"), path + ".tagNo").intValueExact();
+        int tagNo = requireBoundedInt(node.get("tagNo"), path + ".tagNo", 0, 30);
         boolean explicit = !node.has("explicit") || requireBoolean(node.get("explicit"), path + ".explicit");
         return new DERTaggedObject(explicit, tagNo, toAsn1(node.get("value"), path + ".value"));
     }
@@ -122,7 +132,10 @@ public final class AsnJsonCodec {
             throw new ValidationException("Node at %s must carry a base64 value and optional padBits".formatted(path));
         }
         byte[] bytes = requireBase64(node.get("value"), path + ".value");
-        int padBits = node.has("padBits") ? requireInteger(node.get("padBits"), path + ".padBits").intValueExact() : 0;
+        int padBits = node.has("padBits") ? requireBoundedInt(node.get("padBits"), path + ".padBits", 0, 7) : 0;
+        if (bytes.length == 0 && padBits != 0) {
+            throw new ValidationException("Value at %s has no content, so padBits must be 0".formatted(path));
+        }
         return new DERBitString(bytes, padBits);
     }
 
@@ -131,6 +144,40 @@ public final class AsnJsonCodec {
             throw new ValidationException("Value at %s must be a JSON boolean".formatted(path));
         }
         return node.booleanValue();
+    }
+
+    private static ASN1Encodable ia5String(String value, String path) {
+        try {
+            return new DERIA5String(value, true);
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("Value at %s is not a valid IA5String".formatted(path));
+        }
+    }
+
+    private static ASN1Encodable printableString(String value, String path) {
+        try {
+            return new DERPrintableString(value, true);
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("Value at %s is not a valid PrintableString".formatted(path));
+        }
+    }
+
+    private static ASN1Encodable generalizedTime(String value, String path) {
+        try {
+            return new DERGeneralizedTime(value);
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(
+                    "Value at %s is not a GeneralizedTime such as 20261231235959Z".formatted(path));
+        }
+    }
+
+    /** An integer node constrained to a range, so an oversized value is a validation error and not an overflow. */
+    private static int requireBoundedInt(JsonNode node, String path, int min, int max) {
+        BigInteger value = requireInteger(node, path);
+        if (value.compareTo(BigInteger.valueOf(min)) < 0 || value.compareTo(BigInteger.valueOf(max)) > 0) {
+            throw new ValidationException("Value at %s must be between %d and %d".formatted(path, min, max));
+        }
+        return value.intValueExact();
     }
 
     private static BigInteger requireInteger(JsonNode node, String path) {

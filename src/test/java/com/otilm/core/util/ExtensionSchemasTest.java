@@ -50,6 +50,37 @@ class ExtensionSchemasTest {
     }
 
     @Test
+    void basicConstraintsSchemaAcceptsTheEmptySequence() throws Exception {
+        // 30 00 - cA absent, defaulting to FALSE. This is the canonical end-entity BasicConstraints and the
+        // most common real value, so rejecting it would be worse than having no schema.
+        assertThat(ExtensionSchemas.validateShape("2.5.29.19", MAPPER.readTree("{\"sequence\":[]}"))).isEmpty();
+    }
+
+    @Test
+    void basicConstraintsSchemaRejectsAnExplicitFalseCa() throws Exception {
+        // X.690 11.5: a DEFAULT value must not be encoded, so {boolean:false} would emit DER-invalid content.
+        assertThat(ExtensionSchemas.validateShape("2.5.29.19", MAPPER.readTree("{\"sequence\":[{\"boolean\":false}]}")))
+                .isNotEmpty();
+    }
+
+    @Test
+    void basicConstraintsSchemaRejectsANegativePathLength() throws Exception {
+        assertThat(ExtensionSchemas
+                .validateShape("2.5.29.19", MAPPER.readTree("{\"sequence\":[{\"boolean\":true},{\"integer\":-5}]}")))
+                .isNotEmpty();
+    }
+
+    @Test
+    void tlsFeatureSchemaRejectsAValueOutsideTheIanaRange() throws Exception {
+        assertThat(ExtensionSchemas
+                .validateShape("1.3.6.1.5.5.7.1.24", MAPPER.readTree("{\"sequence\":[{\"integer\":-1}]}")))
+                .isNotEmpty();
+        assertThat(ExtensionSchemas
+                .validateShape("1.3.6.1.5.5.7.1.24", MAPPER.readTree("{\"sequence\":[{\"integer\":65536}]}")))
+                .isNotEmpty();
+    }
+
+    @Test
     void basicConstraintsSchemaRejectsAThirdElement() throws Exception {
         List<String> violations = ExtensionSchemas
                 .validateShape("2.5.29.19",
@@ -96,5 +127,59 @@ class ExtensionSchemasTest {
         assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema("this is not json"))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("valid JSON Schema document");
+    }
+
+    @Test
+    void requireValidSchemaRejectsARootThatIsNotAnObjectOrBoolean() {
+        // Each of these parses as JSON and compiles into a schema that constrains nothing, so an operator
+        // would believe they had registered a shape and get none.
+        for (String document : List.of("\"hello\"", "123", "null", "[]", "\"\"")) {
+            assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema(document))
+                    .as("document: %s", document)
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("object or a boolean");
+        }
+    }
+
+    @Test
+    void requireValidSchemaAcceptsABooleanRoot() {
+        ExtensionSchemas.requireValidSchema("true");
+        ExtensionSchemas.requireValidSchema("false");
+    }
+
+    @Test
+    void requireValidSchemaRejectsARefPointingOutsideTheDocument() {
+        for (String ref : List
+                .of("https://evil.example.com/x.json", "http://169.254.169.254/latest/meta-data/",
+                        "file:///etc/passwd")) {
+            assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema("{\"$ref\":\"" + ref + "\"}"))
+                    .as("ref: %s", ref)
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("points outside the document");
+        }
+    }
+
+    @Test
+    void requireValidSchemaRejectsANestedRemoteRef() {
+        assertThatThrownBy(() -> ExtensionSchemas
+                .requireValidSchema("{\"properties\":{\"a\":{\"items\":{\"$ref\":\"https://x/y\"}}}}"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("points outside the document");
+    }
+
+    @Test
+    void requireValidSchemaAcceptsALocalFragmentRef() {
+        ExtensionSchemas.requireValidSchema("{\"$defs\":{\"x\":{\"type\":\"integer\"}},\"$ref\":\"#/$defs/x\"}");
+    }
+
+    @Test
+    void anUnloadableStoredSchemaIsReportedRatherThanThrown() {
+        // A value written straight into the database must not turn every request into a 500.
+        OidHandler
+                .cacheOid(OidCategory.CERTIFICATE_EXTENSION, "1.3.6.1.4.1.99999.9.9",
+                        OidRecord.builder().displayName("Broken").valueSchema("not json at all").build());
+
+        assertThat(ExtensionSchemas.validateShape("1.3.6.1.4.1.99999.9.9", MAPPER.createObjectNode()))
+                .anySatisfy(message -> assertThat(message).contains("not loadable"));
     }
 }
