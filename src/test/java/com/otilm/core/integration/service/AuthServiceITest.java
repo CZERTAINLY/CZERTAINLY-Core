@@ -503,6 +503,19 @@ class AuthServiceITest extends BaseSpringBootTest {
                         ]
                     },
                     {
+                        "uuid": "8f3c9e5a-7d21-4b6f-9c48-2e5a1d0b7c93",
+                        "name": "cryptoAssets",
+                        "displayName": "Cryptographic Assets",
+                        "objectAccess": false,
+                        "actions": [
+                            {
+                                "uuid": "53421445-5d6e-4257-b59d-235aaf26e61e",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
+                    },
+                    {
                         "uuid": "2a44538f-b607-48cf-ba2a-e8d2b5f71402",
                         "name": "discoveries",
                         "displayName": "Discoveries",
