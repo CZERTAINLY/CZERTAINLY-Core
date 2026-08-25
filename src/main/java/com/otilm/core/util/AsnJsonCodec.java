@@ -30,9 +30,6 @@ import org.bouncycastle.asn1.DERUTF8String;
  * Encodes a structural ASN.1 JSON tree into DER. Each node is an object with exactly one key naming its ASN.1 type;
  * composite nodes ({@code sequence}, {@code set}, {@code tagged}) nest further nodes. This parser is the dialect's
  * grammar: what it accepts is the grammar, and a value it rejects names the offending node's JSON path.
- *
- * <p>
- * No Spring context required; all methods are static.
  */
 public final class AsnJsonCodec {
 
@@ -70,7 +67,7 @@ public final class AsnJsonCodec {
             throw new ValidationException(
                     "Node at %s must be an object with exactly one key naming its ASN.1 type".formatted(path));
         }
-        Map.Entry<String, JsonNode> entry = node.fields().next();
+        Map.Entry<String, JsonNode> entry = node.properties().iterator().next();
         String type = entry.getKey();
         JsonNode value = entry.getValue();
         return switch (type) {
