@@ -1,9 +1,12 @@
 package com.otilm.core.dao.entity;
 
 import com.otilm.api.model.core.cbom.CbomDto;
+import com.otilm.core.model.cbom.CbomAssetSyncState;
 import com.otilm.core.util.DtoMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -54,6 +57,24 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
 
     @Column(name = "total_assets_count", nullable = false)
     private int totalAssetsCount;
+
+    /**
+     * Where this CBOM stands in cryptographic-asset ingest, independent of the header sync that created the row.
+     * Existing header-only rows read as {@code PENDING}, which is correct: their assets have never been ingested.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "asset_sync_state", nullable = false, columnDefinition = "TEXT")
+    private CbomAssetSyncState assetSyncState = CbomAssetSyncState.PENDING;
+
+    /**
+     * Why asset ingest last failed for this CBOM. Operator-visible, so the text is always shaped by us -- never a
+     * driver message, whose DETAIL line carries the failing row.
+     */
+    @Column(name = "asset_sync_error", columnDefinition = "TEXT")
+    private String assetSyncError;
+
+    @Column(name = "assets_synced_at")
+    private OffsetDateTime assetsSyncedAt;
 
     @Override
     public CbomDto mapToDto() {

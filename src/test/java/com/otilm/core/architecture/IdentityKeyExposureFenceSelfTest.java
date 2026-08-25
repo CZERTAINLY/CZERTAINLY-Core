@@ -104,6 +104,23 @@ class IdentityKeyExposureFenceSelfTest {
     }
 
     @Test
+    void documentationMayExplainTheRuleButCodeMayNotNameTheKey() {
+        Path unlisted = Path.of("src/main/java/com/otilm/core/enums/FilterField.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(unlisted, List
+                        .of("// No entry for identity_key, and there must never be one.",
+                                " * The identity key never leaves the database.", "/* identityKey is fenced. */")))
+                .describedAs("a comment cannot disclose a value, and the reason for the fence must be documentable")
+                .isEmpty();
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(unlisted, List.of("    private String identityKey; // the fenced column")))
+                .describedAs("a trailing comment shares its line with code")
+                .hasSize(1);
+    }
+
+    @Test
     void aWrappedLoggerCallIsAlsoReported() {
         Path allowlisted = Path.of("src/main/java/com/otilm/core/dao/entity/cbom/CryptoAsset.java");
 

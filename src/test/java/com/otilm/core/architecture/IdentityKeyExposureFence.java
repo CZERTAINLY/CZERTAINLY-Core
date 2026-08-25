@@ -59,6 +59,7 @@ final class IdentityKeyExposureFence {
     private static final Set<String> SOURCE_ALLOWLIST = Set
             .of("src/main/java/com/otilm/core/cbom/identity/CryptoAssetIdentityCalculator.java",
                     "src/main/java/com/otilm/core/dao/entity/cbom/CryptoAsset.java",
+                    "src/main/java/com/otilm/core/dao/entity/cbom/CryptoAssetAlias.java",
                     "src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetRepository.java",
                     "src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetAliasRepository.java",
                     "src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java",
@@ -117,7 +118,7 @@ final class IdentityKeyExposureFence {
         List<String> violations = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
-            if (!mentionsIdentityKey(line)) {
+            if (isDocumentation(line) || !mentionsIdentityKey(line)) {
                 continue;
             }
             if (LOGGING_CALL.matcher(line).find()) {
@@ -129,6 +130,17 @@ final class IdentityKeyExposureFence {
             }
         }
         return violations;
+    }
+
+    /**
+     * Whether the line is documentation rather than code. A comment cannot disclose a value, and the reason the key is
+     * fenced is exactly what a comment must be free to explain -- a rule that forbade naming it in prose would forbid
+     * documenting the rule. Only whole comment lines are exempt: a trailing comment shares its line with code, and a
+     * string literal containing a double slash must not be able to hide the rest of its line.
+     */
+    static boolean isDocumentation(String line) {
+        String trimmed = line.strip();
+        return trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*");
     }
 
     /**
