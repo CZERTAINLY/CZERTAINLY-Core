@@ -199,4 +199,11 @@ class AsnJsonCodecTest {
         assertThat(declaredOutOfOrder).isEqualTo(new byte[]{0x31, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x05});
     }
 
+    @Test
+    void rejectsAnOidNodeTheEncoderCannotRepresent() {
+        assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"oid\":\"1.40\"}"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("$.oid");
+    }
+
 }

@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "required": ["sequence"],
+  "properties": {
+    "sequence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["tagged"],
+        "properties": {
+          "tagged": {
+            "type": "object",
+            "required": ["tagNo", "explicit", "value"],
+            "properties": {
+              "tagNo": { "enum": [0, 1] },
+              "explicit": { "const": false },
+              "value": { "type": "object", "required": ["generalizedTime"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

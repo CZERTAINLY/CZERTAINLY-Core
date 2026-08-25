@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "required": ["bitString"],
+  "properties": {
+    "bitString": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "string" },
+        "padBits": { "type": "integer", "minimum": 0, "maximum": 7 }
+      }
+    }
+  }
+}

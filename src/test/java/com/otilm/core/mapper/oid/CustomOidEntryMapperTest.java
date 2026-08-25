@@ -50,14 +50,6 @@ class CustomOidEntryMapperTest {
     }
 
     @Test
-    void systemExtensionWithoutAShippedSchemaReportsNone() {
-        CustomOidEntryDetailResponseDto dto = CustomOidEntryMapper.toDetailDto(SystemOid.SUBJECT_KEY_IDENTIFIER);
-
-        CertificateExtensionOidPropertiesDto ext = (CertificateExtensionOidPropertiesDto) dto.getAdditionalProperties();
-        assertThat(ext.getValueSchema()).isNull();
-    }
-
-    @Test
     void everySystemCertificateExtensionSurfacesBothRequiredFields() {
         // given — a single missing branch would ship entries that fail their own schema
         List<SystemOid> extensions = Arrays

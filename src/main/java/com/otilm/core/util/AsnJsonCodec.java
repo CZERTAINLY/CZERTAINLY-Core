@@ -145,7 +145,13 @@ public final class AsnJsonCodec {
         if (!OidHandler.isOid(oid)) {
             throw new ValidationException("Value at %s is not a dotted-decimal OID".formatted(path));
         }
-        return new ASN1ObjectIdentifier(oid);
+        try {
+            return new ASN1ObjectIdentifier(oid);
+        } catch (IllegalArgumentException e) {
+            // The dotted-decimal check accepts arcs the encoding forbids, such as 1.40: a first arc of 0 or 1
+            // caps the second at 39. Naming the node beats the catch-all's bare BouncyCastle message.
+            throw new ValidationException("Value at %s is not a valid OID".formatted(path));
+        }
     }
 
     private static ASN1Encodable parseBitString(JsonNode node, String path) {

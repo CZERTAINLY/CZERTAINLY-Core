@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "required": ["sequence"],
+  "properties": {
+    "sequence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["oid"],
+        "properties": { "oid": { "type": "string" } }
+      }
+    }
+  }
+}
