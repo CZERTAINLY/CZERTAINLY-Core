@@ -14,12 +14,15 @@ import com.otilm.api.model.connector.discovery.v2.event.DiscoveryProgressEvent;
 import com.otilm.api.model.connector.discovery.v2.event.DiscoveryResultBatchEvent;
 import com.otilm.api.model.connector.discovery.v2.event.DiscoveryStateChangedEvent;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryItem;
+import com.otilm.core.dao.entity.DiscoveryMessage;
 import com.otilm.core.dao.entity.DiscoveryWork;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryItemRepository;
+import com.otilm.core.dao.repository.DiscoveryMessageRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
@@ -55,6 +58,8 @@ class DiscoveryEventIngestorITest extends BaseSpringBootTest {
     private DiscoveryCertificateRepository certificateRepository;
     @Autowired
     private DiscoveryWorkRepository workRepository;
+    @Autowired
+    private DiscoveryMessageRepository messageRepository;
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -190,13 +195,15 @@ class DiscoveryEventIngestorITest extends BaseSpringBootTest {
 
         ingestor.applyAdvisoryEvent(run.getUuid(), event);
 
-        Discovery reloaded = reload(run);
-        // The code is a connector-declared identifier; the message beside it is connector prose, and this log
-        // is read through the API -- so the prose stays in the log and never on the run.
-        assertThat(reloaded.getRunMessages())
-                .containsExactly("Connector reported HOST_UNREACHABLE")
-                .noneMatch(message -> message.contains("10.0.0.7"));
-        assertThat(reloaded.getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
+        // The code is the connector-declared identifier, which the message row is keyed by; the prose beside it
+        // is the connector's own, and this log is read through the API -- so that prose stays in the log file
+        // and never reaches the run.
+        assertThat(messages(run)).singleElement().satisfies(message -> {
+            assertThat(message.getCode()).isEqualTo("HOST_UNREACHABLE");
+            assertThat(message.getSeverity()).isEqualTo(DiscoveryMessageSeverity.ERROR);
+            assertThat(message.getMessage()).doesNotContain("10.0.0.7");
+        });
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.IN_PROGRESS);
         assertThat(agenda(run)).isEmpty();
     }
 
@@ -308,5 +315,11 @@ class DiscoveryEventIngestorITest extends BaseSpringBootTest {
         entityManager.flush();
         entityManager.clear();
         return workRepository.findAll().stream().filter(w -> w.getDiscoveryUuid().equals(run.getUuid())).toList();
+    }
+
+    private List<DiscoveryMessage> messages(Discovery run) {
+        entityManager.flush();
+        entityManager.clear();
+        return messageRepository.findByDiscoveryUuidOrderByIdAsc(run.getUuid());
     }
 }

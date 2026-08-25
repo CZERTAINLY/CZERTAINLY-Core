@@ -5,6 +5,7 @@ import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
+import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -26,12 +27,14 @@ public class DiscoveryRunTerminator {
 
     private final DiscoveryRepository discoveryRepository;
     private final DiscoveryWorkWriter workWriter;
+    private final DiscoveryMessageWriter messageWriter;
     private final TransactionHandler transactionHandler;
 
     public DiscoveryRunTerminator(DiscoveryRepository discoveryRepository, DiscoveryWorkWriter workWriter,
-            TransactionHandler transactionHandler) {
+            DiscoveryMessageWriter messageWriter, TransactionHandler transactionHandler) {
         this.discoveryRepository = discoveryRepository;
         this.workWriter = workWriter;
+        this.messageWriter = messageWriter;
         this.transactionHandler = transactionHandler;
     }
 
@@ -99,7 +102,7 @@ public class DiscoveryRunTerminator {
         run.setMessage(reason);
         run.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
         run.setRunMeta(null);
-        run.setRunMessages(DiscoveryRunLifecycle.append(run.getRunMessages(), reason));
+        messageWriter.appendRunEnded(run.getUuid(), DiscoveryRunLifecycle.severityOf(status), reason);
         logger.info("Discovery {} ended as {}: {}", run.getUuid(), status, reason);
     }
 }

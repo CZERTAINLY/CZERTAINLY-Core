@@ -1,12 +1,15 @@
 package com.otilm.core.integration.discovery;
 
+import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
+import com.otilm.core.dao.entity.DiscoveryMessage;
 import com.otilm.core.dao.entity.DiscoveryWork;
 import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.dao.repository.DiscoveryMessageRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.events.handlers.CertificateDiscoveredEventHandler;
@@ -14,11 +17,13 @@ import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
 import com.otilm.core.messaging.jms.configuration.DiscoveryWorkProperties;
 import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
+import com.otilm.core.model.discovery.DiscoveryMessageCode;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.discovery.DiscoveryProcessTickWorker;
 import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
 import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator.Ending;
 import com.otilm.core.service.writer.DiscoveryWriter;
+import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
@@ -86,6 +91,10 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     private DiscoveryWriter discoveryWriter;
     @Autowired
     private DiscoveryWorkWriter workWriter;
+    @Autowired
+    private DiscoveryMessageWriter messageWriter;
+    @Autowired
+    private DiscoveryMessageRepository messageRepository;
 
     private static final UUID RUN_OWNER = UUID.fromString("3f1d9a52-0000-4000-8000-00000000beef");
 
@@ -171,9 +180,13 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
                 .as("the second tick claims the remainder, never the stamped row")
                 .containsExactly(3, 2);
         assertThat(backlog(run)).isZero();
-        // WARNING rather than COMPLETED: the caught batch failure appended to the run's message log, and the
-        // terminal decision reads that log as evidence.
-        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.WARNING);
+        // COMPLETED, though the log carries the batch that died: the retry imported every row it left behind,
+        // so there is nothing for an operator to act on. The message stays as the record of what happened, at a
+        // severity that says the run recovered from it.
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.COMPLETED);
+        assertThat(messages(run))
+                .extracting(DiscoveryMessage::getCode)
+                .contains(DiscoveryMessageCode.BATCH_PROCESSING_FAILED.code());
     }
 
     @Test
@@ -298,10 +311,38 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
         worker.tick(run.getUuid(), 0);
 
-        assertThat(reload(run).getRunMessages())
+        assertThat(messages(run))
                 .as("an operator watching a long run sees what is going wrong while it is still going wrong")
-                .containsExactly("1 certificate(s) could not be imported into the inventory.");
+                .singleElement()
+                .satisfies(gap -> {
+                    assertThat(gap.getCode()).isEqualTo(DiscoveryMessageCode.INVENTORY_GAP.code());
+                    assertThat(gap.getSeverity()).isEqualTo(DiscoveryMessageSeverity.WARNING);
+                    assertThat(gap.getOccurrences()).isEqualTo(1);
+                    // The count is the occurrence column, not part of the text: it is what lets the next batch
+                    // reporting the same gap add to this row instead of writing a second one.
+                    assertThat(gap.getMessage()).doesNotContain("1 ");
+                });
         assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.PROCESSING);
+    }
+
+    @Test
+    void twoBatchesFallingShortTheSameWay_shareOneEntryCountedTwice() throws Exception {
+        Discovery run = processingRun();
+        stageCertificates(run, 2);
+        importsWith(new DiscoveryRunCounts(1, 0, 0, 0, false));
+
+        // Two ticks, each its own transaction: the second aggregates onto what the first committed.
+        worker.tick(run.getUuid(), 0);
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(messages(run))
+                .filteredOn(message -> DiscoveryMessageCode.INVENTORY_GAP.code().equals(message.getCode()))
+                .as("a run degraded the same way all day long is one entry, not one per batch")
+                .singleElement()
+                .satisfies(gap -> {
+                    assertThat(gap.getOccurrences()).isEqualTo(2);
+                    assertThat(gap.getLastSeenAt()).isAfter(gap.getFirstSeenAt());
+                });
     }
 
     @Test
@@ -312,9 +353,14 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
         worker.tick(run.getUuid(), 0);
 
-        assertThat(reload(run).getRunMessages())
+        assertThat(messages(run))
                 .as("only the terminal line, so a clean run's log is not noise")
-                .containsExactly("Discovery completed successfully.");
+                .singleElement()
+                .satisfies(ending -> {
+                    assertThat(ending.getCode()).isEqualTo(DiscoveryMessageCode.RUN_ENDED.code());
+                    assertThat(ending.getMessage()).isEqualTo("Discovery completed successfully.");
+                    assertThat(ending.getSeverity()).isEqualTo(DiscoveryMessageSeverity.INFO);
+                });
     }
 
     @Test
@@ -370,7 +416,9 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     void warningFromRunLevelEvidenceAlone_doesNotSendTheOperatorToTheCertificateList() throws Exception {
         Discovery run = processingRun();
         // A run-level gap with every row clean: a bookkeeping write that failed, or validation never queued.
-        discoveryWriter.appendRunMessages(run.getUuid(), List.of("Validation was not requested for 3 certificates."));
+        messageWriter
+                .append(run.getUuid(), DiscoveryMessageSeverity.WARNING, DiscoveryMessageCode.VALIDATION_NOT_REQUESTED,
+                        "Validation of the discovered certificates could not be requested.");
 
         worker.tick(run.getUuid(), 0);
 
@@ -403,13 +451,16 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     @Test
     void endingDecidedUnderTheLock_readsTheRunAsItStandsWhenTheEndingCommits() {
         Discovery run = processingRun();
-        // A late drain page appended a complaint after the worker had already read the run. Deciding from the
-        // caller's stale copy would report this run as completed successfully while it carries a warning.
-        discoveryWriter.appendRunMessages(run.getUuid(), List.of("2 item(s) arrived without a sequence"));
+        // A late drain page appended a complaint after the worker had already read the run. Deciding from
+        // anything read before the lock would report this run as completed successfully while it carries a
+        // warning.
+        messageWriter
+                .append(run.getUuid(), DiscoveryMessageSeverity.WARNING, DiscoveryMessageCode.ITEM_SEQUENCE_MISSING,
+                        "A discovered item arrived without a sequence and was skipped.");
 
         boolean ended = terminator
                 .endWith(run.getUuid(),
-                        locked -> locked.getRunMessages().isEmpty()
+                        locked -> messageRepository.countByDiscoveryUuid(locked.getUuid()) == 0
                                 ? new Ending(DiscoveryStatus.COMPLETED, "Discovery completed successfully.")
                                 : new Ending(DiscoveryStatus.WARNING, "Discovery completed with warnings."));
 
@@ -471,6 +522,10 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
     private Discovery reload(Discovery run) {
         return discoveryRepository.findByUuid(run.getUuid()).orElseThrow();
+    }
+
+    private List<DiscoveryMessage> messages(Discovery run) {
+        return messageRepository.findByDiscoveryUuidOrderByIdAsc(run.getUuid());
     }
 
     private List<DiscoveryCertificate> stageCertificates(Discovery run, int count) {
