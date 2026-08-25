@@ -349,10 +349,18 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
 
     @AfterEach
     void tearDown() {
-        contentSigningFormattingMock.stop();
-        timestampingFormattingMock.stop();
-        cryptographyProviderServerMock.stop();
-        signerConnectorServerMock.stop();
+        if (contentSigningFormattingMock != null) {
+            contentSigningFormattingMock.stop();
+        }
+        if (timestampingFormattingMock != null) {
+            timestampingFormattingMock.stop();
+        }
+        if (cryptographyProviderServerMock != null) {
+            cryptographyProviderServerMock.stop();
+        }
+        if (signerConnectorServerMock != null) {
+            signerConnectorServerMock.stop();
+        }
     }
 
     private void createSigningRecordFor(SigningProfileDto profile) {
