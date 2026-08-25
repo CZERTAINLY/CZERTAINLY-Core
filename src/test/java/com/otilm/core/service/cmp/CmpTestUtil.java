@@ -7,6 +7,7 @@ import com.otilm.api.model.common.attribute.v2.BaseAttributeV2;
 import com.otilm.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.otilm.api.model.connector.cryptography.operations.data.SignatureResponseData;
 import com.otilm.core.service.cmp.mock.CertTestUtil;
+import com.otilm.core.util.LoopbackWireMock;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -97,9 +98,8 @@ public class CmpTestUtil {
 
     public static WireMockServer createSigningPlatform() {
         // prepare mock server - for cryptographic provider
-        WireMockServer mockServer = new WireMockServer(0);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
+        WireMockServer mockServer = LoopbackWireMock.start();
+        WireMock.configureFor(LoopbackWireMock.HOST, mockServer.port());
 
         // -- if there is a need something to sign (mock server is called)
         // see
@@ -119,9 +119,8 @@ public class CmpTestUtil {
 
     public static WireMockServer createIssuingPlatform() {
         // prepare mock server - for cryptographic provider
-        WireMockServer mockServer = new WireMockServer(0);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
+        WireMockServer mockServer = LoopbackWireMock.start();
+        WireMock.configureFor(LoopbackWireMock.HOST, mockServer.port());
 
         // -- if there is a need something to sign (mock server is called)
         // see
