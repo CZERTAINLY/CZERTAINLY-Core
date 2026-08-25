@@ -177,10 +177,7 @@ class BrandingSettingsITest extends BaseSpringBootTest {
         Assertions.assertEquals(PRIMARY, settingService.getBrandingSettings().getPrimaryColor());
     }
 
-    /**
-     * The platform settings read is on the hot path for every page render, so a theme code that no longer maps to
-     * anything is dropped rather than allowed to fail the whole read.
-     */
+    /** The platform settings read is on the hot path for every page render, so it must not fail over one bad value. */
     @Test
     void anUnknownStoredThemeIsIgnoredRatherThanFailingTheRead() {
         Setting theme = new Setting();
