@@ -64,6 +64,7 @@ import com.otilm.core.service.SigningProfileInternalService;
 import com.otilm.core.service.TimeQualityConfigurationExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateTestUtil;
+import com.otilm.core.util.LoopbackWireMock;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.seeders.CryptographicKeySeeder;
 import java.io.IOException;
@@ -203,9 +204,8 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     @BeforeEach
     void setUp() throws CertificateException, IOException, NoSuchAlgorithmException, OperatorCreationException,
             AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
-        mockServer = new WireMockServer(0);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
+        mockServer = LoopbackWireMock.start();
+        WireMock.configureFor(LoopbackWireMock.HOST, mockServer.port());
         mockServer
                 .stubFor(WireMock
                         .get(WireMock.urlPathMatching(".*/v1/signatureProvider/formatting/attributes"))
@@ -465,7 +465,7 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
     protected Connector createFormattingConnector(String name) {
         Connector connector = new Connector();
         connector.setName(name);
-        connector.setUrl("http://localhost:" + mockServer.port() + "/" + name);
+        connector.setUrl(LoopbackWireMock.url(mockServer) + "/" + name);
         connector.setVersion(ConnectorVersion.V2);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);

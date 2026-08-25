@@ -41,6 +41,7 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.service.v2.ComplianceProfileExternalService;
 import com.otilm.core.service.v2.ComplianceProfileInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.LoopbackWireMock;
 import com.otilm.core.util.MetaDefinitions;
 import java.util.List;
 import java.util.UUID;
@@ -123,8 +124,7 @@ public abstract class BaseComplianceTest extends BaseSpringBootTest {
 
     @BeforeEach
     protected void setUp() throws AlreadyExistException {
-        mockServer = new WireMockServer(0);
-        mockServer.start();
+        mockServer = LoopbackWireMock.start();
 
         mockComplianceProviderResponses(true);
         mockComplianceProviderV1Responses();
@@ -194,7 +194,7 @@ public abstract class BaseComplianceTest extends BaseSpringBootTest {
             ConnectorVersion connectorVersion) {
         Connector connector = new Connector();
         connector.setName(name);
-        connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setUrl(LoopbackWireMock.url(mockServer));
         connector.setVersion(connectorVersion);
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
@@ -367,7 +367,7 @@ public abstract class BaseComplianceTest extends BaseSpringBootTest {
                 .formatted(complianceV2Group2Uuid,
                         defaultResponses ? Resource.CERTIFICATE.getCode() : Resource.CRYPTOGRAPHIC_KEY.getCode());
 
-        WireMock.configureFor("localhost", mockServer.port());
+        WireMock.configureFor(LoopbackWireMock.HOST, mockServer.port());
 
         WireMock
                 .stubFor(WireMock
