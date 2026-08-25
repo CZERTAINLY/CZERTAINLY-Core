@@ -60,6 +60,7 @@ public class CustomOidEntryMapper {
             CertificateExtensionOidPropertiesDto dto = new CertificateExtensionOidPropertiesDto();
             dto.setDefaultCritical(ext.getDefaultCritical());
             dto.setValueEncoding(ext.getValueEncoding());
+            dto.setValueSchema(ext.getValueSchema());
             return dto;
         }
         return null;

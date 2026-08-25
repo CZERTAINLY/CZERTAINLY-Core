@@ -166,6 +166,43 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testCreateCertificateExtensionOidEntryWithValueSchema() {
+        CustomOidEntryRequestDto request = new CustomOidEntryRequestDto();
+        request.setOid("1.2.3.6");
+        request.setDisplayName("json ext");
+        request.setCategory(OidCategory.CERTIFICATE_EXTENSION);
+        CertificateExtensionOidPropertiesDto properties = new CertificateExtensionOidPropertiesDto();
+        properties.setDefaultCritical(false);
+        properties.setValueEncoding(ExtensionValueEncoding.DER);
+        properties.setValueSchema("{\"type\":\"object\",\"required\":[\"sequence\"]}");
+        request.setAdditionalProperties(properties);
+
+        CustomOidEntryDetailResponseDto response = customOidEntryService.createCustomOidEntry(request);
+
+        CertificateExtensionOidPropertiesDto responseProps = (CertificateExtensionOidPropertiesDto) response
+                .getAdditionalProperties();
+        Assertions.assertEquals("{\"type\":\"object\",\"required\":[\"sequence\"]}", responseProps.getValueSchema());
+        OidRecord cachedRecord = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION).get(request.getOid());
+        Assertions.assertNotNull(cachedRecord);
+        Assertions.assertEquals("{\"type\":\"object\",\"required\":[\"sequence\"]}", cachedRecord.valueSchema());
+    }
+
+    @Test
+    void testCreateCertificateExtensionOidEntryRejectsABrokenValueSchema() {
+        CustomOidEntryRequestDto request = new CustomOidEntryRequestDto();
+        request.setOid("1.2.3.7");
+        request.setDisplayName("broken schema ext");
+        request.setCategory(OidCategory.CERTIFICATE_EXTENSION);
+        CertificateExtensionOidPropertiesDto properties = new CertificateExtensionOidPropertiesDto();
+        properties.setDefaultCritical(false);
+        properties.setValueEncoding(ExtensionValueEncoding.DER);
+        properties.setValueSchema("this is not json");
+        request.setAdditionalProperties(properties);
+
+        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
+    }
+
+    @Test
     void testGetCustomOidEntry() throws NotFoundException {
         Assertions
                 .assertThrows(NotFoundException.class, () -> customOidEntryService.getCustomOidEntry(NON_EXISTENT_OID));

@@ -35,6 +35,7 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.CustomOidEntryExternalService;
+import com.otilm.core.util.ExtensionSchemas;
 import com.otilm.core.util.FilterPredicatesBuilder;
 import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
@@ -178,6 +179,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         List<String> altCodes = null;
         Boolean defaultCritical = null;
         ExtensionValueEncoding valueEncoding = null;
+        String valueSchema = null;
 
         switch (request.getCategory()) {
             case GENERIC -> customOidEntry = new GenericCustomOidEntry();
@@ -212,8 +214,13 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                 }
                 defaultCritical = additionalProperties.getDefaultCritical();
                 valueEncoding = additionalProperties.getValueEncoding();
+                valueSchema = additionalProperties.getValueSchema();
+                if (valueSchema != null) {
+                    ExtensionSchemas.requireValidSchema(valueSchema);
+                }
                 ((CertificateExtensionCustomOidEntry) customOidEntry).setDefaultCritical(defaultCritical);
                 ((CertificateExtensionCustomOidEntry) customOidEntry).setValueEncoding(valueEncoding);
+                ((CertificateExtensionCustomOidEntry) customOidEntry).setValueSchema(valueSchema);
             }
             default -> throw new ValidationException("Unsupported OID category: " + request.getCategory());
         }
@@ -232,6 +239,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                 .altCodes(altCodes)
                 .defaultCritical(defaultCritical)
                 .valueEncoding(valueEncoding)
+                .valueSchema(valueSchema)
                 .build();
         publishAfterCommit(() -> OidHandler.cacheOid(request.getCategory(), oid, created));
         return CustomOidEntryMapper.toDetailDto(customOidEntry);
@@ -257,6 +265,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
         List<String> altCodes = null;
         Boolean defaultCritical = null;
         ExtensionValueEncoding valueEncoding = null;
+        String valueSchema = null;
 
         if (customOidEntry instanceof RdnAttributeTypeCustomOidEntry rdnAttributeTypeOidEntry) {
             if (!(request.getAdditionalProperties() instanceof RdnAttributeTypeOidPropertiesDto additionalProperties)) {
@@ -298,8 +307,13 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
             }
             defaultCritical = additionalProperties.getDefaultCritical();
             valueEncoding = additionalProperties.getValueEncoding();
+            valueSchema = additionalProperties.getValueSchema();
+            if (valueSchema != null) {
+                ExtensionSchemas.requireValidSchema(valueSchema);
+            }
             extensionEntry.setDefaultCritical(defaultCritical);
             extensionEntry.setValueEncoding(valueEncoding);
+            extensionEntry.setValueSchema(valueSchema);
         }
 
         customOidEntry.setDisplayName(request.getDisplayName());
@@ -315,6 +329,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                 .altCodes(altCodes)
                 .defaultCritical(defaultCritical)
                 .valueEncoding(valueEncoding)
+                .valueSchema(valueSchema)
                 .build();
         OidCategory editedCategory = customOidEntry.getCategory();
         publishAfterCommit(() -> OidHandler.cacheOid(editedCategory, oid, edited));
@@ -457,6 +472,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
                             .defaultCritical(
                                     isExt ? ((CertificateExtensionCustomOidEntry) oid).getDefaultCritical() : null)
                             .valueEncoding(isExt ? ((CertificateExtensionCustomOidEntry) oid).getValueEncoding() : null)
+                            .valueSchema(isExt ? ((CertificateExtensionCustomOidEntry) oid).getValueSchema() : null)
                             .build();
                 })));
         // Cache System OIDs. defaultCritical and valueEncoding must be carried through: the projector
