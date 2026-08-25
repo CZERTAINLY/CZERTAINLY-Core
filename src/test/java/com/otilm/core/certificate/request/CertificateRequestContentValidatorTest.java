@@ -759,6 +759,54 @@ class CertificateRequestContentValidatorTest {
             assertThat(result.getWarnings()).isEmpty();
         }
 
+        @Test
+        void aLegacyOpaqueMappingStillSatisfiesRequiredPresence() {
+            // given — a definition stored before the structured targets existed, mapping key usage as opaque
+            // DER. Authoring one is rejected now, but it still loads, and the parser diverts 2.5.29.15 out of
+            // the extension list. Without recognising it, a strict profile would start rejecting requests it
+            // used to accept.
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute().withName("kuLegacy").required().mappingExtension("2.5.29.15").build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.DIGITAL_SIGNATURE),
+                            new RequestAttributePolicy(true, true));
+
+            // then — presence satisfied from the typed field, and the whitelist does not flag it
+            assertThat(result.getErrors()).isEmpty();
+        }
+
+        @Test
+        void aLegacyOpaqueMappingStillReportsAMissingRequiredExtension() {
+            // given — the same legacy definition, and a CSR carrying no key usage at all
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute().withName("kuLegacy").required().mappingExtension("2.5.29.15").build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(), new RequestAttributePolicy(true, true));
+
+            // then
+            assertThat(result.getErrors()).anySatisfy(error -> assertThat(error).contains("Key Usage"));
+        }
+
+        @Test
+        void aLegacyOpaqueMappingDoesNotConstrainValues() {
+            // given — its content is a base64 DER blob, not a list of codes, so there is nothing to compare
+            // decoded values against. Presence is all it ever enforced.
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute().withName("kuLegacy").mappingExtension("2.5.29.15").build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.KEY_CERT_SIGN),
+                            new RequestAttributePolicy(true, true));
+
+            // then
+            assertThat(result.getErrors()).isEmpty();
+        }
+
         private static X509RequestContent emptyContent() {
             X509RequestContent c = new X509RequestContent();
             c.setSubject(List.of());

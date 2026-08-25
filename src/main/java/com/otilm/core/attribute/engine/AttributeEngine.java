@@ -1786,10 +1786,15 @@ public class AttributeEngine {
             String connectorUuidStr) throws AttributeException {
         Set<String> seenExtensionOids = new HashSet<>();
         for (MappedField field : fieldMapping.getFields()) {
-            if (field instanceof ExtensionMappedField ext && !seenExtensionOids.add(ext.getExtensionOid())) {
+            // A structured target claims its implied OID here too, or a definition declaring the same
+            // structured target twice would save cleanly and then fail every projection.
+            String extensionOid = field instanceof ExtensionMappedField ext
+                    ? ext.getExtensionOid()
+                    : StructuredExtensionCodec.oidFor(field);
+            if (extensionOid != null && !seenExtensionOids.add(extensionOid)) {
                 throw new AttributeException(
                         "fieldMapping declares certificate extension OID '%s' more than once; an extension may appear only once (RFC 5280)"
-                                .formatted(ext.getExtensionOid()),
+                                .formatted(extensionOid),
                         attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
             }
         }

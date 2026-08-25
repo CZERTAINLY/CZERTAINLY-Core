@@ -40,8 +40,9 @@ import org.bouncycastle.util.encoders.Base64;
 public final class X509RequestContentRenderer {
 
     /**
-     * RFC 5280 extensions that MUST stay critical regardless of criticalOverridable or registry defaults.
-     * BasicConstraints (§4.2.1.9) and KeyUsage (§4.2.1.3).
+     * Extensions the platform keeps critical regardless of criticalOverridable or registry defaults. BasicConstraints
+     * (§4.2.1.9), where a conforming CA MUST mark it critical in a CA certificate, and KeyUsage (§4.2.1.3), where the
+     * RFC says SHOULD and forcing it is therefore platform policy rather than compliance.
      */
     static final Set<String> CRITICALITY_FORCED_OIDS = Set
             .of(Extension.basicConstraints.getId(), Extension.keyUsage.getId());

@@ -155,6 +155,12 @@ public final class StructuredExtensionCodec {
         ASN1BitString bits = ASN1BitString.getInstance(parse(base64Value, KEY_USAGE_OID));
         byte[] bytes = bits.getBytes();
         int significantBits = bytes.length * 8 - bits.getPadBits();
+        if (significantBits <= 0) {
+            // RFC 5280 4.2.1.3: when the extension appears, at least one bit MUST be set. Returning an empty
+            // set would make the extension indistinguishable from absent, so validation could not see it.
+            throw new IllegalArgumentException(
+                    "Extension %s carries a key usage with no bits set".formatted(KEY_USAGE_OID));
+        }
         List<CertificateKeyUsage> usages = new ArrayList<>();
         List<String> unrepresentable = new ArrayList<>();
         for (int index = 0; index < significantBits; index++) {
@@ -174,6 +180,12 @@ public final class StructuredExtensionCodec {
         List<String> purposeOids = new ArrayList<>();
         for (ASN1Encodable purpose : ASN1Sequence.getInstance(parse(base64Value, EXTENDED_KEY_USAGE_OID))) {
             purposeOids.add(ASN1ObjectIdentifier.getInstance(purpose).getId());
+        }
+        if (purposeOids.isEmpty()) {
+            // RFC 5280 4.2.1.12: the sequence holds one or more purposes. An empty one would be
+            // indistinguishable from an absent extension, so validation could not see it.
+            throw new IllegalArgumentException(
+                    "Extension %s carries no extended key usage purposes".formatted(EXTENDED_KEY_USAGE_OID));
         }
         return purposeOids;
     }

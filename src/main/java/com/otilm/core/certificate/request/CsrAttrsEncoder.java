@@ -9,10 +9,12 @@ import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
 import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.SanMappedField;
 import com.otilm.core.oid.OidHandler;
+import com.otilm.core.util.StructuredExtensionCodec;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -70,6 +72,14 @@ public final class CsrAttrsEncoder {
                 .filter(ext -> ext.getExtensionOid() != null && OidHandler.isOid(ext.getExtensionOid()))
                 .map(ext -> new ASN1ObjectIdentifier(ext.getExtensionOid()))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        // A structured target implies its extension OID rather than naming one, so it has to be added the
+        // same way SAN is - otherwise an EST client is never told to include a mapped key usage.
+        fields
+                .stream()
+                .map(StructuredExtensionCodec::oidFor)
+                .filter(Objects::nonNull)
+                .forEach(oid -> extensionOids.add(new ASN1ObjectIdentifier(oid)));
+
         // SAN is a specific extension (id-ce-subjectAltName); append it after any explicit extensions.
         if (fields.stream().anyMatch(SanMappedField.class::isInstance)) {
             extensionOids.add(Extension.subjectAlternativeName);

@@ -157,6 +157,26 @@ class StructuredExtensionCodecTest {
         }
 
         @Test
+        void aKeyUsageWithNoBitsSetIsRejected() {
+            // RFC 5280 4.2.1.3 requires at least one bit. Decoding it to an empty set would make the
+            // extension indistinguishable from absent, so validation could not see it at all.
+            String empty = Base64.getEncoder().encodeToString(new byte[]{0x03, 0x01, 0x00});
+
+            assertThatThrownBy(() -> StructuredExtensionCodec.decodeKeyUsage(empty))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("no bits set");
+        }
+
+        @Test
+        void anExtendedKeyUsageWithNoPurposesIsRejected() {
+            String empty = Base64.getEncoder().encodeToString(new byte[]{0x30, 0x00});
+
+            assertThatThrownBy(() -> StructuredExtensionCodec.decodeExtendedKeyUsage(empty))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("no extended key usage purposes");
+        }
+
+        @Test
         void malformedAsn1Throws() {
             String notAsn1 = Base64.getEncoder().encodeToString(new byte[]{0x2A, 0x2A, 0x2A});
             assertThatThrownBy(() -> StructuredExtensionCodec.decodeKeyUsage(notAsn1))

@@ -129,7 +129,13 @@ public class CertificateRequestContentValidator {
                 String structuredOid = StructuredExtensionCodec.oidFor(field);
                 if (structuredOid != null) {
                     mappedStructuredOids.add(structuredOid);
-                    validateStructuredTarget(v3, structuredOid, content, required, policy, result);
+                    validateStructuredTarget(v3, structuredOid, content, required, policy, false, result);
+                    continue;
+                }
+                String legacyOid = legacyStructuredOid(field);
+                if (legacyOid != null) {
+                    mappedStructuredOids.add(legacyOid);
+                    validateStructuredTarget(v3, legacyOid, content, required, policy, true, result);
                     continue;
                 }
                 List<String> matchedValues = collectMatchedValues(field, subject, sans, extensions, mappedRdnKeys,
@@ -242,8 +248,27 @@ public class CertificateRequestContentValidator {
      * be one. Whitelisting is handled by {@link #checkStructuredWhitelist}, because the parser diverts these OIDs out
      * of the extension list and the generic extension pass cannot see them.
      */
+    /**
+     * The extension OID of a stored opaque mapping that a structured target has since taken over, or {@code null}.
+     *
+     * <p>
+     * Authoring one is rejected now, but a definition saved before the structured targets existed still loads, and the
+     * parser diverts its OID out of {@code extensions}. Without recognising it here, a legacy required mapping would
+     * report as missing and the whitelist would flag the CSR's value as unmapped - a strict profile would start
+     * rejecting requests it used to accept, which is not what "stored definitions keep working" promised.
+     */
+    private static String legacyStructuredOid(MappedField field) {
+        if (!(field instanceof ExtensionMappedField ext)) {
+            return null;
+        }
+        return StructuredExtensionCodec.structuredTargetName(ext.getExtensionOid()) == null
+                ? null
+                : ext.getExtensionOid();
+    }
+
     private static void validateStructuredTarget(DataAttributeV3 def, String extensionOid, X509RequestContent content,
-            boolean required, RequestAttributePolicy policy, RequestAttributeValidationResult result) {
+            boolean required, RequestAttributePolicy policy, boolean presenceOnly,
+            RequestAttributeValidationResult result) {
         String target = StructuredExtensionCodec.structuredTargetName(extensionOid);
         List<String> present = structuredValues(extensionOid, content);
 
@@ -255,6 +280,11 @@ public class CertificateRequestContentValidator {
             return;
         }
 
+        if (presenceOnly) {
+            // A legacy definition's content is a base64 DER blob, not a list of codes, so there is nothing
+            // meaningful to compare the decoded values against. Presence is all it ever enforced.
+            return;
+        }
         DataAttributeProperties properties = def.getProperties();
         if (properties != null && properties.isExtensibleList()) {
             return;

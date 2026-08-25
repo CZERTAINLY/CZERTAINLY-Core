@@ -305,6 +305,14 @@ class RequestAttributeDefinitionValidationTest {
     }
 
     @Test
+    void sameStructuredTargetDeclaredTwiceRejected() {
+        // Without this, the definition saves cleanly and then fails every projection as a duplicate OID.
+        DataAttributeV3 definition = structuredDefinition(keyUsageField(), false, "digitalSignature");
+        definition.getFieldMapping().setFields(List.of(keyUsageField(), keyUsageField()));
+        assertRejected(definition, "more than once");
+    }
+
+    @Test
     void opaqueExtensionMappingOnAStructuredOidRejected() {
         // The base64-DER route to key usage is what this feature exists to replace, so it is closed for
         // authoring - the same treatment subjectAltName already gets.
