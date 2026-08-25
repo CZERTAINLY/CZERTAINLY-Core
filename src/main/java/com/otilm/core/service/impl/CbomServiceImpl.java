@@ -26,6 +26,7 @@ import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.cbom.client.CbomRepositoryClient;
 import com.otilm.core.comparator.SearchFieldDataComparator;
+import com.otilm.core.dao.CryptoAssetConstraintTranslator;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.entity.Cbom_;
 import com.otilm.core.dao.entity.ScheduledJobHistory;
@@ -279,12 +280,27 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
     @ExternalAuthorization(resource = Resource.CBOM, action = ResourceAction.DELETE)
     public void deleteCbom(UUID uuid) throws NotFoundException {
         Cbom cbom = getEntity(SecuredUUID.fromUUID(uuid));
-        cbomRepository.delete(cbom);
+        deleteRow(cbom);
         logger
                 .logEvent(Operation.DELETE, OperationResult.SUCCESS, null,
                         List.of(new ResourceObjectIdentity(cbom.getSerialNumber(), cbom.getUuid())),
                         "CBOM record with serialNumber %s and version %s deleted"
                                 .formatted(cbom.getSerialNumber(), cbom.getVersion()));
+    }
+
+    /**
+     * Deletes the row, flushing inside this method so that a refusal from the cryptographic asset inventory -- whose
+     * foreign key is RESTRICT -- can be shaped here. Left to the ambient transaction's commit, the violation would
+     * surface after the method returns, with only the driver's own text to describe it, and that text quotes the
+     * failing row.
+     */
+    private void deleteRow(Cbom cbom) {
+        try {
+            cbomRepository.delete(cbom);
+            cbomRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new ValidationException(ValidationError.create(CryptoAssetConstraintTranslator.describe(e)));
+        }
     }
 
     @Override
@@ -306,10 +322,16 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
             try {
                 transactionHandler.runInNewTransaction(() -> cbomRepository.deleteById(uuid));
             } catch (Exception ex) {
-                messages.add(BulkActionMessageDto.failure(uuid.toString(), "", ex, "Error deleting CBOM entry"));
+                // The cryptographic asset inventory's foreign key is RESTRICT, so this is now a reachable failure with
+                // a driver message that quotes the failing row. Both the response and the audit entry carry text we
+                // shaped instead.
+                String safeMessage = ex instanceof DataIntegrityViolationException
+                        ? CryptoAssetConstraintTranslator.describe(ex)
+                        : "Error deleting CBOM entry";
+                messages.add(BulkActionMessageDto.failureWithMessage(uuid.toString(), "", safeMessage));
                 logger
                         .logEvent(Operation.DELETE, OperationResult.FAILURE, null,
-                                List.of(new ResourceObjectIdentity(null, uuid)), ex.getMessage());
+                                List.of(new ResourceObjectIdentity(null, uuid)), safeMessage);
                 continue;
             }
             logger
