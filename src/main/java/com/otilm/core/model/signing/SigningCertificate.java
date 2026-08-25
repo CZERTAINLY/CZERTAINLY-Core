@@ -1,6 +1,7 @@
 package com.otilm.core.model.signing;
 
 import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateSubjectType;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 
 import java.util.List;
@@ -12,5 +13,5 @@ import java.util.UUID;
 public record SigningCertificate(UUID uuid, String commonName, boolean archived, CertificateState state,
         CertificateValidationStatus validationStatus, List<String> extendedKeyUsageOids,
         Boolean extendedKeyUsageCritical, Boolean qcCompliance, UUID keyUuid, UUID tokenInstanceReferenceUuid,
-        UUID tokenProfileUuid, List<UUID> keyItemUuids) {
+        UUID tokenProfileUuid, List<UUID> keyItemUuids, int keyUsageBitMask, CertificateSubjectType subjectType) {
 }

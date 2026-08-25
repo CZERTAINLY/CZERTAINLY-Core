@@ -41,6 +41,7 @@ import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.otilm.api.model.common.signature.SignatureFamily;
 import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
 import com.otilm.api.model.core.cryptography.key.KeyDetailDto;
 import com.otilm.api.model.core.cryptography.token.TokenInstanceDetailDto;
@@ -56,6 +57,7 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.signing.SigningProfile;
 import com.otilm.core.dao.repository.AttributeDefinitionRepository;
 import com.otilm.core.dao.repository.AttributeRelationRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.helpers.TestCertificateAuthority;
@@ -77,6 +79,7 @@ import com.otilm.core.service.TspProfileExternalService;
 import com.otilm.core.service.v2.ConnectorExternalService;
 import com.otilm.core.service.writer.signingrecord.SigningRecordWriter;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.builders.ContentSigningWorkflowRequestDtoBuilder;
 import com.otilm.core.util.mocks.ConnectorMockFactory;
 import com.otilm.core.util.mocks.ContentSigningFormattingMock;
@@ -101,6 +104,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 
+import static com.otilm.core.util.CertificateTestData.DOCUMENT_SIGNING_OID;
 import static com.otilm.core.util.builders.ConnectorRequestDtoBuilder.aV1ConnectorRequest;
 import static com.otilm.core.util.builders.ConnectorRequestDtoBuilder.aV2ConnectorRequest;
 import static com.otilm.core.util.builders.ContentSigningWorkflowRequestDtoBuilder.aContentSigningWorkflow;
@@ -176,6 +180,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
     private KeyPair keyPair;
     private KeyDetailDto key;
     private Certificate defaultSigningCertificate;
+    private Certificate defaultTimestampingCertificate;
     private SigningProfileDto defaultDelegatedSigningProfile;
     private SigningProfileDto defaultManagedStaticKeySigningProfile;
     private SigningProfileDto defaultContentSigningProfile;
@@ -194,6 +199,22 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
 
     @Autowired
     private AttributeRelationRepository attributeRelationRepository;
+
+    @Autowired
+    private CertificateRepository certificateRepository;
+
+    /**
+     * The row is re-read because the field's instance predates {@code certificateUploader.validate} and would write a
+     * stale NOT_CHECKED validation status back.
+     */
+    private void widenDefaultSigningCertificate(CertificateKeyUsage keyUsage, String extendedKeyUsageOid) {
+        Certificate stored = certificateRepository
+                .findByUuid(SecuredUUID.fromUUID(defaultSigningCertificate.getUuid()))
+                .orElseThrow();
+        stored.setUsage(List.of(keyUsage));
+        stored.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(List.of(extendedKeyUsageOid)));
+        certificateRepository.save(stored);
+    }
 
     private ConnectorDetailDto registerTimestampedRungConnector(ContentSigningFormattingMock mock, String name)
             throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
@@ -295,11 +316,11 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                         SecuredParentUUID.fromString(defaultTokenProfile.getUuid()), KeyRequestType.KEY_PAIR,
                         aKeyPairRequest().withName("soft-key-pair").build());
 
-        // Establish a trusted root CA, then a TSA leaf signed by it and built from the token key pair.
-        // Uploading the leaf associates it (by public-key fingerprint) with the token-backed key.
-        defaultSigningCertificate = testCertificateAuthority
-                .createTrustedCa("CN=Test Root CA")
-                .issueTimestampingCertificate(keyPair, "CN=Test TSA");
+        // Establish a trusted root CA, then leaves signed by it and built from the token key pair.
+        // Uploading a leaf associates it (by public-key fingerprint) with the token-backed key.
+        TestCertificateAuthority.TrustedCa trustedCa = testCertificateAuthority.createTrustedCa("CN=Test Root CA");
+        defaultSigningCertificate = trustedCa.issueSigningCertificate(keyPair, "CN=Test Signing");
+        defaultTimestampingCertificate = trustedCa.issueTimestampingCertificate(keyPair, "CN=Test TSA");
 
         // Create signing profiles
         defaultDelegatedSigningProfile = signingProfileService
@@ -328,7 +349,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
         defaultTimestampingProfile = signingProfileService
                 .createSigningProfile(aSigningProfileRequest()
                         .withName("default-timestamping-profile")
-                        .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                        .withStaticKeyManagedSigning(defaultTimestampingCertificate.getUuid())
                         .withTimestamping(aTimestampingWorkflow()
                                 .withSignatureFormattingConnector(
                                         UUID.fromString(timestampingFormattingConnector.getUuid()))
@@ -621,7 +642,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             SigningProfileDto createdProfile = signingProfileService
                     .createSigningProfile(aSigningProfileRequest()
                             .withName("some protocols-linked")
-                            .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                            .withStaticKeyManagedSigning(defaultTimestampingCertificate.getUuid())
                             .withTimestamping(UUID.fromString(timestampingFormattingConnector.getUuid()))
                             .build());
 
@@ -711,6 +732,65 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
 
             // then
             assertThatThrownBy(create).isInstanceOf(ValidationException.class).hasMessageContaining("STATIC_KEY");
+        }
+
+        @Test
+        void managedContentSigning_certificatePurposeConstraints_persistAndReadBack()
+                throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
+            // given: a certificate that satisfies both constraints the profile is about to set
+            widenDefaultSigningCertificate(CertificateKeyUsage.NON_REPUDIATION, DOCUMENT_SIGNING_OID);
+
+            // when
+            SigningProfileDto created = signingProfileService
+                    .createSigningProfile(aSigningProfileRequest()
+                            .withName("ct-managed-content-purpose-constraints")
+                            .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                            .withContentSigning(aContentSigningWorkflow()
+                                    .withSignatureFormattingConnector(
+                                            UUID.fromString(contentSigningFormattingConnector.getUuid()))
+                                    .withFamily(SignatureFamily.PADES)
+                                    .withMaxLevel(SignatureLevel.SIGNED)
+                                    .withRequireNonRepudiation(true)
+                                    .withRequiredExtendedKeyUsageOids(DOCUMENT_SIGNING_OID)
+                                    .build())
+                            .build());
+
+            // then: the create response echoes both constraints
+            ContentSigningWorkflowDto createdWorkflow = assertInstanceOf(ContentSigningWorkflowDto.class,
+                    created.getWorkflow());
+            assertThat(createdWorkflow.isRequireNonRepudiation()).isTrue();
+            assertThat(createdWorkflow.getRequiredExtendedKeyUsageOids()).containsExactly(DOCUMENT_SIGNING_OID);
+
+            // and: reading the persisted version back confirms both columns were written
+            SigningProfileDto fetched = signingProfileService
+                    .getSigningProfile(SecuredUUID.fromString(created.getUuid()), created.getVersion());
+            ContentSigningWorkflowDto fetchedWorkflow = assertInstanceOf(ContentSigningWorkflowDto.class,
+                    fetched.getWorkflow());
+            assertThat(fetchedWorkflow.isRequireNonRepudiation()).isTrue();
+            assertThat(fetchedWorkflow.getRequiredExtendedKeyUsageOids()).containsExactly(DOCUMENT_SIGNING_OID);
+        }
+
+        @Test
+        void managedContentSigning_requiringNonRepudiation_refusesADigitalSignatureOnlyCertificate() {
+            // given: defaultSigningCertificate carries digitalSignature but not nonRepudiation
+            ThrowableAssert.ThrowingCallable create = () -> signingProfileService
+                    .createSigningProfile(aSigningProfileRequest()
+                            .withName("ct-managed-content-nr-mismatch")
+                            .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                            .withContentSigning(aContentSigningWorkflow()
+                                    .withSignatureFormattingConnector(
+                                            UUID.fromString(contentSigningFormattingConnector.getUuid()))
+                                    .withFamily(SignatureFamily.PADES)
+                                    .withMaxLevel(SignatureLevel.SIGNED)
+                                    .withRequireNonRepudiation(true)
+                                    .build())
+                            .build());
+
+            // then
+            assertThatThrownBy(create)
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("is not eligible for signing workflow type")
+                    .hasMessageContaining("nonRepudiation");
         }
 
         @Test
@@ -1057,7 +1137,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             SigningProfileDto createdProfile = signingProfileService
                     .createSigningProfile(aSigningProfileRequest()
                             .withName("ct-static-timestamping")
-                            .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                            .withStaticKeyManagedSigning(defaultTimestampingCertificate.getUuid())
                             .withTimestamping(UUID.fromString(timestampingFormattingConnector.getUuid()))
                             .build());
             SigningProfileDto getDto = signingProfileService
@@ -1074,7 +1154,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
 
             StaticKeyManagedSigningDto scheme = assertInstanceOf(StaticKeyManagedSigningDto.class,
                     createdProfile.getSigningScheme());
-            assertEquals(defaultSigningCertificate.getUuid(), scheme.getCertificate().getUuid());
+            assertEquals(defaultTimestampingCertificate.getUuid(), scheme.getCertificate().getUuid());
             assertFalse(scheme.getSigningOperationAttributes().isEmpty());
 
             TimestampingWorkflowDto workflow = assertInstanceOf(TimestampingWorkflowDto.class,
@@ -1157,7 +1237,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
         @Test
         void update_workflowFromRawToTimestamping()
                 throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
-            // given: a profile with RAW workflow backed by a timestamping-eligible certificate
+            // given: a profile with RAW workflow backed by a general signing certificate
             SigningProfileDto profile = signingProfileService
                     .createSigningProfile(aSigningProfileRequest()
                             .withName("workflow-raw-to-timestamping")
@@ -1171,6 +1251,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             SigningProfileDto updated = signingProfileService
                     .updateSigningProfile(profileUuid,
                             aSigningProfileRequestFromExistingProfile(profile)
+                                    .withStaticKeyManagedSigning(defaultTimestampingCertificate.getUuid())
                                     .withTimestamping(UUID.fromString(timestampingFormattingConnector.getUuid()))
                                     .build());
 
@@ -1305,7 +1386,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             SigningProfileDto v1Profile = signingProfileService
                     .createSigningProfile(aSigningProfileRequest()
                             .withName("formatting-attrs-versioned")
-                            .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                            .withStaticKeyManagedSigning(defaultTimestampingCertificate.getUuid())
                             .withTimestamping(aTimestampingWorkflow()
                                     .withSignatureFormattingConnector(
                                             UUID.fromString(timestampingFormattingConnector.getUuid()))
@@ -2518,7 +2599,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             signingProfileService
                     .createSigningProfile(aSigningProfileRequest()
                             .withName("ts-managed-model")
-                            .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                            .withStaticKeyManagedSigning(defaultTimestampingCertificate.getUuid())
                             .withTimestamping(aTimestampingWorkflow()
                                     .withSignatureFormattingConnector(
                                             UUID.fromString(timestampingFormattingConnector.getUuid()))
@@ -2532,7 +2613,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             assertInstanceOf(ManagedTimestampingWorkflow.class, model.workflow());
             assertInstanceOf(StaticKeyManagedSigning.class, model.signingScheme());
             StaticKeyManagedSigning schemeModel = (StaticKeyManagedSigning) model.signingScheme();
-            assertEquals(defaultSigningCertificate.getUuid(), schemeModel.certificateUuid());
+            assertEquals(defaultTimestampingCertificate.getUuid(), schemeModel.certificateUuid());
         }
 
         @Test
@@ -2542,7 +2623,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             signingProfileService
                     .createSigningProfile(aSigningProfileRequest()
                             .withName("ts-managed-validation-props")
-                            .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                            .withStaticKeyManagedSigning(defaultTimestampingCertificate.getUuid())
                             .withTimestamping(aTimestampingWorkflow()
                                     .withSignatureFormattingConnector(
                                             UUID.fromString(timestampingFormattingConnector.getUuid()))
@@ -2574,7 +2655,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
                     .createSigningProfile(aSigningProfileRequest()
                             .withName("ts-managed-base-fields")
                             .withDescription("expected ts description")
-                            .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                            .withStaticKeyManagedSigning(defaultTimestampingCertificate.getUuid())
                             .withTimestamping(aTimestampingWorkflow()
                                     .withSignatureFormattingConnector(
                                             UUID.fromString(timestampingFormattingConnector.getUuid()))

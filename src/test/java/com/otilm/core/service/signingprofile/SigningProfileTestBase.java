@@ -28,6 +28,7 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.connector.ConnectorStatus;
@@ -171,7 +172,7 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
 
     /**
      * A Certificate associated with {@link #cryptographicKey} (MLDSA key). Satisfies all conditions of
-     * constructQueryDigitalSigningCertAcceptable.
+     * constructQueryDigitalSigningCertAcceptable, including the digitalSignature key usage the purpose rule demands.
      */
     protected Certificate certificate;
 
@@ -242,6 +243,7 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         certificate.setKey(cryptographicKey);
         certificate.setState(CertificateState.ISSUED);
         certificate.setValidationStatus(CertificateValidationStatus.VALID);
+        certificate.setUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE));
         certificate = certificateRepository.saveAndFlush(certificate);
         attachSelfSignedContent(certificate);
 
@@ -254,6 +256,7 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         rsaCertificate.setKey(rsaCryptographicKey);
         rsaCertificate.setState(CertificateState.ISSUED);
         rsaCertificate.setValidationStatus(CertificateValidationStatus.VALID);
+        rsaCertificate.setUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE));
         rsaCertificate = certificateRepository.saveAndFlush(rsaCertificate);
         attachSelfSignedContent(rsaCertificate);
 
@@ -262,6 +265,7 @@ public abstract class SigningProfileTestBase extends BaseSpringBootTest {
         tsaCertificate.setKey(rsaCryptographicKey);
         tsaCertificate.setState(CertificateState.ISSUED);
         tsaCertificate.setValidationStatus(CertificateValidationStatus.VALID);
+        tsaCertificate.setUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE));
         tsaCertificate
                 .setExtendedKeyUsage(MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid())));
         tsaCertificate.setExtendedKeyUsageCritical(true);

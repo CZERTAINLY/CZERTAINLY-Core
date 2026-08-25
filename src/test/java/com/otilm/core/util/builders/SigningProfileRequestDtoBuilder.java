@@ -206,6 +206,10 @@ public class SigningProfileRequestDtoBuilder {
                 req.setFamily(c.getFamily());
                 req.setMaxLevel(c.getMaxLevel());
                 req.setDocumentSizeCap(c.getDocumentSizeCap());
+                if (c.isRequireNonRepudiation()) {
+                    req.setRequireNonRepudiation(true);
+                }
+                req.setRequiredExtendedKeyUsageOids(c.getRequiredExtendedKeyUsageOids());
                 if (c.getTimestampSource() instanceof InternalTimestampSourceDto internal
                         && internal.signingProfile() != null) {
                     req

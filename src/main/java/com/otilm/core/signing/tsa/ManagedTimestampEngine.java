@@ -3,6 +3,7 @@ package com.otilm.core.signing.tsa;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.api.model.messaging.timequality.TimeQualityStatus;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
@@ -167,7 +168,8 @@ public class ManagedTimestampEngine {
             ResolvedManagedScheme signingScheme) throws SigningEngineException {
         ValidationResult result = signingCertificateValidatorFactory
                 .getValidator(signingScheme)
-                .validate(signingScheme, SigningWorkflowType.TIMESTAMPING, timestampingProfile.isQualifiedTimestamp());
+                .validate(signingScheme, SigningWorkflowType.TIMESTAMPING, timestampingProfile.isQualifiedTimestamp(),
+                        CertificatePurposeRequirements.NONE);
         if (result instanceof ValidationResult.Nok(SigningEngineFailure failure, String logMessage, String clientMessage)) {
             throw new SigningEngineException(failure,
                     "signing certificate of timestampingProfile '%s' is not acceptable: %s"
