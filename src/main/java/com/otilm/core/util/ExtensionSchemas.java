@@ -14,10 +14,12 @@ import com.otilm.core.oid.OidRecord;
 import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Resolves and applies the JSON Schema describing a DER-encoded extension's JSON value. Resolution order: the OID
@@ -32,6 +34,7 @@ public final class ExtensionSchemas {
     // Schema loading must never reach the network: getSchema resolves $ref targets eagerly, so a schema
     // reaching the database by any route other than requireValidSchema would otherwise fetch a URL of its
     // author's choosing on the server's behalf.
+    private static final Map<String, Optional<String>> SHIPPED = new ConcurrentHashMap<>();
     private static final JsonSchemaFactory FACTORY = JsonSchemaFactory
             .getInstance(SpecVersion.VersionFlag.V202012,
                     builder -> builder.schemaLoaders(loaders -> loaders.add(DisallowSchemaLoader.getInstance())));
@@ -46,13 +49,27 @@ public final class ExtensionSchemas {
         if (record != null && record.valueSchema() != null) {
             return Optional.of(load(record.valueSchema()));
         }
+        return shippedSchema(oid).map(ExtensionSchemas::load);
+    }
+
+    /**
+     * The Core-shipped schema document for {@code oid}, or empty when Core ships none. Exposed as text so the OID API
+     * can show an operator the shape a system extension's value must take — a schema Core enforces but the registry row
+     * cannot carry, because an entry for a system OID cannot be created.
+     */
+    public static Optional<String> shippedSchema(String oid) {
+        // Classpath resources cannot change while the process runs, so the miss is worth caching too.
+        return SHIPPED.computeIfAbsent(oid, ExtensionSchemas::readShippedSchema);
+    }
+
+    private static Optional<String> readShippedSchema(String oid) {
         try (InputStream resource = ExtensionSchemas.class
                 .getClassLoader()
                 .getResourceAsStream("extension-schemas/" + oid + ".json")) {
             if (resource == null) {
                 return Optional.empty();
             }
-            return Optional.of(FACTORY.getSchema(MAPPER.readTree(resource)));
+            return Optional.of(new String(resource.readAllBytes(), StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new IllegalStateException("Core-shipped extension schema for " + oid + " is unreadable", e);
         }

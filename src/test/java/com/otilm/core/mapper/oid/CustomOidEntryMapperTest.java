@@ -40,6 +40,24 @@ class CustomOidEntryMapperTest {
     }
 
     @Test
+    void systemExtensionSurfacesTheCoreShippedValueSchema() {
+        // Core enforces this schema, but a registry row cannot carry it — an entry for a system OID cannot be
+        // created — so without surfacing it the operator has no way to learn the shape their value must take.
+        CustomOidEntryDetailResponseDto dto = CustomOidEntryMapper.toDetailDto(SystemOid.BASIC_CONSTRAINTS);
+
+        CertificateExtensionOidPropertiesDto ext = (CertificateExtensionOidPropertiesDto) dto.getAdditionalProperties();
+        assertThat(ext.getValueSchema()).isNotNull().contains("prefixItems");
+    }
+
+    @Test
+    void systemExtensionWithoutAShippedSchemaReportsNone() {
+        CustomOidEntryDetailResponseDto dto = CustomOidEntryMapper.toDetailDto(SystemOid.SUBJECT_KEY_IDENTIFIER);
+
+        CertificateExtensionOidPropertiesDto ext = (CertificateExtensionOidPropertiesDto) dto.getAdditionalProperties();
+        assertThat(ext.getValueSchema()).isNull();
+    }
+
+    @Test
     void everySystemCertificateExtensionSurfacesBothRequiredFields() {
         // given — a single missing branch would ship entries that fail their own schema
         List<SystemOid> extensions = Arrays
