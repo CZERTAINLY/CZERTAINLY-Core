@@ -21,6 +21,7 @@ import com.otilm.core.model.signing.SigningCertificate;
 import jakarta.annotation.Nullable;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -202,12 +203,7 @@ public class CertificateEligibilityUtil {
         if (state != null) {
             predicates.add(cb.equal(itemPath.get(CryptographicKeyItem_.STATE), state));
         }
-        predicates
-                .add(cb
-                        .equal(cb
-                                .function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)),
-                                usageMask));
+        predicates.add(cb.equal(bitAnd(cb, itemPath.get(CryptographicKeyItem_.USAGE), usageMask), usageMask));
         return cb.and(predicates.toArray(new Predicate[0]));
     }
 
@@ -398,21 +394,29 @@ public class CertificateEligibilityUtil {
             CertificatePurposeRequirements certificatePurpose) {
         List<Predicate> predicates = new ArrayList<>();
         predicates.add(root.get(Certificate_.SUBJECT_TYPE).in(END_ENTITY_SUBJECT_TYPES));
-        predicates
-                .add(cb
-                        .notEqual(cb
-                                .function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                                        root.get(Certificate_.KEY_USAGE),
-                                        cb.literal(signingKeyUsageMask(certificatePurpose))),
-                                0));
+        predicates.add(carriesAnySigningKeyUsage(root, cb, certificatePurpose));
         for (String oid : certificatePurpose.requiredExtendedKeyUsageOids()) {
             predicates.add(cb.like(root.get(Certificate_.EXTENDED_KEY_USAGE), serializedOidPattern(oid), '\\'));
         }
-        predicates
-                .add(cb
-                        .or(cb.isNull(root.get(Certificate_.EXTENDED_KEY_USAGE)),
-                                cb.notEqual(root.get(Certificate_.EXTENDED_KEY_USAGE), EXCLUSIVE_TIMESTAMPING_EKU)));
+        predicates.add(notDedicatedToTimestamping(root, cb));
         return predicates;
+    }
+
+    /** Carries at least one of the bits {@link #signingKeyUsageMask} accepts. */
+    private static Predicate carriesAnySigningKeyUsage(Root<Certificate> root, CriteriaBuilder cb,
+            CertificatePurposeRequirements certificatePurpose) {
+        return cb.notEqual(bitAnd(cb, root.get(Certificate_.KEY_USAGE), signingKeyUsageMask(certificatePurpose)), 0);
+    }
+
+    /** The {@code bitand} function {@link PostgresFunctionContributor} registers, evaluating {@code bits & mask}. */
+    private static Expression<Integer> bitAnd(CriteriaBuilder cb, Expression<Integer> bits, int mask) {
+        return cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class, bits, cb.literal(mask));
+    }
+
+    /** A null extended key usage constrains nothing, so only an exclusively-TSA value is refused. */
+    private static Predicate notDedicatedToTimestamping(Root<Certificate> root, CriteriaBuilder cb) {
+        Path<String> extendedKeyUsage = root.get(Certificate_.EXTENDED_KEY_USAGE);
+        return cb.or(cb.isNull(extendedKeyUsage), cb.notEqual(extendedKeyUsage, EXCLUSIVE_TIMESTAMPING_EKU));
     }
 
     /**
