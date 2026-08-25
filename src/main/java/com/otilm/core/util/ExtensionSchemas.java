@@ -6,6 +6,7 @@ import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
+import com.networknt.schema.resource.DisallowSchemaLoader;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.oid.OidHandler;
@@ -28,7 +29,12 @@ public final class ExtensionSchemas {
     // ObjectMapperFactory is the single home of production mapper recipes; reading a JSON tree needs
     // nothing beyond the wire recipe.
     private static final ObjectMapper MAPPER = ObjectMapperFactory.wire();
-    private static final JsonSchemaFactory FACTORY = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012);
+    // Schema loading must never reach the network: getSchema resolves $ref targets eagerly, so a schema
+    // reaching the database by any route other than requireValidSchema would otherwise fetch a URL of its
+    // author's choosing on the server's behalf.
+    private static final JsonSchemaFactory FACTORY = JsonSchemaFactory
+            .getInstance(SpecVersion.VersionFlag.V202012,
+                    builder -> builder.schemaLoaders(loaders -> loaders.add(DisallowSchemaLoader.getInstance())));
 
     private ExtensionSchemas() {
     }
@@ -104,24 +110,24 @@ public final class ExtensionSchemas {
      * distinct from the constraint layer's, so an operator sees which schema rejected.
      */
     public static List<String> validateShape(String oid, JsonNode value) {
-        Optional<JsonSchema> schema;
         try {
-            schema = resolve(oid);
+            Optional<JsonSchema> schema = resolve(oid);
+            if (schema.isEmpty()) {
+                return List.of();
+            }
+            List<String> messages = new ArrayList<>();
+            for (ValidationMessage violation : schema.get().validate(value)) {
+                messages
+                        .add("does not match the registered schema for extension %s (at %s): %s"
+                                .formatted(oid, violation.getInstanceLocation(), violation.getMessage()));
+            }
+            return messages;
         } catch (RuntimeException e) {
             // A schema written straight into the database, or saved before a tightening, must not turn every
-            // request for this extension into a 500.
+            // request for this extension into a 500. A $ref is resolved lazily, so an unloadable one surfaces
+            // during validation rather than from resolve.
             return List.of("cannot be checked: the registered schema for extension %s is not loadable".formatted(oid));
         }
-        if (schema.isEmpty()) {
-            return List.of();
-        }
-        List<String> messages = new ArrayList<>();
-        for (ValidationMessage violation : schema.get().validate(value)) {
-            messages
-                    .add("does not match the registered schema for extension %s (at %s): %s"
-                            .formatted(oid, violation.getInstanceLocation(), violation.getMessage()));
-        }
-        return messages;
     }
 
     private static JsonSchema load(String schemaDocument) {

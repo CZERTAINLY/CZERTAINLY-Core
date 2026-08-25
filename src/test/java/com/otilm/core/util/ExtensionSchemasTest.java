@@ -182,4 +182,24 @@ class ExtensionSchemasTest {
         assertThat(ExtensionSchemas.validateShape("1.3.6.1.4.1.99999.9.9", MAPPER.createObjectNode()))
                 .anySatisfy(message -> assertThat(message).contains("not loadable"));
     }
+
+    @Test
+    void aStoredSchemaWithARemoteRefIsNotFetched() {
+        // requireValidSchema refuses a remote $ref, but a schema reaching the table by another route must not
+        // make the server fetch a URL of the schema author's choosing. A blocked host would hang if it were
+        // attempted; the assertion is that resolution fails locally and fast.
+        OidHandler
+                .cacheOid(OidCategory.CERTIFICATE_EXTENSION, "1.3.6.1.4.1.99999.9.10",
+                        OidRecord
+                                .builder()
+                                .displayName("Exfiltrating")
+                                .valueSchema("{\"$ref\":\"http://169.254.169.254/latest/meta-data/\"}")
+                                .build());
+
+        long startedAt = System.nanoTime();
+        List<String> messages = ExtensionSchemas.validateShape("1.3.6.1.4.1.99999.9.10", MAPPER.createObjectNode());
+
+        assertThat(messages).anySatisfy(message -> assertThat(message).contains("not loadable"));
+        assertThat(System.nanoTime() - startedAt).isLessThan(java.time.Duration.ofSeconds(2).toNanos());
+    }
 }
