@@ -139,7 +139,7 @@ public final class X509RequestContentRenderer {
         }
         ExtensionValueEncoding effective = encoding == null ? ExtensionValueEncoding.DER : encoding;
         return switch (effective) {
-            case DER -> decodeBase64Der(value);
+            case DER -> value.startsWith("{") ? encodeJsonTree(value) : decodeBase64Der(value);
             case UTF8_STRING -> new DERUTF8String(value).getEncoded(ASN1Encoding.DER);
             case IA5_STRING -> new DERIA5String(value).getEncoded(ASN1Encoding.DER);
             case PRINTABLE_STRING -> new DERPrintableString(value).getEncoded(ASN1Encoding.DER);
@@ -148,6 +148,20 @@ public final class X509RequestContentRenderer {
             case BIT_STRING -> throw new IOException(
                     "BIT_STRING extension value encoding is not supported; supply a DER-encoded value instead");
         };
+    }
+
+    /**
+     * Encodes a structural ASN.1 JSON tree value. Wrong input is reported naming both accepted forms, because a
+     * DER-encoded extension takes either a JSON tree or base64 DER and the author needs to know which failed.
+     */
+    private static byte[] encodeJsonTree(String value) throws IOException {
+        try {
+            return AsnJsonCodec.encodeFromString(value);
+        } catch (RuntimeException e) {
+            throw new IOException(
+                    "Invalid DER extension value; a value starting with '{' must be a valid ASN.1 JSON tree, "
+                            + "anything else base64-encoded DER: " + e.getMessage());
+        }
     }
 
     /**

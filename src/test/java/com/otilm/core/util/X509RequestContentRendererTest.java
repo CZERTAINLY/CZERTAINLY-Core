@@ -563,6 +563,25 @@ class X509RequestContentRendererTest {
         private static final String EXT_OID = "2.5.29.37";
 
         @Test
+        void encodesAJsonTree_whenDerValueStartsWithABrace() throws Exception {
+            // given — a structural ASN.1 JSON tree instead of base64 DER
+            byte[] extnValue = extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER,
+                    "{\"sequence\":[{\"boolean\":true},{\"integer\":0}]}"));
+
+            // then — the Basic Constraints golden vector
+            assertThat(extnValue).isEqualTo(new byte[]{0x30, 0x06, 0x01, 0x01, (byte) 0xFF, 0x02, 0x01, 0x00});
+        }
+
+        @Test
+        void namesBothAcceptedForms_whenADerValueIsNeither() {
+            // given — starts with '{' but is not JSON, so it is neither form
+            assertThatThrownBy(() -> extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER, "{broken")))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("JSON")
+                    .hasMessageContaining("base64");
+        }
+
+        @Test
         void treatsValueAsBase64Der_whenEncodingIsDer() throws Exception {
             // given — value is a base64-encoded DER blob
             var derBlob = new DERUTF8String("hello").getEncoded(ASN1Encoding.DER);
