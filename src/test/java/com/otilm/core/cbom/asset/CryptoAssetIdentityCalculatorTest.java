@@ -142,6 +142,18 @@ class CryptoAssetIdentityCalculatorTest {
     }
 
     @Test
+    void anAssetWithNoTypeStillKeys() {
+        CryptoAssetIdentityFields untyped = new CryptoAssetIdentityFields(null, "RSA", null, null, null, null, null,
+                null, null, null);
+
+        assertThat(CryptoAssetIdentityCalculator.calculate(untyped))
+                .describedAs("the column is NOT NULL, but a keying function that threw would fail ingest on a shape "
+                        + "this version has not met")
+                .hasSize(64)
+                .isNotEqualTo(CryptoAssetIdentityCalculator.calculate(algorithm("RSA", null, null)));
+    }
+
+    @Test
     void normalizeReportsAbsenceForEveryEmptyForm() {
         assertThat(CryptoAssetIdentityCalculator.normalize(null)).isNull();
         assertThat(CryptoAssetIdentityCalculator.normalize("")).isNull();
