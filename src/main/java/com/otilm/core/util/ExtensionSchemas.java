@@ -22,9 +22,6 @@ import java.util.Optional;
  * Resolves and applies the JSON Schema describing a DER-encoded extension's JSON value. Resolution order: the OID
  * registry entry's {@code valueSchema}, then a Core-shipped classpath resource ({@code extension-schemas/<oid>.json}),
  * else none — a schema-less extension accepts any tree the codec can encode.
- *
- * <p>
- * No Spring context required; all methods are static.
  */
 public final class ExtensionSchemas {
 
