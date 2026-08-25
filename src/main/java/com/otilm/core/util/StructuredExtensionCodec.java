@@ -104,11 +104,21 @@ public final class StructuredExtensionCodec {
         return usages;
     }
 
+    /**
+     * The dotted-decimal check is not sufficient on its own: it accepts arcs the ASN.1 encoding forbids, such as
+     * {@code 1.40}, where a first arc of 0 or 1 caps the second at 39. Those would pass request validation and then
+     * fail inside the encoder, so the parser that will do the encoding is the one that decides here.
+     */
     public static List<String> toPurposeOids(List<String> oids) {
         for (String oid : oids) {
             if (!OidHandler.isOid(oid)) {
                 throw new ValidationException(
                         "'%s' is not a dotted-decimal extended-key-usage purpose OID".formatted(oid));
+            }
+            try {
+                new ASN1ObjectIdentifier(oid);
+            } catch (IllegalArgumentException e) {
+                throw new ValidationException("'%s' is not a valid extended-key-usage purpose OID".formatted(oid));
             }
         }
         return List.copyOf(oids);
@@ -155,12 +165,6 @@ public final class StructuredExtensionCodec {
         ASN1BitString bits = ASN1BitString.getInstance(parse(base64Value, KEY_USAGE_OID));
         byte[] bytes = bits.getBytes();
         int significantBits = bytes.length * 8 - bits.getPadBits();
-        if (significantBits <= 0) {
-            // RFC 5280 4.2.1.3: when the extension appears, at least one bit MUST be set. Returning an empty
-            // set would make the extension indistinguishable from absent, so validation could not see it.
-            throw new IllegalArgumentException(
-                    "Extension %s carries a key usage with no bits set".formatted(KEY_USAGE_OID));
-        }
         List<CertificateKeyUsage> usages = new ArrayList<>();
         List<String> unrepresentable = new ArrayList<>();
         for (int index = 0; index < significantBits; index++) {
@@ -172,6 +176,13 @@ public final class StructuredExtensionCodec {
             } catch (IllegalArgumentException e) {
                 unrepresentable.add("bit " + index);
             }
+        }
+        if (usages.isEmpty() && unrepresentable.isEmpty()) {
+            // RFC 5280 4.2.1.3: when the extension appears, at least one bit MUST be set. A nominally non-empty
+            // but all-zero string (03 02 07 00) has to fail here too: returning empty lists would make a present
+            // extension indistinguishable from an absent one, so strict whitelisting could not see it.
+            throw new IllegalArgumentException(
+                    "Extension %s carries a key usage with no bits set".formatted(KEY_USAGE_OID));
         }
         return new Decoded<>(usages, unrepresentable);
     }

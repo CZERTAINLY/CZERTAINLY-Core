@@ -123,8 +123,16 @@ public final class X509RequestContentRenderer {
         ASN1ObjectIdentifier oid = parseOid(extensionOid);
         rejectDuplicateOid(seenOids, oid);
         gen
-                .addExtension(oid, effectiveCritical(extensionOid, registryCritical(extensionOid)),
+                .addExtension(oid, structuredExtensionCritical(extensionOid),
                         encodeExtensionValue(base64Value, ExtensionValueEncoding.DER));
+    }
+
+    /**
+     * The criticality a structured target's extension carries: the registry default, overridden by the platform's
+     * forced-critical set. Shared with the flat register wire so both forms agree.
+     */
+    public static boolean structuredExtensionCritical(String extensionOid) {
+        return effectiveCritical(extensionOid, registryCritical(extensionOid));
     }
 
     /**

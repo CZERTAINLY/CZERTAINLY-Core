@@ -64,6 +64,15 @@ class StructuredExtensionCodecTest {
                     .isInstanceOf(ValidationException.class)
                     .hasMessageContaining("serverAuth");
         }
+
+        @Test
+        void rejectsAnOidTheAsn1EncoderCannotRepresent() {
+            // 1.40 satisfies the dotted-decimal pattern, but a first arc of 0 or 1 caps the second at 39.
+            // Accepting it here would defer the failure to the encoder, escaping as an unchecked exception.
+            assertThatThrownBy(() -> StructuredExtensionCodec.toPurposeOids(List.of("1.40")))
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("1.40");
+        }
     }
 
     @Nested
@@ -187,6 +196,26 @@ class StructuredExtensionCodecTest {
         void anExtensionOidWithNoStructuredTargetIsRejected() {
             assertThatThrownBy(() -> StructuredExtensionCodec.decodeKeyUsage("AAA="))
                     .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        void rejectsAPaddedAllZeroBitString() {
+            // 03 02 07 00 is nominally one significant bit, but that bit is zero. Returning empty lists would
+            // make a present extension look absent, so strict whitelisting would never see it.
+            String allZero = Base64.getEncoder().encodeToString(new byte[]{0x03, 0x02, 0x07, 0x00});
+
+            assertThatThrownBy(() -> StructuredExtensionCodec.decodeKeyUsage(allZero))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("no bits set");
+        }
+
+        @Test
+        void rejectsAWiderAllZeroBitString() {
+            String allZero = Base64.getEncoder().encodeToString(new byte[]{0x03, 0x03, 0x01, 0x00, 0x00});
+
+            assertThatThrownBy(() -> StructuredExtensionCodec.decodeKeyUsage(allZero))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("no bits set");
         }
     }
 

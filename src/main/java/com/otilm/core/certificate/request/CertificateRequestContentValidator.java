@@ -235,20 +235,6 @@ public class CertificateRequestContentValidator {
     }
 
     /**
-     * Compares a structured extension's values against what the definition permits.
-     *
-     * <p>
-     * The rules are the attribute semantics the platform already has, not new ones: a predefined list is a
-     * <em>permitted</em> set (membership, as {@code AttributeEngine} enforces for any list attribute), {@code required}
-     * demands a non-empty one, and {@code extensibleList} lifts the restriction — except for an item the platform
-     * cannot name at all, which {@code X509RequestContentParser} reports through
-     * {@code ParsedRequestContent.unrepresentableExtensionValues} and the whitelist pass rejects regardless. An
-     * unnameable item can never be judged against a vocabulary, so it fails closed even here. There is no pinned-set
-     * case: {@code readOnly} would express it, but a read-only attribute cannot be a list and a set-valued target must
-     * be one. Whitelisting is handled by {@link #checkStructuredWhitelist}, because the parser diverts these OIDs out
-     * of the extension list and the generic extension pass cannot see them.
-     */
-    /**
      * The extension OID of a stored opaque mapping that a structured target has since taken over, or {@code null}.
      *
      * <p>
@@ -266,6 +252,20 @@ public class CertificateRequestContentValidator {
                 : ext.getExtensionOid();
     }
 
+    /**
+     * Compares a structured extension's values against what the definition permits.
+     *
+     * <p>
+     * The rules are the attribute semantics the platform already has, not new ones: a predefined list is a
+     * <em>permitted</em> set (membership, as {@code AttributeEngine} enforces for any list attribute), {@code required}
+     * demands a non-empty one, and {@code extensibleList} lifts the restriction — except for an item the platform
+     * cannot name at all, which {@code X509RequestContentParser} reports through
+     * {@code ParsedRequestContent.unrepresentableExtensionValues} and the whitelist pass rejects regardless. An
+     * unnameable item can never be judged against a vocabulary, so it fails closed even here. There is no pinned-set
+     * case: {@code readOnly} would express it, but a read-only attribute cannot be a list and a set-valued target must
+     * be one. Whitelisting is handled by {@link #checkStructuredWhitelist}, because the parser diverts these OIDs out
+     * of the extension list and the generic extension pass cannot see them.
+     */
     private static void validateStructuredTarget(DataAttributeV3 def, String extensionOid, X509RequestContent content,
             boolean required, RequestAttributePolicy policy, boolean presenceOnly,
             RequestAttributeValidationResult result) {
