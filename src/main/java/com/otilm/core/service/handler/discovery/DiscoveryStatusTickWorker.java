@@ -73,9 +73,7 @@ public class DiscoveryStatusTickWorker {
             // Outside any transaction, by the platform's connector-call rule.
             status = client.status(run);
         } catch (ConnectorException | RuntimeException e) {
-            // RuntimeException too: over MQ a 422 arrives as an unchecked ValidationException and a bodiless 2xx
-            // as IllegalStateException. Left to escape, both reach the listener's log-and-acknowledge (see
-            // DiscoveryWorkListener) and spend no budget.
+            // RuntimeException too: see DiscoveryWorkListener for why an escape costs no budget.
             handleUnanswered(discoveryUuid, attempt, e);
             return;
         } catch (NotFoundException | AttributeException e) {

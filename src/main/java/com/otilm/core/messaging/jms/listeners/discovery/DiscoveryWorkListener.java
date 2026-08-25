@@ -17,10 +17,10 @@ import org.springframework.stereotype.Component;
  * lock. Each worker opens its own short transactions around the writes its answer justifies.
  *
  * <p>
- * <b>A failed tick is acknowledged, not redelivered.</b> Retry is the {@code discovery_work} agenda's job: the row was
- * already pushed up its backoff ladder when the tick was claimed, so the sweep re-publishes it when it next comes due.
- * Letting the exception reach the broker would add a second, uncoordinated retry loop on top of that one, at the
- * broker's cadence rather than the run's.
+ * <b>A failed tick is logged and acknowledged; its agenda row retries it when next due.</b> Retry is the
+ * {@code discovery_work} agenda's job: the row was already pushed up its backoff ladder when the tick was claimed, so
+ * the sweep re-publishes it when it next comes due. Letting the exception reach the broker would add a second,
+ * uncoordinated retry loop on top of that one, at the broker's cadence rather than the run's.
  */
 @Component
 public class DiscoveryWorkListener implements MessageProcessor<DiscoveryWorkMessage> {

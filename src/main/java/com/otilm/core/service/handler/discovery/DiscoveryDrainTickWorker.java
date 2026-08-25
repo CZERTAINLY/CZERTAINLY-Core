@@ -106,9 +106,7 @@ public class DiscoveryDrainTickWorker {
             // Outside any transaction, by the platform's connector-call rule.
             page = client.results(run, maxItems, maxBytes);
         } catch (ConnectorException | RuntimeException e) {
-            // RuntimeException too: over MQ a 422 arrives as an unchecked ValidationException and a bodiless 2xx
-            // as IllegalStateException. Left to escape, both reach the listener's log-and-acknowledge (see
-            // DiscoveryWorkListener) and spend no budget.
+            // RuntimeException too: see DiscoveryWorkListener for why an escape costs no budget.
             handleUnanswered(discoveryUuid, attempt, e);
             return;
         } catch (NotFoundException | AttributeException e) {
@@ -249,8 +247,9 @@ public class DiscoveryDrainTickWorker {
     /**
      * Commits the handover to Core-side processing, but only once every item the connector counted has been ingested.
      *
-     * @return the connector handle this swap released, or {@code null} when no swap happened — the cursor is still
-     * behind, or another tick got there first
+     * @return empty when no handover happened — the cursor is still behind, or another tick got there first; otherwise
+     * a {@link Handover} carrying the released connector handle, which may itself be absent since the contract marks a
+     * run's {@code meta} optional
      */
     private Optional<Handover> swapToProcessing(UUID discoveryUuid, Long highestSequence) {
         return transactionHandler.runInNewTransaction(() -> {

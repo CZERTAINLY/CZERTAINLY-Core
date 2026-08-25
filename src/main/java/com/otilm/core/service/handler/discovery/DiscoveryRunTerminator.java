@@ -36,17 +36,16 @@ public class DiscoveryRunTerminator {
     }
 
     /**
-     * Ends a run on the strength of something the connector said. Refuses a run that has left the connector, which
-     * {@link #end} accepts but a connector-driven ending must not.
-     *
-     * @return whether this call was the one that ended the run
+     * Ends a run on the strength of something the connector said, refusing one that has already left the connector —
+     * unlike {@link #end}, which accepts a run already {@code PROCESSING}.
      */
     public boolean endConnectorOwned(UUID discoveryUuid, DiscoveryStatus status, String reason) {
         return endIf(discoveryUuid, DiscoveryRunLifecycle::hasLeftTheConnector, run -> new Ending(status, reason));
     }
 
     /**
-     * @return whether this call was the one that ended the run
+     * Ends a run, accepting even one already {@code PROCESSING} — processing itself legitimately ends a run, unlike the
+     * connector-driven ending in {@link #endConnectorOwned}.
      */
     public boolean end(UUID discoveryUuid, DiscoveryStatus status, String reason) {
         return endIf(discoveryUuid, DiscoveryRunLifecycle::isTerminal, run -> new Ending(status, reason));

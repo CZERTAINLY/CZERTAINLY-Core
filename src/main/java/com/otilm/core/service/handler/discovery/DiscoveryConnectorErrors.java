@@ -21,11 +21,11 @@ public final class DiscoveryConnectorErrors {
      * Text describing a connector failure that is safe to put on the run, where API clients read it.
      *
      * <p>
-     * Nothing the connector wrote is forwarded — not {@code getMessage()}, and not the RFC 9457 {@code detail} either.
-     * The contract obliges a connector to curate that field, but an obligation is not a guarantee, and the run's
-     * message is a user-visible surface whose own schema promises no provider, host or transport internals. What
-     * survives is the error *code*, which is a closed vocabulary, mapped here to text Core wrote. The connector's own
-     * wording still reaches the log, where an operator debugging the connector can read it.
+     * Only Core-authored text reaches the run's messages; the connector's {@code getMessage()} and its RFC 9457
+     * {@code detail} stay in the log. The contract obliges a connector to curate that field, but an obligation is not a
+     * guarantee, and the run's message is a user-visible surface whose own schema promises no provider, host or
+     * transport internals. What survives is the error *code*, which is a closed vocabulary, mapped here to text Core
+     * wrote.
      */
     public static String describe(Throwable e) {
         if (!(e instanceof ConnectorProblemException problem) || problem.getProblemDetail() == null) {
@@ -48,14 +48,8 @@ public final class DiscoveryConnectorErrors {
      * cannot recover the run, which ends FAILED.
      *
      * <p>
-     * Accepts both shapes a 404 arrives in: over REST the connector's RFC 9457 body survives and the error code is
-     * readable, but over the AMQP proxy the body is discarded and the client raises a plain
-     * {@link ConnectorEntityNotFoundException} — testing only for a problem exception would miss every tunneled 404 and
-     * burn the run's whole attempt budget against a connector that has already forgotten it. The status gates the code
-     * rather than the reverse, since {@code REGISTRATION_NOT_FOUND} is also declared on a 422 meaning something else
-     * entirely; read as an {@code int} rather than through {@code getHttpStatus()}, which throws for a valid code with
-     * no enum constant such as 499. Mirrors {@code DiscoveryApiClient.isRunNotTracked}, the library's own predicate for
-     * the same question.
+     * The status gates the code rather than the reverse, since a code is trusted only on a 404; over the AMQP proxy the
+     * same condition arrives instead as a plain {@link ConnectorEntityNotFoundException}.
      */
     public static boolean isRunNoLongerTracked(Throwable e) {
         if (e instanceof ConnectorProblemException problem) {
