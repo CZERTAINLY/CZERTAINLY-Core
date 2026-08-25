@@ -183,3 +183,16 @@ boot, ~15s of CI time. Reusing an existing combination is free; introducing a ne
 - Avoid per-class `@SpringBootTest(webEnvironment = ...)` / nested `@TestConfiguration` / `@AutoConfigure*`
   unless the context genuinely must differ — each forks a new cached context, and the guard now counts them
   as distinct signatures.
+
+## The tested PostgreSQL version is the minimum supported version
+
+The Testcontainers image pinned in `src/test/resources/application.yml` is the single source of truth for
+the minimum supported PostgreSQL server. Nothing else in the repo declares one — the parent pom pins the
+JDBC *driver*, not the server.
+
+To support an older server, pin the older image and let the integration suite prove it. An untested version
+is not a supported version, and raising the pin raises the floor deliberately rather than by accident.
+
+Otherwise the floor can only be inferred, and the answer depends on where you happen to look: the migrations
+alone suggest ≤13, the `CYCLE` clause in `CertificateRepository`'s native queries already requires 14, and
+the test pin says 17.
