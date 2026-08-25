@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.core.oid.OidHandler;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Base64;
@@ -35,7 +36,9 @@ import org.bouncycastle.asn1.DERUTF8String;
  */
 public final class AsnJsonCodec {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    // ObjectMapperFactory is the single home of production mapper recipes; reading a JSON tree needs
+    // nothing beyond the wire recipe.
+    private static final ObjectMapper MAPPER = ObjectMapperFactory.wire();
 
     private AsnJsonCodec() {
     }

@@ -10,6 +10,7 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -27,7 +28,9 @@ import java.util.Optional;
  */
 public final class ExtensionSchemas {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    // ObjectMapperFactory is the single home of production mapper recipes; reading a JSON tree needs
+    // nothing beyond the wire recipe.
+    private static final ObjectMapper MAPPER = ObjectMapperFactory.wire();
     private static final JsonSchemaFactory FACTORY = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012);
 
     private ExtensionSchemas() {
