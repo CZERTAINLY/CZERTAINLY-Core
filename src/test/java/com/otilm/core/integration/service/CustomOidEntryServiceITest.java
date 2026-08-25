@@ -188,6 +188,62 @@ class CustomOidEntryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void testEditCertificateExtensionOidEntryCarriesTheValueSchemaIntoTheCache() throws Exception {
+        CustomOidEntryRequestDto createRequest = new CustomOidEntryRequestDto();
+        createRequest.setOid("1.2.3.8");
+        createRequest.setDisplayName("json ext");
+        createRequest.setCategory(OidCategory.CERTIFICATE_EXTENSION);
+        CertificateExtensionOidPropertiesDto createProperties = new CertificateExtensionOidPropertiesDto();
+        createProperties.setDefaultCritical(false);
+        createProperties.setValueEncoding(ExtensionValueEncoding.DER);
+        createProperties.setValueSchema("{\"type\":\"object\",\"required\":[\"sequence\"]}");
+        createRequest.setAdditionalProperties(createProperties);
+        customOidEntryService.createCustomOidEntry(createRequest);
+
+        CustomOidEntryUpdateRequestDto updateRequest = new CustomOidEntryUpdateRequestDto();
+        updateRequest.setDisplayName("json ext");
+        CertificateExtensionOidPropertiesDto updateProperties = new CertificateExtensionOidPropertiesDto();
+        updateProperties.setDefaultCritical(false);
+        updateProperties.setValueEncoding(ExtensionValueEncoding.DER);
+        updateProperties.setValueSchema("{\"type\":\"object\",\"required\":[\"set\"]}");
+        updateRequest.setAdditionalProperties(updateProperties);
+
+        CustomOidEntryDetailResponseDto response = customOidEntryService.editCustomOidEntry("1.2.3.8", updateRequest);
+
+        CertificateExtensionOidPropertiesDto responseProps = (CertificateExtensionOidPropertiesDto) response
+                .getAdditionalProperties();
+        Assertions.assertEquals("{\"type\":\"object\",\"required\":[\"set\"]}", responseProps.getValueSchema());
+        OidRecord cachedRecord = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION).get("1.2.3.8");
+        Assertions.assertNotNull(cachedRecord);
+        Assertions.assertEquals("{\"type\":\"object\",\"required\":[\"set\"]}", cachedRecord.valueSchema());
+    }
+
+    @Test
+    void testEditCertificateExtensionOidEntryRejectsABrokenValueSchema() {
+        CustomOidEntryRequestDto createRequest = new CustomOidEntryRequestDto();
+        createRequest.setOid("1.2.3.9");
+        createRequest.setDisplayName("json ext");
+        createRequest.setCategory(OidCategory.CERTIFICATE_EXTENSION);
+        CertificateExtensionOidPropertiesDto createProperties = new CertificateExtensionOidPropertiesDto();
+        createProperties.setDefaultCritical(false);
+        createProperties.setValueEncoding(ExtensionValueEncoding.DER);
+        createRequest.setAdditionalProperties(createProperties);
+        customOidEntryService.createCustomOidEntry(createRequest);
+
+        CustomOidEntryUpdateRequestDto updateRequest = new CustomOidEntryUpdateRequestDto();
+        updateRequest.setDisplayName("json ext");
+        CertificateExtensionOidPropertiesDto updateProperties = new CertificateExtensionOidPropertiesDto();
+        updateProperties.setDefaultCritical(false);
+        updateProperties.setValueEncoding(ExtensionValueEncoding.DER);
+        updateProperties.setValueSchema("this is not json");
+        updateRequest.setAdditionalProperties(updateProperties);
+
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> customOidEntryService.editCustomOidEntry("1.2.3.9", updateRequest));
+    }
+
+    @Test
     void testCreateCertificateExtensionOidEntryRejectsABrokenValueSchema() {
         CustomOidEntryRequestDto request = new CustomOidEntryRequestDto();
         request.setOid("1.2.3.7");
