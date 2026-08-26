@@ -1,6 +1,7 @@
 package com.otilm.core.certificate.request;
 
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.OidCategory;
@@ -10,11 +11,14 @@ import com.otilm.core.model.request.Pkcs10CertificateRequest;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.cmp.CmpTestUtil;
+import com.otilm.core.util.X509RequestContentRenderer;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Security;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERSequence;
@@ -26,10 +30,12 @@ import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
+import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.asn1.x509.OtherName;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
@@ -281,21 +287,95 @@ class X509RequestContentParserTest {
     }
 
     @Nested
-    class Extensions {
+    class ExtensionParsing {
 
         @Test
-        void parsesNonSanExtensions_andExcludesSan() throws Exception {
-            // given
-            var request = pkcs10("CN=host.example.com", true);
+        void parsesOpaqueExtensions_andExcludesDivertedOnes() throws Exception {
+            // given — a CSR carrying SAN, extended key usage and an extension with no structured target
+            var request = pkcs10WithRawExtension(new ASN1ObjectIdentifier("1.3.6.1.4.1.99999.1"),
+                    new DERSequence().getEncoded(ASN1Encoding.DER));
 
             // when
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
-            // then
-            assertThat(content.getExtensions())
+            // then — only the opaque one stays in the extension list
+            assertThat(content.getExtensions()).extracting("oid").contains("1.3.6.1.4.1.99999.1");
+        }
+
+        @Test
+        void divertsExtendedKeyUsage_outOfTheExtensionList() throws Exception {
+            // given
+            var request = pkcs10("CN=host.example.com", true);
+
+            // when
+            ParsedRequestContent parsed = X509RequestContentParser.parse(request);
+
+            // then — typed, and gone from the opaque list, exactly as SAN is
+            assertThat(parsed.content().getExtendedKeyUsage()).containsExactly("1.3.6.1.5.5.7.3.1");
+            assertThat(parsed.content().getExtensions())
                     .extracting("oid")
-                    .contains(Extension.extendedKeyUsage.getId())
-                    .doesNotContain(Extension.subjectAlternativeName.getId());
+                    .doesNotContain(Extension.extendedKeyUsage.getId(), Extension.subjectAlternativeName.getId());
+            assertThat(parsed.unrepresentableExtensionValues()).isEmpty();
+        }
+
+        @Test
+        void divertsKeyUsage_outOfTheExtensionList() throws Exception {
+            // given
+            var request = pkcs10WithRawExtension(Extension.keyUsage,
+                    new KeyUsage(KeyUsage.digitalSignature | KeyUsage.keyEncipherment).getEncoded(ASN1Encoding.DER));
+
+            // when
+            ParsedRequestContent parsed = X509RequestContentParser.parse(request);
+
+            // then
+            assertThat(parsed.content().getKeyUsage())
+                    .containsExactly(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT);
+            assertThat(parsed.content().getExtensions()).extracting("oid").doesNotContain(Extension.keyUsage.getId());
+        }
+
+        @Test
+        void reportsAnUnmodelledKeyUsageBit_ratherThanDroppingIt() throws Exception {
+            // given — bit 9. X.509 closes the vocabulary at nine bits, so this genuinely cannot be
+            // represented; dropping it would let a strict policy pass a CSR the platform cannot even name.
+            var request = pkcs10WithRawExtension(Extension.keyUsage, new byte[]{0x03, 0x03, 0x04, 0x00, 0x40});
+
+            // when
+            ParsedRequestContent parsed = X509RequestContentParser.parse(request);
+
+            // then
+            assertThat(parsed.content().getKeyUsage()).isEmpty();
+            assertThat(parsed.unrepresentableExtensionValues()).containsExactly("Key Usage bit 9");
+        }
+
+        @Test
+        void reportsAnUndecodableStructuredExtension() throws Exception {
+            // given — 2.5.29.15 carrying a SEQUENCE where a BIT STRING belongs
+            var request = pkcs10WithRawExtension(Extension.keyUsage, new byte[]{0x30, 0x00});
+
+            // when
+            ParsedRequestContent parsed = X509RequestContentParser.parse(request);
+
+            // then — reported like an unsupported SAN, so a strict policy fails closed
+            assertThat(parsed.unrepresentableExtensionValues())
+                    .anySatisfy(item -> assertThat(item).contains("Key Usage"));
+        }
+
+        @Test
+        void projectRenderParseReturnsTheSameTypedValues() throws Exception {
+            // given — content as the projector would produce it
+            X509RequestContent projected = new X509RequestContent();
+            projected.setKeyUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.CRL_SIGN));
+            projected.setExtendedKeyUsage(List.of("1.3.6.1.5.5.7.3.1"));
+
+            // when — render into a real CSR and read it back
+            ParsedRequestContent parsed = X509RequestContentParser
+                    .parse(pkcs10WithExtensions(X509RequestContentRenderer.toExtensions(projected)));
+
+            // then — this round trip is what replaces a byte-level wire regression
+            assertThat(parsed.content().getKeyUsage()).containsExactlyElementsOf(projected.getKeyUsage());
+            assertThat(parsed.content().getExtendedKeyUsage())
+                    .containsExactlyElementsOf(projected.getExtendedKeyUsage());
+            assertThat(parsed.unrepresentableExtensionValues()).isEmpty();
         }
 
         @Test
@@ -361,7 +441,7 @@ class X509RequestContentParserTest {
         }
 
         @Test
-        void parsesSansAndExtensions_fromCertTemplate() throws Exception {
+        void divertsSansAndStructuredExtensions_fromCertTemplate() throws Exception {
             // given — a CRMF request whose CertTemplate carries a SAN and an EKU extension
             var builder = CmpTestUtil.createCrmf(new X500Name("CN=issuer"), new X500Name("CN=host.example.com"));
             builder
@@ -376,15 +456,15 @@ class X509RequestContentParserTest {
             // when
             X509RequestContent content = X509RequestContentParser.parse(request).content();
 
-            // then — SAN typed, EKU in extensions, SAN not duplicated into extensions
+            // then — SAN and EKU both typed, and neither duplicated into the opaque extension list
             assertThat(content.getSubjectAltNames()).anySatisfy(s -> {
                 assertThat(s.getType()).isEqualTo(GeneralNameType.DNS);
                 assertThat(s.getValue()).isEqualTo("host.example.com");
             });
+            assertThat(content.getExtendedKeyUsage()).containsExactly("1.3.6.1.5.5.7.3.1");
             assertThat(content.getExtensions())
                     .extracting("oid")
-                    .contains(Extension.extendedKeyUsage.getId())
-                    .doesNotContain(Extension.subjectAlternativeName.getId());
+                    .doesNotContain(Extension.extendedKeyUsage.getId(), Extension.subjectAlternativeName.getId());
         }
     }
 
@@ -414,6 +494,17 @@ class X509RequestContentParserTest {
         ExtensionsGenerator extGen = new ExtensionsGenerator();
         extGen.addExtension(oid, false, value);
         builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
+        return new Pkcs10CertificateRequest(builder.build(signer).getEncoded());
+    }
+
+    private static CertificateRequest pkcs10WithExtensions(Extensions extensions) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair kp = kpg.generateKeyPair();
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(
+                new X500Name("CN=host.example.com"), kp.getPublic());
+        builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensions);
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
         return new Pkcs10CertificateRequest(builder.build(signer).getEncoded());
     }

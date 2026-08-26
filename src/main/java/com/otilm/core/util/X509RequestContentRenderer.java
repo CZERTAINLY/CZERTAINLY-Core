@@ -6,7 +6,9 @@ import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
+import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.oid.OidHandler;
+import com.otilm.core.oid.OidRecord;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
@@ -38,8 +40,9 @@ import org.bouncycastle.util.encoders.Base64;
 public final class X509RequestContentRenderer {
 
     /**
-     * RFC 5280 extensions that MUST stay critical regardless of criticalOverridable or registry defaults.
-     * BasicConstraints (§4.2.1.9) and KeyUsage (§4.2.1.3).
+     * Extensions the platform keeps critical regardless of criticalOverridable or registry defaults. BasicConstraints
+     * (§4.2.1.9), where a conforming CA MUST mark it critical in a CA certificate, and KeyUsage (§4.2.1.3), where the
+     * RFC says SHOULD and forcing it is therefore platform policy rather than compliance.
      */
     static final Set<String> CRITICALITY_FORCED_OIDS = Set
             .of(Extension.basicConstraints.getId(), Extension.keyUsage.getId());
@@ -86,6 +89,11 @@ public final class X509RequestContentRenderer {
             gen.addExtension(Extension.subjectAlternativeName, isSubjectEmpty(x509), new GeneralNames(names));
         }
 
+        addStructuredExtension(gen, seenOids, StructuredExtensionCodec.KEY_USAGE_OID,
+                StructuredExtensionCodec.encodeKeyUsage(orEmpty(x509.getKeyUsage())));
+        addStructuredExtension(gen, seenOids, StructuredExtensionCodec.EXTENDED_KEY_USAGE_OID,
+                StructuredExtensionCodec.encodeExtendedKeyUsage(orEmpty(x509.getExtendedKeyUsage())));
+
         List<RequestedExtension> extensions = x509.getExtensions() == null ? List.of() : x509.getExtensions();
         for (RequestedExtension ext : extensions) {
             ASN1ObjectIdentifier oid = parseOid(ext.getOid());
@@ -100,6 +108,45 @@ public final class X509RequestContentRenderer {
         }
 
         return gen.generate();
+    }
+
+    /**
+     * Adds a structured extension whose value the codec has already encoded. A null value means the selection was
+     * empty: RFC 5280 forbids an empty key usage bit string and an empty extended key usage sequence, so nothing is
+     * emitted rather than an extension the CA would reject.
+     */
+    private static void addStructuredExtension(ExtensionsGenerator gen, Set<String> seenOids, String extensionOid,
+            String base64Value) throws IOException {
+        if (base64Value == null) {
+            return;
+        }
+        ASN1ObjectIdentifier oid = parseOid(extensionOid);
+        rejectDuplicateOid(seenOids, oid);
+        gen
+                .addExtension(oid, structuredExtensionCritical(extensionOid),
+                        encodeExtensionValue(base64Value, ExtensionValueEncoding.DER));
+    }
+
+    /**
+     * The criticality a structured target's extension carries: the registry default, overridden by the platform's
+     * forced-critical set. Shared with the flat register wire so both forms agree.
+     */
+    public static boolean structuredExtensionCritical(String extensionOid) {
+        return effectiveCritical(extensionOid, registryCritical(extensionOid));
+    }
+
+    /**
+     * The criticality the CERTIFICATE_EXTENSION registry declares for an OID, defaulting to non-critical when the OID
+     * is not registered — the same rule the projector applies to an opaque extension mapping.
+     */
+    private static boolean registryCritical(String extensionOid) {
+        Map<String, OidRecord> registry = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION);
+        OidRecord entry = registry == null ? null : registry.get(extensionOid);
+        return entry != null && Boolean.TRUE.equals(entry.defaultCritical());
+    }
+
+    private static <T> List<T> orEmpty(List<T> values) {
+        return values == null ? List.of() : values;
     }
 
     /**
