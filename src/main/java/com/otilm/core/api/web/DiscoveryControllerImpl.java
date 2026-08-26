@@ -161,8 +161,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     /*
-     * Discovery v2, not implemented yet: these eight exist because DiscoveryController declares them abstract, so this
-     * class does not compile without them.
+     * Discovery v2, not implemented yet: the stubs below exist because DiscoveryController declares them abstract, so
+     * this class does not compile without them.
      *
      * Stub response: 501, so a caller reaching one gets an answer it can act on.
      *

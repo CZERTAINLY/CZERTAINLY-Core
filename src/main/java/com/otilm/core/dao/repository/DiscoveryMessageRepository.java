@@ -23,6 +23,17 @@ public interface DiscoveryMessageRepository extends JpaRepository<DiscoveryMessa
      * new rows only — a repeat always lands, however many rows the run already has, because aggregating onto an
      * existing row grows nothing.
      *
+     * <p>
+     * The window widens, never moves. {@code now()} is transaction-start time, so a transaction that began earlier can
+     * commit later and would otherwise rewind {@code last_seen_at} — past {@code first_seen_at} entirely, when it
+     * aggregates onto a row a shorter, later transaction created. {@code LEAST}/{@code GREATEST} make both ends
+     * monotonic, which is what lets the pair be read as the span a fault was active.
+     *
+     * <p>
+     * The bounds are soft ceilings, not guarantees: the counts and the insert are not atomic against each other, so
+     * appenders that each read a count one below the limit all pass and a run can exceed it by the number of concurrent
+     * appenders. Locking to close that would reintroduce the serialisation this design removes.
+     *
      * @return 1 when the message was recorded, 0 when a bound refused it a row of its own
      */
     @Modifying
@@ -41,7 +52,9 @@ public interface DiscoveryMessageRepository extends JpaRepository<DiscoveryMessa
                    AND (SELECT count(*) FROM {h-schema}discovery_message
                         WHERE discovery_uuid = CAST(:discoveryUuid AS UUID)) < :maxPerRun)
             ON CONFLICT (discovery_uuid, code, message_hash) DO UPDATE
-                SET occurrences = m.occurrences + EXCLUDED.occurrences, last_seen_at = EXCLUDED.last_seen_at
+                SET occurrences = m.occurrences + EXCLUDED.occurrences,
+                    first_seen_at = LEAST(m.first_seen_at, EXCLUDED.first_seen_at),
+                    last_seen_at = GREATEST(m.last_seen_at, EXCLUDED.last_seen_at)
             """, nativeQuery = true)
     int appendWithinBounds(@Param("discoveryUuid") UUID discoveryUuid, @Param("severity") String severity,
             @Param("code") String code, @Param("message") String message, @Param("occurrences") long occurrences,
@@ -58,14 +71,16 @@ public interface DiscoveryMessageRepository extends JpaRepository<DiscoveryMessa
             VALUES (CAST(:discoveryUuid AS UUID), CAST(:severity AS VARCHAR), CAST(:code AS VARCHAR),
                     CAST(:message AS VARCHAR), CAST(:occurrences AS BIGINT), now(), now())
             ON CONFLICT (discovery_uuid, code, message_hash) DO UPDATE
-                SET occurrences = m.occurrences + EXCLUDED.occurrences, last_seen_at = EXCLUDED.last_seen_at
+                SET occurrences = m.occurrences + EXCLUDED.occurrences,
+                    first_seen_at = LEAST(m.first_seen_at, EXCLUDED.first_seen_at),
+                    last_seen_at = GREATEST(m.last_seen_at, EXCLUDED.last_seen_at)
             """, nativeQuery = true)
     void append(@Param("discoveryUuid") UUID discoveryUuid, @Param("severity") String severity,
             @Param("code") String code, @Param("message") String message, @Param("occurrences") long occurrences);
 
     /**
-     * Whether the run collected anything at or above a given severity — what the terminal decision asks, in place of
-     * the old "is the log non-empty", which downgraded a run over a problem that had since been recovered.
+     * Whether the run collected anything at or above a given severity — what the terminal decision asks, so a run that
+     * recovered from a problem it recorded is not downgraded for it.
      */
     boolean existsByDiscoveryUuidAndSeverityIn(UUID discoveryUuid, Collection<DiscoveryMessageSeverity> severities);
 

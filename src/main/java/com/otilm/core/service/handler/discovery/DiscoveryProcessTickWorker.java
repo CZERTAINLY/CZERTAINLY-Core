@@ -158,10 +158,10 @@ public class DiscoveryProcessTickWorker {
      * Runs the batch through the import pipeline and files what it could not import on the run.
      */
     private void importBatch(Discovery run, int attempt, List<DiscoveryCertificate> batch) {
+        DiscoveryRunCounts counts;
         try {
             authenticateAsTheRunsUser(run);
-            DiscoveryRunCounts counts = importHandler.processBatch(run, batch);
-            messageWriter.appendAll(run.getUuid(), counts.describeGaps());
+            counts = importHandler.processBatch(run, batch);
         } catch (Exception e) {
             // Swallowed, not rethrown: an unchanged backlog sends this batch to the bounded stall path instead of
             // the listener's log-and-acknowledge.
@@ -174,6 +174,17 @@ public class DiscoveryProcessTickWorker {
             messageWriter
                     .append(run.getUuid(), DiscoveryMessageSeverity.INFO, DiscoveryMessageCode.BATCH_PROCESSING_FAILED,
                             "A batch of discovered certificates did not complete and went back for another attempt.");
+            return;
+        }
+        // Outside the catch above, and never folded into it: the batch itself succeeded, so filing a failure to
+        // record its gaps as BATCH_PROCESSING_FAILED would file them at INFO -- the one severity the terminal
+        // decision ignores -- and let a run that fell short finish clean.
+        try {
+            messageWriter.appendAll(run.getUuid(), counts.describeGaps());
+        } catch (Exception e) {
+            logger
+                    .error("Could not record what batch {} of discovery {} fell short on: {}", attempt, run.getUuid(),
+                            e.getMessage(), e);
         }
     }
 

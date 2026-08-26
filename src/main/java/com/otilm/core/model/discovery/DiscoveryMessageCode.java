@@ -5,10 +5,9 @@ package com.otilm.core.model.discovery;
  * code instead, straight from {@code DiscoveryErrorEvent}.
  *
  * <p>
- * The code names the <em>kind</em> of problem, and is what an operator or a support engineer matches on. It is also
- * what aggregation and the per-code bound group by, so a code must stay stable across releases and must never carry
- * anything run-specific: an identifier folded into a code would mint a fresh kind per certificate, which is the growth
- * this shape exists to stop.
+ * The code names the <em>kind</em> of problem — what an operator or a support engineer matches on — and is what
+ * aggregation and the per-code bound group by, so it must stay stable across releases and carry nothing run-specific
+ * (see {@link DiscoveryMessageDraft}).
  *
  * <p>
  * Each code has exactly one producer, which owns the severity and the curated text that go with it.
@@ -41,6 +40,9 @@ public enum DiscoveryMessageCode {
 
     /** A processing batch that did not complete and went back for another attempt. */
     BATCH_PROCESSING_FAILED("batchProcessingFailed"),
+
+    /** Stands in for a connector's own code when it reported an error without naming one. */
+    CONNECTOR_ERROR("connectorError"),
 
     /** How the run ended; the message is the terminal reason and the severity follows the terminal status. */
     RUN_ENDED("runEnded"),

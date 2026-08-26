@@ -140,12 +140,22 @@ public class DiscoveryEventIngestor {
                 logger.warn("Discovery {} connector error {}: {}", discoveryUuid, error.getCode(), error.getMessage());
                 messageWriter
                         .append(discoveryUuid, new DiscoveryMessageDraft(DiscoveryMessageSeverity.ERROR,
-                                error.getCode(), "The Discovery Provider reported a problem with this run.", 1));
+                                reportedCode(error), "The Discovery Provider reported a problem with this run.", 1));
             }
             case STATE_CHANGED -> scheduleNow(run, DiscoveryWorkType.STATUS);
             case RESULT_BATCH -> scheduleNow(run, DiscoveryWorkType.DRAIN);
             case HEARTBEAT -> logger.trace("Heartbeat for discovery {}", discoveryUuid);
         }
+    }
+
+    /**
+     * The connector's own code, or Core's stand-in when it named none. The contract requires one, but this is the event
+     * a connector sends when something has already gone wrong for it, and refusing to record that because the code is
+     * missing would lose the report entirely.
+     */
+    private static String reportedCode(DiscoveryErrorEvent error) {
+        String code = error.getCode();
+        return code == null || code.isBlank() ? DiscoveryMessageCode.CONNECTOR_ERROR.code() : code;
     }
 
     /**

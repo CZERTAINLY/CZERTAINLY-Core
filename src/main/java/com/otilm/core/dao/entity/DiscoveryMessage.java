@@ -13,7 +13,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,8 +29,7 @@ import org.hibernate.proxy.HibernateProxy;
  * bury its own first and most useful entry.
  *
  * <p>
- * Read-only through JPA: every write goes through {@code DiscoveryMessageWriter}'s upsert, which is what makes an
- * append safe without the run row's lock.
+ * Read-only through JPA: every write goes through {@code DiscoveryMessageWriter}'s upsert.
  */
 @Getter
 @Setter
@@ -39,7 +37,7 @@ import org.hibernate.proxy.HibernateProxy;
 @Entity
 @Table(name = "discovery_message", uniqueConstraints = @UniqueConstraint(name = "uq_discovery_message",
         columnNames = {"discovery_uuid", "code", "message_hash"}))
-public class DiscoveryMessage implements Serializable {
+public class DiscoveryMessage {
 
     /**
      * The run's ordering key, never exposed. A timestamp cannot serve: {@code now()} is transaction-start time, so
@@ -73,8 +71,7 @@ public class DiscoveryMessage implements Serializable {
 
     /**
      * Computed by the database, and mapped only so the test schema — generated from these annotations — carries the
-     * column the upsert's conflict target names. Hashed so that index entry stays inside the btree limit however long a
-     * message is configured to run.
+     * column the upsert's conflict target names. Hashed to keep that index entry inside the btree limit.
      */
     @Column(name = "message_hash", columnDefinition = "varchar generated always as (md5(message)) stored",
             insertable = false, updatable = false)

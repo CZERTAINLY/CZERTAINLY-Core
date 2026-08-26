@@ -2,14 +2,13 @@
 -- to one row per distinct problem, appended by upsert and aggregated by occurrence count.
 
 CREATE TABLE "discovery_message" (
-    -- Ordering only, never exposed. A timestamp cannot order these: now() is transaction-start time, so every
-    -- message a tick writes ties, and a wall-clock column inverts across pods under clock skew.
+    -- Ordering only, never exposed; a timestamp cannot order these (see DiscoveryMessage.id).
     "id" BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     "discovery_uuid" UUID NOT NULL,
     "severity" VARCHAR NOT NULL,
     "code" VARCHAR NOT NULL,           -- kind of problem: connector-supplied for connector errors, else Core's own
     "message" VARCHAR NOT NULL,
-    -- Hashed so the unique index stays inside the btree entry limit whatever the configured message bound is.
+    -- Hashed to keep the unique index entry inside the btree limit whatever the message length.
     "message_hash" VARCHAR GENERATED ALWAYS AS (md5("message")) STORED,
     "occurrences" BIGINT NOT NULL DEFAULT 1,
     "first_seen_at" TIMESTAMPTZ NOT NULL,

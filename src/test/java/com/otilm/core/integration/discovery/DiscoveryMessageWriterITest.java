@@ -104,6 +104,25 @@ class DiscoveryMessageWriterITest extends BaseSpringBootTest {
     }
 
     @Test
+    void aSuppressionRow_countsTheOccurrencesItStandsInForRatherThanTheMessages() {
+        Discovery run = v2Run();
+        for (int i = 1; i <= MAX_PER_CODE; i++) {
+            writer.append(run.getUuid(), gap("failure number " + i, 1));
+        }
+
+        writer.append(run.getUuid(), gap("a kind with no room left", 5));
+
+        assertThat(messages(run)).last().satisfies(suppressed -> {
+            assertThat(suppressed.getOccurrences())
+                    .as("five occurrences went unrecorded, not one message")
+                    .isEqualTo(5);
+            assertThat(suppressed.getSeverity())
+                    .as("a run that lost information about itself is at least a warning")
+                    .isEqualTo(DiscoveryMessageSeverity.WARNING);
+        });
+    }
+
+    @Test
     void aRepeatOfSomethingAlreadyRecorded_landsEvenOnceTheBoundIsReached() {
         Discovery run = v2Run();
         for (int i = 1; i <= 4; i++) {
@@ -112,7 +131,6 @@ class DiscoveryMessageWriterITest extends BaseSpringBootTest {
 
         writer.append(run.getUuid(), gap("failure number 1", 5));
 
-        // Aggregating onto a row that exists grows nothing, so the bound has no reason to refuse it.
         assertThat(messages(run))
                 .filteredOn(message -> "failure number 1".equals(message.getMessage()))
                 .singleElement()

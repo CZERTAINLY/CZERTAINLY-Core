@@ -17,13 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>
  * <b>The bounds are fixed, not configured.</b> They are safety limits against a producer or a connector that
- * misbehaves, not tuning dials — a well-behaved run reaches around sixteen distinct kinds against a ceiling of fifty,
- * and no deployment holds information that would tell it to move one.
+ * misbehaves, not tuning dials, and soft ceilings under concurrency at that — see
+ * {@link DiscoveryMessageRepository#appendWithinBounds}.
  *
  * <p>
- * An append never takes the run row's write lock: the upsert aggregates a repeat onto the row already carrying it, so
- * two appenders add their counts instead of one overwriting the other. That is what lets a producer record a problem
- * without queueing behind whatever else is holding the run.
+ * An append takes no lock of its own and never reads the log to write it, so no caller has to remember to lock the run
+ * row to be safe — again, see {@link DiscoveryMessageRepository#appendWithinBounds}. It does still queue behind one
+ * held {@code FOR UPDATE}, for the reason below.
  *
  * <p>
  * <b>{@code REQUIRED} throughout, never {@code REQUIRES_NEW}.</b> Most callers append while holding the run row's
@@ -41,10 +41,10 @@ public class DiscoveryMessageWriter {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryMessageWriter.class);
 
-    /** Stands in for the distinct messages of one kind a run had no room to keep. */
-    static final String CODE_SUPPRESSION_MESSAGE = "Further distinct messages of this kind were not recorded.";
+    /** Stands in for the messages of one kind a run had no room to keep; its count is the occurrences dropped. */
+    static final String CODE_SUPPRESSION_MESSAGE = "Further messages of this kind were not recorded.";
 
-    /** Stands in for everything a run had no room to keep once it was full. */
+    /** Stands in for everything a run had no room to keep once it was full; its count is the occurrences dropped. */
     static final String RUN_SUPPRESSION_MESSAGE = "Further messages were not recorded: this run reached the limit on "
             + "how many kinds of problem it may keep.";
 
@@ -53,13 +53,13 @@ public class DiscoveryMessageWriter {
     /** A code is Core's own or comes from a closed connector vocabulary; a long one is a misbehaving connector. */
     private static final int MAX_CODE_LENGTH = 64;
 
-    /** Around six distinct texts are reachable per code; the rest is headroom for a producer that misbehaves. */
+    /** Only a handful of distinct texts are reachable per code; the rest is headroom for a producer that misbehaves. */
     private static final int MAX_PER_CODE = 20;
 
     /** Must stay at or above {@link #MAX_PER_CODE}, or no code could reach its own bound. */
     private static final int MAX_PER_RUN = 50;
 
-    /** Every message is Core-authored and runs to 60-120 characters; this only catches a future producer. */
+    /** Every message is Core-authored and far shorter than this; it only catches a future producer. */
     private static final int MAX_MESSAGE_LENGTH = 500;
 
     private final DiscoveryMessageRepository messageRepository;
@@ -97,6 +97,11 @@ public class DiscoveryMessageWriter {
 
     @Transactional
     public void appendAll(UUID discoveryUuid, List<DiscoveryMessageDraft> drafts) {
+        if (drafts.isEmpty()) {
+            // The clean path for both hot callers, which would otherwise open and commit a transaction per batch
+            // and per page to write nothing.
+            return;
+        }
         drafts.forEach(draft -> record(discoveryUuid, draft));
     }
 
@@ -126,16 +131,26 @@ public class DiscoveryMessageWriter {
                 .debug("Discovery {} kept no row for a {} message; it is at its {} bound", discoveryUuid, code,
                         runIsFull ? "per-run" : "per-code");
         if (runIsFull) {
-            write(discoveryUuid, draft.severity(), DiscoveryMessageCode.MESSAGES_SUPPRESSED.code(),
+            write(discoveryUuid, standInSeverity(draft.severity()), DiscoveryMessageCode.MESSAGES_SUPPRESSED.code(),
                     RUN_SUPPRESSION_MESSAGE, draft.occurrences());
         } else {
-            write(discoveryUuid, draft.severity(), code, CODE_SUPPRESSION_MESSAGE, draft.occurrences());
+            write(discoveryUuid, standInSeverity(draft.severity()), code, CODE_SUPPRESSION_MESSAGE,
+                    draft.occurrences());
         }
     }
 
     /**
-     * The unbounded write. A suppression row keeps the severity of whichever message first overflowed into it; the
-     * messages it stands in for are gone, so there is nothing left to raise it from.
+     * At least {@code WARNING}, whatever overflowed: a suppression row exists because the run lost information about
+     * itself, and the run-level one stands in for several codes, so the first arrival's severity says nothing about the
+     * rest. It may understate an {@code ERROR} it covers, but can never hide one from the terminal decision.
+     */
+    private static DiscoveryMessageSeverity standInSeverity(DiscoveryMessageSeverity suppressed) {
+        return suppressed == DiscoveryMessageSeverity.ERROR ? suppressed : DiscoveryMessageSeverity.WARNING;
+    }
+
+    /**
+     * The unbounded write. {@code occurrences} on a suppression row counts the occurrences it stands in for, not the
+     * distinct messages, which is why its text does not name a number.
      */
     private void write(UUID discoveryUuid, DiscoveryMessageSeverity severity, String code, String message,
             long occurrences) {

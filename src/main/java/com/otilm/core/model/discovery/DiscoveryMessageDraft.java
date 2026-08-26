@@ -12,10 +12,9 @@ import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
  * in {@code occurrences}, which adds across every batch reporting the same thing.
  *
  * <p>
- * The rule loses no detail, it puts it where a reader can act on it: why one certificate failed is on that
- * certificate's own row ({@code discovery_certificate.processed_error}), served by the certificate list a run's
- * terminal message points at. Two surfaces, two questions — this one answers what went wrong with the run, the row
- * answers what went wrong with the certificate.
+ * Where a staged row exists the detail is relocated, not lost: why one certificate failed to <em>import</em> is on that
+ * certificate's own row ({@code discovery_certificate.processed_error}). Failures before a row exists — staging, an
+ * invalid payload, a missing sequence — identify themselves only in the server log.
  *
  * @param occurrences how many times this producer saw the problem in the work it is reporting on
  */
@@ -24,6 +23,15 @@ public record DiscoveryMessageDraft(DiscoveryMessageSeverity severity, String co
     public DiscoveryMessageDraft {
         if (occurrences < 1) {
             throw new IllegalArgumentException("A discovery run message records at least one occurrence");
+        }
+        // Refused here rather than at the insert: code is the one field taken verbatim from outside the platform,
+        // and both columns are NOT NULL, so a connector that omits its code would otherwise roll back whatever
+        // transaction the append had joined -- a whole drained page, for a field this can simply reject.
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("A discovery run message needs a code naming the kind of problem");
+        }
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("A discovery run message needs text for a person to read");
         }
     }
 
