@@ -29,12 +29,20 @@ import java.util.stream.Stream;
 final class IdentityKeyExposureFence {
 
     /**
-     * Matches the identity key under every spelling the code base can produce: {@code identity_key} (SQL),
+     * Matches an identity-key value under every spelling the code base can produce: {@code identity_key} (SQL),
      * {@code identityKey} (Java member), {@code IDENTITY_KEY} (constant), {@code getIdentityKey} (accessor),
      * {@code identity-key} (a JSON or header name). ASCII-only case folding, so the verdict cannot depend on the
      * platform locale.
+     *
+     * <p>
+     * The alias vocabulary is fenced too. {@code crypto_asset_alias.absorbed_key} and {@code canonical_key} <em>hold
+     * identity-key values</em> — {@code canonical_key} is a foreign key onto {@code crypto_asset.identity_key} — so a
+     * DTO exposing {@code canonicalKey}, a {@code FilterField} over {@code absorbedKey}, or a log line binding either
+     * would ship exactly the hash whose low-entropy preimage falls to a dictionary attack, while passing a fence that
+     * only knew the word "identity".
      */
-    private static final Pattern IDENTITY_KEY = Pattern.compile("identity[_\\-\\s]?key", Pattern.CASE_INSENSITIVE);
+    private static final Pattern IDENTITY_KEY = Pattern
+            .compile("identity[_\\-\\s]?key|absorbed[_\\-\\s]?key|canonical[_\\-\\s]?key", Pattern.CASE_INSENSITIVE);
 
     /**
      * Any method call named after a log level. Deliberately loose — it matches {@code log.debug(}, {@code logger.warn(}
@@ -42,7 +50,9 @@ final class IdentityKeyExposureFence {
      * an appender, whatever the logger handle is called.
      */
     private static final Pattern LOGGING_CALL = Pattern
-            .compile("\\.\\s*(trace|debug|info|warn|error)\\s*\\(", Pattern.CASE_INSENSITIVE);
+            .compile("\\.\\s*(trace|debug|info|warn|error|logEvent|log)\\s*\\("
+                    + "|\\bSystem\\s*\\.\\s*(out|err)\\s*\\.\\s*(print|println|printf|format)\\s*\\("
+                    + "|\\.\\s*printStackTrace\\s*\\(", Pattern.CASE_INSENSITIVE);
 
     /**
      * A string or character literal, escapes included. Blanked out before parentheses are counted, so a parenthesis
@@ -51,6 +61,9 @@ final class IdentityKeyExposureFence {
      * named inside a string literal is exactly as disclosed as one named outside it.
      */
     private static final Pattern LITERAL = Pattern.compile("\"(\\\\.|[^\"\\\\])*\"|'(\\\\.|[^'\\\\])*'");
+
+    /** Text-block delimiter. Checked on the raw line, before literals are blanked, which would eat it. */
+    private static final String TEXT_BLOCK = "\"\"\"";
 
     /**
      * Packages whose declarations reach a client: the DTO/model layer, the API layer, and the imported contract
@@ -132,12 +145,29 @@ final class IdentityKeyExposureFence {
         boolean allowlisted = SOURCE_ALLOWLIST.contains(path);
         List<String> violations = new ArrayList<>();
         int openLoggingParens = 0;
+        boolean inTextBlock = false;
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
             if (isDocumentation(line)) {
                 continue;
             }
-            String code = LITERAL.matcher(line).replaceAll("\"\"");
+            // A text block spans lines, so its body is not a literal this line's regex can blank, and its prose can
+            // carry an unbalanced ')' -- "steps: a) ... b) ..." -- which would close an open logging call early and
+            // let the binding line through. Only the code outside the delimiters counts: the head of the line that
+            // opens one (which is where `logger.debug(` sits) and the tail of the line that closes it (which is where
+            // the bound argument sits).
+            int delimiter = line.indexOf(TEXT_BLOCK);
+            String countable;
+            if (delimiter < 0) {
+                countable = inTextBlock ? "" : line;
+            } else if (inTextBlock) {
+                inTextBlock = false;
+                countable = line.substring(delimiter + TEXT_BLOCK.length());
+            } else {
+                inTextBlock = true;
+                countable = line.substring(0, delimiter);
+            }
+            String code = LITERAL.matcher(countable).replaceAll("\"\"");
             boolean insideLoggingCall = openLoggingParens > 0 || LOGGING_CALL.matcher(code).find();
             if (mentionsIdentityKey(line)) {
                 if (insideLoggingCall) {
@@ -197,7 +227,17 @@ final class IdentityKeyExposureFence {
      */
     static boolean isDocumentation(String line) {
         String trimmed = line.strip();
-        return trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*");
+        if (trimmed.startsWith("//") || trimmed.startsWith("*")) {
+            return true;
+        }
+        // A line opening a block comment is documentation only if nothing follows the comment's close. Treating any
+        // /*-starting line as a comment exempted the whole line, so `/* re-keyed */ asset.getIdentityKey());` -- a
+        // legal argument line of a wrapped logging call -- was reported as nothing at all.
+        if (!trimmed.startsWith("/*")) {
+            return false;
+        }
+        int close = trimmed.indexOf("*/");
+        return close < 0 || trimmed.substring(close + 2).isBlank();
     }
 
     /**

@@ -2,6 +2,7 @@ package com.otilm.core.service.writer.cbom;
 
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.repository.cbom.CryptoAssetAliasRepository;
 import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
@@ -30,18 +31,22 @@ import org.springframework.transaction.annotation.Transactional;
 public class CryptoAssetAliasWriter {
 
     /**
-     * The advisory-lock key every alias mutation serializes on. A fixed literal rather than a value hashed at runtime,
-     * so two nodes agree on it without also having to agree on a hash function, and so a reader can see the number that
-     * is actually taken. It must not be reused by any other advisory lock in this database.
+     * The cluster-lock key every alias mutation serializes on. Held through {@link ClusterOperationSynchronizer}, which
+     * owns the platform's advisory-lock keyspace: a bespoke literal here could not be checked against the keys declared
+     * there, and one inside {@code hashtext}'s int32 codomain could silently collide with an unrelated
+     * {@code lock(String)} caller -- serializing, or deadlock-aborting, a feature that shares no code with aliases.
      */
-    private static final long ALIAS_DECISION_LOCK_KEY = 2_071_000_001L;
+    private static final String ALIAS_DECISION_LOCK = "crypto-asset-alias-decisions";
 
     private final CryptoAssetAliasRepository aliasRepository;
     private final CryptoAssetRepository assetRepository;
+    private final ClusterOperationSynchronizer clusterOperationSynchronizer;
 
-    public CryptoAssetAliasWriter(CryptoAssetAliasRepository aliasRepository, CryptoAssetRepository assetRepository) {
+    public CryptoAssetAliasWriter(CryptoAssetAliasRepository aliasRepository, CryptoAssetRepository assetRepository,
+            ClusterOperationSynchronizer clusterOperationSynchronizer) {
         this.aliasRepository = aliasRepository;
         this.assetRepository = assetRepository;
+        this.clusterOperationSynchronizer = clusterOperationSynchronizer;
     }
 
     /**
@@ -59,7 +64,7 @@ public class CryptoAssetAliasWriter {
     @Transactional
     public void record(String absorbedKey, String canonicalKey, String reason, String decidedBy) {
         requireDistinct(absorbedKey, canonicalKey);
-        aliasRepository.lockAliasDecisions(ALIAS_DECISION_LOCK_KEY);
+        clusterOperationSynchronizer.lock(ALIAS_DECISION_LOCK);
         requireUnguarded(canonicalKey, "canonical");
         requireUnguarded(absorbedKey, "absorbed");
         requireNoChain(absorbedKey, canonicalKey);
@@ -81,7 +86,7 @@ public class CryptoAssetAliasWriter {
      */
     @Transactional
     public int remove(String absorbedKey) {
-        aliasRepository.lockAliasDecisions(ALIAS_DECISION_LOCK_KEY);
+        clusterOperationSynchronizer.lock(ALIAS_DECISION_LOCK);
         return aliasRepository.deleteByAbsorbedKey(absorbedKey);
     }
 

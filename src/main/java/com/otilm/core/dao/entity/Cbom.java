@@ -92,6 +92,8 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
         dto.setProtocols(this.protocolsCount);
         dto.setCryptoMaterial(this.cryptoMaterialCount);
         dto.setTotalAssets(this.totalAssetsCount);
+        dto.setAssetSyncState(this.assetSyncState);
+        dto.setAssetSyncedAt(this.assetsSyncedAt);
         return dto;
     }
 

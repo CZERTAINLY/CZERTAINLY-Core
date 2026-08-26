@@ -11,6 +11,7 @@ import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.cbom.CbomAssetSyncState;
 import com.otilm.api.model.core.cbom.CbomDetailDto;
 import com.otilm.api.model.core.cbom.CbomDto;
 import com.otilm.api.model.core.cbom.CbomUploadRequestDto;
@@ -168,6 +169,8 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
         detailDto.setProtocols(cbomDto.getProtocols());
         detailDto.setCryptoMaterial(cbomDto.getCryptoMaterial());
         detailDto.setTotalAssets(cbomDto.getTotalAssets());
+        detailDto.setAssetSyncState(cbomDto.getAssetSyncState());
+        detailDto.setAssetSyncedAt(cbomDto.getAssetSyncedAt());
 
         return detailDto;
     }
@@ -381,7 +384,11 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
                         SearchHelper.prepareSearch(FilterField.CBOM_CERTIFICATES_COUNT),
                         SearchHelper.prepareSearch(FilterField.CBOM_PROTOCOLS_COUNT),
                         SearchHelper.prepareSearch(FilterField.CBOM_CRYPTO_MATERIAL_COUNT),
-                        SearchHelper.prepareSearch(FilterField.CBOM_TOTAL_ASSETS_COUNT));
+                        SearchHelper.prepareSearch(FilterField.CBOM_TOTAL_ASSETS_COUNT),
+                        SearchHelper
+                                .prepareSearch(FilterField.CBOM_ASSET_SYNC_STATE,
+                                        CbomAssetSyncState.class.getEnumConstants()),
+                        SearchHelper.prepareSearch(FilterField.CBOM_ASSETS_SYNCED_AT));
 
         fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());

@@ -35,11 +35,26 @@ public interface CbomRepository extends SecurityFilterRepository<Cbom, UUID> {
      * <p>
      * {@code error} is stored verbatim, so every caller must hand in text it shaped itself: this column is
      * operator-visible, and a driver message would carry the failing row with it.
+     *
+     * <p>
+     * {@code assetsSyncedAt} records when this record last <em>succeeded</em>, so a null {@code syncedAt} leaves the
+     * stored value alone rather than clearing it. Assigning it unconditionally would make a re-ingest that is merely in
+     * progress -- or one that failed -- report the CBOM as never synced, while the assets from the last successful run
+     * are still in the inventory and still returned by every query over them.
+     *
+     * <p>
+     * {@code clearAutomatically}/{@code flushAutomatically}: this is a bulk update, so it bypasses the persistence
+     * context. Without them a caller holding a managed {@link Cbom} keeps reading the pre-update state, and a later
+     * dirty flush rewrites every column from that stale snapshot -- silently reverting the state this statement just
+     * wrote, with no error. The writer's contract invites joining an ambient transaction, which is exactly the
+     * composition that breaks.
      */
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Cbom c
-            SET c.assetSyncState = :state, c.assetSyncError = :error, c.assetsSyncedAt = :syncedAt
+            SET c.assetSyncState = :state,
+                c.assetSyncError = :error,
+                c.assetsSyncedAt = COALESCE(:syncedAt, c.assetsSyncedAt)
             WHERE c.uuid = :uuid
             """)
     int updateAssetSyncState(@Param("uuid") UUID uuid, @Param("state") CbomAssetSyncState state,

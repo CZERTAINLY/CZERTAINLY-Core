@@ -194,4 +194,78 @@ class IdentityKeyExposureFenceSelfTest {
                         List.of("  if (asset.isPresent() && (count > 0)) {", "      apply(identityKey);", "  }")))
                 .isEmpty();
     }
+
+    /**
+     * The alias table holds identity-key values -- {@code canonical_key} is a foreign key onto
+     * {@code crypto_asset.identity_key} -- so the alias vocabulary is inside the fence, not beside it.
+     */
+    @Test
+    void theAliasKeySpellingsAreRecognised() {
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("absorbedKey")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("canonical_key")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("getCanonicalKey")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("CANONICAL_KEY")).isTrue();
+    }
+
+    @Test
+    void aPlantedAliasKeyGetterInAClientFacingPackageIsReported() {
+        MemberRef planted = new MemberRef("com.otilm.core.model.cbom.CryptoAssetAliasDto", "com.otilm.core.model.cbom",
+                "method", "getCanonicalKey");
+
+        assertThat(IdentityKeyExposureFence.declaredMemberViolations(List.of(planted))).hasSize(1);
+    }
+
+    /**
+     * A leading block comment used to exempt the whole line, so a commented argument line of a wrapped logging call
+     * disclosed the key and reported nothing.
+     */
+    @Test
+    void aLeadingBlockCommentDoesNotExemptTheCodeAfterIt() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted, List
+                        .of("  logger.debug(", "          \"keyed as {}\",", "          /* re-keyed */ identityKey);")))
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetWriter.java:3");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted, List.of("  /* the fenced column is set below */")))
+                .describedAs("a whole-line block comment is still documentation")
+                .isEmpty();
+    }
+
+    /**
+     * Prose in a text block can carry an unbalanced parenthesis, which used to close the depth counter early and let
+     * the binding line through.
+     */
+    @Test
+    void anUnbalancedParenthesisInATextBlockDoesNotCloseTheCall() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted,
+                        List
+                                .of("  logger.debug(\"\"\"", "      merge steps: a) re-key b) re-elect",
+                                        "      \"\"\", identityKey);")))
+                .singleElement()
+                .asString()
+                .contains("logs the crypto-asset identity key");
+    }
+
+    /** An appender is not the only sink: stdout, a stack trace and the audit log disclose just as much. */
+    @Test
+    void sinksOtherThanTheLoggerAreReported() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/dao/entity/cbom/CryptoAsset.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted, List.of("  System.out.println(identityKey);")))
+                .describedAs("stdout")
+                .hasSize(1);
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted, List.of("  auditLog.logEvent(\"keyed\", identityKey);")))
+                .describedAs("the platform audit sink")
+                .hasSize(1);
+    }
 }
