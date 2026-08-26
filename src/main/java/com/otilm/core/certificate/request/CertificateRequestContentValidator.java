@@ -126,16 +126,7 @@ public class CertificateRequestContentValidator {
             boolean required = v3.getProperties() != null && v3.getProperties().isRequired();
 
             for (MappedField field : v3.getFieldMapping().getFields()) {
-                String structuredOid = StructuredExtensionCodec.oidFor(field);
-                if (structuredOid != null) {
-                    mappedStructuredOids.add(structuredOid);
-                    validateStructuredTarget(v3, structuredOid, content, required, policy, false, result);
-                    continue;
-                }
-                String legacyOid = legacyStructuredOid(field);
-                if (legacyOid != null) {
-                    mappedStructuredOids.add(legacyOid);
-                    validateStructuredTarget(v3, legacyOid, content, required, policy, true, result);
+                if (validateStructuredField(v3, field, content, required, policy, mappedStructuredOids, result)) {
                     continue;
                 }
                 List<String> matchedValues = collectMatchedValues(field, subject, sans, extensions, mappedRdnKeys,
@@ -161,6 +152,31 @@ public class CertificateRequestContentValidator {
             checkStructuredWhitelist(content, mappedStructuredOids, policy, result);
         }
         return result;
+    }
+
+    /**
+     * Validates a field aimed at a structured extension, whether through a typed target or through a legacy opaque
+     * mapping that a typed target has since taken over.
+     *
+     * @return {@code true} when the field was such a target and has been validated, so the caller skips the generic
+     * RDN/SAN/extension matching
+     */
+    private static boolean validateStructuredField(DataAttributeV3 v3, MappedField field, X509RequestContent content,
+            boolean required, RequestAttributePolicy policy, Set<String> mappedStructuredOids,
+            RequestAttributeValidationResult result) {
+        String structuredOid = StructuredExtensionCodec.oidFor(field);
+        if (structuredOid != null) {
+            mappedStructuredOids.add(structuredOid);
+            validateStructuredTarget(v3, structuredOid, content, required, policy, false, result);
+            return true;
+        }
+        String legacyOid = legacyStructuredOid(field);
+        if (legacyOid != null) {
+            mappedStructuredOids.add(legacyOid);
+            validateStructuredTarget(v3, legacyOid, content, required, policy, true, result);
+            return true;
+        }
+        return false;
     }
 
     private static boolean isX509CertificateMapping(FieldMapping mapping) {

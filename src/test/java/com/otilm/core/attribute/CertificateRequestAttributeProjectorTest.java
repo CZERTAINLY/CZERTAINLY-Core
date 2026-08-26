@@ -378,7 +378,8 @@ class CertificateRequestAttributeProjectorTest {
         var values = List.of(stringValue(uuid, "notABit"));
 
         // when / then
-        assertThatThrownBy(() -> CertificateRequestAttributeProjector.project(List.of(def), values))
+        var defs = List.of(def);
+        assertThatThrownBy(() -> CertificateRequestAttributeProjector.project(defs, values))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("notABit");
     }

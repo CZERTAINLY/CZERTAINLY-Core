@@ -141,8 +141,8 @@ public final class X509RequestContentRenderer {
      */
     private static boolean registryCritical(String extensionOid) {
         Map<String, OidRecord> registry = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION);
-        OidRecord record = registry == null ? null : registry.get(extensionOid);
-        return record != null && Boolean.TRUE.equals(record.defaultCritical());
+        OidRecord entry = registry == null ? null : registry.get(extensionOid);
+        return entry != null && Boolean.TRUE.equals(entry.defaultCritical());
     }
 
     private static <T> List<T> orEmpty(List<T> values) {

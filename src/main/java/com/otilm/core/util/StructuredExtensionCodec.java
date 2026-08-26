@@ -168,7 +168,7 @@ public final class StructuredExtensionCodec {
         List<CertificateKeyUsage> usages = new ArrayList<>();
         List<String> unrepresentable = new ArrayList<>();
         for (int index = 0; index < significantBits; index++) {
-            if ((bytes[index / 8] & 0x80 >>> index % 8) == 0) {
+            if (((bytes[index / 8] & 0xff) & 0x80 >>> index % 8) == 0) {
                 continue;
             }
             try {

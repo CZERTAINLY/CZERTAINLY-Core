@@ -53,14 +53,16 @@ class StructuredExtensionCodecTest {
 
         @Test
         void rejectsAnUnknownKeyUsageCode() {
-            assertThatThrownBy(() -> StructuredExtensionCodec.toKeyUsages(List.of("notABit")))
+            List<String> codes = List.of("notABit");
+            assertThatThrownBy(() -> StructuredExtensionCodec.toKeyUsages(codes))
                     .isInstanceOf(ValidationException.class)
                     .hasMessageContaining("notABit");
         }
 
         @Test
         void rejectsAPurposeThatIsNotAnOid() {
-            assertThatThrownBy(() -> StructuredExtensionCodec.toPurposeOids(List.of("serverAuth")))
+            List<String> purposes = List.of("serverAuth");
+            assertThatThrownBy(() -> StructuredExtensionCodec.toPurposeOids(purposes))
                     .isInstanceOf(ValidationException.class)
                     .hasMessageContaining("serverAuth");
         }
@@ -69,7 +71,8 @@ class StructuredExtensionCodecTest {
         void rejectsAnOidTheAsn1EncoderCannotRepresent() {
             // 1.40 satisfies the dotted-decimal pattern, but a first arc of 0 or 1 caps the second at 39.
             // Accepting it here would defer the failure to the encoder, escaping as an unchecked exception.
-            assertThatThrownBy(() -> StructuredExtensionCodec.toPurposeOids(List.of("1.40")))
+            List<String> purposes = List.of("1.40");
+            assertThatThrownBy(() -> StructuredExtensionCodec.toPurposeOids(purposes))
                     .isInstanceOf(ValidationException.class)
                     .hasMessageContaining("1.40");
         }
