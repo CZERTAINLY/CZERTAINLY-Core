@@ -537,6 +537,15 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
                 .hasMessageContaining("chains");
         assertThatThrownBy(() -> aliasWriter.record(thirdKey, thirdKey, "itself", "operator"))
                 .isInstanceOf(ValidationException.class);
+
+        // The other direction, which only requireNoChain's second branch can refuse: pointing at a key that is itself
+        // absorbed. The case above is caught by the first branch, so without this one that branch could be deleted
+        // and the whole build would stay green while the chain C -> A -> B became recordable.
+        assertThatThrownBy(() -> aliasWriter.record(thirdKey, firstKey, "pointing at an absorbed key", "operator"))
+                .describedAs("the acceptance criterion promises refusal in either direction")
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("itself absorbed");
+
         assertThat(aliasRepository.findAll()).extracting(CryptoAssetAlias::getAbsorbedKey).containsExactly(firstKey);
     }
 

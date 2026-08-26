@@ -80,8 +80,13 @@ CREATE TABLE "crypto_asset_source" (
     -- A source reference has no meaning without its asset.
     CONSTRAINT "crypto_asset_source_to_crypto_asset_key" FOREIGN KEY ("asset_uuid")
         REFERENCES "crypto_asset" ("uuid") ON DELETE CASCADE,
-    -- RESTRICT, not CASCADE: dropping a CBOM row must not silently erase inventory provenance. Deletion goes through
-    -- the service path, which detaches the sources first.
+    -- RESTRICT, not CASCADE: dropping a CBOM row must not silently erase inventory provenance. The delete path must
+    -- therefore detach this CBOM's sources first -- CryptoAssetSourceWriter.detachCbom over
+    -- CryptoAssetSourceRepository.findAssetUuidsByCbomUuid -- and then record a cbom_tombstone so the next sync does
+    -- not simply re-ingest the document. Neither is wired into CbomServiceImpl yet: nothing writes crypto_asset_source
+    -- until asset ingest lands, so today every CBOM has zero sources and deletes unimpeded. The ingest ticket owns
+    -- that wiring, and it is not optional -- without it the first CBOM to acquire a source becomes undeletable
+    -- through the API, refused by this constraint with no endpoint able to detach.
     CONSTRAINT "crypto_asset_source_to_cbom_key" FOREIGN KEY ("cbom_uuid")
         REFERENCES "cbom" ("uuid") ON DELETE RESTRICT
 );

@@ -223,4 +223,30 @@ class CryptoAssetIdentityCalculatorTest {
         assertThat(CryptoAssetIdentityCalculator.normalize("   ")).isNull();
         assertThat(CryptoAssetIdentityCalculator.normalize(" Ed25519 ")).isEqualTo("ed25519");
     }
+
+    /**
+     * The known-answer vector. Every other test here is a relation -- these two agree, those two differ -- and a
+     * relation cannot see a change that moves every key at once. Swap the {@code parameterSet} and {@code curve} frames
+     * in the calculator and the rest of this class still passes, because no other test populates both; every stored row
+     * carrying either field would then silently re-key on its next sync, with no build failure to say so.
+     *
+     * <p>
+     * All ten fields are populated, so the vector covers the whole preimage and its field order. If this constant has
+     * to change, the preimage changed: that is a re-keying event, and
+     * {@link CryptoAssetIdentityCalculator#RULESET_VERSION} must be bumped in the same commit so existing rows stay
+     * findable by {@code findUuidsKeyedBefore}.
+     */
+    @Test
+    void theIdentityKeyMatchesItsKnownAnswerVector() {
+        CryptoAssetIdentityFields allFieldsPopulated = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM,
+                "ECDSA", "1.2.840.10045.4.3.2", "ecdsa", "signature", "P-256", "secp256r1", "cbc", "pkcs1v15",
+                "fips186-4");
+
+        assertThat(CryptoAssetIdentityCalculator.calculate(allFieldsPopulated))
+                .describedAs("changing this constant means the preimage moved; bump RULESET_VERSION in the same commit")
+                .isEqualTo("e6f06439413a41cfae619d72f487063fd5a7a17bd127d4efb531495d79055a36");
+        assertThat(CryptoAssetIdentityCalculator.RULESET_VERSION)
+                .describedAs("the vector above was computed under this rule-set generation")
+                .isEqualTo(1);
+    }
 }

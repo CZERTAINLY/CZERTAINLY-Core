@@ -66,6 +66,13 @@ public class CryptoAssetSourceWriter {
      * deleted: retention is reversible by a later sweep and deletion is not, and the epic's re-sync semantics have not
      * ratified which one applies.
      *
+     * <p>
+     * <b>No production caller yet.</b> The delete path in {@code CbomServiceImpl} must call this for every asset a CBOM
+     * contributes to before deleting the row, because {@code crypto_asset_source_to_cbom_key} is RESTRICT. That wiring
+     * belongs to the ingest ticket, which is also what first makes it reachable: until something writes
+     * {@code crypto_asset_source}, every CBOM has zero sources and deletes unimpeded. It is not optional — without it
+     * the first CBOM to acquire a source cannot be deleted through the API at all.
+     *
      * @return 1 if a source row was removed, 0 if there was none
      */
     @Transactional
