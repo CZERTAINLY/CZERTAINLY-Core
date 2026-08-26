@@ -33,16 +33,18 @@ import org.w3c.dom.NodeList;
  */
 public final class SvgSanitizer {
 
+    /** Names both the {@code <style>} element and the {@code style} attribute, the two places a logo carries CSS. */
+    private static final String STYLE = "style";
+
     /** Drawing constructs and their supporting definitions. Anything not on this list is dropped with its subtree. */
     private static final Set<String> ALLOWED_ELEMENTS = Set
-            .of("svg", "g", "defs", "symbol", "use", "switch", "a", "title", "desc", "metadata", "style", "path",
-                    "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "textPath", "image",
-                    "marker", "mask", "clipPath", "pattern", "linearGradient", "radialGradient", "stop", "filter",
-                    "feBlend", "feColorMatrix", "feComponentTransfer", "feComposite", "feConvolveMatrix",
-                    "feDiffuseLighting", "feDisplacementMap", "feDistantLight", "feDropShadow", "feFlood", "feFuncA",
-                    "feFuncB", "feFuncG", "feFuncR", "feGaussianBlur", "feImage", "feMerge", "feMergeNode",
-                    "feMorphology", "feOffset", "fePointLight", "feSpecularLighting", "feSpotLight", "feTile",
-                    "feTurbulence");
+            .of("svg", "g", "defs", "symbol", "use", "switch", "a", "title", "desc", "metadata", STYLE, "path", "rect",
+                    "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "textPath", "image", "marker",
+                    "mask", "clipPath", "pattern", "linearGradient", "radialGradient", "stop", "filter", "feBlend",
+                    "feColorMatrix", "feComponentTransfer", "feComposite", "feConvolveMatrix", "feDiffuseLighting",
+                    "feDisplacementMap", "feDistantLight", "feDropShadow", "feFlood", "feFuncA", "feFuncB", "feFuncG",
+                    "feFuncR", "feGaussianBlur", "feImage", "feMerge", "feMergeNode", "feMorphology", "feOffset",
+                    "fePointLight", "feSpecularLighting", "feSpotLight", "feTile", "feTurbulence");
 
     /**
      * A reference the document can resolve on its own. Anything else — an absolute URL, a {@code javascript:} scheme, a
@@ -108,7 +110,7 @@ public final class SvgSanitizer {
     private static void sanitizeElement(Element element) {
         sanitizeAttributes(element);
 
-        if ("style".equals(localName(element))) {
+        if (STYLE.equals(localName(element))) {
             element.setTextContent(sanitizeCss(element.getTextContent()));
             return;
         }
@@ -144,7 +146,7 @@ public final class SvgSanitizer {
 
         for (Attr attribute : declared) {
             String name = localName(attribute).toLowerCase(Locale.ROOT);
-            if ("style".equals(name)) {
+            if (STYLE.equals(name)) {
                 attribute.setValue(sanitizeCss(attribute.getValue()));
             } else if (isRejected(attribute, name)) {
                 element.removeAttributeNode(attribute);
