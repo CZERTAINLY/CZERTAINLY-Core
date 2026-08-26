@@ -41,10 +41,15 @@ public interface CryptoAssetAliasRepository extends JpaRepository<CryptoAssetAli
      * measuring. The lock is transaction-scoped, so a caller must already be in a transaction — which is why only
      * {@code CryptoAssetAliasWriter}'s {@code @Transactional} methods take it.
      *
+     * <p>
+     * A bare function call with no {@code FROM}: the lock touches no table, so there is nothing for {@code {h-schema}}
+     * to qualify, and {@code NativeQuerySchemaArchTest} exempts exactly this shape. Wrapping it in a derived table to
+     * give it a non-{@code void} result would introduce a {@code FROM} that reads as an unqualified table reference.
+     *
      * @param key the advisory-lock key; every alias mutation must pass the same one
      */
-    @Query(value = "SELECT 1 FROM (SELECT pg_advisory_xact_lock(:key)) AS alias_decision_lock", nativeQuery = true)
-    Integer lockAliasDecisions(@Param("key") long key);
+    @Query(value = "SELECT pg_advisory_xact_lock(:key)", nativeQuery = true)
+    void lockAliasDecisions(@Param("key") long key);
 
     Optional<CryptoAssetAlias> findByAbsorbedKey(String absorbedKey);
 
