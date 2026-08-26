@@ -11,10 +11,10 @@ import com.otilm.core.messaging.model.DiscoveryWorkMessage;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.DiscoveryRunMetaFixture;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -185,7 +185,7 @@ class DiscoveryWorkSweepITest extends BaseSpringBootTest {
     void reap_cancelsAStoppedRunPastItsResumeWindow() {
         Discovery run = v2Run(DiscoveryStatus.STOPPED);
         run.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(8));
-        run.setRunMeta(Map.of("cursor", "abc"));
+        run.setRunMeta(DiscoveryRunMetaFixture.runMeta("cursor", "abc"));
         discoveryRepository.saveAndFlush(run);
         workWriter.schedule(run.getUuid(), DiscoveryWorkType.STATUS, OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(1));
 

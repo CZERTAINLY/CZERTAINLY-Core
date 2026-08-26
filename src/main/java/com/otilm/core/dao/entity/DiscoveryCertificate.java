@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Date;
@@ -29,7 +30,10 @@ import org.hibernate.type.SqlTypes;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "discovery_certificate")
+// Mapped here too, not just migrated: tests build their schema from entities, so a constraint that lives only
+// in the migration is one they never exercise.
+@Table(name = "discovery_certificate", uniqueConstraints = @UniqueConstraint(name = "uq_discovery_certificate_ref",
+        columnNames = {"discovery_uuid", "unique_ref"}))
 public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited
         implements
             Serializable,
@@ -68,6 +72,10 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited
 
     @Column(name = "discovery_uuid", nullable = false)
     private UUID discoveryUuid;
+
+    // The connector's per-occurrence dedupe key. Null on v1 rows.
+    @Column(name = "unique_ref")
+    private String uniqueRef;
 
     @Column(name = "newly_discovered", nullable = false)
     private boolean newlyDiscovered;
