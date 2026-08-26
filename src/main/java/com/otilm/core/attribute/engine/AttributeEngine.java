@@ -29,6 +29,7 @@ import com.otilm.api.model.common.attribute.common.constraint.BaseAttributeConst
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.AttributeContentData;
 import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
+import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.otilm.api.model.common.attribute.v2.DataAttributeV2;
 import com.otilm.api.model.common.attribute.v2.MetadataAttributeV2;
@@ -45,6 +46,7 @@ import com.otilm.api.model.common.attribute.v3.mapping.SanMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
 import com.otilm.api.model.core.auth.AttributeResource;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
@@ -76,6 +78,7 @@ import com.otilm.core.util.ExtensionSchemas;
 import com.otilm.core.util.SearchHelper;
 import com.otilm.core.util.SecretEncodingVersion;
 import com.otilm.core.util.SecretsUtil;
+import com.otilm.core.util.StructuredExtensionCodec;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.DateTimeException;
@@ -1914,10 +1917,15 @@ public class AttributeEngine {
             String connectorUuidStr) throws AttributeException {
         Set<String> seenExtensionOids = new HashSet<>();
         for (MappedField field : fieldMapping.getFields()) {
-            if (field instanceof ExtensionMappedField ext && !seenExtensionOids.add(ext.getExtensionOid())) {
+            // A structured target claims its implied OID here too, or a definition declaring the same
+            // structured target twice would save cleanly and then fail every projection.
+            String extensionOid = field instanceof ExtensionMappedField ext
+                    ? ext.getExtensionOid()
+                    : StructuredExtensionCodec.oidFor(field);
+            if (extensionOid != null && !seenExtensionOids.add(extensionOid)) {
                 throw new AttributeException(
                         "fieldMapping declares certificate extension OID '%s' more than once; an extension may appear only once (RFC 5280)"
-                                .formatted(ext.getExtensionOid()),
+                                .formatted(extensionOid),
                         attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
             }
         }
@@ -1928,6 +1936,11 @@ public class AttributeEngine {
         if (field.getFieldType() == null) {
             throw new AttributeException("fieldMapping field is missing fieldType", attribute.getUuid(),
                     attribute.getName(), attribute.getType(), connectorUuidStr);
+        }
+        String structuredOid = StructuredExtensionCodec.oidFor(field);
+        if (structuredOid != null) {
+            validateStructuredMappedField(attribute, connectorUuidStr, structuredOid);
+            return;
         }
         switch (field) {
             case RdnMappedField rdn -> validateRdnMappedField(attribute, connectorUuidStr, codeToOidMap, rdn);
@@ -1967,6 +1980,16 @@ public class AttributeEngine {
                     attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
 
+        // Once a structured target exists for an extension, the base64-DER route to it is closed for
+        // authoring - the same treatment subjectAltName gets above.
+        String structuredTarget = StructuredExtensionCodec.structuredTargetName(extOid);
+        if (structuredTarget != null) {
+            throw new AttributeException(
+                    "fieldMapping EXTENSION OID '%s' has a structured mapping target; use the %s mapping target instead"
+                            .formatted(extOid, structuredTarget),
+                    attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+        }
+
         SystemOid systemOid = SystemOid.fromOID(extOid);
         boolean systemExtension = systemOid != null && systemOid.getCategory() == OidCategory.CERTIFICATE_EXTENSION;
 
@@ -1977,6 +2000,74 @@ public class AttributeEngine {
                     "fieldMapping EXTENSION OID '%s' is not registered in the OID registry".formatted(extOid),
                     attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
+    }
+
+    /**
+     * Validates a structured mapping target: the attribute must be a list, must declare the items it permits (or opt
+     * out with an extensible list), and every declared item must be one the target accepts.
+     *
+     * <p>
+     * A structured target is therefore always a <em>permitted</em> set and never a pinned one: {@code readOnly} would
+     * express "exactly these", but a read-only attribute cannot be a list, and a set-valued target must be.
+     */
+    private static void validateStructuredMappedField(DataAttributeV3 attribute, String connectorUuidStr,
+            String extensionOid) throws AttributeException {
+        String target = StructuredExtensionCodec.structuredTargetName(extensionOid);
+        DataAttributeProperties properties = attribute.getProperties();
+        if (properties == null || !properties.isList()) {
+            throw new AttributeException(
+                    "fieldMapping %s target requires a list attribute; its value is a set of items".formatted(target),
+                    attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+        }
+        List<String> items = StructuredExtensionCodec.permittedItems(attribute);
+        if (items.isEmpty() && !properties.isExtensibleList()) {
+            throw new AttributeException(
+                    "fieldMapping %s target declares no permitted items; declare the allowed content or set extensibleList"
+                            .formatted(target),
+                    attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+        }
+        for (String item : items) {
+            String rejection = rejectStructuredItem(extensionOid, item);
+            if (rejection != null) {
+                throw new AttributeException("fieldMapping %s target %s".formatted(target, rejection),
+                        attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+            }
+        }
+    }
+
+    /**
+     * Why {@code item} is not something the target accepts, or {@code null} when it is. The three cases are worth
+     * distinguishing: an operator who types an extended-key-usage code where an OID belongs, and one who names a
+     * purpose nobody registered, need different things done about it.
+     */
+    private static String rejectStructuredItem(String extensionOid, String item) {
+        if (StructuredExtensionCodec.KEY_USAGE_OID.equals(extensionOid)) {
+            try {
+                CertificateKeyUsage.fromCode(item);
+                return null;
+            } catch (IllegalArgumentException e) {
+                return "declares '%s', which is not a key usage".formatted(item);
+            }
+        }
+        if (!OidHandler.isOid(item)) {
+            return "declares '%s', which is not a dotted-decimal OID; extended key usage purposes are identified by OID"
+                    .formatted(item);
+        }
+        if (!isRegisteredExtendedKeyUsagePurpose(item)) {
+            return "declares '%s', which is not registered as an extended key usage purpose; register it under the %s OID category first"
+                    .formatted(item, OidCategory.EXTENDED_KEY_USAGE.getLabel());
+        }
+        return null;
+    }
+
+    /** A purpose is valid when it is a system EXTENDED_KEY_USAGE OID or a row registered under that category. */
+    private static boolean isRegisteredExtendedKeyUsagePurpose(String purposeOid) {
+        SystemOid systemOid = SystemOid.fromOID(purposeOid);
+        if (systemOid != null && systemOid.getCategory() == OidCategory.EXTENDED_KEY_USAGE) {
+            return true;
+        }
+        Map<String, OidRecord> registry = OidHandler.getOidCache(OidCategory.EXTENDED_KEY_USAGE);
+        return registry != null && registry.get(purposeOid) != null;
     }
 
     private static void validateRdnMappedField(DataAttributeV3 attribute, String connectorUuidStr,

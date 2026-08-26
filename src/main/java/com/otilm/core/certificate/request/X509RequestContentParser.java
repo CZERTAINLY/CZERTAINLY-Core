@@ -4,6 +4,7 @@ import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
@@ -14,6 +15,7 @@ import com.otilm.core.model.request.Pkcs10CertificateRequest;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.util.PlatformX500NameStyle;
+import com.otilm.core.util.StructuredExtensionCodec;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -56,8 +58,9 @@ public final class X509RequestContentParser {
         x509.setSubject(parseSubject(request));
         List<String> unsupportedSans = new ArrayList<>();
         x509.setSubjectAltNames(parseSans(request, unsupportedSans));
-        x509.setExtensions(parseExtensions(request));
-        return new ParsedRequestContent(x509, unsupportedSans);
+        List<String> unrepresentable = new ArrayList<>();
+        x509.setExtensions(parseExtensions(request, x509, unrepresentable));
+        return new ParsedRequestContent(x509, unsupportedSans, unrepresentable);
     }
 
     /**
@@ -223,19 +226,54 @@ public final class X509RequestContentParser {
         };
     }
 
-    private static List<RequestedExtension> parseExtensions(CertificateRequest request) {
+    private static List<RequestedExtension> parseExtensions(CertificateRequest request, X509RequestContent x509,
+            List<String> unrepresentable) {
         Extensions extensions = extractExtensions(request);
         List<RequestedExtension> result = new ArrayList<>();
         if (extensions == null) {
             return result;
         }
         for (ASN1ObjectIdentifier oid : extensions.getExtensionOIDs()) {
+            if (divertStructuredExtension(oid, extensions, x509, unrepresentable)) {
+                continue;
+            }
             RequestedExtension re = toRequestedExtension(oid, extensions);
             if (re != null) {
                 result.add(re);
             }
         }
         return result;
+    }
+
+    /**
+     * Decodes one of the structured extensions into its typed field and reports it as handled, mirroring the
+     * subjectAltName divert. Items the platform cannot name, and a value that will not decode at all, are recorded in
+     * {@code unrepresentable} so the whitelist pass can fail closed on them.
+     */
+    private static boolean divertStructuredExtension(ASN1ObjectIdentifier oid, Extensions extensions,
+            X509RequestContent x509, List<String> unrepresentable) {
+        String extensionOid = oid.getId();
+        String target = StructuredExtensionCodec.structuredTargetName(extensionOid);
+        if (target == null) {
+            return false;
+        }
+        String value = Base64.getEncoder().encodeToString(extensions.getExtension(oid).getExtnValue().getOctets());
+        try {
+            if (StructuredExtensionCodec.KEY_USAGE_OID.equals(extensionOid)) {
+                StructuredExtensionCodec.Decoded<CertificateKeyUsage> decoded = StructuredExtensionCodec
+                        .decodeKeyUsage(value);
+                x509.setKeyUsage(decoded.values());
+                for (String item : decoded.unrepresentable()) {
+                    unrepresentable.add("%s %s".formatted(target, item));
+                }
+            } else {
+                x509.setExtendedKeyUsage(StructuredExtensionCodec.decodeExtendedKeyUsage(value));
+            }
+        } catch (RuntimeException e) {
+            log.warn("Failed to decode the {} extension in CSR; counted for whitelist enforcement", target, e);
+            unrepresentable.add("%s (undecodable value)".formatted(target));
+        }
+        return true;
     }
 
     /** Encodes one requested extension, skipping the SAN OID (kept in subjectAltNames) and empty values. */

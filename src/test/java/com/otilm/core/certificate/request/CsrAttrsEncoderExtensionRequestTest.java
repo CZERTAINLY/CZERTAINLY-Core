@@ -40,22 +40,52 @@ class CsrAttrsEncoderExtensionRequestTest {
 
     @Test
     void listsExtensionOidUnderExtensionRequest_whenExtensionMapped() throws Exception {
-        // given — an EXTENSION-mapped attribute (extended key usage, 2.5.29.37)
-        var ekuOid = "2.5.29.37";
-        var definitions = List.of(aMappedDataAttribute().withName("eku").mappingExtension(ekuOid).build());
+        // given — an EXTENSION-mapped attribute (basic constraints, 2.5.29.19). Not key usage or extended
+        // key usage: those have structured mapping targets, so the opaque route to them is rejected.
+        var extensionOid = "2.5.29.19";
+        var definitions = List
+                .of(aMappedDataAttribute().withName("basicConstraints").mappingExtension(extensionOid).build());
 
         // when
         List<ASN1ObjectIdentifier> requested = extensionRequestOids(CsrAttrsEncoder.encode(definitions, Map.of()));
 
         // then
-        assertThat(requested).isNotNull().contains(new ASN1ObjectIdentifier(ekuOid));
+        assertThat(requested).isNotNull().contains(new ASN1ObjectIdentifier(extensionOid));
+    }
+
+    @Test
+    void listsStructuredTargetOids_soAnEstClientKnowsToIncludeThem() throws Exception {
+        // given — key usage and extended key usage mapped structurally, which imply their OIDs rather than
+        // naming one. An EST client that is not told about them submits a CSR that then fails validation.
+        var definitions = List
+                .of(aMappedDataAttribute()
+                        .withName("ku")
+                        .list()
+                        .mappingKeyUsage()
+                        .withContent("digitalSignature")
+                        .build(),
+                        aMappedDataAttribute()
+                                .withName("eku")
+                                .list()
+                                .mappingExtendedKeyUsage()
+                                .withContent("1.3.6.1.5.5.7.3.1")
+                                .build());
+
+        // when
+        List<ASN1ObjectIdentifier> requested = extensionRequestOids(CsrAttrsEncoder.encode(definitions, Map.of()));
+
+        // then
+        assertThat(requested)
+                .isNotNull()
+                .contains(new ASN1ObjectIdentifier("2.5.29.15"), new ASN1ObjectIdentifier("2.5.29.37"));
     }
 
     @Test
     void emitsBareOidsWithoutExtnValueWrapping_whenExtensionMapped() throws Exception {
         // given — an EXTENSION-mapped attribute
-        var ekuOid = "2.5.29.37";
-        var definitions = List.of(aMappedDataAttribute().withName("eku").mappingExtension(ekuOid).build());
+        var extensionOid = "2.5.29.19";
+        var definitions = List
+                .of(aMappedDataAttribute().withName("basicConstraints").mappingExtension(extensionOid).build());
 
         // when
         ASN1Set values = extensionRequestValues(CsrAttrsEncoder.encode(definitions, Map.of()));
