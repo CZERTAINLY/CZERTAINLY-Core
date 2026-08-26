@@ -1,7 +1,7 @@
 package com.otilm.core.dao.repository;
 
+import com.otilm.api.model.core.cbom.CbomAssetSyncState;
 import com.otilm.core.dao.entity.Cbom;
-import com.otilm.core.model.cbom.CbomAssetSyncState;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;

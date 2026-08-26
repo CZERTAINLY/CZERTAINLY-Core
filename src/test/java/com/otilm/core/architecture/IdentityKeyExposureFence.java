@@ -45,8 +45,8 @@ final class IdentityKeyExposureFence {
 
     /**
      * Packages whose declarations reach a client: the DTO/model layer, the API layer, and the imported contract
-     * artifact. {@code com.otilm.api.model} is scanned too, so interfaces#874 cannot land the leak in a published DTO
-     * without failing this build.
+     * artifact. {@code com.otilm.api.model} is scanned too, so a future contract revision cannot land the leak in a
+     * published DTO without failing this build.
      */
     private static final List<String> FENCED_PACKAGE_PREFIXES = List
             .of("com.otilm.core.model", "com.otilm.core.api", "com.otilm.api.model");
@@ -56,8 +56,8 @@ final class IdentityKeyExposureFence {
      * writer, the calculator that produces the value and the translator that recognises its unique constraint by name.
      * Everything else naming it is a leak.
      */
-    private static final Set<String> SOURCE_ALLOWLIST = Set
-            .of("src/main/java/com/otilm/core/cbom/identity/CryptoAssetIdentityCalculator.java",
+    static final Set<String> SOURCE_ALLOWLIST = Set
+            .of("src/main/java/com/otilm/core/cbom/asset/CryptoAssetIdentityCalculator.java",
                     "src/main/java/com/otilm/core/dao/entity/cbom/CryptoAsset.java",
                     "src/main/java/com/otilm/core/dao/entity/cbom/CryptoAssetAlias.java",
                     "src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetRepository.java",

@@ -1,6 +1,6 @@
 package com.otilm.core.cbom.asset;
 
-import com.otilm.core.model.cbom.CryptographicAssetType;
+import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;

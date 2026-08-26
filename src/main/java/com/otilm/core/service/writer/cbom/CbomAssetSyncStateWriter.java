@@ -1,7 +1,7 @@
 package com.otilm.core.service.writer.cbom;
 
+import com.otilm.api.model.core.cbom.CbomAssetSyncState;
 import com.otilm.core.dao.repository.CbomRepository;
-import com.otilm.core.model.cbom.CbomAssetSyncState;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Service;

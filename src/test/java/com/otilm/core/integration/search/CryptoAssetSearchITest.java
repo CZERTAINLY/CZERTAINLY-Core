@@ -2,6 +2,9 @@ package com.otilm.core.integration.search;
 
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.cbom.CbomAssetSyncState;
+import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
+import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.dao.entity.Cbom;
@@ -9,9 +12,6 @@ import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.repository.CbomRepository;
 import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
 import com.otilm.core.enums.FilterField;
-import com.otilm.core.model.cbom.CbomAssetSyncState;
-import com.otilm.core.model.cbom.CryptographicAssetType;
-import com.otilm.core.model.cbom.PqcVerdict;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.writer.cbom.CbomAssetSyncStateWriter;
 import com.otilm.core.service.writer.cbom.CryptoAssetWriter;
@@ -91,9 +91,14 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
         assertFieldBehaviour(FilterField.CBOM_ASSET_VARIANT, "fips186-4");
     }
 
+    /**
+     * The wire carries the contract code ({@code notReady}), not the persisted constant name ({@code NOT_READY}).
+     * Declaring {@code enumClass} is what makes the builder resolve one to the other, so this pins that the two forms
+     * are wired together rather than accidentally identical.
+     */
     @Test
-    void theEnumBackedVerdictColumnComparesAgainstTextFromTheWire() {
-        assertFieldBehaviour(FilterField.CBOM_ASSET_PQC_VERDICT, PqcVerdict.NOT_READY.name());
+    void theEnumBackedVerdictColumnMatchesTheContractCode() {
+        assertFieldBehaviour(FilterField.CBOM_ASSET_PQC_VERDICT, PqcVerdict.NOT_READY.getCode());
     }
 
     @Test
@@ -103,10 +108,11 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
 
     @Test
     void theNotNullAssetTypeMatchesByValueAndIsNeverEmpty() {
-        assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_TYPE, CryptographicAssetType.ALGORITHM.name())))
-                .containsExactly(populated);
         assertThat(
-                search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_TYPE, CryptographicAssetType.CERTIFICATE.name())))
+                search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_TYPE, CryptographicAssetType.ALGORITHM.getCode())))
+                .containsExactly(populated);
+        assertThat(search(
+                aPropertyEqualsFilter(FilterField.CBOM_ASSET_TYPE, CryptographicAssetType.CERTIFICATE.getCode())))
                 .containsExactly(bare);
         assertThat(search(aPropertyEmptyFilter(FilterField.CBOM_ASSET_TYPE))).isEmpty();
         assertThat(search(aPropertyNotEmptyFilter(FilterField.CBOM_ASSET_TYPE)))
@@ -127,11 +133,11 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
     @Test
     void aFilterCombinesWithAnother() {
         assertThat(searchAll(List
-                .of(aPropertyEqualsFilter(FilterField.CBOM_ASSET_TYPE, CryptographicAssetType.ALGORITHM.name()),
+                .of(aPropertyEqualsFilter(FilterField.CBOM_ASSET_TYPE, CryptographicAssetType.ALGORITHM.getCode()),
                         aPropertyEqualsFilter(FilterField.CBOM_ASSET_CURVE, "secp256r1"))))
                 .containsExactly(populated);
         assertThat(searchAll(List
-                .of(aPropertyEqualsFilter(FilterField.CBOM_ASSET_TYPE, CryptographicAssetType.CERTIFICATE.name()),
+                .of(aPropertyEqualsFilter(FilterField.CBOM_ASSET_TYPE, CryptographicAssetType.CERTIFICATE.getCode()),
                         aPropertyEqualsFilter(FilterField.CBOM_ASSET_CURVE, "secp256r1"))))
                 .isEmpty();
     }
@@ -139,7 +145,7 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
     // ---- the CBOM-rooted asset-sync fields ----
 
     @Test
-    void theCbomAssetSyncFieldsAreRoutableToday() {
+    void theCbomAssetSyncFieldsAreRoutableFromTheCbomResource() {
         Cbom pending = newCbom("urn:uuid:pending");
         Cbom synced = newCbom("urn:uuid:synced");
         OffsetDateTime syncedAt = OffsetDateTime.now();
@@ -148,11 +154,11 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
         assertThat(FilterField.getEnumsForResource(Resource.CBOM))
                 .contains(FilterField.CBOM_ASSET_SYNC_STATE, FilterField.CBOM_ASSETS_SYNCED_AT);
 
-        assertThat(
-                searchCbom(aPropertyEqualsFilter(FilterField.CBOM_ASSET_SYNC_STATE, CbomAssetSyncState.PENDING.name())))
+        assertThat(searchCbom(
+                aPropertyEqualsFilter(FilterField.CBOM_ASSET_SYNC_STATE, CbomAssetSyncState.PENDING.getCode())))
                 .containsExactly(pending.getUuid());
-        assertThat(
-                searchCbom(aPropertyEqualsFilter(FilterField.CBOM_ASSET_SYNC_STATE, CbomAssetSyncState.SYNCED.name())))
+        assertThat(searchCbom(
+                aPropertyEqualsFilter(FilterField.CBOM_ASSET_SYNC_STATE, CbomAssetSyncState.SYNCED.getCode())))
                 .containsExactly(synced.getUuid());
         assertThat(searchCbom(aPropertyEmptyFilter(FilterField.CBOM_ASSETS_SYNCED_AT)))
                 .containsExactly(pending.getUuid());
@@ -163,10 +169,10 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
                 .containsExactly(synced.getUuid());
     }
 
-    // ---- the interfaces#874 placeholder ----
+    // ---- the ratified search surface ----
 
     @Test
-    void theCryptoAssetFieldsAreDeclaredButNotYetRoutable() {
+    void theCryptoAssetFieldsAreRoutableUnderTheirOwnResource() {
         List<FilterField> cryptoAssetFields = Arrays
                 .stream(FilterField.values())
                 .filter(field -> field.getFieldAttribute() != null)
@@ -182,15 +188,28 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
                         FilterField.CBOM_ASSET_PQC_VERDICT, FilterField.CBOM_ASSET_PQC_RULESET_VERSION,
                         FilterField.CBOM_ASSET_RULESET_VERSION, FilterField.CBOM_ASSET_SOURCE_COUNT);
         assertThat(cryptoAssetFields)
-                .describedAs("the ratified root resource is CBOM_ASSET, which interfaces#874 adds; until then a null "
-                        + "root keeps these entries out of every resource's search surface")
-                .allSatisfy(field -> assertThat(field.getRootResource()).isNull());
+                .describedAs("every crypto-asset field roots at the ratified CRYPTO_ASSET resource, so the inventory "
+                        + "gets its own search surface rather than borrowing the CBOM one")
+                .allSatisfy(field -> assertThat(field.getRootResource()).isEqualTo(Resource.CRYPTO_ASSET));
+        assertThat(FilterField.getEnumsForResource(Resource.CRYPTO_ASSET))
+                .describedAs("CRYPTO_ASSET serves the crypto-asset fields and nothing else")
+                .containsExactlyElementsOf(cryptoAssetFields);
 
         for (Resource resource : Resource.values()) {
+            if (resource == Resource.CRYPTO_ASSET) {
+                continue;
+            }
             assertThat(FilterField.getEnumsForResource(resource))
                     .describedAs("resource %s", resource)
                     .doesNotContainAnyElementsOf(cryptoAssetFields);
         }
+    }
+
+    @Test
+    void theEnumBackedCryptoAssetFieldsCarryTheirContractEnum() {
+        assertThat(FilterField.CBOM_ASSET_TYPE.getEnumClass()).isEqualTo(CryptographicAssetType.class);
+        assertThat(FilterField.CBOM_ASSET_PQC_VERDICT.getEnumClass()).isEqualTo(PqcVerdict.class);
+        assertThat(FilterField.CBOM_ASSET_SYNC_STATE.getEnumClass()).isEqualTo(CbomAssetSyncState.class);
     }
 
     // ---- helpers ----

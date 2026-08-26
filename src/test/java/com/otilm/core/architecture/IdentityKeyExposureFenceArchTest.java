@@ -72,6 +72,18 @@ class IdentityKeyExposureFenceArchTest {
                 .isEmpty();
     }
 
+    /**
+     * An allowlist entry that names no existing file is a hole that looks like a fence: it silently stops exempting
+     * anything, and — worse — hides that the source it meant to cover was moved or renamed out from under it. The
+     * allowlist is a path list, so nothing but this check can tell the two apart.
+     */
+    @Test
+    void everyAllowlistedSourceExists() {
+        assertThat(IdentityKeyExposureFence.SOURCE_ALLOWLIST)
+                .describedAs("each allowlisted persistence source must still be where the allowlist says it is")
+                .allSatisfy(path -> assertThat(Path.of(path)).exists());
+    }
+
     @Test
     void noProductionSourceNamesOrLogsTheIdentityKeyOutsidePersistence() throws IOException {
         assertThat(IdentityKeyExposureFence.sourceTreeViolations(PRODUCTION_SOURCE_ROOT))

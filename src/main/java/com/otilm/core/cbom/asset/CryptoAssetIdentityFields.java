@@ -1,6 +1,6 @@
 package com.otilm.core.cbom.asset;
 
-import com.otilm.core.model.cbom.CryptographicAssetType;
+import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 
 /**
  * The complete input to a cryptographic asset's identity key: the asset type and the nine producer-supplied identity

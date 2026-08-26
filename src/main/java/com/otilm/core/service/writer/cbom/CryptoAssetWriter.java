@@ -1,11 +1,11 @@
 package com.otilm.core.service.writer.cbom;
 
+import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityCalculator;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.cbom.asset.JsonColumnText;
 import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
-import com.otilm.core.model.cbom.PqcVerdict;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;

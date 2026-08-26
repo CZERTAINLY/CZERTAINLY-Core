@@ -1,7 +1,7 @@
 package com.otilm.core.dao.entity;
 
+import com.otilm.api.model.core.cbom.CbomAssetSyncState;
 import com.otilm.api.model.core.cbom.CbomDto;
-import com.otilm.core.model.cbom.CbomAssetSyncState;
 import com.otilm.core.util.DtoMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

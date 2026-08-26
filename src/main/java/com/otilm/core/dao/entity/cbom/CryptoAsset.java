@@ -1,9 +1,9 @@
 package com.otilm.core.dao.entity.cbom;
 
+import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
+import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
-import com.otilm.core.model.cbom.CryptographicAssetType;
-import com.otilm.core.model.cbom.PqcVerdict;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
