@@ -142,6 +142,14 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
      * Stores a PQC verdict together with the rule that produced it and the fields that rule read. The identity columns
      * and {@code ruleset_version} are untouched: a verdict is not an identity.
      */
+    /**
+     * <b>Decided versus evaluated:</b> the contract asks two different questions of a verdict, so the row answers both.
+     * {@code pqc_evaluated_at} advances on every call, including one that re-confirms the verdict it already held;
+     * {@code pqc_decided_at} moves only when the value actually changes, so it dates the finding rather than the last
+     * time anybody looked. {@code IS DISTINCT FROM} rather than {@code <>} because either side may be null and a null
+     * comparison would silently take the confirm branch. Neither is derivable from {@code i_upd}, which moves on every
+     * identity refresh.
+     */
     @Modifying
     @Query(value = """
             UPDATE {h-schema}crypto_asset
@@ -150,6 +158,11 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
                 pqc_reason = :reason,
                 pqc_ruleset_version = :rulesetVersion,
                 pqc_evaluated_fields = CAST(:evaluatedFields AS jsonb),
+                pqc_evaluated_at = CURRENT_TIMESTAMP,
+                pqc_decided_at = CASE
+                    WHEN crypto_asset.pqc_verdict IS DISTINCT FROM CAST(:verdict AS TEXT) THEN CURRENT_TIMESTAMP
+                    ELSE COALESCE(crypto_asset.pqc_decided_at, CURRENT_TIMESTAMP)
+                END,
                 i_upd = CURRENT_TIMESTAMP
             WHERE uuid = :uuid
             """, nativeQuery = true)

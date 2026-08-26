@@ -152,6 +152,34 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         assertThat(after.getIdentityKey()).isEqualTo(before.getIdentityKey());
     }
 
+    /**
+     * The contract distinguishes when a verdict was decided from when it was last looked at, so a re-evaluation that
+     * confirms the same verdict must advance one and not the other.
+     */
+    @Test
+    void aReEvaluationAdvancesEvaluatedAtButNotDecidedAt() {
+        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+
+        assetWriter.applyPqcVerdict(assetUuid, PqcVerdict.NOT_READY, "RSA-CLASSICAL", "not quantum resistant", 7, null);
+        CryptoAsset firstVerdict = asset(assetUuid);
+        assertThat(firstVerdict.getPqcDecidedAt()).isNotNull();
+        assertThat(firstVerdict.getPqcEvaluatedAt()).isNotNull();
+
+        assetWriter.applyPqcVerdict(assetUuid, PqcVerdict.NOT_READY, "RSA-CLASSICAL", "not quantum resistant", 8, null);
+        CryptoAsset confirmed = asset(assetUuid);
+        assertThat(confirmed.getPqcDecidedAt())
+                .describedAs("the verdict did not change, so the date it was decided must not move")
+                .isEqualTo(firstVerdict.getPqcDecidedAt());
+        assertThat(confirmed.getPqcEvaluatedAt())
+                .describedAs("but it was looked at again")
+                .isAfterOrEqualTo(firstVerdict.getPqcEvaluatedAt());
+
+        assetWriter.applyPqcVerdict(assetUuid, PqcVerdict.READY, "RSA-REKEYED", "re-keyed to ML-DSA", 8, null);
+        assertThat(asset(assetUuid).getPqcDecidedAt())
+                .describedAs("a changed verdict is a new decision")
+                .isAfter(firstVerdict.getPqcDecidedAt());
+    }
+
     // ---- the merge and its provenance pointer ----
 
     @Test

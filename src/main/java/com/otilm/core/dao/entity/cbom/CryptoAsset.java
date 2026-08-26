@@ -14,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
@@ -136,6 +137,16 @@ public class CryptoAsset extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "pqc_ruleset_version")
     private Integer pqcRulesetVersion;
+
+    /**
+     * When the current verdict <em>value</em> was decided. Unmoved by a re-evaluation that reaches the same verdict.
+     */
+    @Column(name = "pqc_decided_at")
+    private OffsetDateTime pqcDecidedAt;
+
+    /** When the verdict was last evaluated, whether or not the value changed. */
+    @Column(name = "pqc_evaluated_at")
+    private OffsetDateTime pqcEvaluatedAt;
 
     // Which fields the rule actually read, so a verdict can be re-justified without re-running the rule set.
     @SuppressWarnings("java:S1948")

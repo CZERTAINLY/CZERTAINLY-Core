@@ -45,6 +45,11 @@ CREATE TABLE "crypto_asset" (
     "pqc_reason"                TEXT,
     "pqc_ruleset_version"       INT,
     "pqc_evaluated_fields"      JSONB,
+    -- Two timestamps, because the contract asks two different questions. pqc_decided_at is when the verdict *value*
+    -- was decided and only moves when it changes; pqc_evaluated_at advances on every evaluation, including one that
+    -- re-confirms the same verdict. Neither is derivable from i_upd, which moves on every identity refresh.
+    "pqc_decided_at"            TIMESTAMPTZ,
+    "pqc_evaluated_at"          TIMESTAMPTZ,
 
     "i_author"                  TEXT,
     "i_cre"                     TIMESTAMPTZ NOT NULL,
