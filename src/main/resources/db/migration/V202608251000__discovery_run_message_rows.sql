@@ -1,5 +1,9 @@
 -- Run messages move off the run row: from a JSONB array of strings rewritten whole under the run's write lock
 -- to one row per distinct problem, appended by upsert and aggregated by occurrence count.
+--
+-- The old column is dropped without backfill: it was added in this same unreleased cycle (V202608141100), so
+-- only mainline and staging runs carry values, and those are bare strings with no code or severity to map onto
+-- the new shape.
 
 CREATE TABLE "discovery_message" (
     -- Ordering only, never exposed; a timestamp cannot order these (see DiscoveryMessage.id).

@@ -41,6 +41,9 @@ public enum DiscoveryMessageCode {
     /** A processing batch that did not complete and went back for another attempt. */
     BATCH_PROCESSING_FAILED("batchProcessingFailed"),
 
+    /** A processing batch that failed once its rows were already imported, so nothing is left to retry. */
+    BATCH_PROCESSING_ABANDONED("batchProcessingAbandoned"),
+
     /** Stands in for a connector's own code when it reported an error without naming one. */
     CONNECTOR_ERROR("connectorError"),
 

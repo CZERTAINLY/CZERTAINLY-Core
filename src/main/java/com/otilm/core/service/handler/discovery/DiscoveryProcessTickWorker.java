@@ -168,12 +168,21 @@ public class DiscoveryProcessTickWorker {
             logger
                     .error("Processing batch {} of discovery {} did not complete: {}", attempt, run.getUuid(),
                             e.getMessage(), e);
-            // INFO, because the rows are still in the backlog and another tick will try them again. What a failed
-            // batch leaves behind is what decides the run's ending: rows that ran out of attempts carry their own
-            // reason, and a stall that exhausts the budget ends the run itself.
+            // INFO only while the rows are still in the backlog for another tick to retry: rows that run out of
+            // attempts carry their own reason, and a stall that exhausts the budget ends the run itself. A batch
+            // that threw after stamping its last row leaves nothing to retry, so no later tick revisits the
+            // failure -- and an ending decided on severity would read that run as clean.
+            boolean retryable = backlogOf(run.getUuid()) > 0;
             messageWriter
-                    .append(run.getUuid(), DiscoveryMessageSeverity.INFO, DiscoveryMessageCode.BATCH_PROCESSING_FAILED,
-                            "A batch of discovered certificates did not complete and went back for another attempt.");
+                    .append(run.getUuid(), retryable ? DiscoveryMessageSeverity.INFO : DiscoveryMessageSeverity.WARNING,
+                            retryable
+                                    ? DiscoveryMessageCode.BATCH_PROCESSING_FAILED
+                                    : DiscoveryMessageCode.BATCH_PROCESSING_ABANDONED,
+                            retryable
+                                    ? "A batch of discovered certificates did not complete and went back for another "
+                                            + "attempt."
+                                    : "A batch of discovered certificates failed after its rows were imported, and "
+                                            + "will not be tried again.");
             return;
         }
         // Outside the catch above, and never folded into it: the batch itself succeeded, so filing a failure to
@@ -185,6 +194,13 @@ public class DiscoveryProcessTickWorker {
             logger
                     .error("Could not record what batch {} of discovery {} fell short on: {}", attempt, run.getUuid(),
                             e.getMessage(), e);
+            // appendAll returns early on an empty list, so reaching here proves the batch fell short of something.
+            // One more attempt, at a single row: a run that ends clean because its warning was lost is worse than
+            // one saying only that something was lost.
+            messageWriter
+                    .append(run.getUuid(), DiscoveryMessageSeverity.WARNING,
+                            DiscoveryMessageCode.BOOKKEEPING_INCOMPLETE,
+                            "Some of what a batch fell short on could not be recorded.");
         }
     }
 

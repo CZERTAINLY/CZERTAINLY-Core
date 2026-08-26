@@ -346,6 +346,24 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     }
 
     @Test
+    void batchThatFailedWithNothingLeftToRetry_endsTheRunAsAWarning() throws Exception {
+        Discovery run = processingRun();
+        stageCertificates(run, 1);
+        stampsEveryRowThenDies();
+
+        worker.tick(run.getUuid(), 0);
+
+        // The rows are imported and the backlog is empty, so no later tick will revisit this failure. Filing it
+        // as retryable would leave the only record of it at a severity the ending ignores.
+        assertThat(backlog(run)).isZero();
+        assertThat(messages(run))
+                .extracting(DiscoveryMessage::getCode)
+                .contains(DiscoveryMessageCode.BATCH_PROCESSING_ABANDONED.code())
+                .doesNotContain(DiscoveryMessageCode.BATCH_PROCESSING_FAILED.code());
+        assertThat(reload(run).getStatus()).isEqualTo(DiscoveryStatus.WARNING);
+    }
+
+    @Test
     void cleanBatch_addsNothingToTheRunMessageLog() throws Exception {
         Discovery run = processingRun();
         stageCertificates(run, 1);
@@ -471,6 +489,19 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     /** Stubs the pipeline to do what a clean import does: stamp every row of the batch as processed. */
     private void importsCleanly() throws Exception {
         importsWith(new DiscoveryRunCounts(0, 0, 0, 0, false));
+    }
+
+    /**
+     * A pipeline pass that stamps every row and then dies — a failure in the post-import work that runs after the
+     * groups have already committed.
+     */
+    private void stampsEveryRowThenDies() throws Exception {
+        doAnswer(invocation -> {
+            List<DiscoveryCertificate> batch = invocation.getArgument(1);
+            claimedBatchSizes.add(batch.size());
+            discoveryWriter.markProcessed(batch.stream().map(DiscoveryCertificate::getUuid).toList(), null);
+            throw new IllegalStateException("bookkeeping failed after the import committed");
+        }).when(importHandler).processBatch(any(), anyList());
     }
 
     /** A pipeline pass that commits one row's outcome and then dies — a pod lost part way through a batch. */
