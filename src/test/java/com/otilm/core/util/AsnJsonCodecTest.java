@@ -206,4 +206,21 @@ class AsnJsonCodecTest {
                 .hasMessageContaining("$.oid");
     }
 
+    @Test
+    void rejectsAMisspelledTaggedMember() {
+        // "explict" would fall back to explicit=true and encode different DER without complaint.
+        assertThatThrownBy(() -> AsnJsonCodec
+                .encodeFromString("{\"tagged\":{\"tagNo\":0,\"explict\":false,\"value\":{\"null\":null}}}"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("explict");
+    }
+
+    @Test
+    void rejectsAMisspelledBitStringMember() {
+        // "padbits" would default padBits to 0 and change the encoded value.
+        assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"bitString\":{\"value\":\"gA==\",\"padbits\":7}}"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("padbits");
+    }
+
 }

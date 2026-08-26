@@ -901,7 +901,9 @@ public class AttributeEngine {
             ExtensionValueEncoding encoding = record != null
                     ? record.valueEncoding()
                     : systemExtensionEncoding(ext.getExtensionOid());
-            if (encoding == ExtensionValueEncoding.DER) {
+            // A null encoding means DER — the renderer's contract default — so a legacy row created before
+            // value_encoding was populated must be validated here rather than fail later at CSR rendering.
+            if (encoding == null || encoding == ExtensionValueEncoding.DER) {
                 oids.add(ext.getExtensionOid());
             }
         }

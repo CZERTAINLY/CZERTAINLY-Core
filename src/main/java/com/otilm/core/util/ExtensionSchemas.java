@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
+import com.networknt.schema.SchemaLocation;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
+import com.networknt.schema.resource.ClasspathSchemaLoader;
 import com.networknt.schema.resource.DisallowSchemaLoader;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.oid.OidCategory;
@@ -22,6 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Resolves and applies the JSON Schema describing a DER-encoded extension's JSON value. Resolution order: the OID
@@ -36,6 +40,23 @@ public final class ExtensionSchemas {
     // Schema loading must never reach the network: getSchema resolves $ref targets eagerly, so a schema
     // reaching the database by any route other than requireValidSchema would otherwise fetch a URL of its
     // author's choosing on the server's behalf.
+    private static final Logger logger = LoggerFactory.getLogger(ExtensionSchemas.class);
+
+    /**
+     * Validates a candidate schema document against the dialect's own metaschema. Classpath loading is permitted so the
+     * library's bundled metaschema resolves; the network stays refused.
+     */
+    private static final JsonSchema METASCHEMA = JsonSchemaFactory
+            .getInstance(SpecVersion.VersionFlag.V202012,
+                    builder -> builder
+                            .schemaLoaders(loaders -> loaders
+                                    .add(new ClasspathSchemaLoader())
+                                    .add(DisallowSchemaLoader.getInstance())))
+            .getSchema(SchemaLocation.of(SpecVersion.VersionFlag.V202012.getId()));
+
+    /** Keywords whose values are instance data rather than subschemas, so a {@code $ref} inside is a literal. */
+    private static final Set<String> LITERAL_KEYWORDS = Set.of("const", "enum", "default", "examples");
+
     private static final Set<String> SUPPORTED_DIALECTS = Set
             .of("https://json-schema.org/draft/2020-12/schema", "https://json-schema.org/draft/2020-12/schema#");
     private static final Map<String, Optional<String>> SHIPPED = new ConcurrentHashMap<>();
@@ -52,6 +73,13 @@ public final class ExtensionSchemas {
         OidRecord record = registry == null ? null : registry.get(oid);
         if (record != null && record.valueSchema() != null) {
             return Optional.of(load(record.valueSchema()));
+        }
+        if (record != null && !record.system()) {
+            // An operator's own entry is the effective one while it exists, the same way its criticality and
+            // encoding win. Declaring no schema therefore means the value is unconstrained, not that a
+            // Core-shipped shape applies — which would otherwise start constraining a legacy row whose OID has
+            // since become a system OID.
+            return Optional.empty();
         }
         return shippedSchema(oid).map(ExtensionSchemas::load);
     }
@@ -84,6 +112,10 @@ public final class ExtensionSchemas {
      * Schema constraint's data, so a broken document fails at save rather than at first use.
      */
     public static void requireValidSchema(String schemaDocument) {
+        if (schemaDocument == null) {
+            // readTree(null) throws IllegalArgumentException, which is not this method's contract.
+            throw new ValidationException("Not a valid JSON Schema document: no document was supplied");
+        }
         JsonNode parsed;
         try {
             parsed = MAPPER.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(schemaDocument);
@@ -95,10 +127,29 @@ public final class ExtensionSchemas {
         }
         requireSupportedDialect(parsed);
         rejectNonLocalRefs(parsed, "$");
+        requireWellFormedKeywords(parsed);
         try {
             FACTORY.getSchema(parsed);
         } catch (RuntimeException e) {
-            throw new ValidationException("Not a valid JSON Schema document: " + e.getMessage());
+            // The library's own message names parser and resource-loading internals; this one reaches the
+            // custom-OID API, so keep the detail in the log and hand the operator a controlled message.
+            logger.debug("JSON Schema document could not be compiled", e);
+            throw new ValidationException("Not a valid JSON Schema document: it could not be compiled");
+        }
+    }
+
+    /**
+     * Rejects a document whose keywords are malformed. {@code getSchema} compiles a schema without checking keyword
+     * shapes, so {@code {"minItems": "x"}} or {@code {"type": 123}} would otherwise register and then constrain
+     * nothing. Validating against the dialect's own metaschema is the check the document claims to satisfy.
+     */
+    private static void requireWellFormedKeywords(JsonNode document) {
+        Set<String> messages = new java.util.LinkedHashSet<>();
+        for (ValidationMessage violation : METASCHEMA.validate(document)) {
+            messages.add("%s %s".formatted(violation.getInstanceLocation(), violation.getMessage()));
+        }
+        if (!messages.isEmpty()) {
+            throw new ValidationException("Not a valid JSON Schema document: " + String.join("; ", messages));
         }
     }
 
@@ -130,6 +181,11 @@ public final class ExtensionSchemas {
                     throw new ValidationException(
                             "Not a valid JSON Schema document: $ref at %s points outside the document; only local references such as #/$defs/name are supported"
                                     .formatted(path));
+                }
+                if (LITERAL_KEYWORDS.contains(property.getKey())) {
+                    // const, enum and friends hold instance data, not subschemas, so a member named $ref inside
+                    // one is a plain value. The disabled loader remains the defence if one is ever a reference.
+                    continue;
                 }
                 rejectNonLocalRefs(property.getValue(), path + "." + property.getKey());
             }

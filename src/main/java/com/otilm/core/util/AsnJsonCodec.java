@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Set;
 import org.bouncycastle.asn1.ASN1Boolean;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
@@ -71,8 +72,10 @@ public final class AsnJsonCodec {
             throw e;
         } catch (RuntimeException e) {
             // BouncyCastle rejects some values with its own unchecked exceptions. Callers validate on request
-            // paths, so one escaping would be a 500 rather than a rejection.
-            throw new ValidationException("Extension value could not be encoded to DER: " + e.getMessage());
+            // paths, so one escaping would be a 500 rather than a rejection. Its message names library
+            // internals and this one reaches request clients, so only the controlled text goes out; every
+            // grammar failure already carries its own path-bearing message through the catch above.
+            throw new ValidationException("Extension value could not be encoded to DER");
         }
     }
 
@@ -135,6 +138,7 @@ public final class AsnJsonCodec {
         if (!node.isObject() || !node.has("tagNo") || !node.has("value")) {
             throw new ValidationException("Node at %s must carry tagNo and value".formatted(path));
         }
+        rejectUnknownMembers(node, path, Set.of("tagNo", "explicit", "value"));
         int tagNo = requireBoundedInt(node.get("tagNo"), path + ".tagNo", 0, 30);
         boolean explicit = !node.has("explicit") || requireBoolean(node.get("explicit"), path + ".explicit");
         return new DERTaggedObject(explicit, tagNo, toAsn1(node.get("value"), path + ".value"));
@@ -158,6 +162,7 @@ public final class AsnJsonCodec {
         if (!node.isObject() || !node.has("value")) {
             throw new ValidationException("Node at %s must carry a base64 value and optional padBits".formatted(path));
         }
+        rejectUnknownMembers(node, path, Set.of("value", "padBits"));
         byte[] bytes = requireBase64(node.get("value"), path + ".value");
         int padBits = node.has("padBits") ? requireBoundedInt(node.get("padBits"), path + ".padBits", 0, 7) : 0;
         if (bytes.length == 0 && padBits != 0) {
@@ -195,6 +200,18 @@ public final class AsnJsonCodec {
         } catch (IllegalArgumentException e) {
             throw new ValidationException(
                     "Value at %s is not a GeneralizedTime such as 20261231235959Z".formatted(path));
+        }
+    }
+
+    /**
+     * Rejects a member the grammar does not define. Without this a misspelling — {@code explict}, {@code padbits} —
+     * would fall back to the member's default and silently encode something other than what was written.
+     */
+    private static void rejectUnknownMembers(JsonNode node, String path, Set<String> allowed) {
+        for (Map.Entry<String, JsonNode> member : node.properties()) {
+            if (!allowed.contains(member.getKey())) {
+                throw new ValidationException("Node at %s has no member '%s'".formatted(path, member.getKey()));
+            }
         }
     }
 

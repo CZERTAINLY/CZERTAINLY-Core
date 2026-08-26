@@ -202,4 +202,54 @@ class ShippedExtensionSchemaTest {
         assertRejects("2.5.29.9", "{\"sequence\":[{\"sequence\":[{\"oid\":\"2.5.4.3\"}]}]}");
         assertRejects("2.5.29.9", "{\"sequence\":[{\"sequence\":[{\"oid\":\"2.5.4.3\"},{\"set\":[]}]}]}");
     }
+
+    @Test
+    void tlsFeatureRejectsAnEmptySequence() {
+        // RFC 7633 Features is a SEQUENCE OF INTEGER; an empty one asserts nothing.
+        assertRejects("1.3.6.1.5.5.7.1.24", "{\"sequence\":[]}");
+    }
+
+    @Test
+    void privateKeyUsagePeriodRejectsReversedAndDuplicateMembers() {
+        // notBefore [0] precedes notAfter [1] and each appears at most once; a homogeneous items rule let
+        // [1],[0] and [0],[0] through, and both encode a malformed sequence.
+        String zero = "{\"tagged\":{\"tagNo\":0,\"explicit\":false,"
+                + "\"value\":{\"generalizedTime\":\"20260101000000Z\"}}}";
+        String one = "{\"tagged\":{\"tagNo\":1,\"explicit\":false,"
+                + "\"value\":{\"generalizedTime\":\"20270101000000Z\"}}}";
+
+        assertRejects("2.5.29.16", "{\"sequence\":[" + one + "," + zero + "]}");
+        assertRejects("2.5.29.16", "{\"sequence\":[" + zero + "," + zero + "]}");
+        assertAccepts("2.5.29.16", "{\"sequence\":[" + zero + "," + one + "]}");
+        assertAccepts("2.5.29.16", "{\"sequence\":[" + one + "]}");
+    }
+
+    @Test
+    void nameConstraintsRejectsReversedOuterFields() {
+        String permitted = "{\"tagged\":{\"tagNo\":0,\"explicit\":false,\"value\":{\"sequence\":[{\"sequence\":"
+                + "[{\"tagged\":{\"tagNo\":2,\"explicit\":false,\"value\":{\"ia5String\":\"a.test\"}}}]}]}}}";
+        String excluded = permitted.replace("\"tagNo\":0", "\"tagNo\":1");
+
+        assertAccepts("2.5.29.30", "{\"sequence\":[" + permitted + "," + excluded + "]}");
+        assertRejects("2.5.29.30", "{\"sequence\":[" + excluded + "," + permitted + "]}");
+        assertRejects("2.5.29.30", "{\"sequence\":[" + permitted + "," + permitted + "]}");
+    }
+
+    @Test
+    void nameConstraintsConstrainsTheSubtreeMinimumAndMaximum() {
+        // Only the base was constrained, so positions two and three accepted anything.
+        String base = "{\"tagged\":{\"tagNo\":2,\"explicit\":false,\"value\":{\"ia5String\":\"a.test\"}}}";
+        String minimum = "{\"tagged\":{\"tagNo\":0,\"explicit\":false,\"value\":{\"integer\":1}}}";
+
+        assertAccepts("2.5.29.30", nameConstraintsWithSubtree(base + "," + minimum));
+        assertRejects("2.5.29.30", nameConstraintsWithSubtree(base + ",{\"utf8String\":\"oops\"}"));
+        assertRejects("2.5.29.30", nameConstraintsWithSubtree(
+                base + ",{\"tagged\":{\"tagNo\":0,\"explicit\":false," + "\"value\":{\"integer\":-1}}}"));
+    }
+
+    private static String nameConstraintsWithSubtree(String subtreeMembers) {
+        return "{\"sequence\":[{\"tagged\":{\"tagNo\":0,\"explicit\":false,\"value\":{\"sequence\":"
+                + "[{\"sequence\":[" + subtreeMembers + "]}]}}}]}";
+    }
+
 }

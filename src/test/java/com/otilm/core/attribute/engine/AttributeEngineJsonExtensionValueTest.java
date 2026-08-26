@@ -132,8 +132,8 @@ class AttributeEngineJsonExtensionValueTest {
     }
 
     @Test
-    void appliesTheShippedBasicConstraintsSchema() {
-        register("2.5.29.19", ExtensionValueEncoding.DER, null);
+    void appliesTheShippedBasicConstraintsSchemaForABuiltInEntry() {
+        registerSystem("2.5.29.19");
         var definition = extensionDefinition("2.5.29.19");
 
         assertThat(AttributeEngine
@@ -143,6 +143,38 @@ class AttributeEngineJsonExtensionValueTest {
         assertThat(AttributeEngine
                 .validateJsonExtensionValues(definition, value(definition, "{\"sequence\":[{\"integer\":0}]}")))
                 .isNotEmpty();
+    }
+
+    @Test
+    void appliesTheShippedSchemaWhenTheRegistryHasNoEntry() {
+        var definition = extensionDefinition("2.5.29.19");
+
+        assertThat(AttributeEngine
+                .validateJsonExtensionValues(definition, value(definition, "{\"sequence\":[{\"integer\":0}]}")))
+                .isNotEmpty();
+    }
+
+    @Test
+    void aCustomEntryDeclaringNoSchemaLeavesTheValueUnconstrained() {
+        // An operator's own entry is the effective one while it exists, so declaring no schema means
+        // unconstrained — not that the Core-shipped shape for the same OID starts applying.
+        register("2.5.29.19", ExtensionValueEncoding.DER, null);
+        var definition = extensionDefinition("2.5.29.19");
+
+        assertThat(AttributeEngine
+                .validateJsonExtensionValues(definition, value(definition, "{\"sequence\":[{\"integer\":0}]}")))
+                .isEmpty();
+    }
+
+    private static void registerSystem(String oid) {
+        OidHandler
+                .cacheOid(OidCategory.CERTIFICATE_EXTENSION, oid,
+                        OidRecord
+                                .builder()
+                                .displayName("Built-in Extension")
+                                .valueEncoding(ExtensionValueEncoding.DER)
+                                .system(true)
+                                .build());
     }
 
     private static void register(String oid, ExtensionValueEncoding encoding, String schema) {

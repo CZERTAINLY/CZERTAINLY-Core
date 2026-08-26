@@ -199,6 +199,29 @@ class ExtensionSchemasTest {
     }
 
     @Test
+    void requireValidSchemaRejectsMalformedKeywords() {
+        // getSchema compiles these without complaint, so they would register and then constrain nothing.
+        assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema("{\"minItems\":\"x\"}"))
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema("{\"type\":123}"))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void requireValidSchemaRejectsAMissingDocument() {
+        // readTree(null) throws IllegalArgumentException, which is not this method's contract.
+        assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema(null)).isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void requireValidSchemaAcceptsARefInsideInstanceData() {
+        // const holds a literal value, so a member named $ref there is data and not a reference.
+        assertThatNoException()
+                .isThrownBy(() -> ExtensionSchemas
+                        .requireValidSchema("{\"const\":{\"$ref\":\"https://example.invalid/x\"}}"));
+    }
+
+    @Test
     void anUnloadableStoredSchemaIsReportedRatherThanThrown() {
         // A value written straight into the database must not turn every request into a 500.
         OidHandler
