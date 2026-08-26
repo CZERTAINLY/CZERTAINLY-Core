@@ -1,0 +1,247 @@
+package com.otilm.core.service.handler.discovery;
+
+import com.otilm.api.model.core.discovery.DiscoveryStatus;
+import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.entity.DiscoveryCertificate;
+import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.events.handlers.CertificateDiscoveredEventHandler;
+import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
+import com.otilm.core.messaging.jms.configuration.DiscoveryWorkProperties;
+import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
+import com.otilm.core.messaging.model.DiscoveryWorkMessage;
+import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
+import com.otilm.core.model.discovery.DiscoveryWorkType;
+import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator.Ending;
+import com.otilm.core.service.writer.DiscoveryWriter;
+import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import com.otilm.core.util.AuthHelper;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Component;
+
+/**
+ * The {@code PROCESS} tick: one bounded batch of staged rows through the import pipeline, then either another tick or
+ * the end of the run. Only certificates have an import pipeline; other staged resources are skipped.
+ */
+@Component
+public class DiscoveryProcessTickWorker {
+
+    private static final Logger logger = LoggerFactory.getLogger(DiscoveryProcessTickWorker.class);
+
+    private final DiscoveryRepository discoveryRepository;
+    private final DiscoveryCertificateRepository certificateRepository;
+    private final CertificateDiscoveredEventHandler importHandler;
+    private final DiscoveryWorkWriter workWriter;
+    private final DiscoveryWorkProducer workProducer;
+    private final DiscoveryRunTerminator terminator;
+    private final DiscoveryWriter discoveryWriter;
+    private final AuthHelper authHelper;
+    private final DiscoveryWorkProperties workProperties;
+    private final int batchSize;
+    private final Duration continuationBackstop;
+
+    public DiscoveryProcessTickWorker(DiscoveryRepository discoveryRepository,
+            DiscoveryCertificateRepository certificateRepository, CertificateDiscoveredEventHandler importHandler,
+            DiscoveryWorkWriter workWriter, DiscoveryWorkProducer workProducer, DiscoveryRunTerminator terminator,
+            DiscoveryWriter discoveryWriter, AuthHelper authHelper, DiscoveryWorkProperties workProperties,
+            @Value("${discovery.processing.batch-size:200}") int batchSize,
+            @Value("${discovery.work.continuation-backstop:PT1M}") Duration continuationBackstop) {
+        this.discoveryRepository = discoveryRepository;
+        this.certificateRepository = certificateRepository;
+        this.importHandler = importHandler;
+        this.workWriter = workWriter;
+        this.workProducer = workProducer;
+        this.terminator = terminator;
+        this.discoveryWriter = discoveryWriter;
+        this.authHelper = authHelper;
+        this.workProperties = workProperties;
+        // Fails at construction, not at the first tick.
+        if (batchSize <= 0) {
+            throw new IllegalArgumentException("discovery.processing.batch-size must be positive");
+        }
+        // See DiscoveryWorkWriter's backstop invariant.
+        if (continuationBackstop.isZero() || continuationBackstop.isNegative()) {
+            throw new IllegalArgumentException("discovery.work.continuation-backstop must be positive");
+        }
+        this.batchSize = batchSize;
+        this.continuationBackstop = continuationBackstop;
+    }
+
+    public void tick(UUID discoveryUuid, int attempt) {
+        Discovery run = discoveryRepository.findByUuid(discoveryUuid).orElse(null);
+        if (run == null) {
+            logger.debug("Dropping process tick for discovery {}: the run no longer exists", discoveryUuid);
+            return;
+        }
+        if (run.getStatus() != DiscoveryStatus.PROCESSING) {
+            // A tick finding the run anywhere else is a stale redelivery.
+            logger
+                    .debug("Dropping process tick for discovery {}: the run is {}, not PROCESSING", discoveryUuid,
+                            run.getStatus());
+            if (DiscoveryRunLifecycle.isTerminal(run.getStatus())) {
+                workWriter.deleteForRun(discoveryUuid);
+            }
+            return;
+        }
+
+        long before = backlogOf(discoveryUuid);
+        List<Long> contents = selectPendingContents(discoveryUuid);
+        List<DiscoveryCertificate> batch = contents.isEmpty()
+                ? List.of()
+                : certificateRepository
+                        .findByDiscoveryUuidAndCertificateContentIdInAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(
+                                discoveryUuid, contents);
+        if (!batch.isEmpty()) {
+            importBatch(run, attempt, batch);
+        }
+
+        long remaining = backlogOf(discoveryUuid);
+        if (remaining == 0) {
+            finish(discoveryUuid);
+        } else if (remaining < before) {
+            continueProcessing(discoveryUuid, remaining);
+        } else {
+            stall(discoveryUuid, attempt, remaining);
+        }
+    }
+
+    /**
+     * Picks the contents this tick will import, bounded by the rows they carry. Selects but does not claim: a
+     * concurrent tick could select the same contents.
+     */
+    private List<Long> selectPendingContents(UUID discoveryUuid) {
+        List<Object[]> pending = certificateRepository
+                .findPendingContentWeights(discoveryUuid, PageRequest.of(0, batchSize));
+        List<Long> selected = new ArrayList<>();
+        long rows = 0;
+        for (Object[] candidate : pending) {
+            long weight = ((Number) candidate[1]).longValue();
+            if (!selected.isEmpty() && rows + weight > batchSize) {
+                break;
+            }
+            selected.add((Long) candidate[0]);
+            rows += weight;
+        }
+        return selected;
+    }
+
+    private long backlogOf(UUID discoveryUuid) {
+        return certificateRepository
+                .countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(discoveryUuid);
+    }
+
+    /**
+     * Runs the batch through the import pipeline and files what it could not import on the run.
+     */
+    private void importBatch(Discovery run, int attempt, List<DiscoveryCertificate> batch) {
+        try {
+            authenticateAsTheRunsUser(run);
+            DiscoveryRunCounts counts = importHandler.processBatch(run, batch);
+            discoveryWriter.appendRunMessages(run.getUuid(), counts.describeGaps());
+        } catch (Exception e) {
+            // Swallowed, not rethrown: an unchanged backlog sends this batch to the bounded stall path instead of
+            // the listener's log-and-acknowledge.
+            logger
+                    .error("Processing batch {} of discovery {} did not complete: {}", attempt, run.getUuid(),
+                            e.getMessage(), e);
+            discoveryWriter
+                    .appendRunMessages(run.getUuid(),
+                            List.of("A batch of discovered certificates could not be processed."));
+        }
+    }
+
+    /**
+     * Puts the run's own user on the thread before the import pipeline enforces {@code CERTIFICATE:CREATE}.
+     */
+    private void authenticateAsTheRunsUser(Discovery run) {
+        if (run.getStartedByUserUuid() == null) {
+            throw new IllegalStateException(
+                    "Discovery %s records no user to act as, so its certificates cannot be imported"
+                            .formatted(run.getUuid()));
+        }
+        authHelper.authenticateAsUser(run.getStartedByUserUuid());
+    }
+
+    /**
+     * Commits the agenda row as the backstop, then publishes the next batch directly (see {@link DiscoveryWorkWriter}).
+     */
+    private void continueProcessing(UUID discoveryUuid, long remaining) {
+        logger.debug("Discovery {} has {} certificates left to process", discoveryUuid, remaining);
+        // Reported here, not by the pipeline, which sees only one batch and would report each as 100% complete.
+        discoveryWriter
+                .updateProgressMessage(discoveryUuid,
+                        "Importing discovered certificates (%d remaining)".formatted(remaining));
+        workWriter
+                .reschedule(discoveryUuid, DiscoveryWorkType.PROCESS, 0,
+                        OffsetDateTime.now(ZoneOffset.UTC).plus(continuationBackstop));
+        workProducer.produceMessage(new DiscoveryWorkMessage(discoveryUuid, DiscoveryWorkType.PROCESS, 0));
+    }
+
+    /**
+     * A tick that accounted for nothing. Rather than publishing again — which would turn a stalled run into a tight
+     * loop on the broker — the row climbs its backoff ladder until the budget ends the run instead.
+     */
+    private void stall(UUID discoveryUuid, int attempt, long remaining) {
+        int next = attempt + 1;
+        if (next >= workProperties.scheduleFor(DiscoveryWorkType.PROCESS).maxAttempts()) {
+            terminator
+                    .end(discoveryUuid, DiscoveryStatus.WARNING,
+                            ("Processing stopped with %d certificate(s) that could not be imported. See this run's "
+                                    + "messages for what went wrong.").formatted(remaining));
+            return;
+        }
+        logger
+                .warn("Process tick {} for discovery {} accounted for none of its {} remaining certificates; backing "
+                        + "off", attempt, discoveryUuid, remaining);
+        workWriter
+                .reschedule(discoveryUuid, DiscoveryWorkType.PROCESS, next,
+                        OffsetDateTime
+                                .now(ZoneOffset.UTC)
+                                .plus(workProperties.scheduleFor(DiscoveryWorkType.PROCESS).delayFor(next)));
+    }
+
+    /**
+     * Ends the run, or discovers it is not finished after all and keeps processing.
+     */
+    private void finish(UUID discoveryUuid) {
+        if (!terminator.endWith(discoveryUuid, this::decideEnding)) {
+            long late = backlogOf(discoveryUuid);
+            if (late > 0) {
+                continueProcessing(discoveryUuid, late);
+            }
+        }
+    }
+
+    /**
+     * Decides the run's ending from inside the terminal transaction, where the run row is locked against a concurrent
+     * drain page.
+     *
+     * @return the ending, or {@code null} when a late page left work to do
+     */
+    private Ending decideEnding(Discovery run) {
+        if (backlogOf(run.getUuid()) > 0) {
+            return null;
+        }
+        // Run-level gaps (a failed bookkeeping write, validation never requested) leave every row clean, so the
+        // message log is checked too.
+        boolean rowsFailed = certificateRepository.existsByDiscoveryUuidAndProcessedErrorIsNotNull(run.getUuid());
+        boolean runLevelGaps = run.getRunMessages() != null && !run.getRunMessages().isEmpty();
+        if (!rowsFailed && !runLevelGaps) {
+            return new Ending(DiscoveryStatus.COMPLETED, "Discovery completed successfully.");
+        }
+        // Points to the certificate list only when a row actually carries a reason.
+        return new Ending(DiscoveryStatus.WARNING, rowsFailed
+                ? "Discovery completed with warnings. See this run's messages, and the discovery certificate list "
+                        + "for per-certificate detail."
+                : "Discovery completed with warnings. See this run's messages.");
+    }
+}

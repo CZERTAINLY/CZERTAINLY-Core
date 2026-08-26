@@ -79,6 +79,7 @@ public enum Resource {
 
     // CBOMS
     CBOM("cboms"),
+    CRYPTO_ASSET("cryptoAssets"),
 
     // SIGNING
     TIME_QUALITY_CONFIGURATION("timeQualityConfigurations"),

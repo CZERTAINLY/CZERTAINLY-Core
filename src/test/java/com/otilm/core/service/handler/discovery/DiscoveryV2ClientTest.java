@@ -1,0 +1,165 @@
+package com.otilm.core.service.handler.discovery;
+
+import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.interfaces.client.v2.DiscoverySyncApiClient;
+import com.otilm.api.model.common.attribute.common.DataAttribute;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryDrainRequestDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryRunRequestDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryStatusResponseDto;
+import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.connector.ConnectorDto;
+import com.otilm.api.model.core.discovery.DiscoveryStatus;
+import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.client.ConnectorApiFactory;
+import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.service.CredentialInternalService;
+import com.otilm.core.service.ResourceInternalService;
+import com.otilm.core.util.DiscoveryRunMetaFixture;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * What Core puts on the wire for a v2 connector call.
+ *
+ * <p>
+ * A discovery v2 connector keeps no Core-visible state, so every call replays the run's identity, the connector's own
+ * handle and the run's whole attribute configuration. Getting any of that wrong addresses the wrong run or sends a
+ * request the connector rejects on every attempt, which is why it is worth pinning rather than trusting.
+ */
+@ExtendWith(MockitoExtension.class)
+class DiscoveryV2ClientTest {
+
+    @Mock
+    private ConnectorApiFactory connectorApiFactory;
+    @Mock
+    private ConnectorRepository connectorRepository;
+    @Mock
+    private AttributeEngine attributeEngine;
+    @Mock
+    private CredentialInternalService credentialService;
+    @Mock
+    private ResourceInternalService resourceService;
+    @Mock
+    private DiscoverySyncApiClient apiClient;
+
+    private DiscoveryV2Client client;
+    private Discovery run;
+
+    @BeforeEach
+    void setUp() {
+        client = new DiscoveryV2Client(connectorApiFactory, connectorRepository, attributeEngine, credentialService,
+                resourceService);
+
+        run = new Discovery();
+        run.setUuid(UUID.randomUUID());
+        run.setStatus(DiscoveryStatus.IN_PROGRESS);
+        run.setConnectorUuid(UUID.randomUUID());
+        run.setLastAppliedSequence(17L);
+        run.setRunMeta(DiscoveryRunMetaFixture.runMeta("connectorRunId", "run-42"));
+
+        Connector connector = new Connector();
+        connector.setUuid(run.getConnectorUuid());
+        connector.setName("network-discovery");
+        connector.setUrl("https://connector.example.com");
+        lenient().when(connectorRepository.findByUuid(run.getConnectorUuid())).thenReturn(Optional.of(connector));
+        lenient().when(connectorApiFactory.getDiscoveryApiClientV2(any())).thenReturn(apiClient);
+        lenient()
+                .when(attributeEngine.getDefinitionObjectAttributeContent(any(), any(), any(), any(), any()))
+                .thenReturn(List.<DataAttribute>of());
+    }
+
+    @Test
+    void statusCall_replaysTheRunIdentityAndTheConnectorHandle() throws Exception {
+        when(apiClient.status(any(), any())).thenReturn(new DiscoveryStatusResponseDto());
+
+        client.status(run);
+
+        ArgumentCaptor<DiscoveryRunRequestDto> sent = ArgumentCaptor.forClass(DiscoveryRunRequestDto.class);
+        verify(apiClient).status(any(ConnectorDto.class), sent.capture());
+        assertThat(sent.getValue().getRunId()).isEqualTo(run.getUuid());
+        assertThat(sent.getValue().getMeta())
+                .as("the connector is stateless; without its own handle it cannot resolve the run")
+                .isEqualTo(run.getRunMeta());
+    }
+
+    @Test
+    void drainCall_asksForEverythingPastTheCursor() throws Exception {
+        when(apiClient.results(any(), any())).thenReturn(new DiscoveryResultsResponseDto());
+
+        client.results(run, 500, 5_242_880L);
+
+        DiscoveryDrainRequestDto sent = capturedDrain();
+        assertThat(sent.getAfterSequence()).as("anything at or below the cursor is already ingested").isEqualTo(17L);
+        assertThat(sent.getMaxItems()).isEqualTo(500);
+        assertThat(sent.getMaxBytes()).isEqualTo(5_242_880L);
+    }
+
+    @Test
+    void configuredMaxBytesAboveTheContractCap_isClampedRatherThanSent() throws Exception {
+        when(apiClient.results(any(), any())).thenReturn(new DiscoveryResultsResponseDto());
+
+        client.results(run, 500, DiscoveryDrainRequestDto.MAX_BYTES_CAP * 4);
+
+        // Unclamped, a misconfigured value produces a request the connector rejects on every single drain --
+        // and over MQ that rejection arrives as an unchecked exception.
+        assertThat(capturedDrain().getMaxBytes()).isEqualTo(DiscoveryDrainRequestDto.MAX_BYTES_CAP);
+    }
+
+    @Test
+    void acknowledgement_positionsPastTheLastItemTheConnectorCounted() throws Exception {
+        when(apiClient.results(any(), any())).thenReturn(new DiscoveryResultsResponseDto());
+
+        client.acknowledge(run, 42L);
+
+        DiscoveryDrainRequestDto sent = capturedDrain();
+        assertThat(sent.getAfterSequence())
+                .as("the ack is a drain at the run-wide high-water mark, not at Core's cursor")
+                .isEqualTo(42L);
+        assertThat(sent.getMaxItems()).as("the body is not the point; the cursor it carries is").isEqualTo(1);
+    }
+
+    @Test
+    void perResourceAttributes_areCollectedForEachResourceTheRunTargets() throws Exception {
+        run.setResources(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY));
+        when(apiClient.status(any(), any())).thenReturn(new DiscoveryStatusResponseDto());
+
+        client.status(run);
+
+        // Run-level attributes are read with a null operation; each resource is read under its own wire code.
+        verify(attributeEngine).getDefinitionObjectAttributeContent(any(), any(), isNull(), any(), any());
+        verify(attributeEngine).getDefinitionObjectAttributeContent(any(), any(), eq("certificates"), any(), any());
+        verify(attributeEngine).getDefinitionObjectAttributeContent(any(), any(), eq("keys"), any(), any());
+    }
+
+    @Test
+    void missingConnectorRow_failsRatherThanCallingSomethingElse() {
+        when(connectorRepository.findByUuid(run.getConnectorUuid())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> client.status(run)).isInstanceOf(NotFoundException.class);
+    }
+
+    private DiscoveryDrainRequestDto capturedDrain() throws Exception {
+        ArgumentCaptor<DiscoveryDrainRequestDto> sent = ArgumentCaptor.forClass(DiscoveryDrainRequestDto.class);
+        verify(apiClient).results(any(ConnectorDto.class), sent.capture());
+        return sent.getValue();
+    }
+}

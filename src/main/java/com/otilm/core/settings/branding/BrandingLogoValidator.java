@@ -45,9 +45,13 @@ public final class BrandingLogoValidator {
 
     private static final String UNRECOGNISED_REASON = "is neither a PNG image nor a parseable SVG document";
 
-    /** A number, then an optional absolute or font-relative unit. A percentage carries no intrinsic size. */
+    /**
+     * A number, then an optional absolute or font-relative unit. A percentage carries no intrinsic size. The whitespace
+     * runs are possessive because the one before the unit and the one after it can otherwise both claim the same spaces
+     * when no unit is present, which is what makes a long run of whitespace take quadratic time.
+     */
     private static final Pattern SVG_LENGTH = Pattern
-            .compile("^\\s*(\\d+(?:\\.\\d+)?)\\s*(px|pt|pc|cm|mm|in|em|ex)?\\s*$");
+            .compile("^\\s*+(\\d+(?:\\.\\d+)?)\\s*+(px|pt|pc|cm|mm|in|em|ex)?\\s*+$");
 
     private static final byte[] PNG_SIGNATURE = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
 
@@ -161,7 +165,8 @@ public final class BrandingLogoValidator {
         long[] dimensions = null;
         boolean sawImageData = false;
 
-        for (int offset = PNG_SIGNATURE.length; offset + PNG_CHUNK_OVERHEAD <= content.length;) {
+        int offset = PNG_SIGNATURE.length;
+        while (offset + PNG_CHUNK_OVERHEAD <= content.length) {
             long dataLength = readUnsignedInt(content, offset);
             if (dataLength > content.length - offset - PNG_CHUNK_OVERHEAD) {
                 throw invalidPng(field);
