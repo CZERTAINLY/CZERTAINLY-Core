@@ -402,7 +402,6 @@ public class CertificateEligibilityUtil {
         return predicates;
     }
 
-    /** Carries at least one of the bits {@link #signingKeyUsageMask} accepts. */
     private static Predicate carriesAnySigningKeyUsage(Root<Certificate> root, CriteriaBuilder cb,
             CertificatePurposeRequirements certificatePurpose) {
         return cb.notEqual(bitAnd(cb, root.get(Certificate_.KEY_USAGE), signingKeyUsageMask(certificatePurpose)), 0);
