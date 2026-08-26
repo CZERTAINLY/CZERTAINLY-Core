@@ -1,5 +1,6 @@
 package com.otilm.core.attribute.engine;
 
+import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -152,6 +154,25 @@ class AttributeEngineJsonExtensionValueTest {
                                 .valueEncoding(encoding)
                                 .valueSchema(schema)
                                 .build());
+    }
+
+    @Test
+    void everyDeclaredContentErrorIsReportedNotJustTheFirst() throws Exception {
+        // Declared content with two bad values must name both; surfacing only the first sends the author round
+        // the loop once per mistake.
+        DataAttributeV3 definition = extensionDefinition("2.5.29.19");
+        definition
+                .setContent(List
+                        .of(new StringAttributeContentV3("{\"sequence\":[{\"boolean\":false}]}"),
+                                new StringAttributeContentV3("{\"sequence\":[{\"boolean\":true},{\"integer\":-1}]}")));
+
+        AttributeException thrown = Assertions
+                .assertThrows(AttributeException.class,
+                        () -> AttributeEngine.validateJsonSchemaDeclarations(definition, null));
+
+        // Two distinct violations, joined rather than truncated to the first.
+        assertThat(thrown.getMessage()).contains("; ");
+        assertThat(thrown.getMessage().split("; ")).hasSizeGreaterThan(1);
     }
 
     private static DataAttributeV3 extensionDefinition(String oid) {

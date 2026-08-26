@@ -822,8 +822,9 @@ public class AttributeEngine {
                 attribute.getName(), attribute.getContentType(), attribute.getContent());
         List<ValidationError> errors = validateJsonExtensionValues(attribute, declaredContent);
         if (!errors.isEmpty()) {
-            throw new AttributeException(errors.get(0).getErrorDescription(), attribute.getUuid(), attribute.getName(),
-                    attribute.getType(), connectorUuidStr);
+            String joined = errors.stream().map(ValidationError::getErrorDescription).collect(Collectors.joining("; "));
+            throw new AttributeException(joined, attribute.getUuid(), attribute.getName(), attribute.getType(),
+                    connectorUuidStr);
         }
     }
 
