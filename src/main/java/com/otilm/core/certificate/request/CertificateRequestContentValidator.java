@@ -131,18 +131,7 @@ public class CertificateRequestContentValidator {
                 }
                 List<String> matchedValues = collectMatchedValues(field, subject, sans, extensions, mappedRdnKeys,
                         mappedSanTypes, mappedOtherNameOids, mappedExtensionOids, codeToOid);
-
-                if (required && matchedValues.isEmpty()) {
-                    recordViolation(result, policy, "Missing required mapped field for attribute '%s' (%s)"
-                            .formatted(label(v3), describe(field)));
-                }
-                // Extension values are stored as Base64(DER) by X509RequestContentParser; running the definition's
-                // REGEXP/RANGE constraints against that opaque blob would reject valid CSRs, so only RDN/SAN
-                // (logical string) values are constraint-checked. Extension presence is still enforced above, and
-                // a structured target is value-checked by validateStructuredTarget instead.
-                if (!matchedValues.isEmpty() && !(field instanceof ExtensionMappedField)) {
-                    validateConstraints(v3, matchedValues, policy, result);
-                }
+                checkMatchedValues(v3, field, required, matchedValues, policy, result);
             }
         }
 
@@ -177,6 +166,26 @@ public class CertificateRequestContentValidator {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Applies the presence and value rules to what a field matched in the request.
+     *
+     * <p>
+     * Extension values arrive as Base64(DER) from {@code X509RequestContentParser}; running the definition's
+     * REGEXP/RANGE constraints against that opaque blob would reject valid CSRs, so only RDN/SAN values — which are
+     * logical strings — are constraint-checked. Extension presence is still enforced, and a structured target is
+     * value-checked by {@link #validateStructuredTarget} instead.
+     */
+    private static void checkMatchedValues(DataAttributeV3 v3, MappedField field, boolean required,
+            List<String> matchedValues, RequestAttributePolicy policy, RequestAttributeValidationResult result) {
+        if (required && matchedValues.isEmpty()) {
+            recordViolation(result, policy,
+                    "Missing required mapped field for attribute '%s' (%s)".formatted(label(v3), describe(field)));
+        }
+        if (!matchedValues.isEmpty() && !(field instanceof ExtensionMappedField)) {
+            validateConstraints(v3, matchedValues, policy, result);
+        }
     }
 
     private static boolean isX509CertificateMapping(FieldMapping mapping) {
