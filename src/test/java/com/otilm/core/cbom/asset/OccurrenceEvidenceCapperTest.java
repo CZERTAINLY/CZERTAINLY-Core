@@ -121,4 +121,19 @@ class OccurrenceEvidenceCapperTest {
                 .describedAs("the occurrence count on the row still records that it was seen")
                 .isEmpty();
     }
+
+    /**
+     * A JSON array may legally contain a null element. It used to reach {@code List.copyOf}, which rejects nulls, and
+     * the unshaped NullPointerException failed the whole source upsert.
+     */
+    @Test
+    void aNullOccurrenceIsDroppedRatherThanThrown() {
+        java.util.List<java.util.Map<String, Object>> withNull = new java.util.ArrayList<>();
+        withNull.add(java.util.Map.of("location", "a.java"));
+        withNull.add(null);
+
+        assertThat(OccurrenceEvidenceCapper.cap(withNull))
+                .describedAs("the occurrence that carries evidence survives; the one that carries none is dropped")
+                .containsExactly(java.util.Map.of("location", "a.java"));
+    }
 }

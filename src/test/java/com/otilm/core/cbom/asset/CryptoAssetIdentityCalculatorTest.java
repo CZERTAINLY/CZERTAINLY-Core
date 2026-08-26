@@ -113,6 +113,30 @@ class CryptoAssetIdentityCalculatorTest {
                 .isEqualTo(CryptoAssetIdentityCalculator.calculate(algorithm(foldedSpelling, null, null)));
     }
 
+    /**
+     * Unicode space must not survive into the identity. {@code trim()} removes only characters at or below
+     * {@code U+0020}, so a trailing {@code U+00A0 NO-BREAK SPACE} used to survive it and NFKC then turned it into an
+     * ordinary trailing space -- keying the same identifier twice.
+     */
+    @Test
+    void unicodeWhitespaceIsNotIdentity() {
+        assertThat(CryptoAssetIdentityCalculator.normalize("RSA\u00a0"))
+                .describedAs("a no-break space must not become a trailing ASCII space")
+                .isEqualTo("rsa");
+
+        assertThat(CryptoAssetIdentityCalculator.calculate(algorithm("RSA\u00a0", null, null)))
+                .isEqualTo(CryptoAssetIdentityCalculator.calculate(algorithm("RSA", null, null)));
+    }
+
+    /** A field of nothing but Unicode space is absent, exactly as a field of ASCII spaces is. */
+    @Test
+    void aFieldOfOnlyUnicodeSpaceIsAbsent() {
+        assertThat(CryptoAssetIdentityCalculator.normalize("\u3000")).isNull();
+
+        assertThat(CryptoAssetIdentityCalculator.calculate(algorithm("RSA", "\u3000", null)))
+                .isEqualTo(CryptoAssetIdentityCalculator.calculate(algorithm("RSA", null, null)));
+    }
+
     @Test
     void decomposedAndComposedFormsAgree() {
         String composed = "caf\u00e9";

@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Bounds the occurrence evidence retained for one CBOM's contribution to one asset.
@@ -54,8 +55,12 @@ public final class OccurrenceEvidenceCapper {
         if (occurrences == null) {
             return null;
         }
+        // A JSON array may legally contain a null element, which parses to a null entry carrying no evidence at all.
+        // Dropping it keeps the document ingestible; leaving it in throws from List.copyOf, which rejects nulls, or
+        // from the strip below -- an unshaped NullPointerException that would fail the whole source upsert.
+        List<Map<String, Object>> present = occurrences.stream().filter(Objects::nonNull).toList();
         List<Map<String, Object>> kept = new ArrayList<>(
-                occurrences.size() > MAX_OCCURRENCES ? occurrences.subList(0, MAX_OCCURRENCES) : occurrences);
+                present.size() > MAX_OCCURRENCES ? present.subList(0, MAX_OCCURRENCES) : present);
         if (renderedSize(kept) <= MAX_EVIDENCE_BYTES) {
             return List.copyOf(kept);
         }

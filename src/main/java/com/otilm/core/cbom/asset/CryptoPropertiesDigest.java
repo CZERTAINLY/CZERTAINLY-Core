@@ -47,6 +47,11 @@ public record CryptoPropertiesDigest(int leafCount, String hash) {
      * says nothing more than an empty object does, and must not out-rank a source that actually reported a curve.
      */
     static int leafCount(Object node) {
+        // An explicit JSON null is a declared absence, not content. Counting it would let {"primitive":null,
+        // "mode":null} out-rank {"curve":"P-256"} in the merge election and hide a real value behind an empty one.
+        if (node == null) {
+            return 0;
+        }
         if (node instanceof Map<?, ?> map) {
             return map.values().stream().mapToInt(CryptoPropertiesDigest::leafCount).sum();
         }

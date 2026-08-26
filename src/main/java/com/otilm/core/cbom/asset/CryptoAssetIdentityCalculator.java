@@ -36,9 +36,14 @@ import java.util.Locale;
  * </ol>
  *
  * <p>
- * A field that is blank after trimming is <em>absent</em>, and absent is distinct from every present value: producers
+ * A field that is blank after stripping is <em>absent</em>, and absent is distinct from every present value: producers
  * omit a field and emit {@code ""} interchangeably, and treating those as different identities would split the
- * inventory on a formatting choice.
+ * inventory on a formatting choice. Stripping happens <em>after</em> NFKC and uses {@link String#strip()} rather than
+ * {@link String#trim()}, because both orders and both methods decide different things about Unicode space: {@code trim}
+ * removes only characters at or below {@code U+0020}, so a trailing {@code U+00A0 NO-BREAK SPACE} would survive it and
+ * NFKC would then turn it into an ordinary trailing space — keying {@code "RSA "} apart from {@code "RSA"} — while a
+ * field of only {@code U+3000 IDEOGRAPHIC SPACE} would become the present value {@code " "} where a plain {@code " "}
+ * is absent. Both are the silent inventory split this class exists to prevent.
  *
  * <p>
  * {@link #RULESET_VERSION} is recorded on the row but deliberately kept out of the preimage. Folding it in would re-key
@@ -99,12 +104,11 @@ public final class CryptoAssetIdentityCalculator {
         if (raw == null) {
             return null;
         }
-        String trimmed = raw.trim();
-        if (trimmed.isEmpty()) {
+        String stripped = Normalizer.normalize(raw, Normalizer.Form.NFKC).strip();
+        if (stripped.isEmpty()) {
             return null;
         }
-        String folded = Normalizer.normalize(trimmed, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
-        return Normalizer.normalize(folded, Normalizer.Form.NFKC);
+        return Normalizer.normalize(stripped.toLowerCase(Locale.ROOT), Normalizer.Form.NFKC);
     }
 
     private static void frame(ByteArrayOutputStream preimage, String value) {

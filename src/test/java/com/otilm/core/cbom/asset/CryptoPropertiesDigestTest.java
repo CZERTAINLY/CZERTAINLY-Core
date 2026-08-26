@@ -76,4 +76,20 @@ class CryptoPropertiesDigestTest {
         assertThat(CryptoPropertiesDigest.of(Map.of("curve", "P-256")).hash())
                 .isNotEqualTo(CryptoPropertiesDigest.of(Map.of("curve", "P-384")).hash());
     }
+
+    /**
+     * An explicit JSON null is a declared absence, not content. Counting it as a leaf let an all-null payload out-rank
+     * a source that reported a real value, and the merge election then hid the real one.
+     */
+    @Test
+    void anExplicitNullIsNotContent() {
+        java.util.Map<String, Object> allNull = new java.util.LinkedHashMap<>();
+        allNull.put("primitive", null);
+        allNull.put("mode", null);
+
+        assertThat(CryptoPropertiesDigest.leafCount(allNull)).isZero();
+        assertThat(CryptoPropertiesDigest.leafCount(java.util.Map.of("curve", "P-256")))
+                .describedAs("a payload with one real value must out-rank a payload of declared absences")
+                .isGreaterThan(CryptoPropertiesDigest.leafCount(allNull));
+    }
 }
