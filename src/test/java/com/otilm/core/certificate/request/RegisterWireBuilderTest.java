@@ -7,6 +7,7 @@ import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
@@ -308,6 +309,32 @@ class RegisterWireBuilderTest {
 
             // then
             assertThat(dto.getSubjectDn()).isEqualTo("O=Org\\, s.r.o.,CN=x");
+        }
+
+        @Test
+        void legacyConnector_carriesTypedKeyUsagesAsFlatDerExtensions() {
+            // The typed targets live outside content.extensions, so a connector without
+            // CERTIFICATE_REQUEST_STRUCTURED would otherwise register an identity with no usages at all.
+            X509RequestContent content = RegisterWireBuilder.buildContent("CN=device-7", null, null);
+            content.setKeyUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT));
+            content.setExtendedKeyUsage(List.of("1.3.6.1.5.5.7.3.1"));
+
+            CertificateRegistrationRequestDtoV3 dto = RegisterWireBuilder.buildRegistration(content, false);
+
+            assertThat(dto.getExtensions())
+                    .extracting(CertificateExtension::getOid, CertificateExtension::getValueBase64,
+                            CertificateExtension::isCritical)
+                    .containsExactly(tuple("2.5.29.15", "AwIFoA==", true),
+                            tuple("2.5.29.37", "MAoGCCsGAQUFBwMB", false));
+        }
+
+        @Test
+        void legacyConnector_omitsTypedExtensionsWhenTheListsAreEmpty() {
+            X509RequestContent content = RegisterWireBuilder.buildContent("CN=device-7", null, null);
+
+            CertificateRegistrationRequestDtoV3 dto = RegisterWireBuilder.buildRegistration(content, false);
+
+            assertThat(dto.getExtensions()).isNull();
         }
 
         @Test

@@ -14,12 +14,14 @@ import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
+import com.otilm.core.util.StructuredExtensionCodec;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -86,6 +88,8 @@ public class CertificateRequestAttributeProjector {
         content.setCertificateType(CertificateType.X509);
         content.setSubject(sink.subject.isEmpty() ? null : sink.subject);
         content.setSubjectAltNames(sink.subjectAltNames.isEmpty() ? null : sink.subjectAltNames);
+        content.setKeyUsage(sink.keyUsage.isEmpty() ? null : sink.keyUsage);
+        content.setExtendedKeyUsage(sink.extendedKeyUsage.isEmpty() ? null : sink.extendedKeyUsage);
         content.setExtensions(sink.extensions.isEmpty() ? null : sink.extensions);
         return content;
     }
@@ -130,6 +134,11 @@ public class CertificateRequestAttributeProjector {
 
     private static void applyMappedField(MappedField field, List<String> attributeValues, DataAttributeV3 def,
             ProjectionSink sink) {
+        String structuredOid = StructuredExtensionCodec.oidFor(field);
+        if (structuredOid != null) {
+            projectStructuredExtension(structuredOid, attributeValues, sink);
+            return;
+        }
         switch (field) {
             case RdnMappedField rdn -> {
                 for (String value : attributeValues) {
@@ -169,11 +178,32 @@ public class CertificateRequestAttributeProjector {
     }
 
     /**
+     * Projects a structured target's selection into the matching typed list. No ASN.1 happens here — the renderer
+     * encodes on the way out. The OID is still claimed, so a collision with an explicit extension mapping, or with a
+     * second attribute targeting the same extension, is rejected as it is for any other extension.
+     */
+    private static void projectStructuredExtension(String extensionOid, List<String> attributeValues,
+            ProjectionSink sink) {
+        if (!sink.seenExtensionOids.add(extensionOid)) {
+            throw new ValidationException(
+                    "Certificate extension OID %s is mapped by more than one attribute field; an extension may appear only once (RFC 5280)"
+                            .formatted(extensionOid));
+        }
+        if (StructuredExtensionCodec.KEY_USAGE_OID.equals(extensionOid)) {
+            sink.keyUsage.addAll(StructuredExtensionCodec.toKeyUsages(attributeValues));
+        } else {
+            sink.extendedKeyUsage.addAll(StructuredExtensionCodec.toPurposeOids(attributeValues));
+        }
+    }
+
+    /**
      * Mutable accumulator for the entries projected across all definitions, plus the extension OIDs already emitted.
      */
     private static final class ProjectionSink {
         final List<RdnEntry> subject = new ArrayList<>();
         final List<GeneralNameEntry> subjectAltNames = new ArrayList<>();
+        final List<CertificateKeyUsage> keyUsage = new ArrayList<>();
+        final List<String> extendedKeyUsage = new ArrayList<>();
         final List<RequestedExtension> extensions = new ArrayList<>();
         final Set<String> seenExtensionOids = new HashSet<>();
     }
