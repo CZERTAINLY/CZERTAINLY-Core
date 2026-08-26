@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ExtensionSchemasTest {
@@ -170,6 +171,31 @@ class ExtensionSchemasTest {
     @Test
     void requireValidSchemaAcceptsALocalFragmentRef() {
         ExtensionSchemas.requireValidSchema("{\"$defs\":{\"x\":{\"type\":\"integer\"}},\"$ref\":\"#/$defs/x\"}");
+    }
+
+    @Test
+    void requireValidSchemaRejectsADeclaredOlderDialect() {
+        // The factory default applies only when $schema is absent. Under draft-04, prefixItems is an unknown
+        // keyword, so a schema that reads as restrictive would enforce nothing.
+        String draft4 = "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\"}";
+
+        assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema(draft4))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("draft 2020-12");
+    }
+
+    @Test
+    void requireValidSchemaAcceptsTheDeclaredSupportedDialect() {
+        String declared = "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"object\"}";
+
+        assertThatNoException().isThrownBy(() -> ExtensionSchemas.requireValidSchema(declared));
+    }
+
+    @Test
+    void requireValidSchemaRejectsTrailingContent() {
+        // readTree stops at the first complete value, so trailing text would be discarded unnoticed.
+        assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema("{\"type\":\"object\"} and then some"))
+                .isInstanceOf(ValidationException.class);
     }
 
     @Test

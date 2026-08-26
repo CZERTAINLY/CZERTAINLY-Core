@@ -1,5 +1,6 @@
 package com.otilm.core.util;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.networknt.schema.JsonSchema;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -34,6 +36,8 @@ public final class ExtensionSchemas {
     // Schema loading must never reach the network: getSchema resolves $ref targets eagerly, so a schema
     // reaching the database by any route other than requireValidSchema would otherwise fetch a URL of its
     // author's choosing on the server's behalf.
+    private static final Set<String> SUPPORTED_DIALECTS = Set
+            .of("https://json-schema.org/draft/2020-12/schema", "https://json-schema.org/draft/2020-12/schema#");
     private static final Map<String, Optional<String>> SHIPPED = new ConcurrentHashMap<>();
     private static final JsonSchemaFactory FACTORY = JsonSchemaFactory
             .getInstance(SpecVersion.VersionFlag.V202012,
@@ -82,18 +86,35 @@ public final class ExtensionSchemas {
     public static void requireValidSchema(String schemaDocument) {
         JsonNode parsed;
         try {
-            parsed = MAPPER.readTree(schemaDocument);
+            parsed = MAPPER.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(schemaDocument);
         } catch (IOException e) {
             throw new ValidationException("Not a valid JSON Schema document: not JSON");
         }
         if (parsed == null || !(parsed.isObject() || parsed.isBoolean())) {
             throw new ValidationException("Not a valid JSON Schema document: the root must be an object or a boolean");
         }
+        requireSupportedDialect(parsed);
         rejectNonLocalRefs(parsed, "$");
         try {
             FACTORY.getSchema(parsed);
         } catch (RuntimeException e) {
             throw new ValidationException("Not a valid JSON Schema document: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Rejects a declared {@code $schema} other than draft 2020-12. The factory's default applies only when the document
+     * omits the keyword, so a declared older draft would be honoured instead — and under draft-04 a keyword such as
+     * {@code prefixItems} is unknown, so a schema that looks restrictive would enforce nothing.
+     */
+    private static void requireSupportedDialect(JsonNode document) {
+        if (!document.isObject() || !document.has("$schema")) {
+            return;
+        }
+        JsonNode declared = document.get("$schema");
+        if (!declared.isTextual() || !SUPPORTED_DIALECTS.contains(declared.textValue())) {
+            throw new ValidationException(
+                    "Not a valid JSON Schema document: only the draft 2020-12 dialect is supported");
         }
     }
 
