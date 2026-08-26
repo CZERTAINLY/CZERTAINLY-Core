@@ -50,9 +50,10 @@ class CryptoAssetInventoryMigrationITest extends BaseSpringBootTest {
                     "idx_crypto_asset_oid", "idx_crypto_asset_oid_lower", "idx_crypto_asset_algorithm_family",
                     "idx_crypto_asset_primitive", "idx_crypto_asset_parameter_set", "idx_crypto_asset_curve",
                     "idx_crypto_asset_mode", "idx_crypto_asset_padding", "idx_crypto_asset_variant",
-                    "idx_crypto_asset_pqc_verdict", "idx_crypto_asset_ruleset_version", "idx_crypto_asset_source_count",
+                    "idx_crypto_asset_pqc_verdict", "idx_crypto_asset_pqc_ruleset_version",
+                    "idx_crypto_asset_ruleset_version", "idx_crypto_asset_source_count",
                     "idx_crypto_asset_properties_source", "idx_crypto_asset_source_cbom",
-                    "idx_crypto_asset_alias_canonical", "idx_cbom_asset_sync_state");
+                    "idx_crypto_asset_alias_canonical", "idx_cbom_asset_sync_state", "idx_cbom_assets_synced_at");
 
     private static final Map<String, String> EXPECTED_FOREIGN_KEY_ACTIONS = Map
             .of("crypto_asset_source_to_crypto_asset_key", "c", "crypto_asset_source_to_cbom_key", "r",

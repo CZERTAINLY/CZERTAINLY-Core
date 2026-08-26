@@ -129,4 +129,69 @@ class IdentityKeyExposureFenceSelfTest {
                         List.of("  logger.getLogger().warn(\"identity_key={}\", this.identityKey);")))
                 .hasSize(1);
     }
+
+    /**
+     * The leak a line-by-line rule cannot see: the logging call opens on one line and binds the key on another, so
+     * neither line carries both halves. Reformatting must not decide whether a disclosure is reported.
+     */
+    @Test
+    void aLoggingCallSplitAcrossLinesIsReported() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted,
+                        List
+                                .of("  logger.debug(", "          \"keyed as {} under rule set {}\",",
+                                        "          identityKey,", "          rulesetVersion);")))
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetWriter.java:3")
+                .contains("logs the crypto-asset identity key");
+    }
+
+    /**
+     * The converse: once a logging call has closed, an allowlisted file may go on naming the key. Without this the
+     * multiline rule would swallow the rest of every file that ever logs.
+     */
+    @Test
+    void aClosedLoggingCallDoesNotFenceTheLinesAfterIt() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted,
+                        List
+                                .of("  logger.debug(", "          \"upserting {} assets\",", "          count);",
+                                        "  repository.upsertIdentity(identityKey);")))
+                .isEmpty();
+    }
+
+    /**
+     * A parenthesis inside the message template must not close the call early — otherwise a leak on the next line
+     * escapes by way of the punctuation in a log message.
+     */
+    @Test
+    void aParenthesisInsideAMessageTemplateDoesNotCloseTheCall() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted,
+                        List.of("  logger.warn(\"merge (re-keyed) produced {}\",", "          identityKey);")))
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetWriter.java:2");
+    }
+
+    /**
+     * Ordinary parenthesised code between two statements is not an open logging call. Without this the depth counter
+     * would drift and fence a whole file after its first {@code if}.
+     */
+    @Test
+    void ordinaryParenthesesAreNotMistakenForALoggingCall() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted,
+                        List.of("  if (asset.isPresent() && (count > 0)) {", "      apply(identityKey);", "  }")))
+                .isEmpty();
+    }
 }

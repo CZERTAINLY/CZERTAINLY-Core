@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -42,6 +43,14 @@ final class IdentityKeyExposureFence {
      */
     private static final Pattern LOGGING_CALL = Pattern
             .compile("\\.\\s*(trace|debug|info|warn|error)\\s*\\(", Pattern.CASE_INSENSITIVE);
+
+    /**
+     * A string or character literal, escapes included. Blanked out before parentheses are counted, so a parenthesis
+     * inside a message template — {@code log.debug("(")} — cannot skew the depth that decides where a logging call
+     * ends. Only the depth count sees the blanked form; the identity-key test still reads the raw line, because a key
+     * named inside a string literal is exactly as disclosed as one named outside it.
+     */
+    private static final Pattern LITERAL = Pattern.compile("\"(\\\\.|[^\"\\\\])*\"|'(\\\\.|[^'\\\\])*'");
 
     /**
      * Packages whose declarations reach a client: the DTO/model layer, the API layer, and the imported contract
@@ -106,8 +115,14 @@ final class IdentityKeyExposureFence {
 
     /**
      * Violations in one production source file: the identity key named at all outside {@link #SOURCE_ALLOWLIST}, or
-     * named on a logging call in any file at all. The logging rule carries no allowlist — the files that legitimately
-     * hold the value are exactly the files from which it could reach an appender.
+     * named anywhere inside a logging call in any file at all. The logging rule carries no allowlist — the files that
+     * legitimately hold the value are exactly the files from which it could reach an appender.
+     *
+     * <p>
+     * A logging call is tracked across lines by parenthesis depth, not matched line by line. A formatter is free to put
+     * {@code logger.debug(} on one line and the bound argument on the next, and a rule that only looked at single lines
+     * would let that formatting decide whether the leak is reported — which would make the acceptance criterion a
+     * property of the code style rather than of the code.
      *
      * @param repoRelativePath the file's path relative to the repository root, with {@code /} separators
      * @param lines the file's lines, 1-based in the reported message
@@ -116,20 +131,62 @@ final class IdentityKeyExposureFence {
         String path = repoRelativePath.toString().replace('\\', '/');
         boolean allowlisted = SOURCE_ALLOWLIST.contains(path);
         List<String> violations = new ArrayList<>();
+        int openLoggingParens = 0;
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
-            if (isDocumentation(line) || !mentionsIdentityKey(line)) {
+            if (isDocumentation(line)) {
                 continue;
             }
-            if (LOGGING_CALL.matcher(line).find()) {
-                violations.add(path + ":" + (i + 1) + " logs the crypto-asset identity key: " + line.strip());
-            } else if (!allowlisted) {
-                violations
-                        .add(path + ":" + (i + 1) + " names the crypto-asset identity key outside persistence: "
-                                + line.strip());
+            String code = LITERAL.matcher(line).replaceAll("\"\"");
+            boolean insideLoggingCall = openLoggingParens > 0 || LOGGING_CALL.matcher(code).find();
+            if (mentionsIdentityKey(line)) {
+                if (insideLoggingCall) {
+                    violations.add(path + ":" + (i + 1) + " logs the crypto-asset identity key: " + line.strip());
+                } else if (!allowlisted) {
+                    violations
+                            .add(path + ":" + (i + 1) + " names the crypto-asset identity key outside persistence: "
+                                    + line.strip());
+                }
             }
+            openLoggingParens = remainingLoggingParens(code, openLoggingParens);
         }
         return violations;
+    }
+
+    /**
+     * How many parentheses of a logging call are still open at the end of this line, given how many were open at its
+     * start. Counting begins at the {@code (} of a logging call and stops when that call closes, so ordinary
+     * parenthesised code between two logging statements is never mistaken for an open call.
+     *
+     * <p>
+     * A count that drifts can only drift toward reporting more, never less: an unbalanced line leaves the call open and
+     * keeps the following lines under the logging rule, which is the direction a fence should fail in.
+     */
+    private static int remainingLoggingParens(String code, int carriedDepth) {
+        Matcher call = LOGGING_CALL.matcher(code);
+        int depth = carriedDepth;
+        int callOpensAt = call.find() ? call.end() - 1 : -1;
+        for (int i = 0; i < code.length(); i++) {
+            if (depth == 0) {
+                if (callOpensAt < 0) {
+                    return 0;
+                }
+                if (i < callOpensAt) {
+                    continue;
+                }
+            }
+            char character = code.charAt(i);
+            if (character == '(') {
+                depth++;
+            } else if (character == ')') {
+                depth--;
+            }
+            if (depth <= 0) {
+                depth = 0;
+                callOpensAt = call.find(i + 1) ? call.end() - 1 : -1;
+            }
+        }
+        return depth;
     }
 
     /**

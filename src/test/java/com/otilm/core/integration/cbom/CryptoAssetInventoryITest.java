@@ -27,6 +27,7 @@ import com.otilm.core.service.writer.cbom.CryptoAssetSourceWriter;
 import com.otilm.core.service.writer.cbom.CryptoAssetWriter;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,6 +41,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 /**
  * The cryptographic asset inventory against real PostgreSQL: the upsert paths, the merge election, the foreign-key
@@ -236,10 +238,8 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
         CryptoAssetSource stored = source(assetUuid, leanCbom.getUuid());
         assertThat(sourceRepository.count()).isEqualTo(1);
-        assertThat(stored.getFirstSeenAt())
-                .isCloseTo(first, org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.SECONDS));
-        assertThat(stored.getLastSeenAt())
-                .isCloseTo(later, org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.SECONDS));
+        assertThat(stored.getFirstSeenAt()).isCloseTo(first, within(1, ChronoUnit.SECONDS));
+        assertThat(stored.getLastSeenAt()).isCloseTo(later, within(1, ChronoUnit.SECONDS));
         assertThat(stored.getOriginalCryptoProperties()).containsEntry("primitive", "keyAgree");
     }
 
@@ -440,6 +440,62 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
         // And keying is unaffected: the same fields still land on the same row, alias or no alias.
         assertThat(assetWriter.upsertIdentity(algorithm("RSA", "2048"), null)).isEqualTo(absorbedUuid);
+    }
+
+    /**
+     * A re-sync that arrives out of order must not invert the window. Keeping {@code first_seen_at} and assigning
+     * {@code last_seen_at} looks equivalent only while events arrive in order; a retry or a replayed document can
+     * present an older timestamp after a newer one.
+     */
+    @Test
+    void anOutOfOrderResyncStillLeavesARealSeenAtWindow() {
+        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        OffsetDateTime later = OffsetDateTime.now();
+        OffsetDateTime earlier = later.minusDays(2);
+
+        sourceWriter.upsertSource(assetUuid, leanCbom.getUuid(), null, null, later);
+        sourceWriter.upsertSource(assetUuid, leanCbom.getUuid(), null, null, earlier);
+
+        CryptoAssetSource stored = source(assetUuid, leanCbom.getUuid());
+        assertThat(stored.getFirstSeenAt())
+                .describedAs("an older event moves first_seen_at earlier")
+                .isCloseTo(earlier, within(1, ChronoUnit.SECONDS));
+        assertThat(stored.getLastSeenAt())
+                .describedAs("an older event does not drag last_seen_at back")
+                .isCloseTo(later, within(1, ChronoUnit.SECONDS));
+        assertThat(stored.getLastSeenAt())
+                .describedAs("the window is never inverted")
+                .isAfterOrEqualTo(stored.getFirstSeenAt());
+    }
+
+    /**
+     * A guard is a safety refusal, not a field: {@link CryptoAssetAliasWriter} reads the guard that is on the row now
+     * to decide whether a merge is allowed. If ordinary re-ingest could clear it, the refusal would evaporate on the
+     * next unguarded report of the same normalized identity.
+     */
+    @Test
+    void aLaterUnguardedReportDoesNotClearASafetyGuard() {
+        CryptoAssetIdentityFields bareCnFields = new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE,
+                "example.com", null, null, null, null, null, null, null, null);
+        UUID bareCn = assetWriter.upsertIdentity(bareCnFields, CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
+
+        assertThat(assetWriter.upsertIdentity(bareCnFields, null))
+                .describedAs("the same normalized identity lands on the same row")
+                .isEqualTo(bareCn);
+        assertThat(asset(bareCn).getIdentityGuard())
+                .describedAs("re-ingest without a guard must not lift one that was set")
+                .isEqualTo(CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
+
+        UUID fullDn = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE,
+                        "CN=example.com,O=Example,C=CZ", null, null, null, null, null, null, null, null), null);
+        String bareCnKey = asset(bareCn).getIdentityKey();
+        String fullDnKey = asset(fullDn).getIdentityKey();
+
+        assertThatThrownBy(() -> aliasWriter.record(bareCnKey, fullDnKey, "still looks the same", "operator"))
+                .describedAs("the refusal survives the re-ingest that would otherwise have cleared the guard")
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("BARE_CN_SUBJECT");
     }
 
     @Test

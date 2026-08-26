@@ -74,6 +74,45 @@ class CryptoAssetIdentityCalculatorTest {
                 .isEqualTo(CryptoAssetIdentityCalculator.calculate(algorithm("RSA", null, null)));
     }
 
+    /**
+     * The fullwidth case above passes under either ordering, because fullwidth letters do have case mappings. A
+     * compatibility character that has none is what separates the two: fold-then-normalise leaves
+     * {@code U+1D400 MATHEMATICAL BOLD CAPITAL A} alone and NFKC then yields {@code A}, so a case-folding normaliser
+     * returns an uppercase result and the two spellings key apart.
+     */
+    @Test
+    void aCompatibilityCharacterWithNoCaseMappingStillFolds() {
+        String mathematicalBold = "𝐀𝐄𝐒";
+        assertThat(mathematicalBold.toLowerCase(Locale.ROOT))
+                .describedAs("these characters have no lowercase mapping, which is the whole point of the case")
+                .isEqualTo(mathematicalBold);
+
+        assertThat(CryptoAssetIdentityCalculator.calculate(algorithm(mathematicalBold, null, null)))
+                .isEqualTo(CryptoAssetIdentityCalculator.calculate(algorithm("AES", null, null)));
+    }
+
+    /**
+     * The converse ordering hazard: a full case mapping can emit a sequence that is not itself normalised, so the
+     * pipeline normalises again after folding. {@code U+0130 LATIN CAPITAL LETTER I WITH DOT ABOVE} folds to {@code i}
+     * plus {@code U+0307 COMBINING DOT ABOVE}, and the composed and already-decomposed spellings must land together.
+     *
+     * <p>
+     * They land on {@code i + U+0307}, not on plain {@code i} — which is correct, and is what Unicode's own
+     * {@code NFKC_Casefold} does with this character. The assertion below is the property that matters; asserting
+     * {@code İ} equals {@code i} would be asserting a folding Unicode does not perform.
+     */
+    @Test
+    void aFoldThatReDecomposesIsNormalisedAgain() {
+        String composedDottedCapitalI = "İV";
+        String foldedSpelling = "i̇v";
+        assertThat(composedDottedCapitalI.toLowerCase(Locale.ROOT))
+                .describedAs("the fold really does emit a combining sequence, or this test proves nothing")
+                .isEqualTo(foldedSpelling);
+
+        assertThat(CryptoAssetIdentityCalculator.calculate(algorithm(composedDottedCapitalI, null, null)))
+                .isEqualTo(CryptoAssetIdentityCalculator.calculate(algorithm(foldedSpelling, null, null)));
+    }
+
     @Test
     void decomposedAndComposedFormsAgree() {
         String composed = "caf\u00e9";

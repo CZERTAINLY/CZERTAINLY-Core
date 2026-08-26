@@ -49,6 +49,14 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
      * resolves the surviving row's uuid by its key afterwards.
      *
      * <p>
+     * <b>Identity guard:</b> an existing guard survives, because it is a safety refusal rather than a field. A guard
+     * says this row was deliberately kept separate — a refuted certificate digest, a bare common name facing a full
+     * subject DN — and {@code CryptoAssetAliasWriter} refuses an alias by reading the guard that is on the row now.
+     * Assigning {@code EXCLUDED.identity_guard} would therefore let any later unguarded report of the same normalized
+     * identity clear the refusal as a side effect of ordinary re-ingest, and the merge it was protecting against would
+     * become available. Lifting a guard is an explicit reviewed decision, never a consequence of re-reading a document.
+     *
+     * <p>
      * The merge bookkeeping and the PQC verdict are deliberately untouched: they belong to the source that was just
      * ingested and to the rule set, not to the identity.
      */
@@ -72,7 +80,7 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
                 mode = EXCLUDED.mode,
                 padding = EXCLUDED.padding,
                 variant = EXCLUDED.variant,
-                identity_guard = EXCLUDED.identity_guard,
+                identity_guard = COALESCE(crypto_asset.identity_guard, EXCLUDED.identity_guard),
                 i_upd = CURRENT_TIMESTAMP
             """, nativeQuery = true)
     void upsertIdentity(@Param("uuid") UUID uuid, @Param("key") String key, @Param("rulesetVersion") int rulesetVersion,

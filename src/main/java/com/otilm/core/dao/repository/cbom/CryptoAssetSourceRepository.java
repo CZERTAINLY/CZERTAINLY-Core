@@ -41,9 +41,12 @@ public interface CryptoAssetSourceRepository extends SecurityFilterRepository<Cr
      * rewrites the row rather than creating a second one.
      *
      * <p>
-     * {@code first_seen_at} survives the conflict deliberately: it is when this CBOM first reported the asset, and a
-     * re-sync does not make that later. {@code occurrence_count} is the unclipped count, so the gap against the
-     * retained {@code evidence} array records that capping happened.
+     * The seen-at pair is merged with {@code LEAST}/{@code GREATEST} rather than assigned, so the row always holds a
+     * real window. Keeping {@code first_seen_at} and overwriting {@code last_seen_at} would look equivalent only while
+     * events arrive in order: a retry, a replayed document or two nodes ingesting the same CBOM can present an older
+     * {@code seenAt} after a newer one, and a plain assignment would then store a {@code last_seen_at} that precedes
+     * {@code first_seen_at}. {@code occurrence_count} is the unclipped count, so the gap against the retained
+     * {@code evidence} array records that capping happened.
      */
     @Modifying
     @Query(value = """
@@ -57,7 +60,8 @@ public interface CryptoAssetSourceRepository extends SecurityFilterRepository<Cr
                 properties_hash = EXCLUDED.properties_hash,
                 evidence = EXCLUDED.evidence,
                 occurrence_count = EXCLUDED.occurrence_count,
-                last_seen_at = EXCLUDED.last_seen_at
+                first_seen_at = LEAST(crypto_asset_source.first_seen_at, EXCLUDED.first_seen_at),
+                last_seen_at = GREATEST(crypto_asset_source.last_seen_at, EXCLUDED.last_seen_at)
             """, nativeQuery = true)
     void upsertSource(@Param("uuid") UUID uuid, @Param("assetUuid") UUID assetUuid, @Param("cbomUuid") UUID cbomUuid,
             @Param("properties") String properties, @Param("leafCount") int leafCount,

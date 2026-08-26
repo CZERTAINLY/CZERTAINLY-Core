@@ -19,9 +19,17 @@ import java.util.Locale;
  * <li><b>Locale independence.</b> Case folding uses {@link Locale#ROOT}, never the platform default. A Turkish-locale
  * JVM folds {@code I} to {@code i-without-dot}, so a default-locale fold would key the same asset differently on two
  * nodes of one cluster -- and the unique arbiter cannot catch that, because the two keys genuinely differ.</li>
- * <li><b>Unicode normalisation.</b> Fields are normalised to NFKC after folding, so a producer emitting a fullwidth or
- * decomposed spelling of an identifier keys onto the same row. NFKC rather than NFC because these are machine
- * identifiers, where compatibility equivalence is the equivalence intended.</li>
+ * <li><b>Unicode normalisation.</b> Fields are normalised to NFKC <em>before</em> folding, then folded, then normalised
+ * again, so a producer emitting a fullwidth, decomposed or compatibility spelling of an identifier keys onto the same
+ * row. NFKC rather than NFC because these are machine identifiers, where compatibility equivalence is the equivalence
+ * intended. The order is not interchangeable: a compatibility character has no case mapping of its own, so folding
+ * first leaves {@code U+1D400 MATHEMATICAL BOLD CAPITAL A} untouched and NFKC then yields {@code A} -- an uppercase
+ * result out of a case-folding normaliser, keyed differently from the plain {@code a} it is equivalent to. The second
+ * pass is there because a full case mapping can itself emit an unnormalised sequence -- {@code U+0130 LATIN CAPITAL
+ * LETTER I WITH DOT ABOVE} folds to {@code i} plus a combining dot above -- so the composed and already-folded
+ * spellings are brought back together. NFKC-fold-NFKC is the approximation of Unicode's {@code NFKC_Casefold} reachable
+ * without a case-folding API, and like {@code NFKC_Casefold} it leaves that dotted {@code i} distinct from a plain one:
+ * that is the intended Unicode behaviour, not a shortfall of this pipeline.</li>
  * <li><b>No delimiter injection.</b> Fields are length-prefixed rather than separator-joined, so no field value can
  * forge a field boundary: a name of {@code "3:foo"} cannot impersonate the field after it. A separator scheme would
  * have needed a character forbidden in the inputs, and producer-supplied text admits no such character.</li>
@@ -95,7 +103,8 @@ public final class CryptoAssetIdentityCalculator {
         if (trimmed.isEmpty()) {
             return null;
         }
-        return Normalizer.normalize(trimmed.toLowerCase(Locale.ROOT), Normalizer.Form.NFKC);
+        String folded = Normalizer.normalize(trimmed, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+        return Normalizer.normalize(folded, Normalizer.Form.NFKC);
     }
 
     private static void frame(ByteArrayOutputStream preimage, String value) {

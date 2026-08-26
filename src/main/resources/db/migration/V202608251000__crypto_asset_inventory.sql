@@ -143,6 +143,7 @@ CREATE INDEX "idx_crypto_asset_mode" ON "crypto_asset" ("mode");
 CREATE INDEX "idx_crypto_asset_padding" ON "crypto_asset" ("padding");
 CREATE INDEX "idx_crypto_asset_variant" ON "crypto_asset" ("variant");
 CREATE INDEX "idx_crypto_asset_pqc_verdict" ON "crypto_asset" ("pqc_verdict");
+CREATE INDEX "idx_crypto_asset_pqc_ruleset_version" ON "crypto_asset" ("pqc_ruleset_version");
 CREATE INDEX "idx_crypto_asset_ruleset_version" ON "crypto_asset" ("ruleset_version");
 CREATE INDEX "idx_crypto_asset_source_count" ON "crypto_asset" ("source_count");
 -- Not a filter column: without it, the ON DELETE SET NULL check scans crypto_asset once per deleted source row.
@@ -156,3 +157,4 @@ CREATE INDEX "idx_crypto_asset_source_cbom" ON "crypto_asset_source" ("cbom_uuid
 CREATE INDEX "idx_crypto_asset_alias_canonical" ON "crypto_asset_alias" ("canonical_key");
 
 CREATE INDEX "idx_cbom_asset_sync_state" ON "cbom" ("asset_sync_state");
+CREATE INDEX "idx_cbom_assets_synced_at" ON "cbom" ("assets_synced_at");

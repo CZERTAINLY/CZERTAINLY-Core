@@ -29,6 +29,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CryptoAssetAliasWriter {
 
+    /**
+     * The advisory-lock key every alias mutation serializes on. A fixed literal rather than a value hashed at runtime,
+     * so two nodes agree on it without also having to agree on a hash function, and so a reader can see the number that
+     * is actually taken. It must not be reused by any other advisory lock in this database.
+     */
+    private static final long ALIAS_DECISION_LOCK_KEY = 2_071_000_001L;
+
     private final CryptoAssetAliasRepository aliasRepository;
     private final CryptoAssetRepository assetRepository;
 
@@ -40,12 +47,19 @@ public class CryptoAssetAliasWriter {
     /**
      * Records, or re-points, the decision that one asset key is really another.
      *
+     * <p>
+     * The chain and cycle rules are checked, not constrained: no single row is common to {@code A→B} and {@code B→C},
+     * so no unique index can refuse the pair and there is nothing to lock pessimistically. Without serialization both
+     * decisions read a chain-free table and both commit. The advisory lock is therefore taken <em>before</em> the first
+     * read, so every check runs against a table no other alias mutation can be changing.
+     *
      * @throws ValidationException if either side was split by a safety rule, if the decision is self-referential, or if
      * it would form a chain
      */
     @Transactional
     public void record(String absorbedKey, String canonicalKey, String reason, String decidedBy) {
         requireDistinct(absorbedKey, canonicalKey);
+        aliasRepository.lockAliasDecisions(ALIAS_DECISION_LOCK_KEY);
         requireUnguarded(canonicalKey, "canonical");
         requireUnguarded(absorbedKey, "absorbed");
         requireNoChain(absorbedKey, canonicalKey);
@@ -58,10 +72,16 @@ public class CryptoAssetAliasWriter {
      * Withdraws an alias. A later ingest of the absorbed asset creates its own row again, rebuilt from the per-source
      * payloads that were retained throughout.
      *
+     * <p>
+     * Takes the same lock as {@link #record}: a removal cannot form a chain on its own, but it changes the very table a
+     * concurrent {@code record} is reading to decide whether one would form. Serializing both directions is what makes
+     * "no chain exists" an invariant rather than a statement about the last thing that happened to commit.
+     *
      * @return 1 if an alias was removed, 0 if there was none
      */
     @Transactional
     public int remove(String absorbedKey) {
+        aliasRepository.lockAliasDecisions(ALIAS_DECISION_LOCK_KEY);
         return aliasRepository.deleteByAbsorbedKey(absorbedKey);
     }
 

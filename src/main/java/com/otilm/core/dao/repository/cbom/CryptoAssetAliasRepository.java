@@ -25,6 +25,27 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CryptoAssetAliasRepository extends JpaRepository<CryptoAssetAlias, UUID> {
 
+    /**
+     * Serializes alias decisions across the whole cluster for the remainder of the calling transaction.
+     *
+     * <p>
+     * The no-chain and no-cycle rules are check-then-insert, and the table's only unique constraint is on
+     * {@code absorbed_key}, which constrains each decision in isolation and says nothing about the pair. Two
+     * transactions recording {@code A→B} and {@code B→C} therefore both read a chain-free table, both pass, and both
+     * commit — leaving the chain the rules exist to forbid. No row is common to the two decisions, so there is nothing
+     * to lock pessimistically; the lock has to be on the decision itself.
+     *
+     * <p>
+     * Advisory rather than a lock table: it needs no row to exist, it is released by commit or rollback with no cleanup
+     * path to get wrong, and alias repair is a rare operator action, so serializing all of it costs nothing worth
+     * measuring. The lock is transaction-scoped, so a caller must already be in a transaction — which is why only
+     * {@code CryptoAssetAliasWriter}'s {@code @Transactional} methods take it.
+     *
+     * @param key the advisory-lock key; every alias mutation must pass the same one
+     */
+    @Query(value = "SELECT 1 FROM (SELECT pg_advisory_xact_lock(:key)) AS alias_decision_lock", nativeQuery = true)
+    Integer lockAliasDecisions(@Param("key") long key);
+
     Optional<CryptoAssetAlias> findByAbsorbedKey(String absorbedKey);
 
     /** Whether any alias already redirects to this key -- the other half of the no-chains check. */
