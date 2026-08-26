@@ -154,6 +154,13 @@ public class DiscoveryProcessTickWorker {
                 .countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(discoveryUuid);
     }
 
+    /** How much of one batch is still waiting for a verdict. A row stamped with a reason is not waiting. */
+    private long pendingIn(List<DiscoveryCertificate> batch) {
+        return certificateRepository
+                .countByUuidInAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(
+                        batch.stream().map(DiscoveryCertificate::getUuid).toList());
+    }
+
     /**
      * Runs the batch through the import pipeline and files what it could not import on the run.
      */
@@ -168,11 +175,11 @@ public class DiscoveryProcessTickWorker {
             logger
                     .error("Processing batch {} of discovery {} did not complete: {}", attempt, run.getUuid(),
                             e.getMessage(), e);
-            // INFO only while the rows are still in the backlog for another tick to retry: rows that run out of
-            // attempts carry their own reason, and a stall that exhausts the budget ends the run itself. A batch
-            // that threw after stamping its last row leaves nothing to retry, so no later tick revisits the
-            // failure -- and an ending decided on severity would read that run as clean.
-            boolean retryable = backlogOf(run.getUuid()) > 0;
+            // INFO only while this batch's own rows are still pending for another tick to retry: rows that run out
+            // of attempts carry their own reason, and a stall that exhausts the budget ends the run itself. Judged
+            // on this batch and never the run, because another batch's pending rows would make a failure that
+            // stamped all of its own look retryable -- and nothing would ever revisit it.
+            boolean retryable = pendingIn(batch) > 0;
             messageWriter
                     .append(run.getUuid(), retryable ? DiscoveryMessageSeverity.INFO : DiscoveryMessageSeverity.WARNING,
                             retryable

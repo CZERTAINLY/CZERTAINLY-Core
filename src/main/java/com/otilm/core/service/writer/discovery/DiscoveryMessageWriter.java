@@ -141,8 +141,8 @@ public class DiscoveryMessageWriter {
 
     /**
      * At least {@code WARNING}, whatever overflowed: a suppression row exists because the run lost information about
-     * itself, and the run-level one stands in for several codes, so the first arrival's severity says nothing about the
-     * rest. It may understate an {@code ERROR} it covers, but can never hide one from the terminal decision.
+     * itself, which is worth a warning even when everything behind it was routine. Anything worse it later stands in
+     * for raises it, since the upsert keeps the highest severity a row has ever carried.
      */
     private static DiscoveryMessageSeverity standInSeverity(DiscoveryMessageSeverity suppressed) {
         return suppressed == DiscoveryMessageSeverity.ERROR ? suppressed : DiscoveryMessageSeverity.WARNING;

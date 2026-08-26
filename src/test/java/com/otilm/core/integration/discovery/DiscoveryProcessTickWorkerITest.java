@@ -364,6 +364,34 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
     }
 
     @Test
+    void batchWithNothingLeftToRetry_isJudgedOnItsOwnRowsNotTheRunsBacklog() throws Exception {
+        Discovery run = processingRun();
+        // Three rows at a batch size of one, so the first batch finishes while the run still has a backlog.
+        stageCertificates(run, 3);
+        stampsEveryRowThenDies();
+
+        worker.tick(run.getUuid(), 0);
+
+        // The run has two rows left, but none of them belongs to the batch that failed, so nothing will ever
+        // retry it. Judging by the run's backlog would call this retryable and file it at a severity the ending
+        // ignores.
+        assertThat(backlog(run)).isEqualTo(2);
+        assertThat(messages(run))
+                .extracting(DiscoveryMessage::getCode)
+                .contains(DiscoveryMessageCode.BATCH_PROCESSING_ABANDONED.code())
+                .doesNotContain(DiscoveryMessageCode.BATCH_PROCESSING_FAILED.code());
+
+        importsCleanly();
+        worker.tick(run.getUuid(), 0);
+        worker.tick(run.getUuid(), 0);
+
+        assertThat(backlog(run)).isZero();
+        assertThat(reload(run).getStatus())
+                .as("the batch that was never retried is what the run ends on")
+                .isEqualTo(DiscoveryStatus.WARNING);
+    }
+
+    @Test
     void cleanBatch_addsNothingToTheRunMessageLog() throws Exception {
         Discovery run = processingRun();
         stageCertificates(run, 1);

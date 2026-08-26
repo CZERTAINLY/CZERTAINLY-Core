@@ -24,6 +24,11 @@ public interface DiscoveryMessageRepository extends JpaRepository<DiscoveryMessa
      * existing row grows nothing.
      *
      * <p>
+     * A row's severity is the highest ever recorded for it, which is what stops the run-level suppression row —
+     * covering every code at once — understating the worst it stands for. The {@code CASE} compares the member names
+     * {@code @Enumerated(STRING)} stores, so renaming a constant means changing this too.
+     *
+     * <p>
      * The window widens, never moves. {@code now()} is transaction-start time, so a transaction that began earlier can
      * commit later and would otherwise rewind {@code last_seen_at} — past {@code first_seen_at} entirely, when it
      * aggregates onto a row a shorter, later transaction created. {@code LEAST}/{@code GREATEST} make both ends
@@ -53,6 +58,10 @@ public interface DiscoveryMessageRepository extends JpaRepository<DiscoveryMessa
                         WHERE discovery_uuid = CAST(:discoveryUuid AS UUID)) < :maxPerRun)
             ON CONFLICT (discovery_uuid, code, message_hash) DO UPDATE
                 SET occurrences = m.occurrences + EXCLUDED.occurrences,
+                    severity = CASE
+                        WHEN 'ERROR' IN (m.severity, EXCLUDED.severity) THEN 'ERROR'
+                        WHEN 'WARNING' IN (m.severity, EXCLUDED.severity) THEN 'WARNING'
+                        ELSE m.severity END,
                     first_seen_at = LEAST(m.first_seen_at, EXCLUDED.first_seen_at),
                     last_seen_at = GREATEST(m.last_seen_at, EXCLUDED.last_seen_at)
             """, nativeQuery = true)
@@ -72,6 +81,10 @@ public interface DiscoveryMessageRepository extends JpaRepository<DiscoveryMessa
                     CAST(:message AS VARCHAR), CAST(:occurrences AS BIGINT), now(), now())
             ON CONFLICT (discovery_uuid, code, message_hash) DO UPDATE
                 SET occurrences = m.occurrences + EXCLUDED.occurrences,
+                    severity = CASE
+                        WHEN 'ERROR' IN (m.severity, EXCLUDED.severity) THEN 'ERROR'
+                        WHEN 'WARNING' IN (m.severity, EXCLUDED.severity) THEN 'WARNING'
+                        ELSE m.severity END,
                     first_seen_at = LEAST(m.first_seen_at, EXCLUDED.first_seen_at),
                     last_seen_at = GREATEST(m.last_seen_at, EXCLUDED.last_seen_at)
             """, nativeQuery = true)
