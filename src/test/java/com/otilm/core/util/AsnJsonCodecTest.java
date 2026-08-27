@@ -223,4 +223,20 @@ class AsnJsonCodecTest {
                 .hasMessageContaining("padbits");
     }
 
+    @Test
+    void rejectsTrailingContentAfterTheTree() {
+        assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"integer\":1} and then some"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("well-formed JSON");
+    }
+
+    @Test
+    void rejectsADuplicateKey() {
+        // A repeated key collapses to the last value, which still satisfies the one-key-per-node rule, so this
+        // would encode 2 and silently drop the 1.
+        assertThatThrownBy(() -> AsnJsonCodec.encodeFromString("{\"integer\":1,\"integer\":2}"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("well-formed JSON");
+    }
+
 }

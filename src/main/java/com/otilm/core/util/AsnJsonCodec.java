@@ -1,7 +1,10 @@
 package com.otilm.core.util;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.serialization.ObjectMapperFactory;
@@ -41,6 +44,16 @@ public final class AsnJsonCodec {
     private static final Logger logger = LoggerFactory.getLogger(AsnJsonCodec.class);
     private static final ObjectMapper MAPPER = ObjectMapperFactory.wire();
 
+    /**
+     * Trailing tokens and duplicate keys are both silent losses here: text after the first complete value is discarded,
+     * and a repeated key collapses to the last one — which still satisfies this grammar's one-key-per-node rule, so
+     * {@code {"integer":1,"integer":2}} would encode 2 and drop what else was written.
+     */
+    private static final ObjectReader STRICT_READER = MAPPER
+            .reader()
+            .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+            .with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
+
     private AsnJsonCodec() {
     }
 
@@ -51,7 +64,7 @@ public final class AsnJsonCodec {
     public static JsonNode parse(String json) {
         JsonNode tree;
         try {
-            tree = MAPPER.readTree(json);
+            tree = STRICT_READER.readTree(json);
         } catch (IOException e) {
             throw new ValidationException("Extension value is not well-formed JSON");
         }
