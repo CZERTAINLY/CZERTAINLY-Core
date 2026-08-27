@@ -44,6 +44,9 @@ public class DiscoveryDtoMapper {
                         ? List.of(Resource.CERTIFICATE)
                         : List.copyOf(discovery.getResources()));
         dto.setStoppable(Boolean.TRUE.equals(discovery.getStoppable()));
+        // Omitted rather than defaulted when absent: null is what a v1 run, and a connector that reports no
+        // progress at all, are meant to publish.
+        dto.setProgress(discovery.getProgress());
         return dto;
     }
 

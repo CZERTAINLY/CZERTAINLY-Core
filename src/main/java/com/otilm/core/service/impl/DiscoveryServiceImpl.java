@@ -12,12 +12,15 @@ import com.otilm.api.interfaces.client.v1.DiscoverySyncApiClient;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
+import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
 import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
@@ -32,11 +35,13 @@ import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.dao.entity.Connector;
+import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.DiscoveryMessage;
 import com.otilm.core.dao.entity.Discovery_;
 import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryMessageRepository;
@@ -74,7 +79,10 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
@@ -97,6 +105,12 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     /** The ceiling WebAppConfig puts on resolved Pageables; applied here because these ints arrive raw. */
     private static final int MAX_ITEMS_PER_PAGE = 100;
 
+    private static final String DISCOVERY_V2 = "v2";
+
+    /** What the v2 contract defines item payloads for; anything else has no discovery shape to relay. */
+    private static final Set<Resource> DISCOVERABLE_RESOURCES = EnumSet
+            .of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY);
+
     private static final String UNSUPPORTED_VERSION_MESSAGE = "The discovery's connector interface version is not supported.";
 
     private AttributeEngine attributeEngine;
@@ -117,6 +131,12 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     private CommentInternalService commentService;
     private DiscoveryMessageRepository discoveryMessageRepository;
+    private ConnectorInterfaceRepository connectorInterfaceRepository;
+
+    @Autowired
+    public void setConnectorInterfaceRepository(ConnectorInterfaceRepository connectorInterfaceRepository) {
+        this.connectorInterfaceRepository = connectorInterfaceRepository;
+    }
 
     @Autowired
     public void setCommentService(CommentInternalService commentService) {
@@ -217,6 +237,76 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         responseDto.setTotalItems(maxItems);
         responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
         return responseDto;
+    }
+
+    // The three relays below are keyed and gated on the CONNECTOR, not the run: DISCOVERY has no object access,
+    // so gating there would silently skip the per-connector ACL. NOT_SUPPORTED because each one goes on to call
+    // the connector, which must never happen inside a transaction.
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public List<DiscoverySupportedResourceDto> listDiscoveryResources(SecuredUUID connectorUuid)
+            throws NotFoundException, ConnectorException {
+        ApiClientConnectorInfo connector = connectorService.getConnectorForApiClient(connectorUuid.getValue());
+        if (discoveryV2Interface(connectorUuid.getValue()).isEmpty()) {
+            // A v1 connector discovers certificates and nothing else, so the answer is known without asking it.
+            // Synthesized rather than empty: a client renders one shape for both generations.
+            DiscoverySupportedResourceDto certificates = new DiscoverySupportedResourceDto();
+            certificates.setResource(Resource.CERTIFICATE);
+            return List.of(certificates);
+        }
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).listSupportedResources(connector);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public List<BaseAttribute> getDiscoveryAttributes(SecuredUUID connectorUuid)
+            throws NotFoundException, ConnectorException {
+        ApiClientConnectorInfo connector = requireDiscoveryV2(connectorUuid);
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).listRunAttributes(connector);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public List<BaseAttribute> getDiscoveryResourceAttributes(SecuredUUID connectorUuid, Resource resource)
+            throws NotFoundException, ConnectorException {
+        ApiClientConnectorInfo connector = requireDiscoveryV2(connectorUuid);
+        // Checked before the connector is called at all: the client throws IllegalArgumentException for a
+        // resource the contract defines no payload for, which would surface as a 500 rather than a 422.
+        if (!DISCOVERABLE_RESOURCES.contains(resource)) {
+            throw new ValidationException("Resource " + resource.getCode() + " is not discoverable");
+        }
+        var client = connectorApiFactory.getDiscoveryApiClientV2(connector);
+        // Discoverable in general is not the same as discoverable by this connector, and the supported set is
+        // never persisted -- it is relayed live -- so answering that question costs a call.
+        boolean supported = client
+                .listSupportedResources(connector)
+                .stream()
+                .anyMatch(supportedResource -> supportedResource.getResource() == resource);
+        if (!supported) {
+            throw new ValidationException(
+                    "Connector " + connectorUuid.getValue() + " does not discover " + resource.getCode());
+        }
+        return client.listResourceAttributes(connector, resource);
+    }
+
+    /** The connector, once its v2 discovery interface is known to exist — the only generation with a schema. */
+    private ApiClientConnectorInfo requireDiscoveryV2(SecuredUUID connectorUuid) throws NotFoundException {
+        ApiClientConnectorInfo connector = connectorService.getConnectorForApiClient(connectorUuid.getValue());
+        if (discoveryV2Interface(connectorUuid.getValue()).isEmpty()) {
+            throw new ValidationException(
+                    "Connector " + connectorUuid.getValue() + " does not implement the v2 discovery interface");
+        }
+        return connector;
+    }
+
+    private Optional<ConnectorInterfaceEntity> discoveryV2Interface(UUID connectorUuid) {
+        return connectorInterfaceRepository
+                .findByConnectorUuidAndInterfaceCodeAndVersion(connectorUuid, ConnectorInterface.DISCOVERY,
+                        DISCOVERY_V2);
     }
 
     @Override

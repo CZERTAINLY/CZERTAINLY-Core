@@ -167,9 +167,34 @@ public class DiscoveryControllerImpl implements DiscoveryController {
         return discoveryService.getSearchableFieldInformationByGroup();
     }
 
+    @Override
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.CONNECTOR, affiliatedResource = Resource.DISCOVERY,
+            operation = Operation.LIST)
+    public List<DiscoverySupportedResourceDto> listDiscoveryResources(@LogResource(uuid = true) String connectorUuid)
+            throws NotFoundException, ConnectorException {
+        return discoveryService.listDiscoveryResources(SecuredUUID.fromString(connectorUuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.ATTRIBUTE, name = "discovery",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> getDiscoveryAttributes(@LogResource(uuid = true, affiliated = true) String connectorUuid)
+            throws NotFoundException, ConnectorException {
+        return discoveryService.getDiscoveryAttributes(SecuredUUID.fromString(connectorUuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR,
+            operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> getDiscoveryResourceAttributes(
+            @LogResource(uuid = true, affiliated = true) String connectorUuid,
+            @LogResource(name = true) Resource resource) throws NotFoundException, ConnectorException {
+        return discoveryService.getDiscoveryResourceAttributes(SecuredUUID.fromString(connectorUuid), resource);
+    }
+
     /*
-     * Discovery v2, not implemented yet: the stubs below exist because DiscoveryController declares them abstract, so
-     * this class does not compile without them.
+     * The remaining discovery v2 endpoints, not implemented yet: the stubs below exist because DiscoveryController
+     * declares them abstract, so this class does not compile without them.
      *
      * Stub response: 501, so a caller reaching one gets an answer it can act on.
      *
@@ -199,23 +224,6 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     public void cancelDiscovery(String uuid) throws NotFoundException, ConnectorException {
-        throw notImplemented();
-    }
-
-    @Override
-    public List<DiscoverySupportedResourceDto> listDiscoveryResources(String connectorUuid) throws NotFoundException {
-        throw notImplemented();
-    }
-
-    @Override
-    public List<BaseAttribute> getDiscoveryAttributes(String connectorUuid)
-            throws NotFoundException, ConnectorException {
-        throw notImplemented();
-    }
-
-    @Override
-    public List<BaseAttribute> getDiscoveryResourceAttributes(String connectorUuid, Resource resource)
-            throws NotFoundException, ConnectorException {
         throw notImplemented();
     }
 

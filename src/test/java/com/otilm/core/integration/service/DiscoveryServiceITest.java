@@ -17,6 +17,10 @@ import com.otilm.api.model.client.discovery.DiscoveryDto;
 import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryProgressDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
@@ -197,6 +201,36 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void theDetailSynthesizesTheV2FieldsForAV1Run() throws NotFoundException {
+        DiscoveryDetailDto detail = discoveryService.getDiscovery(discovery.getSecuredUuid());
+
+        // The v1 run stores none of these, and all three are exact rather than defaults: it targets certificates
+        // by definition, cannot be stopped at all, and has no connector that reports progress.
+        Assertions.assertEquals(List.of(Resource.CERTIFICATE), detail.getResources());
+        Assertions.assertEquals(Boolean.FALSE, detail.getStoppable());
+        Assertions.assertNull(detail.getProgress());
+    }
+
+    @Test
+    void theDetailPublishesWhatAV2RunRecorded() throws NotFoundException {
+        DiscoveryProgressDto progress = new DiscoveryProgressDto();
+        progress.setProcessed(11L);
+        progress.setTotalEstimate(40L);
+        discovery.setResources(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY));
+        discovery.setStoppable(true);
+        discovery.setProgress(progress);
+        discoveryRepository.save(discovery);
+
+        DiscoveryDetailDto detail = discoveryService.getDiscovery(discovery.getSecuredUuid());
+
+        Assertions.assertEquals(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY), detail.getResources());
+        Assertions.assertEquals(Boolean.TRUE, detail.getStoppable());
+        Assertions.assertNotNull(detail.getProgress(), "a client polling a live run reads its counters from here");
+        Assertions.assertEquals(11L, detail.getProgress().getProcessed());
+        Assertions.assertEquals(40L, detail.getProgress().getTotalEstimate());
+    }
+
+    @Test
     void aRunThatCollectedNothingReturnsAnEmptyPageRatherThanNotFound() throws NotFoundException {
         PaginationResponseDto<DiscoveryMessageDto> page = discoveryService
                 .getDiscoveryRunMessages(discovery.getSecuredUuid(), 10, 1);
@@ -364,6 +398,102 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
         Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
         Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscovery(persisted));
+    }
+
+    @Test
+    void aV1ConnectorsResourcesAreSynthesizedWithoutCallingIt() throws Exception {
+        List<DiscoverySupportedResourceDto> resources = discoveryService
+                .listDiscoveryResources(SecuredUUID.fromUUID(connector.getUuid()));
+
+        // A v1 connector discovers certificates and nothing else, so the answer is known without asking -- and a
+        // v1 connector has no endpoint to ask.
+        Assertions.assertEquals(1, resources.size());
+        Assertions.assertEquals(Resource.CERTIFICATE, resources.getFirst().getResource());
+        WireMock.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v2/discoveryProvider/resources")));
+    }
+
+    @Test
+    void aV2ConnectorsResourcesAreRelayedLive() throws Exception {
+        giveConnectorAV2DiscoveryInterface();
+        stubSupportedResources("""
+                [{"resource":"certificates"},{"resource":"keys"}]""");
+
+        List<DiscoverySupportedResourceDto> resources = discoveryService
+                .listDiscoveryResources(SecuredUUID.fromUUID(connector.getUuid()));
+
+        Assertions
+                .assertEquals(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY),
+                        resources.stream().map(DiscoverySupportedResourceDto::getResource).toList());
+    }
+
+    @Test
+    void attributesAreRefusedForAConnectorWithoutTheV2Interface() {
+        // v1 publishes no discovery attribute schema, so there is nothing to relay -- refused rather than empty,
+        // which a client would render as "no configuration needed".
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> discoveryService.getDiscoveryAttributes(SecuredUUID.fromUUID(connector.getUuid())));
+    }
+
+    @Test
+    void attributesAreRefusedForAResourceTheContractCannotDiscover() {
+        giveConnectorAV2DiscoveryInterface();
+
+        // Refused here rather than at the client, whose IllegalArgumentException would surface as a 500.
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> discoveryService
+                                .getDiscoveryResourceAttributes(SecuredUUID.fromUUID(connector.getUuid()),
+                                        Resource.RA_PROFILE));
+    }
+
+    @Test
+    void attributesAreRefusedForAResourceThisConnectorDoesNotDiscover() {
+        giveConnectorAV2DiscoveryInterface();
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+
+        // Discoverable in general, but not by this connector -- only its own live answer settles that.
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> discoveryService
+                                .getDiscoveryResourceAttributes(SecuredUUID.fromUUID(connector.getUuid()),
+                                        Resource.CRYPTOGRAPHIC_KEY));
+        WireMock.verify(0, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v2/discoveryProvider/keys/attributes")));
+    }
+
+    @Test
+    void attributesAreRelayedForAResourceThisConnectorDiscovers() throws Exception {
+        giveConnectorAV2DiscoveryInterface();
+        stubSupportedResources("""
+                [{"resource":"certificates"},{"resource":"keys"}]""");
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/v2/discoveryProvider/keys/attributes"))
+                        .willReturn(WireMock.okJson("""
+                                [{"uuid":"7f7f0000-0000-4000-8000-000000000001","name":"keyStore",
+                                  "type":"data","version":3,"contentType":"string"}]""")));
+
+        List<BaseAttribute> attributes = discoveryService
+                .getDiscoveryResourceAttributes(SecuredUUID.fromUUID(connector.getUuid()), Resource.CRYPTOGRAPHIC_KEY);
+
+        Assertions.assertEquals(1, attributes.size());
+        Assertions.assertEquals("keyStore", attributes.getFirst().getName());
+    }
+
+    private void stubSupportedResources(String json) {
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/v2/discoveryProvider/resources"))
+                        .willReturn(WireMock.okJson(json)));
+    }
+
+    private void giveConnectorAV2DiscoveryInterface() {
+        ConnectorInterfaceEntity iface = new ConnectorInterfaceEntity();
+        iface.setConnectorUuid(connector.getUuid());
+        iface.setInterfaceCode(ConnectorInterface.DISCOVERY);
+        iface.setVersion("v2");
+        connectorInterfaceRepository.save(iface);
     }
 
     @Test
