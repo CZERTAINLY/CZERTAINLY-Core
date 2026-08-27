@@ -98,4 +98,54 @@ public final class AsciiText {
         }
         return true;
     }
+
+    /**
+     * The whitespace the reference strips and collapses, which is not the whitespace Java strips.
+     *
+     * <p>
+     * Measured, the two definitions disagree on exactly three code points: {@code U+0085 NEXT LINE},
+     * {@code U+00A0 NO-BREAK SPACE} and {@code U+202F NARROW NO-BREAK SPACE} are whitespace to the reference and are
+     * not whitespace to {@link Character#isWhitespace}, which is what {@link String#strip()} consults. Every other
+     * candidate agrees, and {@code U+200B ZERO WIDTH SPACE} is correctly whitespace to neither.
+     *
+     * <p>
+     * Two of the three -- the no-break spaces -- are exactly the ones that occur in producer text pasted out of
+     * documents. A trailing one survives {@code String.strip()}, and NFKC then turns it into an ordinary trailing
+     * space, keying {@code "RSA "} apart from {@code "RSA"}: a silent inventory split on a formatting accident.
+     */
+    private static final String PYTHON_WHITESPACE = " \t\n\u000B\f\r\u001C\u001D\u001E\u001F\u0085\u00A0"
+            + "\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029"
+            + "\u202F\u205F\u3000";
+
+    private static final Pattern WHITESPACE_RUN = Pattern.compile("[" + PYTHON_WHITESPACE + "]+");
+
+    /** Strips leading and trailing whitespace as the reference defines it, not as the JDK defines it. */
+    public static String strip(String text) {
+        if (text == null) {
+            return null;
+        }
+        int start = 0;
+        int end = text.length();
+        while (start < end && isWhitespace(text.charAt(start))) {
+            start++;
+        }
+        while (end > start && isWhitespace(text.charAt(end - 1))) {
+            end--;
+        }
+        return text.substring(start, end);
+    }
+
+    /** Collapses every run of whitespace to a single space, by the same definition. */
+    public static String collapseWhitespace(String text) {
+        return text == null ? null : WHITESPACE_RUN.matcher(text).replaceAll(" ");
+    }
+
+    public static boolean isWhitespace(char character) {
+        return PYTHON_WHITESPACE.indexOf(character) >= 0;
+    }
+
+    /** True when the value is absent or contains nothing but whitespace, by the same definition. */
+    public static boolean isBlank(String text) {
+        return text == null || strip(text).isEmpty();
+    }
 }
