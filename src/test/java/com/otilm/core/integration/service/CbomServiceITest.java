@@ -1026,7 +1026,7 @@ class CbomServiceITest extends BaseSpringBootTest {
         SearchFieldDataByGroupDto propertyGroup = result.get(result.size() - 1);
 
         assertNotNull(propertyGroup);
-        assertEquals(9, propertyGroup.getSearchFieldData().size());
+        assertEquals(11, propertyGroup.getSearchFieldData().size());
 
         // Verify all expected fields are present
         List<String> fieldNames = propertyGroup
@@ -1044,6 +1044,8 @@ class CbomServiceITest extends BaseSpringBootTest {
         assertTrue(fieldNames.contains(FilterField.CBOM_PROTOCOLS_COUNT.name()));
         assertTrue(fieldNames.contains(FilterField.CBOM_CRYPTO_MATERIAL_COUNT.name()));
         assertTrue(fieldNames.contains(FilterField.CBOM_TOTAL_ASSETS_COUNT.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_ASSET_SYNC_STATE.name()));
+        assertTrue(fieldNames.contains(FilterField.CBOM_ASSETS_SYNCED_AT.name()));
     }
 
     @Test

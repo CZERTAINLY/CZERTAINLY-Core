@@ -51,6 +51,7 @@ import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.enums.FilterField;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecuredResource;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -65,6 +66,7 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.WireMockPorts;
 import jakarta.transaction.Transactional;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -346,6 +348,38 @@ class ResourceServiceITest extends BaseSpringBootTest {
         Assertions
                 .assertFalse(filterFields.isEmpty(),
                         "Filter fields list should not be empty for resource: " + Resource.CERTIFICATE);
+    }
+
+    /**
+     * Every resource that declares filter fields must actually be servable by this endpoint, not just by the predicate
+     * builder. The two ways a field reaches this endpoint disagree about what counts as a list: the caller routes on
+     * {@code SearchFieldTypeEnum}, while the value handling switches on {@code FilterFieldType}, and
+     * {@code NATIVE_ARRAY} is a list under the second but not the first. A resource carrying such a field returned HTTP
+     * 500 to any authenticated caller -- {@code Resource.OID} and {@code Resource.TIME_QUALITY_CONFIGURATION} both did,
+     * and neither was covered.
+     *
+     * <p>
+     * Covering only two hand-picked resources let that ship. Iterating them all turns the whole class of omission --
+     * this mismatch, a missing {@code ResourceToClass} constant, or the next one -- into a build failure, which is why
+     * this asserts nothing about the cause.
+     */
+    @Test
+    void everyResourceWithFilterFieldsCanBeListed() {
+        List<Resource> declared = Arrays
+                .stream(Resource.values())
+                .filter(resource -> !FilterField.getEnumsForResource(resource).isEmpty())
+                .toList();
+
+        Assertions
+                .assertFalse(declared.isEmpty(),
+                        "FilterField declares fields for at least one resource, or this test proves nothing");
+
+        for (Resource resource : declared) {
+            Assertions
+                    .assertDoesNotThrow(() -> resourceService.listResourceRuleFilterFields(resource, false),
+                            "listResourceRuleFilterFields must not throw for resource " + resource
+                                    + "; every declared filter field must be servable by this endpoint");
+        }
     }
 
     @Test

@@ -25,6 +25,7 @@ import com.otilm.api.model.common.AuthenticationServiceExceptionDto;
 import com.otilm.api.model.common.ErrorMessageDto;
 import com.otilm.api.model.core.acme.ProblemDocument;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.core.dao.CryptoAssetConstraintTranslator;
 import com.otilm.core.exception.UnsupportedAuthorityVersionException;
 import com.otilm.core.exception.UnsupportedDiscoveryVersionException;
 import com.otilm.core.security.authn.PlatformAuthenticationException;
@@ -34,10 +35,13 @@ import com.otilm.core.util.BeautificationUtil;
 import jakarta.validation.ConstraintViolationException;
 import java.net.ConnectException;
 import java.security.cert.CertificateException;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -623,6 +627,51 @@ public class ExceptionHandlingAdvice {
     public ErrorMessageDto handleWebClientRequestException(WebClientRequestException ex) {
         LOG.error("WebClient request error occurred: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
+     * Handler for {@link DataIntegrityViolationException}.
+     *
+     * <p>
+     * The response is deliberately identical to {@link #handleException(Exception)} -- same status, same body. What
+     * differs is the log line. A database integrity failure carries the server's {@code DETAIL} text, which quotes the
+     * failing row: {@code Key (identity_key)=(...) already exists}, or {@code Failing row contains (...)}. Logging the
+     * message and the cause chain therefore writes row data into the application log, and for {@code crypto_asset} that
+     * row data is the identity key, whose whole protection is that it never leaves the database. A log line is the same
+     * disclosure as a response field, and logs travel further.
+     *
+     * <p>
+     * So ERROR carries only what identifies the failure without quoting the data: the exception classes, the SQL state,
+     * and the violated constraint's name -- which is the actionable datum in nearly every case. The full throwable
+     * stays available at DEBUG for an operator who has decided they need it.
+     *
+     * @return {@link ErrorMessageDto}
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorMessageDto handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        LOG
+                .error("Database integrity violation: {} ({}), constraint {}", ex.getClass().getName(),
+                        sqlStateOf(ex).orElse("no SQL state"),
+                        CryptoAssetConstraintTranslator.constraintNameOf(ex).orElse("unnamed"));
+        LOG.debug("Database integrity violation detail", ex);
+        return ErrorMessageDto.getInstance("Internal server error.");
+    }
+
+    /**
+     * The driver's SQL state, which classifies the failure without quoting any row. Read from the cause chain rather
+     * than from the message, for the same reason the constraint name is.
+     */
+    private static Optional<String> sqlStateOf(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sqlFailure && sqlFailure.getSQLState() != null) {
+                return Optional.of(sqlFailure.getSQLState());
+            }
+            if (cause.getCause() == cause) {
+                break;
+            }
+        }
+        return Optional.empty();
     }
 
     /**
