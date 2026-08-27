@@ -97,9 +97,13 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
     }
 
     /**
-     * The finding this storage rule exists for. Three producers report one asset with three spellings and one of them
-     * sends whitespace where another sent nothing. All three key to the same row, so whichever synced last used to
-     * decide what an EQUALS predicate matched and whether the row counted as empty on that field.
+     * The finding this storage rule exists for. Two producers report one asset with different spellings, and one sends
+     * whitespace where the other sent nothing. Both key to the same row, so whichever synced last used to decide what
+     * an EQUALS predicate matched and whether the row counted as empty on that field.
+     *
+     * <p>
+     * The assertions are written out rather than delegated to {@link #assertFieldBehaviour}: that helper is bound to
+     * the seeded {@code populated} row, and the row under test here is a third one.
      */
     @Test
     void aFilterAnswerDoesNotDependOnWhichProducerSyncedLast() {
@@ -110,12 +114,16 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
                 .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "  aes  ", "   ", null,
                         null, null, null, " gcm ", null, null), null);
 
-        assertThat(second).describedAs("all three spellings key to one row").isEqualTo(first);
-        assertFieldBehaviour(FilterField.CBOM_ASSET_NAME, "aes");
-        assertFieldBehaviour(FilterField.CBOM_ASSET_MODE, "gcm");
-        assertThat(assetRepository.findById(first).orElseThrow().getOid())
+        assertThat(second).describedAs("both spellings key to one row").isEqualTo(first);
+        assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_NAME, "aes")))
+                .describedAs("EQUALS on the canonical name, whichever producer synced last")
+                .containsExactly(first);
+        assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_MODE, "gcm")))
+                .describedAs("EQUALS on the canonical mode, whichever producer synced last")
+                .containsExactly(first);
+        assertThat(search(aPropertyEmptyFilter(FilterField.CBOM_ASSET_OID)))
                 .describedAs("a field one producer omitted and another sent blank stays absent, so EMPTY is stable")
-                .isNull();
+                .containsExactlyInAnyOrder(bare, first);
     }
 
     /**
