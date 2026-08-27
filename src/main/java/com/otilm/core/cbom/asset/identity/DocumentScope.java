@@ -30,20 +30,26 @@ import java.util.Set;
  * <b>Scope is the caller's to widen.</b> Within one document this is enough, and it is what an ingest pass gets for
  * free. A digest two certificates claim in <em>different</em> documents needs a batch-scoped index, which cannot live
  * in a per-component pure function -- see {@link #refutedAcross}.
+ *
+ * <p>
+ * <b>The document itself is not retained.</b> Only the derivations are: two sets of refuted identifiers and an index
+ * from bom-ref to the component it names. Holding the parsed document would keep every inlined key material value alive
+ * for as long as any asset of that document was being processed, reachable through an accessor and printable by
+ * anything that interpolated the scope -- which is the redaction ordering defeated at the point of use rather than at
+ * the point of redaction. The reference index does hold component nodes, which is unavoidable: resolving a reference
+ * means reading its target. Those are the redacted-on-read path, and nothing hands the map out.
  */
 public final class DocumentScope {
 
     /** Mirrors the extractor's bound, which mirrors the JSON parser's: nothing that parses is truncated. */
     private static final int MAX_DEPTH = 1000;
 
-    private final JsonNode document;
     private final Set<String> refutedCertificateDigests;
     private final Set<String> refutedSuiteCodes;
     private final Map<String, JsonNode> componentsByRef;
 
-    private DocumentScope(JsonNode document, Set<String> refutedCertificateDigests, Set<String> refutedSuiteCodes,
+    private DocumentScope(Set<String> refutedCertificateDigests, Set<String> refutedSuiteCodes,
             Map<String, JsonNode> componentsByRef) {
-        this.document = document;
         this.refutedCertificateDigests = refutedCertificateDigests;
         this.refutedSuiteCodes = refutedSuiteCodes;
         this.componentsByRef = componentsByRef;
@@ -51,7 +57,7 @@ public final class DocumentScope {
 
     /** An empty scope, for keying a component with no document around it. Every refutation set is empty. */
     public static DocumentScope none() {
-        return new DocumentScope(null, Set.of(), Set.of(), Map.of());
+        return new DocumentScope(Set.of(), Set.of(), Map.of());
     }
 
     public static DocumentScope of(JsonNode document, AssetNormalizer normalizer) {
@@ -65,8 +71,8 @@ public final class DocumentScope {
                 byRef.putIfAbsent(ref.textValue(), component);
             }
         }
-        return new DocumentScope(document, refute(certificateDigestClaims(document, normalizer)),
-                refutedSuiteCodes(document), byRef);
+        return new DocumentScope(refute(certificateDigestClaims(document, normalizer)), refutedSuiteCodes(document),
+                byRef);
     }
 
     /**
@@ -104,10 +110,6 @@ public final class DocumentScope {
                 depths.push(new int[]{depth});
             }
         }
-    }
-
-    public JsonNode document() {
-        return document;
     }
 
     /**

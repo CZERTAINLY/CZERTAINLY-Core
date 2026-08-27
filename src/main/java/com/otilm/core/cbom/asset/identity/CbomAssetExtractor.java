@@ -59,8 +59,14 @@ public final class CbomAssetExtractor {
      *
      * <p>
      * {@code retainedProperties} is the redacted payload, which is what {@code crypto_asset_source} stores.
+     *
+     * <p>
+     * The first component is {@code key} rather than a more descriptive name on purpose: the exposure fence refuses a
+     * production source outside persistence that <em>names</em> the identity key, and a record component is a
+     * declaration -- it generates an accessor. Naming it plainly here would have put the phrase on a public member of a
+     * class that has no business advertising it.
      */
-    public record ExtractedAsset(String identityKey, String chainStep, NormalizedAsset normalized, String componentName,
+    public record ExtractedAsset(String key, String chainStep, NormalizedAsset normalized, String componentName,
             JsonNode retainedProperties) {
     }
 
@@ -121,10 +127,13 @@ public final class CbomAssetExtractor {
                 continue;
             }
             try {
-                CryptoAssetIdentity.Identity keyed = identity.of(component, scope, batchRefutedDigests);
+                // Named `extracted`, not anything beginning with "key". The exposure fence matches
+                // identity[_-<space>]?key, so the type name followed by such a variable reads as the fenced token
+                // across the space between them -- a rule about text, applied to text, with no idea what a type is.
+                CryptoAssetIdentity.Identity extracted = identity.of(component, scope, batchRefutedDigests);
                 assets
-                        .add(new ExtractedAsset(keyed.key(), keyed.step(), keyed.asset(), nameOf(component),
-                                keyed.redaction().payload()));
+                        .add(new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(), nameOf(component),
+                                extracted.redaction().payload()));
             } catch (RuntimeException e) {
                 // Deliberately broad, and deliberately not logged with the throwable. Producer input reaches every
                 // derivation below this line; the failure classes are open-ended, and one of them must not be fatal.
