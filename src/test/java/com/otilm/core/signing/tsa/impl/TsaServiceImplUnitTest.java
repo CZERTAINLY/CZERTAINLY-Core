@@ -5,6 +5,7 @@ import com.otilm.api.interfaces.core.tsp.error.TspException;
 import com.otilm.api.interfaces.core.tsp.error.TspFailureInfo;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfile;
 import com.otilm.core.model.signing.resolved.ResolvedManagedTimestampingProfile;
@@ -81,13 +82,14 @@ class TsaServiceImplUnitTest {
                 .withName("content-signing-profile")
                 .withEnabledProtocols(List.of())
                 .withTspProfileUuid(null)
-                .withWorkflow(new ManagedContentSigningWorkflow(UUID.randomUUID(), List.of(), null, null, null, null))
+                .withWorkflow(new ManagedContentSigningWorkflow(UUID.randomUUID(), List.of(), null, null, null, null,
+                        CertificatePurposeRequirements.NONE))
                 .build();
     }
 
     private static ResolvedManagedContentSigningProfile aResolvedContentSigningProfile() {
         return new ResolvedManagedContentSigningProfile(UUID.randomUUID(), "docs", null, 1, true, List.of(), List.of(),
-                null, null, null, null, null, null);
+                null, null, null, null, CertificatePurposeRequirements.NONE, null, null);
     }
 
     // ── processTspRequestForTspProfile ────────────────────────────────────────
@@ -491,8 +493,8 @@ class TsaServiceImplUnitTest {
             var signingProfile = aSigningProfile()
                     .withName("content-signing-profile")
                     .withTspProfileUuid(TSP_PROFILE_UUID)
-                    .withWorkflow(
-                            new ManagedContentSigningWorkflow(UUID.randomUUID(), List.of(), null, null, null, null))
+                    .withWorkflow(new ManagedContentSigningWorkflow(UUID.randomUUID(), List.of(), null, null, null,
+                            null, CertificatePurposeRequirements.NONE))
                     .build();
             doReturn(signingProfile).when(signingProfileService).getSigningProfileModel("content-signing-profile");
             when(tspProfileService.getTspProfile(TSP_PROFILE_UUID)).thenReturn(aTspProfile().build());

@@ -1,6 +1,7 @@
 package com.otilm.core.signing.engine.certificate;
 
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
@@ -17,7 +18,7 @@ public class StaticKeyManagedSigningCertificateValidator implements SigningCerti
 
     @Override
     public ValidationResult validate(ResolvedManagedScheme signingScheme, SigningWorkflowType workflowType,
-            boolean qualifiedTimestamp) {
+            boolean qualifiedTimestamp, CertificatePurposeRequirements certificatePurpose) {
         if (!(signingScheme instanceof ResolvedStaticKeyManagedSigning signingSchemeModel)) {
             return ValidationResult
                     .nok(SigningEngineFailure.MISCONFIGURED,
@@ -27,7 +28,7 @@ public class StaticKeyManagedSigningCertificateValidator implements SigningCerti
         }
         if (!CertificateEligibilityUtil
                 .isCertificateDigitalSigningAcceptable(signingSchemeModel.certificate(), signingSchemeModel.keyItems(),
-                        workflowType, qualifiedTimestamp)) {
+                        workflowType, qualifiedTimestamp, certificatePurpose)) {
             return ValidationResult
                     .nok(SigningEngineFailure.MISCONFIGURED,
                             "Signing certificate is not acceptable for %s%s"

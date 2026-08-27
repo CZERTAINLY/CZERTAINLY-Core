@@ -8,7 +8,9 @@ import com.otilm.api.model.common.signature.SignatureFamily;
 import com.otilm.api.model.common.signature.SignatureLevel;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class ContentSigningWorkflowRequestDtoBuilder {
@@ -18,6 +20,8 @@ public class ContentSigningWorkflowRequestDtoBuilder {
     private SignatureFamily family = null;
     private SignatureLevel maxLevel = null;
     private TimestampSourceRequestDto timestampSource = null;
+    private Boolean requireNonRepudiation;
+    private Set<String> requiredExtendedKeyUsageOids = new LinkedHashSet<>();
     private Long documentSizeCap = null;
 
     public static ContentSigningWorkflowRequestDtoBuilder aContentSigningWorkflow() {
@@ -55,6 +59,16 @@ public class ContentSigningWorkflowRequestDtoBuilder {
         return this;
     }
 
+    public ContentSigningWorkflowRequestDtoBuilder withRequireNonRepudiation(boolean requireNonRepudiation) {
+        this.requireNonRepudiation = requireNonRepudiation;
+        return this;
+    }
+
+    public ContentSigningWorkflowRequestDtoBuilder withRequiredExtendedKeyUsageOids(String... oids) {
+        this.requiredExtendedKeyUsageOids = new LinkedHashSet<>(List.of(oids));
+        return this;
+    }
+
     public ContentSigningWorkflowRequestDto build() {
         ContentSigningWorkflowRequestDto dto = new ContentSigningWorkflowRequestDto();
         dto.setSignatureFormattingConnectorUuid(signatureFormattingConnectorUuid);
@@ -63,6 +77,8 @@ public class ContentSigningWorkflowRequestDtoBuilder {
         dto.setMaxLevel(maxLevel);
         dto.setTimestampSource(timestampSource);
         dto.setDocumentSizeCap(documentSizeCap);
+        dto.setRequireNonRepudiation(requireNonRepudiation);
+        dto.setRequiredExtendedKeyUsageOids(requiredExtendedKeyUsageOids);
         return dto;
     }
 }

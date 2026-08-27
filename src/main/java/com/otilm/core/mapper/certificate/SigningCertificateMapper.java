@@ -26,6 +26,6 @@ public class SigningCertificateMapper {
                 cert.getValidationStatus(),
                 List.copyOf(MetaDefinitions.deserializeArrayString(cert.getExtendedKeyUsage())),
                 cert.getExtendedKeyUsageCritical(), cert.getQcCompliance(), keyUuid, tokenInstanceReferenceUuid,
-                tokenProfileUuid, keyItemUuids);
+                tokenProfileUuid, keyItemUuids, cert.getKeyUsageBitMask(), cert.getSubjectType());
     }
 }

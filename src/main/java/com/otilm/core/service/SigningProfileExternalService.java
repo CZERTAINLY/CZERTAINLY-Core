@@ -22,6 +22,7 @@ import com.otilm.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public interface SigningProfileExternalService {
@@ -55,7 +56,17 @@ public interface SigningProfileExternalService {
 
     List<BulkActionMessageDto> bulkDisableSigningProfiles(List<SecuredUUID> uuids);
 
-    List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp);
+    /**
+     * Lists the certificates a signing profile of this workflow type could use.
+     *
+     * @param signingWorkflowType the workflow the profile being composed will run
+     * @param qualifiedTimestamp meaningful only for TIMESTAMPING, where it demands id-etsi-qcs-QcCompliance
+     * @param requireNonRepudiation demands the {@code nonRepudiation} key-usage bit specifically
+     * @param requiredExtendedKeyUsageOids OIDs required on the certificate extended key usage
+     * @return the eligible certificates, narrowed by the caller's security filter
+     */
+    List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp,
+            boolean requireNonRepudiation, Set<String> requiredExtendedKeyUsageOids);
 
     List<BaseAttribute> listSignatureAttributesForCertificate(SecuredUUID certificateUuid) throws NotFoundException;
 

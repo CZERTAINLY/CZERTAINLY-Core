@@ -1,7 +1,9 @@
 package com.otilm.core.util;
 
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateSubjectType;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.dao.entity.Certificate;
@@ -10,6 +12,7 @@ import com.otilm.core.dao.entity.CryptographicKeyItem;
 import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.model.crypto.CryptographicKeyItemModel;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.oid.OidHandler;
 import java.util.ArrayList;
@@ -169,10 +172,13 @@ class CertificateEligibilityUtilTest {
             certificate.setKey(key);
         }
 
+        certificate.setUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE));
+
         Assertions
                 .assertEquals(expectedResult,
                         CertificateEligibilityUtil
-                                .isCertificateDigitalSigningAcceptable(certificate, workflowType, qualifiedTimestamp),
+                                .isCertificateDigitalSigningAcceptable(certificate, workflowType, qualifiedTimestamp,
+                                        CertificatePurposeRequirements.NONE),
                         "Test case '" + testCaseName + "' failed");
     }
 
@@ -198,11 +204,14 @@ class CertificateEligibilityUtilTest {
                 validationStatus, List.copyOf(extendedKeyUsages), extendedKeyUsageCritical, qcCompliance,
                 hasKey ? UUID.randomUUID() : null, (hasKey && withTokenProfile) ? UUID.randomUUID() : null,
                 (hasKey && withTokenInstanceReference) ? UUID.randomUUID() : null,
-                keyItems.stream().map(CryptographicKeyItemModel::keyItemUuid).toList());
+                keyItems.stream().map(CryptographicKeyItemModel::keyItemUuid).toList(),
+                CertificateKeyUsage.DIGITAL_SIGNATURE.getBit(), CertificateSubjectType.END_ENTITY);
 
         Assertions
-                .assertEquals(expectedResult, CertificateEligibilityUtil
-                        .isCertificateDigitalSigningAcceptable(certificate, keyItems, workflowType, qualifiedTimestamp),
+                .assertEquals(expectedResult,
+                        CertificateEligibilityUtil
+                                .isCertificateDigitalSigningAcceptable(certificate, keyItems, workflowType,
+                                        qualifiedTimestamp, CertificatePurposeRequirements.NONE),
                         "Test case '" + testCaseName + "' failed");
     }
 

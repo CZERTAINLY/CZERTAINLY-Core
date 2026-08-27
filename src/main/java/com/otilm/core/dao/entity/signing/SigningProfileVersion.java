@@ -120,6 +120,13 @@ public class SigningProfileVersion extends UniquelyIdentifiedAndAudited {
     @Column(name = "document_size_cap")
     private Long documentSizeCap;
 
+    @Column(name = "require_non_repudiation", nullable = false)
+    private boolean requireNonRepudiation;
+
+    @Column(name = "required_extended_key_usage_oids")
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    private List<String> requiredExtendedKeyUsageOids = new ArrayList<>();
+
     @Column(name = "qualified_timestamp")
     private Boolean qualifiedTimestamp;
 
