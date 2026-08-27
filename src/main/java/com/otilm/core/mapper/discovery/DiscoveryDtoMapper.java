@@ -1,16 +1,27 @@
 package com.otilm.core.mapper.discovery;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryListDto;
+import com.otilm.api.model.common.attribute.common.MetadataAttribute;
+import com.otilm.api.model.connector.discovery.v2.DiscoveredItemPayloadDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.discovery.DiscoveryItemDto;
 import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryMessage;
 import com.otilm.core.dao.entity.workflows.Trigger;
+import com.otilm.core.dao.repository.DiscoveryItemRow;
+import com.otilm.core.serialization.ObjectMapperFactory;
+import com.otilm.core.util.AttributeDefinitionUtils;
+import java.time.ZoneOffset;
 import java.util.List;
 
 /** Maps a discovery run and its message log onto the shapes the API publishes. */
 public class DiscoveryDtoMapper {
+
+    private static final ObjectMapper JSON_COLUMN = ObjectMapperFactory.jsonColumn();
 
     private DiscoveryDtoMapper() {
     }
@@ -62,6 +73,39 @@ public class DiscoveryDtoMapper {
         dto.setKind(discovery.getKind());
         dto.setConnectorName(discovery.getConnectorName());
         return dto;
+    }
+
+    /**
+     * A staged item, from whichever store holds it. {@code payload} and {@code meta} arrive as JSON text because the
+     * certificate branch builds its payload at read time from the deduplicated content rather than from a column.
+     */
+    public static DiscoveryItemDto toItemDto(DiscoveryItemRow row) {
+        DiscoveryItemDto dto = new DiscoveryItemDto();
+        dto.setUuid(row.getUuid().toString());
+        dto.setInventoryUuid(row.getInventoryUuid() == null ? null : row.getInventoryUuid().toString());
+        dto.setSequence(row.getSequence());
+        dto.setUniqueRef(row.getUniqueRef());
+        dto.setDiscoveredAt(row.getDiscoveredAt() == null ? null : row.getDiscoveredAt().atOffset(ZoneOffset.UTC));
+        dto.setPayload(read(row.getPayload(), DiscoveredItemPayloadDto.class));
+        dto.setNewlyDiscovered(row.isNewlyDiscovered());
+        dto.setProcessed(row.isProcessed());
+        dto.setProcessedError(row.getProcessedError());
+        dto
+                .setMeta(row.getMeta() == null
+                        ? null
+                        : AttributeDefinitionUtils.deserialize(row.getMeta(), MetadataAttribute.class));
+        return dto;
+    }
+
+    private static <T> T read(String json, Class<T> type) {
+        if (json == null) {
+            return null;
+        }
+        try {
+            return JSON_COLUMN.readValue(json, type);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Unreadable discovery item " + type.getSimpleName(), e);
+        }
     }
 
     /** The identity column stays behind: it orders the log, it is not published. */

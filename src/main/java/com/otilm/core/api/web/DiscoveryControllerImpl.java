@@ -192,6 +192,15 @@ public class DiscoveryControllerImpl implements DiscoveryController {
         return discoveryService.getDiscoveryResourceAttributes(SecuredUUID.fromString(connectorUuid), resource);
     }
 
+    @Override
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.LIST)
+    public PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(@LogResource(uuid = true) String uuid,
+            @LogResource(resource = true) Resource resource, Boolean newlyDiscovered, int itemsPerPage, int pageNumber)
+            throws NotFoundException {
+        return discoveryService
+                .getDiscoveryItems(SecuredUUID.fromString(uuid), resource, newlyDiscovered, itemsPerPage, pageNumber);
+    }
+
     /*
      * The remaining discovery v2 endpoints, not implemented yet: the stubs below exist because DiscoveryController
      * declares them abstract, so this class does not compile without them.
@@ -205,12 +214,6 @@ public class DiscoveryControllerImpl implements DiscoveryController {
      * Compatibility: the checked exceptions stay on the signatures so filling them in later does not change the
      * contract.
      */
-
-    @Override
-    public PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(String uuid, Resource resource,
-            Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException {
-        throw notImplemented();
-    }
 
     @Override
     public void stopDiscovery(String uuid) throws NotFoundException, ConnectorException {

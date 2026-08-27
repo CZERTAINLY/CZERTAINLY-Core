@@ -13,6 +13,7 @@ import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.discovery.DiscoveryItemDto;
 import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -48,6 +49,16 @@ public interface DiscoveryExternalService {
      */
     PaginationResponseDto<DiscoveryMessageDto> getDiscoveryRunMessages(SecuredUUID uuid, int itemsPerPage,
             int pageNumber) throws NotFoundException;
+
+    /**
+     * One page of everything the run staged, certificates included — the single retrieval point for a run's results,
+     * whichever store holds them.
+     *
+     * @param resource restrict to one resource type, or null for every one the run targeted
+     * @param newlyDiscovered tri-state, matching {@code getDiscoveryCertificates}: null means both
+     */
+    PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(SecuredUUID uuid, Resource resource,
+            Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException;
 
     DiscoveryDetailDto createDiscovery(DiscoveryDto request, boolean saveEntity)
             throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;

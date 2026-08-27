@@ -23,14 +23,18 @@ import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
+import com.otilm.api.model.core.discovery.DiscoveryItemDto;
 import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
+import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
 import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.entity.FunctionGroup;
+import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
 import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
@@ -77,6 +81,8 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     @Autowired
     private DiscoveryCertificateRepository discoveryCertificateRepository;
 
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
@@ -259,8 +265,44 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         PaginationResponseDto<DiscoveryMessageDto> page = discoveryService
                 .getDiscoveryRunMessages(discovery.getSecuredUuid(), 5000, 1);
 
-        // These arrive as raw ints rather than through the resolved Pageable WebAppConfig caps.
-        Assertions.assertEquals(100, page.getItemsPerPage());
+        // Clamped to the largest size the frontend's page-size control offers, not to WebAppConfig's Pageable cap:
+        // these arrive as raw ints, so that cap never sees them, and clamping below the control would answer a
+        // user who picked 1000 with an itemsPerPage that contradicts what they chose.
+        Assertions.assertEquals(1000, page.getItemsPerPage());
+    }
+
+    @Test
+    void aStagedCertificateListsThroughTheItemsEndpointWithItsPayload() throws NotFoundException {
+        CertificateContent content = new CertificateContent();
+        content.setFingerprint("fp-items");
+        content.setContent(CERTIFICATE_BASE64);
+        content = certificateContentRepository.saveAndFlush(content);
+        DiscoveryCertificate staged = new DiscoveryCertificate();
+        staged.setDiscoveryUuid(discovery.getUuid());
+        staged.setCertificateContentId(content.getId());
+        staged.setNewlyDiscovered(true);
+        staged.setProcessed(false);
+        discoveryCertificateRepository.saveAndFlush(staged);
+
+        PaginationResponseDto<DiscoveryItemDto> page = discoveryService
+                .getDiscoveryItems(discovery.getSecuredUuid(), null, null, 10, 1);
+
+        Assertions.assertEquals(1, page.getTotalItems());
+        DiscoveryItemDto item = page.getItems().getFirst();
+        // A v1 run's certificates reach the client through the same endpoint as any other resource -- that is what
+        // makes it the single retrieval point rather than a v2-only listing.
+        Assertions.assertEquals(1L, item.getSequence());
+        Assertions.assertEquals("fp-items", item.getUniqueRef());
+        Assertions.assertFalse(item.isProcessed());
+        Assertions.assertNotNull(item.getPayload(), "the payload is built from the deduplicated content at read time");
+        Assertions.assertEquals(Resource.CERTIFICATE, item.getPayload().getResource());
+    }
+
+    @Test
+    void itemsForAnUnknownRunAreNotFound() {
+        Assertions
+                .assertThrows(NotFoundException.class, () -> discoveryService
+                        .getDiscoveryItems(SecuredUUID.fromUUID(UUID.randomUUID()), null, null, 10, 1));
     }
 
     private List<String> messagesOf(PaginationResponseDto<DiscoveryMessageDto> page) {

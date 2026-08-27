@@ -23,6 +23,7 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
+import com.otilm.api.model.core.discovery.DiscoveryItemDto;
 import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.core.other.ResourceEvent;
@@ -44,6 +45,7 @@ import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.dao.repository.DiscoveryItemRepository;
 import com.otilm.core.dao.repository.DiscoveryMessageRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.enums.FilterField;
@@ -102,8 +104,13 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
 
-    /** The ceiling WebAppConfig puts on resolved Pageables; applied here because these ints arrive raw. */
-    private static final int MAX_ITEMS_PER_PAGE = 100;
+    /**
+     * The largest page size the frontend offers ({@code DEFAULT_ITEMS_PER_PAGE_OPTIONS}). Clamping below it would
+     * answer a user who picked 1000 with 100 rows and an itemsPerPage that disagrees with the control they used.
+     * {@code WebAppConfig}'s own ceiling does not reach here — it binds Spring-resolved Pageables, and these arrive as
+     * raw ints.
+     */
+    private static final int MAX_ITEMS_PER_PAGE = 1000;
 
     private static final String DISCOVERY_V2 = "v2";
 
@@ -132,6 +139,12 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     private CommentInternalService commentService;
     private DiscoveryMessageRepository discoveryMessageRepository;
     private ConnectorInterfaceRepository connectorInterfaceRepository;
+    private DiscoveryItemRepository discoveryItemRepository;
+
+    @Autowired
+    public void setDiscoveryItemRepository(DiscoveryItemRepository discoveryItemRepository) {
+        this.discoveryItemRepository = discoveryItemRepository;
+    }
 
     @Autowired
     public void setConnectorInterfaceRepository(ConnectorInterfaceRepository connectorInterfaceRepository) {
@@ -374,6 +387,32 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         responseDto.setPageNumber(pageNumber);
         responseDto.setTotalItems(page.getTotalElements());
         responseDto.setTotalPages(page.getTotalPages());
+        return responseDto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
+    public PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(SecuredUUID uuid, Resource resource,
+            Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException {
+        Discovery discovery = getDiscoveryEntity(uuid);
+        int pageSize = Math.clamp(itemsPerPage, 1, MAX_ITEMS_PER_PAGE);
+        long offset = (long) (pageNumber > 1 ? pageNumber - 1 : 0) * pageSize;
+        // Both stores hold the enum member name, not the wire code the request carries.
+        String resourceName = resource == null ? null : resource.name();
+
+        List<DiscoveryItemDto> items = discoveryItemRepository
+                .listItems(discovery.getUuid(), resourceName, newlyDiscovered, pageSize, offset)
+                .stream()
+                .map(DiscoveryDtoMapper::toItemDto)
+                .toList();
+        long totalItems = discoveryItemRepository.countItems(discovery.getUuid(), resourceName, newlyDiscovered);
+
+        PaginationResponseDto<DiscoveryItemDto> responseDto = new PaginationResponseDto<>();
+        responseDto.setItems(items);
+        responseDto.setItemsPerPage(pageSize);
+        responseDto.setPageNumber(pageNumber);
+        responseDto.setTotalItems(totalItems);
+        responseDto.setTotalPages((int) Math.ceil((double) totalItems / pageSize));
         return responseDto;
     }
 
