@@ -296,4 +296,33 @@ class CryptoAssetIdentityCalculatorTest {
                 .describedAs("the vector above was computed under this rule-set generation")
                 .isEqualTo(1);
     }
+
+    /**
+     * The vector above populates every field but gives {@code name} and {@code algorithmFamily} the same value, so
+     * swapping those two frames leaves its preimage byte-identical and it cannot detect that swap. This one gives all
+     * ten fields distinct normalized values, so any transposition of any two frames moves the digest.
+     *
+     * <p>
+     * Both are pinned rather than one replacing the other: the vector above is the historical constant, and a change to
+     * it means the framing rules moved and every stored row re-keys. A change to this one means the same thing unless
+     * its <em>inputs</em> above changed with it.
+     *
+     * <p>
+     * Computed outside the JVM, so it pins the documented framing rather than echoing this implementation:
+     *
+     * <pre>
+     * printf '25:otilm:cbom-asset-identity9:ALGORITHM5:ecdsa19:1.2.840.10045.4.3.214:elliptic-curve\
+     * 9:signature5:p-2569:secp256r13:cbc8:pkcs1v159:fips186-4' | sha256sum
+     * </pre>
+     */
+    @Test
+    void everyFrameIsPositionallyPinnedByADistinctValueVector() {
+        CryptoAssetIdentityFields allFieldsDistinct = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM,
+                "ECDSA", "1.2.840.10045.4.3.2", "elliptic-curve", "signature", "P-256", "secp256r1", "cbc", "pkcs1v15",
+                "fips186-4");
+
+        assertThat(CryptoAssetIdentityCalculator.calculate(allFieldsDistinct))
+                .describedAs("changing this constant means the preimage moved; bump RULESET_VERSION in the same commit")
+                .isEqualTo("1867d1a17e10c7a403c1e8a4ebd9cb7593e48c4062a24b0875238cd426bf2e99");
+    }
 }
