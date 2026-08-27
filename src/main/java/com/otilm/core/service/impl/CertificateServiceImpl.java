@@ -129,6 +129,7 @@ import com.otilm.core.messaging.model.ValidationMessage;
 import com.otilm.core.model.auth.CertificateProtocolInfo;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.request.CertificateRequest;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
@@ -2769,13 +2770,15 @@ public class CertificateServiceImpl
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST,
             parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public List<CertificateDto> listDigitalSigningCertificates(SecurityFilter filter,
-            SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp) {
+            SigningWorkflowType signingWorkflowType, boolean qualifiedTimestamp,
+            CertificatePurposeRequirements certificatePurpose) {
         setupSecurityFilter(filter);
 
         List<Certificate> certificates = certificateRepository
                 .findUsingSecurityFilter(filter, CertificateRepository.FETCH_GROUPS_AND_OWNER,
                         CertificateEligibilityUtil
-                                .constructQueryDigitalSigningCertAcceptable(signingWorkflowType, qualifiedTimestamp));
+                                .constructQueryDigitalSigningCertAcceptable(signingWorkflowType, qualifiedTimestamp,
+                                        certificatePurpose));
         return certificates.stream().map(Certificate::mapToListDto).toList();
     }
 

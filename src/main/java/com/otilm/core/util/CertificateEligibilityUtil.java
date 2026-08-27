@@ -3,7 +3,9 @@ package com.otilm.core.util;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateSubjectType;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
@@ -14,16 +16,21 @@ import com.otilm.core.dao.entity.CryptographicKeyItem;
 import com.otilm.core.dao.entity.CryptographicKeyItem_;
 import com.otilm.core.dao.entity.CryptographicKey_;
 import com.otilm.core.model.crypto.CryptographicKeyItemModel;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningCertificate;
 import jakarta.annotation.Nullable;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import org.apache.commons.lang3.function.TriFunction;
 
 /**
@@ -40,6 +47,13 @@ import org.apache.commons.lang3.function.TriFunction;
  * The two forms must stay behaviourally equivalent.
  */
 public class CertificateEligibilityUtil {
+
+    // The in-memory membership test tolerates a null.
+    private static final Set<CertificateSubjectType> END_ENTITY_SUBJECT_TYPES = EnumSet
+            .of(CertificateSubjectType.END_ENTITY, CertificateSubjectType.SELF_SIGNED_END_ENTITY);
+
+    private static final String EXCLUSIVE_TIMESTAMPING_EKU = MetaDefinitions
+            .serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid()));
 
     private CertificateEligibilityUtil() {
     }
@@ -189,12 +203,7 @@ public class CertificateEligibilityUtil {
         if (state != null) {
             predicates.add(cb.equal(itemPath.get(CryptographicKeyItem_.STATE), state));
         }
-        predicates
-                .add(cb
-                        .equal(cb
-                                .function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class,
-                                        itemPath.get(CryptographicKeyItem_.USAGE), cb.literal(usageMask)),
-                                usageMask));
+        predicates.add(cb.equal(bitAnd(cb, itemPath.get(CryptographicKeyItem_.USAGE), usageMask), usageMask));
         return cb.and(predicates.toArray(new Predicate[0]));
     }
 
@@ -312,11 +321,17 @@ public class CertificateEligibilityUtil {
      * |-- (TIMESTAMPING only) extendedKeyUsage is exclusively the TSA OID (RFC 3161)
      * |-- (TIMESTAMPING only) extendedKeyUsageCritical is true (RFC 3161)
      * |-- (TIMESTAMPING + qualifiedTimestamp only) certificate carries id-etsi-qcs-QcCompliance
-     *     (ETSI EN 319 412-5 / EN 319 421)
+     * |       (ETSI EN 319 412-5 / EN 319 421)
+     * |-- (CONTENT_SIGNING / RAW_SIGNING only) subjectType is END_ENTITY or SELF_SIGNED_END_ENTITY
+     * |-- (CONTENT_SIGNING / RAW_SIGNING only) keyUsage carries digitalSignature or nonRepudiation
+     * |       (nonRepudiation alone when the profile requires it)
+     * |-- (CONTENT_SIGNING / RAW_SIGNING only) extendedKeyUsage contains every OID the profile requires
+     * |-- (CONTENT_SIGNING / RAW_SIGNING only) extendedKeyUsage is not exclusively the TSA OID (RFC 3161)
      */
     // @formatter:on
     public static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> constructQueryDigitalSigningCertAcceptable(
-            SigningWorkflowType workflowType, boolean qualifiedTimestamp) {
+            SigningWorkflowType workflowType, boolean qualifiedTimestamp,
+            CertificatePurposeRequirements certificatePurpose) {
         return (root, cb, cr) -> {
             // Subquery to ensure at least one private key exists.
             Subquery<Integer> privateKeySubquery = cr.subquery(Integer.class);
@@ -360,26 +375,74 @@ public class CertificateEligibilityUtil {
             predicates
                     .add(cb.isNotNull(root.get(Certificate_.KEY).get(CryptographicKey_.TOKEN_INSTANCE_REFERENCE_UUID)));
 
-            predicates.addAll(workflowPredicates(root, cb, workflowType, qualifiedTimestamp));
+            predicates.addAll(workflowPredicates(root, cb, workflowType, qualifiedTimestamp, certificatePurpose));
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
 
     private static List<Predicate> workflowPredicates(Root<Certificate> root, CriteriaBuilder cb,
-            SigningWorkflowType workflowType, boolean qualifiedTimestamp) {
+            SigningWorkflowType workflowType, boolean qualifiedTimestamp,
+            CertificatePurposeRequirements certificatePurpose) {
         return switch (workflowType) {
             case TIMESTAMPING -> timestampingPredicates(root, cb, qualifiedTimestamp);
-            case CONTENT_SIGNING, RAW_SIGNING -> List.of();
+            case CONTENT_SIGNING, RAW_SIGNING -> signingPurposePredicates(root, cb, certificatePurpose);
         };
+    }
+
+    private static List<Predicate> signingPurposePredicates(Root<Certificate> root, CriteriaBuilder cb,
+            CertificatePurposeRequirements certificatePurpose) {
+        List<Predicate> predicates = new ArrayList<>();
+        predicates.add(root.get(Certificate_.SUBJECT_TYPE).in(END_ENTITY_SUBJECT_TYPES));
+        predicates.add(carriesAnySigningKeyUsage(root, cb, certificatePurpose));
+        for (String oid : certificatePurpose.requiredExtendedKeyUsageOids()) {
+            predicates.add(cb.like(root.get(Certificate_.EXTENDED_KEY_USAGE), serializedOidPattern(oid), '\\'));
+        }
+        predicates.add(notDedicatedToTimestamping(root, cb));
+        return predicates;
+    }
+
+    private static Predicate carriesAnySigningKeyUsage(Root<Certificate> root, CriteriaBuilder cb,
+            CertificatePurposeRequirements certificatePurpose) {
+        return cb.notEqual(bitAnd(cb, root.get(Certificate_.KEY_USAGE), signingKeyUsageMask(certificatePurpose)), 0);
+    }
+
+    /** The {@code bitand} function {@link PostgresFunctionContributor} registers, evaluating {@code bits & mask}. */
+    private static Expression<Integer> bitAnd(CriteriaBuilder cb, Expression<Integer> bits, int mask) {
+        return cb.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class, bits, cb.literal(mask));
+    }
+
+    /** A null extended key usage constrains nothing, so only an exclusively-TSA value is refused. */
+    private static Predicate notDedicatedToTimestamping(Root<Certificate> root, CriteriaBuilder cb) {
+        Path<String> extendedKeyUsage = root.get(Certificate_.EXTENDED_KEY_USAGE);
+        return cb.or(cb.isNull(extendedKeyUsage), cb.notEqual(extendedKeyUsage, EXCLUSIVE_TIMESTAMPING_EKU));
+    }
+
+    /**
+     * Matches one OID inside the JSON array {@code extendedKeyUsage} is serialized as. The quotes keep {@code 1.2.3}
+     * from matching a stored {@code 1.2.30}, and LIKE metacharacters are escaped so a caller-supplied OID cannot widen
+     * the match.
+     */
+    private static String serializedOidPattern(String oid) {
+        String escaped = oid.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return "%\"" + escaped + "\"%";
+    }
+
+    /**
+     * The key-usage bits any one of which satisfies the rule. {@code nonRepudiation} suffices alone by default because
+     * qualified signing certificates commonly carry it alone (ETSI EN 319 412-2).
+     */
+    private static int signingKeyUsageMask(CertificatePurposeRequirements certificatePurpose) {
+        return certificatePurpose.requireNonRepudiation()
+                ? CertificateKeyUsage.NON_REPUDIATION.getBit()
+                : CertificateKeyUsage.DIGITAL_SIGNATURE.getBit() | CertificateKeyUsage.NON_REPUDIATION.getBit();
     }
 
     private static List<Predicate> timestampingPredicates(Root<Certificate> root, CriteriaBuilder cb,
             boolean qualifiedTimestamp) {
         List<Predicate> predicates = new ArrayList<>();
         // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
-        String exclusiveTsaEku = MetaDefinitions.serializeArrayString(List.of(SystemOid.TIME_STAMPING.getOid()));
-        predicates.add(cb.equal(root.get(Certificate_.EXTENDED_KEY_USAGE), exclusiveTsaEku));
+        predicates.add(cb.equal(root.get(Certificate_.EXTENDED_KEY_USAGE), EXCLUSIVE_TIMESTAMPING_EKU));
         predicates.add(cb.isTrue(root.get(Certificate_.EXTENDED_KEY_USAGE_CRITICAL)));
         // ETSI EN 319 421 §6.2: for a qualified TSA the signer certificate MUST carry the
         // id-etsi-qcs-QcCompliance statement (OID 0.4.0.1862.1.1, ETSI EN 319 412-5).
@@ -398,17 +461,20 @@ public class CertificateEligibilityUtil {
      * key usage EKU). When {@code qualifiedTimestamp} is {@code true}, the certificate is additionally required to
      * carry the {@code id-etsi-qcs-QcCompliance} statement (OID {@code 0.4.0.1862.1.1}) as mandated by ETSI EN 319 421
      * §6.2 and defined in ETSI EN 319 412-5. {@link SigningWorkflowType#CONTENT_SIGNING} and
-     * {@link SigningWorkflowType#RAW_SIGNING} apply only the generic key and state rules — no certificate-purpose rule
-     * is defined for them yet.
+     * {@link SigningWorkflowType#RAW_SIGNING} require an end-entity subject type, a signing key usage, and an extended
+     * key usage that is not exclusively the TSA OID, narrowed further by {@code certificatePurpose} demands.
      *
      * @param certificate the entity to evaluate
      * @param workflowType the signing workflow
      * @param qualifiedTimestamp when {@code true} and workflow is TIMESTAMPING, also requires id-etsi-qcs-QcCompliance
      * in QCStatements
+     * @param certificatePurpose per-profile purpose constraints, meaningful only for the content- and raw-signing
+     * workflows
      * @return {@code true} iff all applicable requirements are satisfied
      */
     public static boolean isCertificateDigitalSigningAcceptable(Certificate certificate,
-            SigningWorkflowType workflowType, boolean qualifiedTimestamp) {
+            SigningWorkflowType workflowType, boolean qualifiedTimestamp,
+            CertificatePurposeRequirements certificatePurpose) {
         List<SigningPrivateKeyView> privateKeys = new ArrayList<>();
         boolean hasPublicKey = false;
         if (certificate.getKey() != null) {
@@ -427,24 +493,28 @@ public class CertificateEligibilityUtil {
                 certificate.getState(), certificate.getValidationStatus(), privateKeys, hasPublicKey,
                 MetaDefinitions.deserializeArrayString(certificate.getExtendedKeyUsage()),
                 Boolean.TRUE.equals(certificate.getExtendedKeyUsageCritical()),
-                Boolean.TRUE.equals(certificate.getQcCompliance()));
-        return isCertificateDigitalSigningAcceptable(view, workflowType, qualifiedTimestamp);
+                Boolean.TRUE.equals(certificate.getQcCompliance()), certificate.getKeyUsageBitMask(),
+                certificate.getSubjectType());
+        return isCertificateDigitalSigningAcceptable(view, workflowType, qualifiedTimestamp, certificatePurpose);
     }
 
     /**
      * Cache-backed counterpart of
-     * {@link #isCertificateDigitalSigningAcceptable(Certificate, SigningWorkflowType, boolean)}. Evaluates the same
-     * acceptability rules against the {@link SigningCertificate} snapshot and its {@link CryptographicKeyItemModel} key
-     * items instead of the JPA entity graph.
+     * {@link #isCertificateDigitalSigningAcceptable(Certificate, SigningWorkflowType, boolean, CertificatePurposeRequirements)}.
+     * Evaluates the same acceptability rules against the {@link SigningCertificate} snapshot and its
+     * {@link CryptographicKeyItemModel} key items instead of the JPA entity graph.
      *
      * @param certificate the cached certificate snapshot
      * @param keyItems the cached key-item snapshots for the certificate's key
      * @param workflowType the signing workflow
      * @param qualifiedTimestamp when {@code true} and workflow is TIMESTAMPING, also requires id-etsi-qcs-QcCompliance
+     * @param certificatePurpose per-profile purpose constraints, meaningful only for the content- and raw-signing
+     * workflows
      * @return {@code true} iff all applicable requirements are satisfied
      */
     public static boolean isCertificateDigitalSigningAcceptable(SigningCertificate certificate,
-            List<CryptographicKeyItemModel> keyItems, SigningWorkflowType workflowType, boolean qualifiedTimestamp) {
+            List<CryptographicKeyItemModel> keyItems, SigningWorkflowType workflowType, boolean qualifiedTimestamp,
+            CertificatePurposeRequirements certificatePurpose) {
         List<SigningPrivateKeyView> privateKeys = new ArrayList<>();
         boolean hasPublicKey = false;
         for (CryptographicKeyItemModel item : keyItems) {
@@ -459,8 +529,9 @@ public class CertificateEligibilityUtil {
                 certificate.tokenInstanceReferenceUuid() != null, certificate.state(), certificate.validationStatus(),
                 privateKeys, hasPublicKey, certificate.extendedKeyUsageOids(),
                 Boolean.TRUE.equals(certificate.extendedKeyUsageCritical()),
-                Boolean.TRUE.equals(certificate.qcCompliance()));
-        return isCertificateDigitalSigningAcceptable(view, workflowType, qualifiedTimestamp);
+                Boolean.TRUE.equals(certificate.qcCompliance()), certificate.keyUsageBitMask(),
+                certificate.subjectType());
+        return isCertificateDigitalSigningAcceptable(view, workflowType, qualifiedTimestamp, certificatePurpose);
     }
 
     /**
@@ -470,14 +541,16 @@ public class CertificateEligibilityUtil {
     private record SigningAcceptabilityView(boolean archived, boolean hasKey, boolean hasTokenProfile,
             boolean hasTokenInstanceReference, CertificateState state, CertificateValidationStatus validationStatus,
             List<SigningPrivateKeyView> privateKeys, boolean hasPublicKey, List<String> extendedKeyUsageOids,
-            boolean extendedKeyUsageCritical, boolean qcCompliant) {
+            boolean extendedKeyUsageCritical, boolean qcCompliant, int keyUsageBitMask,
+            CertificateSubjectType subjectType) {
     }
 
     private record SigningPrivateKeyView(KeyState state, List<KeyUsage> usage) {
     }
 
     private static boolean isCertificateDigitalSigningAcceptable(SigningAcceptabilityView view,
-            SigningWorkflowType workflowType, boolean qualifiedTimestamp) {
+            SigningWorkflowType workflowType, boolean qualifiedTimestamp,
+            CertificatePurposeRequirements certificatePurpose) {
         if (view.archived()) {
             return false;
         }
@@ -513,16 +586,60 @@ public class CertificateEligibilityUtil {
 
         return switch (workflowType) {
             case TIMESTAMPING -> isAcceptableTimestampingCertificate(view, qualifiedTimestamp);
-            // No certificate-purpose rule is defined for these workflows yet; the rules above still apply.
-            case CONTENT_SIGNING, RAW_SIGNING -> true;
+            case CONTENT_SIGNING, RAW_SIGNING -> isAcceptableSigningPurpose(view, certificatePurpose);
         };
+    }
+
+    private static boolean isAcceptableSigningPurpose(SigningAcceptabilityView view,
+            CertificatePurposeRequirements certificatePurpose) {
+        return signingPurposeMismatch(view.subjectType(), view.keyUsageBitMask(), view.extendedKeyUsageOids(),
+                certificatePurpose) == null;
+    }
+
+    public static Optional<String> describeSigningPurposeMismatch(Certificate certificate,
+            SigningWorkflowType workflowType, CertificatePurposeRequirements certificatePurpose) {
+        return switch (workflowType) {
+            case TIMESTAMPING -> Optional.empty();
+            case CONTENT_SIGNING, RAW_SIGNING -> Optional
+                    .ofNullable(signingPurposeMismatch(certificate.getSubjectType(), certificate.getKeyUsageBitMask(),
+                            MetaDefinitions.deserializeArrayString(certificate.getExtendedKeyUsage()),
+                            certificatePurpose));
+        };
+    }
+
+    /**
+     * The failing purpose constraint, or {@code null} when the certificate satisfies them all.
+     */
+    @Nullable
+    private static String signingPurposeMismatch(CertificateSubjectType subjectType, int keyUsageBitMask,
+            List<String> extendedKeyUsageOids, CertificatePurposeRequirements certificatePurpose) {
+        if (!END_ENTITY_SUBJECT_TYPES.contains(subjectType)) {
+            return "the certificate is not an end entity";
+        }
+        if ((keyUsageBitMask & signingKeyUsageMask(certificatePurpose)) == 0) {
+            return certificatePurpose.requireNonRepudiation()
+                    ? "the profile demands the nonRepudiation key usage, which the certificate does not carry"
+                    : "the certificate carries neither the digitalSignature nor the nonRepudiation key usage";
+        }
+        if (isExclusivelyTimestamping(extendedKeyUsageOids)) {
+            return "the certificate is a timestamping certificate: its extended key usage is exclusively id-kp-timeStamping";
+        }
+        List<String> missing = certificatePurpose
+                .requiredExtendedKeyUsageOids()
+                .stream()
+                .filter(oid -> !extendedKeyUsageOids.contains(oid))
+                .toList();
+        return missing.isEmpty() ? null : "the certificate is missing required extended key usage OIDs " + missing;
+    }
+
+    private static boolean isExclusivelyTimestamping(List<String> extendedKeyUsageOids) {
+        return extendedKeyUsageOids.size() == 1 && extendedKeyUsageOids.contains(SystemOid.TIME_STAMPING.getOid());
     }
 
     private static boolean isAcceptableTimestampingCertificate(SigningAcceptabilityView view,
             boolean qualifiedTimestamp) {
         // RFC 3161: the EKU extension MUST contain only id-kp-timeStamping and MUST be critical.
-        List<String> ekuOids = view.extendedKeyUsageOids();
-        boolean ekuCompliant = ekuOids.size() == 1 && ekuOids.contains(SystemOid.TIME_STAMPING.getOid())
+        boolean ekuCompliant = isExclusivelyTimestamping(view.extendedKeyUsageOids())
                 && view.extendedKeyUsageCritical();
         if (!ekuCompliant) {
             return false;

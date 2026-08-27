@@ -1,6 +1,7 @@
 package com.otilm.core.signing.engine.certificate;
 
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 
 /**
@@ -21,9 +22,10 @@ public interface SigningCertificateValidator {
      * @param signingScheme the resolved scheme this validator declared support for via {@link #supports}
      * @param workflowType drives which eligibility rules apply
      * @param qualifiedTimestamp meaningful only for {@link SigningWorkflowType#TIMESTAMPING}
+     * @param certificatePurpose the profile's certificate-purpose constraints
      * @return {@link ValidationResult#ok()} if the certificate is acceptable, or {@link ValidationResult#nok}
      * describing the reason for rejection.
      */
     ValidationResult validate(ResolvedManagedScheme signingScheme, SigningWorkflowType workflowType,
-            boolean qualifiedTimestamp);
+            boolean qualifiedTimestamp, CertificatePurposeRequirements certificatePurpose);
 }

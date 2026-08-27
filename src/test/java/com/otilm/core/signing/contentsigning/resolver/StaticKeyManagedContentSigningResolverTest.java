@@ -7,6 +7,7 @@ import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.common.signature.SignatureFamily;
 import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.core.signing.SigningProtocol;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.SigningRecordPolicyModelBuilder;
@@ -24,6 +25,7 @@ import com.otilm.core.signing.engine.error.SigningEngineFailure;
 import com.otilm.core.signing.engine.resolver.ManagedSchemeResolver;
 import com.otilm.core.util.builders.RequestAttributeV3Builder;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -33,6 +35,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static com.otilm.core.util.CertificateTestData.DOCUMENT_SIGNING_OID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -107,6 +110,23 @@ class StaticKeyManagedContentSigningResolverTest {
         assertThat(resolved.enabled()).isTrue();
         assertThat(resolved.enabledProtocols()).containsExactly(SigningProtocol.TSP);
         assertThat(resolved.workflowType()).isEqualTo(SigningWorkflowType.CONTENT_SIGNING);
+    }
+
+    @Test
+    void carriesTheCertificatePurposeConstraintsOntoTheResolvedProfile() throws Exception {
+        // given
+        givenSchemeResolutionSucceeds();
+        given(connectorService.getConnectorForApiClient(FORMATTING_CONNECTOR_UUID)).willReturn(CONNECTOR_INFO);
+        CertificatePurposeRequirements purpose = new CertificatePurposeRequirements(true, Set.of(DOCUMENT_SIGNING_OID));
+
+        // when
+        ResolvedManagedContentSigningProfile resolved = (ResolvedManagedContentSigningProfile) resolver
+                .resolve(aProfile(
+                        new ManagedContentSigningWorkflow(FORMATTING_CONNECTOR_UUID, List.of(A_FORMAT_ATTRIBUTE),
+                                SignatureFamily.CADES, SignatureLevel.SIGNED, null, null, purpose)));
+
+        // then
+        assertThat(resolved.certificatePurpose()).isEqualTo(purpose);
     }
 
     @Test
@@ -202,7 +222,7 @@ class StaticKeyManagedContentSigningResolverTest {
     private static SigningProfileModel<?, ?> aManagedContentSigningProfile(SignatureFamily family,
             SignatureLevel maxLevel, UUID timestampSourceProfileUuid, Long documentSizeCap) {
         return aProfile(new ManagedContentSigningWorkflow(FORMATTING_CONNECTOR_UUID, List.of(A_FORMAT_ATTRIBUTE),
-                family, maxLevel, timestampSourceProfileUuid, documentSizeCap));
+                family, maxLevel, timestampSourceProfileUuid, documentSizeCap, CertificatePurposeRequirements.NONE));
     }
 
     private static SigningProfileModel<?, ?> aManagedTimestampingProfile() {
