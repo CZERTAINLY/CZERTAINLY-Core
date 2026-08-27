@@ -54,10 +54,14 @@ public class SearchHelper {
 
         fieldDataDto.setConditions(conditionOperators);
         fieldDataDto.setType(filterField.getType().getFieldType());
-        // Do not add null value to List filter
-        if (filterField.getType().getFieldType() == FilterFieldType.LIST && filterField.getEnumClass() == null) {
-            values = new ArrayList<>((List<?>) values);
-            ((List<?>) values).remove(null);
+        // Do not add null value to List filter. A NATIVE_ARRAY field reports FilterFieldType.LIST but is not
+        // SearchFieldTypeEnum.LIST, so its caller takes the single-value path and supplies no values at all --
+        // there is then nothing to strip, and casting the absent value to a List throws.
+        if (filterField.getType().getFieldType() == FilterFieldType.LIST && filterField.getEnumClass() == null
+                && values instanceof List<?> suppliedValues) {
+            List<Object> withoutNull = new ArrayList<>(suppliedValues);
+            withoutNull.remove(null);
+            values = withoutNull;
         }
         fieldDataDto.setValue(values);
 

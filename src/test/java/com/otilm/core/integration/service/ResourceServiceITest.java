@@ -352,11 +352,16 @@ class ResourceServiceITest extends BaseSpringBootTest {
 
     /**
      * Every resource that declares filter fields must actually be servable by this endpoint, not just by the predicate
-     * builder. A {@code LIST} field with neither an {@code enumClass} nor a {@code fieldResource} falls back to
-     * {@code SELECT DISTINCT} over the resource's entity, which is resolved through {@code ResourceToClass} -- so a
-     * resource added to {@code FilterField} without a {@code ResourceToClass} constant throws
-     * {@link NullPointerException} here and returns HTTP 500 to any authenticated caller. Covering only two hand-picked
-     * resources let exactly that ship; iterating them all turns the whole class of omission into a build failure.
+     * builder. The two ways a field reaches this endpoint disagree about what counts as a list: the caller routes on
+     * {@code SearchFieldTypeEnum}, while the value handling switches on {@code FilterFieldType}, and
+     * {@code NATIVE_ARRAY} is a list under the second but not the first. A resource carrying such a field returned HTTP
+     * 500 to any authenticated caller -- {@code Resource.OID} and {@code Resource.TIME_QUALITY_CONFIGURATION} both did,
+     * and neither was covered.
+     *
+     * <p>
+     * Covering only two hand-picked resources let that ship. Iterating them all turns the whole class of omission --
+     * this mismatch, a missing {@code ResourceToClass} constant, or the next one -- into a build failure, which is why
+     * this asserts nothing about the cause.
      */
     @Test
     void everyResourceWithFilterFieldsCanBeListed() {
@@ -373,7 +378,7 @@ class ResourceServiceITest extends BaseSpringBootTest {
             Assertions
                     .assertDoesNotThrow(() -> resourceService.listResourceRuleFilterFields(resource, false),
                             "listResourceRuleFilterFields must not throw for resource " + resource
-                                    + "; a LIST field with no enumClass or fieldResource needs a ResourceToClass entry");
+                                    + "; every declared filter field must be servable by this endpoint");
         }
     }
 
