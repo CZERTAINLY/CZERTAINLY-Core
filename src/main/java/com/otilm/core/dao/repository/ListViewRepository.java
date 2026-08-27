@@ -30,8 +30,9 @@ public interface ListViewRepository extends JpaRepository<ListView, UUID> {
     boolean existsByUserUuidAndResourceAndNameAndUuidNot(UUID userUuid, Resource resource, String name, UUID uuid);
 
     @Modifying
-    @Query("UPDATE ListView v SET v.defaultView = FALSE WHERE v.userUuid = :userUuid AND v.resource = :resource "
-            + "AND v.defaultView = TRUE AND v.uuid <> :keptUuid")
+    @Query("UPDATE ListView v SET v.defaultView = FALSE, v.updated = CURRENT_TIMESTAMP "
+            + "WHERE v.userUuid = :userUuid AND v.resource = :resource AND v.defaultView = TRUE "
+            + "AND v.uuid <> :keptUuid")
     int clearDefaultExcept(@Param("userUuid") UUID userUuid, @Param("resource") Resource resource,
             @Param("keptUuid") UUID keptUuid);
 

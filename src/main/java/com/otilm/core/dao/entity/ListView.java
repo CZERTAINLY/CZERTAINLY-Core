@@ -20,27 +20,24 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * A named set of columns, filters and ordering that one user has saved for one listing.
+ * A named set of columns, filters and ordering that one user has saved for one listing. The owning user is a bare UUID
+ * with no foreign key - users live in the identity service - so the rows are removed where the platform learns of the
+ * deletion, in {@link com.otilm.core.service.UserManagementExternalService#deleteUser(String)}.
  *
  * <p>
- * The owning user is a bare UUID with no foreign key: users live in the identity service, not in this database, which
- * is the same arrangement {@code scheduled_job}, {@code notification_recipient} and {@code approval_recipient} already
- * use. Rows are removed when the user is deleted through
- * {@link com.otilm.core.service.UserManagementExternalService#deleteUser(String)}.
- *
- * <p>
- * Columns, filters and ordering are stored as the request shapes the API accepts, and column identifiers are resolved
- * against the resource's live field catalogue on read - a renamed or deleted attribute drops out of the view instead of
- * requiring stored rows to be migrated.
+ * Field identifiers are resolved against the resource's live field catalogue on read, so a renamed or deleted attribute
+ * drops out of the view instead of requiring stored rows to be migrated.
  */
 @Setter
 @Getter
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "list_view", uniqueConstraints = @UniqueConstraint(name = "uk_list_view_user_resource_name",
+@Table(name = "list_view", uniqueConstraints = @UniqueConstraint(name = ListView.UNIQUE_NAME_CONSTRAINT,
         columnNames = {"user_uuid", "resource", "name"}))
 public class ListView extends UniquelyIdentifiedAndAudited {
+
+    public static final String UNIQUE_NAME_CONSTRAINT = "uk_list_view_user_resource_name";
 
     @Column(name = "user_uuid", nullable = false, updatable = false)
     private UUID userUuid;
@@ -71,4 +68,16 @@ public class ListView extends UniquelyIdentifiedAndAudited {
     @Column(name = "sort", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private SearchSortRequestDto sort;
+
+    // No-op overrides required by S2160: identity and hashing stay UUID-based, and the added columns never
+    // affect equality.
+    @Override
+    public boolean equals(Object o) {
+        return super.equals(o);
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
+    }
 }

@@ -26,13 +26,24 @@ import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.service.ListViewExternalService;
 import com.otilm.core.service.ListViewInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class ListViewServiceITest extends BaseSpringBootTest {
 
@@ -45,14 +56,33 @@ class ListViewServiceITest extends BaseSpringBootTest {
     @Autowired
     private ListViewRepository listViewRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
+
     private UUID user;
     private UUID otherUser;
 
+    /**
+     * The single-default rule is a partial unique index, a shape no entity annotation expresses, so the
+     * entity-generated test schema does not carry it. Every default in this class therefore runs against the index the
+     * migration creates rather than against a schema that would accept two defaults quietly.
+     */
     @BeforeEach
     void setUpUsers() {
         user = UUID.randomUUID();
         otherUser = UUID.randomUUID();
         authenticateAs(user);
+        jdbcTemplate
+                .execute("CREATE UNIQUE INDEX IF NOT EXISTS \"uk_list_view_single_default\" ON " + dbSchema
+                        + ".\"list_view\" (\"user_uuid\", \"resource\") WHERE \"default_view\"");
+    }
+
+    @AfterEach
+    void dropSingleDefaultIndex() {
+        jdbcTemplate.execute("DROP INDEX IF EXISTS " + dbSchema + ".\"uk_list_view_single_default\"");
     }
 
     /**
@@ -353,6 +383,173 @@ class ListViewServiceITest extends BaseSpringBootTest {
         request.setResource(Resource.SETTINGS);
 
         Assertions.assertThrows(ValidationException.class, () -> listViewService.createView(request));
+    }
+
+    /**
+     * The production path loads the view into a session that stays open across the write, so the entity is managed and
+     * already marked default by the time the previous default is demoted. A bulk update auto-flushes the tables it
+     * touches, so an entity left attached would be written first and the partial unique index would see two defaults.
+     */
+    @Test
+    void promotingAnAlreadyLoadedViewToDefaultKeepsOneDefault() throws AlreadyExistException {
+        ListViewRequestDto first = request("First", column("COMMON_NAME"));
+        first.setDefaultView(true);
+        ListViewDto firstView = listViewService.createView(first);
+
+        ListViewRequestDto second = request("Second", column("NOT_AFTER"));
+        second.setDefaultView(true);
+        listViewService.createView(second);
+
+        ListViewUpdateRequestDto promoteFirst = update("First", column("COMMON_NAME"));
+        promoteFirst.setDefaultView(true);
+        transactionTemplate.executeWithoutResult(status -> {
+            try {
+                listViewService.editView(firstView.getUuid(), promoteFirst);
+            } catch (AlreadyExistException | NotFoundException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+
+        Assertions.assertEquals(List.of(firstView.getUuid()), defaultViewUuids());
+    }
+
+    /**
+     * A demoted view has changed, so its audit timestamp has to move with it - the bulk update that clears the flag
+     * bypasses the entity listener that would otherwise do it.
+     */
+    @Test
+    void demotingAViewAdvancesItsAuditTimestamp() throws AlreadyExistException {
+        ListViewRequestDto first = request("First", column("COMMON_NAME"));
+        first.setDefaultView(true);
+        ListViewDto firstView = listViewService.createView(first);
+        OffsetDateTime beforeDemotion = updatedOf(firstView.getUuid());
+
+        ListViewRequestDto second = request("Second", column("NOT_AFTER"));
+        second.setDefaultView(true);
+        listViewService.createView(second);
+
+        Assertions.assertTrue(updatedOf(firstView.getUuid()).isAfter(beforeDemotion));
+    }
+
+    private OffsetDateTime updatedOf(String viewUuid) {
+        return listViewRepository.findById(UUID.fromString(viewUuid)).orElseThrow().getUpdated();
+    }
+
+    /**
+     * Two requests naming the same view name have to end as one view and one 409, never as an internal error: the name
+     * check and the insert are serialized per user and resource, and the unique constraint behind them would otherwise
+     * reject the loser with a data-integrity failure.
+     */
+    @Test
+    void concurrentCreatesOfTheSameNameLeaveOneViewAndOneRejection() throws InterruptedException {
+        SecurityContext context = SecurityContextHolder.getContext();
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger created = new AtomicInteger();
+        AtomicInteger rejected = new AtomicInteger();
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<?>> attempts = List
+                    .of(executor.submit(() -> createConcurrently(context, start, created, rejected)),
+                            executor.submit(() -> createConcurrently(context, start, created, rejected)));
+            start.countDown();
+            for (Future<?> attempt : attempts) {
+                Assertions.assertDoesNotThrow(() -> attempt.get(30, TimeUnit.SECONDS));
+            }
+        } finally {
+            executor.shutdownNow();
+            Assertions.assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
+        }
+
+        Assertions.assertEquals(1, created.get());
+        Assertions.assertEquals(1, rejected.get());
+        Assertions.assertEquals(1, listViewRepository.findByUserUuidOrderByNameAsc(user).size());
+    }
+
+    private void createConcurrently(SecurityContext context, CountDownLatch start, AtomicInteger created,
+            AtomicInteger rejected) {
+        SecurityContextHolder.setContext(context);
+        try {
+            start.await();
+            listViewService.createView(request("Contested", column("COMMON_NAME")));
+            created.incrementAndGet();
+        } catch (AlreadyExistException e) {
+            rejected.incrementAndGet();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void aFilterOnAFieldTheResourceDoesNotOfferIsRejectedOnWrite() {
+        ListViewRequestDto request = request("Impossible", column("COMMON_NAME"));
+        request
+                .setFilters(List
+                        .of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, "CKI_NAME",
+                                FilterConditionOperator.EQUALS, "key")));
+
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class, () -> listViewService.createView(request));
+        Assertions.assertTrue(e.getMessage().contains("CKI_NAME"));
+    }
+
+    @Test
+    void aFilterConditionTheFieldDoesNotOfferIsRejectedOnWrite() {
+        ListViewRequestDto request = request("Impossible", column("COMMON_NAME"));
+        request
+                .setFilters(List
+                        .of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, "NOT_AFTER",
+                                FilterConditionOperator.CONTAINS, "test")));
+
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class, () -> listViewService.createView(request));
+        Assertions.assertTrue(e.getMessage().contains("CONTAINS"));
+    }
+
+    @Test
+    void anOrderingOnAFieldTheResourceDoesNotOfferIsRejectedOnWrite() {
+        ListViewRequestDto request = request("Impossible", column("COMMON_NAME"));
+        request.setSort(new SearchSortRequestDto(FilterFieldSource.PROPERTY, "CKI_NAME", SortDirection.ASC));
+
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class, () -> listViewService.createView(request));
+        Assertions.assertTrue(e.getMessage().contains("CKI_NAME"));
+    }
+
+    @Test
+    void aStoredFilterAndOrderingSurviveAnEdit() throws AlreadyExistException, NotFoundException {
+        ListViewDto created = listViewService.createView(request("Sliced", column("COMMON_NAME")));
+
+        ListViewUpdateRequestDto edit = update("Sliced", column("COMMON_NAME"));
+        edit
+                .setFilters(List
+                        .of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, "COMMON_NAME",
+                                FilterConditionOperator.CONTAINS, "test")));
+        edit.setSort(new SearchSortRequestDto(FilterFieldSource.PROPERTY, "NOT_AFTER", SortDirection.DESC));
+
+        ListViewDto edited = listViewService.editView(created.getUuid(), edit);
+
+        Assertions.assertEquals("COMMON_NAME", edited.getFilters().getFirst().getFieldIdentifier());
+        Assertions.assertEquals("NOT_AFTER", edited.getSort().getFieldIdentifier());
+    }
+
+    /**
+     * The cleanup runs in its own transaction, so a failure in a later step of the user deletion cannot bring the rows
+     * back: the user is already gone from the identity service by then, and nothing sweeps orphans afterwards.
+     */
+    @Test
+    void viewsOfADeletedUserStayRemovedWhenTheSurroundingTransactionRollsBack() throws AlreadyExistException {
+        listViewService.createView(request("Mine", column("COMMON_NAME")));
+
+        Assertions.assertThrows(IllegalStateException.class, () -> transactionTemplate.executeWithoutResult(status -> {
+            listViewInternalService.deleteViewsOfUser(user);
+            throw new IllegalStateException("a later step of the deletion fails");
+        }));
+
+        Assertions.assertTrue(listViewRepository.findByUserUuidOrderByNameAsc(user).isEmpty());
     }
 
     @Test

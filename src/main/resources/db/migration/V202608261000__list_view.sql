@@ -19,5 +19,6 @@ CREATE INDEX "idx_list_view_user_resource" ON "list_view" ("user_uuid", "resourc
 
 -- At most one default per user and resource. A partial unique index is the only shape that expresses "unique among
 -- the rows where the flag is set", so it has no counterpart on the entity and is absent from the entity-generated
--- test schema; ListViewServiceImpl clears the previous default itself, and this backstops a concurrent write.
+-- test schema, which is why ListViewServiceITest creates it itself; ListViewWriter clears the previous default
+-- before writing the new one, and this backstops a write that bypasses it.
 CREATE UNIQUE INDEX "uk_list_view_single_default" ON "list_view" ("user_uuid", "resource") WHERE "default_view";
