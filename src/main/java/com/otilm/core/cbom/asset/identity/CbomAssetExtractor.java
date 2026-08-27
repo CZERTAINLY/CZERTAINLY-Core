@@ -1,10 +1,16 @@
 package com.otilm.core.cbom.asset.identity;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.otilm.core.cbom.asset.OccurrenceEvidenceCapper;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -41,6 +47,11 @@ public final class CbomAssetExtractor {
      */
     private static final int MAX_DEPTH = 1000;
 
+    private static final ObjectMapper MAPPER = ObjectMapperFactory.storage();
+
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
+    };
+
     private final CryptoAssetIdentity identity;
 
     public CbomAssetExtractor(CryptoAssetIdentity identity) {
@@ -67,7 +78,7 @@ public final class CbomAssetExtractor {
      * class that has no business advertising it.
      */
     public record ExtractedAsset(String key, String chainStep, NormalizedAsset normalized, String componentName,
-            JsonNode retainedProperties) {
+            JsonNode retainedProperties, List<Map<String, Object>> evidence, int reportedOccurrences) {
     }
 
     /**
@@ -131,9 +142,11 @@ public final class CbomAssetExtractor {
                 // identity[_-<space>]?key, so the type name followed by such a variable reads as the fenced token
                 // across the space between them -- a rule about text, applied to text, with no idea what a type is.
                 CryptoAssetIdentity.Identity extracted = identity.of(component, scope, batchRefutedDigests);
+                List<Map<String, Object>> reported = sanitizedOccurrences(component);
                 assets
                         .add(new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(), nameOf(component),
-                                extracted.redaction().payload()));
+                                extracted.redaction().payload(), OccurrenceEvidenceCapper.cap(reported),
+                                reported == null ? 0 : reported.size()));
             } catch (RuntimeException e) {
                 // Deliberately broad, and deliberately not logged with the throwable. Producer input reaches every
                 // derivation below this line; the failure classes are open-ended, and one of them must not be fatal.
@@ -141,6 +154,41 @@ public final class CbomAssetExtractor {
             }
         }
         return new Extraction(List.copyOf(assets), List.copyOf(skips), walk.depthLimitReached());
+    }
+
+    /**
+     * The component's occurrences with every location sanitized, or {@code null} when it reported none.
+     *
+     * <p>
+     * <b>Sanitizing here, not only on the keying path, is the point.</b> A location is a real shape like
+     * {@code tcp://user:pass@host:443/path?token=...}, and it feeds the identity key for version-less protocols and
+     * identity-less material -- so the keying path already strips credentials, or a password would be hashed into the
+     * key. The stored evidence is the other half of the same rule and had no such step: capped and retained verbatim,
+     * {@code crypto_asset_source.evidence} would hold the credential the key was careful not to hash, in a column the
+     * read surface serves back.
+     *
+     * <p>
+     * {@code null} in, {@code null} out: a source that reported no evidence is distinct from one whose evidence capping
+     * emptied, and the capper preserves that distinction downstream.
+     */
+    private static List<Map<String, Object>> sanitizedOccurrences(JsonNode component) {
+        JsonNode evidence = component.get("evidence");
+        JsonNode occurrences = evidence == null ? null : evidence.get("occurrences");
+        if (occurrences == null || !occurrences.isArray()) {
+            return null;
+        }
+        List<Map<String, Object>> sanitized = new ArrayList<>(occurrences.size());
+        for (JsonNode occurrence : occurrences) {
+            if (!occurrence.isObject()) {
+                continue;
+            }
+            ObjectNode copy = occurrence.deepCopy();
+            if (copy.has("location")) {
+                copy.put("location", Occurrences.sanitizeLocation(copy.get("location")));
+            }
+            sanitized.add(MAPPER.convertValue(copy, MAP_TYPE));
+        }
+        return sanitized;
     }
 
     /**

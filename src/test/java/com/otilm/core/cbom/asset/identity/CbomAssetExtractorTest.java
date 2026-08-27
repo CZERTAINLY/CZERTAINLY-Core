@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.core.cbom.asset.OccurrenceEvidenceCapper;
 import com.otilm.core.serialization.ObjectMapperFactory;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -298,5 +299,66 @@ class CbomAssetExtractorTest {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("test fixture is not JSON", e);
         }
+    }
+
+    // ---------------------------------------------------------------- evidence
+
+    /**
+     * A credential in an occurrence location must not survive into stored evidence.
+     *
+     * <p>
+     * The keying path already strips it, or a password would be hashed into the identity. The stored evidence is the
+     * other half of the same rule and had no such step: capped and retained verbatim, the evidence column would hold
+     * the credential the key was careful not to hash -- in a column the read surface serves back. This test fails
+     * against the version of this walker that captured no evidence, and against any that captures it unsanitized.
+     */
+    @Test
+    void aCredentialInALocationNeverReachesStoredEvidence() {
+        JsonNode document = read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"k\","
+                + "\"cryptoProperties\":{\"assetType\":\"algorithm\"},"
+                + "\"evidence\":{\"occurrences\":[{\"location\":\"tcp://user:hunter2@host:443/p?token=abc\","
+                + "\"line\":7}]}}]}");
+
+        CbomAssetExtractor.ExtractedAsset asset = EXTRACTOR.extract(document).assets().get(0);
+
+        assertThat(asset.evidence()).hasSize(1);
+        assertThat(asset.evidence().toString()).doesNotContain("hunter2").doesNotContain("token=abc");
+        assertThat(asset.evidence().get(0)).containsEntry("location", "tcp://host:443/p").containsEntry("line", 7);
+    }
+
+    /**
+     * The retained list is capped and the reported count is the pre-cap total, so the gap is the record that capping
+     * happened. No separate flag is needed, and none can drift out of step with the array.
+     */
+    @Test
+    void theCountIsThePreCapTotalWhileTheListIsBounded() {
+        StringBuilder occurrences = new StringBuilder();
+        int reported = OccurrenceEvidenceCapper.MAX_OCCURRENCES + 25;
+        for (int index = 0; index < reported; index++) {
+            occurrences.append(index > 0 ? "," : "").append("{\"location\":\"file").append(index).append(".java\"}");
+        }
+        JsonNode document = read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"k\","
+                + "\"cryptoProperties\":{\"assetType\":\"algorithm\"}," + "\"evidence\":{\"occurrences\":["
+                + occurrences + "]}}]}");
+
+        CbomAssetExtractor.ExtractedAsset asset = EXTRACTOR.extract(document).assets().get(0);
+
+        assertThat(asset.reportedOccurrences()).isEqualTo(reported);
+        assertThat(asset.evidence()).hasSize(OccurrenceEvidenceCapper.MAX_OCCURRENCES);
+    }
+
+    /**
+     * No evidence reported is distinct from evidence that capping emptied, so it stays {@code null} rather than
+     * becoming an empty list.
+     */
+    @Test
+    void aSourceThatReportedNoEvidenceIsDistinctFromOneThatWasCapped() {
+        CbomAssetExtractor.ExtractedAsset asset = EXTRACTOR
+                .extract(read("{\"components\":[" + algorithm("AES-256") + "]}"))
+                .assets()
+                .get(0);
+
+        assertThat(asset.evidence()).isNull();
+        assertThat(asset.reportedOccurrences()).isZero();
     }
 }
