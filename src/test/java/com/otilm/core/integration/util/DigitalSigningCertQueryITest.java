@@ -198,8 +198,9 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
 
         List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false);
 
-        assertThat(found).contains(digitalSignature.getUuid(), nonRepudiation.getUuid());
-        assertThat(found).doesNotContain(keyEncipherment.getUuid(), noKeyUsage.getUuid());
+        assertThat(found)
+                .contains(digitalSignature.getUuid(), nonRepudiation.getUuid())
+                .doesNotContain(keyEncipherment.getUuid(), noKeyUsage.getUuid());
     }
 
     @Test
@@ -211,8 +212,7 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
 
         List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false);
 
-        assertThat(found).contains(endEntity.getUuid());
-        assertThat(found).doesNotContain(intermediateCa.getUuid());
+        assertThat(found).contains(endEntity.getUuid()).doesNotContain(intermediateCa.getUuid());
     }
 
     @Test
@@ -251,12 +251,12 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
 
     @Test
     void contentSigning_requiredEkuOids_treatsALikeWildcardLiterally() throws Exception {
-        Certificate documentSigning = savePurposeCertWithEku(DOCUMENT_SIGNING_OID);
+        savePurposeCertWithEku(DOCUMENT_SIGNING_OID);
 
         List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false,
                 new CertificatePurposeRequirements(false, Set.of("%")));
 
-        assertThat(found).doesNotContain(documentSigning.getUuid());
+        assertThat(found).isEmpty();
     }
 
     @Test

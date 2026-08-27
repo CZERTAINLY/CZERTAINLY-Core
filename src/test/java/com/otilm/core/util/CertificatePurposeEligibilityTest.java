@@ -130,9 +130,10 @@ class CertificatePurposeEligibilityTest {
         CertificatePurposeRequirements purpose = CertificatePurposeRequirements.of(false, mutable);
         mutable.clear();
 
-        assertThat(purpose.requiredExtendedKeyUsageOids()).containsExactly(DOCUMENT_SIGNING_OID);
-        assertThatThrownBy(() -> purpose.requiredExtendedKeyUsageOids().add("1.2.3"))
-                .isInstanceOf(UnsupportedOperationException.class);
+        Set<String> requiredOids = purpose.requiredExtendedKeyUsageOids();
+
+        assertThat(requiredOids).containsExactly(DOCUMENT_SIGNING_OID);
+        assertThatThrownBy(() -> requiredOids.add("1.2.3")).isInstanceOf(UnsupportedOperationException.class);
     }
 
     // ── requireNonRepudiation ────────────────────────────────────────────────
