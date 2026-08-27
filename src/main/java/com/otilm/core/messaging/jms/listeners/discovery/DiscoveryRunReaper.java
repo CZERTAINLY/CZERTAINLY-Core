@@ -7,8 +7,8 @@ import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
-import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
 import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
+import com.otilm.core.service.handler.discovery.DiscoveryV2Client;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -57,7 +57,7 @@ public class DiscoveryRunReaper {
     private final DiscoveryRepository discoveryRepository;
     private final DiscoveryWorkRepository workRepository;
     private final DiscoveryWorkWriter workWriter;
-    private final DiscoveryProviderAdapterFactory adapterFactory;
+    private final DiscoveryV2Client discoveryV2Client;
     private final TransactionHandler transactionHandler;
     private final ClusterOperationSynchronizer clusterSynchronizer;
     private final DiscoveryRunTerminator terminator;
@@ -65,14 +65,14 @@ public class DiscoveryRunReaper {
     private final Duration stoppedMaxDuration;
 
     public DiscoveryRunReaper(DiscoveryRepository discoveryRepository, DiscoveryWorkRepository workRepository,
-            DiscoveryWorkWriter workWriter, DiscoveryProviderAdapterFactory adapterFactory,
-            TransactionHandler transactionHandler, ClusterOperationSynchronizer clusterSynchronizer,
-            DiscoveryRunTerminator terminator, @Value("${discovery.work.reap-grace:PT5M}") Duration reapGrace,
+            DiscoveryWorkWriter workWriter, DiscoveryV2Client discoveryV2Client, TransactionHandler transactionHandler,
+            ClusterOperationSynchronizer clusterSynchronizer, DiscoveryRunTerminator terminator,
+            @Value("${discovery.work.reap-grace:PT5M}") Duration reapGrace,
             @Value("${discovery.run.stopped-max-duration:P7D}") Duration stoppedMaxDuration) {
         this.discoveryRepository = discoveryRepository;
         this.workRepository = workRepository;
         this.workWriter = workWriter;
-        this.adapterFactory = adapterFactory;
+        this.discoveryV2Client = discoveryV2Client;
         this.transactionHandler = transactionHandler;
         this.clusterSynchronizer = clusterSynchronizer;
         this.terminator = terminator;
@@ -140,11 +140,10 @@ public class DiscoveryRunReaper {
             if (reaped == null) {
                 return false;
             }
-            // Usually there is nothing to cancel: work loss mostly means the initiate never persisted
-            // the connector run context. When it exists, the connector should stop scanning.
-            if (reaped.meta() != null) {
-                bestEffortConnectorCancel(reaped);
-            }
+            // Sent even with no handle to replay: control calls are addressed by runId, with meta optional, so a
+            // connector that started scanning before the handle was persisted can still be told to stop. This is
+            // also what the stop-expired path has always done.
+            bestEffortConnectorCancel(reaped);
             return true;
         } catch (RuntimeException e) {
             // One run's failure (e.g. a lock timeout) must not abort the rest of the batch.
@@ -188,12 +187,24 @@ public class DiscoveryRunReaper {
      * moment: a terminal run can no longer be resumed, so the cancel cannot race a revival. The entity is detached
      * here, so restoring the pre-wipe meta snapshot only feeds the cancel call, never the database. A failure is only a
      * warning: a scan the connector was not told to drop keeps running until its own timeout.
+     *
+     * <p>
+     * Goes to the client rather than through the provider adapter. The adapter's {@code cancel} is the operation a
+     * client asks for and refuses anything already terminal — which every run reaching here is, by construction. This
+     * is a notification, not that operation.
      */
     private void bestEffortConnectorCancel(ReapedRun reaped) {
+        if (reaped.run().getConnectorInterfaceUuid() == null) {
+            // A v1 run has no cancel to send; its provider call is synchronous and already over.
+            return;
+        }
         try {
             reaped.run().setRunMeta(reaped.meta());
-            adapterFactory.forDiscovery(reaped.run()).cancel(reaped.run());
-        } catch (RuntimeException e) {
+            discoveryV2Client.cancel(reaped.run());
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             logger
                     .warn("Best-effort connector cancel failed for discovery run {}; the connector-side scan may keep "
                             + "running until its own timeout", reaped.run().getUuid(), e);

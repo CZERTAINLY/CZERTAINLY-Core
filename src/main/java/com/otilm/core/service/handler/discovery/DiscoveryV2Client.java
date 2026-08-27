@@ -12,6 +12,7 @@ import com.otilm.api.model.connector.discovery.v2.DiscoveryInitiateResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunRequestDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryStatusResponseDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryStopResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryV2ScopedRequestDto;
 import com.otilm.api.model.core.auth.Resource;
@@ -31,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -128,6 +130,41 @@ public class DiscoveryV2Client {
     public void acknowledge(Discovery run, long highestSequence)
             throws ConnectorException, NotFoundException, AttributeException {
         drain(run, highestSequence, 1, 1024L);
+    }
+
+    /** Asks the connector to checkpoint and pause. Returns the refreshed handle, which replaces the stored one. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public DiscoveryStopResponseDto stop(Discovery run)
+            throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDto connector = connectorOf(run);
+        DiscoveryRunRequestDto request = new DiscoveryRunRequestDto();
+        populate(request, run, connector);
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).stop(connector, request);
+    }
+
+    /** Restarts a stopped run from its checkpoint. Answers the same shape as initiate: a handle and stoppability. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public DiscoveryInitiateResponseDto resume(Discovery run)
+            throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDto connector = connectorOf(run);
+        DiscoveryRunRequestDto request = new DiscoveryRunRequestDto();
+        populate(request, run, connector);
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).resume(connector, request);
+    }
+
+    /**
+     * Tells the connector to drop the run.
+     *
+     * @return the raw response, because its status is the answer: {@code 204} cancelled, {@code 404} the connector no
+     * longer tracks the run — which is the state cancel asked for, so the caller reads it as success rather than
+     * catching it
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public ResponseEntity<Void> cancel(Discovery run) throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDto connector = connectorOf(run);
+        DiscoveryRunRequestDto request = new DiscoveryRunRequestDto();
+        populate(request, run, connector);
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).cancel(connector, request);
     }
 
     private DiscoveryResultsResponseDto drain(Discovery run, long afterSequence, int maxItems, long maxBytes)

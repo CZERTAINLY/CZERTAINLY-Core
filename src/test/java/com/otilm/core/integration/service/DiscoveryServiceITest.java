@@ -11,6 +11,7 @@ import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
+import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
@@ -52,6 +53,7 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.DiscoveryInternalService;
+import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
 import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
@@ -100,6 +102,9 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
     @Autowired
     private DiscoveryMessageWriter messageWriter;
+
+    @Autowired
+    private DiscoveryProviderAdapterFactory adapterFactory;
 
     private Discovery discovery;
     private Connector connector;
@@ -626,6 +631,75 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertNull(persisted.getRunMeta());
         Assertions.assertTrue(persisted.getMessage().contains("meta size exceeded"));
+    }
+
+    @Test
+    void aResumeTheConnectorCannotHonourEndsTheRunAndKeepsWhatItStaged() {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        run.setStatus(DiscoveryStatus.STOPPED);
+        run.setStoppable(true);
+        discoveryRepository.saveAndFlush(run);
+        giveInterfaceStopResumeFlag();
+        stubResumeStatus(410);
+
+        adapterFactory.forDiscovery(run).resume(run);
+
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions.assertEquals("checkpoint lost", persisted.getMessage());
+        // The handle is dropped: it addresses a run the connector can no longer resume, so replaying it would
+        // only produce the same 410 on every later call.
+        Assertions.assertNull(persisted.getRunMeta());
+    }
+
+    @Test
+    void aRunTheConnectorAlreadyForgotCancelsSuccessfully() {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/v2/discoveryProvider/discoveries/cancel"))
+                        .willReturn(WireMock.aResponse().withStatus(404)));
+
+        adapterFactory.forDiscovery(run).cancel(run);
+
+        // 404 says the connector no longer tracks the run -- which is exactly what cancel asked for, so it counts
+        // as success rather than leaving the run un-cancelled.
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.CANCELLED, persisted.getStatus());
+        Assertions.assertNull(persisted.getRunMeta());
+    }
+
+    @Test
+    void stopIsRefusedForARunTheConnectorNeverDeclaredStoppable() {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        giveInterfaceStopResumeFlag();
+
+        // The interface advertises the capability, but this run was not declared stoppable at initiate.
+        Assertions.assertThrows(ValidationException.class, () -> adapterFactory.forDiscovery(run).stop(run));
+    }
+
+    private void giveInterfaceStopResumeFlag() {
+        ConnectorInterfaceEntity iface = connectorInterfaceRepository
+                .findById(discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow().getConnectorInterfaceUuid())
+                .orElseThrow();
+        iface.setFeatures(List.of(FeatureFlag.DISCOVERY_STOP_RESUME));
+        connectorInterfaceRepository.saveAndFlush(iface);
+    }
+
+    private void stubResumeStatus(int status) {
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/v2/discoveryProvider/discoveries/resume"))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(status)
+                                .withHeader("Content-Type", "application/problem+json")
+                                .withBody("""
+                                        {"status":%d,"errorCode":"CHECKPOINT_LOST","detail":"gone"}"""
+                                        .formatted(status))));
     }
 
     private void givenV2Run(List<Resource> resources) {

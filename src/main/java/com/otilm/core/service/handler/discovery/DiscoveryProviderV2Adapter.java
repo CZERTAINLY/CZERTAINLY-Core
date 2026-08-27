@@ -1,9 +1,13 @@
 package com.otilm.core.service.handler.discovery;
 
+import com.otilm.api.exception.ConnectorClientException;
+import com.otilm.api.exception.ConnectorProblemException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryInitiateResponseDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryStopResponseDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
@@ -23,10 +27,12 @@ import com.otilm.core.util.AttributeDefinitionUtils;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 /**
@@ -38,16 +44,19 @@ import org.springframework.stereotype.Component;
  * rather than waiting for results.
  *
  * <p>
- * Every failure here ends the run terminally. A v2 run that is left non-terminal has no owner — the caller is
+ * Every {@code start} failure ends the run terminally. A v2 run that is left non-terminal has no owner — the caller is
  * asynchronous and the tick workers only drive runs that already have agenda rows — so the reaper would have to collect
  * it after its grace window rather than the failure being reported at once.
+ *
+ * <p>
+ * <b>The lifecycle operations behave the opposite way</b> and throw. They answer a client that is waiting, so a refusal
+ * is a response rather than a run outcome: an illegal transition raises {@link ValidationException}, which the platform
+ * maps to 422. Only two things end a run here — a cancel, and a resume the connector cannot honour.
  */
 @Component
 public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryProviderV2Adapter.class);
-
-    private static final String NOT_IMPLEMENTED = "The discovery v2 provider adapter is not implemented yet";
 
     /**
      * The contract's cap on a serialized run handle. Enforced on every meta-returning response, because the handle is
@@ -203,16 +212,146 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
 
     @Override
     public void stop(Discovery discovery) {
-        throw new IllegalStateException(NOT_IMPLEMENTED);
+        requireStatus(discovery, "stopped", DiscoveryStatus.IN_PROGRESS);
+        // Both gates: the interface must advertise the capability, and this run must have been declared stoppable
+        // at initiate. A run that was never checkpointable cannot be stopped even by a connector that can stop others.
+        if (!advertisesStopResume(discovery) || !Boolean.TRUE.equals(discovery.getStoppable())) {
+            throw new ValidationException("Discovery " + discovery.getUuid() + " cannot be stopped");
+        }
+        UUID discoveryUuid = discovery.getUuid();
+        DiscoveryStopResponseDto response = call(discoveryUuid, "stop", () -> client.stop(discovery));
+        transactionHandler.runInNewTransaction(() -> {
+            Discovery locked = lock(discoveryUuid);
+            enforceMetaCap(response.getMeta());
+            locked.setRunMeta(response.getMeta());
+            locked.setStatus(DiscoveryStatus.STOPPED);
+            locked.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC));
+            return discoveryRepository.save(locked);
+        });
+        // The agenda stays, parked: a stopped run is resumable, and rebuilding its rows on resume would lose the
+        // attempt counters that bound a run the connector has gone quiet on.
+        workWriter.resetAttempt(discoveryUuid, DiscoveryWorkType.STATUS, 0);
+        workWriter.resetAttempt(discoveryUuid, DiscoveryWorkType.DRAIN, 0);
     }
 
     @Override
     public void resume(Discovery discovery) {
-        throw new IllegalStateException(NOT_IMPLEMENTED);
+        requireStatus(discovery, "resumed", DiscoveryStatus.STOPPED);
+        // The flag alone, deliberately: the run's own snapshot describes whether it could be stopped, and the
+        // connector's 410 is the authority on whether its checkpoint still exists.
+        if (!advertisesStopResume(discovery)) {
+            throw new ValidationException("Discovery " + discovery.getUuid() + " cannot be resumed");
+        }
+        UUID discoveryUuid = discovery.getUuid();
+        DiscoveryInitiateResponseDto response;
+        try {
+            response = client.resume(discovery);
+        } catch (Exception e) {
+            if (isCheckpointLost(e)) {
+                disposeCheckpointLost(discoveryUuid);
+                return;
+            }
+            throw failed(discoveryUuid, "resume", e);
+        }
+        transactionHandler.runInNewTransaction(() -> {
+            Discovery locked = lock(discoveryUuid);
+            enforceMetaCap(response.getMeta());
+            locked.setRunMeta(response.getMeta());
+            locked.setStoppable(stoppable(locked, response));
+            locked.setStatus(DiscoveryStatus.IN_PROGRESS);
+            locked.setStoppedAt(null);
+            return discoveryRepository.save(locked);
+        });
+        workWriter.expedite(discoveryUuid, DiscoveryWorkType.STATUS, OffsetDateTime.now(ZoneOffset.UTC));
+        workWriter.expedite(discoveryUuid, DiscoveryWorkType.DRAIN, OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     @Override
     public void cancel(Discovery discovery) {
-        throw new IllegalStateException(NOT_IMPLEMENTED);
+        requireStatus(discovery, "cancelled", DiscoveryStatus.IN_PROGRESS, DiscoveryStatus.STOPPED);
+        UUID discoveryUuid = discovery.getUuid();
+        // 404 is not a failure: it says the connector no longer tracks the run, which is the state cancel asked
+        // for. The client hands the status back rather than throwing precisely so this can be read, not caught.
+        call(discoveryUuid, "cancel", () -> client.cancel(discovery));
+        terminator.end(discoveryUuid, DiscoveryStatus.CANCELLED, "Discovery cancelled");
+    }
+
+    /**
+     * A resume the connector cannot honour: its checkpoint is gone, so the run can never be driven again.
+     *
+     * <p>
+     * The staged items stay. They were really discovered, and a client can still read them — they are simply never
+     * processed, because the run that would have processed them no longer exists.
+     */
+    private void disposeCheckpointLost(UUID discoveryUuid) {
+        logger.warn("Discovery {} cannot be resumed: the connector no longer holds its checkpoint", discoveryUuid);
+        terminator.end(discoveryUuid, DiscoveryStatus.FAILED, "checkpoint lost");
+    }
+
+    /**
+     * Keyed on HTTP status, not on {@code ErrorCode}: over MQ the proxy classifies by status alone and discards the
+     * problem body, so the code is absent on one of the two transports the platform supports.
+     */
+    private static boolean isCheckpointLost(Exception e) {
+        HttpStatus status = statusOf(e);
+        return status == HttpStatus.NOT_FOUND || status == HttpStatus.GONE;
+    }
+
+    private static HttpStatus statusOf(Exception e) {
+        if (e instanceof ConnectorProblemException problem) {
+            return problem.getHttpStatus();
+        }
+        if (e instanceof ConnectorClientException client) {
+            return client.getHttpStatus();
+        }
+        return null;
+    }
+
+    private void requireStatus(Discovery discovery, String verb, DiscoveryStatus... legal) {
+        // Compared by identity rather than List.contains: the status column is nullable, and an immutable list
+        // throws on a null argument instead of answering false.
+        if (Arrays.stream(legal).noneMatch(status -> status == discovery.getStatus())) {
+            // 422 rather than 409: the platform's state-transition convention, and Core maps no CONFLICT for run state.
+            throw new ValidationException(
+                    "Discovery " + discovery.getUuid() + " is " + discovery.getStatus() + " and cannot be " + verb);
+        }
+    }
+
+    private boolean advertisesStopResume(Discovery discovery) {
+        ConnectorInterfaceEntity iface = discovery.getConnectorInterfaceUuid() == null
+                ? null
+                : connectorInterfaceRepository.findById(discovery.getConnectorInterfaceUuid()).orElse(null);
+        return capabilityService.supports(iface, FeatureFlag.DISCOVERY_STOP_RESUME);
+    }
+
+    private Discovery lock(UUID discoveryUuid) {
+        return discoveryRepository
+                .findWithLockByUuid(discoveryUuid)
+                .orElseThrow(() -> new IllegalStateException("Discovery " + discoveryUuid + " vanished mid-operation"));
+    }
+
+    /** Runs a connector call, letting a validation refusal through and wrapping everything else. */
+    private <T> T call(UUID discoveryUuid, String operation, ConnectorCall<T> connectorCall) {
+        try {
+            return connectorCall.execute();
+        } catch (ValidationException e) {
+            // The connector's own refusal -- a run past the point of no return -- already carries the right status.
+            throw e;
+        } catch (Exception e) {
+            throw failed(discoveryUuid, operation, e);
+        }
+    }
+
+    private IllegalStateException failed(UUID discoveryUuid, String operation, Exception e) {
+        if (e instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        logger.error("Discovery {} {} failed at its connector", discoveryUuid, operation, e);
+        return new IllegalStateException("Discovery " + operation + " failed at its connector", e);
+    }
+
+    @FunctionalInterface
+    private interface ConnectorCall<T> {
+        T execute() throws Exception;
     }
 }
