@@ -47,6 +47,7 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CertificateInternalService;
 import com.otilm.core.service.CertificateUploadService;
 import com.otilm.core.service.GroupExternalService;
+import com.otilm.core.service.ListViewInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.UserManagementExternalService;
 import com.otilm.core.service.UserManagementInternalService;
@@ -87,6 +88,7 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     private CertificateUploadService certificateUploadService;
     private GroupExternalService groupService;
     private ResourceObjectAssociationService objectAssociationService;
+    private ListViewInternalService listViewService;
     private AuditLogsProducer auditLogsProducer;
 
     private AttributeEngine attributeEngine;
@@ -140,6 +142,11 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
     @Autowired
     public void setObjectAssociationService(ResourceObjectAssociationService objectAssociationService) {
         this.objectAssociationService = objectAssociationService;
+    }
+
+    @Autowired
+    public void setListViewService(ListViewInternalService listViewService) {
+        this.listViewService = listViewService;
     }
 
     @Autowired
@@ -233,6 +240,7 @@ public class UserManagementServiceImpl implements UserManagementExternalService,
         UUID uuid = UUID.fromString(userUuid);
         certificateService.removeCertificateUser(uuid);
         objectAssociationService.removeOwnerAssociations(uuid);
+        listViewService.deleteViewsOfUser(uuid);
         attributeEngine.deleteObjectAttributeContent(Resource.USER, UUID.fromString(userUuid));
         clearAuthenticationData(userUuid, "deleted");
     }
