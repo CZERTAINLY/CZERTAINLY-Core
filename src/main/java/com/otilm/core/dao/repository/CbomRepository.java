@@ -59,4 +59,8 @@ public interface CbomRepository extends SecurityFilterRepository<Cbom, UUID> {
             """)
     int updateAssetSyncState(@Param("uuid") UUID uuid, @Param("state") CbomAssetSyncState state,
             @Param("error") String error, @Param("syncedAt") OffsetDateTime syncedAt);
+
+    /** Distinct CBOM serial numbers, the value list of the inventory's source-CBOM filter. */
+    @Query("SELECT DISTINCT c.serialNumber FROM Cbom c ORDER BY c.serialNumber")
+    List<String> findDistinctSerialNumber();
 }

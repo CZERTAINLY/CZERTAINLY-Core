@@ -2,6 +2,8 @@ package com.otilm.core.dao.repository.cbom;
 
 import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
+import com.otilm.core.model.cbom.CryptoAssetListRow;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -173,4 +175,46 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
     @Modifying
     @Query("DELETE FROM CryptoAsset a WHERE a.uuid = :uuid")
     int deleteAsset(@Param("uuid") UUID uuid);
+
+    /**
+     * Distinct stored values of one normalized filter column, for the searchable-fields value lists. The columns hold
+     * the canonical normalized spelling, so these lists can never offer two producer spellings of one value.
+     */
+    @Query("SELECT DISTINCT a.algorithmFamily FROM CryptoAsset a WHERE a.algorithmFamily IS NOT NULL "
+            + "ORDER BY a.algorithmFamily")
+    List<String> findDistinctAlgorithmFamily();
+
+    @Query("SELECT DISTINCT a.primitive FROM CryptoAsset a WHERE a.primitive IS NOT NULL ORDER BY a.primitive")
+    List<String> findDistinctPrimitive();
+
+    @Query("SELECT DISTINCT a.parameterSet FROM CryptoAsset a WHERE a.parameterSet IS NOT NULL ORDER BY a.parameterSet")
+    List<String> findDistinctParameterSet();
+
+    @Query("SELECT DISTINCT a.curve FROM CryptoAsset a WHERE a.curve IS NOT NULL ORDER BY a.curve")
+    List<String> findDistinctCurve();
+
+    @Query("SELECT DISTINCT a.mode FROM CryptoAsset a WHERE a.mode IS NOT NULL ORDER BY a.mode")
+    List<String> findDistinctMode();
+
+    @Query("SELECT DISTINCT a.padding FROM CryptoAsset a WHERE a.padding IS NOT NULL ORDER BY a.padding")
+    List<String> findDistinctPadding();
+
+    @Query("SELECT DISTINCT a.variant FROM CryptoAsset a WHERE a.variant IS NOT NULL ORDER BY a.variant")
+    List<String> findDistinctVariant();
+
+    /**
+     * List-page rows for the given assets. A projection rather than the entity: the list serves none of the JSONB
+     * payload columns, and a page can be 1000 rows. The occurrence total is summed over the per-source rows, whose
+     * count is deliberately uncapped (capping drops evidence payloads, never the count). Rows come back in no
+     * particular order -- IN provides none -- so the caller restores its page order.
+     */
+    @Query("""
+            SELECT new com.otilm.core.model.cbom.CryptoAssetListRow(a.uuid, a.name, a.assetType,
+                    a.pqcVerdict, a.sourceCount, a.identityGuard, COALESCE(SUM(s.occurrenceCount), 0L))
+            FROM CryptoAsset a
+            LEFT JOIN CryptoAssetSource s ON s.assetUuid = a.uuid
+            WHERE a.uuid IN :uuids
+            GROUP BY a.uuid, a.name, a.assetType, a.pqcVerdict, a.sourceCount, a.identityGuard
+            """)
+    List<CryptoAssetListRow> findListRowsByUuids(@Param("uuids") Collection<UUID> uuids);
 }
