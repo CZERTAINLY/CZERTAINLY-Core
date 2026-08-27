@@ -75,12 +75,16 @@ final class IdentityKeyExposureFence {
 
     /**
      * The only production sources allowed to name the identity key. Persistence has to: the column, its query, its
-     * writer, the calculator that produces the value and the translator that recognises its unique constraint by name.
-     * Everything else naming it is a leak.
+     * writer and the translator that recognises its unique constraint by name. Everything else naming it is a leak.
+     *
+     * <p>
+     * The calculator that produces the value is deliberately <em>not</em> here. It names the key only in documentation,
+     * which the rule exempts anyway, so the entry granted an exemption nothing used -- and it would have covered a
+     * future code-level mention in the one file best placed to leak the value it computes. Re-adding it later is a
+     * reviewed one-liner; leaving it in is a hole nobody would notice opening.
      */
     static final Set<String> SOURCE_ALLOWLIST = Set
-            .of("src/main/java/com/otilm/core/cbom/asset/CryptoAssetIdentityCalculator.java",
-                    "src/main/java/com/otilm/core/dao/entity/cbom/CryptoAsset.java",
+            .of("src/main/java/com/otilm/core/dao/entity/cbom/CryptoAsset.java",
                     "src/main/java/com/otilm/core/dao/entity/cbom/CryptoAssetAlias.java",
                     "src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetRepository.java",
                     "src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetAliasRepository.java",
