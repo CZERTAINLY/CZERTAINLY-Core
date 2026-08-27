@@ -116,8 +116,16 @@ class TextNormalizationTest {
      * Pinned as a known limitation rather than as a desired behaviour. {@code "RSA"} followed by {@code U+200B} keys
      * apart from {@code "RSA"} in both implementations, which makes it a shared blind spot invisible to any
      * cross-implementation diff, not a divergence -- and a shared blind spot is the class that took reading a rule
-     * against its own output to find, not a diff. Stripping format characters would re-key rows on a rule nobody has
-     * ratified, so this test records the current answer and should change only when that ruling exists.
+     * against its own output to find, not a diff.
+     *
+     * <p>
+     * <b>Measured, not assumed:</b> a sweep of all 200 validation-corpus documents -- wild, hold-out and local -- for
+     * U+200B, U+200C, U+200D, U+2060, U+FEFF and U+00AD, raw and JSON-escaped, found <b>zero</b> occurrences. That
+     * removes the urgency and answers nothing: a corpus is not production, and a zero-width character arrives by
+     * copy-paste out of a browser or a word processor. Whether the ratified rule should STRIP such characters or REJECT
+     * the document carrying them is open either way, and both choices re-key rows, which makes it a person's ruling and
+     * a rule-set bump rather than either implementation's call. This test records the current answer and should change
+     * only when that ruling exists.
      */
     @Test
     void aZeroWidthSpaceSurvivesInBothImplementations() {

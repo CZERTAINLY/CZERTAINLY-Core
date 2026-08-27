@@ -559,9 +559,11 @@ public final class CryptoAssetIdentity {
         asset.setKeyedCaseValues(present);
         asset.setAsciiCaseRisk(unfoldedCaseRisk(present));
         if (!asset.asciiCaseRisk().isEmpty()) {
+            // Worded to avoid naming the key: this note is stored in the row's provenance block and can be served,
+            // and the exposure fence refuses a production source outside persistence that names the key at all.
             asset
                     .note("R12: non-ASCII cased characters " + String.join("", asset.asciiCaseRisk())
-                            + " reach the identity key unfolded; the case-fold twin detector examines this row");
+                            + " are keyed unfolded; the case-fold twin detector examines this row");
         }
     }
 

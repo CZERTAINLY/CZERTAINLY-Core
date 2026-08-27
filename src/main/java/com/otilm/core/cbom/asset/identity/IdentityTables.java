@@ -1,7 +1,7 @@
 package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -162,7 +162,7 @@ public final class IdentityTables {
                 throw new IllegalStateException(
                         "The ratified identity tables are missing from the classpath: " + RESOURCE);
             }
-            return new IdentityTables(new ObjectMapper().readTree(stream));
+            return new IdentityTables(ObjectMapperFactory.storage().readTree(stream));
         } catch (IOException e) {
             throw new IllegalStateException("The ratified identity tables could not be read: " + RESOURCE, e);
         }
