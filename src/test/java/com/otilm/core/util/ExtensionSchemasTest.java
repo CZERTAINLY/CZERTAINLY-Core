@@ -220,6 +220,28 @@ class ExtensionSchemasTest {
     }
 
     @Test
+    void requireValidSchemaAcceptsARefUnderAnAnnotationKeyword() {
+        // Draft 2020-12 permits unknown keywords as annotations, and it replaced definitions with $defs — so a
+        // member named $ref inside either is data rather than a reference.
+        assertThatNoException()
+                .isThrownBy(() -> ExtensionSchemas
+                        .requireValidSchema("{\"x-ui\":{\"$ref\":\"https://example.invalid/x\"}}"));
+        assertThatNoException()
+                .isThrownBy(() -> ExtensionSchemas
+                        .requireValidSchema("{\"definitions\":{\"x\":{\"$ref\":\"https://example.invalid/x\"}}}"));
+    }
+
+    @Test
+    void requireValidSchemaStillRejectsARemoteRefInASubschema() {
+        assertThatThrownBy(() -> ExtensionSchemas
+                .requireValidSchema("{\"$defs\":{\"x\":{\"$ref\":\"https://example.invalid/x\"}}}"))
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> ExtensionSchemas
+                .requireValidSchema("{\"properties\":{\"a\":{\"$ref\":\"https://example.invalid/x\"}}}"))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
     void anUnloadableStoredSchemaIsReportedRatherThanThrown() {
         // A value written straight into the database must not turn every request into a 500.
         OidHandler

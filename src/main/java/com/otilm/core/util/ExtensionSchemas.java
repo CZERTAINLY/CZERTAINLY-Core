@@ -55,7 +55,17 @@ public final class ExtensionSchemas {
             .getSchema(SchemaLocation.of(SpecVersion.VersionFlag.V202012.getId()));
 
     /** Keywords whose values are instance data rather than subschemas, so a {@code $ref} inside is a literal. */
-    private static final Set<String> LITERAL_KEYWORDS = Set.of("const", "enum", "default", "examples");
+    // Draft 2020-12 keywords whose values are subschemas. Walking only these keeps the check off instance data
+    // (const, enum, default, examples) and off unknown keywords, which the dialect permits as annotations — a
+    // member named $ref inside either is a literal. "definitions" is absent for that reason: 2020-12 replaced
+    // it with $defs and treats it as an annotation. DisallowSchemaLoader remains the boundary for anything this
+    // list does not reach.
+    private static final Set<String> SUBSCHEMA_KEYWORDS = Set
+            .of("additionalProperties", "items", "not", "if", "then", "else", "contains", "propertyNames",
+                    "unevaluatedItems", "unevaluatedProperties");
+    private static final Set<String> SUBSCHEMA_LIST_KEYWORDS = Set.of("allOf", "anyOf", "oneOf", "prefixItems");
+    private static final Set<String> SUBSCHEMA_MAP_KEYWORDS = Set
+            .of("properties", "patternProperties", "$defs", "dependentSchemas");
 
     private static final Set<String> SUPPORTED_DIALECTS = Set
             .of("https://json-schema.org/draft/2020-12/schema", "https://json-schema.org/draft/2020-12/schema#");
@@ -179,27 +189,33 @@ public final class ExtensionSchemas {
      * which the platform does not do, so accepting one would register a schema that silently constrains nothing.
      */
     private static void rejectNonLocalRefs(JsonNode node, String path) {
-        if (node.isObject()) {
-            for (Map.Entry<String, JsonNode> property : node.properties()) {
-                if ("$ref".equals(property.getKey()) && property.getValue().isTextual()
-                        && !property.getValue().textValue().startsWith("#")) {
-                    throw new ValidationException(
-                            "Not a valid JSON Schema document: $ref at %s points outside the document; only local references such as #/$defs/name are supported"
-                                    .formatted(path));
-                }
-                if (LITERAL_KEYWORDS.contains(property.getKey())) {
-                    // const, enum and friends hold instance data, not subschemas, so a member named $ref inside
-                    // one is a plain value. The disabled loader remains the defence if one is ever a reference.
-                    continue;
-                }
-                rejectNonLocalRefs(property.getValue(), path + "." + property.getKey());
-            }
+        if (node == null || !node.isObject()) {
             return;
         }
-        if (node.isArray()) {
-            int index = 0;
-            for (JsonNode child : node) {
-                rejectNonLocalRefs(child, "%s[%d]".formatted(path, index++));
+        JsonNode ref = node.get("$ref");
+        if (ref != null && ref.isTextual() && !ref.textValue().startsWith("#")) {
+            throw new ValidationException(
+                    "Not a valid JSON Schema document: $ref at %s points outside the document; only local references such as #/$defs/name are supported"
+                            .formatted(path));
+        }
+        for (String keyword : SUBSCHEMA_KEYWORDS) {
+            rejectNonLocalRefs(node.get(keyword), path + "." + keyword);
+        }
+        for (String keyword : SUBSCHEMA_LIST_KEYWORDS) {
+            JsonNode list = node.get(keyword);
+            if (list != null && list.isArray()) {
+                int index = 0;
+                for (JsonNode child : list) {
+                    rejectNonLocalRefs(child, "%s.%s[%d]".formatted(path, keyword, index++));
+                }
+            }
+        }
+        for (String keyword : SUBSCHEMA_MAP_KEYWORDS) {
+            JsonNode map = node.get(keyword);
+            if (map != null && map.isObject()) {
+                for (Map.Entry<String, JsonNode> member : map.properties()) {
+                    rejectNonLocalRefs(member.getValue(), "%s.%s.%s".formatted(path, keyword, member.getKey()));
+                }
             }
         }
     }
