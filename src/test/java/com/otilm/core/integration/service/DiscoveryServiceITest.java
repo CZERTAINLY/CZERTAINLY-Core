@@ -16,8 +16,11 @@ import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
 import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
+import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
+import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
@@ -35,10 +38,12 @@ import com.otilm.core.events.handlers.CertificateDiscoveredEventHandler;
 import com.otilm.core.events.handlers.DiscoveryFinishedEventHandler;
 import com.otilm.core.messaging.jms.listeners.EventListener;
 import com.otilm.core.messaging.model.EventMessage;
+import com.otilm.core.model.discovery.DiscoveryMessageCode;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.DiscoveryInternalService;
+import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
 import java.time.OffsetDateTime;
@@ -79,6 +84,9 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
     @Autowired
     private EventListener eventListener;
+
+    @Autowired
+    private DiscoveryMessageWriter messageWriter;
 
     private Discovery discovery;
     private Connector connector;
@@ -145,6 +153,84 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(discovery.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(discovery.getConnectorUuid().toString(), dto.getConnectorUuid());
+    }
+
+    @Test
+    void runMessagesArePagedOldestFirstAndDoNotOverlap() throws NotFoundException {
+        for (int i = 1; i <= 5; i++) {
+            messageWriter
+                    .append(discovery.getUuid(), DiscoveryMessageSeverity.WARNING, DiscoveryMessageCode.INVENTORY_GAP,
+                            "problem " + i);
+        }
+
+        PaginationResponseDto<DiscoveryMessageDto> first = discoveryService
+                .getDiscoveryRunMessages(discovery.getSecuredUuid(), 2, 1);
+        PaginationResponseDto<DiscoveryMessageDto> second = discoveryService
+                .getDiscoveryRunMessages(discovery.getSecuredUuid(), 2, 2);
+
+        // Oldest first, because the entry that explains a run is usually the one that started it.
+        Assertions.assertEquals(List.of("problem 1", "problem 2"), messagesOf(first));
+        Assertions.assertEquals(List.of("problem 3", "problem 4"), messagesOf(second));
+        Assertions.assertEquals(5, first.getTotalItems());
+        Assertions.assertEquals(3, first.getTotalPages());
+    }
+
+    @Test
+    void theDetailCountsWhatTheListingReturns() throws NotFoundException {
+        messageWriter
+                .append(discovery.getUuid(), DiscoveryMessageSeverity.WARNING, DiscoveryMessageCode.INVENTORY_GAP,
+                        "a gap");
+        messageWriter
+                .append(discovery.getUuid(), DiscoveryMessageSeverity.INFO,
+                        DiscoveryMessageCode.BATCH_PROCESSING_FAILED, "a retried batch");
+        // A repeat aggregates, so it must not move the count the detail badges.
+        messageWriter
+                .append(discovery.getUuid(), DiscoveryMessageSeverity.WARNING, DiscoveryMessageCode.INVENTORY_GAP,
+                        "a gap");
+
+        DiscoveryDetailDto detail = discoveryService.getDiscovery(discovery.getSecuredUuid());
+
+        Assertions.assertEquals(2, detail.getRunMessageCount());
+        Assertions
+                .assertEquals(detail.getRunMessageCount(),
+                        discoveryService.getDiscoveryRunMessages(discovery.getSecuredUuid(), 10, 1).getTotalItems());
+    }
+
+    @Test
+    void aRunThatCollectedNothingReturnsAnEmptyPageRatherThanNotFound() throws NotFoundException {
+        PaginationResponseDto<DiscoveryMessageDto> page = discoveryService
+                .getDiscoveryRunMessages(discovery.getSecuredUuid(), 10, 1);
+
+        Assertions.assertTrue(page.getItems().isEmpty());
+        Assertions.assertEquals(0, page.getTotalItems());
+        Assertions.assertEquals(0, discoveryService.getDiscovery(discovery.getSecuredUuid()).getRunMessageCount());
+    }
+
+    @Test
+    void runMessagesForAnUnknownRunAreNotFound() {
+        // The log is reachable only by uuid, so a run that does not exist must not look like one with no messages.
+        Assertions
+                .assertThrows(NotFoundException.class,
+                        () -> discoveryService
+                                .getDiscoveryRunMessages(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
+                                        10, 1));
+    }
+
+    @Test
+    void anOversizedPageRequestIsClampedToTheConfiguredCeiling() throws NotFoundException {
+        messageWriter
+                .append(discovery.getUuid(), DiscoveryMessageSeverity.WARNING, DiscoveryMessageCode.INVENTORY_GAP,
+                        "a gap");
+
+        PaginationResponseDto<DiscoveryMessageDto> page = discoveryService
+                .getDiscoveryRunMessages(discovery.getSecuredUuid(), 5000, 1);
+
+        // These arrive as raw ints rather than through the resolved Pageable WebAppConfig caps.
+        Assertions.assertEquals(100, page.getItemsPerPage());
+    }
+
+    private List<String> messagesOf(PaginationResponseDto<DiscoveryMessageDto> page) {
+        return page.getItems().stream().map(DiscoveryMessageDto::getMessage).toList();
     }
 
     @Test

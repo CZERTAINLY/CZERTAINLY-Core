@@ -1,14 +1,11 @@
 package com.otilm.core.dao.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
-import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryProgressDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.workflows.Trigger;
-import com.otilm.core.util.DtoMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.Entity;
@@ -45,7 +42,7 @@ import org.hibernate.type.SqlTypes;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "discovery")
-public class Discovery extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryDetailDto> {
+public class Discovery extends UniquelyIdentifiedAndAudited implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 571684590427678474L;
@@ -127,6 +124,10 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "started_by_user_uuid")
     private UUID startedByUserUuid;
 
+    // What the connector declared at initiate, refreshed by each resume. Null for a v1 run, which cannot stop.
+    @Column(name = "stoppable")
+    private Boolean stoppable;
+
     @Column(name = "stopped_at")
     private OffsetDateTime stoppedAt;
 
@@ -150,43 +151,6 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @SQLJoinTableRestriction("resource = 'DISCOVERY'")
     @ToString.Exclude
     private List<Trigger> triggers = new ArrayList<>();
-
-    @Override
-    public DiscoveryDetailDto mapToDto() {
-        DiscoveryDetailDto dto = new DiscoveryDetailDto();
-        dto.setUuid(uuid.toString());
-        dto.setName(name);
-        dto.setEndTime(endTime);
-        dto.setStartTime(startTime);
-        dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
-        dto.setStatus(status);
-        dto.setConnectorUuid(connectorUuid.toString());
-        dto.setKind(kind);
-        dto.setMessage(message);
-        dto.setConnectorName(connectorName);
-        dto.setTriggers(triggers.stream().map(Trigger::mapToDto).toList());
-        dto.setConnectorStatus(connectorStatus);
-        dto.setConnectorTotalCertificatesDiscovered(connectorTotalCertificatesDiscovered);
-        // The contract publishes both fields as always present. Every run this Core can hold ran against a
-        // v1 discovery connector, so the v1 synthesis is exact: certificates only, never stoppable.
-        dto.setResources(List.of(Resource.CERTIFICATE));
-        dto.setStoppable(false);
-        return dto;
-    }
-
-    public DiscoveryListDto mapToListDto() {
-        DiscoveryListDto dto = new DiscoveryListDto();
-        dto.setUuid(uuid.toString());
-        dto.setName(name);
-        dto.setEndTime(endTime);
-        dto.setStartTime(startTime);
-        dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
-        dto.setStatus(status);
-        dto.setConnectorUuid(connectorUuid.toString());
-        dto.setKind(kind);
-        dto.setConnectorName(connectorName);
-        return dto;
-    }
 
     @Override
     public boolean equals(Object o) {

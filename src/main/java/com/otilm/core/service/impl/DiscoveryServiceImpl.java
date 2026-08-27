@@ -17,8 +17,10 @@ import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
 import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
+import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
@@ -32,15 +34,18 @@ import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
+import com.otilm.core.dao.entity.DiscoveryMessage;
 import com.otilm.core.dao.entity.Discovery_;
 import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.dao.repository.DiscoveryMessageRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.events.data.DiscoveryResult;
 import com.otilm.core.events.handlers.DiscoveryFinishedEventHandler;
 import com.otilm.core.exception.UnsupportedDiscoveryVersionException;
+import com.otilm.core.mapper.discovery.DiscoveryDtoMapper;
 import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.jms.producers.NotificationProducer;
 import com.otilm.core.messaging.model.NotificationRecipient;
@@ -75,6 +80,7 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
@@ -87,6 +93,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class DiscoveryServiceImpl implements DiscoveryExternalService, DiscoveryInternalService {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
+
+    /** The ceiling WebAppConfig puts on resolved Pageables; applied here because these ints arrive raw. */
+    private static final int MAX_ITEMS_PER_PAGE = 100;
 
     private static final String UNSUPPORTED_VERSION_MESSAGE = "The discovery's connector interface version is not supported.";
 
@@ -107,10 +116,16 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     private TriggerExternalService triggerService;
 
     private CommentInternalService commentService;
+    private DiscoveryMessageRepository discoveryMessageRepository;
 
     @Autowired
     public void setCommentService(CommentInternalService commentService) {
         this.commentService = commentService;
+    }
+
+    @Autowired
+    public void setDiscoveryMessageRepository(DiscoveryMessageRepository discoveryMessageRepository) {
+        this.discoveryMessageRepository = discoveryMessageRepository;
     }
 
     @Autowired
@@ -191,7 +206,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")))
                 .stream()
-                .map(Discovery::mapToListDto)
+                .map(DiscoveryDtoMapper::toListDto)
                 .toList();
         final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
@@ -208,7 +223,8 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
     public DiscoveryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
         Discovery discovery = getDiscoveryEntity(uuid);
-        DiscoveryDetailDto dto = discovery.mapToDto();
+        DiscoveryDetailDto dto = DiscoveryDtoMapper
+                .toDetailDto(discovery, discoveryMessageRepository.countByDiscoveryUuid(discovery.getUuid()));
         dto
                 .setMetadata(attributeEngine
                         .getMappedMetadataContent(
@@ -247,6 +263,27 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         responseDto.setPageNumber(pageNumber);
         responseDto.setTotalItems(maxItems);
         responseDto.setTotalPages((int) Math.ceil((double) maxItems / itemsPerPage));
+        return responseDto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
+    public PaginationResponseDto<DiscoveryMessageDto> getDiscoveryRunMessages(SecuredUUID uuid, int itemsPerPage,
+            int pageNumber) throws NotFoundException {
+        Discovery discovery = getDiscoveryEntity(uuid);
+        // Page number for the user always starts from 1. But for JPA, page number starts from 0
+        int pageSize = Math.clamp(itemsPerPage, 1, MAX_ITEMS_PER_PAGE);
+        Pageable p = PageRequest.of(pageNumber > 1 ? pageNumber - 1 : 0, pageSize);
+
+        Page<DiscoveryMessage> page = discoveryMessageRepository
+                .findByDiscoveryUuidOrderByIdAsc(discovery.getUuid(), p);
+
+        PaginationResponseDto<DiscoveryMessageDto> responseDto = new PaginationResponseDto<>();
+        responseDto.setItems(page.getContent().stream().map(DiscoveryDtoMapper::toMessageDto).toList());
+        responseDto.setItemsPerPage(pageSize);
+        responseDto.setPageNumber(pageNumber);
+        responseDto.setTotalItems(page.getTotalElements());
+        responseDto.setTotalPages(page.getTotalPages());
         return responseDto;
     }
 
@@ -360,7 +397,8 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                                 discovery.getUuid(), request.getTriggers(), false);
                 discovery = discoveryRepository.findWithTriggersByUuid(discovery.getUuid());
             }
-            return discovery.mapToDto();
+            // Zero without asking: the run was inserted a few lines above and nothing since then writes a message.
+            return DiscoveryDtoMapper.toDetailDto(discovery, 0);
         }
 
         return null;

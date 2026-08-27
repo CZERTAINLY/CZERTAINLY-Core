@@ -2,7 +2,12 @@ package com.otilm.core.service.handler.discovery;
 
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.interfaces.client.v2.DiscoverySyncApiClient;
+import com.otilm.api.model.client.attribute.RequestAttribute;
+import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.DataAttribute;
+import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
+import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
+import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryDrainRequestDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunRequestDto;
@@ -31,8 +36,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -151,10 +158,77 @@ class DiscoveryV2ClientTest {
     }
 
     @Test
+    void aDefinitionTwoScopesShare_isResolvedOnceRatherThanPerScope() throws Exception {
+        run.setResources(List.of(Resource.CERTIFICATE));
+        // The same credential declared at run level and again on the resource: two definitions, one referent.
+        when(attributeEngine.getDefinitionObjectAttributeContent(any(), any(), isNull(), any(), any()))
+                .thenReturn(List.of(definition("credential", "reference-only")));
+        when(attributeEngine.getDefinitionObjectAttributeContent(any(), any(), eq("certificates"), any(), any()))
+                .thenReturn(List.of(definition("credential", "reference-only")));
+        when(apiClient.status(any(), any())).thenReturn(new DiscoveryStatusResponseDto());
+
+        client.status(run);
+
+        // For a SECRET reference a lookup is a connector round trip, so resolving once per scope would pay for
+        // the same secret as many times as the run targets resources.
+        ArgumentCaptor<List<DataAttribute>> resolved = ArgumentCaptor.captor();
+        verify(resourceService).loadResourceObjectContentData(resolved.capture());
+        assertThat(resolved.getValue()).hasSize(1);
+        assertThat(capturedStatus().getResourceAttributes().get(Resource.CERTIFICATE))
+                .as("the scope that shared the definition still carries it")
+                .singleElement()
+                .extracting(RequestAttribute::getName)
+                .isEqualTo("credential");
+    }
+
+    @Test
+    void resolvedContent_reachesEveryScopeThatDeclaredTheDefinition() throws Exception {
+        run.setResources(List.of(Resource.CERTIFICATE));
+        when(attributeEngine.getDefinitionObjectAttributeContent(any(), any(), isNull(), any(), any()))
+                .thenReturn(List.of(definition("credential", "reference-only")));
+        when(attributeEngine.getDefinitionObjectAttributeContent(any(), any(), eq("certificates"), any(), any()))
+                .thenReturn(List.of(definition("credential", "reference-only")));
+        doAnswer(invocation -> {
+            List<DataAttribute> resolving = invocation.getArgument(0);
+            resolving.forEach(attribute -> attribute.setContent(List.of(new StringAttributeContentV3("s3cret"))));
+            return null;
+        }).when(resourceService).loadResourceObjectContentData(anyList());
+        when(apiClient.status(any(), any())).thenReturn(new DiscoveryStatusResponseDto());
+
+        client.status(run);
+
+        // Deduping must not cost the skipped scope its content: the connector needs the resolved value in both.
+        DiscoveryRunRequestDto sent = capturedStatus();
+        assertThat(firstData(sent.getAttributes().getFirst().getContent())).isEqualTo("s3cret");
+        assertThat(firstData(sent.getResourceAttributes().get(Resource.CERTIFICATE).getFirst().getContent()))
+                .isEqualTo("s3cret");
+    }
+
+    @Test
     void missingConnectorRow_failsRatherThanCallingSomethingElse() {
         when(connectorRepository.findByUuid(run.getConnectorUuid())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> client.status(run)).isInstanceOf(NotFoundException.class);
+    }
+
+    private static DataAttribute definition(String name, String value) {
+        DataAttributeV3 attribute = new DataAttributeV3();
+        attribute.setUuid("11111111-1111-1111-1111-111111111111");
+        attribute.setName(name);
+        attribute.setType(AttributeType.DATA);
+        attribute.setContentType(AttributeContentType.STRING);
+        attribute.setContent(List.of(new StringAttributeContentV3(value)));
+        return attribute;
+    }
+
+    private static Object firstData(List<?> content) {
+        return content.getFirst() instanceof StringAttributeContentV3 item ? item.getData() : null;
+    }
+
+    private DiscoveryRunRequestDto capturedStatus() throws Exception {
+        ArgumentCaptor<DiscoveryRunRequestDto> sent = ArgumentCaptor.forClass(DiscoveryRunRequestDto.class);
+        verify(apiClient).status(any(ConnectorDto.class), sent.capture());
+        return sent.getValue();
     }
 
     private DiscoveryDrainRequestDto capturedDrain() throws Exception {

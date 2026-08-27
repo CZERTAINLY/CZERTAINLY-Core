@@ -9,6 +9,8 @@ import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
+import com.otilm.api.model.common.PaginationResponseDto;
+import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -33,6 +35,16 @@ public interface DiscoveryExternalService {
      */
     DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid, Boolean newlyDiscovered,
             int itemsPerPage, int pageNumber) throws NotFoundException;
+
+    /**
+     * One page of the run's advisory message log, oldest first — the detail counts these, this reads them.
+     *
+     * @param uuid secured identifier of the run whose log to read
+     * @return the page; empty for a run that collected nothing, which is not the same as a run that does not exist
+     * @throws NotFoundException if no discovery with the given UUID exists
+     */
+    PaginationResponseDto<DiscoveryMessageDto> getDiscoveryRunMessages(SecuredUUID uuid, int itemsPerPage,
+            int pageNumber) throws NotFoundException;
 
     DiscoveryDetailDto createDiscovery(DiscoveryDto request, boolean saveEntity)
             throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;

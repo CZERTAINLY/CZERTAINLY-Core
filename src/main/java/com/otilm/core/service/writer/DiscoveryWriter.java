@@ -3,7 +3,9 @@ package com.otilm.core.service.writer;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.dao.repository.DiscoveryMessageRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.mapper.discovery.DiscoveryDtoMapper;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
@@ -27,11 +29,13 @@ public class DiscoveryWriter {
 
     private final DiscoveryCertificateRepository discoveryCertificateRepository;
     private final DiscoveryRepository discoveryRepository;
+    private final DiscoveryMessageRepository discoveryMessageRepository;
 
     public DiscoveryWriter(DiscoveryCertificateRepository discoveryCertificateRepository,
-            DiscoveryRepository discoveryRepository) {
+            DiscoveryRepository discoveryRepository, DiscoveryMessageRepository discoveryMessageRepository) {
         this.discoveryCertificateRepository = discoveryCertificateRepository;
         this.discoveryRepository = discoveryRepository;
+        this.discoveryMessageRepository = discoveryMessageRepository;
     }
 
     /**
@@ -80,7 +84,8 @@ public class DiscoveryWriter {
             discovery.setConnectorStatus(DiscoveryStatus.FAILED);
             discovery.setMessage(message);
             discovery.setEndTime(OffsetDateTime.now(ZoneOffset.UTC));
-            return discovery.mapToDto();
+            return DiscoveryDtoMapper
+                    .toDetailDto(discovery, discoveryMessageRepository.countByDiscoveryUuid(discovery.getUuid()));
         });
     }
 }

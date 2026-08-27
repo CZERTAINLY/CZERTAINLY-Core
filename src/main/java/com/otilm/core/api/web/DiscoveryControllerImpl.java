@@ -94,6 +94,13 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.DETAIL)
+    public PaginationResponseDto<DiscoveryMessageDto> getDiscoveryRunMessages(@LogResource(uuid = true) String uuid,
+            int itemsPerPage, int pageNumber) throws NotFoundException {
+        return discoveryService.getDiscoveryRunMessages(SecuredUUID.fromString(uuid), itemsPerPage, pageNumber);
+    }
+
+    @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.CREATE)
     public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
             throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
@@ -177,12 +184,6 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     @Override
     public PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(String uuid, Resource resource,
             Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException {
-        throw notImplemented();
-    }
-
-    @Override
-    public PaginationResponseDto<DiscoveryMessageDto> getDiscoveryRunMessages(String uuid, int itemsPerPage,
-            int pageNumber) throws NotFoundException {
         throw notImplemented();
     }
 
