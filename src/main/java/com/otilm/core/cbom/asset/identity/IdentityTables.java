@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -128,7 +129,11 @@ public final class IdentityTables {
                 .get("nameIntrinsicSizes")
                 .properties()
                 .forEach(entry -> intrinsics.put(AsciiText.fold(entry.getKey()), entry.getValue().asInt()));
-        this.nameIntrinsicSizes = Map.copyOf(intrinsics);
+        // Insertion order is load-bearing, and Map.copyOf does not keep it. The intrinsic lookup is first-match-wins
+        // over this map, and one name can carry two of its tokens: `X25519/X448` must take 256 from the x25519 it
+        // mentions first, and `Ed25519/Ed448` likewise, rather than the 448 or 456 the second token would give. An
+        // unordered map turned that into whichever bucket the hash happened to fill first.
+        this.nameIntrinsicSizes = Collections.unmodifiableMap(intrinsics);
         this.sizeMin = raw.get("sizeWhitelist").get("min").asInt();
         this.sizeMax = raw.get("sizeWhitelist").get("max").asInt();
 
@@ -386,6 +391,6 @@ public final class IdentityTables {
                 .properties()
                 .forEach(entry -> values
                         .put(entry.getKey(), entry.getValue().isNull() ? null : entry.getValue().asText()));
-        return java.util.Collections.unmodifiableMap(values);
+        return Collections.unmodifiableMap(values);
     }
 }
