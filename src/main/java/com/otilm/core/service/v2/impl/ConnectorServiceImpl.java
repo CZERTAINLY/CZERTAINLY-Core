@@ -33,6 +33,7 @@ import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
+import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.config.cache.CacheConfig;
@@ -126,9 +127,16 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     private CommentInternalService commentService;
 
+    private AttributeColumnProjector attributeColumnProjector;
+
     @Autowired
     public void setCommentService(CommentInternalService commentService) {
         this.commentService = commentService;
+    }
+
+    @Autowired
+    public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
+        this.attributeColumnProjector = attributeColumnProjector;
     }
 
     @Autowired
@@ -229,6 +237,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
                 .stream()
                 .map(Connector::mapToListDto)
                 .toList();
+        attributeColumnProjector
+                .project(Resource.CONNECTOR, request.getColumns(), connectorDtos,
+                        connector -> AttributeColumnProjector.parseUuid(connector.getUuid()));
+
         final Long maxItems = connectorRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         PaginationResponseDto<ConnectorDto> response = new PaginationResponseDto<>();

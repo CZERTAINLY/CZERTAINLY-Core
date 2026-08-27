@@ -48,6 +48,8 @@ public class SearchHelper {
             values = withoutNull;
         }
         fieldDataDto.setValue(values);
+        fieldDataDto.setDisplayable(true);
+        fieldDataDto.setSortable(isSortable(filterField));
 
         if (filterField.getEnumClass() != null) {
             fieldDataDto.setPlatformEnum(PlatformEnum.findByClass(filterField.getEnumClass()));
@@ -120,7 +122,38 @@ public class SearchHelper {
         fieldDataDto.setType(searchFieldTypeEnum.getFieldType());
         fieldDataDto.setValue(attributeSearchInfo.getContentItems());
         fieldDataDto.setAttributeContentType(attributeSearchInfo.getAttributeContentType());
+        fieldDataDto.setDisplayable(isDisplayable(attributeSearchInfo));
+        // Ordering by an attribute needs a correlated scalar subquery over JSONB that no index
+        // supports, and a multi-valued attribute leaves the sort key ambiguous. Until that lands,
+        // every attribute-sourced field says so here rather than at the point a header refuses.
+        fieldDataDto.setSortable(false);
         return fieldDataDto;
+    }
+
+    /**
+     * Whether a listing may be ordered by a property field. A sort resolves to one scalar path from the queried root,
+     * so a field with no attribute behind it has nothing to order by; a native array holds many values per row rather
+     * than one; and a JSON-path field's attribute is the whole JSONB column, which would order by the serialized
+     * document instead of by the value the field names.
+     */
+    private static boolean isSortable(final FilterField filterField) {
+        return filterField.getFieldAttribute() != null && !filterField.isNativeArrayField()
+                && filterField.getJsonPath() == null;
+    }
+
+    /**
+     * Whether an attribute field may be requested as a column.
+     *
+     * <p>
+     * Three kinds of content are withheld. A secret is never rendered anywhere. Encrypted content is stored as
+     * ciphertext that only its own decryption path can read, and a listing does not take that path. A code block is
+     * multi-line by construction - the frontend renders it as a block element - so a single-line table cell cannot hold
+     * one without breaking the row.
+     */
+    private static boolean isDisplayable(final SearchFieldObject attributeSearchInfo) {
+        return attributeSearchInfo.getAttributeContentType() != AttributeContentType.SECRET
+                && attributeSearchInfo.getAttributeContentType() != AttributeContentType.CODEBLOCK
+                && attributeSearchInfo.getProtectionLevel() != ProtectionLevel.ENCRYPTED;
     }
 
     private static SearchFieldTypeEnum retrieveSearchFieldTypeEnumByContentType(

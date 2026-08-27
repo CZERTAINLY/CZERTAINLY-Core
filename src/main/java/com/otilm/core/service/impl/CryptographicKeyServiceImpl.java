@@ -49,6 +49,7 @@ import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
+import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.client.ConnectorApiFactory;
@@ -169,6 +170,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     // Services & API Clients
     // --------------------------------------------------------------------------------
     private AttributeEngine attributeEngine;
+    private AttributeColumnProjector attributeColumnProjector;
     private ConnectorApiFactory connectorApiFactory;
     private ConnectorInternalService connectorService;
     private TokenInstanceInternalService tokenInstanceService;
@@ -214,6 +216,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
+        this.attributeColumnProjector = attributeColumnProjector;
     }
 
     @Autowired
@@ -316,6 +323,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
             dto.setAssociations(associationsCounts.get(i));
             return dto;
         }).toList();
+
+        // Attribute content of a key hangs off the key, not off its items, so several listed items may share one
+        // set of values.
+        attributeColumnProjector
+                .project(Resource.CRYPTOGRAPHIC_KEY, request.getColumns(), listedKeyDtos,
+                        keyItem -> AttributeColumnProjector.parseUuid(keyItem.getKeyWrapperUuid()));
 
         final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final CryptographicKeyResponseDto responseDto = new CryptographicKeyResponseDto();

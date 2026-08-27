@@ -5,6 +5,7 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContent;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentDetail;
 import com.otilm.core.attribute.engine.records.ObjectAttributeDefinitionContent;
+import com.otilm.core.attribute.engine.records.ProjectedAttributeContent;
 import com.otilm.core.dao.entity.AttributeContent2Object;
 import com.otilm.core.dao.entity.AttributeContentItem;
 import java.util.List;
@@ -83,6 +84,35 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
             @Param("objectType") Resource objectType, @Param("objectUuid") UUID objectUuid,
             @Param("allowedDefinitionUuids") List<UUID> allowedDefinitionUuids,
             @Param("forbiddenDefinitionUuids") List<UUID> forbiddenDefinitionUuids);
+
+    /**
+     * The stored content of the named attributes for a whole page of objects, for a listing that requested them as
+     * columns. One query for the page rather than one per row: a page of twenty-five objects would otherwise issue
+     * twenty-five round trips before it could be serialized.
+     *
+     * <p>
+     * Ordered by object, then definition, then {@code aco.order}, so a multi-valued attribute keeps the sequence it was
+     * stored in and the caller can group the rows in one pass. Only enabled definitions are read, matching the
+     * catalogue that offered the column in the first place.
+     *
+     * <p>
+     * Narrowed by attribute name as well as by type, because a resource may carry far more attributes than the handful
+     * a view puts on screen. Name is not unique on its own - the same name may exist under two content types - so the
+     * caller still matches the exact field identifier.
+     */
+    @Query("""
+            SELECT new com.otilm.core.attribute.engine.records.ProjectedAttributeContent(
+                aco.objectUuid, ad.type, ad.name, ad.contentType, aci.json, aci.encryptedData)
+                FROM AttributeContent2Object aco
+                JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
+                JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
+                WHERE ad.enabled = true AND ad.type IN (:attributeTypes) AND ad.name IN (:attributeNames)
+                    AND aco.objectType = :objectType AND aco.objectUuid IN (:objectUuids)
+                ORDER BY aco.objectUuid, aci.attributeDefinitionUuid, aco.order
+            """)
+    List<ProjectedAttributeContent> getProjectedAttributesContent(@Param("objectType") Resource objectType,
+            @Param("objectUuids") List<UUID> objectUuids, @Param("attributeTypes") List<AttributeType> attributeTypes,
+            @Param("attributeNames") List<String> attributeNames);
 
     // ── Data attribute read queries — all version-aware ──────────────────────
     // objectVersion uses the same null-matching idiom as purpose:
