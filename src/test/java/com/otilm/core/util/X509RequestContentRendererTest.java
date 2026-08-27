@@ -568,7 +568,6 @@ class X509RequestContentRendererTest {
 
         @Test
         void encodesAJsonTree_whenDerValueStartsWithABrace() throws Exception {
-            // given — a structural ASN.1 JSON tree instead of base64 DER
             byte[] extnValue = extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER,
                     "{\"sequence\":[{\"boolean\":true},{\"integer\":0}]}"));
 
@@ -588,7 +587,7 @@ class X509RequestContentRendererTest {
 
         @Test
         void namesBothAcceptedForms_whenADerValueIsNeither() {
-            // given — starts with '{' but is not JSON, so it is neither form
+            // The leading '{' routes it to the JSON path, so it can no longer be read as base64.
             assertThatThrownBy(() -> extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER, "{broken")))
                     .isInstanceOf(IOException.class)
                     .hasMessageContaining("JSON")

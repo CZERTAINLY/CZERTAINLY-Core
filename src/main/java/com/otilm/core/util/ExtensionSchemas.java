@@ -37,9 +37,9 @@ public final class ExtensionSchemas {
     // ObjectMapperFactory is the single home of production mapper recipes; reading a JSON tree needs
     // nothing beyond the wire recipe.
     private static final ObjectMapper MAPPER = ObjectMapperFactory.wire();
-    // Schema loading must never reach the network: getSchema resolves $ref targets eagerly, so a schema
-    // reaching the database by any route other than requireValidSchema would otherwise fetch a URL of its
-    // author's choosing on the server's behalf.
+    // Schema loading must never reach the network. A $ref target is resolved on first use rather than when
+    // the schema is compiled, so a schema reaching the table by any route other than requireValidSchema would
+    // otherwise fetch a URL of its author's choosing partway through validating a request.
     private static final Logger logger = LoggerFactory.getLogger(ExtensionSchemas.class);
 
     /**
@@ -108,8 +108,14 @@ public final class ExtensionSchemas {
     }
 
     /**
-     * Rejects a schema document networknt cannot load. Applied to a registration's {@code valueSchema} and to a JSON
-     * Schema constraint's data, so a broken document fails at save rather than at first use.
+     * Rejects a schema document that cannot be trusted to constrain anything. Applied to a registration's
+     * {@code valueSchema} and to a JSON Schema constraint's data.
+     *
+     * <p>
+     * Everything checkable at save is checked here: the document parses as exactly one JSON value, declares no dialect
+     * other than draft 2020-12, references nothing outside itself, carries well-formed keywords, and compiles. What
+     * cannot be checked here is a reference resolved only on use — {@link #validateShape} reports that as unverifiable
+     * rather than failing the request.
      */
     public static void requireValidSchema(String schemaDocument) {
         if (schemaDocument == null) {
@@ -219,7 +225,9 @@ public final class ExtensionSchemas {
         } catch (RuntimeException e) {
             // A schema written straight into the database, or saved before a tightening, must not turn every
             // request for this extension into a 500. A $ref is resolved lazily, so an unloadable one surfaces
-            // during validation rather than from resolve.
+            // during validation rather than from resolve. The operator's message cannot say which, so the
+            // cause is logged for whoever has to tell malformed stored data from a defect.
+            logger.warn("Registered schema for extension {} could not be applied", oid, e);
             return List.of("cannot be checked: the registered schema for extension %s is not loadable".formatted(oid));
         }
     }

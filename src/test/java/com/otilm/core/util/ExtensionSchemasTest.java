@@ -100,7 +100,6 @@ class ExtensionSchemasTest {
 
     @Test
     void aRegistryEntrySchemaBeatsTheShippedResource() throws Exception {
-        // given — a custom entry for 2.5.29.19 demanding an entirely different shape
         OidHandler
                 .cacheOid(OidCategory.CERTIFICATE_EXTENSION, "2.5.29.19",
                         OidRecord
@@ -109,7 +108,6 @@ class ExtensionSchemasTest {
                                 .valueSchema("{\"type\":\"object\",\"required\":[\"set\"]}")
                                 .build());
 
-        // then — the shipped resource's happy value now fails, the entry's shape passes
         assertThat(ExtensionSchemas.validateShape("2.5.29.19", MAPPER.readTree("{\"sequence\":[{\"boolean\":true}]}")))
                 .isNotEmpty();
         assertThat(ExtensionSchemas.validateShape("2.5.29.19", MAPPER.readTree("{\"set\":[]}"))).isEmpty();

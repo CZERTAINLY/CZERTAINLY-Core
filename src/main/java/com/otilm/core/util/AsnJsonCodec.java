@@ -26,6 +26,8 @@ import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERSet;
 import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.DERUTF8String;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Encodes a structural ASN.1 JSON tree into DER. Each node is an object with exactly one key naming its ASN.1 type;
@@ -36,6 +38,7 @@ public final class AsnJsonCodec {
 
     // ObjectMapperFactory is the single home of production mapper recipes; reading a JSON tree needs
     // nothing beyond the wire recipe.
+    private static final Logger logger = LoggerFactory.getLogger(AsnJsonCodec.class);
     private static final ObjectMapper MAPPER = ObjectMapperFactory.wire();
 
     private AsnJsonCodec() {
@@ -71,10 +74,12 @@ public final class AsnJsonCodec {
         } catch (ValidationException e) {
             throw e;
         } catch (RuntimeException e) {
-            // BouncyCastle rejects some values with its own unchecked exceptions. Callers validate on request
-            // paths, so one escaping would be a 500 rather than a rejection. Its message names library
-            // internals and this one reaches request clients, so only the controlled text goes out; every
-            // grammar failure already carries its own path-bearing message through the catch above.
+            // BouncyCastle rejects some values with its own unchecked exceptions, and one escaping here would
+            // be a 500 rather than a rejection. Its message names library internals and this one reaches
+            // request clients, so only the controlled text goes out; every grammar failure already carries its
+            // own path-bearing message through the catch above. Logged because reaching here means either an
+            // input shape the grammar should have named, or a defect.
+            logger.warn("Encoding an ASN.1 JSON tree failed outside the grammar's own checks", e);
             throw new ValidationException("Extension value could not be encoded to DER");
         }
     }

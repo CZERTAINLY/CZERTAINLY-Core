@@ -1,5 +1,6 @@
 package com.otilm.core.util;
 
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
@@ -201,13 +202,19 @@ public final class X509RequestContentRenderer {
      * Encodes a structural ASN.1 JSON tree value. Wrong input is reported naming both accepted forms, because a
      * DER-encoded extension takes either a JSON tree or base64 DER and the author needs to know which failed.
      */
+    private static final String WRONG_DER_FORM = "Invalid DER extension value; a value starting with '{' must be a valid ASN.1 JSON tree, "
+            + "anything else base64-encoded DER";
+
     private static byte[] encodeJsonTree(String value) throws IOException {
         try {
             return AsnJsonCodec.encodeFromString(value);
+        } catch (ValidationException e) {
+            // The codec's own message is controlled and names the offending node, so it is worth forwarding.
+            throw new IOException(WRONG_DER_FORM + ": " + e.getMessage(), e);
         } catch (RuntimeException e) {
-            throw new IOException(
-                    "Invalid DER extension value; a value starting with '{' must be a valid ASN.1 JSON tree, "
-                            + "anything else base64-encoded DER: " + e.getMessage());
+            // Anything else is a defect rather than bad input; its message is uncontrolled and this one
+            // reaches the client through CertificateException.
+            throw new IOException(WRONG_DER_FORM, e);
         }
     }
 

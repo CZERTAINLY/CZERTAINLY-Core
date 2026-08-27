@@ -80,8 +80,7 @@ class RequestAttributeDefinitionValidationTest {
 
     @Test
     void jsonSchemaConstraintCheckedEvenWithoutAFieldMapping() {
-        // The connector registration path used to run this check only for mapped attributes, so a connector
-        // attribute carrying a broken schema document was never told.
+        // A connector attribute needs the check whether or not it declares a field mapping.
         DataAttributeV3 definition = validDefinition();
         definition.setFieldMapping(null);
         JsonSchemaAttributeConstraint constraint = new JsonSchemaAttributeConstraint();

@@ -193,7 +193,7 @@ class AsnJsonCodecTest {
 
     @Test
     void sortsSetMembersAsDerRequires() throws Exception {
-        // DER orders SET components by encoding, so the declared order is not preserved. Documented, not a bug.
+        // DER orders SET components by encoding, so the declared order is not preserved.
         byte[] declaredOutOfOrder = AsnJsonCodec.encodeFromString("{\"set\":[{\"integer\":5},{\"integer\":1}]}");
 
         assertThat(declaredOutOfOrder).isEqualTo(new byte[]{0x31, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x05});
