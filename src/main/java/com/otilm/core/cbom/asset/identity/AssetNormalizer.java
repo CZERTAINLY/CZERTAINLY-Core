@@ -132,6 +132,11 @@ public final class AssetNormalizer {
         this.tables = tables;
     }
 
+    /** The ratified tables this pipeline reads. Exposed so the identity chain resolves names through the same data. */
+    public IdentityTables tables() {
+        return tables;
+    }
+
     /**
      * Normalizes one component, returning its typed slots and the redaction that produced the payload they were read
      * from.
