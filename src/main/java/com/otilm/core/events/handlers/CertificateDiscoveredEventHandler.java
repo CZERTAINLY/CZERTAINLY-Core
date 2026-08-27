@@ -410,7 +410,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         if (counts.allClear()) {
             return new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage);
         }
-        List<String> sentences = new ArrayList<>(counts.describeGaps());
+        List<String> sentences = new ArrayList<>(counts.renderGaps());
         if (counts.hasPerCertificateDetail()) {
             sentences.add("See the discovery certificate list for per-certificate detail.");
         }
