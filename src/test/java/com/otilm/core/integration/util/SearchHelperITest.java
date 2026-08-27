@@ -13,16 +13,21 @@ import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldType;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.enums.FilterField;
+import com.otilm.core.enums.SearchFieldTypeEnum;
 import com.otilm.core.model.SearchFieldObject;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.SearchHelper;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class SearchHelperITest extends BaseSpringBootTest {
 
@@ -283,6 +288,52 @@ class SearchHelperITest extends BaseSpringBootTest {
                     .isEqualTo(Set
                             .of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS,
                                     FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.EMPTY));
+        }
+    }
+
+    /**
+     * A {@code NATIVE_ARRAY} field reports {@link FilterFieldType#LIST} but is not {@link SearchFieldTypeEnum#LIST}.
+     * Callers that route on the second hand it no values at all, while the null-stripping branch keys off the first --
+     * so it used to cast that absence to a list and every resource carrying such a field answered its filter-field
+     * endpoint with HTTP 500. {@code Resource.OID} and {@code Resource.TIME_QUALITY_CONFIGURATION} both did.
+     */
+    @Test
+    void aNativeArrayFieldIsPreparedWhenNoValuesAreSupplied() {
+        FilterField field = FilterField.OID_ENTRY_ALT_CODES;
+
+        assertThat(field.getType()).isEqualTo(SearchFieldTypeEnum.NATIVE_ARRAY);
+        assertThat(field.getType().getFieldType())
+                .as("the disagreement this test exists for")
+                .isEqualTo(FilterFieldType.LIST);
+        assertThat(field.getEnumClass()).isNull();
+
+        assertThatCode(() -> SearchHelper.prepareSearch(field)).doesNotThrowAnyException();
+        assertThat(SearchHelper.prepareSearch(field).getValue()).isNull();
+    }
+
+    @Test
+    void suppliedValuesStillLoseTheirNullEntry() {
+        List<String> withNull = new ArrayList<>(Arrays.asList("a", null, "b"));
+
+        SearchFieldDataDto prepared = SearchHelper.prepareSearch(FilterField.OID_ENTRY_ALT_CODES, withNull);
+
+        assertThat(prepared.getValue())
+                .asInstanceOf(InstanceOfAssertFactories.list(String.class))
+                .containsExactly("a", "b");
+        assertThat(withNull).as("the caller's list is not mutated").containsExactly("a", null, "b");
+    }
+
+    @Test
+    void everyNativeArrayFieldWithoutAnEnumIsPreparable() {
+        List<FilterField> nativeArrayFields = Arrays
+                .stream(FilterField.values())
+                .filter(field -> field.getType() == SearchFieldTypeEnum.NATIVE_ARRAY && field.getEnumClass() == null)
+                .toList();
+
+        assertThat(nativeArrayFields).as("at least one such field exists, or this test proves nothing").isNotEmpty();
+
+        for (FilterField field : nativeArrayFields) {
+            assertThatCode(() -> SearchHelper.prepareSearch(field)).as("field %s", field).doesNotThrowAnyException();
         }
     }
 }

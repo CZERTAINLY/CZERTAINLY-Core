@@ -12,6 +12,7 @@ import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
 import com.otilm.api.model.connector.secrets.SecretType;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.cbom.CbomAssetSyncState;
 import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateRelationType;
 import com.otilm.api.model.core.certificate.CertificateState;
@@ -22,6 +23,8 @@ import com.otilm.api.model.core.compliance.ComplianceStatus;
 import com.otilm.api.model.core.connector.AuthType;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
+import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
+import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
@@ -67,6 +70,7 @@ import com.otilm.core.dao.entity.VaultInstance_;
 import com.otilm.core.dao.entity.VaultProfile_;
 import com.otilm.core.dao.entity.acme.AcmeAccount_;
 import com.otilm.core.dao.entity.acme.AcmeProfile_;
+import com.otilm.core.dao.entity.cbom.CryptoAsset_;
 import com.otilm.core.dao.entity.cmp.CmpProfile_;
 import com.otilm.core.dao.entity.oid.CustomOidEntry_;
 import com.otilm.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry_;
@@ -378,6 +382,37 @@ public enum FilterField {
     CBOM_CRYPTO_MATERIAL_COUNT(Resource.CBOM, null, null, Cbom_.cryptoMaterialCount, "Crypto Material Count",
             SearchFieldTypeEnum.NUMBER),
     CBOM_TOTAL_ASSETS_COUNT(Resource.CBOM, null, null, Cbom_.totalAssetsCount, "Total Assets Count",
+            SearchFieldTypeEnum.NUMBER),
+    CBOM_ASSET_SYNC_STATE(Resource.CBOM, null, null, Cbom_.assetSyncState, "Asset Sync State", SearchFieldTypeEnum.LIST,
+            CbomAssetSyncState.class),
+    CBOM_ASSETS_SYNCED_AT(Resource.CBOM, null, null, Cbom_.assetsSyncedAt, "Assets Synced At",
+            SearchFieldTypeEnum.DATETIME),
+
+    // CBOM cryptographic asset inventory.
+    //
+    // No entry for identity_key, and there must never be one: given the key, its low-entropy preimage falls to a
+    // dictionary attack, and IdentityKeyExposureFenceArchTest fails the build if one appears.
+    CBOM_ASSET_TYPE(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.assetType, "Asset Type", SearchFieldTypeEnum.LIST,
+            CryptographicAssetType.class),
+    CBOM_ASSET_NAME(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.name, "Name", SearchFieldTypeEnum.STRING),
+    CBOM_ASSET_OID(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.oid, "OID", SearchFieldTypeEnum.STRING),
+    CBOM_ASSET_ALGORITHM_FAMILY(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.algorithmFamily, "Algorithm Family",
+            SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_PRIMITIVE(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.primitive, "Primitive",
+            SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_PARAMETER_SET(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.parameterSet, "Parameter Set",
+            SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_CURVE(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.curve, "Elliptic Curve", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_MODE(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.mode, "Mode", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_PADDING(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.padding, "Padding", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_VARIANT(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.variant, "Variant", SearchFieldTypeEnum.LIST),
+    CBOM_ASSET_PQC_VERDICT(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.pqcVerdict, "PQC Readiness",
+            SearchFieldTypeEnum.LIST, PqcVerdict.class),
+    CBOM_ASSET_PQC_RULESET_VERSION(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.pqcRulesetVersion,
+            "PQC Rule Set Version", SearchFieldTypeEnum.NUMBER),
+    CBOM_ASSET_RULESET_VERSION(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.rulesetVersion,
+            "Identity Rule Set Version", SearchFieldTypeEnum.NUMBER),
+    CBOM_ASSET_SOURCE_COUNT(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.sourceCount, "Source CBOMs",
             SearchFieldTypeEnum.NUMBER),
 
     // Signing Profile
