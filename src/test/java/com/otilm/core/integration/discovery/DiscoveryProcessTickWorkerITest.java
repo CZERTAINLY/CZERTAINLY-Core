@@ -372,9 +372,7 @@ class DiscoveryProcessTickWorkerITest extends BaseSpringBootTest {
 
         worker.tick(run.getUuid(), 0);
 
-        // The run has two rows left, but none of them belongs to the batch that failed, so nothing will ever
-        // retry it. Judging by the run's backlog would call this retryable and file it at a severity the ending
-        // ignores.
+        // Two rows are left, but none belongs to the batch that failed, so nothing will ever retry it.
         assertThat(backlog(run)).isEqualTo(2);
         assertThat(messages(run))
                 .extracting(DiscoveryMessage::getCode)

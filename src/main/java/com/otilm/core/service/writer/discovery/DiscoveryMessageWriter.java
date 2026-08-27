@@ -134,9 +134,9 @@ public class DiscoveryMessageWriter {
         logger
                 .debug("Discovery {} kept no row for a {} message; it is at its {} bound", discoveryUuid, code,
                         runIsFull ? "per-run" : "per-code");
-        // The severity of whatever overflowed first, which the upsert raises as worse things fold into the same row.
-        // Nothing is floored on the way in: a row standing only for informational messages would otherwise report a
-        // warning, and the terminal decision reads exactly that.
+        // The severity of whatever overflowed first; the upsert raises the row as worse things fold into it. Not
+        // floored on the way in, or a row standing only for informational messages would report a warning that the
+        // terminal decision then reads.
         if (runIsFull) {
             write(discoveryUuid, draft.severity(), DiscoveryMessageCode.MESSAGES_SUPPRESSED.code(),
                     RUN_SUPPRESSION_MESSAGE, draft.occurrences());

@@ -153,12 +153,10 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * The connector's own code, or Core's stand-in when what arrived is not one. This is the event a connector sends
-     * when something has already gone wrong for it, so a bad code loses the report rather than the report being refused
-     * — but the value becomes the identity of a kind of problem and reaches clients as it arrived, so it is classified
-     * the way this platform classifies everything else a connector authors. Accepted whole or replaced, never trimmed
-     * into an identity no connector sent: two over-long codes sharing a prefix would otherwise aggregate onto one
-     * entry. The raw value is logged by the caller either way.
+     * The connector's own code, or Core's stand-in when what arrived is not one. The value becomes the identity of a
+     * kind of problem and reaches clients as it arrived, so it is accepted whole or replaced — never trimmed into an
+     * identity no connector sent, which is how two over-long codes sharing a prefix would aggregate onto one entry. The
+     * report itself is never refused, and the raw value is logged by the caller either way.
      */
     private static String reportedCode(DiscoveryErrorEvent error) {
         String code = error.getCode();

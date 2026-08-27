@@ -7,9 +7,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 /**
- * The draft refuses what the message table cannot store, so a producer's mistake fails where it was made rather than as
- * a constraint violation that rolls back whatever transaction the append had joined — a whole drained page, for a field
- * the draft can simply reject.
+ * The draft refuses what the message table cannot store, so a producer's mistake fails where it was made. Why that
+ * matters is on {@link DiscoveryMessageDraft} itself.
  */
 class DiscoveryMessageDraftTest {
 
