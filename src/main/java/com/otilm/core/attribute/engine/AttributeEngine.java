@@ -870,32 +870,38 @@ public class AttributeEngine {
                     || !(attributeContent.getData() instanceof String value) || !value.strip().startsWith("{")) {
                 continue;
             }
-            JsonNode tree;
-            try {
-                tree = AsnJsonCodec.parse(value);
-                AsnJsonCodec.encode(tree);
-            } catch (ValidationException e) {
-                errors.add(ValidationError.create("Extension value of attribute {}: {}", label, e.getMessage()));
-                continue;
-            }
-            for (String extensionOid : extensionOids) {
-                String structuredTarget = StructuredExtensionCodec.structuredTargetName(extensionOid);
-                if (structuredTarget != null) {
-                    // Authoring a new opaque mapping for these OIDs is already refused; a legacy one must not
-                    // gain a second, weaker way in. The typed target takes its values from a closed vocabulary,
-                    // so it cannot express a malformed one - a hand-written tree can.
-                    errors
-                            .add(ValidationError
-                                    .create("Extension value of attribute {} cannot be a JSON tree: extension {} has the {} mapping target, which is the only way to set it",
-                                            label, extensionOid, structuredTarget));
-                    continue;
-                }
-                for (String violation : ExtensionSchemas.validateShape(extensionOid, tree)) {
-                    errors.add(ValidationError.create("Extension value of attribute {} {}", label, violation));
-                }
-            }
+            checkJsonExtensionValue(value, extensionOids, label, errors);
         }
         return errors;
+    }
+
+    /** Checks one tree value: that the grammar accepts it, then that each mapped OID permits it. */
+    private static void checkJsonExtensionValue(String value, List<String> extensionOids, String label,
+            List<ValidationError> errors) {
+        JsonNode tree;
+        try {
+            tree = AsnJsonCodec.parse(value);
+            AsnJsonCodec.encode(tree);
+        } catch (ValidationException e) {
+            errors.add(ValidationError.create("Extension value of attribute {}: {}", label, e.getMessage()));
+            return;
+        }
+        for (String extensionOid : extensionOids) {
+            String structuredTarget = StructuredExtensionCodec.structuredTargetName(extensionOid);
+            if (structuredTarget != null) {
+                // Authoring a new opaque mapping for these OIDs is already refused; a legacy one must not gain
+                // a second, weaker way in. The typed target takes its values from a closed vocabulary, so it
+                // cannot express a malformed one - a hand-written tree can.
+                errors
+                        .add(ValidationError
+                                .create("Extension value of attribute {} cannot be a JSON tree: extension {} has the {} mapping target, which is the only way to set it",
+                                        label, extensionOid, structuredTarget));
+                continue;
+            }
+            for (String violation : ExtensionSchemas.validateShape(extensionOid, tree)) {
+                errors.add(ValidationError.create("Extension value of attribute {} {}", label, violation));
+            }
+        }
     }
 
     /** The DER-encoded extension OIDs a definition maps, resolved against the registry cache. */

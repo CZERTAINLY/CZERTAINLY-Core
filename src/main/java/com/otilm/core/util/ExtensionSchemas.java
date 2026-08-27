@@ -198,26 +198,24 @@ public final class ExtensionSchemas {
                     "Not a valid JSON Schema document: $ref at %s points outside the document; only local references such as #/$defs/name are supported"
                             .formatted(path));
         }
-        for (String keyword : SUBSCHEMA_KEYWORDS) {
-            rejectNonLocalRefs(node.get(keyword), path + "." + keyword);
+        for (Map.Entry<String, JsonNode> property : node.properties()) {
+            String childPath = path + "." + property.getKey();
+            subschemasOf(property.getKey(), property.getValue()).forEach(child -> rejectNonLocalRefs(child, childPath));
         }
-        for (String keyword : SUBSCHEMA_LIST_KEYWORDS) {
-            JsonNode list = node.get(keyword);
-            if (list != null && list.isArray()) {
-                int index = 0;
-                for (JsonNode child : list) {
-                    rejectNonLocalRefs(child, "%s.%s[%d]".formatted(path, keyword, index++));
-                }
-            }
+    }
+
+    /** The subschemas a keyword's value holds, or nothing when the keyword does not hold subschemas. */
+    private static List<JsonNode> subschemasOf(String keyword, JsonNode value) {
+        if (SUBSCHEMA_KEYWORDS.contains(keyword)) {
+            return List.of(value);
         }
-        for (String keyword : SUBSCHEMA_MAP_KEYWORDS) {
-            JsonNode map = node.get(keyword);
-            if (map != null && map.isObject()) {
-                for (Map.Entry<String, JsonNode> member : map.properties()) {
-                    rejectNonLocalRefs(member.getValue(), "%s.%s.%s".formatted(path, keyword, member.getKey()));
-                }
-            }
+        List<JsonNode> children = new ArrayList<>();
+        if (SUBSCHEMA_LIST_KEYWORDS.contains(keyword) && value.isArray()) {
+            value.forEach(children::add);
+        } else if (SUBSCHEMA_MAP_KEYWORDS.contains(keyword) && value.isObject()) {
+            value.properties().forEach(entry -> children.add(entry.getValue()));
         }
+        return children;
     }
 
     /**
