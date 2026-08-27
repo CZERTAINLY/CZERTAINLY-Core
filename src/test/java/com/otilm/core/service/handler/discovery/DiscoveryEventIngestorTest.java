@@ -13,6 +13,7 @@ import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.service.handler.CertificateHandler;
 import com.otilm.core.service.writer.discovery.DiscoveryItemWriter;
+import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.util.List;
 import java.util.Optional;
@@ -50,13 +51,15 @@ class DiscoveryEventIngestorTest {
     private CryptographicKeyItemRepository keyItemRepository;
     @Mock
     private DiscoveryCertificateRepository certificateRepository;
+    @Mock
+    private DiscoveryMessageWriter messageWriter;
 
     private DiscoveryEventIngestor ingestor;
 
     @BeforeEach
     void setUp() {
         ingestor = new DiscoveryEventIngestor(discoveryRepository, itemWriter, workWriter, certificateHandler,
-                keyItemRepository, certificateRepository);
+                keyItemRepository, certificateRepository, messageWriter);
     }
 
     @Test

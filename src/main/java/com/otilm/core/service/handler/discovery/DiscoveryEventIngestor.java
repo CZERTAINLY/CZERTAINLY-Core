@@ -12,26 +12,32 @@ import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
 import com.otilm.api.model.connector.discovery.v2.event.DiscoveryErrorEvent;
 import com.otilm.api.model.connector.discovery.v2.event.DiscoveryProgressEvent;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.model.discovery.DiscoveryMessageCode;
+import com.otilm.core.model.discovery.DiscoveryMessageDraft;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.CertificateHandler;
 import com.otilm.core.service.writer.discovery.DiscoveryItemWriter;
+import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,22 +53,28 @@ public class DiscoveryEventIngestor {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryEventIngestor.class);
 
+    /** Plausibly a connector's own identifier rather than prose or a fragment of payload. */
+    private static final Pattern REPORTABLE_CODE = Pattern.compile("[A-Za-z0-9._-]{1,64}");
+
     private final DiscoveryRepository discoveryRepository;
     private final DiscoveryItemWriter itemWriter;
     private final DiscoveryWorkWriter workWriter;
     private final CertificateHandler certificateHandler;
     private final CryptographicKeyItemRepository keyItemRepository;
     private final DiscoveryCertificateRepository certificateRepository;
+    private final DiscoveryMessageWriter messageWriter;
 
     public DiscoveryEventIngestor(DiscoveryRepository discoveryRepository, DiscoveryItemWriter itemWriter,
             DiscoveryWorkWriter workWriter, CertificateHandler certificateHandler,
-            CryptographicKeyItemRepository keyItemRepository, DiscoveryCertificateRepository certificateRepository) {
+            CryptographicKeyItemRepository keyItemRepository, DiscoveryCertificateRepository certificateRepository,
+            DiscoveryMessageWriter messageWriter) {
         this.discoveryRepository = discoveryRepository;
         this.itemWriter = itemWriter;
         this.workWriter = workWriter;
         this.certificateHandler = certificateHandler;
         this.keyItemRepository = keyItemRepository;
         this.certificateRepository = certificateRepository;
+        this.messageWriter = messageWriter;
     }
 
     /**
@@ -127,17 +139,30 @@ public class DiscoveryEventIngestor {
             case PROGRESS -> run.setProgress(snapshotOf((DiscoveryProgressEvent) event));
             case ERROR -> {
                 DiscoveryErrorEvent error = (DiscoveryErrorEvent) event;
-                // Only the code is recorded; connector-authored prose goes to the log, not the API-visible
-                // run_messages.
+                // The connector's code identifies the problem; its prose goes to the log rather than to the
+                // API-visible message, which carries curated text only.
                 logger.warn("Discovery {} connector error {}: {}", discoveryUuid, error.getCode(), error.getMessage());
-                run
-                        .setRunMessages(DiscoveryRunLifecycle
-                                .append(run.getRunMessages(), "Connector reported %s".formatted(error.getCode())));
+                messageWriter
+                        .append(discoveryUuid, new DiscoveryMessageDraft(DiscoveryMessageSeverity.ERROR,
+                                reportedCode(error), "The Discovery Provider reported a problem with this run.", 1));
             }
             case STATE_CHANGED -> scheduleNow(run, DiscoveryWorkType.STATUS);
             case RESULT_BATCH -> scheduleNow(run, DiscoveryWorkType.DRAIN);
             case HEARTBEAT -> logger.trace("Heartbeat for discovery {}", discoveryUuid);
         }
+    }
+
+    /**
+     * The connector's own code, or Core's stand-in when what arrived is not one. The value becomes the identity of a
+     * kind of problem and reaches clients as it arrived, so it is accepted whole or replaced — never trimmed into an
+     * identity no connector sent, which is how two over-long codes sharing a prefix would aggregate onto one entry. The
+     * report itself is never refused, and the raw value is logged by the caller either way.
+     */
+    private static String reportedCode(DiscoveryErrorEvent error) {
+        String code = error.getCode();
+        return code != null && REPORTABLE_CODE.matcher(code).matches()
+                ? code
+                : DiscoveryMessageCode.CONNECTOR_ERROR.code();
     }
 
     /**
@@ -153,10 +178,11 @@ public class DiscoveryEventIngestor {
             return;
         }
         logger.warn("Discovery {} received {} item(s) with no sequence: {}", run.getUuid(), refs.size(), refs);
-        run
-                .setRunMessages(DiscoveryRunLifecycle
-                        .append(run.getRunMessages(),
-                                "%d item(s) arrived without a sequence and were skipped".formatted(refs.size())));
+        messageWriter
+                .append(run.getUuid(),
+                        new DiscoveryMessageDraft(DiscoveryMessageSeverity.WARNING,
+                                DiscoveryMessageCode.ITEM_SEQUENCE_MISSING,
+                                "A discovered item arrived without a sequence and was skipped.", refs.size()));
     }
 
     /**
@@ -206,16 +232,44 @@ public class DiscoveryEventIngestor {
             }
         }
         registerMetadataDefinitions(run, items);
-        List<String> problems = new ArrayList<>();
-        malformedPayloads
-                .forEach(ref -> problems
-                        .add("Certificate %s could not be staged: its payload was not a certificate".formatted(ref)));
+        List<DiscoveryMessageDraft> problems = new ArrayList<>();
+        if (!malformedPayloads.isEmpty()) {
+            // The references are logged rather than filed: naming one in the message would make every malformed
+            // payload its own kind of problem.
+            logger
+                    .warn("Discovery {} received {} item(s) declared certificates whose payload was not one: {}",
+                            run.getUuid(), malformedPayloads.size(), malformedPayloads);
+            problems
+                    .add(new DiscoveryMessageDraft(DiscoveryMessageSeverity.WARNING,
+                            DiscoveryMessageCode.CERTIFICATE_PAYLOAD_INVALID,
+                            "A discovered certificate could not be staged: its payload was not a certificate.",
+                            malformedPayloads.size()));
+        }
         if (!certificates.isEmpty()) {
-            problems.addAll(certificateHandler.stageDiscoveredCertificates(batchLabel(items), run, certificates, true));
+            problems
+                    .addAll(stagingFailures(certificateHandler
+                            .stageDiscoveredCertificates(batchLabel(items), run, certificates, true)));
         }
-        if (!problems.isEmpty()) {
-            run.setRunMessages(DiscoveryRunLifecycle.append(run.getRunMessages(), problems));
-        }
+        messageWriter.appendAll(run.getUuid(), problems);
+    }
+
+    /**
+     * Groups the page's staging failures by the reason they share, so a page that failed the same way a thousand times
+     * files one message counted a thousand times rather than a thousand of them.
+     */
+    private static List<DiscoveryMessageDraft> stagingFailures(List<String> reasons) {
+        // Insertion-ordered, so the log keeps the reasons in the order the page hit them rather than in hash
+        // order, which would differ from one run to the next.
+        return reasons
+                .stream()
+                .collect(Collectors.groupingBy(reason -> reason, LinkedHashMap::new, Collectors.counting()))
+                .entrySet()
+                .stream()
+                .map(byReason -> new DiscoveryMessageDraft(DiscoveryMessageSeverity.WARNING,
+                        DiscoveryMessageCode.CERTIFICATE_STAGING_FAILED,
+                        "A discovered certificate could not be staged: %s.".formatted(byReason.getKey()),
+                        byReason.getValue()))
+                .toList();
     }
 
     /**

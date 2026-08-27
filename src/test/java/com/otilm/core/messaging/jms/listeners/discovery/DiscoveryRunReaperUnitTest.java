@@ -1,5 +1,6 @@
 package com.otilm.core.messaging.jms.listeners.discovery;
 
+import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.dao.entity.Discovery;
@@ -9,6 +10,7 @@ import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapter;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
 import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
+import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import com.otilm.core.util.DiscoveryRunMetaFixture;
 import java.time.Duration;
@@ -55,6 +57,8 @@ class DiscoveryRunReaperUnitTest {
     @Mock
     private DiscoveryWorkWriter workWriter;
     @Mock
+    private DiscoveryMessageWriter messageWriter;
+    @Mock
     private DiscoveryProviderAdapterFactory adapterFactory;
     @Mock
     private DiscoveryProviderAdapter adapter;
@@ -72,8 +76,8 @@ class DiscoveryRunReaperUnitTest {
         // is what these tests assert on. Its collaborators are unused by applyTerminalState.
         reaper = new DiscoveryRunReaper(discoveryRepository, workRepository, workWriter, adapterFactory,
                 transactionHandler, clusterSynchronizer,
-                new DiscoveryRunTerminator(discoveryRepository, workWriter, transactionHandler), Duration.ofMinutes(5),
-                Duration.ofDays(7));
+                new DiscoveryRunTerminator(discoveryRepository, workWriter, messageWriter, transactionHandler),
+                Duration.ofMinutes(5), Duration.ofDays(7));
         // Execute the transactional lambdas inline so the real selection/reap logic runs under the test.
         lenient()
                 .when(transactionHandler.runInNewTransaction(any(Supplier.class)))
@@ -122,9 +126,10 @@ class DiscoveryRunReaperUnitTest {
         assertThatCode(() -> reaper.reap()).doesNotThrowAnyException();
 
         assertThat(healthy.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
-        assertThat(healthy.getRunMessages())
-                .as("a reaped run must carry the same ending in its log as one a worker ended")
-                .containsExactly("Discovery work lost; the run can no longer be driven");
+        // A reaped run must record the same ending in its log as one a worker ended.
+        verify(messageWriter)
+                .appendRunEnded(healthy.getUuid(), DiscoveryMessageSeverity.ERROR,
+                        "Discovery work lost; the run can no longer be driven");
     }
 
     @Test

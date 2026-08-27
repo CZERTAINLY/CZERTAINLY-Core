@@ -179,8 +179,9 @@ public class CertificateHandler {
      * @param refsDedupeWithinRun true only for v2: the certificate's {@code uuid} is the connector's per-occurrence
      * key, stored as {@code uniqueRef} and enforced by the run's unique index. A v1 provider uuid names the certificate
      * itself, so it is not stored.
-     * @return one description per certificate that could not be staged; v1 discards these, v2 files them in the run's
-     * message log.
+     * @return the shaped reason for each certificate that could not be staged, named by kind rather than by which
+     * certificate hit it — v2 files these in the run's message log, where the same reason across a whole run aggregates
+     * onto one entry and the certificate that hit it is already in the log above. v1 discards them.
      */
     @Transactional
     public List<String> stageDiscoveredCertificates(String batch, Discovery discovery,
@@ -219,9 +220,7 @@ public class CertificateHandler {
                 logger
                         .error("Unable to create discovery certificate {} in batch {} for discovery {}. Message: {}",
                                 identifier, batch, discovery.getName(), e.getMessage(), e);
-                failures
-                        .add("Certificate %s could not be staged: %s"
-                                .formatted(identifier, DiscoveryFailureReason.shape(e)));
+                failures.add(DiscoveryFailureReason.shape(e));
             }
         }
         return failures;

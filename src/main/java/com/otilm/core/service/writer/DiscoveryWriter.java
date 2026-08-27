@@ -4,11 +4,9 @@ import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
-import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -62,24 +60,6 @@ public class DiscoveryWriter {
     @Transactional
     public void updateProgressMessage(UUID discoveryUuid, String message) {
         discoveryRepository.updateMessage(discoveryUuid, message);
-    }
-
-    /**
-     * Adds to the run's advisory message log — the narrative an operator reads to understand a run that finished with
-     * warnings, kept for the life of the run rather than overwritten like the headline message.
-     *
-     * <p>
-     * Takes the run's row lock: the log is a single JSONB value, so a read-modify-write that raced another appender
-     * would silently drop one of the two messages.
-     */
-    @Transactional
-    public void appendRunMessages(UUID discoveryUuid, List<String> messages) {
-        if (messages.isEmpty()) {
-            return;
-        }
-        discoveryRepository
-                .findWithLockByUuid(discoveryUuid)
-                .ifPresent(run -> run.setRunMessages(DiscoveryRunLifecycle.append(run.getRunMessages(), messages)));
     }
 
     /**

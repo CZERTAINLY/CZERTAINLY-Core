@@ -1,26 +1,32 @@
 package com.otilm.core.service.handler.discovery;
 
+import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryCertificate;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
+import com.otilm.core.dao.repository.DiscoveryMessageRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.events.handlers.CertificateDiscoveredEventHandler;
 import com.otilm.core.events.handlers.discovery.DiscoveryRunCounts;
 import com.otilm.core.messaging.jms.configuration.DiscoveryWorkProperties;
 import com.otilm.core.messaging.jms.producers.DiscoveryWorkProducer;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
+import com.otilm.core.model.discovery.DiscoveryMessageCode;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator.Ending;
 import com.otilm.core.service.writer.DiscoveryWriter;
+import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import com.otilm.core.util.AuthHelper;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,31 +43,43 @@ public class DiscoveryProcessTickWorker {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryProcessTickWorker.class);
 
+    /**
+     * The severities that mean the run did not get everything done, whatever its rows say. Anything above {@code INFO},
+     * so a severity added later counts until someone decides it should not.
+     */
+    private static final Set<DiscoveryMessageSeverity> UNRECOVERED = EnumSet
+            .complementOf(EnumSet.of(DiscoveryMessageSeverity.INFO));
+
     private final DiscoveryRepository discoveryRepository;
     private final DiscoveryCertificateRepository certificateRepository;
+    private final DiscoveryMessageRepository messageRepository;
     private final CertificateDiscoveredEventHandler importHandler;
     private final DiscoveryWorkWriter workWriter;
     private final DiscoveryWorkProducer workProducer;
     private final DiscoveryRunTerminator terminator;
     private final DiscoveryWriter discoveryWriter;
+    private final DiscoveryMessageWriter messageWriter;
     private final AuthHelper authHelper;
     private final DiscoveryWorkProperties workProperties;
     private final int batchSize;
     private final Duration continuationBackstop;
 
     public DiscoveryProcessTickWorker(DiscoveryRepository discoveryRepository,
-            DiscoveryCertificateRepository certificateRepository, CertificateDiscoveredEventHandler importHandler,
-            DiscoveryWorkWriter workWriter, DiscoveryWorkProducer workProducer, DiscoveryRunTerminator terminator,
-            DiscoveryWriter discoveryWriter, AuthHelper authHelper, DiscoveryWorkProperties workProperties,
+            DiscoveryCertificateRepository certificateRepository, DiscoveryMessageRepository messageRepository,
+            CertificateDiscoveredEventHandler importHandler, DiscoveryWorkWriter workWriter,
+            DiscoveryWorkProducer workProducer, DiscoveryRunTerminator terminator, DiscoveryWriter discoveryWriter,
+            DiscoveryMessageWriter messageWriter, AuthHelper authHelper, DiscoveryWorkProperties workProperties,
             @Value("${discovery.processing.batch-size:200}") int batchSize,
             @Value("${discovery.work.continuation-backstop:PT1M}") Duration continuationBackstop) {
         this.discoveryRepository = discoveryRepository;
         this.certificateRepository = certificateRepository;
+        this.messageRepository = messageRepository;
         this.importHandler = importHandler;
         this.workWriter = workWriter;
         this.workProducer = workProducer;
         this.terminator = terminator;
         this.discoveryWriter = discoveryWriter;
+        this.messageWriter = messageWriter;
         this.authHelper = authHelper;
         this.workProperties = workProperties;
         // Fails at construction, not at the first tick.
@@ -139,23 +157,77 @@ public class DiscoveryProcessTickWorker {
                 .countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(discoveryUuid);
     }
 
+    /** How much of one batch is still waiting for a verdict. A row stamped with a reason is not waiting. */
+    private long pendingIn(List<DiscoveryCertificate> batch) {
+        return certificateRepository
+                .countByUuidInAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(
+                        batch.stream().map(DiscoveryCertificate::getUuid).toList());
+    }
+
     /**
      * Runs the batch through the import pipeline and files what it could not import on the run.
      */
     private void importBatch(Discovery run, int attempt, List<DiscoveryCertificate> batch) {
+        DiscoveryRunCounts counts;
         try {
             authenticateAsTheRunsUser(run);
-            DiscoveryRunCounts counts = importHandler.processBatch(run, batch);
-            discoveryWriter.appendRunMessages(run.getUuid(), counts.describeGaps());
+            counts = importHandler.processBatch(run, batch);
         } catch (Exception e) {
             // Swallowed, not rethrown: an unchanged backlog sends this batch to the bounded stall path instead of
             // the listener's log-and-acknowledge.
             logger
                     .error("Processing batch {} of discovery {} did not complete: {}", attempt, run.getUuid(),
                             e.getMessage(), e);
-            discoveryWriter
-                    .appendRunMessages(run.getUuid(),
-                            List.of("A batch of discovered certificates could not be processed."));
+            // INFO only while this batch's own rows are still pending for another tick to retry: rows that run out
+            // of attempts carry their own reason, and a stall that exhausts the budget ends the run itself. Judged
+            // on this batch and never the run, because another batch's pending rows would make a failure that
+            // stamped all of its own look retryable -- and nothing would ever revisit it.
+            recordQuietly(run.getUuid(), "a batch that did not complete", () -> {
+                boolean retryable = pendingIn(batch) > 0;
+                messageWriter
+                        .append(run.getUuid(),
+                                retryable ? DiscoveryMessageSeverity.INFO : DiscoveryMessageSeverity.WARNING,
+                                retryable
+                                        ? DiscoveryMessageCode.BATCH_PROCESSING_FAILED
+                                        : DiscoveryMessageCode.BATCH_PROCESSING_ABANDONED,
+                                retryable
+                                        ? "A batch of discovered certificates did not complete and went back for "
+                                                + "another attempt."
+                                        : "A batch of discovered certificates failed after its rows were imported, "
+                                                + "and will not be tried again.");
+            });
+            return;
+        }
+        // Outside the catch above, and never folded into it: the batch itself succeeded, so filing a failure to
+        // record its gaps as BATCH_PROCESSING_FAILED would file them at INFO -- the one severity the terminal
+        // decision ignores -- and let a run that fell short finish clean.
+        try {
+            messageWriter.appendAll(run.getUuid(), counts.describeGaps());
+        } catch (Exception e) {
+            logger
+                    .error("Could not record what batch {} of discovery {} fell short on: {}", attempt, run.getUuid(),
+                            e.getMessage(), e);
+            // appendAll returns early on an empty list, so reaching here proves the batch fell short of something.
+            // One more attempt, at a single row: a run that ends clean because its warning was lost is worse than
+            // one saying only that something was lost.
+            recordQuietly(run.getUuid(), "that a batch's gaps were lost",
+                    () -> messageWriter
+                            .append(run.getUuid(), DiscoveryMessageSeverity.WARNING,
+                                    DiscoveryMessageCode.BOOKKEEPING_INCOMPLETE,
+                                    "Some of what a batch fell short on could not be recorded."));
+        }
+    }
+
+    /**
+     * Records a message that must not take the tick down with it. The same outage that tripped the caller's catch will
+     * often trip the write too, and an exception escaping there skips the stall path — so the attempt counter never
+     * climbs and the budget never ends a failing run.
+     */
+    private void recordQuietly(UUID discoveryUuid, String what, Runnable write) {
+        try {
+            write.run();
+        } catch (Exception e) {
+            logger.error("Could not record {} for discovery {}: {}", what, discoveryUuid, e.getMessage(), e);
         }
     }
 
@@ -232,9 +304,11 @@ public class DiscoveryProcessTickWorker {
             return null;
         }
         // Run-level gaps (a failed bookkeeping write, validation never requested) leave every row clean, so the
-        // message log is checked too.
+        // message log is checked too -- by severity, not by whether it holds anything. A run collects messages for
+        // things it recovered from, and ending a run whose every row imported on the strength of one of those
+        // would report a warning about nothing an operator can act on.
         boolean rowsFailed = certificateRepository.existsByDiscoveryUuidAndProcessedErrorIsNotNull(run.getUuid());
-        boolean runLevelGaps = run.getRunMessages() != null && !run.getRunMessages().isEmpty();
+        boolean runLevelGaps = messageRepository.existsByDiscoveryUuidAndSeverityIn(run.getUuid(), UNRECOVERED);
         if (!rowsFailed && !runLevelGaps) {
             return new Ending(DiscoveryStatus.COMPLETED, "Discovery completed successfully.");
         }
