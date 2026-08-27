@@ -112,6 +112,12 @@ public class CryptoAssetWriter {
      * another; an alias that points at it as <em>canonical</em> means other rows are expected to merge into it. A guard
      * contradicts both. The lock is {@link CryptoAssetAliasWriter#ALIAS_DECISION_LOCK}, so this check and a concurrent
      * alias decision cannot each read a table the other is about to change.
+     *
+     * <p>
+     * It is taken before this method writes anything, which keeps this path inside the ranked lock order -- the
+     * advisory lock above every {@code crypto_asset} row lock. A caller that has already taken an asset row lock in the
+     * same transaction, by upserting a source, inverts that order and can deadlock against a concurrent transaction
+     * doing the reverse; {@link CryptoAssetSourceWriter} states the obligation that avoids it.
      */
     private void requireNoAlias(String key, CryptoAssetIdentityGuard guard) {
         clusterOperationSynchronizer.lock(CryptoAssetAliasWriter.ALIAS_DECISION_LOCK);

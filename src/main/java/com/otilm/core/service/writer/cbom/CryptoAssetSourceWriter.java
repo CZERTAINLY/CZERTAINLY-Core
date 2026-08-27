@@ -22,9 +22,28 @@ import org.springframework.transaction.annotation.Transactional;
  * says that -- or, on removal, to a source that no longer exists.
  *
  * <p>
- * Both methods take the asset's row lock before touching a source row. {@code crypto_asset} and
+ * <b>Lock order.</b> The inventory has two lock classes and they are ranked, because a transaction can hold both:
+ *
+ * <ol>
+ * <li>{@link CryptoAssetAliasWriter#ALIAS_DECISION_LOCK}, the cluster advisory lock over alias and guard
+ * decisions;</li>
+ * <li>the {@code crypto_asset} row lock, then the {@code crypto_asset_source} row.</li>
+ * </ol>
+ *
+ * <p>
+ * Both methods here take the asset's row lock before touching a source row. {@code crypto_asset} and
  * {@code crypto_asset_source} reference each other, so a path that locked the source first would deadlock against a
- * concurrent ingest on the same pair; locking asset-then-source everywhere closes that cycle.
+ * concurrent ingest on the same pair; locking asset-then-source closes that cycle. Neither method takes the advisory
+ * lock at all, so neither can be the transaction that holds a row and then waits for it.
+ *
+ * <p>
+ * That is the constraint an orchestrator has to preserve, and it is the one this class cannot enforce for its caller.
+ * {@link CryptoAssetWriter#upsertIdentity} takes the advisory lock when it stamps a guard. A transaction that upserts a
+ * source for one asset and then stamps a guard on another would hold a row lock while waiting for the advisory lock,
+ * and a concurrent transaction doing the reverse would deadlock against it. <b>An ingest that may stamp a guard must
+ * therefore take the advisory lock once, up front, before its first asset row lock</b> -- it is re-entrant within a
+ * transaction, so acquiring it early costs a later acquisition nothing. That wiring belongs to the ingest ticket, which
+ * is also what first makes the interleaving reachable: nothing composes these writers today.
  */
 @Service
 public class CryptoAssetSourceWriter {

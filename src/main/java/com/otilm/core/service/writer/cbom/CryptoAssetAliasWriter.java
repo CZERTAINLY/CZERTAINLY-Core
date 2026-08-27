@@ -40,6 +40,11 @@ public class CryptoAssetAliasWriter {
      * Package-private rather than private because {@link CryptoAssetWriter} takes the same lock before it stamps a
      * guard: guarding and aliasing are the two contradictory statements about one key, and a guard applied while an
      * alias decision is mid-flight would slip past both checks.
+     *
+     * <p>
+     * <b>It outranks every row lock in this inventory.</b> A transaction that will take both this and a
+     * {@code crypto_asset} row lock must take this one first -- see the lock-order note on
+     * {@link CryptoAssetSourceWriter}. Both methods here obey that: the lock is taken before the first read.
      */
     static final String ALIAS_DECISION_LOCK = "crypto-asset-alias-decisions";
 

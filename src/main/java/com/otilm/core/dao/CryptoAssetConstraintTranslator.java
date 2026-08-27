@@ -51,7 +51,28 @@ public final class CryptoAssetConstraintTranslator {
                                     "That CBOM serial number and version is already recorded as deleted."),
                     Map
                             .entry("ck_crypto_asset_properties_pair",
-                                    "A merged cryptographic properties payload must be stored together with its hash."));
+                                    "A merged cryptographic properties payload must be stored together with its hash."),
+                    // The two length bounds exist so a document that would otherwise fail at an index fails at the
+                    // field instead. Without an entry here the refusal reads as a nameless constraint violation, and
+                    // the bound achieves nothing an operator can act on.
+                    Map
+                            .entry("ck_crypto_asset_oid_length",
+                                    "A cryptographic asset's object identifier is longer than 255 characters."),
+                    Map
+                            .entry("ck_crypto_asset_name_length",
+                                    "A cryptographic asset's name is longer than 1024 characters."),
+                    Map
+                            .entry("ck_crypto_asset_asset_type",
+                                    "That cryptographic asset type is not one this platform recognises."),
+                    Map
+                            .entry("ck_crypto_asset_identity_guard",
+                                    "That cryptographic asset identity guard is not one this platform recognises."),
+                    Map
+                            .entry("ck_crypto_asset_pqc_verdict",
+                                    "That post-quantum verdict is not one this platform recognises."),
+                    Map
+                            .entry("ck_cbom_asset_sync_state",
+                                    "That CBOM asset sync state is not one this platform recognises."));
 
     static final String GENERIC_REJECTION = "The cryptographic asset inventory rejected the change: it would violate a "
             + "database constraint.";

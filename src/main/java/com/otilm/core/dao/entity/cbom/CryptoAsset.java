@@ -51,7 +51,16 @@ import org.hibernate.type.SqlTypes;
         @Check(name = "ck_crypto_asset_properties_pair",
                 constraints = "(merged_crypto_properties IS NULL) = (properties_hash IS NULL)"),
         @Check(name = "ck_crypto_asset_source_count", constraints = "source_count >= 0"),
-        @Check(name = "ck_crypto_asset_properties_leaf_count", constraints = "properties_leaf_count >= 0")})
+        @Check(name = "ck_crypto_asset_properties_leaf_count", constraints = "properties_leaf_count >= 0"),
+        @Check(name = "ck_crypto_asset_asset_type",
+                constraints = "asset_type IN ('ALGORITHM', 'CERTIFICATE', 'PROTOCOL', 'RELATED_CRYPTO_MATERIAL', "
+                        + "'UNROUTABLE')"),
+        @Check(name = "ck_crypto_asset_identity_guard",
+                constraints = "identity_guard IN ('REFUTED_CERTIFICATE_DIGEST', 'BARE_CN_SUBJECT', 'REFUTED_OID')"),
+        @Check(name = "ck_crypto_asset_pqc_verdict",
+                constraints = "pqc_verdict IN ('READY', 'NOT_READY', 'NOT_APPLICABLE', 'UNKNOWN')"),
+        @Check(name = "ck_crypto_asset_oid_length", constraints = "length(oid) <= 255"),
+        @Check(name = "ck_crypto_asset_name_length", constraints = "length(name) <= 1024")})
 public class CryptoAsset extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "identity_key", nullable = false, columnDefinition = "TEXT")

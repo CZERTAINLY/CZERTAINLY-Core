@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.Check;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.proxy.HibernateProxy;
 
@@ -23,6 +24,10 @@ import org.hibernate.proxy.HibernateProxy;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "cbom")
+// Stated here as well as in the migration so the entity-generated schema the tests run against carries the same
+// invariant and the same constraint name as production.
+@Check(name = "ck_cbom_asset_sync_state",
+        constraints = "asset_sync_state IN ('PENDING', 'IN_PROGRESS', 'SYNCED', 'FAILED')")
 public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
