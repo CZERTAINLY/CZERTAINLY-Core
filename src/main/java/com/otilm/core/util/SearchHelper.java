@@ -70,7 +70,11 @@ public class SearchHelper {
      * available values.
      */
     public static List<FilterConditionOperator> availableConditions(final FilterField filterField) {
-        List<FilterConditionOperator> conditionOperators = filterField.getFieldAttribute() == null
+        // A FREE_TEXT field has no single attribute by design (it spans several columns), so the
+        // null-attribute downgrade to presence-only conditions must not apply to it.
+        boolean presenceOnly = filterField.getFieldAttribute() == null
+                && filterField.getType() != SearchFieldTypeEnum.FREE_TEXT;
+        List<FilterConditionOperator> conditionOperators = presenceOnly
                 ? new ArrayList<>(List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY))
                 : new ArrayList<>(getInitialCapacity(filterField));
 

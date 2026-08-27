@@ -1,5 +1,6 @@
 package com.otilm.core.integration.search;
 
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.cbom.CbomAssetSyncState;
@@ -12,8 +13,10 @@ import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.repository.CbomRepository;
 import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
 import com.otilm.core.enums.FilterField;
+import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.writer.cbom.CbomAssetSyncStateWriter;
+import com.otilm.core.service.writer.cbom.CryptoAssetSourceWriter;
 import com.otilm.core.service.writer.cbom.CryptoAssetWriter;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.FilterPredicatesBuilder;
@@ -22,16 +25,19 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyEmptyFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyEqualsFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyNotEmptyFilter;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Every crypto-asset search field, exercised against real PostgreSQL for the three cases a nullable column makes
@@ -50,6 +56,9 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
 
     @Autowired
     private CryptoAssetWriter assetWriter;
+
+    @Autowired
+    private CryptoAssetSourceWriter sourceWriter;
 
     @Autowired
     private CbomRepository cbomRepository;
@@ -177,6 +186,159 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
                 .isEmpty();
     }
 
+    // ---- free text, refuted-OID and source-CBOM filters ----
+
+    @Test
+    void freeTextMatchesNameAndOidCaseInsensitively() {
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "ECDSA")))
+                .describedAs("matches the name despite the case difference from the stored canonical spelling")
+                .containsExactly(populated);
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "10045")))
+                .describedAs("matches the oid")
+                .containsExactly(populated);
+    }
+
+    /**
+     * The issue's acceptance criterion: a refuted OID is stored and auditable, but a default free-text search must
+     * never let it answer a query, while the row itself stays findable through every other property.
+     */
+    @Test
+    void freeTextNeverMatchesThroughARefutedOidWithoutTheOptIn() {
+        UUID refuted = assetWriter
+                .upsertIdentity(
+                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
+                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
+                        CryptoAssetIdentityGuard.REFUTED_OID);
+
+        assertThat(search(
+                aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "101.3.4.4")))
+                .describedAs("the refuted oid is the row's only match, so a default search must not surface it")
+                .isEmpty();
+        assertThat(
+                search(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "ml-kem")))
+                .describedAs("the row is not hidden -- only its refuted oid is neutralized, the name still matches")
+                .containsExactly(refuted);
+        assertThat(searchAll(List
+                .of(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "101.3.4.4"),
+                        aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID_REFUTED, "true"))))
+                .describedAs("opting into the refuted-OID facet lets the neutralized value answer again")
+                .containsExactly(refuted);
+    }
+
+    @Test
+    void freeTextRefusesEveryOperatorExceptContains() {
+        assertThatThrownBy(() -> search(
+                aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.EQUALS, "ecdsa")))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    /**
+     * The same acceptance criterion as {@link #freeTextNeverMatchesThroughARefutedOidWithoutTheOptIn}, exercised
+     * directly against the OID field's own value predicates rather than through free text.
+     */
+    @Test
+    void oidValuePredicatesTreatARefutedOidAsAbsent() {
+        UUID refuted = assetWriter
+                .upsertIdentity(
+                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
+                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
+                        CryptoAssetIdentityGuard.REFUTED_OID);
+
+        assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID, "2.16.840.1.101.3.4.4.2")))
+                .describedAs("a refuted oid must not answer an EQUALS predicate")
+                .isEmpty();
+        assertThat(searchAll(List
+                .of(aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID, "2.16.840.1.101.3.4.4.2"),
+                        aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID_REFUTED, "true"))))
+                .describedAs("opting into the refuted-OID facet lets the recorded value answer again")
+                .containsExactly(refuted);
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_OID, FilterConditionOperator.CONTAINS, "101.3.4")))
+                .describedAs("a refuted oid must not answer a CONTAINS predicate")
+                .isEmpty();
+        assertThat(search(
+                aPropertyFilter(FilterField.CBOM_ASSET_OID, FilterConditionOperator.NOT_EQUALS, "1.2.840.10045.4.3.2")))
+                .describedAs("a NULL oid satisfies NOT_EQUALS for any value, and a refuted one must too")
+                .containsExactlyInAnyOrder(refuted, bare);
+        assertThat(search(aPropertyEmptyFilter(FilterField.CBOM_ASSET_OID)))
+                .describedAs("the refuted row HAS a recorded oid, so it is not EMPTY")
+                .containsExactly(bare);
+        assertThat(search(aPropertyNotEmptyFilter(FilterField.CBOM_ASSET_OID)))
+                .describedAs("the recorded value stays auditable under NOT_EMPTY")
+                .containsExactlyInAnyOrder(populated, refuted);
+    }
+
+    @Test
+    void theRefutedFacetSelectsRowsByRefutedness() {
+        UUID refuted = assetWriter
+                .upsertIdentity(
+                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
+                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
+                        CryptoAssetIdentityGuard.REFUTED_OID);
+        UUID bareCn = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cn", null, null,
+                        null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
+
+        assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID_REFUTED, "true")))
+                .describedAs("only the refuted-OID row, not the BARE_CN_SUBJECT one")
+                .containsExactly(refuted);
+        assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID_REFUTED, "false")))
+                .describedAs("everything else, including a differently-guarded row")
+                .containsExactlyInAnyOrder(bareCn, bare, populated);
+    }
+
+    @Test
+    void theSourceCbomFilterMatchesThroughSourcesWithoutDuplicatingRows() {
+        Cbom alpha = newCbom("urn:uuid:alpha");
+        Cbom beta = newCbom("urn:uuid:beta");
+        UUID other = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "RSA", null, "rsa",
+                        "signature", null, null, null, null, null), null);
+        sourceWriter.upsertSource(populated, alpha.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
+        sourceWriter.upsertSource(populated, beta.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
+        sourceWriter.upsertSource(other, beta.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
+
+        assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_SOURCE_CBOM, "urn:uuid:alpha")))
+                .containsExactly(populated);
+        SearchFilterRequestDto matchesEitherSerial = aPropertyEqualsFilter(FilterField.CBOM_ASSET_SOURCE_CBOM,
+                (Serializable) List.of("urn:uuid:alpha", "urn:uuid:beta"));
+        assertThat(search(matchesEitherSerial))
+                .describedAs("populated has two matching sources; EQUALS matches through either")
+                .containsExactlyInAnyOrder(populated, other);
+        // findUsingSecurityFilter (used by search() above) runs its query through
+        // SecurityFilterRepositoryImpl#createCriteriaBuilder, which selects DISTINCT and would hide a
+        // join-based reimplementation of this predicate repeating populated's row. The uuid page query
+        // -- createCriteriaBuilderUuid, reached only through findUuidsUsingSecurityFilter -- carries no
+        // DISTINCT, so it is the path that actually proves the EXISTS design does not duplicate.
+        List<UUID> undistinctedUuidPage = assetRepository
+                .findUuidsUsingSecurityFilter(SecurityFilter.create(),
+                        (root, cb, cr) -> FilterPredicatesBuilder
+                                .getFiltersPredicate(cb, cr, root, List.of(matchesEitherSerial)),
+                        PageRequest.of(0, 10), (root, cb) -> cb.asc(root.get("uuid")));
+        assertThat(undistinctedUuidPage)
+                .describedAs("the undistincted uuid page must not repeat populated's row either")
+                .containsExactlyInAnyOrder(populated, other);
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_SOURCE_CBOM, FilterConditionOperator.NOT_EQUALS,
+                "urn:uuid:alpha"))).describedAs("rows without an alpha source").containsExactlyInAnyOrder(other, bare);
+        assertThat(search(aPropertyEmptyFilter(FilterField.CBOM_ASSET_SOURCE_CBOM)))
+                .describedAs("the sourceless row")
+                .containsExactly(bare);
+        assertThat(search(aPropertyNotEmptyFilter(FilterField.CBOM_ASSET_SOURCE_CBOM)))
+                .describedAs("exactly the two sourced rows")
+                .containsExactlyInAnyOrder(populated, other);
+    }
+
+    @Test
+    void aFilterCombinesWithTheNewFields() {
+        Cbom alpha = newCbom("urn:uuid:alpha");
+        sourceWriter.upsertSource(populated, alpha.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
+
+        assertThat(searchAll(List
+                .of(aPropertyEqualsFilter(FilterField.CBOM_ASSET_TYPE, CryptographicAssetType.ALGORITHM.getCode()),
+                        aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "ecdsa"),
+                        aPropertyEqualsFilter(FilterField.CBOM_ASSET_SOURCE_CBOM, "urn:uuid:alpha"))))
+                .containsExactly(populated);
+    }
+
     // ---- the CBOM-rooted asset-sync fields ----
 
     @Test
@@ -221,14 +383,24 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
                         FilterField.CBOM_ASSET_PARAMETER_SET, FilterField.CBOM_ASSET_CURVE, FilterField.CBOM_ASSET_MODE,
                         FilterField.CBOM_ASSET_PADDING, FilterField.CBOM_ASSET_VARIANT,
                         FilterField.CBOM_ASSET_PQC_VERDICT, FilterField.CBOM_ASSET_PQC_RULESET_VERSION,
-                        FilterField.CBOM_ASSET_RULESET_VERSION, FilterField.CBOM_ASSET_SOURCE_COUNT);
+                        FilterField.CBOM_ASSET_RULESET_VERSION, FilterField.CBOM_ASSET_SOURCE_COUNT,
+                        FilterField.CBOM_ASSET_OID_REFUTED);
         assertThat(cryptoAssetFields)
                 .describedAs("every crypto-asset field roots at the ratified CRYPTO_ASSET resource, so the inventory "
                         + "gets its own search surface rather than borrowing the CBOM one")
                 .allSatisfy(field -> assertThat(field.getRootResource()).isEqualTo(Resource.CRYPTO_ASSET));
+        // FREE_TEXT has no fieldAttribute and SOURCE_CBOM's declares on Cbom, not CryptoAsset, so neither is in
+        // cryptoAssetFields above; both still root at CRYPTO_ASSET and belong in its declared search surface.
         assertThat(FilterField.getEnumsForResource(Resource.CRYPTO_ASSET))
                 .describedAs("CRYPTO_ASSET serves the crypto-asset fields and nothing else")
-                .containsExactlyElementsOf(cryptoAssetFields);
+                .containsExactly(FilterField.CBOM_ASSET_TYPE, FilterField.CBOM_ASSET_NAME, FilterField.CBOM_ASSET_OID,
+                        FilterField.CBOM_ASSET_ALGORITHM_FAMILY, FilterField.CBOM_ASSET_PRIMITIVE,
+                        FilterField.CBOM_ASSET_PARAMETER_SET, FilterField.CBOM_ASSET_CURVE, FilterField.CBOM_ASSET_MODE,
+                        FilterField.CBOM_ASSET_PADDING, FilterField.CBOM_ASSET_VARIANT,
+                        FilterField.CBOM_ASSET_PQC_VERDICT, FilterField.CBOM_ASSET_PQC_RULESET_VERSION,
+                        FilterField.CBOM_ASSET_RULESET_VERSION, FilterField.CBOM_ASSET_SOURCE_COUNT,
+                        FilterField.CBOM_ASSET_FREE_TEXT, FilterField.CBOM_ASSET_OID_REFUTED,
+                        FilterField.CBOM_ASSET_SOURCE_CBOM);
 
         for (Resource resource : Resource.values()) {
             if (resource == Resource.CRYPTO_ASSET) {

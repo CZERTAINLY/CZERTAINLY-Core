@@ -80,6 +80,7 @@ import com.otilm.core.dao.entity.signing.SigningRecord_;
 import com.otilm.core.dao.entity.signing.TimeQualityConfiguration_;
 import com.otilm.core.dao.entity.signing.TspProfile_;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import jakarta.persistence.metamodel.Attribute;
 import java.util.Arrays;
 import java.util.List;
@@ -414,6 +415,17 @@ public enum FilterField {
             "Identity Rule Set Version", SearchFieldTypeEnum.NUMBER),
     CBOM_ASSET_SOURCE_COUNT(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.sourceCount, "Source CBOMs",
             SearchFieldTypeEnum.NUMBER),
+
+    // Free text spans lower(name)/lower(oid) and the refuted-OID opt-in couples with the OID
+    // predicates, so all three are built by dedicated branches in FilterPredicatesBuilder rather
+    // than the generic attribute path. CBOM_ASSET_SOURCE_CBOM matches through an EXISTS subquery,
+    // never a join: the uuid page query has no DISTINCT, and a row with several sources would
+    // otherwise repeat inside one page.
+    CBOM_ASSET_FREE_TEXT(Resource.CRYPTO_ASSET, null, null, null, "Text Search", SearchFieldTypeEnum.FREE_TEXT),
+    CBOM_ASSET_OID_REFUTED(Resource.CRYPTO_ASSET, null, null, CryptoAsset_.identityGuard, "OID Refuted",
+            SearchFieldTypeEnum.BOOLEAN, null, CryptoAssetIdentityGuard.REFUTED_OID, false, null),
+    CBOM_ASSET_SOURCE_CBOM(Resource.CRYPTO_ASSET, Resource.CBOM, null, Cbom_.serialNumber, "Source CBOM",
+            SearchFieldTypeEnum.LIST),
 
     // Signing Profile
     SIGNING_PROFILE_NAME(Resource.SIGNING_PROFILE, null, null, SigningProfile_.name, "Name",
