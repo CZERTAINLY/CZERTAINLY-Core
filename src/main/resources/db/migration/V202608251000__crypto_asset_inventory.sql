@@ -59,7 +59,21 @@ CREATE TABLE "crypto_asset" (
     CONSTRAINT "ck_crypto_asset_properties_pair"
         CHECK (("merged_crypto_properties" IS NULL) = ("properties_hash" IS NULL)),
     CONSTRAINT "ck_crypto_asset_source_count" CHECK ("source_count" >= 0),
-    CONSTRAINT "ck_crypto_asset_properties_leaf_count" CHECK ("properties_leaf_count" >= 0)
+    CONSTRAINT "ck_crypto_asset_properties_leaf_count" CHECK ("properties_leaf_count" >= 0),
+    -- These three columns hold Java enum constant names. Without a CHECK, a value no constant parses is accepted at
+    -- write time and fails later at read time, on a row nothing can trace back to the statement that wrote it. Adding
+    -- an enum constant now needs a migration, which is the point: a new constant is a contract change.
+    CONSTRAINT "ck_crypto_asset_asset_type" CHECK ("asset_type" IN
+        ('ALGORITHM', 'CERTIFICATE', 'PROTOCOL', 'RELATED_CRYPTO_MATERIAL', 'UNROUTABLE')),
+    CONSTRAINT "ck_crypto_asset_identity_guard" CHECK ("identity_guard" IN
+        ('REFUTED_CERTIFICATE_DIGEST', 'BARE_CN_SUBJECT', 'REFUTED_OID')),
+    CONSTRAINT "ck_crypto_asset_pqc_verdict" CHECK ("pqc_verdict" IN
+        ('READY', 'NOT_READY', 'NOT_APPLICABLE', 'UNKNOWN')),
+    -- Eleven producer-supplied TEXT columns are indexed, and a btree tuple wider than roughly 2704 bytes is refused by
+    -- the index rather than by validation -- an error the ingest path cannot attribute to a field. A dotted-decimal
+    -- object identifier has a realistic bound, so cap it here, where the error names the column. The other ten are
+    -- deliberately uncapped: name in particular carries legitimate long text, and bounding it is a contract question.
+    CONSTRAINT "ck_crypto_asset_oid_length" CHECK (length("oid") <= 255)
 );
 
 CREATE TABLE "crypto_asset_source" (
@@ -136,15 +150,16 @@ ALTER TABLE "cbom"
     ADD COLUMN "asset_sync_state" TEXT NOT NULL DEFAULT 'PENDING',
     -- Shaped by us, never a driver message: this string is operator-visible.
     ADD COLUMN "asset_sync_error" TEXT,
-    ADD COLUMN "assets_synced_at" TIMESTAMPTZ;
+    ADD COLUMN "assets_synced_at" TIMESTAMPTZ,
+    ADD CONSTRAINT "ck_cbom_asset_sync_state" CHECK ("asset_sync_state" IN
+        ('PENDING', 'IN_PROGRESS', 'SYNCED', 'FAILED'));
 
--- Btree per filter column, plus lower(name) / lower(oid) for case-insensitive free-text. A plain expression index
--- serves case-insensitive equality and ordering; infix matching would need a trigram index, which v1 excludes.
+-- Btree per filter column. No lower(name) / lower(oid) expression index: FilterPredicatesBuilder never emits lower()
+-- -- it applies LIKE to the column itself -- so the planner could not choose one, and infix matching would need a
+-- trigram index, which v1 excludes. An expression index that no query can reach costs writes and buys nothing.
 CREATE INDEX "idx_crypto_asset_asset_type" ON "crypto_asset" ("asset_type");
 CREATE INDEX "idx_crypto_asset_name" ON "crypto_asset" ("name");
-CREATE INDEX "idx_crypto_asset_name_lower" ON "crypto_asset" (lower("name"));
 CREATE INDEX "idx_crypto_asset_oid" ON "crypto_asset" ("oid");
-CREATE INDEX "idx_crypto_asset_oid_lower" ON "crypto_asset" (lower("oid"));
 CREATE INDEX "idx_crypto_asset_algorithm_family" ON "crypto_asset" ("algorithm_family");
 CREATE INDEX "idx_crypto_asset_primitive" ON "crypto_asset" ("primitive");
 CREATE INDEX "idx_crypto_asset_parameter_set" ON "crypto_asset" ("parameter_set");

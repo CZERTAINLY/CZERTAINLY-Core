@@ -1,9 +1,13 @@
 package com.otilm.core.service.writer.cbom;
 
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityCalculator;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.cbom.asset.JsonColumnText;
+import com.otilm.core.cluster.ClusterOperationSynchronizer;
+import com.otilm.core.dao.repository.cbom.CryptoAssetAliasRepository;
 import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import java.util.Map;
@@ -20,9 +24,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class CryptoAssetWriter {
 
     private final CryptoAssetRepository assetRepository;
+    private final CryptoAssetAliasRepository aliasRepository;
+    private final ClusterOperationSynchronizer clusterOperationSynchronizer;
 
-    public CryptoAssetWriter(CryptoAssetRepository assetRepository) {
+    public CryptoAssetWriter(CryptoAssetRepository assetRepository, CryptoAssetAliasRepository aliasRepository,
+            ClusterOperationSynchronizer clusterOperationSynchronizer) {
         this.assetRepository = assetRepository;
+        this.aliasRepository = aliasRepository;
+        this.clusterOperationSynchronizer = clusterOperationSynchronizer;
     }
 
     /**
@@ -36,10 +45,14 @@ public class CryptoAssetWriter {
      * canonical row's identity columns with the absorbed row's fields would change what the canonical row claims to be.
      *
      * @return the uuid of the surviving row, which is the inserted uuid only when the insert won
+     * @throws ValidationException if a guard is being stamped on a key an alias already refers to
      */
     @Transactional
     public UUID upsertIdentity(CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
         String key = CryptoAssetIdentityCalculator.calculate(fields);
+        if (guard != null) {
+            requireNoAlias(key, guard);
+        }
         assetRepository
                 .upsertIdentity(UUID.randomUUID(), key, CryptoAssetIdentityCalculator.RULESET_VERSION,
                         fields.assetType() == null ? null : fields.assetType().name(), fields.name(), fields.oid(),
@@ -73,6 +86,38 @@ public class CryptoAssetWriter {
         assetRepository
                 .applyPqcVerdict(assetUuid, verdict == null ? null : verdict.name(), ruleId, reason, rulesetVersion,
                         JsonColumnText.render(evaluatedFields));
+    }
+
+    /**
+     * Refuses a guard on a key some alias already refers to.
+     *
+     * <p>
+     * A guard and an alias are contradictory statements about one key: the alias says this key <em>is</em> another one,
+     * the guard says a safety rule requires it to stand alone. {@link CryptoAssetAliasWriter#record} already refuses
+     * the alias when the guard came first; this is the same rule read from the other end, so whichever decision arrives
+     * second is the one that fails, and the operator who made it is told what it contradicts rather than silently
+     * overwriting or being silently overwritten.
+     *
+     * <p>
+     * Both sides are checked. An alias that <em>absorbed</em> the key means the row is expected to disappear into
+     * another; an alias that points at it as <em>canonical</em> means other rows are expected to merge into it. A guard
+     * contradicts both. The lock is {@link CryptoAssetAliasWriter#ALIAS_DECISION_LOCK}, so this check and a concurrent
+     * alias decision cannot each read a table the other is about to change.
+     */
+    private void requireNoAlias(String key, CryptoAssetIdentityGuard guard) {
+        clusterOperationSynchronizer.lock(CryptoAssetAliasWriter.ALIAS_DECISION_LOCK);
+        if (aliasRepository.findByAbsorbedKey(key).isPresent()) {
+            throw new ValidationException(ValidationError
+                    .create("The {} safety rule would keep this cryptographic asset separate, but an alias already "
+                            + "merges it into another asset. Withdraw that alias first, or leave the asset merged.",
+                            guard.name()));
+        }
+        if (aliasRepository.existsByCanonicalKey(key)) {
+            throw new ValidationException(ValidationError
+                    .create("The {} safety rule would keep this cryptographic asset separate, but another asset is "
+                            + "already merged into it by an alias. Withdraw that alias first, or leave the assets "
+                            + "merged.", guard.name()));
+        }
     }
 
     /**

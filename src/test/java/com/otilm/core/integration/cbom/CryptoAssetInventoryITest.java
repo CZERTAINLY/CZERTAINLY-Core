@@ -549,6 +549,73 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         assertThat(aliasRepository.count()).isZero();
     }
 
+    /**
+     * The other half of the guard rule. An alias says this key <em>is</em> another one; a guard says a safety rule
+     * requires it to stand alone. Whichever arrives second has to fail, or the inventory ends up holding both
+     * statements and neither operator learns they disagreed.
+     */
+    @Test
+    void aGuardIsRefusedWhenAnAliasAlreadyMergesTheKey() {
+        CryptoAssetIdentityFields absorbedFields = algorithm("RSA", "2048");
+        UUID absorbed = assetWriter.upsertIdentity(absorbedFields, null);
+        UUID canonical = assetWriter.upsertIdentity(algorithm("RSA", "4096"), null);
+        aliasWriter.record(asset(absorbed).getIdentityKey(), asset(canonical).getIdentityKey(), "same key", "operator");
+
+        assertThatThrownBy(() -> assetWriter.upsertIdentity(absorbedFields, CryptoAssetIdentityGuard.REFUTED_OID))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("REFUTED_OID");
+        assertThat(asset(absorbed).getIdentityGuard()).describedAs("the refused guard left no trace").isNull();
+    }
+
+    @Test
+    void aGuardIsRefusedWhenAnotherAssetIsMergedIntoTheKey() {
+        UUID absorbed = assetWriter.upsertIdentity(algorithm("RSA", "2048"), null);
+        CryptoAssetIdentityFields canonicalFields = algorithm("RSA", "4096");
+        UUID canonical = assetWriter.upsertIdentity(canonicalFields, null);
+        aliasWriter.record(asset(absorbed).getIdentityKey(), asset(canonical).getIdentityKey(), "same key", "operator");
+
+        assertThatThrownBy(
+                () -> assetWriter.upsertIdentity(canonicalFields, CryptoAssetIdentityGuard.REFUTED_CERTIFICATE_DIGEST))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("REFUTED_CERTIFICATE_DIGEST");
+        assertThat(asset(canonical).getIdentityGuard()).isNull();
+    }
+
+    @Test
+    void anUnguardedUpsertIsUnaffectedByAnAlias() {
+        CryptoAssetIdentityFields absorbedFields = algorithm("RSA", "2048");
+        UUID absorbed = assetWriter.upsertIdentity(absorbedFields, null);
+        UUID canonical = assetWriter.upsertIdentity(algorithm("RSA", "4096"), null);
+        aliasWriter.record(asset(absorbed).getIdentityKey(), asset(canonical).getIdentityKey(), "same key", "operator");
+
+        assertThat(assetWriter.upsertIdentity(absorbedFields, null))
+                .describedAs("only a guard contradicts an alias; ordinary re-ingest does not")
+                .isEqualTo(absorbed);
+    }
+
+    /**
+     * Eleven producer-supplied text columns are indexed, and a btree tuple wider than roughly 2704 bytes is refused by
+     * the index rather than by validation. The OID has a realistic bound, so it is capped at the column, where the
+     * error names the column instead of naming an index nobody asked about.
+     */
+    @Test
+    void anOverlongOidIsRefusedAtTheColumn() {
+        CryptoAssetIdentityFields overlong = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "RSA",
+                "1.2.840.113549".repeat(40), null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> assetWriter.upsertIdentity(overlong, null))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(assetRepository.count()).isZero();
+    }
+
+    @Test
+    void anOidAtTheLimitIsAccepted() {
+        CryptoAssetIdentityFields atLimit = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "RSA",
+                "1".repeat(255), null, null, null, null, null, null, null);
+
+        assertThat(assetWriter.upsertIdentity(atLimit, null)).isNotNull();
+    }
+
     @Test
     void anAliasIsRefusedWhenItWouldFormAChainOrPointAtItself() {
         UUID first = assetWriter.upsertIdentity(algorithm("RSA", "2048"), null);

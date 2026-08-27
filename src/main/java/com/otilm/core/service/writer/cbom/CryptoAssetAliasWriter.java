@@ -35,8 +35,13 @@ public class CryptoAssetAliasWriter {
      * owns the platform's advisory-lock keyspace: a bespoke literal here could not be checked against the keys declared
      * there, and one inside {@code hashtext}'s int32 codomain could silently collide with an unrelated
      * {@code lock(String)} caller -- serializing, or deadlock-aborting, a feature that shares no code with aliases.
+     *
+     * <p>
+     * Package-private rather than private because {@link CryptoAssetWriter} takes the same lock before it stamps a
+     * guard: guarding and aliasing are the two contradictory statements about one key, and a guard applied while an
+     * alias decision is mid-flight would slip past both checks.
      */
-    private static final String ALIAS_DECISION_LOCK = "crypto-asset-alias-decisions";
+    static final String ALIAS_DECISION_LOCK = "crypto-asset-alias-decisions";
 
     private final CryptoAssetAliasRepository aliasRepository;
     private final CryptoAssetRepository assetRepository;

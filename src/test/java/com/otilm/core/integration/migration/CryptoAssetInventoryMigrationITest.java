@@ -46,11 +46,10 @@ class CryptoAssetInventoryMigrationITest extends BaseSpringBootTest {
             """;
 
     private static final List<String> EXPECTED_INDEXES = List
-            .of("idx_crypto_asset_asset_type", "idx_crypto_asset_name", "idx_crypto_asset_name_lower",
-                    "idx_crypto_asset_oid", "idx_crypto_asset_oid_lower", "idx_crypto_asset_algorithm_family",
-                    "idx_crypto_asset_primitive", "idx_crypto_asset_parameter_set", "idx_crypto_asset_curve",
-                    "idx_crypto_asset_mode", "idx_crypto_asset_padding", "idx_crypto_asset_variant",
-                    "idx_crypto_asset_pqc_verdict", "idx_crypto_asset_pqc_ruleset_version",
+            .of("idx_crypto_asset_asset_type", "idx_crypto_asset_name", "idx_crypto_asset_oid",
+                    "idx_crypto_asset_algorithm_family", "idx_crypto_asset_primitive", "idx_crypto_asset_parameter_set",
+                    "idx_crypto_asset_curve", "idx_crypto_asset_mode", "idx_crypto_asset_padding",
+                    "idx_crypto_asset_variant", "idx_crypto_asset_pqc_verdict", "idx_crypto_asset_pqc_ruleset_version",
                     "idx_crypto_asset_ruleset_version", "idx_crypto_asset_source_count",
                     "idx_crypto_asset_properties_source", "idx_crypto_asset_source_cbom",
                     "idx_crypto_asset_alias_canonical", "idx_cbom_asset_sync_state", "idx_cbom_assets_synced_at");
@@ -62,7 +61,9 @@ class CryptoAssetInventoryMigrationITest extends BaseSpringBootTest {
     private static final List<String> EXPECTED_CHECK_CONSTRAINTS = List
             .of("ck_crypto_asset_properties_pair", "ck_crypto_asset_source_count",
                     "ck_crypto_asset_properties_leaf_count", "ck_crypto_asset_source_occurrence_count",
-                    "ck_crypto_asset_source_properties_leaf_count", "ck_crypto_asset_alias_not_self");
+                    "ck_crypto_asset_source_properties_leaf_count", "ck_crypto_asset_alias_not_self",
+                    "ck_crypto_asset_asset_type", "ck_crypto_asset_identity_guard", "ck_crypto_asset_pqc_verdict",
+                    "ck_crypto_asset_oid_length", "ck_cbom_asset_sync_state");
 
     private static final String CBOM_UUID = "11111111-0000-4000-8000-000000000001";
     private static final String ASSET_UUID = "22222222-0000-4000-8000-000000000001";
@@ -138,8 +139,8 @@ class CryptoAssetInventoryMigrationITest extends BaseSpringBootTest {
                 "SELECT indexname FROM pg_indexes WHERE schemaname = ? ORDER BY indexname", SCRATCH_SCHEMA);
 
         assertThat(indexes)
-                .describedAs("a btree per filter column, plus lower(name) and lower(oid), plus the indexes the "
-                        + "referential actions need to stay off a sequential scan")
+                .describedAs("a btree per filter column, plus the indexes the referential actions need to stay off a "
+                        + "sequential scan. No lower() expression index: nothing emits lower()")
                 .containsAll(EXPECTED_INDEXES);
     }
 
