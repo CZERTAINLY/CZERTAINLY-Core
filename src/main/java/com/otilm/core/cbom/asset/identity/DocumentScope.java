@@ -1,7 +1,9 @@
 package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -30,6 +32,9 @@ import java.util.Set;
  * in a per-component pure function -- see {@link #refutedAcross}.
  */
 public final class DocumentScope {
+
+    /** Mirrors the extractor's bound, which mirrors the JSON parser's: nothing that parses is truncated. */
+    private static final int MAX_DEPTH = 1000;
 
     private final JsonNode document;
     private final Set<String> refutedCertificateDigests;
@@ -64,21 +69,39 @@ public final class DocumentScope {
                 refutedSuiteCodes(document), byRef);
     }
 
-    /** Every component in the document, including nested ones. Depth-first, in document order. */
+    /**
+     * Every component in the document, including nested ones, depth-first in document order.
+     *
+     * <p>
+     * Iterative rather than recursive, and bounded. {@code components} nests arbitrarily in both schema versions, so a
+     * recursive walk over a hostile document nested a few thousand deep exhausts the stack and takes the whole ingest
+     * with it. Real documents nest two or three deep.
+     */
     public static List<JsonNode> walk(JsonNode document) {
         List<JsonNode> found = new ArrayList<>();
-        collect(document == null ? null : document.get("components"), found);
+        Deque<int[]> depths = new ArrayDeque<>();
+        Deque<JsonNode> pending = new ArrayDeque<>();
+        pushChildren(document == null ? null : document.get("components"), 1, pending, depths);
+        while (!pending.isEmpty()) {
+            JsonNode component = pending.pop();
+            int depth = depths.pop()[0];
+            found.add(component);
+            if (depth < MAX_DEPTH) {
+                pushChildren(component.get("components"), depth + 1, pending, depths);
+            }
+        }
         return found;
     }
 
-    private static void collect(JsonNode components, List<JsonNode> found) {
+    private static void pushChildren(JsonNode components, int depth, Deque<JsonNode> pending, Deque<int[]> depths) {
         if (components == null || !components.isArray()) {
             return;
         }
-        for (JsonNode component : components) {
-            if (component.isObject()) {
-                found.add(component);
-                collect(component.get("components"), found);
+        for (int index = components.size() - 1; index >= 0; index--) {
+            JsonNode child = components.get(index);
+            if (child.isObject()) {
+                pending.push(child);
+                depths.push(new int[]{depth});
             }
         }
     }

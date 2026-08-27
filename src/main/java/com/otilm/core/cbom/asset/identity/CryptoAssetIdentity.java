@@ -77,6 +77,11 @@ public final class CryptoAssetIdentity {
         this.normalizer = normalizer;
     }
 
+    /** The pipeline this chain keys over. Exposed so a caller builds document scope from the same tables. */
+    public AssetNormalizer normalizer() {
+        return normalizer;
+    }
+
     /** The identity of one component, the chain step that produced it, and everything the pipeline derived. */
     public record Identity(String key, String preImage, String step, NormalizedAsset asset,
             MaterialRedaction redaction) {
