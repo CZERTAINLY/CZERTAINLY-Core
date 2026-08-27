@@ -17,6 +17,7 @@ import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.messaging.model.NotificationMessage;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.model.ScheduledTaskResult;
+import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.tasks.ScheduledJobInfo;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -51,7 +52,7 @@ public class DiscoveryFinishedEventHandler extends EventHandler<Discovery> {
         // that terminal state, so they are ignored here. The not-yet-terminal guard makes only this persisted
         // write idempotent on redelivery; the base handler still dispatches follow-up notifications either way.
         DiscoveryStatus reportedStatus = discoveryResult.getDiscoveryStatus();
-        if (!isTerminal(discovery.getStatus()) && isPostProcessingFinishSignal(reportedStatus)) {
+        if (!DiscoveryRunLifecycle.isTerminal(discovery.getStatus()) && isPostProcessingFinishSignal(reportedStatus)) {
             DiscoveryStatus finalStatus = reportedStatus == DiscoveryStatus.PROCESSING
                     ? DiscoveryStatus.COMPLETED
                     : reportedStatus;
@@ -100,11 +101,6 @@ public class DiscoveryFinishedEventHandler extends EventHandler<Discovery> {
 
     private static boolean isPostProcessingFinishSignal(DiscoveryStatus reportedStatus) {
         return reportedStatus == DiscoveryStatus.PROCESSING || reportedStatus == DiscoveryStatus.WARNING;
-    }
-
-    private static boolean isTerminal(DiscoveryStatus status) {
-        return status == DiscoveryStatus.COMPLETED || status == DiscoveryStatus.WARNING
-                || status == DiscoveryStatus.FAILED;
     }
 
     private static String buildFinishedMessage(DiscoveryStatus finalStatus, String detail) {
