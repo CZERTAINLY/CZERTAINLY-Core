@@ -3,6 +3,7 @@ package com.otilm.core.dao;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.hibernate.exception.ConstraintViolationException;
 
 /**
@@ -78,6 +79,14 @@ public final class CryptoAssetConstraintTranslator {
             + "database constraint.";
 
     private CryptoAssetConstraintTranslator() {
+    }
+
+    /**
+     * The constraint names this class explains, for the test that holds the map against the migration that declares
+     * them. Package-private because it exists to be pinned, not to be called.
+     */
+    static Set<String> knownConstraintNames() {
+        return BY_CONSTRAINT.keySet();
     }
 
     /**

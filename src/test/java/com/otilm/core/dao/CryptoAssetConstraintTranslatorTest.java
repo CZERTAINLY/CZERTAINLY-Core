@@ -1,8 +1,15 @@
 package com.otilm.core.dao;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,26 +57,70 @@ class CryptoAssetConstraintTranslatorTest {
                 .doesNotContain("$1");
     }
 
-    @Test
-    void everyKnownConstraintIsExplainedWithoutTheDriverText() {
-        for (String constraint : new String[]{
-                "uq_crypto_asset_identity_key",
-                "uq_crypto_asset_source",
-                "uq_crypto_asset_alias_absorbed",
-                "crypto_asset_alias_to_canonical_key",
-                "ck_crypto_asset_alias_not_self",
-                "crypto_asset_to_properties_source_key",
-                "uq_cbom_tombstone_serial_version",
-                "ck_crypto_asset_properties_pair"}) {
-            String description = CryptoAssetConstraintTranslator.describe(failure(constraint));
+    /**
+     * Why each of these deliberately falls through to {@link CryptoAssetConstraintTranslator#GENERIC_REJECTION}: the
+     * four counters are computed by ingest code and never taken from a caller, and the source-to-asset foreign key is
+     * satisfied by construction on every write path and by {@code ON DELETE CASCADE} on the delete path. A violation of
+     * any of them is a platform bug rather than a caller error, so there is no sentence an operator could act on.
+     */
+    private static final Set<String> DELIBERATELY_GENERIC = Set
+            .of("ck_crypto_asset_source_count", "ck_crypto_asset_properties_leaf_count",
+                    "ck_crypto_asset_source_occurrence_count", "ck_crypto_asset_source_properties_leaf_count",
+                    "crypto_asset_source_to_crypto_asset_key");
 
-            assertThat(description)
-                    .describedAs("constraint %s", constraint)
+    /**
+     * The list of constraints is read from the migration rather than copied here, because a copied list is what let six
+     * translations ship uncovered behind a test whose name claimed all of them. Reading the declaration means a
+     * constraint added without a translation fails this test, and a translation for a name the migration does not
+     * declare fails it too.
+     */
+    @Test
+    void everyConstraintTheMigrationDeclaresIsEitherExplainedOrDeliberatelyGeneric() throws IOException {
+        Set<String> declared = constraintNamesTheMigrationDeclares();
+
+        assertThat(declared)
+                .describedAs("the migration is merged and therefore frozen, so the count proves the parse still parses")
+                .hasSize(20)
+                .containsAll(DELIBERATELY_GENERIC);
+
+        Set<String> explained = new TreeSet<>(declared);
+        explained.removeAll(DELIBERATELY_GENERIC);
+        for (String constraint : explained) {
+            assertThat(CryptoAssetConstraintTranslator.describe(failure(constraint)))
+                    .describedAs("constraint %s must be explained in the caller's terms", constraint)
                     .isNotEqualTo(CryptoAssetConstraintTranslator.GENERIC_REJECTION)
                     .doesNotContain("Detail")
                     .doesNotContain("2f8c0f6e")
-                    .doesNotContain("DELETE FROM");
+                    .doesNotContain("DELETE FROM")
+                    .doesNotContain("$1");
         }
+
+        for (String constraint : DELIBERATELY_GENERIC) {
+            assertThat(CryptoAssetConstraintTranslator.describe(failure(constraint)))
+                    .describedAs("constraint %s gained a translation; remove it from DELIBERATELY_GENERIC", constraint)
+                    .isEqualTo(CryptoAssetConstraintTranslator.GENERIC_REJECTION);
+        }
+
+        assertThat(CryptoAssetConstraintTranslator.knownConstraintNames())
+                .describedAs("a translation for a name the migration does not declare is dead or misspelled")
+                .isSubsetOf(declared);
+    }
+
+    /**
+     * Comments are stripped before matching, as {@code CryptoAssetInventoryMigrationITest} does, so prose naming a
+     * constraint cannot be counted as declaring one. The lowercase-only character class also pins the spelling that
+     * {@link CryptoAssetConstraintTranslator#constraintNameOf} folds to.
+     */
+    private static Set<String> constraintNamesTheMigrationDeclares() throws IOException {
+        String sql = new ClassPathResource("db/migration/V202608251000__crypto_asset_inventory.sql")
+                .getContentAsString(StandardCharsets.UTF_8);
+        Matcher names = Pattern.compile("CONSTRAINT \"([a-z0-9_]+)\"").matcher(sql.replaceAll("(?m)--.*$", ""));
+
+        Set<String> declared = new TreeSet<>();
+        while (names.find()) {
+            declared.add(names.group(1));
+        }
+        return declared;
     }
 
     @Test
