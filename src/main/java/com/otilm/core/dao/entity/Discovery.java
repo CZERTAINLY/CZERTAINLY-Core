@@ -127,10 +127,6 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "started_by_user_uuid")
     private UUID startedByUserUuid;
 
-    @Column(name = "run_messages", columnDefinition = "jsonb")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private List<String> runMessages;
-
     @Column(name = "stopped_at")
     private OffsetDateTime stoppedAt;
 

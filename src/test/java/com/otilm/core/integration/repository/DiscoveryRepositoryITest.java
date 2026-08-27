@@ -60,7 +60,6 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         run.setResources(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY));
         run.setLastAppliedSequence(17L);
         run.setProgress(progress);
-        run.setRunMessages(List.of("host 10.0.0.7 refused the connection"));
         run.setStoppedAt(stoppedAt);
         run.setConnectorState("running");
         UUID runUuid = discoveryRepository.saveAndFlush(run).getUuid();
@@ -80,7 +79,6 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         assertThat(back.getProgress().getPhase()).isEqualTo("scanning");
         assertThat(back.getProgress().getByResource()).containsOnlyKeys(Resource.CRYPTOGRAPHIC_KEY);
         assertThat(back.getProgress().getByResource().get(Resource.CRYPTOGRAPHIC_KEY).getProcessed()).isEqualTo(3L);
-        assertThat(back.getRunMessages()).containsExactly("host 10.0.0.7 refused the connection");
         assertThat(back.getConnectorState()).isEqualTo("running");
         // Compared as instants: the driver may hand the timestamptz back under a different zone offset.
         assertThat(back.getStoppedAt().toInstant()).isEqualTo(stoppedAt.toInstant());
