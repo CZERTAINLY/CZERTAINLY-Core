@@ -4,7 +4,9 @@ import com.otilm.api.exception.NotSupportedException;
 import com.otilm.api.interfaces.core.web.CryptographicAssetController;
 import com.otilm.api.interfaces.core.web.StatisticsController;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
+import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.cryptoasset.CryptographicAssetDto;
 import com.otilm.core.auth.ContextRefreshListener;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.auth.ResourceSyncRequestDto;
@@ -18,14 +20,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The cryptographic asset inventory endpoints exist so the contract ratified in interfaces#909 is served by a real
- * bean, but the read model behind them is not built yet. This pins both halves of that state: every operation refuses
- * with {@link NotSupportedException} (HTTP 501), and the resource still reaches the auth service with its list and
- * detail actions, so roles can be defined against it before the data arrives.
+ * bean. The read model now serves list and searchable-fields as real reads over the deduplicated cross-CBOM asset
+ * projection; detail and statistics stay {@link NotSupportedException} refusals (HTTP 501) until core#2145 builds them.
+ * The resource still reaches the auth service with its list and detail actions, so roles can be defined against it
+ * independently of which operations are implemented.
  *
  * <p>
- * When the inventory is implemented, the refusal assertions are what should fail first.
+ * When detail and statistics are implemented, the refusal assertions below are what should fail first.
  */
-class CryptographicAssetControllerStubITest extends BaseSpringBootTest {
+class CryptographicAssetControllerITest extends BaseSpringBootTest {
 
     @Autowired
     private CryptographicAssetController cryptographicAssetController;
@@ -37,12 +40,15 @@ class CryptographicAssetControllerStubITest extends BaseSpringBootTest {
     private ContextRefreshListener contextRefreshListener;
 
     @Test
-    void everyInventoryOperationRefusesAsNotImplemented() {
-        assertThatThrownBy(() -> cryptographicAssetController.listCryptographicAssets(new SearchRequestDto()))
-                .isInstanceOf(NotSupportedException.class);
+    void listAndSearchableFieldsAreServedWhileDetailAndStatisticsRefuse() {
+        PaginationResponseDto<CryptographicAssetDto> page = cryptographicAssetController
+                .listCryptographicAssets(new SearchRequestDto());
+        assertThat(page.getItems()).isEmpty();
+        assertThat(page.getTotalItems()).isZero();
+
+        assertThat(cryptographicAssetController.getSearchableFieldInformation()).isNotEmpty();
+
         assertThatThrownBy(() -> cryptographicAssetController.getCryptographicAsset(UUID.randomUUID()))
-                .isInstanceOf(NotSupportedException.class);
-        assertThatThrownBy(() -> cryptographicAssetController.getSearchableFieldInformation())
                 .isInstanceOf(NotSupportedException.class);
         assertThatThrownBy(() -> statisticsController.getCryptographicAssetStatistics())
                 .isInstanceOf(NotSupportedException.class);
