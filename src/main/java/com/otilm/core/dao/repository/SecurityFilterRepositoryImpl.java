@@ -8,6 +8,8 @@ import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.dao.AggregateResultDto;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
 import com.otilm.core.dao.entity.CryptographicKeyItem_;
+import com.otilm.core.dao.entity.UniquelyIdentifiedObject;
+import com.otilm.core.dao.entity.UniquelyIdentified_;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -28,14 +30,13 @@ import jakarta.persistence.criteria.From;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import jakarta.persistence.criteria.Selection;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.SingularAttribute;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -117,7 +118,8 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
             final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order, final SortSpecification sort) {
         if (SortOrderBuilder.traversesJoin(sort)) {
-            return findEntitiesOrderedByJoinedField(filter, fetchAssociations, additionalWhereClause, p, order, sort);
+            return loadInUuidOrder(findUuidsOrderedByJoinedField(filter, additionalWhereClause, p, sort),
+                    fetchAssociations);
         }
         final CriteriaQuery<T> cr = createCriteriaBuilder(filter, fetchAssociations, additionalWhereClause, order, sort,
                 p != null);
@@ -136,45 +138,31 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
             final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order, final SortSpecification sort) {
         if (SortOrderBuilder.traversesJoin(sort)) {
-            return findUuidsOrderedByJoinedField(filter, additionalWhereClause, p, order, sort);
+            return findUuidsOrderedByJoinedField(filter, additionalWhereClause, p, sort);
         }
         final CriteriaQuery<UUID> cr = createCriteriaBuilderUuid(filter, additionalWhereClause, order, sort, p != null);
         return window(entityManager.createQuery(cr), p).getResultList();
     }
 
     /**
-     * Ordering by a field of a joined entity cannot go through the plain {@code SELECT DISTINCT} query: PostgreSQL
-     * rejects an ORDER BY expression that the select list does not carry. The ordering expressions are therefore
-     * selected alongside the root, and the root is read back out of each tuple.
+     * The uuids of a page ordered by a field of a joined entity. The join gives a root as many rows as it has matches,
+     * so a window cut over those rows would underfill the page and let the same root reappear on the next one. The
+     * query therefore groups by the root's uuid and orders by the aggregate the ordering resolves - one row per root,
+     * which is what the window is allowed to cut.
      */
-    private List<T> findEntitiesOrderedByJoinedField(final SecurityFilter filter, List<String> fetchAssociations,
-            final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
-            final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order, final SortSpecification sort) {
-        final Class<T> entity = this.entityInformation.getJavaType();
-        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        final CriteriaQuery<Tuple> cr = cb.createTupleQuery();
-        final Root<T> root = cr.from(entity);
-
-        fetchAssociations(root, fetchAssociations);
-        selectWithOrdering(cr, root, root, cb, order, sort, p != null);
-        applyPredicates(cr, filter, additionalWhereClause, root, cb);
-
-        return deduplicate(window(entityManager.createQuery(cr), p)
-                .getResultList()
-                .stream()
-                .map(tuple -> tuple.get(0, entity))
-                .toList());
-    }
-
     private List<UUID> findUuidsOrderedByJoinedField(final SecurityFilter filter,
             final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
-            final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order, final SortSpecification sort) {
+            final Pageable p, final SortSpecification sort) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final CriteriaQuery<Tuple> cr = cb.createTupleQuery();
         final Root<T> root = cr.from(entity);
+        final Path<?> uuid = root.get(UniquelyIdentified_.UUID);
 
-        selectWithOrdering(cr, root, root.get("uuid"), cb, order, sort, p != null);
+        final SortOrderBuilder.GroupedOrdering ordering = SortOrderBuilder.resolveGrouped(root, cb, sort);
+        cr.multiselect(uuid, ordering.sortKey());
+        cr.groupBy(uuid);
+        cr.orderBy(ordering.orders());
         applyPredicates(cr, filter, additionalWhereClause, root, cb);
 
         return window(entityManager.createQuery(cr), p)
@@ -185,23 +173,32 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     /**
-     * Selects {@code subject} together with every ordering expression the select list has to carry, and orders the
-     * query by the resolved terms.
+     * Loads the entities a page of uuids names, in the order the page ranks them. A plural fetch association repeats a
+     * root across the rows it returns, and the database is free to return them in any order, so the ranking the page
+     * carries is what the result is rebuilt from.
      */
-    private void selectWithOrdering(final CriteriaQuery<Tuple> cr, final Root<T> root, final Selection<?> subject,
-            final CriteriaBuilder cb, final BiFunction<Root<T>, CriteriaBuilder, Order> order,
-            final SortSpecification sort, final boolean paged) {
-        final SortOrderBuilder.Ordering ordering = resolveOrdering(root, cb, order, sort, paged);
+    private List<T> loadInUuidOrder(final List<UUID> uuids, final List<String> fetchAssociations) {
+        if (uuids.isEmpty()) {
+            return List.of();
+        }
+        final Class<T> entity = this.entityInformation.getJavaType();
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        final CriteriaQuery<T> cr = cb.createQuery(entity);
+        final Root<T> root = cr.from(entity);
 
-        final List<Selection<?>> selections = new ArrayList<>();
-        selections.add(subject);
-        selections.addAll(ordering.expressionsToSelect());
+        fetchAssociations(root, fetchAssociations);
+        cr.select(root).where(root.get(UniquelyIdentified_.UUID).in(uuids));
 
-        cr.multiselect(selections).distinct(true);
-        cr.orderBy(ordering.orders());
+        final Map<UUID, T> byUuid = new HashMap<>();
+        for (T loaded : entityManager.createQuery(cr).getResultList()) {
+            if (loaded instanceof UniquelyIdentifiedObject identified) {
+                byUuid.putIfAbsent(identified.getUuid(), loaded);
+            }
+        }
+        return uuids.stream().map(byUuid::get).filter(Objects::nonNull).toList();
     }
 
-    private SortOrderBuilder.Ordering resolveOrdering(final Root<T> root, final CriteriaBuilder cb,
+    private List<Order> resolveOrdering(final Root<T> root, final CriteriaBuilder cb,
             final BiFunction<Root<T>, CriteriaBuilder, Order> order, final SortSpecification sort,
             final boolean paged) {
         final Order defaultOrder = order == null ? null : order.apply(root, cb);
@@ -222,18 +219,6 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             query.setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize());
         }
         return query;
-    }
-
-    /**
-     * A join that multiplies rows can repeat the same root entity across the tuples; the caller expects one entry per
-     * entity, in the order the database returned it.
-     */
-    private List<T> deduplicate(final List<T> entities) {
-        final Map<Object, T> unique = new LinkedHashMap<>();
-        for (T entity : entities) {
-            unique.putIfAbsent(this.entityInformation.getId(entity), entity);
-        }
-        return List.copyOf(unique.values());
     }
 
     @Override
@@ -448,9 +433,9 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
         fetchAssociations(root, fetchAssociations);
 
-        final SortOrderBuilder.Ordering ordering = resolveOrdering(root, cb, order, sort, paged);
-        if (!ordering.isEmpty()) {
-            cr.orderBy(ordering.orders());
+        final List<Order> orders = resolveOrdering(root, cb, order, sort, paged);
+        if (!orders.isEmpty()) {
+            cr.orderBy(orders);
         }
 
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
@@ -468,9 +453,9 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
         cr.select(root.get("uuid"));
 
-        final SortOrderBuilder.Ordering ordering = resolveOrdering(root, cb, order, sort, paged);
-        if (!ordering.isEmpty()) {
-            cr.orderBy(ordering.orders());
+        final List<Order> orders = resolveOrdering(root, cb, order, sort, paged);
+        if (!orders.isEmpty()) {
+            cr.orderBy(orders);
         }
 
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);

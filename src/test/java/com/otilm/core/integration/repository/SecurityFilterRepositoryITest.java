@@ -74,6 +74,8 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
     private ResourceObjectAssociationService resourceObjectAssociationService;
 
     private Group group;
+    private Group secondGroup;
+    private Group thirdGroup;
     private RaProfile raProfile;
     private RaProfile raProfile2;
 
@@ -97,6 +99,14 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         group.setName("TestGroup");
         groupRepository.save(group);
 
+        secondGroup = new Group();
+        secondGroup.setName("AnotherTestGroup");
+        groupRepository.save(secondGroup);
+
+        thirdGroup = new Group();
+        thirdGroup.setName("MiddleTestGroup");
+        groupRepository.save(thirdGroup);
+
         raProfile = new RaProfile();
         raProfile.setName("Test RA profile");
         raProfile = raProfileRepository.save(raProfile);
@@ -114,6 +124,8 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         certificateGroup.setCertificateContentId(newContent().getId());
         certificateGroup = certificateRepository.save(certificateGroup);
         resourceObjectAssociationService.addGroup(Resource.CERTIFICATE, certificateGroup.getUuid(), group.getUuid());
+        resourceObjectAssociationService
+                .addGroup(Resource.CERTIFICATE, certificateGroup.getUuid(), secondGroup.getUuid());
 
         certificateOwner = new Certificate();
         certificateOwner.setSubjectDn("CN=testCertificateOwner");
@@ -131,6 +143,8 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         association.setOwnerUuid(UUID.fromString(userInfo.getUuid()));
         association.setOwnerUsername(userInfo.getName());
         ownerAssociationRepository.save(association);
+        resourceObjectAssociationService
+                .addGroup(Resource.CERTIFICATE, certificateOwner.getUuid(), thirdGroup.getUuid());
 
         certificateRaProfile1 = new Certificate();
         certificateRaProfile1.setSubjectDn("CN=testCertificateRA1");
@@ -214,7 +228,7 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         filter.setResourceFilter(resourceFilter);
 
         List<Group> groups = groupRepository.findUsingSecurityFilter(filter);
-        Assertions.assertEquals(1, groups.size());
+        Assertions.assertEquals(3, groups.size());
 
         final TriFunction<Root<Group>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb,
                 cr) -> cb.equal(root.get(Group_.name), "ABCD");
@@ -252,12 +266,8 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
                         descending.stream().map(Certificate::getSubjectDn).toList());
     }
 
-    /**
-     * The entity query is a SELECT DISTINCT, and PostgreSQL refuses an ORDER BY expression that its select list does
-     * not carry - which is every expression reached through a join.
-     */
     @Test
-    void sortsByJoinedPropertyUnderDistinct() {
+    void sortsByJoinedProperty() {
         SecurityFilter filter = SecurityFilter.create();
 
         List<UUID> ascending = uuidsOf(certificateRepository
@@ -379,6 +389,90 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
         Assertions
                 .assertThrows(ValidationException.class,
                         () -> groupRepository.findUsingSecurityFilter(filter, List.of(), null, null, null, sort));
+    }
+
+    /**
+     * A certificate in two groups is two rows of the join the sort walks. Windowing those rows would give the first
+     * page one certificate instead of two and hand the second page the same certificate again, so the query has to cut
+     * pages out of one row per certificate.
+     */
+    @Test
+    void pagesOneRootPerRowWhenTheSortTraversesAPluralJoin() {
+        SecurityFilter filter = SecurityFilter.create();
+        SortSpecification sort = propertySort("GROUP_NAME", SortDirection.ASC);
+
+        List<UUID> paged = new ArrayList<>();
+        for (int pageNumber = 0; pageNumber < 2; pageNumber++) {
+            Pageable page = PageRequest.of(pageNumber, 2);
+            paged
+                    .addAll(uuidsOf(
+                            certificateRepository.findUsingSecurityFilter(filter, List.of(), null, page, null, sort)));
+        }
+
+        Assertions.assertEquals(4, paged.size());
+        Assertions.assertEquals(4, Set.copyOf(paged).size());
+        Assertions
+                .assertEquals(uuidsOf(
+                        certificateRepository.findUsingSecurityFilter(filter, List.of(), null, null, null, sort)),
+                        paged);
+    }
+
+    /** The uuid overload pages the same way, and is the one the certificate listing reads. */
+    @Test
+    void pagesUuidsOneRootPerRowWhenTheSortTraversesAPluralJoin() {
+        SecurityFilter filter = SecurityFilter.create();
+        SortSpecification sort = propertySort("GROUP_NAME", SortDirection.DESC);
+
+        List<UUID> paged = new ArrayList<>();
+        for (int pageNumber = 0; pageNumber < 2; pageNumber++) {
+            paged
+                    .addAll(certificateRepository
+                            .findUuidsUsingSecurityFilter(filter, null, PageRequest.of(pageNumber, 2), null, sort));
+        }
+
+        Assertions.assertEquals(4, paged.size());
+        Assertions.assertEquals(4, Set.copyOf(paged).size());
+        Assertions
+                .assertEquals(certificateRepository.findUuidsUsingSecurityFilter(filter, null, null, null, sort),
+                        paged);
+    }
+
+    /**
+     * The certificate in two groups sorts by the group name that decides where it belongs among the others: the first
+     * of its names alphabetically when ascending, the last when descending. Its two names bracket the single name of
+     * the certificate it is compared against, so ordering by either one of them alone would put the pair the other way
+     * round in one of the two directions.
+     */
+    @Test
+    void aPluralJoinSortsByTheValueThatDecidesTheRootPosition() {
+        SecurityFilter filter = SecurityFilter.create();
+
+        List<UUID> ascending = certificateRepository
+                .findUuidsUsingSecurityFilter(filter, null, null, null, propertySort("GROUP_NAME", SortDirection.ASC));
+        List<UUID> descending = certificateRepository
+                .findUuidsUsingSecurityFilter(filter, null, null, null, propertySort("GROUP_NAME", SortDirection.DESC));
+
+        Assertions
+                .assertTrue(
+                        ascending.indexOf(certificateGroup.getUuid()) < ascending.indexOf(certificateOwner.getUuid()));
+        Assertions
+                .assertTrue(descending.indexOf(certificateGroup.getUuid()) < descending
+                        .indexOf(certificateOwner.getUuid()));
+    }
+
+    /**
+     * A field identifier is unique across resources, but the attribute path behind it is not: {@code Audited.created}
+     * is a mapped superclass attribute that resolves against a certificate just as well as against the signing record
+     * the identifier names.
+     */
+    @Test
+    void rejectsSortFieldInheritedFromAMappedSuperclassOfAnotherResource() {
+        SecurityFilter filter = SecurityFilter.create();
+        SortSpecification sort = propertySort("SIGNING_RECORD_CREATED", SortDirection.ASC);
+
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> certificateRepository.findUsingSecurityFilter(filter, List.of(), null, null, null, sort));
     }
 
     @Test
