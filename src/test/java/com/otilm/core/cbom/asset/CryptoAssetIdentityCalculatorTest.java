@@ -2,6 +2,7 @@ package com.otilm.core.cbom.asset;
 
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
@@ -236,6 +237,52 @@ class CryptoAssetIdentityCalculatorTest {
      * {@link CryptoAssetIdentityCalculator#RULESET_VERSION} must be bumped in the same commit so existing rows stay
      * findable by {@code findUuidsKeyedBefore}.
      */
+    /**
+     * The property that makes the stored row sufficient to re-derive its own key. The staleness sweep re-keys rows
+     * whose rule-set version has fallen behind, and it can only read the columns -- so normalizing must be a fixed
+     * point, or a row keyed from raw input and re-keyed from its stored columns would land on two different keys and
+     * split the inventory silently.
+     */
+    @Test
+    void normalizingIsAFixedPointAndDoesNotMoveTheKey() {
+        List<CryptoAssetIdentityFields> vectors = List
+                .of(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "  ECDSA  ", "\u3000",
+                        "\uFF25\uFF23\uFF24\uFF33\uFF21", "SIGNATURE", " P-256 ", null, "CBC", "", "FIPS186-4"),
+                        new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "\u0130stanbul", null, null,
+                                null, null, null, null, null, null),
+                        new CryptoAssetIdentityFields(CryptographicAssetType.PROTOCOL, "\u00A0TLS\u00A0", "1.3", null,
+                                null, null, null, null, null, null),
+                        new CryptoAssetIdentityFields(null, null, null, null, null, null, null, null, null, null));
+
+        for (CryptoAssetIdentityFields raw : vectors) {
+            CryptoAssetIdentityFields stored = raw.normalized();
+            assertThat(CryptoAssetIdentityCalculator.calculate(stored))
+                    .describedAs("normalizing the input must not move the key: %s", raw)
+                    .isEqualTo(CryptoAssetIdentityCalculator.calculate(raw));
+            assertThat(stored.normalized())
+                    .describedAs("normalizing twice must equal normalizing once: %s", raw)
+                    .isEqualTo(stored);
+        }
+    }
+
+    @Test
+    void normalizingFoldsEveryBlankFormToAbsent() {
+        CryptoAssetIdentityFields blanks = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "", "  ",
+                "\u3000", "\u00A0", "\t", null, " ", "\n", "\u2007").normalized();
+
+        assertThat(blanks.name()).isNull();
+        assertThat(blanks.oid()).isNull();
+        assertThat(blanks.algorithmFamily()).isNull();
+        assertThat(blanks.primitive()).isNull();
+        assertThat(blanks.parameterSet()).isNull();
+        assertThat(blanks.mode()).isNull();
+        assertThat(blanks.padding()).isNull();
+        assertThat(blanks.variant()).isNull();
+        assertThat(blanks.assetType())
+                .describedAs("the platform's own enum constant is already canonical and passes through")
+                .isEqualTo(CryptographicAssetType.ALGORITHM);
+    }
+
     @Test
     void theIdentityKeyMatchesItsKnownAnswerVector() {
         CryptoAssetIdentityFields allFieldsPopulated = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM,

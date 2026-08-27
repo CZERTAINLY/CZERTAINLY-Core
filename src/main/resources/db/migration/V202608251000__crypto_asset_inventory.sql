@@ -12,9 +12,12 @@ CREATE TABLE "crypto_asset" (
     -- re-key every row on a rule-set bump. Recorded instead, so 'ruleset_version < current' finds rows to re-key.
     "ruleset_version"           INT         NOT NULL,
 
-    -- Typed identity and filter columns. All but asset_type are producer-supplied and nullable: a CycloneDX value this
-    -- Core version has never seen must be stored, not rejected, and a crypto component may carry no cryptoProperties
-    -- at all (the UNROUTABLE backstop asset type).
+    -- Typed identity and filter columns, holding the canonical normalized spelling rather than any one producer's raw
+    -- text: the row is a deduplicated view over every producer that reported the asset, so it has no single raw
+    -- spelling, and storing the last writer's made a filter answer depend on sync order. The producers' own spellings
+    -- are retained per source. All but asset_type are producer-derived and nullable: a CycloneDX value this Core
+    -- version has never seen must be stored, not rejected, and a crypto component may carry no cryptoProperties at
+    -- all (the UNROUTABLE backstop asset type).
     "asset_type"                TEXT        NOT NULL,
     "name"                      TEXT,
     "oid"                       TEXT,

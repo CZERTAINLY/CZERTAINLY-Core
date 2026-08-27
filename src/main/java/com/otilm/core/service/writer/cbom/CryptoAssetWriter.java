@@ -44,6 +44,14 @@ public class CryptoAssetWriter {
      * resolve the alias and address the surviving asset by uuid instead; they never re-key it, because rewriting the
      * canonical row's identity columns with the absorbed row's fields would change what the canonical row claims to be.
      *
+     * <p>
+     * The columns store {@link CryptoAssetIdentityFields#normalized()}, not the caller's raw input. An asset row is a
+     * deduplicated view over every producer that reported it, so it has no single raw spelling to hold; the producers'
+     * own spellings live per source. Storing the raw input made the row a function of sync order -- the upsert
+     * reassigns the identity columns on conflict, so the last producer to sync decided what an {@code EQUALS} filter
+     * would match and whether an omitted-versus-blank field counted as empty. The key never moved; only the answer did.
+     * The key is unchanged by this: it was always computed over the folded fields.
+     *
      * @return the uuid of the surviving row, which is the inserted uuid only when the insert won
      * @throws ValidationException if a guard is being stamped on a key an alias already refers to
      */
@@ -53,11 +61,12 @@ public class CryptoAssetWriter {
         if (guard != null) {
             requireNoAlias(key, guard);
         }
+        CryptoAssetIdentityFields stored = fields.normalized();
         assetRepository
                 .upsertIdentity(UUID.randomUUID(), key, CryptoAssetIdentityCalculator.RULESET_VERSION,
-                        fields.assetType() == null ? null : fields.assetType().name(), fields.name(), fields.oid(),
-                        fields.algorithmFamily(), fields.primitive(), fields.parameterSet(), fields.curve(),
-                        fields.mode(), fields.padding(), fields.variant(), guard == null ? null : guard.name());
+                        stored.assetType() == null ? null : stored.assetType().name(), stored.name(), stored.oid(),
+                        stored.algorithmFamily(), stored.primitive(), stored.parameterSet(), stored.curve(),
+                        stored.mode(), stored.padding(), stored.variant(), guard == null ? null : guard.name());
         return assetRepository
                 .findUuidByIdentityKey(key)
                 // Deliberately says nothing about the key: this text can reach an operator.

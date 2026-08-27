@@ -78,17 +78,44 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
 
     // ---- the identity and filter columns ----
 
+    /**
+     * The expected values are the <em>canonical</em> spellings, not the ones the seed passed in: the row stores
+     * {@link CryptoAssetIdentityFields#normalized()}, so a seed of {@code "ECDSA"} is matched by {@code "ecdsa"}. That
+     * is the visible consequence of the row being a deduplicated view rather than one producer's text.
+     */
     @Test
     void everyNullableTextFieldDistinguishesAValueMatchFromAnAbsentValue() {
-        assertFieldBehaviour(FilterField.CBOM_ASSET_NAME, "ECDSA");
+        assertFieldBehaviour(FilterField.CBOM_ASSET_NAME, "ecdsa");
         assertFieldBehaviour(FilterField.CBOM_ASSET_OID, "1.2.840.10045.4.3.2");
         assertFieldBehaviour(FilterField.CBOM_ASSET_ALGORITHM_FAMILY, "ecdsa");
         assertFieldBehaviour(FilterField.CBOM_ASSET_PRIMITIVE, "signature");
-        assertFieldBehaviour(FilterField.CBOM_ASSET_PARAMETER_SET, "P-256");
+        assertFieldBehaviour(FilterField.CBOM_ASSET_PARAMETER_SET, "p-256");
         assertFieldBehaviour(FilterField.CBOM_ASSET_CURVE, "secp256r1");
         assertFieldBehaviour(FilterField.CBOM_ASSET_MODE, "cbc");
         assertFieldBehaviour(FilterField.CBOM_ASSET_PADDING, "pkcs1v15");
         assertFieldBehaviour(FilterField.CBOM_ASSET_VARIANT, "fips186-4");
+    }
+
+    /**
+     * The finding this storage rule exists for. Three producers report one asset with three spellings and one of them
+     * sends whitespace where another sent nothing. All three key to the same row, so whichever synced last used to
+     * decide what an EQUALS predicate matched and whether the row counted as empty on that field.
+     */
+    @Test
+    void aFilterAnswerDoesNotDependOnWhichProducerSyncedLast() {
+        UUID first = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", null, null, null,
+                        null, null, "GCM", null, null), null);
+        UUID second = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "  aes  ", "   ", null,
+                        null, null, null, " gcm ", null, null), null);
+
+        assertThat(second).describedAs("all three spellings key to one row").isEqualTo(first);
+        assertFieldBehaviour(FilterField.CBOM_ASSET_NAME, "aes");
+        assertFieldBehaviour(FilterField.CBOM_ASSET_MODE, "gcm");
+        assertThat(assetRepository.findById(first).orElseThrow().getOid())
+                .describedAs("a field one producer omitted and another sent blank stays absent, so EMPTY is stable")
+                .isNull();
     }
 
     /**
