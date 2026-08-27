@@ -204,15 +204,22 @@ class ShippedExtensionSchemaTest {
     }
 
     @Test
-    void tlsFeatureRejectsAnEmptySequence() {
-        // RFC 7633 Features is a SEQUENCE OF INTEGER; an empty one asserts nothing.
-        assertRejects("1.3.6.1.5.5.7.1.24", "{\"sequence\":[]}");
+    void tlsFeatureAcceptsAnEmptySequence() {
+        // RFC 7633 defines Features as SEQUENCE OF INTEGER with no SIZE constraint, so an empty one is legal
+        // even though it asserts nothing. Rejecting it would refuse a valid encoding.
+        assertAccepts("1.3.6.1.5.5.7.1.24", "{\"sequence\":[]}");
+    }
+
+    @Test
+    void keyUsageRejectsAnAllZeroBitString() {
+        // RFC 5280 4.2.1.3: when the extension appears, at least one bit MUST be set.
+        assertRejects("2.5.29.15", "{\"bitString\":{\"value\":\"AA==\",\"padBits\":7}}");
+        assertRejects("2.5.29.15", "{\"bitString\":{\"value\":\"\",\"padBits\":0}}");
     }
 
     @Test
     void privateKeyUsagePeriodRejectsReversedAndDuplicateMembers() {
-        // notBefore [0] precedes notAfter [1] and each appears at most once; a homogeneous items rule let
-        // [1],[0] and [0],[0] through, and both encode a malformed sequence.
+        // notBefore [0] precedes notAfter [1], and each appears at most once.
         String zero = "{\"tagged\":{\"tagNo\":0,\"explicit\":false,"
                 + "\"value\":{\"generalizedTime\":\"20260101000000Z\"}}}";
         String one = "{\"tagged\":{\"tagNo\":1,\"explicit\":false,"
@@ -236,15 +243,36 @@ class ShippedExtensionSchemaTest {
     }
 
     @Test
-    void nameConstraintsConstrainsTheSubtreeMinimumAndMaximum() {
-        // Only the base was constrained, so positions two and three accepted anything.
+    void nameConstraintsRejectsASubtreeMinimumOrMaximum() {
+        // RFC 5280 4.2.1.10: within this profile minimum MUST be zero — so omitted in DER — and maximum MUST
+        // be absent, which leaves the base as a GeneralSubtree's only member.
         String base = "{\"tagged\":{\"tagNo\":2,\"explicit\":false,\"value\":{\"ia5String\":\"a.test\"}}}";
-        String minimum = "{\"tagged\":{\"tagNo\":0,\"explicit\":false,\"value\":{\"integer\":1}}}";
+        String minimum = "{\"tagged\":{\"tagNo\":0,\"explicit\":false,\"value\":{\"integer\":0}}}";
+        String maximum = "{\"tagged\":{\"tagNo\":1,\"explicit\":false,\"value\":{\"integer\":5}}}";
 
-        assertAccepts("2.5.29.30", nameConstraintsWithSubtree(base + "," + minimum));
-        assertRejects("2.5.29.30", nameConstraintsWithSubtree(base + ",{\"utf8String\":\"oops\"}"));
+        assertAccepts("2.5.29.30", nameConstraintsWithSubtree(base));
+        assertRejects("2.5.29.30", nameConstraintsWithSubtree(base + "," + minimum));
+        assertRejects("2.5.29.30", nameConstraintsWithSubtree(base + "," + maximum));
+    }
+
+    @Test
+    void nameConstraintsTypesEachGeneralNameTag() {
+        // A tag number alone does not pin the name form: dNSName is IMPLICIT IA5String, so explicit tagging or
+        // another value type encodes something else entirely.
+        assertAccepts("2.5.29.30", nameConstraintsWithSubtree(
+                "{\"tagged\":{\"tagNo\":2,\"explicit\":false,\"value\":{\"ia5String\":\"a.test\"}}}"));
         assertRejects("2.5.29.30", nameConstraintsWithSubtree(
-                base + ",{\"tagged\":{\"tagNo\":0,\"explicit\":false," + "\"value\":{\"integer\":-1}}}"));
+                "{\"tagged\":{\"tagNo\":2,\"explicit\":true,\"value\":{\"ia5String\":\"a.test\"}}}"));
+        assertRejects("2.5.29.30", nameConstraintsWithSubtree(
+                "{\"tagged\":{\"tagNo\":2,\"explicit\":false,\"value\":{\"utf8String\":\"a.test\"}}}"));
+        assertRejects("2.5.29.30", nameConstraintsWithSubtree(
+                "{\"tagged\":{\"tagNo\":9,\"explicit\":false,\"value\":{\"ia5String\":\"a.test\"}}}"));
+
+        // directoryName is the exception: Name is a CHOICE, so it cannot be tagged implicitly.
+        assertAccepts("2.5.29.30",
+                nameConstraintsWithSubtree("{\"tagged\":{\"tagNo\":4,\"explicit\":true,\"value\":{\"sequence\":[]}}}"));
+        assertRejects("2.5.29.30", nameConstraintsWithSubtree(
+                "{\"tagged\":{\"tagNo\":4,\"explicit\":false,\"value\":{\"sequence\":[]}}}"));
     }
 
     private static String nameConstraintsWithSubtree(String subtreeMembers) {

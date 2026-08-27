@@ -163,32 +163,11 @@
       "properties": {
         "sequence": {
           "type": "array",
-          "oneOf": [
+          "minItems": 1,
+          "maxItems": 1,
+          "prefixItems": [
             {
-              "minItems": 3,
-              "maxItems": 3,
-              "prefixItems": [
-                {
-                  "type": "object",
-                  "required": [
-                    "tagged"
-                  ],
-                  "properties": {
-                    "tagged": {
-                      "type": "object",
-                      "required": [
-                        "tagNo"
-                      ],
-                      "properties": {
-                        "tagNo": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 8
-                        }
-                      }
-                    }
-                  }
-                },
+              "oneOf": [
                 {
                   "type": "object",
                   "required": [
@@ -212,14 +191,8 @@
                         "value": {
                           "type": "object",
                           "required": [
-                            "integer"
-                          ],
-                          "properties": {
-                            "integer": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          }
+                            "sequence"
+                          ]
                         }
                       }
                     }
@@ -248,42 +221,8 @@
                         "value": {
                           "type": "object",
                           "required": [
-                            "integer"
-                          ],
-                          "properties": {
-                            "integer": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              ],
-              "items": false
-            },
-            {
-              "minItems": 2,
-              "maxItems": 2,
-              "prefixItems": [
-                {
-                  "type": "object",
-                  "required": [
-                    "tagged"
-                  ],
-                  "properties": {
-                    "tagged": {
-                      "type": "object",
-                      "required": [
-                        "tagNo"
-                      ],
-                      "properties": {
-                        "tagNo": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 8
+                            "ia5String"
+                          ]
                         }
                       }
                     }
@@ -304,7 +243,7 @@
                       ],
                       "properties": {
                         "tagNo": {
-                          "const": 0
+                          "const": 2
                         },
                         "explicit": {
                           "const": false
@@ -312,42 +251,8 @@
                         "value": {
                           "type": "object",
                           "required": [
-                            "integer"
-                          ],
-                          "properties": {
-                            "integer": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              ],
-              "items": false
-            },
-            {
-              "minItems": 2,
-              "maxItems": 2,
-              "prefixItems": [
-                {
-                  "type": "object",
-                  "required": [
-                    "tagged"
-                  ],
-                  "properties": {
-                    "tagged": {
-                      "type": "object",
-                      "required": [
-                        "tagNo"
-                      ],
-                      "properties": {
-                        "tagNo": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 8
+                            "ia5String"
+                          ]
                         }
                       }
                     }
@@ -368,7 +273,7 @@
                       ],
                       "properties": {
                         "tagNo": {
-                          "const": 1
+                          "const": 3
                         },
                         "explicit": {
                           "const": false
@@ -376,26 +281,13 @@
                         "value": {
                           "type": "object",
                           "required": [
-                            "integer"
-                          ],
-                          "properties": {
-                            "integer": {
-                              "type": "integer",
-                              "minimum": 0
-                            }
-                          }
+                            "sequence"
+                          ]
                         }
                       }
                     }
                   }
-                }
-              ],
-              "items": false
-            },
-            {
-              "minItems": 1,
-              "maxItems": 1,
-              "prefixItems": [
+                },
                 {
                   "type": "object",
                   "required": [
@@ -405,22 +297,151 @@
                     "tagged": {
                       "type": "object",
                       "required": [
-                        "tagNo"
+                        "tagNo",
+                        "explicit",
+                        "value"
                       ],
                       "properties": {
                         "tagNo": {
-                          "type": "integer",
-                          "minimum": 0,
-                          "maximum": 8
+                          "const": 4
+                        },
+                        "explicit": {
+                          "const": true
+                        },
+                        "value": {
+                          "type": "object",
+                          "required": [
+                            "sequence"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "tagged"
+                  ],
+                  "properties": {
+                    "tagged": {
+                      "type": "object",
+                      "required": [
+                        "tagNo",
+                        "explicit",
+                        "value"
+                      ],
+                      "properties": {
+                        "tagNo": {
+                          "const": 5
+                        },
+                        "explicit": {
+                          "const": false
+                        },
+                        "value": {
+                          "type": "object",
+                          "required": [
+                            "sequence"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "tagged"
+                  ],
+                  "properties": {
+                    "tagged": {
+                      "type": "object",
+                      "required": [
+                        "tagNo",
+                        "explicit",
+                        "value"
+                      ],
+                      "properties": {
+                        "tagNo": {
+                          "const": 6
+                        },
+                        "explicit": {
+                          "const": false
+                        },
+                        "value": {
+                          "type": "object",
+                          "required": [
+                            "ia5String"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "tagged"
+                  ],
+                  "properties": {
+                    "tagged": {
+                      "type": "object",
+                      "required": [
+                        "tagNo",
+                        "explicit",
+                        "value"
+                      ],
+                      "properties": {
+                        "tagNo": {
+                          "const": 7
+                        },
+                        "explicit": {
+                          "const": false
+                        },
+                        "value": {
+                          "type": "object",
+                          "required": [
+                            "octetString"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "tagged"
+                  ],
+                  "properties": {
+                    "tagged": {
+                      "type": "object",
+                      "required": [
+                        "tagNo",
+                        "explicit",
+                        "value"
+                      ],
+                      "properties": {
+                        "tagNo": {
+                          "const": 8
+                        },
+                        "explicit": {
+                          "const": false
+                        },
+                        "value": {
+                          "type": "object",
+                          "required": [
+                            "oid"
+                          ]
                         }
                       }
                     }
                   }
                 }
-              ],
-              "items": false
+              ]
             }
-          ]
+          ],
+          "items": false
         }
       }
     }

@@ -1,13 +1,30 @@
 {
   "type": "object",
-  "required": ["bitString"],
+  "required": [
+    "bitString"
+  ],
   "properties": {
     "bitString": {
       "type": "object",
-      "required": ["value"],
+      "required": [
+        "value"
+      ],
       "properties": {
-        "value": { "type": "string" },
-        "padBits": { "type": "integer", "minimum": 0, "maximum": 7 }
+        "value": {
+          "type": "string",
+          "not": {
+            "enum": [
+              "",
+              "AA==",
+              "AAA="
+            ]
+          }
+        },
+        "padBits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        }
       }
     }
   }

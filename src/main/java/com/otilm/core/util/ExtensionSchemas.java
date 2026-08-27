@@ -70,11 +70,11 @@ public final class ExtensionSchemas {
     /** The schema governing {@code oid}'s value, or empty when neither the registry nor Core ships one. */
     public static Optional<JsonSchema> resolve(String oid) {
         Map<String, OidRecord> registry = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION);
-        OidRecord record = registry == null ? null : registry.get(oid);
-        if (record != null && record.valueSchema() != null) {
-            return Optional.of(load(record.valueSchema()));
+        OidRecord oidRecord = registry == null ? null : registry.get(oid);
+        if (oidRecord != null && oidRecord.valueSchema() != null) {
+            return Optional.of(load(oidRecord.valueSchema()));
         }
-        if (record != null && !record.system()) {
+        if (oidRecord != null && !oidRecord.system()) {
             // An operator's own entry is the effective one while it exists, the same way its criticality and
             // encoding win. Declaring no schema therefore means the value is unconstrained, not that a
             // Core-shipped shape applies — which would otherwise start constraining a legacy row whose OID has
