@@ -84,7 +84,7 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         List<BaseAttribute> connectorSet = RequestAttributeSetResolver
                 .effectiveMode(mode) == AttributeSetMergeMode.STATIC_ONLY
                         ? List.of()
-                        : listConnectorIssueAttributes(raProfile);
+                        : listConnectorRequestAttributes(raProfile);
 
         List<BaseAttribute> merged = RequestAttributeSetResolver.merge(staticSet, connectorSet, mode);
         if (merged.isEmpty()) {
@@ -99,13 +99,15 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         return requestAttributeRepository.findByRaProfileUuid(raProfile.getUuid()).orElse(null);
     }
 
-    private List<BaseAttribute> listConnectorIssueAttributes(RaProfile raProfile)
+    private List<BaseAttribute> listConnectorRequestAttributes(RaProfile raProfile)
             throws ConnectorException, NotFoundException {
         if (raProfile.getAuthorityInstanceReference() == null
                 || raProfile.getAuthorityInstanceReference().getConnector() == null) {
             return List.of(); // offline/external authority: no dynamic set
         }
-        return extendedAttributeService.listIssueCertificateAttributes(raProfile);
+        // A connector that does not serve /request/attributes resolves to an empty schema in the adapter, so the
+        // merge below lands on the static set or the platform default — the pre-connector behaviour.
+        return extendedAttributeService.listCertificateRequestAttributes(raProfile);
     }
 
     @Override
@@ -127,7 +129,7 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
             dto.setExternalCsrValidationStrict(set.getExternalCsrValidationStrict());
         }
         // Read view always exposes the effective merge mode (resolved even when no set is stored), so clients never
-        // see null; the null -> MERGE default lives once in RequestAttributeSetResolver.
+        // see null; the null -> STATIC_ONLY default lives once in RequestAttributeSetResolver.
         dto.setMergeMode(RequestAttributeSetResolver.effectiveMode(set == null ? null : set.getMergeMode()));
         dto
                 .setValueSourceBindings(
@@ -137,15 +139,6 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
 
     @Override
     public void updateConfiguration(RaProfile raProfile, RaProfileCertificateRequestAttributesUpdateDto request) {
-        AttributeSetMergeMode effectiveMode = RequestAttributeSetResolver.effectiveMode(request.getMergeMode());
-        if (effectiveMode != AttributeSetMergeMode.STATIC_ONLY) {
-            throw new ValidationException(
-                    String.format("Merge mode %s is not supported. Use `Static Only` mode.", effectiveMode));
-        }
-        if (request.getValueSourceBindings() != null && !request.getValueSourceBindings().isEmpty()) {
-            throw new ValidationException(
-                    "Value-source bindings are not supported in this version. Use the `Static Only` mode without bindings.");
-        }
         AttributeEngine.validateRequestAttributeDefinitions(request.getRequestAttributes());
         writer
                 .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(request.getRequestAttributes()),

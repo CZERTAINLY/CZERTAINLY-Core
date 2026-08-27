@@ -38,7 +38,7 @@ public final class RequestAttributeSetResolver {
     /**
      * @param staticSet the RA-Profile static definitions (may be {@code null})
      * @param connectorSet the connector-supplied dynamic definitions (may be {@code null})
-     * @param mode the per-RA-Profile merge mode; {@code null} is treated as {@link AttributeSetMergeMode#MERGE}
+     * @param mode the per-RA-Profile merge mode; {@code null} is treated as {@link AttributeSetMergeMode#STATIC_ONLY}
      * @return the resolved, ordered set
      */
     public static List<BaseAttribute> merge(List<? extends BaseAttribute> staticSet,
