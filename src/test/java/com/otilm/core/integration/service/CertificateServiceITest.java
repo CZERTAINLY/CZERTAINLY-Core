@@ -38,6 +38,7 @@ import com.otilm.api.model.core.certificate.CertificateEvent;
 import com.otilm.api.model.core.certificate.CertificateEventStatus;
 import com.otilm.api.model.core.certificate.CertificateFormat;
 import com.otilm.api.model.core.certificate.CertificateFormatEncoding;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateQcStatementsDto;
 import com.otilm.api.model.core.certificate.CertificateRegistrationState;
 import com.otilm.api.model.core.certificate.CertificateRelationType;
@@ -108,6 +109,7 @@ import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.messaging.jms.producers.NotificationProducer;
 import com.otilm.core.model.auth.CertificateProtocolInfo;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.security.authn.client.AuthenticationCache;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -695,7 +697,8 @@ class CertificateServiceITest extends BaseSpringBootTest {
 
             // when
             List<CertificateDto> certificates = certificateService
-                    .listDigitalSigningCertificates(SecurityFilter.create(), workflowType, qualifiedTimestamp);
+                    .listDigitalSigningCertificates(SecurityFilter.create(), workflowType, qualifiedTimestamp,
+                            CertificatePurposeRequirements.NONE);
             var presentCommonNames = certificates.stream().map(CertificateDto::getCommonName).toList();
 
             // then
@@ -2534,6 +2537,7 @@ class CertificateServiceITest extends BaseSpringBootTest {
             cert.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsages));
         }
         cert.setExtendedKeyUsageCritical(extendedKeyUsageCritical);
+        cert.setUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE));
         if (qcCompliance != null) {
             cert.setQcCompliance(qcCompliance);
         }

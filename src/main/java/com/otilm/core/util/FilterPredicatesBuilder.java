@@ -668,9 +668,8 @@ public class FilterPredicatesBuilder {
 
     private static Expression<?> getBitwiseEqualExpression(Object bit, Expression expression,
             CriteriaBuilder criteriaBuilder) {
-        return criteriaBuilder
-                .function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class, expression,
-                        criteriaBuilder.literal(bit));
+        Expression<?> mask = criteriaBuilder.literal(bit);
+        return criteriaBuilder.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class, expression, mask);
     }
 
     private static void validateRegexForDbQuery(String regex) {

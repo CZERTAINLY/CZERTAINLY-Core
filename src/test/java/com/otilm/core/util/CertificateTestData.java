@@ -14,6 +14,9 @@ import org.junit.jupiter.params.provider.Arguments;
 
 public class CertificateTestData {
 
+    /** RFC 9336 id-kp-documentSigning. */
+    public static final String DOCUMENT_SIGNING_OID = "1.3.6.1.5.5.7.3.36";
+
     public record KeyItemData(KeyType type, KeyAlgorithm algorithm, List<KeyUsage> usage, KeyState state) {
     }
 

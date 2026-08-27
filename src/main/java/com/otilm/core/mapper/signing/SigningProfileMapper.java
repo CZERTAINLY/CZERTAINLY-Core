@@ -22,6 +22,7 @@ import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.dao.entity.signing.SigningProfile;
 import com.otilm.core.dao.entity.signing.SigningProfileVersion;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.SigningRecordPolicyModel;
 import com.otilm.core.model.signing.scheme.ManagedSigning;
@@ -31,6 +32,7 @@ import com.otilm.core.model.signing.workflow.ManagedContentSigningWorkflow;
 import com.otilm.core.model.signing.workflow.ManagedTimestampingWorkflow;
 import com.otilm.core.util.TspProtocolUrlFactory;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.function.Consumer;
 import org.jspecify.annotations.NonNull;
@@ -197,7 +199,7 @@ public class SigningProfileMapper {
                 new ManagedContentSigningWorkflow(version.getSignatureFormattingConnectorUuid(),
                         cacheSafeList(signatureFormattingConnectorAttributes), version.getSignatureFamily(),
                         version.getMaxSignatureLevel(), version.getTimestampSourceProfileUuid(),
-                        version.getDocumentSizeCap()),
+                        version.getDocumentSizeCap(), toCertificatePurpose(version)),
                 buildManagedSchemeModel(version, signingOperationAttributes), buildRecordPolicyModel(version));
     }
 
@@ -251,6 +253,8 @@ public class SigningProfileMapper {
         wf.setFamily(version.getSignatureFamily());
         wf.setMaxLevel(version.getMaxSignatureLevel());
         wf.setDocumentSizeCap(version.getDocumentSizeCap());
+        wf.setRequireNonRepudiation(version.isRequireNonRepudiation());
+        wf.setRequiredExtendedKeyUsageOids(new LinkedHashSet<>(safeList(version.getRequiredExtendedKeyUsageOids())));
         if (version.getTimestampSourceProfileUuid() != null) {
             NameAndUuidDto timestampSourceProfile = new NameAndUuidDto();
             timestampSourceProfile.setUuid(version.getTimestampSourceProfileUuid().toString());
@@ -338,6 +342,11 @@ public class SigningProfileMapper {
         ref.setName(profileVersion.getSignatureFormattingConnector().getName());
         ref.setUuid(profileVersion.getSignatureFormattingConnectorUuid().toString());
         setter.accept(ref);
+    }
+
+    private static CertificatePurposeRequirements toCertificatePurpose(SigningProfileVersion version) {
+        return CertificatePurposeRequirements
+                .of(version.isRequireNonRepudiation(), version.getRequiredExtendedKeyUsageOids());
     }
 
     private static <T> List<T> safeList(List<T> list) {

@@ -5,6 +5,7 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.core.model.crypto.CryptographicKeyItemModel;
 import com.otilm.core.model.crypto.CryptographicKeyItemModelFixtures;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
@@ -30,7 +31,8 @@ class StaticKeyManagedSigningCertificateValidatorTest {
         var scheme = new ResolvedStaticKeyManagedSigning(certificate, SIGNING_KEY_ITEMS, null, List.of());
 
         // when
-        var result = provider.validate(scheme, SigningWorkflowType.TIMESTAMPING, false);
+        var result = provider
+                .validate(scheme, SigningWorkflowType.TIMESTAMPING, false, CertificatePurposeRequirements.NONE);
 
         // then
         assertThat(result).isInstanceOf(ValidationResult.Nok.class);
@@ -44,7 +46,8 @@ class StaticKeyManagedSigningCertificateValidatorTest {
                 List.of());
 
         // when
-        var result = provider.validate(scheme, SigningWorkflowType.TIMESTAMPING, false);
+        var result = provider
+                .validate(scheme, SigningWorkflowType.TIMESTAMPING, false, CertificatePurposeRequirements.NONE);
 
         // then
         assertThat(result).isInstanceOf(ValidationResult.Ok.class);
@@ -57,7 +60,8 @@ class StaticKeyManagedSigningCertificateValidatorTest {
                 List.of());
 
         // when
-        var result = provider.validate(scheme, SigningWorkflowType.TIMESTAMPING, true);
+        var result = provider
+                .validate(scheme, SigningWorkflowType.TIMESTAMPING, true, CertificatePurposeRequirements.NONE);
 
         // then
         assertThat(result).isInstanceOf(ValidationResult.Nok.class);
@@ -71,7 +75,8 @@ class StaticKeyManagedSigningCertificateValidatorTest {
         var scheme = new ResolvedStaticKeyManagedSigning(certificate, SIGNING_KEY_ITEMS, null, List.of());
 
         // when
-        var result = provider.validate(scheme, SigningWorkflowType.TIMESTAMPING, true);
+        var result = provider
+                .validate(scheme, SigningWorkflowType.TIMESTAMPING, true, CertificatePurposeRequirements.NONE);
 
         // then
         assertThat(result).isInstanceOf(ValidationResult.Ok.class);
@@ -83,8 +88,10 @@ class StaticKeyManagedSigningCertificateValidatorTest {
         var scheme = aSchemeWithPlainDigitalSignatureCertificate();
 
         // when
-        var timestamping = provider.validate(scheme, SigningWorkflowType.TIMESTAMPING, false);
-        var contentSigning = provider.validate(scheme, SigningWorkflowType.CONTENT_SIGNING, false);
+        var timestamping = provider
+                .validate(scheme, SigningWorkflowType.TIMESTAMPING, false, CertificatePurposeRequirements.NONE);
+        var contentSigning = provider
+                .validate(scheme, SigningWorkflowType.CONTENT_SIGNING, false, CertificatePurposeRequirements.NONE);
 
         // then
         assertThat(timestamping).isInstanceOf(ValidationResult.Nok.class);

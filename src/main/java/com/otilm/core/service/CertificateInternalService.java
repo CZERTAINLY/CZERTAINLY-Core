@@ -23,6 +23,7 @@ import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.events.handlers.discovery.DiscoveredCertificateImport;
 import com.otilm.core.model.auth.CertificateProtocolInfo;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -353,10 +354,11 @@ public interface CertificateInternalService extends ResourceExtensionService {
      * @param signingWorkflowType digital signing workflow type
      * @param qualifiedTimestamp when {@code true} and workflow is TIMESTAMPING, restricts results to certificates that
      * satisfy ETSI EN 319 421 qualified timestamp requirements
+     * @param certificatePurpose per-profile purpose constraints meaningful for the content- and raw-signing workflows
      * @return List of available certificates
      */
     List<CertificateDto> listDigitalSigningCertificates(SecurityFilter filter, SigningWorkflowType signingWorkflowType,
-            boolean qualifiedTimestamp);
+            boolean qualifiedTimestamp, CertificatePurposeRequirements certificatePurpose);
 
     /**
      * Find certificates which are expiring and not renewed and trigger event handling these certificates

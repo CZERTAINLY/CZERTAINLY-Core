@@ -1,6 +1,8 @@
 package com.otilm.core.model.signing;
 
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateSubjectType;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.oid.SystemOid;
 
@@ -25,9 +27,15 @@ public final class SigningCertificateBuilder {
     private UUID tokenInstanceReferenceUuid = UUID.randomUUID();
     private UUID tokenProfileUuid = UUID.randomUUID();
     private List<UUID> keyItemUuids = List.of();
+    private int keyUsageBitMask = CertificateKeyUsage.DIGITAL_SIGNATURE.getBit();
+    private CertificateSubjectType subjectType = CertificateSubjectType.END_ENTITY;
 
     public static SigningCertificateBuilder aSigningCertificate() {
         return new SigningCertificateBuilder();
+    }
+
+    public static SigningCertificateBuilder aContentSigningCertificate() {
+        return new SigningCertificateBuilder().extendedKeyUsageOids(List.of());
     }
 
     /** Returns a minimal valid certificate snapshot for non-qualified timestamping. */
@@ -104,9 +112,23 @@ public final class SigningCertificateBuilder {
         return this;
     }
 
+    public SigningCertificateBuilder keyUsage(CertificateKeyUsage... usages) {
+        int mask = 0;
+        for (CertificateKeyUsage usage : usages) {
+            mask |= usage.getBit();
+        }
+        this.keyUsageBitMask = mask;
+        return this;
+    }
+
+    public SigningCertificateBuilder subjectType(CertificateSubjectType subjectType) {
+        this.subjectType = subjectType;
+        return this;
+    }
+
     public SigningCertificate build() {
         return new SigningCertificate(uuid, commonName, archived, state, validationStatus,
                 List.copyOf(extendedKeyUsageOids), extendedKeyUsageCritical, qcCompliance, keyUuid,
-                tokenInstanceReferenceUuid, tokenProfileUuid, List.copyOf(keyItemUuids));
+                tokenInstanceReferenceUuid, tokenProfileUuid, List.copyOf(keyItemUuids), keyUsageBitMask, subjectType);
     }
 }

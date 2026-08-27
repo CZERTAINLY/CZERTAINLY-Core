@@ -10,12 +10,15 @@ import com.otilm.api.model.common.signature.SignatureFamily;
 import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.core.dao.entity.signing.SigningProfile;
 import com.otilm.core.dao.entity.signing.SigningProfileVersion;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.workflow.ManagedContentSigningWorkflow;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
+import static com.otilm.core.util.CertificateTestData.DOCUMENT_SIGNING_OID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SigningProfileMapperContentSigningTest {
@@ -41,6 +44,8 @@ class SigningProfileMapperContentSigningTest {
         version.setMaxSignatureLevel(SignatureLevel.TIMESTAMPED);
         version.setTimestampSourceProfileUuid(timestampSourceUuid);
         version.setDocumentSizeCap(5_242_880L);
+        version.setRequireNonRepudiation(true);
+        version.setRequiredExtendedKeyUsageOids(List.of(DOCUMENT_SIGNING_OID));
 
         // when
         SigningProfileModel<ManagedContentSigningWorkflow, ?> model = SigningProfileMapper
@@ -52,6 +57,8 @@ class SigningProfileMapperContentSigningTest {
         assertThat(model.workflow().timestampSourceProfileUuid()).isEqualTo(timestampSourceUuid);
         assertThat(model.workflow().documentSizeCap()).isEqualTo(5_242_880L);
         assertThat(model.workflow().signatureFormattingConnectorUuid()).isEqualTo(connectorUuid);
+        assertThat(model.workflow().certificatePurpose())
+                .isEqualTo(new CertificatePurposeRequirements(true, Set.of(DOCUMENT_SIGNING_OID)));
     }
 
     @Test
@@ -70,6 +77,8 @@ class SigningProfileMapperContentSigningTest {
         assertThat(workflow.getFamily()).isEqualTo(SignatureFamily.PADES);
         assertThat(workflow.getMaxLevel()).isEqualTo(SignatureLevel.TIMESTAMPED);
         assertThat(workflow.getDocumentSizeCap()).isEqualTo(5_242_880L);
+        assertThat(workflow.isRequireNonRepudiation()).isTrue();
+        assertThat(workflow.getRequiredExtendedKeyUsageOids()).containsExactly(DOCUMENT_SIGNING_OID);
         assertThat(workflow.getTimestampSource())
                 .isInstanceOfSatisfying(InternalTimestampSourceDto.class,
                         source -> assertThat(source.signingProfile().getUuid())
@@ -125,6 +134,22 @@ class SigningProfileMapperContentSigningTest {
         assertThat(((ContentSigningWorkflowDto) dto.getWorkflow()).getTimestampSource()).isNull();
     }
 
+    /** A row written before the certificate-purpose migration loads with a null OID list, not an empty one. */
+    @Test
+    void aLegacyVersionWithNoRequiredOidsMapsToTheDefaultPurposeRule() {
+        // given
+        SigningProfileVersion version = aContentSigningVersion();
+        version.setRequireNonRepudiation(false);
+        version.setRequiredExtendedKeyUsageOids(null);
+
+        // when
+        SigningProfileModel<ManagedContentSigningWorkflow, ?> model = SigningProfileMapper
+                .toManagedContentSigningModel(aHeader(), version, List.of(), List.of());
+
+        // then
+        assertThat(model.workflow().certificatePurpose()).isEqualTo(CertificatePurposeRequirements.NONE);
+    }
+
     private static SigningProfile aHeader() {
         SigningProfile header = new SigningProfile();
         header.setUuid(UUID.randomUUID());
@@ -143,6 +168,8 @@ class SigningProfileMapperContentSigningTest {
         version.setSignatureFamily(SignatureFamily.PADES);
         version.setMaxSignatureLevel(SignatureLevel.TIMESTAMPED);
         version.setDocumentSizeCap(5_242_880L);
+        version.setRequireNonRepudiation(true);
+        version.setRequiredExtendedKeyUsageOids(List.of(DOCUMENT_SIGNING_OID));
         return version;
     }
 }

@@ -5,12 +5,15 @@ import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyFormat;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateSubjectType;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.cryptography.key.KeyState;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
+import com.otilm.api.model.core.oid.SystemOid;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.Connector;
@@ -30,6 +33,7 @@ import com.otilm.core.dao.repository.FunctionGroupRepository;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.helpers.CertificateGeneratorHelper;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.cmp.CmpEntityUtil;
 import com.otilm.core.util.BaseSpringBootTest;
@@ -49,6 +53,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import static com.otilm.core.util.CertificateTestData.DOCUMENT_SIGNING_OID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DigitalSigningCertQueryITest extends BaseSpringBootTest {
@@ -113,7 +118,7 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
     }
 
     @Test
-    void contentSigning_returnsIssuedCertsWithActiveSigningKeyRegardlessOfEku() throws Exception {
+    void contentSigning_returnsIssuedCertsWithActiveSigningKeyButNotATimestampingCertificate() throws Exception {
         Certificate noEku = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
         Certificate tsaCrit = saveCert(CertificateTestUtil.createTimestampingCertificate(), createKey());
         Certificate archived = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
@@ -125,7 +130,7 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
 
         List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false);
 
-        assertThat(found).containsExactlyInAnyOrder(noEku.getUuid(), tsaCrit.getUuid());
+        assertThat(found).containsExactly(noEku.getUuid()).doesNotContain(tsaCrit.getUuid());
     }
 
     @Test
@@ -182,15 +187,118 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
         assertThat(found).doesNotContain(certNoPrivKey.getUuid(), certDestroyedKey.getUuid());
     }
 
+    // --- certificate-purpose rule ---
+
+    @Test
+    void contentSigning_requiresASigningKeyUsage() throws Exception {
+        Certificate digitalSignature = savePurposeCert(CertificateKeyUsage.DIGITAL_SIGNATURE);
+        Certificate nonRepudiation = savePurposeCert(CertificateKeyUsage.NON_REPUDIATION);
+        Certificate keyEncipherment = savePurposeCert(CertificateKeyUsage.KEY_ENCIPHERMENT);
+        Certificate noKeyUsage = savePurposeCert();
+
+        List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false);
+
+        assertThat(found)
+                .contains(digitalSignature.getUuid(), nonRepudiation.getUuid())
+                .doesNotContain(keyEncipherment.getUuid(), noKeyUsage.getUuid());
+    }
+
+    @Test
+    void contentSigning_requiresAnEndEntity() throws Exception {
+        Certificate endEntity = savePurposeCert(CertificateKeyUsage.DIGITAL_SIGNATURE);
+        Certificate intermediateCa = savePurposeCert(CertificateKeyUsage.DIGITAL_SIGNATURE);
+        intermediateCa.setSubjectType(CertificateSubjectType.INTERMEDIATE_CA);
+        certificateRepository.save(intermediateCa);
+
+        List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false);
+
+        assertThat(found).contains(endEntity.getUuid()).doesNotContain(intermediateCa.getUuid());
+    }
+
+    @Test
+    void contentSigning_requireNonRepudiation_excludesDigitalSignatureOnly() throws Exception {
+        Certificate digitalSignature = savePurposeCert(CertificateKeyUsage.DIGITAL_SIGNATURE);
+        Certificate nonRepudiation = savePurposeCert(CertificateKeyUsage.NON_REPUDIATION);
+
+        List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false,
+                new CertificatePurposeRequirements(true, Set.of()));
+
+        assertThat(found).contains(nonRepudiation.getUuid()).doesNotContain(digitalSignature.getUuid());
+    }
+
+    @Test
+    void contentSigning_requiredEkuOids_matchWholeOidsOnly() throws Exception {
+        Certificate documentSigning = savePurposeCertWithEku(DOCUMENT_SIGNING_OID);
+        Certificate longerOid = savePurposeCertWithEku(DOCUMENT_SIGNING_OID + "0");
+        Certificate noEku = savePurposeCert(CertificateKeyUsage.DIGITAL_SIGNATURE);
+
+        List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false,
+                new CertificatePurposeRequirements(false, Set.of(DOCUMENT_SIGNING_OID)));
+
+        assertThat(found).contains(documentSigning.getUuid()).doesNotContain(longerOid.getUuid(), noEku.getUuid());
+    }
+
+    @Test
+    void contentSigning_requiredEkuOids_demandsEveryOid() throws Exception {
+        Certificate both = savePurposeCertWithEku(DOCUMENT_SIGNING_OID, SystemOid.EMAIL_PROTECTION.getOid());
+        Certificate onlyOne = savePurposeCertWithEku(DOCUMENT_SIGNING_OID);
+
+        List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false, new CertificatePurposeRequirements(
+                false, Set.of(DOCUMENT_SIGNING_OID, SystemOid.EMAIL_PROTECTION.getOid())));
+
+        assertThat(found).contains(both.getUuid()).doesNotContain(onlyOne.getUuid());
+    }
+
+    @Test
+    void contentSigning_requiredEkuOids_treatsALikeWildcardLiterally() throws Exception {
+        savePurposeCertWithEku(DOCUMENT_SIGNING_OID);
+
+        List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false,
+                new CertificatePurposeRequirements(false, Set.of("%")));
+
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    void contentSigning_excludesACertificateWhoseOnlyExtendedKeyUsageIsTimestamping() throws Exception {
+        Certificate tsaOnly = savePurposeCertWithEku(SystemOid.TIME_STAMPING.getOid());
+        Certificate alsoDocumentSigning = savePurposeCertWithEku(SystemOid.TIME_STAMPING.getOid(),
+                DOCUMENT_SIGNING_OID);
+        Certificate noEku = savePurposeCert(CertificateKeyUsage.DIGITAL_SIGNATURE);
+
+        List<UUID> found = queryUuids(SigningWorkflowType.CONTENT_SIGNING, false);
+
+        assertThat(found).contains(alsoDocumentSigning.getUuid(), noEku.getUuid()).doesNotContain(tsaOnly.getUuid());
+    }
+
     // --- helpers ---
 
     private List<UUID> queryUuids(SigningWorkflowType workflowType, boolean qualified) {
+        return queryUuids(workflowType, qualified, CertificatePurposeRequirements.NONE);
+    }
+
+    private List<UUID> queryUuids(SigningWorkflowType workflowType, boolean qualified,
+            CertificatePurposeRequirements purpose) {
         return certificateRepository
                 .findUsingSecurityFilter(SecurityFilter.create(), List.of(),
-                        CertificateEligibilityUtil.constructQueryDigitalSigningCertAcceptable(workflowType, qualified))
+                        CertificateEligibilityUtil
+                                .constructQueryDigitalSigningCertAcceptable(workflowType, qualified, purpose))
                 .stream()
                 .map(Certificate::getUuid)
                 .toList();
+    }
+
+    private Certificate savePurposeCert(CertificateKeyUsage... keyUsages) throws Exception {
+        Certificate cert = saveCert(CertificateTestUtil.createCertificateWithoutEku(), createKey());
+        cert.setUsage(List.of(keyUsages));
+        cert.setExtendedKeyUsage(null);
+        return certificateRepository.save(cert);
+    }
+
+    private Certificate savePurposeCertWithEku(String... oids) throws Exception {
+        Certificate cert = savePurposeCert(CertificateKeyUsage.DIGITAL_SIGNATURE);
+        cert.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(List.of(oids)));
+        return certificateRepository.save(cert);
     }
 
     private CryptographicKey createKey() throws Exception {
@@ -242,6 +350,7 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
         cert.setCertificateContent(content);
         cert.setKey(key);
         cert.setValidationStatus(CertificateValidationStatus.VALID);
+        cert.setUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE));
         return certificateRepository.save(cert);
     }
 
@@ -329,6 +438,7 @@ class DigitalSigningCertQueryITest extends BaseSpringBootTest {
                 .setExtendedKeyUsage(
                         extendedKeyUsages.isEmpty() ? null : MetaDefinitions.serializeArrayString(extendedKeyUsages));
         cert.setExtendedKeyUsageCritical(extendedKeyUsageCritical);
+        cert.setUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE));
         if (qcCompliance != null) {
             cert.setQcCompliance(qcCompliance);
         }
