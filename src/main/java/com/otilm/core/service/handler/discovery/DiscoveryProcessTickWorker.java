@@ -223,9 +223,9 @@ public class DiscoveryProcessTickWorker {
      * often trip the write too, and an exception escaping there skips the stall path — so the attempt counter never
      * climbs and the budget never ends a failing run.
      */
-    private void recordQuietly(UUID discoveryUuid, String what, Runnable record) {
+    private void recordQuietly(UUID discoveryUuid, String what, Runnable write) {
         try {
-            record.run();
+            write.run();
         } catch (Exception e) {
             logger.error("Could not record {} for discovery {}: {}", what, discoveryUuid, e.getMessage(), e);
         }

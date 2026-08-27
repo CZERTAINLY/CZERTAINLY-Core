@@ -91,12 +91,12 @@ public class DiscoveryMessageWriter {
     @Transactional
     public void append(UUID discoveryUuid, DiscoveryMessageSeverity severity, DiscoveryMessageCode code,
             String message) {
-        record(discoveryUuid, new DiscoveryMessageDraft(severity, code, message, 1));
+        recordMessage(discoveryUuid, new DiscoveryMessageDraft(severity, code, message, 1));
     }
 
     @Transactional
     public void append(UUID discoveryUuid, DiscoveryMessageDraft draft) {
-        record(discoveryUuid, draft);
+        recordMessage(discoveryUuid, draft);
     }
 
     @Transactional
@@ -106,7 +106,7 @@ public class DiscoveryMessageWriter {
             // and per page to write nothing.
             return;
         }
-        drafts.forEach(draft -> record(discoveryUuid, draft));
+        drafts.forEach(draft -> recordMessage(discoveryUuid, draft));
     }
 
     /**
@@ -118,7 +118,7 @@ public class DiscoveryMessageWriter {
         write(discoveryUuid, severity, DiscoveryMessageCode.RUN_ENDED.code(), shorten(reason, maxMessageLength), 1);
     }
 
-    private void record(UUID discoveryUuid, DiscoveryMessageDraft draft) {
+    private void recordMessage(UUID discoveryUuid, DiscoveryMessageDraft draft) {
         String code = shorten(draft.code(), MAX_CODE_LENGTH);
         String message = shorten(draft.message(), maxMessageLength);
         int recorded = messageRepository
