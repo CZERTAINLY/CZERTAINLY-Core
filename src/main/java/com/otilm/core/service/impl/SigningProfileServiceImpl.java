@@ -71,6 +71,7 @@ import com.otilm.core.dao.repository.signing.TimeQualityConfigurationRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.mapper.signing.SigningProfileMapper;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningProfileModel;
 import com.otilm.core.model.signing.TspProfileModel;
 import com.otilm.core.model.signing.scheme.SigningSchemeModel;
@@ -249,9 +250,10 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST)
     public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType,
-            boolean qualifiedTimestamp) {
+            boolean qualifiedTimestamp, boolean requireNonRepudiation, Set<String> requiredExtendedKeyUsageOids) {
         return certificateService
-                .listDigitalSigningCertificates(SecurityFilter.create(), signingWorkflowType, qualifiedTimestamp);
+                .listDigitalSigningCertificates(SecurityFilter.create(), signingWorkflowType, qualifiedTimestamp,
+                        CertificatePurposeRequirements.of(requireNonRepudiation, requiredExtendedKeyUsageOids));
     }
 
     @Override
@@ -809,13 +811,14 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
                 version.setManagedSigningType(ManagedSigningType.STATIC_KEY);
                 Certificate certificate = certificateService
                         .getCertificateEntity(SecuredUUID.fromUUID(s.getCertificateUuid()));
+                CertificatePurposeRequirements certificatePurpose = certificatePurposeOf(version);
                 if (CertificateEligibilityUtil
                         .isCertificateDigitalSigningAcceptable(certificate, p.getWorkflowType(),
-                                Boolean.TRUE.equals(version.getQualifiedTimestamp()))) {
+                                Boolean.TRUE.equals(version.getQualifiedTimestamp()), certificatePurpose)) {
                     version.setCertificate(certificate);
                 } else {
-                    throw new ValidationException("Certificate " + certificate.getUuid()
-                            + " is not eligible for signing workflow type " + p.getWorkflowType());
+                    throw new ValidationException(
+                            notEligibleMessage(certificate, p.getWorkflowType(), certificatePurpose));
                 }
                 if (!certificateService
                         .getCertificateChain(SecuredUUID.fromUUID(certificate.getUuid()), false)
@@ -856,6 +859,8 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         version.setMaxSignatureLevel(null);
         version.setTimestampSourceProfileUuid(null);
         version.setDocumentSizeCap(null);
+        version.setRequireNonRepudiation(false);
+        version.setRequiredExtendedKeyUsageOids(new ArrayList<>());
         version.setQualifiedTimestamp(null);
         version.setDefaultPolicyId(null);
         version.setAllowedPolicyIds(new ArrayList<>());
@@ -961,6 +966,8 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         version.setSignatureFamily(w.getFamily());
         version.setMaxSignatureLevel(w.getMaxLevel());
         version.setTimestampSourceProfileUuid(TimestampSourceRequests.internalProfileUuid(w.getTimestampSource()));
+        version.setRequireNonRepudiation(Boolean.TRUE.equals(w.getRequireNonRepudiation()));
+        version.setRequiredExtendedKeyUsageOids(new ArrayList<>(safeOids(w)));
     }
 
     /**
@@ -990,6 +997,24 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
             throw new ValidationException(
                     "family, maxLevel and timestampSource must be omitted for delegated content signing: the signer connector levels the signature itself");
         }
+    }
+
+    private static Set<String> safeOids(ContentSigningWorkflowRequestDto w) {
+        return w.getRequiredExtendedKeyUsageOids() == null ? Set.of() : w.getRequiredExtendedKeyUsageOids();
+    }
+
+    private static String notEligibleMessage(Certificate certificate, SigningWorkflowType workflowType,
+            CertificatePurposeRequirements certificatePurpose) {
+        return "Certificate " + certificate.getUuid() + " is not eligible for signing workflow type " + workflowType
+                + CertificateEligibilityUtil
+                        .describeSigningPurposeMismatch(certificate, workflowType, certificatePurpose)
+                        .map(reason -> ": " + reason)
+                        .orElse("");
+    }
+
+    private static CertificatePurposeRequirements certificatePurposeOf(SigningProfileVersion version) {
+        return CertificatePurposeRequirements
+                .of(version.isRequireNonRepudiation(), version.getRequiredExtendedKeyUsageOids());
     }
 
     private boolean recordPolicyDiffersFromVersion(SigningProfileVersion v, SigningRecordPolicyRequestDto p) {

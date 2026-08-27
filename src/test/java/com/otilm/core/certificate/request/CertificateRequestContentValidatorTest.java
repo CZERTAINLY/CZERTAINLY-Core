@@ -9,6 +9,7 @@ import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
@@ -293,7 +294,7 @@ class CertificateRequestContentValidatorTest {
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute().withName("cn").required().mappingRdn("CN").build());
             var parsed = new ParsedRequestContent(content(List.of(rdn("CN", "host.example.com")), List.of()),
-                    List.of("x400Address"));
+                    List.of("x400Address"), List.of());
 
             // when
             var result = CertificateRequestContentValidator
@@ -310,7 +311,7 @@ class CertificateRequestContentValidatorTest {
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute().withName("cn").required().mappingRdn("CN").build());
             var parsed = new ParsedRequestContent(content(List.of(rdn("CN", "host.example.com")), List.of()),
-                    List.of("x400Address"));
+                    List.of("x400Address"), List.of());
 
             // when
             var result = CertificateRequestContentValidator
@@ -403,10 +404,14 @@ class CertificateRequestContentValidatorTest {
 
         @Test
         void passes_whenRequiredMappedExtensionPresent() {
-            // given — the set requires the extendedKeyUsage extension and the CSR carries it
+            // given — the set requires the basicConstraints extension and the CSR carries it
             List<BaseAttribute> definitions = List
-                    .of(aMappedDataAttribute().withName("eku").required().mappingExtension("2.5.29.37").build());
-            var content = content(List.of(), List.of(), List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+                    .of(aMappedDataAttribute()
+                            .withName("basicConstraints")
+                            .required()
+                            .mappingExtension("2.5.29.19")
+                            .build());
+            var content = content(List.of(), List.of(), List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
@@ -420,7 +425,11 @@ class CertificateRequestContentValidatorTest {
         void reportsError_whenRequiredMappedExtensionMissing() {
             // given — required extension mapping, but the CSR carries no extensions
             List<BaseAttribute> definitions = List
-                    .of(aMappedDataAttribute().withName("eku").required().mappingExtension("2.5.29.37").build());
+                    .of(aMappedDataAttribute()
+                            .withName("basicConstraints")
+                            .required()
+                            .mappingExtension("2.5.29.19")
+                            .build());
             var content = content(List.of(), List.of(), List.of());
 
             // when
@@ -438,7 +447,7 @@ class CertificateRequestContentValidatorTest {
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute().withName("cn").required().mappingRdn("CN").build());
             var content = content(List.of(rdn("CN", "host.example.com")), List.of(),
-                    List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+                    List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
@@ -446,7 +455,7 @@ class CertificateRequestContentValidatorTest {
 
             // then
             assertThat(result.isValid()).isFalse();
-            assertThat(result.getErrors()).anyMatch(e -> e.contains("2.5.29.37") && e.contains("not allowed"));
+            assertThat(result.getErrors()).anyMatch(e -> e.contains("2.5.29.19") && e.contains("not allowed"));
         }
 
         @Test
@@ -455,7 +464,7 @@ class CertificateRequestContentValidatorTest {
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute().withName("cn").required().mappingRdn("CN").build());
             var content = content(List.of(rdn("CN", "host.example.com")), List.of(),
-                    List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+                    List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
@@ -469,8 +478,8 @@ class CertificateRequestContentValidatorTest {
         void doesNotFlagWhitelist_whenExtensionMappingCoversPresentExtension() {
             // given — the CSR carries an extension that the set explicitly maps
             List<BaseAttribute> definitions = List
-                    .of(aMappedDataAttribute().withName("eku").mappingExtension("2.5.29.37").build());
-            var content = content(List.of(), List.of(), List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+                    .of(aMappedDataAttribute().withName("basicConstraints").mappingExtension("2.5.29.19").build());
+            var content = content(List.of(), List.of(), List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
@@ -486,12 +495,12 @@ class CertificateRequestContentValidatorTest {
             // constraint against the opaque DER bytes would wrongly reject a valid uploaded CSR
             List<BaseAttribute> definitions = List
                     .of(aMappedDataAttribute()
-                            .withName("eku")
+                            .withName("basicConstraints")
                             .required()
                             .withRegex("^[0-9]+$")
-                            .mappingExtension("2.5.29.37")
+                            .mappingExtension("2.5.29.19")
                             .build());
-            var content = content(List.of(), List.of(), List.of(ext("2.5.29.37", "MAoGCCsGAQUFBwMB")));
+            var content = content(List.of(), List.of(), List.of(ext("2.5.29.19", "MAUwAwEB/w==")));
 
             // when
             var result = CertificateRequestContentValidator
@@ -588,6 +597,228 @@ class CertificateRequestContentValidatorTest {
                     .isInstanceOf(CertificateRequestValidationException.class)
                     .hasMessage("Certificate request could not be processed for validation")
                     .hasNoCause();
+        }
+    }
+
+    // ── Structured extension enforcement ────────────────────────────────────
+
+    @Nested
+    class StructuredExtensions {
+
+        @Test
+        void acceptsAKeyUsageSubset_ofThePermittedSet() {
+            // given — the profile permits two bits; the CSR asks for one of them
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute()
+                            .withName("ku")
+                            .list()
+                            .mappingKeyUsage()
+                            .withContent("digitalSignature", "keyEncipherment")
+                            .build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.DIGITAL_SIGNATURE),
+                            new RequestAttributePolicy(true, true));
+
+            // then — membership, not equality: asking for fewer is fine
+            assertThat(result.getErrors()).isEmpty();
+        }
+
+        @Test
+        void rejectsAKeyUsageBit_outsideThePermittedSet() {
+            // given
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute()
+                            .withName("ku")
+                            .list()
+                            .mappingKeyUsage()
+                            .withContent("digitalSignature", "keyEncipherment")
+                            .build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.KEY_CERT_SIGN),
+                            new RequestAttributePolicy(true, true));
+
+            // then — the enforcement that is impossible today
+            assertThat(result.getErrors()).anySatisfy(error -> assertThat(error).contains("keyCertSign"));
+        }
+
+        @Test
+        void warnsRatherThanErrors_underLenient() {
+            // given — the same violation, lenient policy
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute()
+                            .withName("ku")
+                            .list()
+                            .mappingKeyUsage()
+                            .withContent("digitalSignature")
+                            .build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.KEY_CERT_SIGN),
+                            RequestAttributePolicy.lenient());
+
+            // then
+            assertThat(result.getErrors()).isEmpty();
+            assertThat(result.getWarnings()).anySatisfy(warning -> assertThat(warning).contains("keyCertSign"));
+        }
+
+        @Test
+        void acceptsAnyBit_whenTheListIsExtensible() {
+            // given
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute()
+                            .withName("ku")
+                            .list()
+                            .extensibleList()
+                            .mappingKeyUsage()
+                            .withContent("digitalSignature")
+                            .build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.KEY_CERT_SIGN),
+                            new RequestAttributePolicy(true, true));
+
+            // then
+            assertThat(result.getErrors()).isEmpty();
+        }
+
+        @Test
+        void reportsAMissingRequiredKeyUsage() {
+            // given — required, and the CSR carries no key usage at all
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute()
+                            .withName("ku")
+                            .list()
+                            .required()
+                            .mappingKeyUsage()
+                            .withContent("digitalSignature")
+                            .build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(), new RequestAttributePolicy(true, true));
+
+            // then
+            assertThat(result.getErrors()).anySatisfy(error -> assertThat(error).contains("Key Usage"));
+        }
+
+        @Test
+        void rejectsAnExtendedKeyUsagePurpose_outsideThePermittedSet() {
+            // given
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute()
+                            .withName("eku")
+                            .list()
+                            .mappingExtendedKeyUsage()
+                            .withContent("1.3.6.1.5.5.7.3.1")
+                            .build());
+            X509RequestContent content = emptyContent();
+            content.setExtendedKeyUsage(List.of("1.3.6.1.5.5.7.3.3"));
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, content, new RequestAttributePolicy(true, true));
+
+            // then — codeSigning is not permitted
+            assertThat(result.getErrors()).anySatisfy(error -> assertThat(error).contains("1.3.6.1.5.5.7.3.3"));
+        }
+
+        @Test
+        void rejectsAKeyUsage_thatNoDefinitionMaps() {
+            // given — whitelist on, the CSR requests a key usage, and nothing in the set maps that target.
+            // The parser diverts 2.5.29.15 out of the extension list, so the extension-OID whitelist pass
+            // can never see it; without an explicit check this would silently reach the CA unfiltered.
+            List<BaseAttribute> definitions = List.of(aMappedDataAttribute().withName("cn").mappingRdn("CN").build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.KEY_CERT_SIGN),
+                            new RequestAttributePolicy(true, true));
+
+            // then
+            assertThat(result.getErrors()).anySatisfy(error -> assertThat(error).contains("Key Usage"));
+        }
+
+        @Test
+        void allowsAKeyUsage_thatNoDefinitionMaps_whenTheWhitelistIsOff() {
+            // given
+            List<BaseAttribute> definitions = List.of(aMappedDataAttribute().withName("cn").mappingRdn("CN").build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.KEY_CERT_SIGN),
+                            RequestAttributePolicy.lenient());
+
+            // then
+            assertThat(result.getErrors()).isEmpty();
+            assertThat(result.getWarnings()).isEmpty();
+        }
+
+        @Test
+        void aLegacyOpaqueMappingStillSatisfiesRequiredPresence() {
+            // given — a definition stored before the structured targets existed, mapping key usage as opaque
+            // DER. Authoring one is rejected now, but it still loads, and the parser diverts 2.5.29.15 out of
+            // the extension list. Without recognising it, a strict profile would start rejecting requests it
+            // used to accept.
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute().withName("kuLegacy").required().mappingExtension("2.5.29.15").build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.DIGITAL_SIGNATURE),
+                            new RequestAttributePolicy(true, true));
+
+            // then — presence satisfied from the typed field, and the whitelist does not flag it
+            assertThat(result.getErrors()).isEmpty();
+        }
+
+        @Test
+        void aLegacyOpaqueMappingStillReportsAMissingRequiredExtension() {
+            // given — the same legacy definition, and a CSR carrying no key usage at all
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute().withName("kuLegacy").required().mappingExtension("2.5.29.15").build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(), new RequestAttributePolicy(true, true));
+
+            // then
+            assertThat(result.getErrors()).anySatisfy(error -> assertThat(error).contains("Key Usage"));
+        }
+
+        @Test
+        void aLegacyOpaqueMappingDoesNotConstrainValues() {
+            // given — its content is a base64 DER blob, not a list of codes, so there is nothing to compare
+            // decoded values against. Presence is all it ever enforced.
+            List<BaseAttribute> definitions = List
+                    .of(aMappedDataAttribute().withName("kuLegacy").mappingExtension("2.5.29.15").build());
+
+            // when
+            var result = CertificateRequestContentValidator
+                    .validate(definitions, contentWithKeyUsage(CertificateKeyUsage.KEY_CERT_SIGN),
+                            new RequestAttributePolicy(true, true));
+
+            // then
+            assertThat(result.getErrors()).isEmpty();
+        }
+
+        private static X509RequestContent emptyContent() {
+            X509RequestContent c = new X509RequestContent();
+            c.setSubject(List.of());
+            c.setSubjectAltNames(List.of());
+            c.setExtensions(List.of());
+            return c;
+        }
+
+        private static X509RequestContent contentWithKeyUsage(CertificateKeyUsage... usages) {
+            X509RequestContent c = emptyContent();
+            c.setKeyUsage(List.of(usages));
+            return c;
         }
     }
 

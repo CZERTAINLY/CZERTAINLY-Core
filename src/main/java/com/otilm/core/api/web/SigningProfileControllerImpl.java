@@ -30,6 +30,7 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.SigningProfileExternalService;
 import com.otilm.core.util.converter.SigningWorkflowTypeConverter;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
@@ -132,8 +133,10 @@ public class SigningProfileControllerImpl implements SigningProfileController {
     @Override
     @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST)
     public List<CertificateDto> listSigningCertificates(SigningWorkflowType signingWorkflowType,
-            boolean qualifiedTimestamp) {
-        return signingProfileService.listSigningCertificates(signingWorkflowType, qualifiedTimestamp);
+            boolean qualifiedTimestamp, boolean requireNonRepudiation, Set<String> requiredExtendedKeyUsageOids) {
+        return signingProfileService
+                .listSigningCertificates(signingWorkflowType, qualifiedTimestamp, requireNonRepudiation,
+                        requiredExtendedKeyUsageOids);
     }
 
     @Override

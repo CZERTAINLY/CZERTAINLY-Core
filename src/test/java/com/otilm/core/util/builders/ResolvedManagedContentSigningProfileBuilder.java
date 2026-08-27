@@ -5,6 +5,7 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.signature.SignatureFamily;
 import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.core.signing.SigningProtocol;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfile;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
@@ -28,6 +29,7 @@ public final class ResolvedManagedContentSigningProfileBuilder {
     private SignatureLevel maxLevel = SignatureLevel.TIMESTAMPED;
     private String timestampSourceProfileName = "internal-tsa";
     private Long documentSizeCap = null;
+    private CertificatePurposeRequirements certificatePurpose = CertificatePurposeRequirements.NONE;
     private ApiClientConnectorInfo signatureFormattingConnector = null;
     private ResolvedManagedScheme resolvedScheme = defaultScheme();
 
@@ -92,6 +94,12 @@ public final class ResolvedManagedContentSigningProfileBuilder {
         return this;
     }
 
+    public ResolvedManagedContentSigningProfileBuilder withCertificatePurpose(
+            CertificatePurposeRequirements certificatePurpose) {
+        this.certificatePurpose = certificatePurpose;
+        return this;
+    }
+
     public ResolvedManagedContentSigningProfileBuilder withSignatureFormattingConnector(
             ApiClientConnectorInfo signatureFormattingConnector) {
         this.signatureFormattingConnector = signatureFormattingConnector;
@@ -106,7 +114,7 @@ public final class ResolvedManagedContentSigningProfileBuilder {
     public ResolvedManagedContentSigningProfile build() {
         return new ResolvedManagedContentSigningProfile(uuid, name, description, version, enabled, enabledProtocols,
                 signatureFormattingConnectorAttributes, family, maxLevel, timestampSourceProfileName, documentSizeCap,
-                signatureFormattingConnector, resolvedScheme);
+                certificatePurpose, signatureFormattingConnector, resolvedScheme);
     }
 
     private static ResolvedManagedScheme defaultScheme() {

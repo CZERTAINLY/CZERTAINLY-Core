@@ -177,7 +177,7 @@ public class ManagedContentSigningEngine {
         ResolvedManagedScheme signingScheme = profile.resolvedScheme();
         ValidationResult result = signingCertificateValidatorFactory
                 .getValidator(signingScheme)
-                .validate(signingScheme, SigningWorkflowType.CONTENT_SIGNING, false);
+                .validate(signingScheme, SigningWorkflowType.CONTENT_SIGNING, false, profile.certificatePurpose());
         if (result instanceof ValidationResult.Nok nok) {
             throw new SigningEngineException(nok.failure(),
                     "signing certificate of Signing Profile '%s' is not acceptable: %s"

@@ -122,6 +122,7 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
     private ConnectorDetailDto timestampingFormattingConnector;
     private ConnectorDetailDto contentSigningFormattingConnector;
     private Certificate signingCertificate;
+    private Certificate timestampingCertificate;
 
     @BeforeEach
     void registerConnectorsAndSigningMaterial() throws Exception {
@@ -169,9 +170,9 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
                         SecuredParentUUID.fromString(tokenProfile.getUuid()), KeyRequestType.KEY_PAIR,
                         aKeyPairRequest().withName("soft-key-pair").build());
 
-        signingCertificate = testCertificateAuthority
-                .createTrustedCa("CN=Test Root CA")
-                .issueTimestampingCertificate(keyPair, "CN=Test TSA");
+        TestCertificateAuthority.TrustedCa trustedCa = testCertificateAuthority.createTrustedCa("CN=Test Root CA");
+        signingCertificate = trustedCa.issueSigningCertificate(keyPair, "CN=Test Signing");
+        timestampingCertificate = trustedCa.issueTimestampingCertificate(keyPair, "CN=Test TSA");
 
         cryptographyProviderMock.stubSignData("connector-signature".getBytes(StandardCharsets.UTF_8));
         timestampingFormattingMock.stubFormattingAttributes().stubFormatDtbs().stubFormatResponse();
@@ -341,7 +342,7 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
         SigningProfileDto profile = signingProfileService
                 .createSigningProfile(aSigningProfileRequest()
                         .withName(name)
-                        .withStaticKeyManagedSigning(signingCertificate.getUuid())
+                        .withStaticKeyManagedSigning(timestampingCertificate.getUuid())
                         .withTimestamping(aTimestampingWorkflow()
                                 .withSignatureFormattingConnector(
                                         UUID.fromString(timestampingFormattingConnector.getUuid()))
