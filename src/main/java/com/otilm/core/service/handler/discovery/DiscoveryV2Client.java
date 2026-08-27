@@ -7,9 +7,12 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.DataAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryDrainRequestDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryInitiateRequestDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryInitiateResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunRequestDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryStatusResponseDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryV2ScopedRequestDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorDto;
@@ -67,6 +70,32 @@ public class DiscoveryV2Client {
         this.attributeEngine = attributeEngine;
         this.credentialService = credentialService;
         this.resourceService = resourceService;
+    }
+
+    /** What this connector can discover, as it reports right now. Never persisted, so it is always asked. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public List<Resource> supportedResources(Discovery run) throws ConnectorException, NotFoundException {
+        ConnectorDto connector = connectorOf(run);
+        return connectorApiFactory
+                .getDiscoveryApiClientV2(connector)
+                .listSupportedResources(connector)
+                .stream()
+                .map(DiscoverySupportedResourceDto::getResource)
+                .toList();
+    }
+
+    /**
+     * Opens the run at the connector. The only call that sends {@code resources}: every later one addresses a run the
+     * connector already knows the scope of, and replays the handle instead.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public DiscoveryInitiateResponseDto initiate(Discovery run)
+            throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDto connector = connectorOf(run);
+        DiscoveryInitiateRequestDto request = new DiscoveryInitiateRequestDto();
+        populate(request, run, connector);
+        request.setResources(resourcesOf(run));
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).initiate(connector, request);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)

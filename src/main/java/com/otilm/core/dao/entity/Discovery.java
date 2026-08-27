@@ -64,7 +64,9 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @Enumerated(EnumType.STRING)
     private DiscoveryStatus connectorStatus;
 
-    @Column(name = "message")
+    // TEXT, as the migration declares it: a failure reason carries a connector's own words and outgrows the 255
+    // characters Hibernate would otherwise generate for tests, which build their schema from the entities.
+    @Column(name = "message", columnDefinition = "TEXT")
     private String message;
 
     @Column(name = "start_time")

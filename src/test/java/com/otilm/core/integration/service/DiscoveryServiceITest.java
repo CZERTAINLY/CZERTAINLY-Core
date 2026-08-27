@@ -40,6 +40,7 @@ import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.dao.repository.FunctionGroupRepository;
 import com.otilm.core.events.data.DiscoveryResult;
 import com.otilm.core.events.handlers.CertificateDiscoveredEventHandler;
@@ -81,6 +82,8 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     @Autowired
     private DiscoveryCertificateRepository discoveryCertificateRepository;
 
+    @Autowired
+    private DiscoveryWorkRepository workRepository;
     @Autowired
     private CertificateContentRepository certificateContentRepository;
     @Autowired
@@ -561,22 +564,86 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void runDiscoveryWithV2AssociationEndsTerminalWhileTheAdapterIsAPlaceholder() {
+    void aV2RunWhoseConnectorRefusesTheResourceNeverOpens() {
+        givenV2Run(List.of(Resource.CRYPTOGRAPHIC_KEY));
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+
+        DiscoveryDetailDto detail = discoveryInternalService.runDiscovery(discovery.getUuid(), null);
+
+        // Refused before initiate, so the connector is never asked to open a run it cannot perform.
+        Assertions.assertEquals(DiscoveryStatus.FAILED, detail.getStatus());
+        WireMock
+                .verify(0, WireMock
+                        .postRequestedFor(WireMock.urlPathEqualTo("/v2/discoveryProvider/discoveries/initiate")));
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertNotNull(persisted.getEndTime());
+        Assertions.assertTrue(persisted.getMessage().contains("keys"), "the message names the refused resource");
+    }
+
+    @Test
+    void aStartedV2RunRecordsItsHandleAndGetsBothAgendaRows() {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+        // The content item carries its own contentType: without it the deserializer builds a v2 content
+        // item, which does not fit a v3 attribute.
+        stubInitiate("""
+                {"meta":[{"uuid":"7f7f0000-0000-4000-8000-000000000009","name":"connectorRunId","type":"meta",
+                          "version":3,"contentType":"string","content":[{"contentType":"string","data":"run-42"}]}],
+                 "stoppable":true}""");
+
+        DiscoveryDetailDto detail = discoveryInternalService.runDiscovery(discovery.getUuid(), null);
+
+        Assertions.assertEquals(DiscoveryStatus.IN_PROGRESS, detail.getStatus());
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions
+                .assertNotNull(persisted.getRunMeta(), "without the handle the connector cannot resolve the run again");
+        Assertions.assertEquals("connectorRunId", persisted.getRunMeta().getFirst().getName());
+        // Clamped: the connector claimed stoppable, but its interface does not advertise discoveryStopResume, and a
+        // connector may only narrow that flag.
+        Assertions.assertEquals(Boolean.FALSE, persisted.getStoppable());
+        // Both rows from the outset: STATUS reports terminality, DRAIN pulls results. One without the other leaves
+        // the run undriveable in one direction.
+        Assertions.assertTrue(workRepository.existsByDiscoveryUuid(discovery.getUuid()));
+    }
+
+    @Test
+    void anOversizedRunHandleFailsTheRunRatherThanBeingStored() {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+        stubInitiate("""
+                {"meta":[{"uuid":"7f7f0000-0000-4000-8000-000000000009","name":"connectorRunId","type":"meta",
+                          "version":3,"contentType":"string","content":[{"contentType":"string","data":"%s"}]}]}"""
+                .formatted("x".repeat(70_000)));
+
+        DiscoveryDetailDto detail = discoveryInternalService.runDiscovery(discovery.getUuid(), null);
+
+        // The handle is replayed on every later call, so one that exceeds the cap would make every tick send a
+        // request the transport cannot carry -- better to fail the run at the only point it can still be reported.
+        Assertions.assertEquals(DiscoveryStatus.FAILED, detail.getStatus());
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertNull(persisted.getRunMeta());
+        Assertions.assertTrue(persisted.getMessage().contains("meta size exceeded"));
+    }
+
+    private void givenV2Run(List<Resource> resources) {
         ConnectorInterfaceEntity iface = new ConnectorInterfaceEntity();
         iface.setConnectorUuid(connector.getUuid());
         iface.setInterfaceCode(ConnectorInterface.DISCOVERY);
         iface.setVersion("v2");
         iface = connectorInterfaceRepository.save(iface);
-
         discovery.setConnectorInterfaceUuid(iface.getUuid());
+        discovery.setResources(resources);
         discoveryRepository.save(discovery);
+    }
 
-        DiscoveryDetailDto detail = discoveryInternalService.runDiscovery(discovery.getUuid(), null);
-
-        Assertions.assertEquals(DiscoveryStatus.FAILED, detail.getStatus());
-        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
-        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
-        Assertions.assertNotNull(persisted.getEndTime());
+    private void stubInitiate(String json) {
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/v2/discoveryProvider/discoveries/initiate"))
+                        .willReturn(WireMock.okJson(json)));
     }
 
     @Test
