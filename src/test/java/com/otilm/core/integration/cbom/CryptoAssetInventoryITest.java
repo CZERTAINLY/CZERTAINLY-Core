@@ -616,6 +616,22 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         assertThat(assetWriter.upsertIdentity(atLimit, null)).isNotNull();
     }
 
+    /**
+     * A wrong canonical key used to reach the foreign key as an untranslated {@code DataIntegrityViolationException},
+     * which the generic handler logs with the driver's DETAIL -- and that DETAIL quotes the missing identity key. The
+     * refusal has to come from us, with a sentence we wrote, so the driver never writes one.
+     */
+    @Test
+    void anAliasIsRefusedWhenTheCanonicalAssetDoesNotExist() {
+        UUID absorbed = assetWriter.upsertIdentity(algorithm("RSA", "2048"), null);
+        String absorbedKey = asset(absorbed).getIdentityKey();
+
+        assertThatThrownBy(() -> aliasWriter.record(absorbedKey, "0".repeat(64), "typo", "operator"))
+                .isInstanceOf(ValidationException.class)
+                .isNotInstanceOf(DataIntegrityViolationException.class);
+        assertThat(aliasRepository.count()).isZero();
+    }
+
     @Test
     void anAliasIsRefusedWhenItWouldFormAChainOrPointAtItself() {
         UUID first = assetWriter.upsertIdentity(algorithm("RSA", "2048"), null);
@@ -689,6 +705,28 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         assertThat(synced.getAssetSyncState()).isEqualTo(CbomAssetSyncState.SYNCED);
         assertThat(synced.getAssetSyncError()).describedAs("a success clears the previous failure").isNull();
         assertThat(synced.getAssetsSyncedAt()).isNotNull();
+    }
+
+    /**
+     * The case a {@code (uuid)} arbiter missed. Upload, delete, upload again under a new uuid with the same serial
+     * number and version -- which the create path allows, because it looks only at the live table -- then delete again.
+     * The second tombstone collides on the serial-and-version unique, and because this writer is REQUIRED that
+     * violation used to roll back the deletion calling it, leaving the re-created CBOM undeletable through the API.
+     */
+    @Test
+    void tombstoningARecreatedCbomDoesNotViolateTheSerialAndVersionUnique() {
+        tombstoneWriter.record(leanCbom.getUuid(), "urn:uuid:lean", 1, OffsetDateTime.now(), "operator");
+        UUID recreated = cbom("urn:uuid:recreated", 9).getUuid();
+
+        tombstoneWriter.record(recreated, "urn:uuid:lean", 1, OffsetDateTime.now(), "operator");
+
+        assertThat(tombstoneRepository.count())
+                .describedAs("the second tombstone is a no-op, not a violation that rolls the deletion back")
+                .isEqualTo(1);
+        assertThat(tombstoneRepository.findById(leanCbom.getUuid()))
+                .describedAs("the first record of a deletion is the true one")
+                .isPresent();
+        assertThat(tombstoneRepository.findById(recreated)).isEmpty();
     }
 
     @Test

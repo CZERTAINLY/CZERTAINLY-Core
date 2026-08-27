@@ -63,8 +63,8 @@ public class CryptoAssetAliasWriter {
      * decisions read a chain-free table and both commit. The advisory lock is therefore taken <em>before</em> the first
      * read, so every check runs against a table no other alias mutation can be changing.
      *
-     * @throws ValidationException if either side was split by a safety rule, if the decision is self-referential, or if
-     * it would form a chain
+     * @throws ValidationException if either side was split by a safety rule, if the canonical asset does not exist, if
+     * the decision is self-referential, or if it would form a chain
      */
     @Transactional
     public void record(String absorbedKey, String canonicalKey, String reason, String decidedBy) {
@@ -72,6 +72,7 @@ public class CryptoAssetAliasWriter {
         clusterOperationSynchronizer.lock(ALIAS_DECISION_LOCK);
         requireUnguarded(canonicalKey, "canonical");
         requireUnguarded(absorbedKey, "absorbed");
+        requireCanonicalExists(canonicalKey);
         requireNoChain(absorbedKey, canonicalKey);
         requireSomethingToDecide(absorbedKey);
         aliasRepository
@@ -113,6 +114,28 @@ public class CryptoAssetAliasWriter {
             throw new ValidationException(ValidationError
                     .create("The {} cryptographic asset was kept separate by the {} safety rule, so it cannot be "
                             + "merged by an alias.", side, asset.get().getIdentityGuard().name()));
+        }
+    }
+
+    /**
+     * Refuses a decision whose canonical asset is not there.
+     *
+     * <p>
+     * The database refuses it too -- {@code crypto_asset_alias_to_canonical_key} -- but only as a
+     * {@code DataIntegrityViolationException} that nothing on this path translates, so it escapes as a 500 and the
+     * generic handler prints the driver's {@code DETAIL}, which quotes the missing key. That key is an identity key,
+     * and putting one in a log is the disclosure this whole fence exists to prevent. Refusing here means the operator
+     * gets a sentence we wrote, and the driver never gets the chance to write one.
+     *
+     * <p>
+     * Checked under the lock the caller already holds, so a canonical asset cannot be deleted between this read and the
+     * insert by another alias decision. It can still be deleted by an asset delete, which is why the foreign key stays:
+     * this check makes the common case a clean refusal, not a substitute for the constraint.
+     */
+    private void requireCanonicalExists(String canonicalKey) {
+        if (assetRepository.findByIdentityKey(canonicalKey).isEmpty()) {
+            throw new ValidationException(ValidationError
+                    .create("There is no cryptographic asset to merge into; the canonical asset does not exist."));
         }
     }
 
