@@ -9,6 +9,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -35,8 +36,10 @@ import org.hibernate.proxy.HibernateProxy;
 @Setter
 @ToString
 @Entity
-@Table(name = "discovery_message", uniqueConstraints = @UniqueConstraint(name = "uq_discovery_message",
-        columnNames = {"discovery_uuid", "code", "message_hash"}))
+@Table(name = "discovery_message",
+        uniqueConstraints = @UniqueConstraint(name = "uq_discovery_message",
+                columnNames = {"discovery_uuid", "code", "message_hash"}),
+        indexes = @Index(name = "idx_discovery_message_run", columnList = "discovery_uuid, id"))
 public class DiscoveryMessage {
 
     /**

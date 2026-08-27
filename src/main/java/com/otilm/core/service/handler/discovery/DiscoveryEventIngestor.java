@@ -37,6 +37,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +52,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class DiscoveryEventIngestor {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryEventIngestor.class);
+
+    /** Plausibly a connector's own identifier rather than prose or a fragment of payload. */
+    private static final Pattern REPORTABLE_CODE = Pattern.compile("[A-Za-z0-9._-]{1,64}");
 
     private final DiscoveryRepository discoveryRepository;
     private final DiscoveryItemWriter itemWriter;
@@ -149,13 +153,18 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * The connector's own code, or Core's stand-in when it named none. The contract requires one, but this is the event
-     * a connector sends when something has already gone wrong for it, and refusing to record that because the code is
-     * missing would lose the report entirely.
+     * The connector's own code, or Core's stand-in when what arrived is not one. This is the event a connector sends
+     * when something has already gone wrong for it, so a bad code loses the report rather than the report being refused
+     * — but the value becomes the identity of a kind of problem and reaches clients as it arrived, so it is classified
+     * the way this platform classifies everything else a connector authors. Accepted whole or replaced, never trimmed
+     * into an identity no connector sent: two over-long codes sharing a prefix would otherwise aggregate onto one
+     * entry. The raw value is logged by the caller either way.
      */
     private static String reportedCode(DiscoveryErrorEvent error) {
         String code = error.getCode();
-        return code == null || code.isBlank() ? DiscoveryMessageCode.CONNECTOR_ERROR.code() : code;
+        return code != null && REPORTABLE_CODE.matcher(code).matches()
+                ? code
+                : DiscoveryMessageCode.CONNECTOR_ERROR.code();
     }
 
     /**

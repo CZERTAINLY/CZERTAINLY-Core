@@ -35,6 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
  * <b>Overflow drops the newest and keeps the oldest.</b> A bound refuses new rows once reached; it never evicts one
  * already recorded. An operator opening a degraded run is looking for what started it, and the log a run keeps must
  * still contain that after the same fault has repeated ten thousand times.
+ *
+ * <p>
+ * {@code occurrences} counts at least once, not exactly once. A redelivered tick aggregates onto the row it already
+ * wrote rather than adding a second one, but it does add to that row's count.
  */
 @Service
 public class DiscoveryMessageWriter {
@@ -130,22 +134,15 @@ public class DiscoveryMessageWriter {
         logger
                 .debug("Discovery {} kept no row for a {} message; it is at its {} bound", discoveryUuid, code,
                         runIsFull ? "per-run" : "per-code");
+        // The severity of whatever overflowed first, which the upsert raises as worse things fold into the same row.
+        // Nothing is floored on the way in: a row standing only for informational messages would otherwise report a
+        // warning, and the terminal decision reads exactly that.
         if (runIsFull) {
-            write(discoveryUuid, standInSeverity(draft.severity()), DiscoveryMessageCode.MESSAGES_SUPPRESSED.code(),
+            write(discoveryUuid, draft.severity(), DiscoveryMessageCode.MESSAGES_SUPPRESSED.code(),
                     RUN_SUPPRESSION_MESSAGE, draft.occurrences());
         } else {
-            write(discoveryUuid, standInSeverity(draft.severity()), code, CODE_SUPPRESSION_MESSAGE,
-                    draft.occurrences());
+            write(discoveryUuid, draft.severity(), code, CODE_SUPPRESSION_MESSAGE, draft.occurrences());
         }
-    }
-
-    /**
-     * At least {@code WARNING}, whatever overflowed: a suppression row exists because the run lost information about
-     * itself, which is worth a warning even when everything behind it was routine. Anything worse it later stands in
-     * for raises it, since the upsert keeps the highest severity a row has ever carried.
-     */
-    private static DiscoveryMessageSeverity standInSeverity(DiscoveryMessageSeverity suppressed) {
-        return suppressed == DiscoveryMessageSeverity.ERROR ? suppressed : DiscoveryMessageSeverity.WARNING;
     }
 
     /**
