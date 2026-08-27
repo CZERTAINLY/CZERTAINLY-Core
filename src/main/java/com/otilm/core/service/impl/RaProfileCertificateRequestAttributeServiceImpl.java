@@ -32,6 +32,8 @@ import com.otilm.core.service.writer.RaProfileCertificateRequestAttributeWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -39,6 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfileCertificateRequestAttributeService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RaProfileCertificateRequestAttributeServiceImpl.class);
 
     private final RaProfileCertificateRequestAttributeRepository requestAttributeRepository;
     private final RaProfileValueSourceBindingRepository valueSourceBindingRepository;
@@ -81,10 +85,18 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         List<BaseAttribute> staticSet = stored == null
                 ? new ArrayList<>()
                 : deserializeOrEmpty(stored.getRequestAttributes());
-        List<BaseAttribute> connectorSet = RequestAttributeSetResolver
-                .effectiveMode(mode) == AttributeSetMergeMode.STATIC_ONLY
-                        ? List.of()
-                        : listConnectorRequestAttributes(raProfile);
+        AttributeSetMergeMode effective = RequestAttributeSetResolver.effectiveMode(mode);
+        List<BaseAttribute> connectorSet = effective == AttributeSetMergeMode.STATIC_ONLY
+                ? List.of()
+                : listConnectorRequestAttributes(raProfile);
+        if (effective != AttributeSetMergeMode.STATIC_ONLY && connectorSet.isEmpty()) {
+            // Silent otherwise: the operator asked to combine a connector set that does not exist, and under
+            // CONNECTOR_ONLY the static set is skipped too, so what resolves is the platform default set.
+            logger
+                    .warn("RA profile {} resolves request attributes with merge mode {}, but the authority connector "
+                            + "supplied no request-attribute schema; the resolved set comes from the static set or "
+                            + "the platform default only", raProfile.getName(), effective.getCode());
+        }
 
         List<BaseAttribute> merged = RequestAttributeSetResolver.merge(staticSet, connectorSet, mode);
         if (merged.isEmpty()) {

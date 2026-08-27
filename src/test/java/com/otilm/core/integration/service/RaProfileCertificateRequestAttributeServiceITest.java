@@ -1,5 +1,9 @@
 package com.otilm.core.integration.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
@@ -28,19 +32,23 @@ import com.otilm.core.dao.entity.Setting;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.SettingRepository;
 import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
+import com.otilm.core.service.impl.RaProfileCertificateRequestAttributeServiceImpl;
 import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.service.writer.RaProfileCertificateRequestAttributeWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -89,6 +97,31 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         RaProfile raProfile = new RaProfile();
         raProfile.setName("rp-" + UUID.randomUUID());
         return raProfileRepository.save(raProfile);
+    }
+
+    private ListAppender<ILoggingEvent> captureResolutionLogs() {
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        resolutionLogger().addAppender(appender);
+        return appender;
+    }
+
+    private static Logger resolutionLogger() {
+        return (Logger) LoggerFactory.getLogger(RaProfileCertificateRequestAttributeServiceImpl.class);
+    }
+
+    private static List<String> messagesLoggedAt(ListAppender<ILoggingEvent> logged, Level level) {
+        return logged.list
+                .stream()
+                .filter(event -> event.getLevel() == level)
+                .map(ILoggingEvent::getFormattedMessage)
+                .toList();
+    }
+
+    /** The logger is a process-wide singleton, so a capturing appender left on it would follow the next test. */
+    @AfterEach
+    void releaseTheResolutionLogger() {
+        resolutionLogger().detachAndStopAllAppenders();
     }
 
     private void attachConnector(RaProfile raProfile) {
@@ -231,6 +264,44 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
 
         // then — the edited default set is projected, not the built-in seed
         assertThat(resolved).extracting(DataAttributeV3::getName).containsExactly("server-fqdn");
+    }
+
+    @Test
+    void warnsWhenAMergeModeAdmitsTheConnectorButItSuppliesNothing() throws Exception {
+        // given — CONNECTOR_ONLY on an authority whose connector serves no request schema (every v2 authority, and
+        // any v3 connector answering 404). Resolution silently yields the platform default set, so the operator gets
+        // neither the connector set they asked for nor their own static set; the log is the only trace.
+        RaProfile raProfile = newRaProfile();
+        attachConnector(raProfile);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
+                        AttributeSetMergeMode.CONNECTOR_ONLY, null);
+        when(extendedAttributeService.listCertificateRequestAttributes(any())).thenReturn(List.of());
+        ListAppender<ILoggingEvent> logged = captureResolutionLogs();
+
+        // when
+        service.resolveIssueAttributeSet(raProfile);
+
+        // then
+        assertThat(messagesLoggedAt(logged, Level.WARN))
+                .anySatisfy(message -> assertThat(message)
+                        .contains(raProfile.getName())
+                        .contains(AttributeSetMergeMode.CONNECTOR_ONLY.getCode()));
+    }
+
+    @Test
+    void staticOnlyResolutionLogsNoWarning() {
+        // The common path must stay quiet: STATIC_ONLY never asks the connector for anything.
+        RaProfile raProfile = newRaProfile();
+        attachConnector(raProfile);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
+                        AttributeSetMergeMode.STATIC_ONLY, null);
+        ListAppender<ILoggingEvent> logged = captureResolutionLogs();
+
+        assertThatCode(() -> service.resolveIssueAttributeSet(raProfile)).doesNotThrowAnyException();
+
+        assertThat(messagesLoggedAt(logged, Level.WARN)).isEmpty();
     }
 
     @Test
