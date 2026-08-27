@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Runs {@code V202608251000__crypto_asset_inventory.sql} as Flyway will, and asserts what the catalogue then says.
+ * Runs {@code V202608271000__crypto_asset_inventory.sql} as Flyway will, and asserts what the catalogue then says.
  *
  * <p>
  * The regular test bootstrap generates its schema from the entities, so nothing else in the suite ever executes this
@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class CryptoAssetInventoryMigrationITest extends BaseSpringBootTest {
 
-    private static final String MIGRATION_RESOURCE = "db/migration/V202608251000__crypto_asset_inventory.sql";
+    private static final String MIGRATION_RESOURCE = "db/migration/V202608271000__crypto_asset_inventory.sql";
 
     private static final String SCRATCH_SCHEMA = "crypto_asset_migration_check";
 

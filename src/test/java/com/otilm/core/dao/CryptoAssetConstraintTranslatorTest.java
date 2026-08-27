@@ -112,7 +112,7 @@ class CryptoAssetConstraintTranslatorTest {
      * {@link CryptoAssetConstraintTranslator#constraintNameOf} folds to.
      */
     private static Set<String> constraintNamesTheMigrationDeclares() throws IOException {
-        String sql = new ClassPathResource("db/migration/V202608251000__crypto_asset_inventory.sql")
+        String sql = new ClassPathResource("db/migration/V202608271000__crypto_asset_inventory.sql")
                 .getContentAsString(StandardCharsets.UTF_8);
         Matcher names = Pattern.compile("CONSTRAINT \"([a-z0-9_]+)\"").matcher(sql.replaceAll("(?m)--.*$", ""));
 

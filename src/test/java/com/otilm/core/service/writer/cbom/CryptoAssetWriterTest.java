@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class CryptoAssetWriterTest {
 
-    private static final String MIGRATION = "db/migration/V202608251000__crypto_asset_inventory.sql";
+    private static final String MIGRATION = "db/migration/V202608271000__crypto_asset_inventory.sql";
 
     /**
      * A pre-check that drifts from its constraint is worse than no pre-check: it either rejects rows the database would
