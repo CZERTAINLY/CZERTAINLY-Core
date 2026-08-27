@@ -309,7 +309,7 @@ public class FilterPredicatesBuilder {
      * @throws ValidationException if {@code fieldAttribute} is declared on a subtype but is not singular
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    static Path<?> resolveFieldPath(final From from, final Attribute<?, ?> fieldAttribute) {
+    static <Y> Path<Y> resolveFieldPath(final From from, final Attribute<?, ?> fieldAttribute) {
         if (!isDeclaredOnStrictSubtypeOf(from, fieldAttribute)) {
             return from.get(fieldAttribute.getName());
         }
@@ -318,7 +318,7 @@ public class FilterPredicatesBuilder {
                     + fieldAttribute.getDeclaringType().getJavaType().getSimpleName()
                     + " and is not singular, which filter resolution does not support");
         }
-        return from.get((SingularAttribute) singularAttribute);
+        return from.get(singularAttribute);
     }
 
     private static boolean isDeclaredOnStrictSubtypeOf(final From<?, ?> from, final Attribute<?, ?> fieldAttribute) {
