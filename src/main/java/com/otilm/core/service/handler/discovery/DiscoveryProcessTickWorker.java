@@ -43,9 +43,12 @@ public class DiscoveryProcessTickWorker {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryProcessTickWorker.class);
 
-    /** The severities that mean the run did not get everything done, whatever its rows say. */
+    /**
+     * The severities that mean the run did not get everything done, whatever its rows say. Anything above {@code INFO},
+     * so a severity added later counts until someone decides it should not.
+     */
     private static final Set<DiscoveryMessageSeverity> UNRECOVERED = EnumSet
-            .of(DiscoveryMessageSeverity.WARNING, DiscoveryMessageSeverity.ERROR);
+            .complementOf(EnumSet.of(DiscoveryMessageSeverity.INFO));
 
     private final DiscoveryRepository discoveryRepository;
     private final DiscoveryCertificateRepository certificateRepository;
@@ -179,17 +182,20 @@ public class DiscoveryProcessTickWorker {
             // of attempts carry their own reason, and a stall that exhausts the budget ends the run itself. Judged
             // on this batch and never the run, because another batch's pending rows would make a failure that
             // stamped all of its own look retryable -- and nothing would ever revisit it.
-            boolean retryable = pendingIn(batch) > 0;
-            messageWriter
-                    .append(run.getUuid(), retryable ? DiscoveryMessageSeverity.INFO : DiscoveryMessageSeverity.WARNING,
-                            retryable
-                                    ? DiscoveryMessageCode.BATCH_PROCESSING_FAILED
-                                    : DiscoveryMessageCode.BATCH_PROCESSING_ABANDONED,
-                            retryable
-                                    ? "A batch of discovered certificates did not complete and went back for another "
-                                            + "attempt."
-                                    : "A batch of discovered certificates failed after its rows were imported, and "
-                                            + "will not be tried again.");
+            recordQuietly(run.getUuid(), "a batch that did not complete", () -> {
+                boolean retryable = pendingIn(batch) > 0;
+                messageWriter
+                        .append(run.getUuid(),
+                                retryable ? DiscoveryMessageSeverity.INFO : DiscoveryMessageSeverity.WARNING,
+                                retryable
+                                        ? DiscoveryMessageCode.BATCH_PROCESSING_FAILED
+                                        : DiscoveryMessageCode.BATCH_PROCESSING_ABANDONED,
+                                retryable
+                                        ? "A batch of discovered certificates did not complete and went back for "
+                                                + "another attempt."
+                                        : "A batch of discovered certificates failed after its rows were imported, "
+                                                + "and will not be tried again.");
+            });
             return;
         }
         // Outside the catch above, and never folded into it: the batch itself succeeded, so filing a failure to
@@ -204,10 +210,24 @@ public class DiscoveryProcessTickWorker {
             // appendAll returns early on an empty list, so reaching here proves the batch fell short of something.
             // One more attempt, at a single row: a run that ends clean because its warning was lost is worse than
             // one saying only that something was lost.
-            messageWriter
-                    .append(run.getUuid(), DiscoveryMessageSeverity.WARNING,
-                            DiscoveryMessageCode.BOOKKEEPING_INCOMPLETE,
-                            "Some of what a batch fell short on could not be recorded.");
+            recordQuietly(run.getUuid(), "that a batch's gaps were lost",
+                    () -> messageWriter
+                            .append(run.getUuid(), DiscoveryMessageSeverity.WARNING,
+                                    DiscoveryMessageCode.BOOKKEEPING_INCOMPLETE,
+                                    "Some of what a batch fell short on could not be recorded."));
+        }
+    }
+
+    /**
+     * Records a message that must not take the tick down with it. The same outage that tripped the caller's catch will
+     * often trip the write too, and an exception escaping there skips the stall path — so the attempt counter never
+     * climbs and the budget never ends a failing run.
+     */
+    private void recordQuietly(UUID discoveryUuid, String what, Runnable record) {
+        try {
+            record.run();
+        } catch (Exception e) {
+            logger.error("Could not record {} for discovery {}: {}", what, discoveryUuid, e.getMessage(), e);
         }
     }
 

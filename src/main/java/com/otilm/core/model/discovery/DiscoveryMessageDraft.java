@@ -14,7 +14,9 @@ import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
  * <p>
  * Where a staged row exists the detail is relocated, not lost: why one certificate failed to <em>import</em> is on that
  * certificate's own row ({@code discovery_certificate.processed_error}). Failures before a row exists — staging, an
- * invalid payload, a missing sequence — identify themselves only in the server log.
+ * invalid payload, a missing sequence — name what they hit in the application log only, which is where they were before
+ * this log existed. These messages are a bounded summary above it rather than a replacement for it: naming every
+ * occurrence here is what would make the log too long to read.
  *
  * @param occurrences how many times this producer saw the problem in the work it is reporting on
  */
