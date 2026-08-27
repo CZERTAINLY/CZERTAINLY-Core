@@ -1,8 +1,10 @@
 package com.otilm.core.integration.service;
 
+import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.certificate.SearchSortRequestDto;
+import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetDto;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
@@ -15,8 +17,10 @@ import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.repository.CbomRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
+import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CryptographicAssetExternalService;
+import com.otilm.core.service.ResourceExtensionService;
 import com.otilm.core.service.writer.cbom.CryptoAssetSourceWriter;
 import com.otilm.core.service.writer.cbom.CryptoAssetWriter;
 import com.otilm.core.util.BaseSpringBootTest;
@@ -231,6 +235,61 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
         assertThat(page2.getTotalItems()).isEqualTo(3);
     }
 
+    // ---- the auth service's per-object listing (ResourceExtensionService) ----
+
+    @Test
+    void listResourceObjectsLabelsByNameOrFallsBackToOid() {
+        UUID named = seedNamed(CryptographicAssetType.ALGORITHM, "AES", "oid-named");
+        UUID bare = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, "oid-bare-only",
+                        null, null, null, null, null, null, null), null);
+
+        List<NameAndUuidDto> objects = resourceExtension().listResourceObjects(SecurityFilter.create(), null, null);
+
+        assertThat(nameFor(objects, named))
+                .describedAs("a named row is labeled by its canonical name")
+                .isEqualTo("aes");
+        assertThat(nameFor(objects, bare))
+                .describedAs("a name-less row falls back to its oid")
+                .isEqualTo("oid-bare-only");
+    }
+
+    @Test
+    void getResourceObjectInternalReturnsNameAndUuidOrThrowsNotFound() throws NotFoundException {
+        UUID named = seedNamed(CryptographicAssetType.ALGORITHM, "AES", "oid-internal");
+
+        NameAndUuidDto found = resourceExtension().getResourceObjectInternal(named);
+        assertThat(found.getUuid()).isEqualTo(named.toString());
+        assertThat(found.getName()).isEqualTo("aes");
+
+        UUID missing = UUID.randomUUID();
+        assertThatThrownBy(() -> resourceExtension().getResourceObjectInternal(missing))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void getResourceObjectExternalReturnsNameAndUuidOrThrowsNotFound() throws NotFoundException {
+        UUID named = seedNamed(CryptographicAssetType.ALGORITHM, "AES", "oid-external");
+
+        NameAndUuidDto found = resourceExtension().getResourceObjectExternal(SecuredUUID.fromUUID(named));
+        assertThat(found.getUuid()).isEqualTo(named.toString());
+        assertThat(found.getName()).isEqualTo("aes");
+
+        UUID missing = UUID.randomUUID();
+        assertThatThrownBy(() -> resourceExtension().getResourceObjectExternal(SecuredUUID.fromUUID(missing)))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void evaluatePermissionChainThrowsNotFoundForAMissingUuidAndPassesForAnExistingOne() throws NotFoundException {
+        UUID existing = seedNamed(CryptographicAssetType.ALGORITHM, "AES", "oid-chain");
+        resourceExtension().evaluatePermissionChain(SecuredUUID.fromUUID(existing));
+
+        UUID missing = UUID.randomUUID();
+        assertThatThrownBy(() -> resourceExtension().evaluatePermissionChain(SecuredUUID.fromUUID(missing)))
+                .isInstanceOf(NotFoundException.class);
+    }
+
     // ---- helpers ----
 
     private PaginationResponseDto<CryptographicAssetDto> list(SearchRequestDto request) {
@@ -259,6 +318,21 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
 
     private static CryptographicAssetDto dtoFor(PaginationResponseDto<CryptographicAssetDto> page, UUID uuid) {
         return page.getItems().stream().filter(dto -> dto.getUuid().equals(uuid)).findFirst().orElseThrow();
+    }
+
+    // CryptographicAssetServiceImpl implements both CryptographicAssetExternalService and ResourceExtensionService
+    // on the one bean; casting the already-autowired proxy reaches the same instance under the second interface.
+    private ResourceExtensionService resourceExtension() {
+        return (ResourceExtensionService) cryptographicAssetService;
+    }
+
+    private static String nameFor(List<NameAndUuidDto> objects, UUID uuid) {
+        return objects
+                .stream()
+                .filter(object -> object.getUuid().equals(uuid.toString()))
+                .findFirst()
+                .orElseThrow()
+                .getName();
     }
 
     /**

@@ -3,13 +3,16 @@ package com.otilm.core.service.impl;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.NotSupportedException;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.dashboard.CryptographicAssetStatisticsDto;
+import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetDetailDto;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetDto;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
+import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
@@ -25,11 +28,13 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CryptographicAssetExternalService;
+import com.otilm.core.service.ResourceExtensionService;
 import com.otilm.core.util.FilterPredicatesBuilder;
 import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import java.util.ArrayList;
@@ -48,15 +53,16 @@ import org.springframework.stereotype.Service;
 /**
  * Serves the ratified cryptographic asset inventory contract. List and searchable-fields are real reads over the
  * deduplicated cross-CBOM asset projection; detail, statistics and sync visibility remain {@link NotSupportedException}
- * refusals until core#2145 builds them.
+ * refusals until core#2145 builds them. The service also serves the per-object listing behind {@code @AuthEndpoint} --
+ * the role editor's object picker.
  *
  * <p>
  * {@link NotSupportedException} maps to HTTP 501 in {@code ExceptionHandlingAdvice}, so a permitted caller learns a
  * still-refused operation is not implemented while an unpermitted caller is refused with 403 by the authorization
  * aspect ahead of this body.
  */
-@Service
-public class CryptographicAssetServiceImpl implements CryptographicAssetExternalService {
+@Service(Resource.Codes.CRYPTO_ASSET)
+public class CryptographicAssetServiceImpl implements CryptographicAssetExternalService, ResourceExtensionService {
 
     private static final String NOT_IMPLEMENTED = "Cryptographic asset inventory is not implemented yet";
 
@@ -160,6 +166,33 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
         throw new NotSupportedException(NOT_IMPLEMENTED);
     }
 
+    @Override
+    public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
+        return cryptoAssetRepository.findResourceObject(objectUuid, CryptographicAssetServiceImpl::displayLabel);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CRYPTO_ASSET, action = ResourceAction.DETAIL)
+    public NameAndUuidDto getResourceObjectExternal(SecuredUUID objectUuid) throws NotFoundException {
+        return cryptoAssetRepository
+                .findResourceObject(objectUuid.getValue(), CryptographicAssetServiceImpl::displayLabel);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CRYPTO_ASSET, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
+            PaginationRequestDto pagination) {
+        return cryptoAssetRepository
+                .listResourceObjects(filter, CryptographicAssetServiceImpl::displayLabel, null, pagination);
+    }
+
+    // DETAIL is this resource's own object-read gate, and it has no parent resource to chain through.
+    @Override
+    @ExternalAuthorization(resource = Resource.CRYPTO_ASSET, action = ResourceAction.DETAIL)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        cryptoAssetRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptoAsset.class, uuid));
+    }
+
     private static void validatePaging(SearchRequestDto request) {
         // No crypto-asset field is marked sortable, and the contract permits sorting only on fields marked sortable.
         if (request.getSort() != null) {
@@ -193,6 +226,14 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
                 .filter(Objects::nonNull)
                 .map(CryptographicAssetServiceImpl::toDto)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * The role-permissions object picker's display label: the asset's name, or -- for a bare producer row with none --
+     * its recorded OID, the next-best stable label. Both are producer-derived display values.
+     */
+    private static Expression<String> displayLabel(Root<CryptoAsset> root, CriteriaBuilder cb) {
+        return cb.coalesce(root.get(CryptoAsset_.name), root.get(CryptoAsset_.oid));
     }
 
     private static CryptographicAssetDto toDto(CryptoAssetListRow row) {
