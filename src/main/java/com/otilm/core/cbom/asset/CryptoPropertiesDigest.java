@@ -3,6 +3,7 @@ package com.otilm.core.cbom.asset;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.otilm.core.cbom.asset.identity.AsciiText;
 import com.otilm.core.serialization.ObjectMapperFactory;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -57,6 +58,16 @@ public record CryptoPropertiesDigest(int leafCount, String hash) {
         }
         if (node instanceof Collection<?> collection) {
             return collection.stream().mapToInt(CryptoPropertiesDigest::leafCount).sum();
+        }
+        // A blank string is a declared absence too, for the same reason an explicit null is: it describes nothing.
+        // Counting it let a source saying {"curve":" "} out-rank one that said nothing at all, so whitespace won
+        // the election outright and became the row's stored view. The ratified rule counts it as zero.
+        //
+        // Blankness is decided by the specification's whitespace set rather than String.isBlank, which consults
+        // Character.isWhitespace and therefore does not consider a no-break space blank -- and a no-break space is
+        // exactly what arrives in text pasted out of a document.
+        if (node instanceof String text) {
+            return AsciiText.isBlank(text) ? 0 : 1;
         }
         return 1;
     }

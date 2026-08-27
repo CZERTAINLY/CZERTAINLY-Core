@@ -6,12 +6,14 @@ import com.otilm.api.model.core.cbom.CbomAssetSyncState;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.api.model.core.search.FilterConditionOperator;
+import com.otilm.core.cbom.asset.AssetRowKeys;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.repository.CbomRepository;
 import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
 import com.otilm.core.enums.FilterField;
+import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.writer.cbom.CbomAssetSyncStateWriter;
 import com.otilm.core.service.writer.cbom.CryptoAssetWriter;
@@ -62,14 +64,11 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
 
     @BeforeEach
     void seedAssets() {
-        populated = assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA", "1.2.840.10045.4.3.2",
-                                "ecdsa", "signature", "P-256", "secp256r1", "cbc", "pkcs1v15", "fips186-4"),
-                        null);
-        bare = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, null, null,
-                        null, null, null, null, null, null), null);
+        populated = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA",
+                "1.2.840.10045.4.3.2", "ecdsa", "signature", "P-256", "secp256r1", "cbc", "pkcs1v15", "fips186-4"),
+                null);
+        bare = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, null, null, null, null,
+                null, null, null, null), null);
 
         assetWriter
                 .applyPqcVerdict(populated, PqcVerdict.NOT_READY, "ECDSA-CLASSICAL", "not quantum resistant", 3,
@@ -107,12 +106,10 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
      */
     @Test
     void aFilterAnswerDoesNotDependOnWhichProducerSyncedLast() {
-        UUID first = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", null, null, null,
-                        null, null, "GCM", null, null), null);
-        UUID second = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "  aes  ", "   ", null,
-                        null, null, null, " gcm ", null, null), null);
+        UUID first = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", null, null, null,
+                null, null, "GCM", null, null), null);
+        UUID second = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "  aes  ", "   ", null,
+                null, null, null, " gcm ", null, null), null);
 
         assertThat(second).describedAs("both spellings key to one row").isEqualTo(first);
         assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_NAME, "aes")))
@@ -287,5 +284,17 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
         cbom.setVersion(1);
         cbom.setSpecVersion("1.7");
         return cbomRepository.save(cbom);
+    }
+
+    /**
+     * Upserts through the writer with a fixture key derived from the fields.
+     *
+     * <p>
+     * The writer no longer computes the key -- the extraction pipeline does, from the whole component -- so a
+     * persistence test has to supply one. {@link AssetRowKeys} makes it a stable function of the normalized fields,
+     * which is what keeps every dedup assertion below meaning what it meant before.
+     */
+    private UUID upsert(CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
+        return assetWriter.upsertIdentity(AssetRowKeys.forFields(fields), fields, guard);
     }
 }
