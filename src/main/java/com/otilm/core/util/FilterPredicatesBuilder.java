@@ -37,6 +37,7 @@ import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
+import jakarta.persistence.metamodel.SingularAttribute;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -294,6 +295,37 @@ public class FilterPredicatesBuilder {
         return preparedValue;
     }
 
+    /**
+     * Resolves {@code fieldAttribute} as a path on {@code from}.
+     *
+     * <p>
+     * An attribute declared on an inheritance subtype of what {@code from} resolves to is addressed through the
+     * metamodel attribute itself rather than by name. The resulting path carries no restriction to that subtype, so the
+     * query still spans the whole hierarchy. Every other attribute is addressed by name.
+     *
+     * @param from the root or join the filter field is resolved against
+     * @param fieldAttribute the attribute being filtered on
+     * @return the path to the attribute
+     * @throws ValidationException if {@code fieldAttribute} is declared on a subtype but is not singular
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Path<?> resolveFieldPath(final From from, final Attribute<?, ?> fieldAttribute) {
+        if (!isDeclaredOnStrictSubtypeOf(from, fieldAttribute)) {
+            return from.get(fieldAttribute.getName());
+        }
+        if (!(fieldAttribute instanceof SingularAttribute<?, ?> singularAttribute)) {
+            throw new ValidationException("Filter field " + fieldAttribute.getName() + " is declared on subtype "
+                    + fieldAttribute.getDeclaringType().getJavaType().getSimpleName()
+                    + " and is not singular, which filter resolution does not support");
+        }
+        return from.get((SingularAttribute) singularAttribute);
+    }
+
+    private static boolean isDeclaredOnStrictSubtypeOf(final From<?, ?> from, final Attribute<?, ?> fieldAttribute) {
+        final Class<?> declaringType = fieldAttribute.getDeclaringType().getJavaType();
+        return !declaringType.equals(from.getJavaType()) && from.getJavaType().isAssignableFrom(declaringType);
+    }
+
     private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder,
             final CommonAbstractCriteria query, final Root<T> root, SearchFilterRequestDto filterDto,
             Map<String, From> joinedAssociations) {
@@ -310,7 +342,7 @@ public class FilterPredicatesBuilder {
 
         Expression expression = null;
         if (filterField.getFieldAttribute() != null && !isCountOperator(filterDto.getCondition())) {
-            expression = from.get(filterField.getFieldAttribute().getName());
+            expression = resolveFieldPath(from, filterField.getFieldAttribute());
         }
 
         boolean isJsonArray = false;
@@ -319,28 +351,28 @@ public class FilterPredicatesBuilder {
             if (isJsonArray) {
                 expression = criteriaBuilder
                         .function("jsonb_path_query_array", String.class,
-                                from.get(filterField.getFieldAttribute().getName()),
+                                resolveFieldPath(from, filterField.getFieldAttribute()),
                                 criteriaBuilder.literal(getArrayJsonPath(filterField.getJsonPath())));
             } else {
                 expression = switch (filterField.getJsonPath().length) {
                     case 1 -> criteriaBuilder
                             .function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class,
-                                    from.get(filterField.getFieldAttribute().getName()),
+                                    resolveFieldPath(from, filterField.getFieldAttribute()),
                                     criteriaBuilder.literal(filterField.getJsonPath()[0]));
                     case 2 -> criteriaBuilder
                             .function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class,
-                                    from.get(filterField.getFieldAttribute().getName()),
+                                    resolveFieldPath(from, filterField.getFieldAttribute()),
                                     criteriaBuilder.literal(filterField.getJsonPath()[0]),
                                     criteriaBuilder.literal(filterField.getJsonPath()[1]));
                     case 3 -> criteriaBuilder
                             .function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class,
-                                    from.get(filterField.getFieldAttribute().getName()),
+                                    resolveFieldPath(from, filterField.getFieldAttribute()),
                                     criteriaBuilder.literal(filterField.getJsonPath()[0]),
                                     criteriaBuilder.literal(filterField.getJsonPath()[1]),
                                     criteriaBuilder.literal(filterField.getJsonPath()[2]));
                     case 4 -> criteriaBuilder
                             .function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class,
-                                    from.get(filterField.getFieldAttribute().getName()),
+                                    resolveFieldPath(from, filterField.getFieldAttribute()),
                                     criteriaBuilder.literal(filterField.getJsonPath()[0]),
                                     criteriaBuilder.literal(filterField.getJsonPath()[1]),
                                     criteriaBuilder.literal(filterField.getJsonPath()[2]),
@@ -660,7 +692,7 @@ public class FilterPredicatesBuilder {
                     .where(criteriaBuilder
                             .isTrue(criteriaBuilder
                                     .function(functionName, Boolean.class, criteriaBuilder.literal(value.toString()),
-                                            subFrom.get(filterField.getFieldAttribute().getName()))));
+                                            resolveFieldPath(subFrom, filterField.getFieldAttribute()))));
             return criteriaBuilder.not(criteriaBuilder.exists(subquery));
         }).toArray(Predicate[]::new);
         return notExistsPredicates.length == 1 ? notExistsPredicates[0] : criteriaBuilder.and(notExistsPredicates);
@@ -851,7 +883,7 @@ public class FilterPredicatesBuilder {
                                         resource == Resource.CRYPTOGRAPHIC_KEY
                                                 ? originalRoot.get(CryptographicKeyItem_.keyUuid)
                                                 : originalRoot.get(UniquelyIdentified_.uuid)),
-                        joinGroup.get(fieldAttribute.getName()).in(filterValues));
+                        resolveFieldPath(joinGroup, fieldAttribute).in(filterValues));
 
         return criteriaBuilder.not(criteriaBuilder.exists(subquery));
     }
