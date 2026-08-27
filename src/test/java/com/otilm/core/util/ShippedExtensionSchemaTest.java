@@ -12,10 +12,7 @@ import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.x509.BasicConstraints;
-import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.KeyPurposeId;
-import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.asn1.x509.NameConstraints;
 import org.bouncycastle.asn1.x509.PrivateKeyUsagePeriod;
 import org.bouncycastle.asn1.x509.SubjectDirectoryAttributes;
@@ -74,9 +71,12 @@ class ShippedExtensionSchemaTest {
 
     @Test
     void everySystemCertificateExtensionShipsASchema() {
+        // Key Usage and Extended Key Usage are excluded: they have typed mapping targets, and a JSON tree for
+        // them is refused outright rather than shape-checked.
         List<SystemOid> extensions = Arrays
                 .stream(SystemOid.values())
                 .filter(oid -> oid.getCategory() == OidCategory.CERTIFICATE_EXTENSION)
+                .filter(oid -> StructuredExtensionCodec.structuredTargetName(oid.getOid()) == null)
                 .toList();
         assertThat(extensions).isNotEmpty();
 
@@ -84,32 +84,6 @@ class ShippedExtensionSchemaTest {
                 .allSatisfy(oid -> assertThat(ExtensionSchemas.shippedSchema(oid.getOid()))
                         .as("no shipped schema for %s (%s)", oid.getOid(), oid.getDisplayName())
                         .isPresent());
-    }
-
-    @Test
-    void keyUsage() throws Exception {
-        String tree = "{\"bitString\":{\"value\":\"gA==\",\"padBits\":7}}";
-        assertAccepts("2.5.29.15", tree);
-
-        KeyUsage parsed = KeyUsage.getInstance(ASN1Primitive.fromByteArray(encode(tree)));
-        assertThat(parsed.hasUsages(KeyUsage.digitalSignature)).isTrue();
-        assertThat(parsed.hasUsages(KeyUsage.keyCertSign)).isFalse();
-
-        assertRejects("2.5.29.15", "{\"octetString\":\"gA==\"}");
-        assertRejects("2.5.29.15", "{\"bitString\":{\"value\":\"gA==\",\"padBits\":9}}");
-    }
-
-    @Test
-    void extendedKeyUsage() throws Exception {
-        String tree = "{\"sequence\":[{\"oid\":\"1.3.6.1.5.5.7.3.1\"}]}";
-        assertAccepts("2.5.29.37", tree);
-
-        ExtendedKeyUsage parsed = ExtendedKeyUsage.getInstance(ASN1Primitive.fromByteArray(encode(tree)));
-        assertThat(parsed.hasKeyPurposeId(KeyPurposeId.id_kp_serverAuth)).isTrue();
-
-        // RFC 5280 4.2.1.12: one or more purposes.
-        assertRejects("2.5.29.37", "{\"sequence\":[]}");
-        assertRejects("2.5.29.37", "{\"sequence\":[{\"utf8String\":\"serverAuth\"}]}");
     }
 
     @Test
@@ -208,13 +182,6 @@ class ShippedExtensionSchemaTest {
         // RFC 7633 defines Features as SEQUENCE OF INTEGER with no SIZE constraint, so an empty one is legal
         // even though it asserts nothing. Rejecting it would refuse a valid encoding.
         assertAccepts("1.3.6.1.5.5.7.1.24", "{\"sequence\":[]}");
-    }
-
-    @Test
-    void keyUsageRejectsAnAllZeroBitString() {
-        // RFC 5280 4.2.1.3: when the extension appears, at least one bit MUST be set.
-        assertRejects("2.5.29.15", "{\"bitString\":{\"value\":\"AA==\",\"padBits\":7}}");
-        assertRejects("2.5.29.15", "{\"bitString\":{\"value\":\"\",\"padBits\":0}}");
     }
 
     @Test

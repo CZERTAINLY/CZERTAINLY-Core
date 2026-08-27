@@ -166,6 +166,24 @@ class AttributeEngineJsonExtensionValueTest {
                 .isEmpty();
     }
 
+    @Test
+    void refusesAJsonTreeForAnExtensionThatHasATypedTarget() {
+        // Authoring a new opaque mapping for these OIDs is already refused; a legacy one must not gain a
+        // second, weaker way in. The typed target draws on a closed vocabulary and cannot express a malformed
+        // value, which is exactly what a hand-written bit string can do.
+        registerSystem("2.5.29.15");
+        var definition = extensionDefinition("2.5.29.15");
+
+        assertThat(AttributeEngine
+                .validateJsonExtensionValues(definition,
+                        value(definition, "{\"bitString\":{\"value\":\"gA==\",\"padBits\":7}}")))
+                .singleElement()
+                .satisfies(error -> assertThat(error.getErrorDescription()).contains("Key Usage"));
+
+        // Base64 DER through a legacy mapping is untouched.
+        assertThat(AttributeEngine.validateJsonExtensionValues(definition, value(definition, "AwIFoA=="))).isEmpty();
+    }
+
     private static void registerSystem(String oid) {
         OidHandler
                 .cacheOid(OidCategory.CERTIFICATE_EXTENSION, oid,

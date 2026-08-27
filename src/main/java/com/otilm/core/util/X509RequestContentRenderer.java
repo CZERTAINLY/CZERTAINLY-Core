@@ -212,9 +212,10 @@ public final class X509RequestContentRenderer {
             // The codec's own message is controlled and names the offending node, so it is worth forwarding.
             throw new IOException(WRONG_DER_FORM + ": " + e.getMessage(), e);
         } catch (RuntimeException e) {
-            // Anything else is a defect rather than bad input; its message is uncontrolled and this one
-            // reaches the client through CertificateException.
-            throw new IOException(WRONG_DER_FORM, e);
+            // Anything else is a defect rather than bad input, so it must not be reported as invalid DER: the
+            // author would go looking at a value that is fine. Its message is uncontrolled and this one reaches
+            // the client through CertificateException, so only the cause carries the detail.
+            throw new IOException("Extension value could not be encoded", e);
         }
     }
 
