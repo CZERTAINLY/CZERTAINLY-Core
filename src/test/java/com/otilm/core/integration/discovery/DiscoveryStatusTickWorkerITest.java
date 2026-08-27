@@ -7,12 +7,15 @@ import com.otilm.api.model.common.error.ProblemDetailExtended;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryProgressDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunState;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryStatusResponseDto;
+import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.entity.DiscoveryWork;
+import com.otilm.core.dao.repository.DiscoveryMessageRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.messaging.jms.configuration.DiscoveryWorkProperties;
+import com.otilm.core.model.discovery.DiscoveryMessageCode;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.discovery.DiscoveryStatusTickWorker;
 import com.otilm.core.service.handler.discovery.DiscoveryV2Client;
@@ -56,6 +59,8 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
     private DiscoveryRepository discoveryRepository;
     @Autowired
     private DiscoveryWorkRepository workRepository;
+    @Autowired
+    private DiscoveryMessageRepository messageRepository;
     @Autowired
     private DiscoveryWorkWriter workWriter;
     @Autowired
@@ -171,6 +176,16 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
         assertThat(reloaded.getEndTime()).isNotNull();
         assertThat(reloaded.getRunMeta()).isNull();
         assertThat(agenda(run)).isEmpty();
+        // How a run ended is recorded at a severity that follows its status, and only an ending written through the
+        // real terminator proves that mapping: the reason reaches the log as ERROR, not as the WARNING a run that
+        // merely fell short would carry.
+        assertThat(messageRepository.findByDiscoveryUuidOrderByIdAsc(run.getUuid()))
+                .singleElement()
+                .satisfies(ending -> {
+                    assertThat(ending.getCode()).isEqualTo(DiscoveryMessageCode.RUN_ENDED.code());
+                    assertThat(ending.getSeverity()).isEqualTo(DiscoveryMessageSeverity.ERROR);
+                    assertThat(ending.getMessage()).isEqualTo(reloaded.getMessage());
+                });
     }
 
     @Test

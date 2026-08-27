@@ -1,5 +1,8 @@
 package com.otilm.core.events.handlers.discovery;
 
+import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
+import com.otilm.core.model.discovery.DiscoveryMessageCode;
+import com.otilm.core.model.discovery.DiscoveryMessageDraft;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,33 +27,72 @@ public record DiscoveryRunCounts(long inventoryGaps, long keyGaps, long notAttem
     }
 
     /**
-     * One sentence per reason this unit of work fell short, in a fixed order. Empty when nothing did.
+     * One run message per reason this unit of work fell short, in a fixed order. Empty when nothing did.
      *
      * <p>
-     * Shared by the two flows that report gaps at different granularities: the v1 pass counts a whole run and turns
-     * these into its final status message, while a v2 {@code PROCESS} batch counts only itself and files them in the
-     * run's message log as it goes. Both say the same thing about the same counts.
+     * A v2 {@code PROCESS} batch counts only itself, so each of these carries its own count as occurrences rather than
+     * inside its text: every batch reporting the same kind of gap aggregates onto one row, where embedding the count
+     * would mint a distinct message per batch and bury the run's first one.
      */
-    public List<String> describeGaps() {
-        List<String> sentences = new ArrayList<>();
+    public List<DiscoveryMessageDraft> describeGaps() {
+        return gaps()
+                .stream()
+                .map(gap -> new DiscoveryMessageDraft(DiscoveryMessageSeverity.WARNING, gap.code(), gap.message(),
+                        gap.count()))
+                .toList();
+    }
+
+    /**
+     * The same reasons as counted sentences, for the v1 pass — which counts a whole run in one go and turns them into
+     * its final status message, where a count that is not in the text has nowhere else to appear.
+     */
+    public List<String> renderGaps() {
+        return gaps().stream().map(Gap::sentence).toList();
+    }
+
+    /**
+     * The kinds of gap, listed once so the aggregated message and the counted sentence cannot drift apart.
+     */
+    private List<Gap> gaps() {
+        List<Gap> gaps = new ArrayList<>();
         if (inventoryGaps > 0) {
-            sentences.add("%d certificate(s) could not be imported into the inventory.".formatted(inventoryGaps));
+            gaps
+                    .add(new Gap(DiscoveryMessageCode.INVENTORY_GAP,
+                            "A discovered certificate could not be imported into the inventory.",
+                            "%d certificate(s) could not be imported into the inventory.".formatted(inventoryGaps),
+                            inventoryGaps));
         }
         if (keyGaps > 0) {
-            sentences
-                    .add("%d certificate(s) were imported without all of their public keys associated."
-                            .formatted(keyGaps));
+            gaps
+                    .add(new Gap(DiscoveryMessageCode.KEY_ASSOCIATION_GAP,
+                            "A certificate was imported without all of its public keys associated.",
+                            "%d certificate(s) were imported without all of their public keys associated."
+                                    .formatted(keyGaps),
+                            keyGaps));
         }
         if (notAttempted > 0) {
-            sentences.add("%d certificate(s) could not be processed to a result.".formatted(notAttempted));
+            gaps
+                    .add(new Gap(DiscoveryMessageCode.CERTIFICATE_NOT_PROCESSED,
+                            "A discovered certificate could not be processed to a result.",
+                            "%d certificate(s) could not be processed to a result.".formatted(notAttempted),
+                            notAttempted));
         }
         if (bookkeepingFailures > 0) {
-            sentences.add("Some per-certificate detail could not be recorded.");
+            gaps
+                    .add(new Gap(DiscoveryMessageCode.BOOKKEEPING_INCOMPLETE,
+                            "Some per-certificate detail could not be recorded.",
+                            "Some per-certificate detail could not be recorded.", bookkeepingFailures));
         }
         if (validationNotQueued) {
-            sentences.add("Validation of the discovered certificates could not be requested.");
+            gaps
+                    .add(new Gap(DiscoveryMessageCode.VALIDATION_NOT_REQUESTED,
+                            "Validation of the discovered certificates could not be requested.",
+                            "Validation of the discovered certificates could not be requested.", 1));
         }
-        return sentences;
+        return gaps;
+    }
+
+    private record Gap(DiscoveryMessageCode code, String message, String sentence, long count) {
     }
 
     /**

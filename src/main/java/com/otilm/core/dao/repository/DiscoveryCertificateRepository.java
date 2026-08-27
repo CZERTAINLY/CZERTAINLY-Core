@@ -47,6 +47,9 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
 
     long countByDiscoveryUuidAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(UUID discoveryUuid);
 
+    /** The same count narrowed to one batch's rows — what decides whether a failed batch will be tried again. */
+    long countByUuidInAndNewlyDiscoveredTrueAndProcessedFalseAndProcessedErrorIsNull(Collection<UUID> uuids);
+
     /** Whether any row of the run recorded a reason it could not be imported — what makes a run end WARNING. */
     boolean existsByDiscoveryUuidAndProcessedErrorIsNotNull(UUID discoveryUuid);
 

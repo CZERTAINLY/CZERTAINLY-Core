@@ -18,6 +18,7 @@ import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryItemDto;
+import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.scheduler.ScheduleDiscoveryDto;
@@ -160,8 +161,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     /*
-     * Discovery v2, not implemented yet: these seven exist because DiscoveryController declares them abstract, so this
-     * class does not compile without them.
+     * Discovery v2, not implemented yet: the stubs below exist because DiscoveryController declares them abstract, so
+     * this class does not compile without them.
      *
      * Stub response: 501, so a caller reaching one gets an answer it can act on.
      *
@@ -176,6 +177,12 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     @Override
     public PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(String uuid, Resource resource,
             Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException {
+        throw notImplemented();
+    }
+
+    @Override
+    public PaginationResponseDto<DiscoveryMessageDto> getDiscoveryRunMessages(String uuid, int itemsPerPage,
+            int pageNumber) throws NotFoundException {
         throw notImplemented();
     }
 
