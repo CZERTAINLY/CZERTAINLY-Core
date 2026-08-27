@@ -70,10 +70,17 @@ CREATE TABLE "crypto_asset" (
     CONSTRAINT "ck_crypto_asset_pqc_verdict" CHECK ("pqc_verdict" IN
         ('READY', 'NOT_READY', 'NOT_APPLICABLE', 'UNKNOWN')),
     -- Eleven producer-supplied TEXT columns are indexed, and a btree tuple wider than roughly 2704 bytes is refused by
-    -- the index rather than by validation -- an error the ingest path cannot attribute to a field. A dotted-decimal
-    -- object identifier has a realistic bound, so cap it here, where the error names the column. The other ten are
-    -- deliberately uncapped: name in particular carries legitimate long text, and bounding it is a contract question.
-    CONSTRAINT "ck_crypto_asset_oid_length" CHECK (length("oid") <= 255)
+    -- the index rather than by validation -- an error the ingest path cannot attribute to a field. The two columns a
+    -- producer can realistically make long are bounded here, where the error names the column that caused it: a
+    -- dotted-decimal object identifier at 255, and a component name at 1024, which is far above any real CycloneDX
+    -- name and far below the point where a row becomes a document store. The remaining nine are short by construction
+    -- -- an algorithm family, a primitive, a curve -- and bounding them would buy nothing.
+    --
+    -- These count characters, not bytes, so the index limit is not formally unreachable: 1024 characters outside the
+    -- Basic Multilingual Plane is 4096 bytes. Every realistic name is ASCII or near it, so this bounds the case that
+    -- happens; octet_length would bound the case that cannot.
+    CONSTRAINT "ck_crypto_asset_oid_length" CHECK (length("oid") <= 255),
+    CONSTRAINT "ck_crypto_asset_name_length" CHECK (length("name") <= 1024)
 );
 
 CREATE TABLE "crypto_asset_source" (

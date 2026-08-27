@@ -63,7 +63,7 @@ class CryptoAssetInventoryMigrationITest extends BaseSpringBootTest {
                     "ck_crypto_asset_properties_leaf_count", "ck_crypto_asset_source_occurrence_count",
                     "ck_crypto_asset_source_properties_leaf_count", "ck_crypto_asset_alias_not_self",
                     "ck_crypto_asset_asset_type", "ck_crypto_asset_identity_guard", "ck_crypto_asset_pqc_verdict",
-                    "ck_crypto_asset_oid_length", "ck_cbom_asset_sync_state");
+                    "ck_crypto_asset_oid_length", "ck_crypto_asset_name_length", "ck_cbom_asset_sync_state");
 
     private static final String CBOM_UUID = "11111111-0000-4000-8000-000000000001";
     private static final String ASSET_UUID = "22222222-0000-4000-8000-000000000001";

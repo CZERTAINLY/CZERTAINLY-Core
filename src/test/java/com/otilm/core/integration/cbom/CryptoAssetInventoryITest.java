@@ -609,6 +609,24 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
     }
 
     @Test
+    void anOverlongNameIsRefusedAtTheColumn() {
+        CryptoAssetIdentityFields overlong = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM,
+                "A".repeat(1025), null, null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> assetWriter.upsertIdentity(overlong, null))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(assetRepository.count()).isZero();
+    }
+
+    @Test
+    void aNameAtTheLimitIsAccepted() {
+        CryptoAssetIdentityFields atLimit = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM,
+                "A".repeat(1024), null, null, null, null, null, null, null, null);
+
+        assertThat(assetWriter.upsertIdentity(atLimit, null)).isNotNull();
+    }
+
+    @Test
     void anOidAtTheLimitIsAccepted() {
         CryptoAssetIdentityFields atLimit = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "RSA",
                 "1".repeat(255), null, null, null, null, null, null, null);
