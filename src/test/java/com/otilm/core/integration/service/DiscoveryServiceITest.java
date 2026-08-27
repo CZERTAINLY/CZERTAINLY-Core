@@ -28,6 +28,7 @@ import com.otilm.api.model.core.discovery.DiscoveryItemDto;
 import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
+import com.otilm.core.auth.ContextRefreshListener;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
@@ -105,6 +106,9 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
     @Autowired
     private DiscoveryProviderAdapterFactory adapterFactory;
+
+    @Autowired
+    private ContextRefreshListener contextRefreshListener;
 
     private Discovery discovery;
     private Connector connector;
@@ -679,6 +683,58 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
         // The interface advertises the capability, but this run was not declared stoppable at initiate.
         Assertions.assertThrows(ValidationException.class, () -> adapterFactory.forDiscovery(run).stop(run));
+    }
+
+    @Test
+    void aV1RunAnswers422RatherThan500ForEveryLifecycleOperation() {
+        // The v1 adapter refuses with UnsupportedOperationException, which has no handler and would otherwise
+        // reach the client as a 500. From a caller's side this means the same as an illegal transition.
+        SecuredUUID uuid = discovery.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.stopDiscovery(uuid));
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.resumeDiscovery(uuid));
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.cancelDiscovery(uuid));
+    }
+
+    @Test
+    void theSyncedActionCatalogueCarriesTheLifecycleActions() {
+        // The catalogue is scanned from @ExternalAuthorization, so an endpoint gated on an action the auth service
+        // has never been told about would authorize against a permission nobody can grant.
+        List<String> discoveryActions = contextRefreshListener
+                .getResources()
+                .stream()
+                // Fully qualified: the auth catalogue has its own Resource enum, distinct from the wire one
+                // this test already imports.
+                .filter(resource -> resource.getName() == com.otilm.core.model.auth.Resource.DISCOVERY)
+                .findFirst()
+                .orElseThrow()
+                .getActions();
+
+        Assertions
+                .assertTrue(discoveryActions.containsAll(List.of("stop", "resume", "cancel")),
+                        "expected stop/resume/cancel among " + discoveryActions);
+    }
+
+    @Test
+    void aLifecycleOperationOnAnUnknownRunIsNotFound() {
+        SecuredUUID missing = SecuredUUID.fromUUID(UUID.randomUUID());
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.cancelDiscovery(missing));
+    }
+
+    @Test
+    void cancellingAV2RunEndsItAndTellsTheConnector() throws Exception {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo("/v2/discoveryProvider/discoveries/cancel"))
+                        .willReturn(WireMock.aResponse().withStatus(204)));
+
+        discoveryService.cancelDiscovery(discovery.getSecuredUuid());
+
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.CANCELLED, persisted.getStatus());
+        WireMock
+                .verify(1,
+                        WireMock.postRequestedFor(WireMock.urlPathEqualTo("/v2/discoveryProvider/discoveries/cancel")));
     }
 
     private void giveInterfaceStopResumeFlag() {

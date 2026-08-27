@@ -4,7 +4,6 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
-import com.otilm.api.exception.NotSupportedException;
 import com.otilm.api.exception.SchedulerException;
 import com.otilm.api.interfaces.core.web.DiscoveryController;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
@@ -201,40 +200,22 @@ public class DiscoveryControllerImpl implements DiscoveryController {
                 .getDiscoveryItems(SecuredUUID.fromString(uuid), resource, newlyDiscovered, itemsPerPage, pageNumber);
     }
 
-    /*
-     * The remaining discovery v2 endpoints, not implemented yet: the stubs below exist because DiscoveryController
-     * declares them abstract, so this class does not compile without them.
-     *
-     * Stub response: 501, so a caller reaching one gets an answer it can act on.
-     *
-     * Authorization: deliberately neither @AuditLogged nor authorization annotations — no operation to audit and no
-     * resource to check while the body does nothing; resource-level gating arrives with the real implementations.
-     * Authentication is unaffected.
-     *
-     * Compatibility: the checked exceptions stay on the signatures so filling them in later does not change the
-     * contract.
-     */
-
     @Override
-    public void stopDiscovery(String uuid) throws NotFoundException, ConnectorException {
-        throw notImplemented();
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.STOP)
+    public void stopDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException {
+        discoveryService.stopDiscovery(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public void resumeDiscovery(String uuid) throws NotFoundException, ConnectorException {
-        throw notImplemented();
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.RESUME)
+    public void resumeDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException {
+        discoveryService.resumeDiscovery(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public void cancelDiscovery(String uuid) throws NotFoundException, ConnectorException {
-        throw notImplemented();
-    }
-
-    // NotSupportedException, not ResponseStatusException: the global ExceptionHandlingAdvice catches every
-    // Exception into a 500 before Spring's response-status resolver runs, so only an exception with its own
-    // dedicated handler reaches the wire with the intended status -- NotSupportedException maps to 501 there.
-    private static NotSupportedException notImplemented() {
-        return new NotSupportedException("Discovery v2 is not implemented by this deployment yet");
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.CANCEL)
+    public void cancelDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException {
+        discoveryService.cancelDiscovery(SecuredUUID.fromString(uuid));
     }
 
 }

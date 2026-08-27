@@ -4,6 +4,7 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.discovery.DiscoveryCertificateResponseDto;
@@ -59,6 +60,23 @@ public interface DiscoveryExternalService {
      */
     PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(SecuredUUID uuid, Resource resource,
             Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException;
+
+    /**
+     * Asks the connector to checkpoint and pause the run.
+     *
+     * @throws ValidationException if the run is not in a state it can be stopped from, if its connector never declared
+     * it stoppable, or if its connector generation cannot stop runs at all
+     */
+    void stopDiscovery(SecuredUUID uuid) throws NotFoundException;
+
+    /**
+     * Restarts a stopped run from the connector's checkpoint. A connector that no longer holds one ends the run as
+     * failed rather than refusing: the checkpoint cannot be recovered, so there is nothing left to resume.
+     */
+    void resumeDiscovery(SecuredUUID uuid) throws NotFoundException;
+
+    /** Ends the run and tells the connector to drop it. */
+    void cancelDiscovery(SecuredUUID uuid) throws NotFoundException;
 
     DiscoveryDetailDto createDiscovery(DiscoveryDto request, boolean saveEntity)
             throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;

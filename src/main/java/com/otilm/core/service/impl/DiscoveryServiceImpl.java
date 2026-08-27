@@ -66,6 +66,7 @@ import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.DiscoveryInternalService;
 import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.service.TriggerInternalService;
+import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapter;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
 import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.tasks.ScheduledJobInfo;
@@ -86,6 +87,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -414,6 +416,49 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         responseDto.setTotalItems(totalItems);
         responseDto.setTotalPages((int) Math.ceil((double) totalItems / pageSize));
         return responseDto;
+    }
+
+    // The three lifecycle operations. NOT_SUPPORTED because each one calls the connector, which must never happen
+    // inside a transaction; the adapter opens its own around each state change.
+
+    @Override
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.STOP)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void stopDiscovery(SecuredUUID uuid) throws NotFoundException {
+        lifecycle(uuid, "stopped", DiscoveryProviderAdapter::stop);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.RESUME)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void resumeDiscovery(SecuredUUID uuid) throws NotFoundException {
+        lifecycle(uuid, "resumed", DiscoveryProviderAdapter::resume);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CANCEL)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void cancelDiscovery(SecuredUUID uuid) throws NotFoundException {
+        lifecycle(uuid, "cancelled", DiscoveryProviderAdapter::cancel);
+    }
+
+    /**
+     * Routes one lifecycle operation to the adapter for the run's connector generation.
+     *
+     * <p>
+     * A v1 adapter refuses with {@link UnsupportedOperationException}, which has no handler and would reach the client
+     * as a 500. Translated here into the same 422 an illegal transition answers with: from a caller's side both mean
+     * the same thing — this run cannot be asked to do this.
+     */
+    private void lifecycle(SecuredUUID uuid, String verb, BiConsumer<DiscoveryProviderAdapter, Discovery> operation)
+            throws NotFoundException {
+        Discovery discovery = getDiscoveryEntity(uuid);
+        try {
+            operation.accept(discoveryProviderAdapterFactory.forDiscovery(discovery), discovery);
+        } catch (UnsupportedOperationException | UnsupportedDiscoveryVersionException e) {
+            throw new ValidationException(
+                    "Discovery " + uuid.getValue() + " cannot be " + verb + ": not supported by its connector version");
+        }
     }
 
     // S8989 wants explicit rollbackFor on the class-level @Transactional for this checked exception; changing
