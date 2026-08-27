@@ -85,9 +85,11 @@ public final class ExtensionSchemas {
     }
 
     /**
-     * The Core-shipped schema document for {@code oid}, or empty when Core ships none. Exposed as text so the OID API
-     * can show an operator the shape a system extension's value must take — a schema Core enforces but the registry row
-     * cannot carry, because an entry for a system OID cannot be created.
+     * The Core-shipped schema document for {@code oid}, or empty when Core ships none.
+     *
+     * <p>
+     * Text rather than a compiled schema, so the OID API can show it. A system OID's registry row cannot carry the
+     * schema, because an entry for one cannot be created.
      */
     public static Optional<String> shippedSchema(String oid) {
         // Classpath resources cannot change while the process runs, so the miss is worth caching too.
@@ -108,14 +110,11 @@ public final class ExtensionSchemas {
     }
 
     /**
-     * Rejects a schema document that cannot be trusted to constrain anything. Applied to a registration's
-     * {@code valueSchema} and to a JSON Schema constraint's data.
+     * Rejects a schema document that cannot be trusted to constrain anything: it must parse as exactly one JSON value,
+     * declare no dialect but draft 2020-12, reference nothing outside itself, carry well-formed keywords, and compile.
      *
      * <p>
-     * Everything checkable at save is checked here: the document parses as exactly one JSON value, declares no dialect
-     * other than draft 2020-12, references nothing outside itself, carries well-formed keywords, and compiles. What
-     * cannot be checked here is a reference resolved only on use — {@link #validateShape} reports that as unverifiable
-     * rather than failing the request.
+     * A reference resolved only on use escapes all of that; {@link #validateShape} reports it as unverifiable.
      */
     public static void requireValidSchema(String schemaDocument) {
         if (schemaDocument == null) {

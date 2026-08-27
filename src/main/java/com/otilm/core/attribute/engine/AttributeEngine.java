@@ -796,10 +796,11 @@ public class AttributeEngine {
     }
 
     /**
-     * Registration-time checks for anything JSON-schema-shaped on a definition: a JSON Schema constraint whose data is
-     * not a loadable schema document, and declared default content that its own extension mapping would reject. An
-     * unsatisfiable pairing of registry schema and constraint cannot be detected in general, but a definition that
-     * declares an example value gets it caught here rather than at the first request.
+     * Checks a definition's JSON Schema constraint and its declared default content at registration, so a broken schema
+     * or an example value its own mapping rejects fails at save.
+     *
+     * <p>
+     * A registry schema and a constraint that no value can satisfy together are not detectable in general.
      */
     static void validateJsonSchemaDeclarations(DataAttributeV3 attribute, String connectorUuidStr)
             throws AttributeException {
