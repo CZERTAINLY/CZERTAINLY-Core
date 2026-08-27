@@ -38,6 +38,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -83,6 +85,9 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Autowired
     private CbomTombstoneWriter tombstoneWriter;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     private Cbom leanCbom;
     private Cbom richCbom;
@@ -683,14 +688,27 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
     /**
      * The CHECK is the backstop, so it has to still be there. Addressed through the repository, which is the one way to
      * reach the column without passing the writer's pre-check first.
+     *
+     * <p>
+     * The repository write runs inside an explicit transaction because it is {@code @Modifying}: without one, Hibernate
+     * refuses the statement before it is sent and the failure is an {@code InvalidDataAccessApiUsageException} from the
+     * JPA layer, not the constraint doing its job. A type-only assertion would not have told the two apart -- what has
+     * to be proven here is that the refusal came from the column.
      */
     @Test
     void theColumnStillRefusesAnOverlongNameThatBypassesTheWriter() {
-        assertThatThrownBy(() -> assetRepository
-                .upsertIdentity(UUID.randomUUID(), "b".repeat(64), CryptoAssetIdentityCalculator.RULESET_VERSION,
-                        CryptographicAssetType.ALGORITHM.name(), "A".repeat(1025), null, null, null, null, null, null,
-                        null, null, null))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+        assertThatThrownBy(() -> transaction
+                .executeWithoutResult(status -> assetRepository
+                        .upsertIdentity(UUID.randomUUID(), "b".repeat(64),
+                                CryptoAssetIdentityCalculator.RULESET_VERSION, CryptographicAssetType.ALGORITHM.name(),
+                                "A".repeat(1025), null, null, null, null, null, null, null, null, null)))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .satisfies(failure -> assertThat(CryptoAssetConstraintTranslator.constraintNameOf(failure))
+                        .describedAs("the refusal must come from the name bound, not "
+                                + "from another constraint or from the JPA layer")
+                        .contains("ck_crypto_asset_name_length"));
         assertThat(assetRepository.count()).isZero();
     }
 
