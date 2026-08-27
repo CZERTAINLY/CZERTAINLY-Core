@@ -309,7 +309,7 @@ public class FilterPredicatesBuilder {
      * @throws ValidationException if {@code fieldAttribute} is declared on a subtype but is not singular
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static Path<?> resolveFieldPath(final From from, final Attribute<?, ?> fieldAttribute) {
+    static Path<?> resolveFieldPath(final From from, final Attribute<?, ?> fieldAttribute) {
         if (!isDeclaredOnStrictSubtypeOf(from, fieldAttribute)) {
             return from.get(fieldAttribute.getName());
         }
