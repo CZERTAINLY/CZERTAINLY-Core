@@ -47,6 +47,22 @@ public interface CryptoAssetSourceRepository extends SecurityFilterRepository<Cr
      * {@code seenAt} after a newer one, and a plain assignment would then store a {@code last_seen_at} that precedes
      * {@code first_seen_at}. {@code occurrence_count} is the unclipped count, so the gap against the retained
      * {@code evidence} array records that capping happened.
+     *
+     * <p>
+     * <b>The content follows the newest observation, not the newest arrival.</b> The same out-of-order input the window
+     * merge exists for would otherwise leave stale content under a window claiming the newer sync: an arrival carrying
+     * an older {@code seenAt} would overwrite the payload, the evidence and the counts, and
+     * {@link CryptoAssetRepository#recomputeMergeFromSources} would re-elect on it -- so the row would attest "as of
+     * {@code last_seen_at} this CBOM said X" at an instant when it said Y. That is a state that was never true, and the
+     * wire calls this payload what the source declared. Every content column is therefore gated on the same recency
+     * test, so the ones that must move together -- payload with its hash and leaf count, evidence with its count --
+     * cannot come apart. A strictly older arrival widens the window and changes nothing else.
+     *
+     * <p>
+     * The comparison is {@code >=} rather than {@code >} deliberately. If the ingest path ends up deriving
+     * {@code seenAt} from the document rather than from the extraction run, every re-ingest is a tie; under {@code >}
+     * the content would then freeze forever and a re-extraction under upgraded code could never refresh the row. Under
+     * {@code >=} a tie refreshes, which degrades to the previous behaviour rather than to a silent floor.
      */
     @Modifying
     @Query(value = """
@@ -55,11 +71,26 @@ public interface CryptoAssetSourceRepository extends SecurityFilterRepository<Cr
             VALUES (:uuid, :assetUuid, :cbomUuid, CAST(:properties AS jsonb), :leafCount, :propertiesHash,
                     CAST(:evidence AS jsonb), :occurrenceCount, :seenAt, :seenAt)
             ON CONFLICT (asset_uuid, cbom_uuid) DO UPDATE SET
-                original_crypto_properties = EXCLUDED.original_crypto_properties,
-                properties_leaf_count = EXCLUDED.properties_leaf_count,
-                properties_hash = EXCLUDED.properties_hash,
-                evidence = EXCLUDED.evidence,
-                occurrence_count = EXCLUDED.occurrence_count,
+                original_crypto_properties = CASE
+                    WHEN EXCLUDED.last_seen_at >= crypto_asset_source.last_seen_at
+                        THEN EXCLUDED.original_crypto_properties
+                    ELSE crypto_asset_source.original_crypto_properties END,
+                properties_leaf_count = CASE
+                    WHEN EXCLUDED.last_seen_at >= crypto_asset_source.last_seen_at
+                        THEN EXCLUDED.properties_leaf_count
+                    ELSE crypto_asset_source.properties_leaf_count END,
+                properties_hash = CASE
+                    WHEN EXCLUDED.last_seen_at >= crypto_asset_source.last_seen_at
+                        THEN EXCLUDED.properties_hash
+                    ELSE crypto_asset_source.properties_hash END,
+                evidence = CASE
+                    WHEN EXCLUDED.last_seen_at >= crypto_asset_source.last_seen_at
+                        THEN EXCLUDED.evidence
+                    ELSE crypto_asset_source.evidence END,
+                occurrence_count = CASE
+                    WHEN EXCLUDED.last_seen_at >= crypto_asset_source.last_seen_at
+                        THEN EXCLUDED.occurrence_count
+                    ELSE crypto_asset_source.occurrence_count END,
                 first_seen_at = LEAST(crypto_asset_source.first_seen_at, EXCLUDED.first_seen_at),
                 last_seen_at = GREATEST(crypto_asset_source.last_seen_at, EXCLUDED.last_seen_at)
             """, nativeQuery = true)

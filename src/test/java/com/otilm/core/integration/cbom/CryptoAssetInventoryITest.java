@@ -497,6 +497,60 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
     }
 
     /**
+     * The other half of the out-of-order rule. The window merge alone would leave stale content under a window claiming
+     * the newer sync: the row would attest "as of last_seen_at this CBOM said P1" at an instant when it said P2, and
+     * the merge election would run on P1. Content follows the newest observation, not the newest arrival.
+     */
+    @Test
+    void aDelayedRetryWidensTheWindowButKeepsTheNewerContent() {
+        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        OffsetDateTime later = OffsetDateTime.now();
+        OffsetDateTime earlier = later.minusDays(2);
+        Map<String, Object> newer = Map.of("primitive", "signature", "parameterSetIdentifier", "2048");
+        Map<String, Object> older = Map.of("primitive", "keyAgree");
+
+        sourceWriter
+                .upsertSource(assetUuid, leanCbom.getUuid(), newer,
+                        List.of(Map.of("location", "a.jar"), Map.of("location", "b.jar")), later);
+        sourceWriter.upsertSource(assetUuid, leanCbom.getUuid(), older, List.of(Map.of("location", "c.jar")), earlier);
+
+        CryptoAssetSource stored = source(assetUuid, leanCbom.getUuid());
+        assertThat(stored.getFirstSeenAt())
+                .describedAs("the older sighting still widens the window")
+                .isCloseTo(earlier, within(1, ChronoUnit.SECONDS));
+        assertThat(stored.getLastSeenAt()).isCloseTo(later, within(1, ChronoUnit.SECONDS));
+        assertThat(stored.getOriginalCryptoProperties())
+                .describedAs("a stale arrival must not overwrite the newer payload")
+                .containsEntry("primitive", "signature");
+        assertThat(stored.getOccurrenceCount())
+                .describedAs("the counts move with the payload they describe")
+                .isEqualTo(2);
+        assertThat(stored.getEvidence()).hasSize(2);
+        assertThat(asset(assetUuid).getPropertiesHash())
+                .describedAs("the merge election re-derives the same answer, not the stale one")
+                .isEqualTo(stored.getPropertiesHash());
+    }
+
+    /**
+     * The tie must refresh, not freeze. If the ingest path ever derives the seen-at from the document rather than from
+     * the extraction run, every re-ingest is a tie -- and a strict comparison would lock the content forever, so a
+     * re-extraction under upgraded code could never correct the row.
+     */
+    @Test
+    void aReIngestAtTheSameInstantRefreshesTheContent() {
+        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        OffsetDateTime sameInstant = OffsetDateTime.now();
+
+        sourceWriter
+                .upsertSource(assetUuid, leanCbom.getUuid(), Map.of("primitive", "signature"), List.of(), sameInstant);
+        sourceWriter
+                .upsertSource(assetUuid, leanCbom.getUuid(), Map.of("primitive", "keyAgree"), List.of(), sameInstant);
+
+        assertThat(source(assetUuid, leanCbom.getUuid()).getOriginalCryptoProperties())
+                .containsEntry("primitive", "keyAgree");
+    }
+
+    /**
      * A guard is a safety refusal, not a field: {@link CryptoAssetAliasWriter} reads the guard that is on the row now
      * to decide whether a merge is allowed. If ordinary re-ingest could clear it, the refusal would evaporate on the
      * next unguarded report of the same normalized identity.

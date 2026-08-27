@@ -42,6 +42,14 @@ public class CryptoAssetSourceWriter {
      * Records what one CBOM says about one asset -- its payload verbatim, its occurrence evidence capped -- and
      * re-elects the asset's merged payload from the result.
      *
+     * <p>
+     * The stored content is the newest <em>observation</em>, not the newest arrival: a call carrying a {@code seenAt}
+     * older than the one already recorded widens the row's window and leaves the payload, the evidence and the counts
+     * alone. Without that, a delayed retry would leave the row attesting a state it never held. A call at the same
+     * instant does refresh, so a re-extraction under upgraded code is not locked out.
+     *
+     * @param seenAt when this CBOM was observed to say it -- the observation time, which must be monotone per CBOM
+     * across re-syncs for the recency rule to bite; a per-document constant makes every re-ingest a tie
      * @param occurrences every occurrence the CBOM reported; the unclipped count is stored, so the gap against the
      * retained evidence is the visible record that capping happened
      */
