@@ -90,6 +90,18 @@ public final class CryptoAssetConstraintTranslator {
     }
 
     /**
+     * The sentence this class would produce for {@code constraintName}, for a caller that refuses a value
+     * <em>before</em> the statement runs rather than translating the database's refusal afterwards. A pre-check and the
+     * constraint it anticipates must say the same thing to the operator, and the way to guarantee that is for both to
+     * read it here.
+     *
+     * @return {@link #GENERIC_REJECTION} for a name this class does not explain
+     */
+    public static String explain(String constraintName) {
+        return BY_CONSTRAINT.getOrDefault(constraintName, GENERIC_REJECTION);
+    }
+
+    /**
      * A caller-safe description of {@code failure}, whatever it turns out to be. Never derived from the exception's
      * message.
      */

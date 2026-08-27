@@ -651,23 +651,45 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
      * Eleven producer-supplied text columns are indexed, and a btree tuple wider than roughly 2704 bytes is refused by
      * the index rather than by validation. The OID has a realistic bound, so it is capped at the column, where the
      * error names the column instead of naming an index nobody asked about.
+     *
+     * <p>
+     * The refusal has to come from the writer, not from the CHECK. A failed CHECK makes PostgreSQL emit
+     * {@code DETAIL: Failing row contains (...)}, and Hibernate logs the driver's message at ERROR before any catch
+     * runs -- so a bound enforced only at the column turns an over-long name, which a producer chooses, into a way to
+     * make the platform log an identity key.
      */
     @Test
-    void anOverlongOidIsRefusedAtTheColumn() {
+    void anOverlongOidIsRefusedBeforeItReachesTheDatabase() {
         CryptoAssetIdentityFields overlong = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "RSA",
                 "1.2.840.113549".repeat(40), null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> assetWriter.upsertIdentity(overlong, null))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("longer than 255 characters");
         assertThat(assetRepository.count()).isZero();
     }
 
     @Test
-    void anOverlongNameIsRefusedAtTheColumn() {
+    void anOverlongNameIsRefusedBeforeItReachesTheDatabase() {
         CryptoAssetIdentityFields overlong = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM,
                 "A".repeat(1025), null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> assetWriter.upsertIdentity(overlong, null))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("longer than 1024 characters");
+        assertThat(assetRepository.count()).isZero();
+    }
+
+    /**
+     * The CHECK is the backstop, so it has to still be there. Addressed through the repository, which is the one way to
+     * reach the column without passing the writer's pre-check first.
+     */
+    @Test
+    void theColumnStillRefusesAnOverlongNameThatBypassesTheWriter() {
+        assertThatThrownBy(() -> assetRepository
+                .upsertIdentity(UUID.randomUUID(), "b".repeat(64), CryptoAssetIdentityCalculator.RULESET_VERSION,
+                        CryptographicAssetType.ALGORITHM.name(), "A".repeat(1025), null, null, null, null, null, null,
+                        null, null, null))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(assetRepository.count()).isZero();
     }
