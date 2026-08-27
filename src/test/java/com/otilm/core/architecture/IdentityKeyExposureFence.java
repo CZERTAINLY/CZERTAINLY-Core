@@ -150,9 +150,12 @@ final class IdentityKeyExposureFence {
         List<String> violations = new ArrayList<>();
         int openLoggingParens = 0;
         boolean inTextBlock = false;
+        boolean inBlockComment = false;
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
-            if (isDocumentation(line)) {
+            boolean documentation = isDocumentation(line, inBlockComment);
+            inBlockComment = blockCommentStateAfter(line, inBlockComment);
+            if (documentation) {
                 continue;
             }
             // A text block spans lines, so its body is not a literal this line's regex can blank, and its prose can
@@ -228,20 +231,55 @@ final class IdentityKeyExposureFence {
      * fenced is exactly what a comment must be free to explain -- a rule that forbade naming it in prose would forbid
      * documenting the rule. Only whole comment lines are exempt: a trailing comment shares its line with code, and a
      * string literal containing a double slash must not be able to hide the rest of its line.
+     *
+     * <p>
+     * Whether a line continues a block comment is a fact about the lines before it, not about its own first character.
+     * Reading a leading {@code *} as documentation exempted a legal continuation line whose first token is the
+     * multiplication operator -- and this codebase's formatter puts operators at line starts, so
+     * {@code * scale(identityKey));} as the argument line of a wrapped logging call scored nothing at all. That is the
+     * dual of the leading-block-comment bypass, one token over, so the fix is the one that closes the family: carry the
+     * state rather than infer it, as the text-block tracking above already does.
      */
-    static boolean isDocumentation(String line) {
+    static boolean isDocumentation(String line, boolean inBlockComment) {
         String trimmed = line.strip();
-        if (trimmed.startsWith("//") || trimmed.startsWith("*")) {
+        if (inBlockComment) {
+            return closesWithNothingAfterIt(trimmed);
+        }
+        if (trimmed.startsWith("//")) {
             return true;
         }
         // A line opening a block comment is documentation only if nothing follows the comment's close. Treating any
         // /*-starting line as a comment exempted the whole line, so `/* re-keyed */ asset.getIdentityKey());` -- a
         // legal argument line of a wrapped logging call -- was reported as nothing at all.
-        if (!trimmed.startsWith("/*")) {
-            return false;
-        }
+        return trimmed.startsWith("/*") && closesWithNothingAfterIt(trimmed);
+    }
+
+    private static boolean closesWithNothingAfterIt(String trimmed) {
         int close = trimmed.indexOf("*/");
         return close < 0 || trimmed.substring(close + 2).isBlank();
+    }
+
+    /**
+     * Whether a block comment is open at the end of this line, given whether one was open at its start.
+     *
+     * <p>
+     * String literals are blanked first, so a literal containing the delimiters cannot open a comment that swallows the
+     * lines after it. That direction matters more than the other: a falsely opened comment exempts what follows, and an
+     * exemption is the one way this fence can fail without saying so.
+     */
+    static boolean blockCommentStateAfter(String line, boolean inBlockComment) {
+        String code = LITERAL.matcher(line).replaceAll("\"\"");
+        boolean open = inBlockComment;
+        for (int i = 0; i < code.length() - 1; i++) {
+            if (!open && code.startsWith("/*", i)) {
+                open = true;
+                i++;
+            } else if (open && code.startsWith("*/", i)) {
+                open = false;
+                i++;
+            }
+        }
+        return open;
     }
 
     /**

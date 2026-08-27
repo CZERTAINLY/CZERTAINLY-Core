@@ -66,10 +66,21 @@ class HibernateBindingLogConfigTest {
 
     private static final String HIBERNATE_ROOT = "org.hibernate";
 
-    private static final Set<String> LEVELS_THAT_PRINT_BINDINGS = Set.of("TRACE", "ALL");
+    private static final Set<String> LEVELS_THAT_PRINT_BINDINGS = Set.of("TRACE", "ALL", "UNRESOLVED");
 
-    /** {@code ${ENV_VAR:default}} -- what matters is the default, which is what ships. */
-    private static final Pattern PLACEHOLDER = Pattern.compile("^\\$\\{[^:}]*(?::(.*))?}$");
+    /**
+     * {@code ${ENV_VAR:default}} and logback's own {@code ${ENV_VAR:-default}} -- what matters is the default, which is
+     * what ships. Both spellings are accepted because a logback file is the one place the {@code :-} form is the
+     * documented syntax, and reading it as the literal default {@code -TRACE} let a shipped TRACE default pass.
+     */
+    private static final Pattern PLACEHOLDER = Pattern.compile("^\\$\\{[^:}]*(?::-?(.*))?}$");
+
+    /**
+     * The level of a placeholder with no default. It cannot be known here, so it is treated as printing: the fence
+     * fails closed, as it already does for a document it cannot parse. A configuration whose effective level depends on
+     * the environment is exactly the one nobody can certify does not ship TRACE.
+     */
+    private static final String UNRESOLVED = "UNRESOLVED";
 
     // ---- the rule ----
 
@@ -101,8 +112,11 @@ class HibernateBindingLogConfigTest {
             return "";
         }
         Matcher placeholder = PLACEHOLDER.matcher(rawValue.trim());
-        String value = placeholder.matches() ? String.valueOf(placeholder.group(1)) : rawValue.trim();
-        return value.toUpperCase(Locale.ROOT);
+        if (!placeholder.matches()) {
+            return rawValue.trim().toUpperCase(Locale.ROOT);
+        }
+        String fallback = placeholder.group(1);
+        return fallback == null || fallback.isBlank() ? UNRESOLVED : fallback.trim().toUpperCase(Locale.ROOT);
     }
 
     static List<String> bindingLogViolations(String source, Map<String, String> loggerLevels) {
@@ -111,8 +125,10 @@ class HibernateBindingLogConfigTest {
             String level = shippedLevel(rawLevel);
             if (LEVELS_THAT_PRINT_BINDINGS.contains(level) && mayPrintBoundParameters(logger)) {
                 violations
-                        .add(source + " sets logger '" + logger + "' to " + level
-                                + ", which prints every bound parameter");
+                        .add(source + " sets logger '" + logger + "' to "
+                                + (UNRESOLVED.equals(level)
+                                        ? "a placeholder with no default, whose effective level cannot be known here"
+                                        : level + ", which prints every bound parameter"));
             }
         });
         return violations;
@@ -187,6 +203,23 @@ class HibernateBindingLogConfigTest {
                   <logger level="TRACE" name="org.hibernate"/>
                 </configuration>
                 """)).describedAs("attribute order is the parser's business, not the fence's").hasSize(1);
+        assertThat(violationsIn("""
+                <configuration>
+                  <logger name="org.hibernate.orm.jdbc.bind" level="${BIND_LEVEL:-TRACE}"/>
+                </configuration>
+                """)).describedAs("logback's own default syntax ships the default just as Spring's does").hasSize(1);
+        assertThat(violationsIn("""
+                <configuration>
+                  <logger name="org.hibernate.orm.jdbc.bind" level="${BIND_LEVEL}"/>
+                </configuration>
+                """))
+                .describedAs("a placeholder with no default is unknowable here, so the fence fails closed")
+                .hasSize(1);
+        assertThat(violationsIn("""
+                <configuration>
+                  <logger name="org.hibernate.orm.jdbc.bind" level="${BIND_LEVEL:-INFO}"/>
+                </configuration>
+                """)).describedAs("a non-printing default in the same syntax still passes").isEmpty();
         assertThat(violationsIn("""
                 <configuration>
                   <logger name="org.hibernate.orm.jdbc.bind">

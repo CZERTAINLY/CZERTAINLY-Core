@@ -108,10 +108,14 @@ class IdentityKeyExposureFenceSelfTest {
         Path unlisted = Path.of("src/main/java/com/otilm/core/enums/FilterField.java");
 
         assertThat(IdentityKeyExposureFence
-                .sourceFileViolations(unlisted, List
-                        .of("// No entry for identity_key, and there must never be one.",
-                                " * The identity key never leaves the database.", "/* identityKey is fenced. */")))
-                .describedAs("a comment cannot disclose a value, and the reason for the fence must be documentable")
+                .sourceFileViolations(unlisted,
+                        List
+                                .of("// No entry for identity_key, and there must never be one.", "/**",
+                                        " * The identity key never leaves the database.", " */",
+                                        "/* identityKey is fenced. */")))
+                .describedAs("a comment cannot disclose a value, and the reason for the fence must be documentable; "
+                        + "the block comment is opened rather than fed as a bare continuation, because a leading "
+                        + "asterisk is only documentation when a block comment is actually open")
                 .isEmpty();
 
         assertThat(IdentityKeyExposureFence
@@ -213,6 +217,49 @@ class IdentityKeyExposureFenceSelfTest {
                 "method", "getCanonicalKey");
 
         assertThat(IdentityKeyExposureFence.declaredMemberViolations(List.of(planted))).hasSize(1);
+    }
+
+    /**
+     * The dual of the leading-block-comment bypass. A continuation line whose first token is the multiplication
+     * operator is not documentation, and this codebase's formatter is what puts it there.
+     */
+    @Test
+    void aLeadingOperatorIsNotAJavadocContinuation() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted,
+                        List.of("  logger.debug(\"weight {}\", base", "          * scale(identityKey));")))
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetWriter.java:2");
+    }
+
+    @Test
+    void aRealJavadocContinuationIsStillDocumentation() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted,
+                        List.of("  /**", "   * The identityKey column is set here.", "   */")))
+                .describedAs("a continuation line inside an open block comment is documentation, as before")
+                .isEmpty();
+    }
+
+    /**
+     * A literal carrying the delimiters must not open a comment that exempts the lines after it: an exemption is the
+     * one way this fence can fail without reporting anything.
+     */
+    @Test
+    void aLiteralHoldingACommentDelimiterDoesNotOpenAComment() {
+        Path allowlisted = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(allowlisted,
+                        List.of("  String glob = \"/*\";", "  logger.debug(\"keyed as {}\", identityKey);")))
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetWriter.java:2");
     }
 
     /**
