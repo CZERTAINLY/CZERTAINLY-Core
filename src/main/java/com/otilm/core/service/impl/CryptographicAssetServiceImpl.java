@@ -116,9 +116,10 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
 
     /**
      * The group is PROPERTY only: crypto assets carry no attribute-engine attributes, so offering CUSTOM/META groups
-     * would advertise filter sources this resource does not serve. Curve values are canonical class representatives by
-     * construction -- the column stores the normalized spelling. The enum-backed and boolean fields get their values
-     * from {@link SearchHelper} (enum codes, or none).
+     * would advertise filter sources this resource does not serve. Curve values are the distinct stored spellings of
+     * the normalized column -- one entry per stored token; they become the ratified class representatives once
+     * core#2072's ingest canonicalization writes them (see the value-list queries' javadoc). The enum-backed and
+     * boolean fields get their values from {@link SearchHelper} (enum codes, or none).
      */
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTO_ASSET, action = ResourceAction.LIST)
@@ -239,7 +240,10 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
     private static CryptographicAssetDto toDto(CryptoAssetListRow row) {
         CryptographicAssetDto dto = new CryptographicAssetDto();
         dto.setUuid(row.uuid());
-        dto.setName(row.name());
+        // The contract marks name REQUIRED and the wire mapper drops nulls, so a nameless producer row serves its
+        // recorded OID -- the same next-best stable label displayLabel gives the object picker. A row with neither
+        // still serializes without the field; that residual is interfaces' contract friction, raised on the PR.
+        dto.setName(row.name() != null ? row.name() : row.oid());
         dto.setType(row.assetType());
         dto.setSourceCbomCount(row.sourceCount());
         dto.setOccurrenceCount(row.occurrenceCount());

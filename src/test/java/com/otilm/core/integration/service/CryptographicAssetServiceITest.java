@@ -211,6 +211,24 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
                                 "101.3.4.4"), aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID_REFUTED, "true")));
         PaginationResponseDto<CryptographicAssetDto> withOptInResult = list(withOptIn);
         assertThat(withOptInResult.getItems()).extracting(CryptographicAssetDto::getUuid).containsExactly(refuted);
+        assertThat(withOptInResult.getItems().getFirst().isQuarantined())
+                .describedAs("the opted-in row is served flagged as quarantined, not laundered")
+                .isTrue();
+    }
+
+    /**
+     * The contract marks {@code name} REQUIRED and the wire mapper drops nulls, so a row that has no producer name must
+     * serve its next-best stable label -- the recorded OID, the same fallback the object picker's display label uses. A
+     * row with neither name nor OID remains a documented contract friction for interfaces to settle.
+     */
+    @Test
+    void aNamelessRowServesItsOidAsTheRequiredName() {
+        UUID nameless = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, "oid-only-row",
+                        null, null, null, null, null, null, null), null);
+
+        CryptographicAssetDto dto = dtoFor(list(new SearchRequestDto()), nameless);
+        assertThat(dto.getName()).isEqualTo("oid-only-row");
     }
 
     @Test

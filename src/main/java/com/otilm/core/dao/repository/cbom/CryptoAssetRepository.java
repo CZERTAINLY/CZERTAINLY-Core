@@ -178,7 +178,10 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
 
     /**
      * Distinct stored values of one normalized filter column, for the searchable-fields value lists. The columns hold
-     * the canonical normalized spelling, so these lists can never offer two producer spellings of one value.
+     * the stored normalized spelling (case/whitespace/Unicode-folded), so the lists collapse casing variants of one
+     * token. Class-level canonicalization -- folding P-256 and secp256r1 into one secg/* representative -- is the
+     * ingest pipeline's obligation (core#2072): these lists offer exactly what that pipeline stores, one entry per
+     * stored spelling, and become the ratified class representatives the moment it writes them.
      */
     @Query("SELECT DISTINCT a.algorithmFamily FROM CryptoAsset a WHERE a.algorithmFamily IS NOT NULL "
             + "ORDER BY a.algorithmFamily")
@@ -209,12 +212,12 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
      * particular order -- IN provides none -- so the caller restores its page order.
      */
     @Query("""
-            SELECT new com.otilm.core.model.cbom.CryptoAssetListRow(a.uuid, a.name, a.assetType,
+            SELECT new com.otilm.core.model.cbom.CryptoAssetListRow(a.uuid, a.name, a.oid, a.assetType,
                     a.pqcVerdict, a.sourceCount, a.identityGuard, COALESCE(SUM(s.occurrenceCount), 0L))
             FROM CryptoAsset a
             LEFT JOIN CryptoAssetSource s ON s.assetUuid = a.uuid
             WHERE a.uuid IN :uuids
-            GROUP BY a.uuid, a.name, a.assetType, a.pqcVerdict, a.sourceCount, a.identityGuard
+            GROUP BY a.uuid, a.name, a.oid, a.assetType, a.pqcVerdict, a.sourceCount, a.identityGuard
             """)
     List<CryptoAssetListRow> findListRowsByUuids(@Param("uuids") Collection<UUID> uuids);
 }

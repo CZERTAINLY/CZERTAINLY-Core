@@ -30,12 +30,13 @@ import org.springframework.data.domain.PageRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The repository support the inventory list operation (slice 3) will call: a deterministic name-ordered uuid page (uuid tiebreak appended by the repository), the
- * distinct value lists behind the searchable fields, and the list-row projection.
+ * The repository support the inventory list operation (slice 3) will call: a deterministic name-ordered uuid page (uuid
+ * tiebreak appended by the repository), the distinct value lists behind the searchable fields, and the list-row
+ * projection.
  *
  * <p>
- * {@link #pagingOrdersByNameThenUuidAndPagesDeterministically} predicts Postgres's own {@code uuid} ordering
- * with {@link #sortedByUuidString}, not {@link UUID#compareTo} -- see that helper's javadoc for why.
+ * {@link #pagingOrdersByNameThenUuidAndPagesDeterministically} predicts Postgres's own {@code uuid} ordering with
+ * {@link #sortedByUuidString}, not {@link UUID#compareTo} -- see that helper's javadoc for why.
  */
 class CryptoAssetListQueryITest extends BaseSpringBootTest {
 
@@ -117,10 +118,12 @@ class CryptoAssetListQueryITest extends BaseSpringBootTest {
                         null, null, null, null, null, null), null);
 
         assertThat(assetRepository.findDistinctCurve())
-                .describedAs("canonical values, sorted, no null, no duplicate spelling")
+                .describedAs(
+                        "distinct stored normalized values, sorted, no null; class folding (p-256 = secp256r1) is core#2072 ingest scope, not this query's")
                 .containsExactly("p-256", "secp256r1");
         assertThat(assetRepository.findDistinctAlgorithmFamily())
-                .describedAs("canonical values, sorted, no null, no duplicate spelling")
+                .describedAs(
+                        "distinct stored normalized values, sorted, no null; class folding (p-256 = secp256r1) is core#2072 ingest scope, not this query's")
                 .containsExactly("ecdsa", "rsa");
     }
 
@@ -157,6 +160,9 @@ class CryptoAssetListQueryITest extends BaseSpringBootTest {
         assertThat(sourcedRow.sourceCount()).describedAs("the writer's recompute maintains this").isEqualTo(2);
         assertThat(sourcedRow.pqcVerdict()).isEqualTo(PqcVerdict.NOT_READY);
         assertThat(sourcedRow.name()).isEqualTo("aes");
+        assertThat(sourcedRow.oid())
+                .describedAs("rides along as the nameless-row name fallback")
+                .isEqualTo("oid-sourced");
         assertThat(sourcedRow.assetType()).isEqualTo(CryptographicAssetType.ALGORITHM);
         assertThat(sourcedRow.identityGuard()).isNull();
 
