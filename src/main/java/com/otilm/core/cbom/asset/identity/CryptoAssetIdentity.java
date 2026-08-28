@@ -1,6 +1,7 @@
 package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -66,6 +67,9 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
     private static final Pattern PROTOCOL_PREFIX = Pattern
             .compile("^(?:DTLS|TLS|SSL|SSH)\\s*v?", Pattern.CASE_INSENSITIVE);
 
+    /** The related-asset type that names a certificate's public key, once separators and case are dropped. */
+    private static final String PUBLIC_KEY_REFERENCE = "publickey";
+
     private static final Pattern TWO_DIGITS = Pattern.compile("\\d{2}");
 
     private static final Pattern ALL_DIGITS = Pattern.compile("\\d+");
@@ -78,9 +82,28 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         return normalizer;
     }
 
-    /** The identity of one component, the chain step that produced it, and everything the pipeline derived. */
-    public record Identity(String key, String preImage, String step, NormalizedAsset asset,
-            MaterialRedaction redaction) {
+    /**
+     * The identity of one component, the chain step that produced it, and everything the pipeline derived.
+     *
+     * <p>
+     * {@code guard} is the safety rule that forced this asset to stay its own row, or {@code null} when none fired. It
+     * is derived here rather than by a caller because two of the three signals -- a refuted certificate digest, and a
+     * bare-CN subject -- are visible only inside the certificate tier.
+     *
+     * <p>
+     * <b>The generated {@code toString} is overridden deliberately.</b> A record prints every component, so the default
+     * would put the identity key and its un-hashed pre-image into any log line that reported an extraction. The
+     * pre-image is the worse of the two: it is the dictionary-attackable input whose secrecy is the entire reason the
+     * key is fenced from every client-facing surface.
+     */
+    public record Identity(String key, String preImage, String step, NormalizedAsset asset, MaterialRedaction redaction,
+            CryptoAssetIdentityGuard guard) {
+
+        @Override
+        public String toString() {
+            return "Identity[step=" + step + ", guard=" + guard + ", assetType="
+                    + (asset == null ? null : asset.assetType()) + "]";
+        }
     }
 
     /** Keys a component with no document around it: no reference resolves and nothing is refuted. */
@@ -101,6 +124,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
 
         String preImage;
         String step;
+        boolean digestRefuted = false;
         switch (asset.assetType() == null ? "" : asset.assetType()) {
             case CbomNames.ASSET_TYPE_ALGORITHM -> {
                 String[] built = algorithm(asset, properties);
@@ -111,6 +135,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                 String[] built = certificate(component, properties, scope, batchRefutedDigests);
                 preImage = built[0];
                 step = built[1];
+                digestRefuted = built.length > 2;
             }
             case CbomNames.ASSET_TYPE_PROTOCOL -> {
                 String[] built = protocol(component, properties, scope);
@@ -139,7 +164,36 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         }
 
         recordCaseRisk(component, properties, asset, step);
-        return new Identity(Digests.sha256Hex(preImage), preImage, step, asset, normalized.redaction());
+        return new Identity(Digests.sha256Hex(preImage), preImage, step, asset, normalized.redaction(),
+                guardFor(digestRefuted, step, asset));
+    }
+
+    /**
+     * A certificate tier's pre-image and step, plus a third slot present only when a claimed digest was refuted. The
+     * caller reads the slot's presence, never its content -- it exists so the refutation stays visible outside the
+     * method that saw it.
+     */
+    private static String[] tier(String preImage, String step, boolean digestRefuted) {
+        return digestRefuted ? new String[]{preImage, step, "refuted"} : new String[]{preImage, step};
+    }
+
+    /**
+     * The safety rule that kept this asset a separate row, or {@code null} when none fired.
+     *
+     * <p>
+     * Ordered by how much the rule constrains a later repair. A refuted digest is the strongest: the evidence actively
+     * contradicted a claim, so no alias may absorb the row. A bare-CN subject is next -- the split is permanent by
+     * ruling, and no reconciliation path exists. A refuted OID is last: only what the arc would have contributed was
+     * discarded, and the arc itself stays stored and auditable.
+     */
+    private static CryptoAssetIdentityGuard guardFor(boolean digestRefuted, String step, NormalizedAsset asset) {
+        if (digestRefuted) {
+            return CryptoAssetIdentityGuard.REFUTED_CERTIFICATE_DIGEST;
+        }
+        if ("crt:cn-only".equals(step)) {
+            return CryptoAssetIdentityGuard.BARE_CN_SUBJECT;
+        }
+        return asset != null && asset.oidConflict() ? CryptoAssetIdentityGuard.REFUTED_OID : null;
     }
 
     /**
@@ -202,31 +256,31 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // same placeholder fingerprint on two certificates may still compute correct, distinct component hashes for
         // both, and falling straight through to the composite would strand them.
         List<String> claimed = CertificateDigests.claimed(component, certificate);
+        // Recorded rather than discarded: a row whose digest was refuted must be distinguishable from one that never
+        // carried a digest at all, or the alias-repair refusal the guard column exists for cannot be implemented.
+        boolean digestRefuted = false;
         for (int index = 0; index < claimed.size(); index++) {
             String digest = claimed.get(index);
             if (refuted.contains(digest)) {
+                digestRefuted = true;
                 continue;
             }
             boolean fromFingerprint = digest.equals(CertificateDigests.fingerprintDigest(certificate));
-            return new String[]{
-                    "CRT|H|" + SPEC_ID + "|" + KeySlot.of(digest),
-                    fromFingerprint ? "crt:fingerprint" : "crt:component-hash"};
+            return tier("CRT|H|" + SPEC_ID + "|" + KeySlot.of(digest),
+                    fromFingerprint ? "crt:fingerprint" : "crt:component-hash", digestRefuted);
         }
 
         String serial = text(certificate, "serialNumber");
         String issuer = DistinguishedNames.normalize(text(certificate, CbomNames.ISSUER_NAME), normalizer.tables());
         if (serial != null && !AsciiText.isBlank(serial) && issuer != null) {
-            return new String[]{
-                    "CRT|S|" + SPEC_ID + "|" + KeySlot.of(AsciiText.fold(AsciiText.strip(serial))) + "|"
-                            + KeySlot.of(issuer),
-                    "crt:serial+issuer"};
+            return tier("CRT|S|" + SPEC_ID + "|" + KeySlot.of(AsciiText.fold(AsciiText.strip(serial))) + "|"
+                    + KeySlot.of(issuer), "crt:serial+issuer", digestRefuted);
         }
 
         String subject = DistinguishedNames.normalize(text(certificate, CbomNames.SUBJECT_NAME), normalizer.tables());
         if (subject != null && issuer != null) {
-            return new String[]{
-                    "CRT|D|" + SPEC_ID + "|" + Digests.sha256Hex(dnPreImage(properties, scope)),
-                    "crt:dn-composite"};
+            return tier("CRT|D|" + SPEC_ID + "|" + Digests.sha256Hex(dnPreImage(properties, scope)), "crt:dn-composite",
+                    digestRefuted);
         }
 
         String token = ComponentNames.stableToken(text(component, "name"));
@@ -241,15 +295,14 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             String validity = Timestamps.normalize(text(certificate, "notValidBefore")) + "|"
                     + Timestamps.normalize(text(certificate, "notValidAfter"));
             String step = DistinguishedNames.isCommonNameOnly(subject) ? "crt:cn-only" : "crt:subject-only";
-            return new String[]{
+            return tier(
                     "CRT|C|" + SPEC_ID + "|" + KeySlot.of(subject) + "|" + validity + "|" + KeySlot.of(token) + suffix,
-                    step};
+                    step, digestRefuted);
         }
         // The backstop needs the name too: two certificates with no digest, no issuer and no subject --
         // `server-rsa-2048.pem` and `server-ecdsa-p256.pem` in a real document -- merged on a payload hash alone.
-        return new String[]{
-                "RAW|certificate|" + KeySlot.of(token) + "|" + CanonicalJson.projectionDigest(properties),
-                "crt:backstop"};
+        return tier("RAW|certificate|" + KeySlot.of(token) + "|" + CanonicalJson.projectionDigest(properties),
+                "crt:backstop", digestRefuted);
     }
 
     /**
@@ -299,8 +352,13 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         if (related != null && related.isArray()) {
             for (JsonNode entry : related) {
                 JsonNode type = entry.isObject() ? entry.get("type") : null;
-                if (type != null && type.isTextual()
-                        && ("publicKey".equals(type.textValue()) || "public-key".equals(type.textValue()))) {
+                // Separator-dropped and ASCII-folded, the same reduction the asset-type router applies to producer
+                // text. Two raw literals let `PublicKey` or `public_key` match neither, so the ref stayed the
+                // 1.6-only subjectPublicKeyRef, resolved to nothing, and two certificates pointing at different
+                // public keys both got an empty slot -- the over-merge this method's two tiers exist to prevent.
+                // Not normalizeAssetType: this is a related-asset type, which that router does not know.
+                String entryType = type != null && type.isTextual() ? AsciiText.lookupKey(type.textValue()) : null;
+                if (PUBLIC_KEY_REFERENCE.equals(entryType)) {
                     ref = entry.get("ref");
                     break;
                 }
@@ -319,7 +377,14 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             return "K:" + value.get("sha256").asText();
         }
         if (value != null && value.isTextual() && !AsciiText.isBlank(value.textValue())) {
-            return "K:" + MaterialValueDigest.of(value.textValue());
+            try {
+                return "K:" + MaterialValueDigest.of(value.textValue());
+            } catch (IllegalArgumentException e) {
+                // Contained here rather than propagated. The refusal belongs to the TARGET component, which becomes
+                // its own reported skip; letting it escape made one malformed key component silently remove every
+                // certificate that referenced it from the inventory. The certificate falls through to the tier
+                // below, which still discriminates by the target's own identity.
+            }
         }
         // No key material on the target. Identify it by its own normalized identity so the composite still
         // discriminates, rather than degrading to an empty slot.
@@ -328,9 +393,14 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // capitalization alone moved the certificate's identity.
         String targetType = normalizer.normalizeAssetType(text(targetProperties, "assetType"));
         if (CbomNames.ASSET_TYPE_ALGORITHM.equals(targetType)) {
-            AssetNormalizer.Result targetNormalized = normalizer.normalize(target);
-            return "A:"
-                    + Digests.sha256Hex(algorithm(targetNormalized.asset(), targetNormalized.redaction().payload())[0]);
+            try {
+                AssetNormalizer.Result targetNormalized = normalizer.normalize(target);
+                return "A:" + Digests
+                        .sha256Hex(algorithm(targetNormalized.asset(), targetNormalized.redaction().payload())[0]);
+            } catch (IllegalArgumentException e) {
+                // Same containment as the value tier above: a malformed target must cost the target its row, never
+                // the certificates pointing at it.
+            }
         }
         return null;
     }
@@ -465,8 +535,11 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // UUID stable across documents and hand-written labels like `server-key-2024`, and nothing distinguishes the
         // two. Two different keys can share an id, so it must never outrank a fingerprint or a value digest.
         JsonNode fingerprint = material == null ? null : material.get("fingerprint");
-        if (fingerprint != null && fingerprint.isObject() && fingerprint.get(CbomNames.CONTENT) != null
-                && !fingerprint.get(CbomNames.CONTENT).isNull()) {
+        // CertificateDigests.isPresent, not a null check: an empty content string made every such component key as
+        // `MAT|<kind>|F|unknown:`, so two different secret keys collapsed onto one row and the value-hash tier one
+        // branch below -- which would have kept them apart -- was never reached.
+        if (fingerprint != null && fingerprint.isObject()
+                && CertificateDigests.isPresent(fingerprint.get(CbomNames.CONTENT))) {
             JsonNode algorithm = fingerprint.get("alg");
             String label = AsciiText.fold(algorithm == null || algorithm.isNull() ? "unknown" : algorithm.asText());
             return new String[]{

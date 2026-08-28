@@ -82,9 +82,24 @@ public final class Occurrences {
             return "";
         }
         String text = AsciiText.strip(location.textValue());
-        text = text.substring(0, Math.min(text.length(), MAX_LOCATION_LENGTH));
+        text = text.substring(0, capBoundary(text));
         text = QUERY_OR_FRAGMENT.split(text, 2)[0];
         return USERINFO.matcher(text).replaceFirst("://");
+    }
+
+    /**
+     * Where the length cap may cut, which is never between the halves of a surrogate pair.
+     *
+     * <p>
+     * The cap counts UTF-16 units, so a location of 1023 basic-plane characters followed by any astral character -- an
+     * emoji or a CJK extension character in a scanned path is enough -- left a lone high surrogate as the last char.
+     * That is well-formed input made malformed by the cap, and {@link Digests#sha256Hex} refuses it, so the component
+     * became a reported skip and vanished from the inventory with nothing an operator could act on. The same truncated
+     * string is written to stored evidence, where a lone surrogate has no valid UTF-8 encoding for a jsonb column.
+     */
+    private static int capBoundary(String text) {
+        int end = Math.min(text.length(), MAX_LOCATION_LENGTH);
+        return end > 0 && end < text.length() && Character.isHighSurrogate(text.charAt(end - 1)) ? end - 1 : end;
     }
 
     /**

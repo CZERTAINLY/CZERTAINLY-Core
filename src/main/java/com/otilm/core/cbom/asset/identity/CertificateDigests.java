@@ -91,7 +91,7 @@ public final class CertificateDigests {
         return null;
     }
 
-    private static boolean isPresent(JsonNode node) {
+    static boolean isPresent(JsonNode node) {
         return node != null && !node.isNull() && !node.asText().isEmpty();
     }
 }

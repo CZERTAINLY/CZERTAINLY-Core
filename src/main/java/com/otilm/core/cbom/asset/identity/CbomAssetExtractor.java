@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.otilm.core.cbom.asset.OccurrenceEvidenceCapper;
+import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import com.otilm.core.serialization.ObjectMapperFactory;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -72,13 +73,31 @@ public final class CbomAssetExtractor {
      * {@code retainedProperties} is the redacted payload, which is what {@code crypto_asset_source} stores.
      *
      * <p>
+     * {@code guard} is the safety rule that forced this asset to stay its own row, or {@code null} when none fired. It
+     * is published here because the alias-repair path has to refuse an alias where a safety rule caused the split, and
+     * two of the three signals are visible only inside the tier that produced the key.
+     *
+     * <p>
      * The first component is {@code key} rather than a more descriptive name on purpose: the exposure fence refuses a
      * production source outside persistence that <em>names</em> the identity key, and a record component is a
      * declaration -- it generates an accessor. Naming it plainly here would have put the phrase on a public member of a
      * class that has no business advertising it.
      */
     public record ExtractedAsset(String key, String chainStep, NormalizedAsset normalized, String componentName,
-            JsonNode retainedProperties, List<Map<String, Object>> evidence, int reportedOccurrences) {
+            JsonNode retainedProperties, List<Map<String, Object>> evidence, int reportedOccurrences,
+            CryptoAssetIdentityGuard guard) {
+
+        /**
+         * Omits the identity key. The generated {@code toString} would print it, and a record is printed by anything
+         * that logs the value or a collection holding it -- including {@link Extraction}, whose own generated
+         * {@code toString} recurses into this one. Naming the component {@code key} keeps it away from the exposure
+         * fence's regex; it does not keep it out of a log line, and only this override does.
+         */
+        @Override
+        public String toString() {
+            return "ExtractedAsset[componentName=" + componentName + ", chainStep=" + chainStep + ", guard=" + guard
+                    + ", reportedOccurrences=" + reportedOccurrences + "]";
+        }
     }
 
     /**
@@ -146,7 +165,7 @@ public final class CbomAssetExtractor {
                 assets
                         .add(new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(), nameOf(component),
                                 extracted.redaction().payload(), OccurrenceEvidenceCapper.cap(reported),
-                                reported == null ? 0 : reported.size()));
+                                reported == null ? 0 : reported.size(), extracted.guard()));
             } catch (RuntimeException e) {
                 // Deliberately broad, and deliberately not logged with the throwable. Producer input reaches every
                 // derivation below this line; the failure classes are open-ended, and one of them must not be fatal.
