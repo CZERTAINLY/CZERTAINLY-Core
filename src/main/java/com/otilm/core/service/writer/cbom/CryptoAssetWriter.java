@@ -46,7 +46,8 @@ public class CryptoAssetWriter {
      * is that the ratified key cannot be computed from these fields: a certificate keys on a content digest from
      * {@code component.hashes[]}, on a composite that resolves {@code subjectPublicKeyRef} across the whole document,
      * or on document-scoped digest refutation -- none of which is reconstructible from ten typed columns. What carries
-     * the weight instead is the byte-level conformance suite, which pins 264 ratified vectors across every chain step.
+     * the weight instead is the byte-level conformance suite that arrives with the decision tables in core#2168,
+     * pinning the ratified vectors across every chain step.
      *
      * <p>
      * Callers that must redirect an ingested asset onto another row -- the alias repair path -- resolve the alias and
