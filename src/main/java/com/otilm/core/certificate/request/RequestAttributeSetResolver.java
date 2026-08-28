@@ -8,10 +8,10 @@ import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
 import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Pure resolution kernel for request-attribute sets.
@@ -56,24 +56,40 @@ public final class RequestAttributeSetResolver {
 
     private static List<BaseAttribute> mergeUnion(List<? extends BaseAttribute> staticDefs,
             List<? extends BaseAttribute> connectorDefs) {
-        // Connector definitions first, in their order; they win any key conflict.
-        Map<String, BaseAttribute> byKey = new LinkedHashMap<>();
+        // Connector definitions first, in their order; they win any conflict. A definition is claimed by either key:
+        // the attribute engine registers definitions under their name (a name-keyed map), so two definitions sharing
+        // a name cannot both survive the merge even when their UUIDs differ — and the platform seed pins UUIDs the
+        // connector will not reuse, making that the ordinary collision rather than an exotic one.
+        List<BaseAttribute> merged = new ArrayList<>();
+        Set<String> claimedUuids = new HashSet<>();
+        Set<String> claimedNames = new HashSet<>();
         for (BaseAttribute def : connectorDefs) {
-            byKey.put(mergeKey(def), def);
+            addUnlessClaimed(def, merged, claimedUuids, claimedNames);
         }
-        // Static definitions contribute only keys the connector did not supply.
         for (BaseAttribute def : staticDefs) {
-            byKey.putIfAbsent(mergeKey(def), def);
+            addUnlessClaimed(def, merged, claimedUuids, claimedNames);
         }
-        return new ArrayList<>(byKey.values());
+        return merged;
     }
 
-    private static String mergeKey(BaseAttribute def) {
-        String uuid = def.getUuid();
-        if (uuid != null && !uuid.isBlank()) {
-            return "uuid:" + uuid;
+    private static void addUnlessClaimed(BaseAttribute def, List<BaseAttribute> merged, Set<String> claimedUuids,
+            Set<String> claimedNames) {
+        String uuid = blankToNull(def.getUuid());
+        String name = blankToNull(def.getName());
+        if ((uuid != null && claimedUuids.contains(uuid)) || (name != null && claimedNames.contains(name))) {
+            return;
         }
-        return "name:" + def.getName();
+        if (uuid != null) {
+            claimedUuids.add(uuid);
+        }
+        if (name != null) {
+            claimedNames.add(name);
+        }
+        merged.add(def);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     // ---- value-source binding -------------------------------------------------------
