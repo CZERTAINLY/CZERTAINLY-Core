@@ -18,15 +18,6 @@ public final class CertificateDigests {
     }
 
     /**
-     * Every digest this certificate claims, the 1.7 {@code fingerprint} field first and {@code component.hashes[]}
-     * second.
-     *
-     * <p>
-     * They collapse into <b>one</b> content-digest tier rather than two. Tagging the 1.7 field differently from an
-     * identical {@code component.hashes[]} digest would fork the same certificate between a 1.6 and a 1.7 producer on
-     * the strength of <em>where</em> the same bytes were written.
-     */
-    /**
      * The 1.7 fingerprint field's digest, or {@code null} when the field is absent or carries no content.
      *
      * <p>
@@ -46,6 +37,15 @@ public final class CertificateDigests {
                 + AsciiText.fold(AsciiText.strip(fingerprint.get(CbomNames.CONTENT).asText()));
     }
 
+    /**
+     * Every digest this certificate claims, the 1.7 {@code fingerprint} field first and {@code component.hashes[]}
+     * second.
+     *
+     * <p>
+     * They collapse into <b>one</b> content-digest tier rather than two. Tagging the 1.7 field differently from an
+     * identical {@code component.hashes[]} digest would fork the same certificate between a 1.6 and a 1.7 producer on
+     * the strength of <em>where</em> the same bytes were written.
+     */
     public static List<String> claimed(JsonNode component, JsonNode certificateProperties) {
         List<String> digests = new ArrayList<>();
         String fromFingerprint = fingerprintDigest(certificateProperties);

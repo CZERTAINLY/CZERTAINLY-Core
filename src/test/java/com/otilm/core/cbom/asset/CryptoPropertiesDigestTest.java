@@ -119,8 +119,9 @@ class CryptoPropertiesDigestTest {
     @Test
     void aNoBreakSpaceIsBlankToo() {
         String noBreakSpace = Character.toString(0x00A0);
+        boolean theJdkCallsItBlank = noBreakSpace.isBlank();
 
-        assertThat(noBreakSpace.isBlank())
+        assertThat(theJdkCallsItBlank)
                 .describedAs("the JDK does not agree, which is why this rule is explicit")
                 .isFalse();
         assertThat(CryptoPropertiesDigest.of(Map.of("curve", noBreakSpace)).leafCount()).isZero();

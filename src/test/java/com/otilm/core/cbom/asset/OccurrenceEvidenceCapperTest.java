@@ -47,8 +47,7 @@ class OccurrenceEvidenceCapperTest {
 
         assertThat(capped)
                 .describedAs("both occurrences are retained -- neither budget was exceeded")
-                .isEqualTo(List.of(occurrence("src/a.java", null), occurrence("src/b.java", null)));
-        assertThat(capped)
+                .isEqualTo(List.of(occurrence("src/a.java", null), occurrence("src/b.java", null)))
                 .describedAs("the snippet goes even under budget: at a secret-scanner finding it IS the secret, so "
                         + "whether it reaches a stored column must not depend on how large the rest of the array was")
                 .noneMatch(occurrence -> occurrence.containsKey("additionalContext"));

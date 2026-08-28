@@ -26,8 +26,7 @@ public final class ComponentNames {
      * collapsed {@code key-0123456789abcdef} and {@code key-fedcba9876543210} onto one token. Thirty-two keeps
      * UUID-without-dashes and digest-shaped runs in scope.
      */
-    private static final Pattern LONG_HEX = Pattern
-            .compile("(?<![0-9a-zA-Z])[0-9a-f]{32,}(?![0-9a-zA-Z])", Pattern.CASE_INSENSITIVE);
+    private static final Pattern LONG_HEX = Pattern.compile("(?<![0-9a-zA-Z])[0-9a-fA-F]{32,}(?![0-9a-zA-Z])");
 
     private static final Pattern OPAQUE_PORT = Pattern.compile(":\\d{2,5}(?!\\d)");
 

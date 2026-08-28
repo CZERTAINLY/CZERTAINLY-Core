@@ -32,15 +32,18 @@ public final class IdentityDigests {
     }
 
     private static void requireWellFormedUnicode(String text) {
-        for (int index = 0; index < text.length(); index++) {
+        int index = 0;
+        while (index < text.length()) {
             char character = text.charAt(index);
             if (Character.isHighSurrogate(character)) {
                 if (index + 1 == text.length() || !Character.isLowSurrogate(text.charAt(index + 1))) {
                     throw new IllegalArgumentException("An identity pre-image carries an unpaired surrogate");
                 }
-                index++;
+                index += 2;
             } else if (Character.isLowSurrogate(character)) {
                 throw new IllegalArgumentException("An identity pre-image carries an unpaired surrogate");
+            } else {
+                index++;
             }
         }
     }

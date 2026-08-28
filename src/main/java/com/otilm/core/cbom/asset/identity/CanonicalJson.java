@@ -184,6 +184,19 @@ public final class CanonicalJson {
     }
 
     /**
+     * The double's exact binary value, which is the value the digest is defined over.
+     *
+     * <p>
+     * {@code BigDecimal.valueOf} is deliberately not used, and this is the single place that choice is made:
+     * {@code valueOf} routes through {@code Double.toString}, so {@code 1e30} would enter the payload as
+     * {@code 1000000000000000000000000000000} where the value actually held is {@code 1000000000000000019884624838656}.
+     * The two spellings hash differently, so the shortest-decimal one cannot be substituted here.
+     */
+    private static BigDecimal exactBinaryValue(double value) {
+        return new BigDecimal(value); // NOSONAR - the exact binary value is the point; see above
+    }
+
+    /**
      * The shortest round-tripping decimal, rendered the way the reference renders it.
      *
      * <p>
@@ -201,19 +214,6 @@ public final class CanonicalJson {
      * what happened to this project's base64 boundary once already: a hashed path whose behaviour was whatever one
      * language's primitive happened to do, discovered years later as two rows for one key.
      */
-    /**
-     * The double's exact binary value, which is the value the digest is defined over.
-     *
-     * <p>
-     * {@code BigDecimal.valueOf} is deliberately not used, and this is the single place that choice is made:
-     * {@code valueOf} routes through {@code Double.toString}, so {@code 1e30} would enter the payload as
-     * {@code 1000000000000000000000000000000} where the value actually held is {@code 1000000000000000019884624838656}.
-     * The two spellings hash differently, so the shortest-decimal one cannot be substituted here.
-     */
-    private static BigDecimal exactBinaryValue(double value) {
-        return new BigDecimal(value); // NOSONAR - the exact binary value is the point; see above
-    }
-
     private static String shortestDecimal(double value) {
         double magnitude = Math.abs(value);
         BigDecimal exact = exactBinaryValue(magnitude);
