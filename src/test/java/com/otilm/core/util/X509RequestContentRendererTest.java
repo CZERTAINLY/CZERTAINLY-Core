@@ -567,6 +567,34 @@ class X509RequestContentRendererTest {
         private static final String EXT_OID = "2.5.29.37";
 
         @Test
+        void encodesAJsonTree_whenDerValueStartsWithABrace() throws Exception {
+            byte[] extnValue = extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER,
+                    "{\"sequence\":[{\"boolean\":true},{\"integer\":0}]}"));
+
+            // then — the Basic Constraints golden vector
+            assertThat(extnValue).isEqualTo(new byte[]{0x30, 0x06, 0x01, 0x01, (byte) 0xFF, 0x02, 0x01, 0x00});
+        }
+
+        @Test
+        void encodesAJsonTree_whenTheValueIsIndentedOrNewlinePrefixed() throws Exception {
+            // A pasted value often carries leading whitespace; without trimming it takes the base64 path and
+            // fails with a misleading "invalid base64" message.
+            byte[] extnValue = extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER,
+                    "\n  {\"sequence\":[{\"boolean\":true},{\"integer\":0}]}"));
+
+            assertThat(extnValue).isEqualTo(new byte[]{0x30, 0x06, 0x01, 0x01, (byte) 0xFF, 0x02, 0x01, 0x00});
+        }
+
+        @Test
+        void namesBothAcceptedForms_whenADerValueIsNeither() {
+            // The leading '{' routes it to the JSON path, so it can no longer be read as base64.
+            assertThatThrownBy(() -> extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER, "{broken")))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("JSON")
+                    .hasMessageContaining("base64");
+        }
+
+        @Test
         void treatsValueAsBase64Der_whenEncodingIsDer() throws Exception {
             // given — value is a base64-encoded DER blob
             var derBlob = new DERUTF8String("hello").getEncoded(ASN1Encoding.DER);

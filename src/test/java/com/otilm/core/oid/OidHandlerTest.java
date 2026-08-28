@@ -337,6 +337,22 @@ class OidHandlerTest {
         assertThat(OidHandler.getOidCache(OidCategory.EXTENDED_KEY_USAGE)).isNull();
     }
 
+    @Test
+    void isOidAppliesTheArcRulesTheEncoderEnforces() {
+        assertThat(OidHandler.isOid("1.2.3")).isTrue();
+        assertThat(OidHandler.isOid("2.5.29.19")).isTrue();
+        assertThat(OidHandler.isOid("2.999.1")).isTrue();
+        assertThat(OidHandler.isOid("1.39")).isTrue();
+
+        // A first arc of 0 or 1 caps the second at 39; BouncyCastle rejects these, so accepting them here
+        // would defer the failure to the encoder.
+        assertThat(OidHandler.isOid("1.40")).isFalse();
+        assertThat(OidHandler.isOid("0.99")).isFalse();
+        assertThat(OidHandler.isOid("3.2.1")).isFalse();
+        assertThat(OidHandler.isOid("1")).isFalse();
+        assertThat(OidHandler.isOid(null)).isFalse();
+    }
+
     /**
      * Removes a category from the private static cache so an uncached ({@code null}) precondition is deterministic.
      * There is no public API to drop a whole category, so the guard tests reach into the field directly — acceptable
