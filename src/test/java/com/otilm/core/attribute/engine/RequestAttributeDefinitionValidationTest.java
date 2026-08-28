@@ -1,7 +1,9 @@
 package com.otilm.core.attribute.engine;
 
+import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.constraint.JsonSchemaAttributeConstraint;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
@@ -65,6 +67,36 @@ class RequestAttributeDefinitionValidationTest {
         OidHandler
                 .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
                         savedRdnRegistry == null ? new HashMap<>() : savedRdnRegistry);
+    }
+
+    @Test
+    void jsonSchemaConstraintWithABrokenSchemaDocumentRejected() {
+        DataAttributeV3 definition = validDefinition();
+        JsonSchemaAttributeConstraint constraint = new JsonSchemaAttributeConstraint();
+        constraint.setData("this is not json");
+        definition.setConstraints(List.of(constraint));
+        assertRejected(definition, "valid JSON Schema document");
+    }
+
+    @Test
+    void jsonSchemaConstraintCheckedEvenWithoutAFieldMapping() {
+        DataAttributeV3 definition = validDefinition();
+        definition.setFieldMapping(null);
+        JsonSchemaAttributeConstraint constraint = new JsonSchemaAttributeConstraint();
+        constraint.setData("this is not json");
+        definition.setConstraints(List.of(constraint));
+        Assertions
+                .assertThrows(AttributeException.class,
+                        () -> AttributeEngine.validateJsonSchemaDeclarations(definition, null));
+    }
+
+    @Test
+    void jsonSchemaConstraintWithAValidSchemaAccepted() {
+        DataAttributeV3 definition = validDefinition();
+        JsonSchemaAttributeConstraint constraint = new JsonSchemaAttributeConstraint();
+        constraint.setData("{\"type\":\"object\"}");
+        definition.setConstraints(List.of(constraint));
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(List.of(definition)));
     }
 
     private static DataAttributeV3 validDefinition() {

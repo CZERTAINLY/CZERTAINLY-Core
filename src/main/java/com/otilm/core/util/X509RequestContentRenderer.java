@@ -1,5 +1,6 @@
 package com.otilm.core.util;
 
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
@@ -186,7 +187,7 @@ public final class X509RequestContentRenderer {
         }
         ExtensionValueEncoding effective = encoding == null ? ExtensionValueEncoding.DER : encoding;
         return switch (effective) {
-            case DER -> decodeBase64Der(value);
+            case DER -> value.strip().startsWith("{") ? encodeJsonTree(value) : decodeBase64Der(value);
             case UTF8_STRING -> new DERUTF8String(value).getEncoded(ASN1Encoding.DER);
             case IA5_STRING -> new DERIA5String(value).getEncoded(ASN1Encoding.DER);
             case PRINTABLE_STRING -> new DERPrintableString(value).getEncoded(ASN1Encoding.DER);
@@ -195,6 +196,27 @@ public final class X509RequestContentRenderer {
             case BIT_STRING -> throw new IOException(
                     "BIT_STRING extension value encoding is not supported; supply a DER-encoded value instead");
         };
+    }
+
+    /**
+     * Encodes a structural ASN.1 JSON tree value. Wrong input is reported naming both accepted forms, because a
+     * DER-encoded extension takes either a JSON tree or base64 DER and the author needs to know which failed.
+     */
+    private static final String WRONG_DER_FORM = "Invalid DER extension value; a value starting with '{' must be a valid ASN.1 JSON tree, "
+            + "anything else base64-encoded DER";
+
+    private static byte[] encodeJsonTree(String value) throws IOException {
+        try {
+            return AsnJsonCodec.encodeFromString(value);
+        } catch (ValidationException e) {
+            // The codec's own message is controlled and names the offending node, so it is worth forwarding.
+            throw new IOException(WRONG_DER_FORM + ": " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            // Anything else is a defect rather than bad input, so it must not be reported as invalid DER: the
+            // author would go looking at a value that is fine. Its message is uncontrolled and this one reaches
+            // the client through CertificateException, so only the cause carries the detail.
+            throw new IOException("Extension value could not be encoded", e);
+        }
     }
 
     /**

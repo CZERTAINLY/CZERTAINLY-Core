@@ -1,0 +1,5 @@
+{
+  "type": "object",
+  "required": ["octetString"],
+  "properties": { "octetString": { "type": "string" } }
+}
