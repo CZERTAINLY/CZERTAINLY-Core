@@ -182,27 +182,89 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
      * token. Class-level canonicalization -- folding P-256 and secp256r1 into one secg/* representative -- is the
      * ingest pipeline's obligation (core#2072): these lists offer exactly what that pipeline stores, one entry per
      * stored spelling, and become the ratified class representatives the moment it writes them.
+     *
+     * <p>
+     * Native recursive CTEs -- a loose index scan. Postgres has no btree skip scan, so {@code SELECT DISTINCT} walks
+     * the whole table (a parallel seq scan pinning workers): hundreds of milliseconds per column at millions of rows,
+     * for eight columns on every filter-panel open. The CTE instead hops index-min to index-min over the per-column
+     * btrees the migration already ships -- O(distinct values x log rows), reliably milliseconds. {@code min()} ignores
+     * NULLs, and the strictly-greater walk makes the values distinct and sorted by construction.
      */
-    @Query("SELECT DISTINCT a.algorithmFamily FROM CryptoAsset a WHERE a.algorithmFamily IS NOT NULL "
-            + "ORDER BY a.algorithmFamily")
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(algorithm_family) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(algorithm_family) FROM {h-schema}crypto_asset WHERE algorithm_family > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
     List<String> findDistinctAlgorithmFamily();
 
-    @Query("SELECT DISTINCT a.primitive FROM CryptoAsset a WHERE a.primitive IS NOT NULL ORDER BY a.primitive")
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(primitive) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(primitive) FROM {h-schema}crypto_asset WHERE primitive > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
     List<String> findDistinctPrimitive();
 
-    @Query("SELECT DISTINCT a.parameterSet FROM CryptoAsset a WHERE a.parameterSet IS NOT NULL ORDER BY a.parameterSet")
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(parameter_set) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(parameter_set) FROM {h-schema}crypto_asset WHERE parameter_set > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
     List<String> findDistinctParameterSet();
 
-    @Query("SELECT DISTINCT a.curve FROM CryptoAsset a WHERE a.curve IS NOT NULL ORDER BY a.curve")
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(curve) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(curve) FROM {h-schema}crypto_asset WHERE curve > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
     List<String> findDistinctCurve();
 
-    @Query("SELECT DISTINCT a.mode FROM CryptoAsset a WHERE a.mode IS NOT NULL ORDER BY a.mode")
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(mode) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(mode) FROM {h-schema}crypto_asset WHERE mode > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
     List<String> findDistinctMode();
 
-    @Query("SELECT DISTINCT a.padding FROM CryptoAsset a WHERE a.padding IS NOT NULL ORDER BY a.padding")
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(padding) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(padding) FROM {h-schema}crypto_asset WHERE padding > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
     List<String> findDistinctPadding();
 
-    @Query("SELECT DISTINCT a.variant FROM CryptoAsset a WHERE a.variant IS NOT NULL ORDER BY a.variant")
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(variant) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(variant) FROM {h-schema}crypto_asset WHERE variant > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
     List<String> findDistinctVariant();
 
     /**

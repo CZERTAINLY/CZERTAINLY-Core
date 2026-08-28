@@ -1,21 +1,28 @@
 package com.otilm.core.integration.cbom;
 
+import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
+import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.repository.CbomRepository;
 import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
+import com.otilm.core.enums.FilterField;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import com.otilm.core.model.cbom.CryptoAssetListRow;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.writer.cbom.CryptoAssetSourceWriter;
 import com.otilm.core.service.writer.cbom.CryptoAssetWriter;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.FilterPredicatesBuilder;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -23,10 +30,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import org.apache.commons.lang3.function.TriFunction;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 
+import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyFilter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -179,17 +188,44 @@ class CryptoAssetListQueryITest extends BaseSpringBootTest {
         assertThat(guardedRow.sourceCount()).isEqualTo(0);
     }
 
+    /**
+     * The service's page loader tolerates a uuid whose row vanished between the page query and this projection -- this
+     * is the repository half of that tolerance: an unknown uuid simply produces no row.
+     */
     @Test
-    void distinctSerialNumbersComeBackSorted() {
-        newCbom("urn:uuid:charlie");
-        newCbom("urn:uuid:alpha");
-        newCbom("urn:uuid:bravo");
-        // A second version of the same serial: DISTINCT must collapse it, not just ORDER BY sort the rest.
-        newCbom("urn:uuid:alpha", 2);
+    void listRowProjectionSkipsAVanishedUuid() {
+        UUID present = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-present",
+                        null, null, null, null, null, null, null), null);
 
-        assertThat(cbomRepository.findDistinctSerialNumber())
-                .describedAs("the duplicated serial appears once, and the result is sorted")
-                .containsExactly("urn:uuid:alpha", "urn:uuid:bravo", "urn:uuid:charlie");
+        List<CryptoAssetListRow> rows = assetRepository.findListRowsByUuids(List.of(present, UUID.randomUUID()));
+
+        assertThat(rows).extracting(CryptoAssetListRow::uuid).containsExactly(present);
+    }
+
+    /**
+     * The list endpoint counts with the plain (non-DISTINCT) variant, which is only correct while no predicate can
+     * duplicate a root row. The source-CBOM EXISTS predicate is the shape that would do it as a join -- so this pins
+     * the two counts equal through exactly that predicate, over an asset with two matching sources.
+     */
+    @Test
+    void plainRowCountMatchesTheDistinctCountThroughTheSourceCbomPredicate() {
+        UUID doubled = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-doubled",
+                        null, null, null, null, null, null, null), null);
+        Cbom one = newCbom("urn:uuid:count-one");
+        Cbom two = newCbom("urn:uuid:count-two");
+        sourceWriter.upsertSource(doubled, one.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
+        sourceWriter.upsertSource(doubled, two.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
+
+        SearchFilterRequestDto eitherSerial = aPropertyFilter(FilterField.CBOM_ASSET_SOURCE_CBOM,
+                FilterConditionOperator.EQUALS, (Serializable) List.of("urn:uuid:count-one", "urn:uuid:count-two"));
+        TriFunction<Root<CryptoAsset>, CriteriaBuilder, CriteriaQuery<?>, Predicate> where = (root, cb,
+                cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, List.of(eitherSerial));
+
+        assertThat(assetRepository.countRowsUsingSecurityFilter(SecurityFilter.create(), where))
+                .isEqualTo(assetRepository.countUsingSecurityFilter(SecurityFilter.create(), where))
+                .isEqualTo(1L);
     }
 
     // ---- helpers ----

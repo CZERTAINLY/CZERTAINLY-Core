@@ -260,9 +260,16 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     @Override
     public Long countUsingSecurityFilter(SecurityFilter filter,
             TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
-        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause);
+        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause, true);
         List<Long> crlist = entityManager.createQuery(cr).getResultList();
         return crlist.get(0);
+    }
+
+    @Override
+    public Long countRowsUsingSecurityFilter(SecurityFilter filter,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause, false);
+        return entityManager.createQuery(cr).getResultList().get(0);
     }
 
     @Override
@@ -463,12 +470,13 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter,
-            final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+            final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
+            final boolean distinct) {
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaQuery<Long> cr = cb.createQuery(Long.class);
         final Root<T> root = cr.from(entity);
-        cr.select(cb.countDistinct(root));
+        cr.select(distinct ? cb.countDistinct(root) : cb.count(root));
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
