@@ -227,9 +227,9 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
 
     @Test
     void freeTextRefusesEveryOperatorExceptContains() {
-        assertThatThrownBy(() -> search(
-                aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.EQUALS, "ecdsa")))
-                .isInstanceOf(ValidationException.class);
+        SearchFilterRequestDto equalsOperator = aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT,
+                FilterConditionOperator.EQUALS, "ecdsa");
+        assertThatThrownBy(() -> search(equalsOperator)).isInstanceOf(ValidationException.class);
     }
 
     /**
@@ -265,6 +265,37 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
         assertThat(search(aPropertyNotEmptyFilter(FilterField.CBOM_ASSET_OID)))
                 .describedAs("the recorded value stays auditable under NOT_EMPTY")
                 .containsExactlyInAnyOrder(populated, refuted);
+
+        // The remaining value-bearing operators reach the same carve-out sets: every positive shape answers as if
+        // the oid were absent, every negative shape admits the refuted row exactly as it admits a NULL oid.
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_OID, FilterConditionOperator.STARTS_WITH, "2.16.840")))
+                .isEmpty();
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_OID, FilterConditionOperator.ENDS_WITH, "3.4.4.2")))
+                .isEmpty();
+        assertThat(
+                search(aPropertyFilter(FilterField.CBOM_ASSET_OID, FilterConditionOperator.MATCHES, "^2\\.16\\.840.*")))
+                .isEmpty();
+        assertThat(search(
+                aPropertyFilter(FilterField.CBOM_ASSET_OID, FilterConditionOperator.NOT_MATCHES, "^1\\.2\\.840.*")))
+                .describedAs("NOT_MATCHES never matches a NULL oid, so the refuted row is excluded the same way")
+                .isEmpty();
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_OID, FilterConditionOperator.NOT_CONTAINS, "1.2.840")))
+                .describedAs("NOT_CONTAINS admits a NULL oid, so it admits the refuted row too")
+                .containsExactlyInAnyOrder(refuted, bare);
+    }
+
+    @Test
+    void theSourceCbomFilterRefusesConditionsItDoesNotAdvertise() {
+        SearchFilterRequestDto contains = aPropertyFilter(FilterField.CBOM_ASSET_SOURCE_CBOM,
+                FilterConditionOperator.CONTAINS, "urn:uuid:a");
+        assertThatThrownBy(() -> search(contains)).isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void freeTextRequiresAValue() {
+        SearchFilterRequestDto valueless = aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT,
+                FilterConditionOperator.CONTAINS, null);
+        assertThatThrownBy(() -> search(valueless)).isInstanceOf(ValidationException.class);
     }
 
     @Test
@@ -294,12 +325,50 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
      */
     @Test
     void theRefutedFacetRefusesConditionsItDoesNotAdvertise() {
-        assertThatThrownBy(() -> search(aPropertyEmptyFilter(FilterField.CBOM_ASSET_OID_REFUTED)))
-                .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("EMPTY");
-        assertThatThrownBy(() -> search(aPropertyNotEmptyFilter(FilterField.CBOM_ASSET_OID_REFUTED)))
+        SearchFilterRequestDto empty = aPropertyEmptyFilter(FilterField.CBOM_ASSET_OID_REFUTED);
+        assertThatThrownBy(() -> search(empty)).isInstanceOf(ValidationException.class).hasMessageContaining("EMPTY");
+        SearchFilterRequestDto notEmpty = aPropertyNotEmptyFilter(FilterField.CBOM_ASSET_OID_REFUTED);
+        assertThatThrownBy(() -> search(notEmpty))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("NOT_EMPTY");
+    }
+
+    /**
+     * The facet's value must be a scalar boolean. The platform's expectedValue path parses
+     * {@code getValue().toString()} with {@code Boolean.parseBoolean}, so a JSON-array value like ["true"] stringifies
+     * to "[true]", parses false, and silently INVERTS the predicate -- while the facet's mere presence disarms the
+     * refuted carve-outs for the whole request. The compound serves exclusively refuted rows to a caller whose intent
+     * was to exclude them. Anything but a scalar "true"/"false" is refused with a shaped 422.
+     */
+    @Test
+    void theRefutedFacetRefusesNonScalarAndNonBooleanValues() {
+        assetWriter
+                .upsertIdentity(
+                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
+                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
+                        CryptoAssetIdentityGuard.REFUTED_OID);
+
+        SearchFilterRequestDto arrayValued = aPropertyFilter(FilterField.CBOM_ASSET_OID_REFUTED,
+                FilterConditionOperator.NOT_EQUALS, (Serializable) List.of("true"));
+        SearchFilterRequestDto freeText = aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT,
+                FilterConditionOperator.CONTAINS, "101.3.4.4");
+        assertThatThrownBy(() -> searchAll(List.of(freeText, arrayValued)))
+                .describedAs("an array-valued facet must be refused, never inverted into 'refuted rows only' with "
+                        + "the carve-outs disarmed")
+                .isInstanceOf(ValidationException.class);
+
+        SearchFilterRequestDto garbage = aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID_REFUTED, "yes");
+        assertThatThrownBy(() -> search(garbage))
+                .describedAs("'yes' is not a boolean; parseBoolean would silently read it as false")
+                .isInstanceOf(ValidationException.class);
+    }
+
+    /** Free text is advertised as a single-value field; extra values are refused rather than silently dropped. */
+    @Test
+    void freeTextRefusesAMultiValuePayload() {
+        SearchFilterRequestDto multiValued = aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT,
+                FilterConditionOperator.CONTAINS, (Serializable) List.of("aes", "rsa"));
+        assertThatThrownBy(() -> search(multiValued)).isInstanceOf(ValidationException.class);
     }
 
     /**
@@ -314,13 +383,20 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
         assetWriter
                 .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AESX128",
                         "oid-lookalike", null, null, null, null, null, null, null), null);
+        UUID percented = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "50% legacy",
+                        "oid-percent", null, null, null, null, null, null, null), null);
 
         assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "s_1")))
                 .describedAs("an underscore matches a literal underscore, not any character")
                 .containsExactly(underscored);
         assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "%")))
-                .describedAs("a lone percent matches rows containing a literal percent -- here, none")
-                .isEmpty();
+                .describedAs("the positive control: a lone percent matches exactly the row with a literal percent, "
+                        + "not the whole inventory")
+                .containsExactly(percented);
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "0% l")))
+                .describedAs("a percent inside a longer literal still matches literally")
+                .containsExactly(percented);
     }
 
     @Test

@@ -51,6 +51,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +65,7 @@ import java.util.stream.Collectors;
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.Duration;
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.hibernate.query.criteria.JpaExpression;
 
 public class FilterPredicatesBuilder {
@@ -347,10 +349,24 @@ public class FilterPredicatesBuilder {
         // and NOT_EQUALS are answerable -- exactly what SearchHelper advertises for it. The rest are refused here:
         // the boolean value prep below would otherwise fail on a valueless EMPTY, and NOT_EMPTY would read "any
         // value is set" -- which for the refuted-OID facet means any guard at all, not refutedness.
-        if (filterField.getExpectedValue() != null && filterDto.getCondition() != FilterConditionOperator.EQUALS
-                && filterDto.getCondition() != FilterConditionOperator.NOT_EQUALS) {
-            throw new ValidationException("Condition " + filterDto.getCondition() + " is not supported for field "
-                    + filterField + "; the field supports EQUALS and NOT_EQUALS.");
+        if (filterField.getExpectedValue() != null) {
+            if (filterDto.getCondition() != FilterConditionOperator.EQUALS
+                    && filterDto.getCondition() != FilterConditionOperator.NOT_EQUALS) {
+                throw new ValidationException("Condition " + filterDto.getCondition() + " is not supported for field "
+                        + filterField + "; the field supports EQUALS and NOT_EQUALS.");
+            }
+            // The value prep below reads getValue().toString() through Boolean.parseBoolean, which turns a JSON
+            // array ["true"] into "[true]" -> false and silently INVERTS the predicate -- after the facet's mere
+            // presence has already disarmed the refuted-OID carve-outs for the whole request. Only a scalar
+            // boolean is meaningful; everything else is refused before any predicate is built.
+            Object rawValue = filterDto.getValue();
+            boolean scalarBoolean = rawValue != null && !(rawValue instanceof Collection<?>)
+                    && !rawValue.getClass().isArray()
+                    && ("true".equalsIgnoreCase(rawValue.toString()) || "false".equalsIgnoreCase(rawValue.toString()));
+            if (!scalarBoolean) {
+                throw new ValidationException(
+                        "Field " + filterField + " accepts a single boolean value, true or false.");
+            }
         }
 
         Expression expression = null;
@@ -624,6 +640,15 @@ public class FilterPredicatesBuilder {
      * Matches a single text input, case-insensitively, across the crypto-asset name and oid columns at once. A refuted
      * oid is excluded from its side of the match unless the caller opted into the refuted-OID facet, so the row stays
      * findable through its name but the neutralized oid cannot answer the query.
+     *
+     * <p>
+     * Index note, superseding migration V202608271000's rationale comment ("FilterPredicatesBuilder never emits
+     * lower()" -- true when the migration shipped, falsified by this method; the applied file is Flyway-checksum
+     * frozen, so the correction lives here). The conclusion still holds: infix {@code %x%} LIKE is unservable by any
+     * btree, so free text is a sequential scan by design in v1. Measured while confirming: prefix LIKE (STARTS_WITH) is
+     * equally unservable under a non-C collation without {@code text_pattern_ops}, so the upgrade path if this surface
+     * gets hot is a trigram GIN on lower(name)/lower(oid) for infix plus {@code text_pattern_ops} btrees for prefix --
+     * a new indexing migration, never an edit to the applied one.
      */
     private static <T> Predicate getCryptoAssetFreeTextPredicate(CriteriaBuilder criteriaBuilder, Root<T> root,
             FilterField filterField, SearchFilterRequestDto filterDto, List<Object> filterValues,
@@ -635,9 +660,16 @@ public class FilterPredicatesBuilder {
             throw new ValidationException(
                     "Free-text filter for field " + filterField + " supports only the CONTAINS operator.");
         }
+        if (filterValues.size() > 1) {
+            throw new ValidationException("Free-text filter for field " + filterField + " accepts a single value.");
+        }
 
+        // Bound as a parameter, never a literal: an inlined pattern lands verbatim in the SQL statement text --
+        // Postgres server logs, pg_stat_statements -- and people paste secrets into search boxes. lower() stays on
+        // the SQL side so both operands fold under the database's collation, not two different case rules.
         Expression<String> pattern = criteriaBuilder
-                .lower(criteriaBuilder.literal("%" + escapeLikeWildcards(filterValues.getFirst().toString()) + "%"));
+                .lower(((HibernateCriteriaBuilder) criteriaBuilder)
+                        .value("%" + escapeLikeWildcards(filterValues.getFirst().toString()) + "%"));
         Predicate nameMatches = criteriaBuilder
                 .like(criteriaBuilder.lower(root.get(CryptoAsset_.NAME)), pattern, LIKE_ESCAPE_CHAR);
         Predicate oidMatches = criteriaBuilder
