@@ -57,8 +57,9 @@ class CryptographicAssetSearchableFieldsITest extends BaseSpringBootTest {
         assetWriter
                 .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA",
                         "1.2.840.10045.4.3.2", "ecdsa", "signature", "P-256", "SECP256R1", null, null, null), null);
-        // A second producer's spelling of the same curve, on a distinct row (different oid): findDistinctCurve()
-        // must still report the canonical spelling once, not twice.
+        // The same curve token in a second casing, on a distinct row (different oid): findDistinctCurve() must
+        // still report the stored normalized spelling once, not twice. Folding ALIASES of one curve (p-256 vs
+        // secp256r1) into one secg/* class representative is core#2072's ingest obligation, not this endpoint's.
         assetWriter
                 .upsertIdentity(
                         new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA-VARIANT",
@@ -94,7 +95,7 @@ class CryptographicAssetSearchableFieldsITest extends BaseSpringBootTest {
     }
 
     @Test
-    void theCurveFieldOffersTheCanonicalSpellingOnlyOnce() {
+    void theCurveFieldOffersTheStoredNormalizedSpellingOnlyOnce() {
         assertThat((List<String>) fieldFor(FilterField.CBOM_ASSET_CURVE).getValue())
                 .containsExactly("secp256r1")
                 .doesNotContainNull();
