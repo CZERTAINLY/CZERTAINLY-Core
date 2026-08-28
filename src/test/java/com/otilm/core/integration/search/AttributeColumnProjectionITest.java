@@ -142,9 +142,14 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
         properties.setGlobal(false);
         meta.setProperties(properties);
         meta.setContent(List.of(new StringAttributeContentV3(value)));
+        // Metadata is always connector-scoped, so the write is refused without one. The discovery fixture carries a
+        // connector uuid for the same reason its list DTO needs one, and no connector is contacted here.
         attributeEngine
                 .updateMetadataAttribute(meta,
-                        ObjectAttributeContentInfo.builder(Resource.DISCOVERY, withValues.getUuid()).build());
+                        ObjectAttributeContentInfo
+                                .builder(Resource.DISCOVERY, withValues.getUuid())
+                                .connector(withValues.getConnectorUuid())
+                                .build());
     }
 
     private List<DiscoveryListDto> list(List<SearchColumnRequestDto> columns) {
