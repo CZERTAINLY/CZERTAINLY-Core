@@ -105,7 +105,7 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
             // Outside any transaction, by DiscoveryV2Client's own NOT_SUPPORTED boundary.
             validateResources(run);
             DiscoveryInitiateResponseDto response = client.initiate(run);
-            recordInitiated(discoveryUuid, response);
+            recordInitiated(discoveryUuid, response, scheduledJobInfo);
             scheduleFirstTicks(discoveryUuid);
             return detailOf(discoveryUuid);
         } catch (Exception e) {
@@ -142,7 +142,8 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
      * @throws IllegalStateException if the handle exceeds the cap — thrown before anything is persisted, so the run
      * fails rather than being driven with a handle it cannot replay
      */
-    private void recordInitiated(UUID discoveryUuid, DiscoveryInitiateResponseDto response) {
+    private void recordInitiated(UUID discoveryUuid, DiscoveryInitiateResponseDto response,
+            ScheduledJobInfo scheduledJobInfo) {
         transactionHandler.runInNewTransaction(() -> {
             Discovery locked = discoveryRepository
                     .findWithLockByUuid(discoveryUuid)
@@ -153,6 +154,11 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
             locked.setStatus(DiscoveryStatus.IN_PROGRESS);
             locked.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
             locked.setStartTime(OffsetDateTime.now(ZoneOffset.UTC));
+            // Stored because the run ends much later, in a tick worker that no longer has these: without them
+            // the scheduled job never learns the outcome and hangs open.
+            if (scheduledJobInfo != null) {
+                locked.setScheduledJobHistoryUuid(scheduledJobInfo.jobHistoryUuid());
+            }
             return discoveryRepository.save(locked);
         });
     }

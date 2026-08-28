@@ -55,7 +55,9 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.DiscoveryInternalService;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
+import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
 import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
+import com.otilm.core.tasks.ScheduledJobInfo;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
 import java.time.OffsetDateTime;
@@ -109,6 +111,9 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
 
     @Autowired
     private ContextRefreshListener contextRefreshListener;
+
+    @Autowired
+    private DiscoveryRunTerminator terminator;
 
     private Discovery discovery;
     private Connector connector;
@@ -712,6 +717,39 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         Assertions
                 .assertTrue(discoveryActions.containsAll(List.of("stop", "resume", "cancel")),
                         "expected stop/resume/cancel among " + discoveryActions);
+    }
+
+    @Test
+    void aTerminatedV2RunAnnouncesItselfOnTheSameEventAV1RunRaises() {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+
+        terminator.end(run.getUuid(), DiscoveryStatus.FAILED, "connector gave up");
+
+        // Without the event, a v2 run reaches none of what an ending drives: platform triggers, the user
+        // notification, and the scheduled job's completion. The handler consumes it and leaves the status alone.
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions.assertEquals("connector gave up", persisted.getMessage());
+    }
+
+    @Test
+    void aScheduledV2RunRemembersItsJobSoTheSchedulerCanBeToldLater() {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+        stubInitiate("""
+                {"meta":[],"stoppable":false}""");
+        ScheduledJobInfo job = new ScheduledJobInfo("nightly", UUID.randomUUID(), UUID.randomUUID());
+
+        discoveryInternalService.runDiscovery(discovery.getUuid(), job);
+
+        // The run ends much later in a tick worker that never saw this, so it has to be on the row or the job
+        // hangs open forever.
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        // Only the execution: the history row already points at the job, so a second copy here would be one more
+        // thing to keep in step.
+        Assertions.assertEquals(job.jobHistoryUuid(), persisted.getScheduledJobHistoryUuid());
     }
 
     @Test

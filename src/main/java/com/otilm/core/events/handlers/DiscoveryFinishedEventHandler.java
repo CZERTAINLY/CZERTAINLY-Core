@@ -85,7 +85,9 @@ public class DiscoveryFinishedEventHandler extends EventHandler<Discovery> {
 
         // if discovery was scheduled, raise application event to notify that scheduled discovery has finished
         if (eventContext.getScheduledJobInfo() != null) {
-            ScheduledTaskResult scheduledTaskResult = new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS,
+            // The run's own outcome, not a constant: a scheduled discovery that failed, was cancelled, or ended
+            // with warnings was indistinguishable from a clean one in the scheduler's execution history.
+            ScheduledTaskResult scheduledTaskResult = new ScheduledTaskResult(executionStatusOf(discovery.getStatus()),
                     discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid().toString());
             applicationEventPublisher
                     .publishEvent(
@@ -97,6 +99,16 @@ public class DiscoveryFinishedEventHandler extends EventHandler<Discovery> {
             ScheduledJobInfo scheduledJobInfo, DiscoveryResult discoveryResult) {
         return new EventMessage(ResourceEvent.DISCOVERY_FINISHED, Resource.DISCOVERY, discoveryUuid, null, null,
                 discoveryResult, userUuid, scheduledJobInfo);
+    }
+
+    /**
+     * WARNING counts as success: the run finished and imported what it could, and the warning is about individual items
+     * rather than the job. FAILED and CANCELLED did not deliver what the schedule asked for.
+     */
+    private static SchedulerJobExecutionStatus executionStatusOf(DiscoveryStatus status) {
+        return status == DiscoveryStatus.FAILED || status == DiscoveryStatus.CANCELLED
+                ? SchedulerJobExecutionStatus.FAILED
+                : SchedulerJobExecutionStatus.SUCCESS;
     }
 
     private static boolean isPostProcessingFinishSignal(DiscoveryStatus reportedStatus) {

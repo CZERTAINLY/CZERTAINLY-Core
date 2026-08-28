@@ -6,6 +6,7 @@ import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
+import com.otilm.core.dao.repository.ScheduledJobHistoryRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
 import com.otilm.core.service.handler.discovery.DiscoveryV2Client;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -60,6 +62,10 @@ class DiscoveryRunReaperUnitTest {
     @Mock
     private DiscoveryV2Client discoveryV2Client;
     @Mock
+    private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
+    @Mock
     private TransactionHandler transactionHandler;
     @Mock
     private ClusterOperationSynchronizer clusterSynchronizer;
@@ -72,8 +78,8 @@ class DiscoveryRunReaperUnitTest {
         // A real terminator, not a mock: the reaper delegates the terminal mutation to it, and that mutation
         // is what these tests assert on. Its collaborators are unused by applyTerminalState.
         reaper = new DiscoveryRunReaper(discoveryRepository, workRepository, workWriter, discoveryV2Client,
-                transactionHandler, clusterSynchronizer,
-                new DiscoveryRunTerminator(discoveryRepository, workWriter, messageWriter, transactionHandler),
+                transactionHandler, clusterSynchronizer, new DiscoveryRunTerminator(discoveryRepository, workWriter,
+                        messageWriter, transactionHandler, eventPublisher, scheduledJobHistoryRepository),
                 Duration.ofMinutes(5), Duration.ofDays(7));
         // Execute the transactional lambdas inline so the real selection/reap logic runs under the test.
         lenient()

@@ -126,6 +126,12 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "started_by_user_uuid")
     private UUID startedByUserUuid;
 
+    // The scheduled job execution that started the run, replayed when it ends so the scheduler learns the outcome.
+    // Null for a run a user started. A v1 run never stores it: its whole flow is one call chain that still holds it.
+    // The job itself is not stored -- the history row already points at it.
+    @Column(name = "scheduled_job_history_uuid")
+    private UUID scheduledJobHistoryUuid;
+
     // What the connector declared at initiate, refreshed by each resume. Null for a v1 run, which cannot stop.
     @Column(name = "stoppable")
     private Boolean stoppable;

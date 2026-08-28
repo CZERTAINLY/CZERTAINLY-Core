@@ -13,3 +13,11 @@ ALTER TABLE "discovery" ADD COLUMN "stoppable" BOOLEAN;
 -- Metadata-only ALTERs.
 ALTER TABLE "discovery_certificate" ADD COLUMN "sequence" BIGINT;
 ALTER TABLE "discovery_certificate" ADD COLUMN "discovered_at" TIMESTAMPTZ;
+
+-- The scheduled job execution that started the run, if any. A v1 run carries this through one synchronous call
+-- chain and never needs it stored; a v2 run ends much later, in a tick worker that has no memory of who asked for
+-- it, so without this the scheduler is never told the run finished and the job hangs open.
+--
+-- The execution alone: scheduled_job_history already carries scheduled_job_uuid, so the job it belongs to is one
+-- read away rather than a second copy here. Neither the job nor its name is stored.
+ALTER TABLE "discovery" ADD COLUMN "scheduled_job_history_uuid" UUID;
