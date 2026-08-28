@@ -6,11 +6,16 @@ import com.otilm.api.model.core.oid.CustomOidEntryResponseDto;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.search.FilterConditionOperator;
+import com.otilm.api.model.core.search.FilterFieldSource;
+import com.otilm.api.model.core.search.SortDirection;
 import com.otilm.core.dao.entity.oid.CertificateExtensionCustomOidEntry;
+import com.otilm.core.dao.entity.oid.CustomOidEntry;
 import com.otilm.core.dao.entity.oid.GenericCustomOidEntry;
 import com.otilm.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry;
 import com.otilm.core.dao.repository.CustomOidEntryRepository;
+import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.enums.FilterField;
+import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CustomOidEntryExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.io.Serializable;
@@ -125,6 +130,25 @@ class SubclassFilterFieldSearchITest extends BaseSpringBootTest {
                 .extracting(CustomOidEntryResponseDto::getOid)
                 .containsExactlyInAnyOrder(GENERIC_OID, EXTENSION_OID, RDN_COMMON_NAME_OID, RDN_ORG_UNIT_OID,
                         RDN_WITHOUT_CODE_OID);
+    }
+
+    /**
+     * Descending, so the expected order contradicts both the fixture insertion order and the oid order.
+     */
+    @Test
+    void ordersBySubclassDeclaredCodeAcrossEveryCategory() {
+        List<CustomOidEntry> entries = customOidEntryRepository
+                .findUsingSecurityFilter(SecurityFilter.create(), List.of(), null, null, null, new SortSpecification(
+                        FilterFieldSource.PROPERTY, FilterField.OID_ENTRY_CODE.name(), SortDirection.DESC));
+
+        assertThat(entries)
+                .extracting(CustomOidEntry::getOid)
+                .containsExactlyInAnyOrder(GENERIC_OID, EXTENSION_OID, RDN_COMMON_NAME_OID, RDN_ORG_UNIT_OID,
+                        RDN_WITHOUT_CODE_OID);
+        assertThat(entries)
+                .extracting(CustomOidEntry::getOid)
+                .filteredOn(oid -> oid.equals(RDN_COMMON_NAME_OID) || oid.equals(RDN_ORG_UNIT_OID))
+                .containsExactly(RDN_ORG_UNIT_OID, RDN_COMMON_NAME_OID);
     }
 
     private CustomOidEntryListResponseDto search(FilterField field, FilterConditionOperator operator,
