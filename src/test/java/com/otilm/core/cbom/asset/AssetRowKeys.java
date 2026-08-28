@@ -1,6 +1,9 @@
 package com.otilm.core.cbom.asset;
 
-import com.otilm.core.cbom.asset.identity.Digests;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 
 /**
  * A stable row key for persistence tests, derived from the typed fields alone.
@@ -41,6 +44,24 @@ public final class AssetRowKeys {
             // different fixtures collide -- which would turn a dedup assertion green for the wrong reason.
             preimage.append(field == null ? "-" : field.length() + ":" + field);
         }
-        return Digests.sha256Hex(preimage.toString());
+        return sha256Hex(preimage.toString());
+    }
+
+    /**
+     * A plain SHA-256, not the identity chain's. The chain's digest refuses unpaired surrogates because a silently
+     * substituted {@code ?} would collide two real pre-images; a fixture that only needs a stable function of ten
+     * columns has no such exposure, and depending on the chain for it would tie every persistence test to the
+     * ratified decision tables.
+     */
+    private static String sha256Hex(String text) {
+        try {
+            return HexFormat
+                    .of()
+                    .formatHex(MessageDigest
+                            .getInstance("SHA-256")
+                            .digest(text.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
     }
 }

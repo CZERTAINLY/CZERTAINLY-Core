@@ -33,23 +33,6 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
     /** The tier vocabulary's version marker, carried inside certificate pre-images. */
     private static final String SPEC_ID = "v1";
 
-    /**
-     * The version of the KEYING RULES, stamped on every row.
-     *
-     * <p>
-     * Deliberately not part of any pre-image: folding it in would re-key every row on a bump, re-migrating the whole
-     * inventory, whereas recording it makes staleness a query. It is bumped whenever a ruling changes a key -- and this
-     * generation is the first to route by tier rather than to frame ten typed fields, so every key this build writes
-     * differs from the previous generation's.
-     *
-     * <p>
-     * Note what the stamp can and cannot buy. A row keyed on a certificate's distinguished-name composite cannot be
-     * re-keyed from the stored columns, because the composite's inputs -- subject, issuer, validity, public key -- are
-     * not columns. So a stale row is <em>findable</em> here but not recomputable: repairing it means re-ingesting its
-     * source document, which is the sync path's job, not a sweep over the asset table.
-     */
-    public static final int RULESET_VERSION = 2;
-
     private static final Pattern CLAIM_PROPERTY = Pattern
             .compile("lifecycle|observation|assurance|deployment", Pattern.CASE_INSENSITIVE);
 

@@ -5,7 +5,7 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.cbom.asset.JsonColumnText;
-import com.otilm.core.cbom.asset.identity.CryptoAssetIdentity;
+import com.otilm.core.cbom.asset.identity.IdentityRuleset;
 import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.dao.CryptoAssetConstraintTranslator;
 import com.otilm.core.dao.repository.cbom.CryptoAssetAliasRepository;
@@ -80,7 +80,7 @@ public class CryptoAssetWriter {
             requireNoAlias(identityKey, guard);
         }
         assetRepository
-                .upsertIdentity(UUID.randomUUID(), identityKey, CryptoAssetIdentity.RULESET_VERSION,
+                .upsertIdentity(UUID.randomUUID(), identityKey, IdentityRuleset.VERSION,
                         stored.assetType() == null ? null : stored.assetType().name(), stored.name(), stored.oid(),
                         stored.algorithmFamily(), stored.primitive(), stored.parameterSet(), stored.curve(),
                         stored.mode(), stored.padding(), stored.variant(), guard == null ? null : guard.name());

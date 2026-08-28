@@ -8,6 +8,7 @@ import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.core.cbom.asset.AssetRowKeys;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.cbom.asset.identity.CryptoAssetIdentity;
+import com.otilm.core.cbom.asset.identity.IdentityRuleset;
 import com.otilm.core.dao.CryptoAssetConstraintTranslator;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.entity.cbom.CbomTombstone;
@@ -122,20 +123,20 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
     void everyUpsertStampsTheRulesetVersionThatKeyedTheRow() {
         UUID assetUuid = upsert(rsa2048(), null);
 
-        assertThat(asset(assetUuid).getRulesetVersion()).isEqualTo(CryptoAssetIdentity.RULESET_VERSION);
+        assertThat(asset(assetUuid).getRulesetVersion()).isEqualTo(IdentityRuleset.VERSION);
 
         // A row left behind by an older rule set: findable by query, which is what recording the version buys.
         CryptoAsset stale = asset(assetUuid);
-        stale.setRulesetVersion(CryptoAssetIdentity.RULESET_VERSION - 1);
+        stale.setRulesetVersion(IdentityRuleset.VERSION - 1);
         assetRepository.save(stale);
 
-        assertThat(assetRepository.findUuidsKeyedBefore(CryptoAssetIdentity.RULESET_VERSION))
+        assertThat(assetRepository.findUuidsKeyedBefore(IdentityRuleset.VERSION))
                 .containsExactly(assetUuid);
 
         // The update branch of the upsert restamps it, so a re-sync clears the backlog.
         assertThat(upsert(rsa2048(), null)).isEqualTo(assetUuid);
-        assertThat(assetRepository.findUuidsKeyedBefore(CryptoAssetIdentity.RULESET_VERSION)).isEmpty();
-        assertThat(asset(assetUuid).getRulesetVersion()).isEqualTo(CryptoAssetIdentity.RULESET_VERSION);
+        assertThat(assetRepository.findUuidsKeyedBefore(IdentityRuleset.VERSION)).isEmpty();
+        assertThat(asset(assetUuid).getRulesetVersion()).isEqualTo(IdentityRuleset.VERSION);
     }
 
     @Test
@@ -698,7 +699,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
         assertThatThrownBy(() -> transaction
                 .executeWithoutResult(status -> assetRepository
-                        .upsertIdentity(UUID.randomUUID(), "b".repeat(64), CryptoAssetIdentity.RULESET_VERSION,
+                        .upsertIdentity(UUID.randomUUID(), "b".repeat(64), IdentityRuleset.VERSION,
                                 CryptographicAssetType.ALGORITHM.name(), "A".repeat(1025), null, null, null, null, null,
                                 null, null, null, null)))
                 .isInstanceOf(DataIntegrityViolationException.class)
