@@ -103,10 +103,12 @@ public final class AsciiText {
      * The whitespace the reference strips and collapses, which is not the whitespace Java strips.
      *
      * <p>
-     * Measured, the two definitions disagree on exactly three code points: {@code U+0085 NEXT LINE},
-     * {@code U+00A0 NO-BREAK SPACE} and {@code U+202F NARROW NO-BREAK SPACE} are whitespace to the reference and are
-     * not whitespace to {@link Character#isWhitespace}, which is what {@link String#strip()} consults. Every other
-     * candidate agrees, and {@code U+200B ZERO WIDTH SPACE} is correctly whitespace to neither.
+     * Measured over the whole BMP, the two definitions disagree on exactly four code points, all in one direction:
+     * {@code U+0085 NEXT LINE}, {@code U+00A0 NO-BREAK SPACE}, {@code U+2007 FIGURE SPACE} and
+     * {@code U+202F NARROW NO-BREAK SPACE} are whitespace to the reference and are not whitespace to
+     * {@link Character#isWhitespace}, which is what {@link String#strip()} consults. Nothing runs the other way --
+     * every character the JDK calls whitespace is in this set -- so substituting {@link #strip} for the JDK's is always
+     * safe. {@code U+200B ZERO WIDTH SPACE} is correctly whitespace to neither.
      *
      * <p>
      * Two of the three -- the no-break spaces -- are exactly the ones that occur in producer text pasted out of

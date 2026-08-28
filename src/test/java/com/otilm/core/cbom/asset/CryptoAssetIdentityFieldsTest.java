@@ -18,6 +18,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CryptoAssetIdentityFieldsTest {
 
+    /** Written as a cast rather than a {@code \\u0085} escape, which the compiler resolves before the lexer runs. */
+    private static final char NEXT_LINE = (char) 0x0085;
+
     private static CryptoAssetIdentityFields withName(String name) {
         return new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, name, null, null, null, null, null, null,
                 null, null);
@@ -63,6 +66,22 @@ class CryptoAssetIdentityFieldsTest {
         assertThat(withName(null).normalized().name()).isNull();
         assertThat(withName("RSA ").normalized().name())
                 .describedAs("a no-break space survives trim and would otherwise become a trailing ordinary space")
+                .isEqualTo("rsa");
+    }
+
+    /**
+     * The strip uses the reference's whitespace set, which NFKC does not make redundant.
+     *
+     * <p>
+     * Three of the four code points the JDK disagrees on -- {@code U+00A0}, {@code U+202F}, {@code U+2007} -- decompose
+     * to an ordinary space, so {@link String#strip()} removes them and the bug is invisible. {@code U+0085 NEXT LINE}
+     * does not decompose and is not whitespace to {@link Character#isWhitespace}, so it is the one character that
+     * reaches the column. The key is built without it, so the row would not match a filter on its own name.
+     */
+    @Test
+    void aTrailingNextLineIsStrippedFromTheStoredColumn() {
+        assertThat(withName("RSA" + NEXT_LINE).normalized().name())
+                .describedAs("U+0085 has no NFKC decomposition and is not whitespace to the JDK")
                 .isEqualTo("rsa");
     }
 

@@ -1,6 +1,7 @@
 package com.otilm.core.cbom.asset;
 
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
+import com.otilm.core.cbom.asset.identity.AsciiText;
 import java.text.Normalizer;
 import java.util.Locale;
 
@@ -64,12 +65,19 @@ public record CryptoAssetIdentityFields(CryptographicAssetType assetType, String
      * A field that is blank after folding is <em>absent</em>, and absent is distinct from every present value:
      * producers omit a field and emit {@code ""} interchangeably, and treating those as different would split the
      * inventory on a formatting choice.
+     *
+     * <p>
+     * The strip is {@link AsciiText#strip} rather than {@link String#strip()}, and NFKC does not make the two
+     * equivalent. NFKC maps {@code U+00A0}, {@code U+202F} and {@code U+2007} onto an ordinary space, so the JDK strip
+     * removes them -- but {@code U+0085 NEXT LINE} has no NFKC decomposition and is not whitespace to
+     * {@link Character#isWhitespace}. A trailing one therefore survived into the stored column while the key was built
+     * from the value without it, so {@code name EQUALS rsa} missed the row it had keyed.
      */
     static String fold(String raw) {
         if (raw == null) {
             return null;
         }
-        String stripped = Normalizer.normalize(raw, Normalizer.Form.NFKC).strip();
+        String stripped = AsciiText.strip(Normalizer.normalize(raw, Normalizer.Form.NFKC));
         if (stripped.isEmpty()) {
             return null;
         }
