@@ -5,6 +5,7 @@ import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchColumnRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
+import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
@@ -16,11 +17,15 @@ import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.connector.AuthType;
+import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -46,6 +51,9 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
     private DiscoveryRepository discoveryRepository;
 
     @Autowired
+    private ConnectorRepository connectorRepository;
+
+    @Autowired
     private DiscoveryExternalService discoveryService;
 
     @Autowired
@@ -57,8 +65,15 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
     private UUID environmentUuid;
     private UUID owningTeamUuid;
 
+    /**
+     * A persisted connector, because a metadata definition's {@code connector_uuid} carries a foreign key to it. No
+     * connector is contacted; the row only has to exist.
+     */
+    private Connector connector;
+
     @BeforeEach
     void loadData() throws Exception {
+        connector = saveConnector();
         withValues = saveDiscovery("discovery-with-values");
         withoutValues = saveDiscovery("discovery-without-values");
 
@@ -72,13 +87,23 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
                                         attributeContent(owningTeamUuid, OWNING_TEAM, "Platform")));
     }
 
+    private Connector saveConnector() {
+        Connector saved = new Connector();
+        saved.setName("attribute-projection-connector");
+        saved.setUrl("http://localhost:0/attribute-projection");
+        saved.setVersion(ConnectorVersion.V2);
+        saved.setStatus(ConnectorStatus.CONNECTED);
+        saved.setAuthType(AuthType.NONE);
+        return connectorRepository.save(saved);
+    }
+
     private Discovery saveDiscovery(String name) {
         Discovery discovery = new Discovery();
         discovery.setName(name);
         // The list DTO stringifies the connector reference, so it has to be set even though no
         // connector is contacted here.
-        discovery.setConnectorUuid(UUID.randomUUID());
-        discovery.setConnectorName("test-connector");
+        discovery.setConnectorUuid(connector.getUuid());
+        discovery.setConnectorName(connector.getName());
         discovery.setStatus(DiscoveryStatus.COMPLETED);
         discovery.setConnectorStatus(DiscoveryStatus.COMPLETED);
         discovery.setKind("test-kind");
@@ -148,7 +173,7 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
                 .updateMetadataAttribute(meta,
                         ObjectAttributeContentInfo
                                 .builder(Resource.DISCOVERY, withValues.getUuid())
-                                .connector(withValues.getConnectorUuid())
+                                .connector(connector.getUuid())
                                 .build());
     }
 
