@@ -39,11 +39,29 @@ class OccurrenceEvidenceCapperTest {
     }
 
     @Test
-    void evidenceWithinBothBudgetsIsStoredAsReported() {
+    void evidenceWithinBothBudgetsKeepsEveryOccurrenceButNeverTheSnippet() {
         List<Map<String, Object>> occurrences = List
                 .of(occurrence("src/a.java", "one line of context"), occurrence("src/b.java", null));
 
-        assertThat(OccurrenceEvidenceCapper.cap(occurrences)).isEqualTo(occurrences);
+        List<Map<String, Object>> capped = OccurrenceEvidenceCapper.cap(occurrences);
+
+        assertThat(capped)
+                .describedAs("both occurrences are retained -- neither budget was exceeded")
+                .isEqualTo(List.of(occurrence("src/a.java", null), occurrence("src/b.java", null)));
+        assertThat(capped)
+                .describedAs("the snippet goes even under budget: at a secret-scanner finding it IS the secret, so "
+                        + "whether it reaches a stored column must not depend on how large the rest of the array was")
+                .noneMatch(occurrence -> occurrence.containsKey("additionalContext"));
+    }
+
+    @Test
+    void aLoneSmallOccurrenceStillLosesItsSnippet() {
+        List<Map<String, Object>> capped = OccurrenceEvidenceCapper
+                .cap(List.of(occurrence("src/a.java", SECRET_MARKER + " = \"AKIAIOSFODNN7EXAMPLE\"")));
+
+        assertThat(render(capped))
+                .describedAs("one occurrence, far below every budget -- the branch that used to retain it verbatim")
+                .doesNotContain(SECRET_MARKER);
     }
 
     @Test

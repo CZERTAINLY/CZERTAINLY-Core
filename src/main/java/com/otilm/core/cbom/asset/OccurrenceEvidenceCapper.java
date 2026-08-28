@@ -23,9 +23,11 @@ import java.util.Objects;
  * Applied in order:
  * <ol>
  * <li>keep at most {@link #MAX_OCCURRENCES}, in producer order;</li>
- * <li>if the rendering still exceeds {@link #MAX_EVIDENCE_BYTES}, remove {@code additionalContext} entirely, at every
- * depth, from every retained occurrence;</li>
- * <li>if it still exceeds the budget, drop whole occurrences from the tail until it fits.</li>
+ * <li>remove {@code additionalContext} entirely, at every depth, from every retained occurrence -- always, not only
+ * when the budget is exceeded, because whether a secret reaches a stored column must not depend on how large the rest
+ * of the array happened to be;</li>
+ * <li>if the rendering still exceeds {@link #MAX_EVIDENCE_BYTES}, drop whole occurrences from the tail until it
+ * fits.</li>
  * </ol>
  *
  * <p>
@@ -61,10 +63,10 @@ public final class OccurrenceEvidenceCapper {
         List<Map<String, Object>> present = occurrences.stream().filter(Objects::nonNull).toList();
         List<Map<String, Object>> kept = new ArrayList<>(
                 present.size() > MAX_OCCURRENCES ? present.subList(0, MAX_OCCURRENCES) : present);
-        if (renderedSize(kept) <= MAX_EVIDENCE_BYTES) {
-            return List.copyOf(kept);
-        }
-
+        // Unconditionally, not only under budget pressure. The snippet at a secret-scanner finding IS the secret
+        // line, so whether it reaches a stored column must not depend on how large the rest of the array happened to
+        // be -- a single small occurrence kept `AWS_SECRET_ACCESS_KEY = "..."` verbatim in a column the read surface
+        // serves back.
         kept.replaceAll(OccurrenceEvidenceCapper::withoutAdditionalContext);
         while (!kept.isEmpty() && renderedSize(kept) > MAX_EVIDENCE_BYTES) {
             kept.removeLast();

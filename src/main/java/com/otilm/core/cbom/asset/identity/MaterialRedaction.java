@@ -83,11 +83,16 @@ public final class MaterialRedaction {
         ObjectNode materialNode = (ObjectNode) material;
         JsonNode typeNode = materialNode.get("type");
         String materialType = typeNode != null && typeNode.isTextual() ? typeNode.textValue() : null;
-        if (!materialNode.has(CbomNames.VALUE)) {
-            return new MaterialRedaction(payload, materialType, null, null, null, List.of());
-        }
 
         List<String> findings = new ArrayList<>();
+        // Before the value branch, and independent of it. A scanner that fingerprints a detected secret to dedupe its
+        // findings emits the same unsalted digest the withhold rule below refuses to publish -- and it does so in a
+        // sibling member that the value redaction never touches, on a block that may carry no inlined value at all.
+        withholdFingerprint(materialNode, materialType, findings);
+
+        if (!materialNode.has(CbomNames.VALUE)) {
+            return new MaterialRedaction(payload, materialType, null, null, null, List.copyOf(findings));
+        }
         JsonNode raw = materialNode.get(CbomNames.VALUE);
         if (raw == null || !raw.isTextual()) {
             // A non-string value cannot be hashed meaningfully and must not survive.
@@ -122,7 +127,7 @@ public final class MaterialRedaction {
             findings.add("digest withheld: " + materialType + " is low-entropy material");
         }
         materialNode.set(CbomNames.VALUE, redacted);
-        if (materialType != null && SECRET_TYPES.contains(AsciiText.fold(materialType))) {
+        if (materialType != null && SECRET_TYPES.contains(AsciiText.fold(AsciiText.strip(materialType)))) {
             findings.add("producer inlined a value on material type " + materialType);
         }
         return new MaterialRedaction(payload, materialType, identityDigest, publishedDigest, length, findings);
@@ -133,10 +138,30 @@ public final class MaterialRedaction {
      * two types that say the producer did not know either.
      */
     private static boolean digestPublishable(String materialType) {
-        if (materialType == null || materialType.isBlank()) {
+        // AsciiText, not the JDK. String.isBlank/strip consult Character.isWhitespace, which does not treat
+        // U+0085, U+00A0 or U+202F as whitespace -- so a type pasted out of a document as "password\u00A0" kept its
+        // trailing no-break space, missed LOW_ENTROPY_TYPES, and published sha256 of the password. A type made only
+        // of those code points was likewise non-blank here and took the publish branch, defeating the fail-closed
+        // rule for a type that is in the set.
+        if (AsciiText.isBlank(materialType)) {
             return false;
         }
-        return !LOW_ENTROPY_TYPES.contains(AsciiText.fold(materialType.strip()));
+        return !LOW_ENTROPY_TYPES.contains(AsciiText.fold(AsciiText.strip(materialType)));
+    }
+
+    /**
+     * Removes a fingerprint digest of low-entropy material. {@code value} is not the only member that can carry the
+     * plaintext's digest: a secret scanner fingerprints what it found so it can dedupe findings across runs, and that
+     * digest is exactly as reversible as the one {@link #digestPublishable} refuses to publish.
+     */
+    private static void withholdFingerprint(ObjectNode materialNode, String materialType, List<String> findings) {
+        JsonNode fingerprint = materialNode.get("fingerprint");
+        if (fingerprint == null || !fingerprint.isObject() || !fingerprint.has("content")
+                || digestPublishable(materialType)) {
+            return;
+        }
+        ((ObjectNode) fingerprint).remove("content");
+        findings.add("fingerprint digest withheld: " + materialType + " is low-entropy material");
     }
 
     /** The redacted properties. This is what may be stored, keyed, logged or served. */
