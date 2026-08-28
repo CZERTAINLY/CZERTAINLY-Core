@@ -141,8 +141,8 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
     /**
      * Stores a PQC verdict together with the rule that produced it and the fields that rule read. The identity columns
      * and {@code ruleset_version} are untouched: a verdict is not an identity.
-     */
-    /**
+     *
+     * <p>
      * <b>Decided versus evaluated:</b> the contract asks two different questions of a verdict, so the row answers both.
      * {@code pqc_evaluated_at} advances on every call, including one that re-confirms the verdict it already held;
      * {@code pqc_decided_at} moves only when the value actually changes, so it dates the finding rather than the last

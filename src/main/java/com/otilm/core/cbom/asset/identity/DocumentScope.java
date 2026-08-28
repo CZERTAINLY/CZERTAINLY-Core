@@ -195,19 +195,19 @@ public final class DocumentScope {
             // "Certificate" was ROUTED as a certificate while staying invisible to refutation -- a safety control
             // evadable by capitalization.
             JsonNode assetType = properties.get("assetType");
-            if (!"certificate"
+            if (!CbomNames.ASSET_TYPE_CERTIFICATE
                     .equals(normalizer
                             .normalizeAssetType(
                                     assetType != null && assetType.isTextual() ? assetType.textValue() : null))) {
                 continue;
             }
-            JsonNode certificate = properties.get("certificateProperties");
+            JsonNode certificate = properties.get(CbomNames.CERTIFICATE_PROPERTIES);
             JsonNode certificateProperties = certificate != null && certificate.isObject() ? certificate : null;
             Map<String, String> facts = new LinkedHashMap<>();
-            put(facts, "subject",
-                    DistinguishedNames.normalize(text(certificateProperties, "subjectName"), normalizer.tables()));
-            put(facts, "issuer",
-                    DistinguishedNames.normalize(text(certificateProperties, "issuerName"), normalizer.tables()));
+            put(facts, "subject", DistinguishedNames
+                    .normalize(text(certificateProperties, CbomNames.SUBJECT_NAME), normalizer.tables()));
+            put(facts, "issuer", DistinguishedNames
+                    .normalize(text(certificateProperties, CbomNames.ISSUER_NAME), normalizer.tables()));
             String serial = text(certificateProperties, "serialNumber");
             put(facts, "serial", AsciiText.fold(AsciiText.strip(serial == null ? "" : serial)));
             put(facts, "notBefore", Timestamps.normalize(text(certificateProperties, "notValidBefore")));

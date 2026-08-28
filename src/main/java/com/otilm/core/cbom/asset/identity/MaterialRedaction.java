@@ -63,22 +63,22 @@ public final class MaterialRedaction {
         ObjectNode payload = cryptoProperties == null || !cryptoProperties.isObject()
                 ? com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode()
                 : cryptoProperties.deepCopy();
-        JsonNode material = payload.get("relatedCryptoMaterialProperties");
+        JsonNode material = payload.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES);
         if (material == null || !material.isObject()) {
             return new MaterialRedaction(payload, null, null, null, null, List.of());
         }
         ObjectNode materialNode = (ObjectNode) material;
         JsonNode typeNode = materialNode.get("type");
         String materialType = typeNode != null && typeNode.isTextual() ? typeNode.textValue() : null;
-        if (!materialNode.has("value")) {
+        if (!materialNode.has(CbomNames.VALUE)) {
             return new MaterialRedaction(payload, materialType, null, null, null, List.of());
         }
 
         List<String> findings = new ArrayList<>();
-        JsonNode raw = materialNode.get("value");
+        JsonNode raw = materialNode.get(CbomNames.VALUE);
         if (raw == null || !raw.isTextual()) {
             // A non-string value cannot be hashed meaningfully and must not survive.
-            materialNode.remove("value");
+            materialNode.remove(CbomNames.VALUE);
             findings.add("non-string material value dropped");
             return new MaterialRedaction(payload, materialType, null, null, null, findings);
         }
@@ -108,7 +108,7 @@ public final class MaterialRedaction {
             redacted.put("length", length);
             findings.add("digest withheld: " + materialType + " is low-entropy material");
         }
-        materialNode.set("value", redacted);
+        materialNode.set(CbomNames.VALUE, redacted);
         if (materialType != null && SECRET_TYPES.contains(AsciiText.fold(materialType))) {
             findings.add("producer inlined a value on material type " + materialType);
         }

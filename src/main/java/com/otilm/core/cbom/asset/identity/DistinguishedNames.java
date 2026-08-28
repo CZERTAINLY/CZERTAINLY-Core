@@ -41,12 +41,12 @@ public final class DistinguishedNames {
      * verbatim. {@code serialNumber}, {@code emailAddress} (RFC 5321 local-parts are case-sensitive),
      * {@code dnQualifier} and binary attributes are excluded deliberately.
      */
-    private static final Set<String> FOLDABLE_ATTRIBUTE_OIDS = Set
-            .of("2.5.4.3", "2.5.4.4", "2.5.4.6", "2.5.4.7", "2.5.4.8", "2.5.4.9", "2.5.4.10", "2.5.4.11", "2.5.4.12",
-                    "2.5.4.15", "2.5.4.17", "2.5.4.41", "2.5.4.65", "2.5.4.97", "0.9.2342.19200300.100.1.25",
-                    "0.9.2342.19200300.100.1.1");
-
     private static final String COMMON_NAME_OID = "2.5.4.3";
+
+    private static final Set<String> FOLDABLE_ATTRIBUTE_OIDS = Set
+            .of(COMMON_NAME_OID, "2.5.4.4", "2.5.4.6", "2.5.4.7", "2.5.4.8", "2.5.4.9", "2.5.4.10", "2.5.4.11",
+                    "2.5.4.12", "2.5.4.15", "2.5.4.17", "2.5.4.41", "2.5.4.65", "2.5.4.97",
+                    "0.9.2342.19200300.100.1.25", "0.9.2342.19200300.100.1.1");
 
     private DistinguishedNames() {
     }
@@ -125,10 +125,7 @@ public final class DistinguishedNames {
             byte[] decoded = HexFormat.of().parseHex(value.substring(1));
             String text = new String(decoded, java.nio.charset.StandardCharsets.UTF_8);
             StringBuilder printable = new StringBuilder(text.length());
-            text
-                    .codePoints()
-                    .filter(DistinguishedNames::isPrintable)
-                    .forEach(codePoint -> printable.appendCodePoint(codePoint));
+            text.codePoints().filter(DistinguishedNames::isPrintable).forEach(printable::appendCodePoint);
             return AsciiText.strip(printable.toString());
         } catch (IllegalArgumentException e) {
             // Not hex after all. The leading marker is dropped and the rest compared verbatim, which is what the

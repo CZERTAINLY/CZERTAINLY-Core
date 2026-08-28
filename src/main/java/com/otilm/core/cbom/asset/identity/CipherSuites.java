@@ -56,7 +56,7 @@ public final class CipherSuites {
                 }
             }
         }
-        return octets.length() == 0 ? null : octets.toString();
+        return octets.isEmpty() ? null : octets.toString();
     }
 
     /**

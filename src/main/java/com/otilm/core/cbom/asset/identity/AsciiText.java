@@ -148,4 +148,33 @@ public final class AsciiText {
     public static boolean isBlank(String text) {
         return text == null || strip(text).isEmpty();
     }
+
+    /**
+     * True when the value is a dot-separated run of ASCII digit groups carrying at least {@code minimumDots} dots --
+     * the shape of an OID arc, and of a dotted protocol version.
+     *
+     * <p>
+     * Scanned by hand rather than matched against {@code \d+(\.\d+)*}, which is the same grammar: a nested unbounded
+     * repetition recurses inside Java's matcher, so a long enough input overflows the stack where this returns false.
+     * Digits are ASCII-only here exactly as {@code \d} is ASCII-only by default, so no keyed value changes.
+     */
+    public static boolean isDottedDigits(String text, int minimumDots) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        int dots = 0;
+        boolean digitRequired = true;
+        for (int index = 0; index < text.length(); index++) {
+            char character = text.charAt(index);
+            if (character >= '0' && character <= '9') {
+                digitRequired = false;
+            } else if (character == '.' && !digitRequired) {
+                dots++;
+                digitRequired = true;
+            } else {
+                return false;
+            }
+        }
+        return !digitRequired && dots >= minimumDots;
+    }
 }

@@ -177,7 +177,7 @@ public final class CanonicalJson {
         // An integral float is emitted as an integer, so `999` and `999.0` cannot produce different digests. The
         // exact binary value is taken, not the shortest decimal: `1e30` is 1000000000000000019884624838656.
         if (value == Math.rint(value)) {
-            out.append(new BigDecimal(value).toBigIntegerExact().toString());
+            out.append(exactBinaryValue(value).toBigIntegerExact().toString());
             return;
         }
         out.append(shortestDecimal(value));
@@ -201,9 +201,22 @@ public final class CanonicalJson {
      * what happened to this project's base64 boundary once already: a hashed path whose behaviour was whatever one
      * language's primitive happened to do, discovered years later as two rows for one key.
      */
+    /**
+     * The double's exact binary value, which is the value the digest is defined over.
+     *
+     * <p>
+     * {@code BigDecimal.valueOf} is deliberately not used, and this is the single place that choice is made:
+     * {@code valueOf} routes through {@code Double.toString}, so {@code 1e30} would enter the payload as
+     * {@code 1000000000000000000000000000000} where the value actually held is {@code 1000000000000000019884624838656}.
+     * The two spellings hash differently, so the shortest-decimal one cannot be substituted here.
+     */
+    private static BigDecimal exactBinaryValue(double value) {
+        return new BigDecimal(value); // NOSONAR - the exact binary value is the point; see above
+    }
+
     private static String shortestDecimal(double value) {
         double magnitude = Math.abs(value);
-        BigDecimal exact = new BigDecimal(magnitude);
+        BigDecimal exact = exactBinaryValue(magnitude);
         BigDecimal shortest = null;
         // Fewest significant digits that still round-trip, rounded half-even off the EXACT binary value. Deliberately
         // not derived from Double.toString: the JDK renders Double.MIN_VALUE as 4.9E-324 where the shortest

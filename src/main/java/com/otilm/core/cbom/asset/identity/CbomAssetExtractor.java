@@ -183,8 +183,8 @@ public final class CbomAssetExtractor {
                 continue;
             }
             ObjectNode copy = occurrence.deepCopy();
-            if (copy.has("location")) {
-                copy.put("location", Occurrences.sanitizeLocation(copy.get("location")));
+            if (copy.has(CbomNames.LOCATION)) {
+                copy.put(CbomNames.LOCATION, Occurrences.sanitizeLocation(copy.get(CbomNames.LOCATION)));
             }
             sanitized.add(MAPPER.convertValue(copy, MAP_TYPE));
         }

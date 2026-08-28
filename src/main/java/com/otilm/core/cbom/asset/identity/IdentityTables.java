@@ -323,6 +323,9 @@ public final class IdentityTables {
         return tokens.stream().map(Pattern::quote).collect(Collectors.joining("|"));
     }
 
+    /** The trailing negative-lookahead a grammar spelling ends with, stripped to read the halves out of a hybrid. */
+    private static final Pattern TRAILING_GUARD = Pattern.compile("\\(\\?![^)]*\\)$");
+
     private static List<GrammarRule> grammar(JsonNode node) {
         List<GrammarRule> rules = new ArrayList<>();
         for (JsonNode rule : node) {
@@ -333,7 +336,7 @@ public final class IdentityTables {
             String loose = pattern.replace("(?<![A-Za-z0-9])", "");
             // The unguarded form drops the TRAILING guard too, used only to read the halves out of a hybrid name,
             // where producers glue tokens together with no separator at all and a right-hand guard hides `X25519`.
-            String unguarded = loose.replaceAll("\\(\\?![^)]*\\)$", "");
+            String unguarded = TRAILING_GUARD.matcher(loose).replaceAll("");
             rules
                     .add(new GrammarRule(Pattern.compile(pattern, Pattern.CASE_INSENSITIVE),
                             Pattern.compile(loose, Pattern.CASE_INSENSITIVE),

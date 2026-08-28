@@ -2,10 +2,12 @@ package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -33,11 +35,21 @@ public final class AssetNormalizer {
      * where the schema says {@code related-crypto-material}; routing on the raw string sent it to the unknown-type
      * backstop and gave it a key no other producer could ever match.
      */
-    private static final Map<String, String> ASSET_TYPES = Map
-            .of("algorithm", "algorithm", "certificate", "certificate", "protocol", "protocol",
-                    "related-crypto-material", "related-crypto-material", "relatedcryptomaterial",
-                    "related-crypto-material", "related_crypto_material", "related-crypto-material",
-                    "relatedcryptographicmaterial", "related-crypto-material", "material", "related-crypto-material");
+    private static final Map<String, String> ASSET_TYPES = assetTypes();
+
+    private static Map<String, String> assetTypes() {
+        Map<String, String> types = new LinkedHashMap<>();
+        for (String canonical : List
+                .of(CbomNames.ASSET_TYPE_ALGORITHM, CbomNames.ASSET_TYPE_CERTIFICATE, CbomNames.ASSET_TYPE_PROTOCOL,
+                        CbomNames.ASSET_TYPE_RELATED_CRYPTO_MATERIAL)) {
+            types.put(canonical, canonical);
+        }
+        for (String misspelling : List
+                .of("relatedcryptomaterial", "related_crypto_material", "relatedcryptographicmaterial", "material")) {
+            types.put(misspelling, CbomNames.ASSET_TYPE_RELATED_CRYPTO_MATERIAL);
+        }
+        return Map.copyOf(types);
+    }
 
     /**
      * The only registered hybrid token the tables carry. A hybrid names two constructions, so several grammar rules
@@ -97,11 +109,17 @@ public final class AssetNormalizer {
     private static final List<String> KEY_SIZE_FAMILIES = List.of("RSASSA-", "RSAES-", "RSA-X931");
 
     private static final Pattern DIGEST_IN_NAME = Pattern
-            .compile("(?<![A-Za-z0-9])(?:SHA|MD)-?(\\d{3,4})(?![0-9])", Pattern.CASE_INSENSITIVE);
+            .compile("(?<![A-Za-z0-9])(?:SHA|MD)-?(\\d{3,4})(?!\\d)", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern ASSET_TYPE_SEPARATORS = Pattern.compile("[\\s_]+");
 
-    private static final Pattern DOTTED_ARC = Pattern.compile("\\d+(\\.\\d+)*");
+    /**
+     * The word guards a token spelling is matched with. A guard on both sides is what stops {@code dsa} matching inside
+     * {@code ECDSA}; spelled once so a rule cannot be built with one side missing.
+     */
+    private static final String LEFT_WORD_GUARD = "(?<![A-Za-z0-9])";
+
+    private static final String RIGHT_WORD_GUARD = "(?![A-Za-z0-9])";
 
     private static final Pattern DIGITS = Pattern.compile("\\d+");
 
@@ -114,7 +132,7 @@ public final class AssetNormalizer {
     private static final Pattern LEVEL_MARKER = Pattern
             .compile("(?<![A-Za-z0-9])([A-Za-z]{1,3}\\d{1,4})(?![A-Za-z0-9])");
 
-    private static final Pattern PARAMETER_LEVEL = Pattern.compile("[-_/]([0-9]{1,4})\\s*$");
+    private static final Pattern PARAMETER_LEVEL = Pattern.compile("[-_/](\\d{1,4})\\s*$");
 
     private static final Pattern NON_LETTERS = Pattern.compile("[^A-Za-z]");
 
@@ -227,7 +245,7 @@ public final class AssetNormalizer {
         while (text.endsWith(".")) {
             text = text.substring(0, text.length() - 1);
         }
-        if (!DOTTED_ARC.matcher(text).matches() || countDots(text) < 2) {
+        if (!AsciiText.isDottedDigits(text, 2)) {
             return null;
         }
         return text;
@@ -402,7 +420,9 @@ public final class AssetNormalizer {
      * produce {@code chacha20-1305}, a token that means nothing.
      */
     String sizedFamilyToken(String family, String matched, String tail) {
-        String token = AsciiText.fold(family);
+        // A grammar rule always names a family, so the fold of it is never null. Asserted rather than assumed, because
+        // both guards below read the token and a null one would fail them with an NPE instead of an answer.
+        String token = Objects.requireNonNull(AsciiText.fold(family), "a grammar rule always names a family");
         String run = null;
         Matcher local = LOCAL_SIZE_RUN.matcher(matched);
         if (local.lookingAt()) {
@@ -474,13 +494,13 @@ public final class AssetNormalizer {
         String suffix = unvocabularied ? " (declaration unvocabularied)" : "";
         if (fromOid != null && fromName != null) {
             if (fromOid.equals(fromName)) {
-                return settleAgreed(norm, fromOid, "corroborated" + suffix, fromOid, entry);
+                return settleAgreed(norm, fromOid, "corroborated" + suffix, entry);
             }
             if (tables.subsumes(fromOid, fromName)) {
-                return settleAgreed(norm, fromName, "name (oid subsumed)" + suffix, fromOid, entry);
+                return settleAgreed(norm, fromName, "name (oid subsumed)" + suffix, entry);
             }
             if (tables.subsumes(fromName, fromOid)) {
-                return settleAgreed(norm, fromOid, "oid (name subsumed)" + suffix, fromOid, entry);
+                return settleAgreed(norm, fromOid, "oid (name subsumed)" + suffix, entry);
             }
             norm.setFamily(fromName);
             norm.setFamilySource("name (oid refuted)" + suffix);
@@ -488,10 +508,10 @@ public final class AssetNormalizer {
             return null;
         }
         if (fromName != null) {
-            return settleAgreed(norm, fromName, "name" + suffix, fromOid, entry);
+            return settleAgreed(norm, fromName, "name" + suffix, entry);
         }
         if (fromOid != null) {
-            return settleAgreed(norm, fromOid, "oid" + suffix, fromOid, entry);
+            return settleAgreed(norm, fromOid, "oid" + suffix, entry);
         }
         norm.setFamily(null);
         norm.setFamilySource("none" + suffix);
@@ -519,7 +539,7 @@ public final class AssetNormalizer {
         return contradicts ? null : entry;
     }
 
-    private IdentityTables.OidEntry settleAgreed(NormalizedAsset norm, String winner, String source, String fromOid,
+    private IdentityTables.OidEntry settleAgreed(NormalizedAsset norm, String winner, String source,
             IdentityTables.OidEntry entry) {
         norm.setFamily(winner);
         norm.setFamilySource(source);
@@ -529,7 +549,7 @@ public final class AssetNormalizer {
 
     private void deriveParameterSet(NormalizedAsset norm, JsonNode algorithm, IdentityTables.OidEntry enrichment) {
         List<String> notes = new ArrayList<>();
-        norm.setParameterSet(parseParameterSet(norm.name(), algorithm.get("parameterSetIdentifier"), notes));
+        norm.setParameterSet(parseParameterSet(norm.name(), algorithm.get(CbomNames.PARAMETER_SET_IDENTIFIER), notes));
         notes.forEach(norm::note);
         rejectDigestLengthAsKeySize(norm);
         if (norm.parameterSet() == null) {
@@ -560,7 +580,7 @@ public final class AssetNormalizer {
                 && !parameterSetIdentifier.isBoolean()) {
             double value = parameterSetIdentifier.doubleValue();
             if (value == Math.rint(value)) {
-                Integer accepted = accept((int) value, "parameterSetIdentifier", notes);
+                Integer accepted = accept((int) value, CbomNames.PARAMETER_SET_IDENTIFIER, notes);
                 if (accepted != null) {
                     return accepted;
                 }
@@ -568,7 +588,7 @@ public final class AssetNormalizer {
         } else if (parameterSetIdentifier != null && parameterSetIdentifier.isTextual()) {
             String text = AsciiText.strip(parameterSetIdentifier.textValue());
             if (DIGITS.matcher(text).matches()) {
-                Integer accepted = accept(Integer.parseInt(text), "parameterSetIdentifier", notes);
+                Integer accepted = accept(Integer.parseInt(text), CbomNames.PARAMETER_SET_IDENTIFIER, notes);
                 if (accepted != null) {
                     return accepted;
                 }
@@ -624,7 +644,7 @@ public final class AssetNormalizer {
         }
         for (Map.Entry<String, Integer> intrinsic : tables.nameIntrinsicSizes().entrySet()) {
             Pattern token = Pattern
-                    .compile("(?<![A-Za-z0-9])" + Pattern.quote(intrinsic.getKey()) + "(?![A-Za-z0-9])",
+                    .compile(LEFT_WORD_GUARD + Pattern.quote(intrinsic.getKey()) + RIGHT_WORD_GUARD,
                             Pattern.CASE_INSENSITIVE);
             if (token.matcher(name).find()) {
                 return intrinsic.getValue();
@@ -662,11 +682,11 @@ public final class AssetNormalizer {
      * rather than observed.
      */
     private void deriveCurve(NormalizedAsset norm, JsonNode algorithm, IdentityTables.OidEntry enrichment) {
-        String parameterSetIdentifier = text(algorithm.get("parameterSetIdentifier"));
+        String parameterSetIdentifier = text(algorithm.get(CbomNames.PARAMETER_SET_IDENTIFIER));
         List<String[]> channels = new ArrayList<>();
-        channels.add(new String[]{text(algorithm.get("ellipticCurve")), "ellipticCurve"});
+        channels.add(new String[]{text(algorithm.get(CbomNames.ELLIPTIC_CURVE)), CbomNames.ELLIPTIC_CURVE});
         channels.add(new String[]{text(algorithm.get("curve")), "curve (inferred by producer)"});
-        channels.add(new String[]{parameterSetIdentifier, "parameterSetIdentifier"});
+        channels.add(new String[]{parameterSetIdentifier, CbomNames.PARAMETER_SET_IDENTIFIER});
         channels.add(new String[]{enrichment == null ? null : enrichment.curve(), "oid"});
         // Only an EC-bearing family may take a curve from free text, or any incidental word that happens to be a
         // registry curve spelling attaches one: an asset named `AES-256 key for Vesta` acquired `other/Vesta`.
@@ -681,7 +701,8 @@ public final class AssetNormalizer {
             }
         }
         for (String raw : List
-                .of(nullToEmpty(text(algorithm.get("ellipticCurve"))), nullToEmpty(text(algorithm.get("curve"))))) {
+                .of(nullToEmpty(text(algorithm.get(CbomNames.ELLIPTIC_CURVE))),
+                        nullToEmpty(text(algorithm.get("curve"))))) {
             if (!AsciiText.isBlank(raw) && !tables.isSentinel(raw)) {
                 norm.note("curve " + raw + " is not a registry token");
             }
@@ -746,8 +767,7 @@ public final class AssetNormalizer {
                 continue;
             }
             Pattern word = Pattern
-                    .compile("(?<![A-Za-z0-9])" + Pattern.quote(spelling) + "(?![A-Za-z0-9])",
-                            Pattern.CASE_INSENSITIVE);
+                    .compile(LEFT_WORD_GUARD + Pattern.quote(spelling) + RIGHT_WORD_GUARD, Pattern.CASE_INSENSITIVE);
             if (word.matcher(name).find()) {
                 found.add(canonicalCurve(spelling));
             }
@@ -781,8 +801,8 @@ public final class AssetNormalizer {
 
     private void deriveMode(NormalizedAsset norm, JsonNode algorithm, IdentityTables.OidEntry enrichment) {
         norm
-                .setMode(normalizeMode(text(algorithm.get("mode")), text(algorithm.get("parameterSetIdentifier")),
-                        norm.name()));
+                .setMode(normalizeMode(text(algorithm.get("mode")),
+                        text(algorithm.get(CbomNames.PARAMETER_SET_IDENTIFIER)), norm.name()));
         if (norm.mode() == null && enrichment != null && enrichment.mode() != null) {
             norm.setMode(enrichment.mode());
         }
@@ -810,8 +830,7 @@ public final class AssetNormalizer {
         if (name != null) {
             for (String token : tables.modeTokens()) {
                 Pattern word = Pattern
-                        .compile("(?<![A-Za-z0-9])" + Pattern.quote(token) + "(?![A-Za-z0-9])",
-                                Pattern.CASE_INSENSITIVE);
+                        .compile(LEFT_WORD_GUARD + Pattern.quote(token) + RIGHT_WORD_GUARD, Pattern.CASE_INSENSITIVE);
                 if (word.matcher(name).find()) {
                     return AsciiText.upper(token);
                 }
@@ -845,7 +864,7 @@ public final class AssetNormalizer {
             // without this they fail to match a producer that puts the value in the field instead.
             String flattened = NON_ALPHANUMERIC.matcher(norm.name()).replaceAll("");
             for (String token : tables.paddingTokens()) {
-                Pattern word = Pattern.compile(Pattern.quote(token) + "(?![A-Za-z0-9])", Pattern.CASE_INSENSITIVE);
+                Pattern word = Pattern.compile(Pattern.quote(token) + RIGHT_WORD_GUARD, Pattern.CASE_INSENSITIVE);
                 if (word.matcher(flattened).find()) {
                     norm.setPadding(canonicalPadding(token));
                     norm.setPaddingFromName(token);
@@ -876,10 +895,11 @@ public final class AssetNormalizer {
             return;
         }
         String fromFunctions = primitiveFromFunctions(algorithm.get("cryptoFunctions"));
-        norm
-                .setPrimitive(fromFunctions != null
-                        ? fromFunctions
-                        : (norm.family() == null ? null : tables.primitiveDefaults().get(norm.family())));
+        if (fromFunctions != null) {
+            norm.setPrimitive(fromFunctions);
+            return;
+        }
+        norm.setPrimitive(norm.family() == null ? null : tables.primitiveDefaults().get(norm.family()));
     }
 
     private String primitiveFromFunctions(JsonNode functions) {
@@ -944,7 +964,7 @@ public final class AssetNormalizer {
         for (String token : new String[]{mode, paddingFromName}) {
             if (token != null) {
                 stripped = Pattern
-                        .compile(Pattern.quote(token) + "(?![A-Za-z0-9])", Pattern.CASE_INSENSITIVE)
+                        .compile(Pattern.quote(token) + RIGHT_WORD_GUARD, Pattern.CASE_INSENSITIVE)
                         .matcher(stripped)
                         .replaceAll(" ");
             }
@@ -1059,15 +1079,5 @@ public final class AssetNormalizer {
             }
         }
         return present.isEmpty() ? null : String.join(separator, present);
-    }
-
-    private static int countDots(String text) {
-        int dots = 0;
-        for (int index = 0; index < text.length(); index++) {
-            if (text.charAt(index) == '.') {
-                dots++;
-            }
-        }
-        return dots;
     }
 }

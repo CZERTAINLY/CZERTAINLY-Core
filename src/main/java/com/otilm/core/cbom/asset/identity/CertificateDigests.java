@@ -29,12 +29,12 @@ public final class CertificateDigests {
     public static List<String> claimed(JsonNode component, JsonNode certificateProperties) {
         List<String> digests = new ArrayList<>();
         JsonNode fingerprint = certificateProperties == null ? null : certificateProperties.get("fingerprint");
-        if (fingerprint != null && fingerprint.isObject() && isPresent(fingerprint.get("content"))) {
+        if (fingerprint != null && fingerprint.isObject() && isPresent(fingerprint.get(CbomNames.CONTENT))) {
             JsonNode algorithm = fingerprint.get("alg");
             String label = algorithm != null && !algorithm.isNull() ? algorithm.asText() : "sha-256";
             digests
                     .add(AsciiText.fold(AsciiText.strip(label)) + ":"
-                            + AsciiText.fold(AsciiText.strip(fingerprint.get("content").asText())));
+                            + AsciiText.fold(AsciiText.strip(fingerprint.get(CbomNames.CONTENT).asText())));
         }
         String fromComponent = componentHash(component);
         if (fromComponent != null) {

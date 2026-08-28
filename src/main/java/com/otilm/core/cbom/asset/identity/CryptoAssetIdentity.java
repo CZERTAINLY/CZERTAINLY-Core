@@ -52,8 +52,11 @@ public final class CryptoAssetIdentity {
     private static final Pattern CLAIM_PROPERTY = Pattern
             .compile("lifecycle|observation|assurance|deployment", Pattern.CASE_INSENSITIVE);
 
+    /** The token a claimed asset carries into its key, and the value the claim detector reports. */
+    private static final String CLAIMED = "claimed";
+
     private static final Set<String> CLAIM_VALUES = Set
-            .of("claimed", "declared", "capability", "supported", "supports", "capable");
+            .of(CLAIMED, "declared", "capability", "supported", "supports", "capable");
 
     /** Posture tokens a protocol name may carry. Deliberately closed: a free-text discriminator over-splits. */
     private static final List<String> POSTURE_TOKENS = List.of("cnsa", "pqc", "fips", "suite-b", "suiteb");
@@ -66,8 +69,6 @@ public final class CryptoAssetIdentity {
     private static final Pattern TWO_DIGITS = Pattern.compile("\\d{2}");
 
     private static final Pattern ALL_DIGITS = Pattern.compile("\\d+");
-
-    private static final Pattern DOTTED_VERSION = Pattern.compile("\\d+(\\.\\d+)+");
 
     private static final Pattern DOUBLE_SPACE = Pattern.compile("  +");
 
@@ -106,22 +107,22 @@ public final class CryptoAssetIdentity {
         String preImage;
         String step;
         switch (asset.assetType() == null ? "" : asset.assetType()) {
-            case "algorithm" -> {
+            case CbomNames.ASSET_TYPE_ALGORITHM -> {
                 String[] built = algorithm(asset, properties);
                 preImage = built[0];
                 step = built[1];
             }
-            case "certificate" -> {
+            case CbomNames.ASSET_TYPE_CERTIFICATE -> {
                 String[] built = certificate(component, properties, scope, batchRefutedDigests);
                 preImage = built[0];
                 step = built[1];
             }
-            case "protocol" -> {
+            case CbomNames.ASSET_TYPE_PROTOCOL -> {
                 String[] built = protocol(component, properties, scope);
                 preImage = built[0];
                 step = built[1];
             }
-            case "related-crypto-material" -> {
+            case CbomNames.ASSET_TYPE_RELATED_CRYPTO_MATERIAL -> {
                 String[] built = material(component, properties, normalized.redaction());
                 preImage = built[0];
                 step = built[1];
@@ -136,7 +137,7 @@ public final class CryptoAssetIdentity {
         // observation is orthogonal to which chain step answered, and one place is one place to review. Appended only
         // for a claim, so an observation keys exactly as it did before this slot existed.
         if (observationMode(component) != null) {
-            preImage = preImage + "|" + KeySlot.of("claimed");
+            preImage = preImage + "|" + KeySlot.of(CLAIMED);
             asset
                     .note("D0: this asset is a stated CAPABILITY, not an observed deployment, so it keys separately from "
                             + "a scan of the same algorithm");
@@ -198,7 +199,7 @@ public final class CryptoAssetIdentity {
      */
     private String[] certificate(JsonNode component, JsonNode properties, DocumentScope scope,
             Set<String> batchRefutedDigests) {
-        JsonNode certificate = objectOrNull(properties.get("certificateProperties"));
+        JsonNode certificate = objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES));
         Set<String> refuted = new TreeSet<>(scope.refutedCertificateDigests());
         refuted.addAll(batchRefutedDigests);
 
@@ -218,7 +219,7 @@ public final class CryptoAssetIdentity {
         }
 
         String serial = text(certificate, "serialNumber");
-        String issuer = DistinguishedNames.normalize(text(certificate, "issuerName"), normalizer.tables());
+        String issuer = DistinguishedNames.normalize(text(certificate, CbomNames.ISSUER_NAME), normalizer.tables());
         if (serial != null && !AsciiText.isBlank(serial) && issuer != null) {
             return new String[]{
                     "CRT|S|" + SPEC_ID + "|" + KeySlot.of(AsciiText.fold(AsciiText.strip(serial))) + "|"
@@ -226,7 +227,7 @@ public final class CryptoAssetIdentity {
                     "crt:serial+issuer"};
         }
 
-        String subject = DistinguishedNames.normalize(text(certificate, "subjectName"), normalizer.tables());
+        String subject = DistinguishedNames.normalize(text(certificate, CbomNames.SUBJECT_NAME), normalizer.tables());
         if (subject != null && issuer != null) {
             return new String[]{
                     "CRT|D|" + SPEC_ID + "|" + Digests.sha256Hex(dnPreImage(properties, scope)),
@@ -270,12 +271,13 @@ public final class CryptoAssetIdentity {
      * every certificate.
      */
     public String dnPreImage(JsonNode properties, DocumentScope scope) {
-        JsonNode certificate = objectOrNull(properties.get("certificateProperties"));
+        JsonNode certificate = objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES));
         return String
                 .join("|",
-                        nullToEmpty(
-                                DistinguishedNames.normalize(text(certificate, "subjectName"), normalizer.tables())),
-                        nullToEmpty(DistinguishedNames.normalize(text(certificate, "issuerName"), normalizer.tables())),
+                        nullToEmpty(DistinguishedNames
+                                .normalize(text(certificate, CbomNames.SUBJECT_NAME), normalizer.tables())),
+                        nullToEmpty(DistinguishedNames
+                                .normalize(text(certificate, CbomNames.ISSUER_NAME), normalizer.tables())),
                         Timestamps.normalize(text(certificate, "notValidBefore")),
                         Timestamps.normalize(text(certificate, "notValidAfter")),
                         KeySlot.of(publicKeyDigest(properties, scope)));
@@ -296,7 +298,7 @@ public final class CryptoAssetIdentity {
      * genuinely different certificates into one row.
      */
     private String publicKeyDigest(JsonNode properties, DocumentScope scope) {
-        JsonNode certificate = objectOrNull(properties.get("certificateProperties"));
+        JsonNode certificate = objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES));
         JsonNode ref = certificate == null ? null : certificate.get("subjectPublicKeyRef");
         JsonNode related = certificate == null ? null : certificate.get("relatedCryptographicAssets");
         if (related != null && related.isArray()) {
@@ -316,7 +318,7 @@ public final class CryptoAssetIdentity {
         JsonNode targetProperties = objectOrNull(target.get("cryptoProperties"));
         JsonNode material = targetProperties == null
                 ? null
-                : objectOrNull(targetProperties.get("relatedCryptoMaterialProperties"));
+                : objectOrNull(targetProperties.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES));
         JsonNode value = material == null ? null : material.get("value");
         if (value != null && value.isObject() && value.get("sha256") != null) {
             return "K:" + value.get("sha256").asText();
@@ -419,7 +421,7 @@ public final class CryptoAssetIdentity {
         if (ALL_DIGITS.matcher(text).matches()) {
             return text + ".0";
         }
-        return DOTTED_VERSION.matcher(text).matches() ? text : null;
+        return AsciiText.isDottedDigits(text, 1) ? text : null;
     }
 
     /**
@@ -457,7 +459,7 @@ public final class CryptoAssetIdentity {
      * occurrence tier.
      */
     private String[] material(JsonNode component, JsonNode properties, MaterialRedaction redaction) {
-        JsonNode material = objectOrNull(properties.get("relatedCryptoMaterialProperties"));
+        JsonNode material = objectOrNull(properties.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES));
         String rawKind = text(material, "type");
         String kind = AsciiText.fold(AsciiText.strip(rawKind == null ? "" : rawKind));
 
@@ -465,13 +467,13 @@ public final class CryptoAssetIdentity {
         // UUID stable across documents and hand-written labels like `server-key-2024`, and nothing distinguishes the
         // two. Two different keys can share an id, so it must never outrank a fingerprint or a value digest.
         JsonNode fingerprint = material == null ? null : material.get("fingerprint");
-        if (fingerprint != null && fingerprint.isObject() && fingerprint.get("content") != null
-                && !fingerprint.get("content").isNull()) {
+        if (fingerprint != null && fingerprint.isObject() && fingerprint.get(CbomNames.CONTENT) != null
+                && !fingerprint.get(CbomNames.CONTENT).isNull()) {
             JsonNode algorithm = fingerprint.get("alg");
             String label = AsciiText.fold(algorithm == null || algorithm.isNull() ? "unknown" : algorithm.asText());
             return new String[]{
                     "MAT|" + KeySlot.of(kind) + "|F|" + KeySlot.of(label) + ":"
-                            + KeySlot.of(AsciiText.fold(fingerprint.get("content").asText())),
+                            + KeySlot.of(AsciiText.fold(fingerprint.get(CbomNames.CONTENT).asText())),
                     "mat:fingerprint"};
         }
         if (redaction.identityDigest() != null) {
@@ -519,7 +521,7 @@ public final class CryptoAssetIdentity {
             JsonNode value = entry.get("value");
             if (name != null && name.isTextual() && CLAIM_PROPERTY.matcher(name.textValue()).find() && value != null
                     && value.isTextual() && CLAIM_VALUES.contains(AsciiText.fold(AsciiText.strip(value.textValue())))) {
-                return "claimed";
+                return CLAIMED;
             }
         }
         return null;
@@ -536,12 +538,12 @@ public final class CryptoAssetIdentity {
     private void recordCaseRisk(JsonNode component, JsonNode properties, NormalizedAsset asset, String step) {
         List<String> keyed = new ArrayList<>();
         if (step.startsWith("crt:")) {
-            JsonNode certificate = objectOrNull(properties.get("certificateProperties"));
-            keyed.add(text(certificate, "subjectName"));
-            keyed.add(text(certificate, "issuerName"));
+            JsonNode certificate = objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES));
+            keyed.add(text(certificate, CbomNames.SUBJECT_NAME));
+            keyed.add(text(certificate, CbomNames.ISSUER_NAME));
         }
         if ("mat:id".equals(step)) {
-            keyed.add(text(objectOrNull(properties.get("relatedCryptoMaterialProperties")), "id"));
+            keyed.add(text(objectOrNull(properties.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES)), "id"));
         }
         if (Set
                 .of("alg:name", "crt:cn-only", "crt:subject-only", "crt:backstop", "mat:occurrence", "mat:backstop",
