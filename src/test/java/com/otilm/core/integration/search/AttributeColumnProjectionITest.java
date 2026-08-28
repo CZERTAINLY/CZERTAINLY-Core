@@ -1,5 +1,6 @@
 package com.otilm.core.integration.search;
 
+import com.otilm.api.exception.AttributeException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchColumnRequestDto;
@@ -8,15 +9,20 @@ import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
+import com.otilm.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
@@ -30,10 +36,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-/**
- * Projection of attribute-sourced columns into a listing, exercised end to end through the discovery listing - one of
- * the seven inventories that carry configurable columns, and the cheapest of them to populate.
- */
+/** Projection of attribute-sourced columns into a listing, exercised end to end through the discovery listing. */
 class AttributeColumnProjectionITest extends BaseSpringBootTest {
 
     private static final String ENVIRONMENT = "environment";
@@ -48,19 +51,19 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
     @Autowired
     private AttributeEngine attributeEngine;
 
-    /** Carries values for both attributes, one of them multi-valued. */
     private Discovery withValues;
-
-    /** Carries none, and must still be returned. */
     private Discovery withoutValues;
+
+    private UUID environmentUuid;
+    private UUID owningTeamUuid;
 
     @BeforeEach
     void loadData() throws Exception {
         withValues = saveDiscovery("discovery-with-values");
         withoutValues = saveDiscovery("discovery-without-values");
 
-        UUID environmentUuid = registerCustomAttribute(ENVIRONMENT, "Environment");
-        UUID owningTeamUuid = registerCustomAttribute(OWNING_TEAM, "Owning team");
+        environmentUuid = registerCustomAttribute(ENVIRONMENT, "Environment");
+        owningTeamUuid = registerCustomAttribute(OWNING_TEAM, "Owning team");
 
         attributeEngine
                 .updateObjectCustomAttributesContent(Resource.DISCOVERY, withValues.getUuid(),
@@ -111,11 +114,37 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
 
     /** The identifier the catalogue publishes for an attribute field: its name and its content type. */
     private static String fieldIdentifier(String attributeName) {
-        return attributeName + "|" + AttributeContentType.TEXT.name();
+        return fieldIdentifier(attributeName, AttributeContentType.TEXT);
+    }
+
+    private static String fieldIdentifier(String attributeName, AttributeContentType contentType) {
+        return attributeName + "|" + contentType.name();
     }
 
     private static SearchColumnRequestDto customColumn(String attributeName) {
         return new SearchColumnRequestDto(FilterFieldSource.CUSTOM, fieldIdentifier(attributeName));
+    }
+
+    private static SearchColumnRequestDto metadataColumn(String attributeName) {
+        return new SearchColumnRequestDto(FilterFieldSource.META,
+                fieldIdentifier(attributeName, AttributeContentType.STRING));
+    }
+
+    private void storeMetadata(String name, String label, String value) throws AttributeException {
+        MetadataAttributeV3 meta = new MetadataAttributeV3();
+        meta.setUuid(UUID.randomUUID().toString());
+        meta.setName(name);
+        meta.setType(AttributeType.META);
+        meta.setContentType(AttributeContentType.STRING);
+        MetadataAttributeProperties properties = new MetadataAttributeProperties();
+        properties.setLabel(label);
+        properties.setVisible(true);
+        properties.setGlobal(false);
+        meta.setProperties(properties);
+        meta.setContent(List.of(new StringAttributeContentV3(value)));
+        attributeEngine
+                .updateMetadataAttribute(meta,
+                        ObjectAttributeContentInfo.builder(Resource.DISCOVERY, withValues.getUuid()).build());
     }
 
     private List<DiscoveryListDto> list(List<SearchColumnRequestDto> columns) {
@@ -179,11 +208,48 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
     }
 
     @Test
-    void aRequestedColumnTheObjectHasNoValueForIsAbsentRatherThanEmpty() {
+    void aRequestedColumnTheObjectHasNoValueForIsAbsentRatherThanEmpty() throws Exception {
         Discovery partial = saveDiscovery("discovery-partial");
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.DISCOVERY, partial.getUuid(),
+                        List.of(attributeContent(environmentUuid, ENVIRONMENT, "staging")));
+
         List<DiscoveryListDto> discoveries = list(List.of(customColumn(ENVIRONMENT), customColumn(OWNING_TEAM)));
 
-        Assertions.assertNull(entry(discoveries, partial).getAttributeValues());
+        // The one it owns is projected and the one it does not is simply absent - not present and empty, which is
+        // what would make the frontend render a blank cell for a column the object has no value for.
+        Map<String, List<BaseAttributeContentV3<?>>> custom = entry(discoveries, partial)
+                .getAttributeValues()
+                .get(FilterFieldSource.CUSTOM);
+        Assertions.assertEquals(Set.of(fieldIdentifier(ENVIRONMENT)), custom.keySet());
+        Assertions.assertEquals("staging", custom.get(fieldIdentifier(ENVIRONMENT)).getFirst().getData());
+    }
+
+    @Test
+    void aCustomColumnTheCallerMayNotReadProjectsNoValues() {
+        // Resource LIST access is not enough to read a restricted custom attribute: without the caller's attribute
+        // permissions on the projection query, naming the attribute as a column would return its plaintext.
+        restrictObjectAccess(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
+
+        List<DiscoveryListDto> discoveries = list(List.of(customColumn(ENVIRONMENT), customColumn(OWNING_TEAM)));
+
+        Assertions.assertNull(entry(discoveries, withValues).getAttributeValues());
+    }
+
+    @Test
+    void aMetadataColumnIsProjected() throws Exception {
+        // Metadata definitions are created without `enabled` set, so a predicate requiring it excludes the whole
+        // source. Only custom definitions carry the flag, so it is applied to those alone.
+        storeMetadata(OWNING_TEAM, "Owning team", "Platform");
+
+        List<DiscoveryListDto> discoveries = list(List.of(metadataColumn(OWNING_TEAM)));
+
+        Map<String, List<BaseAttributeContentV3<?>>> metadata = entry(discoveries, withValues)
+                .getAttributeValues()
+                .get(FilterFieldSource.META);
+        Assertions
+                .assertEquals("Platform",
+                        metadata.get(fieldIdentifier(OWNING_TEAM, AttributeContentType.STRING)).getFirst().getData());
     }
 
     @Test

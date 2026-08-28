@@ -15,8 +15,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
- * The column flags an attribute-sourced catalogue field carries. Property fields report theirs from the JPA metamodel,
- * so they are covered where a persistence context exists rather than here.
+ * The column flags an attribute-sourced catalogue field carries. A property field's flags come from the JPA static
+ * metamodel, and reading {@code FilterField} without a persistence context fails, so those are asserted in
+ * {@code ColumnCatalogueFlagsITest} rather than here.
  */
 class SearchHelperColumnFlagsTest {
 

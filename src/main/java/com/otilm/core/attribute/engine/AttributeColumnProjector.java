@@ -3,14 +3,18 @@ package com.otilm.core.attribute.engine;
 import com.otilm.api.model.client.certificate.SearchColumnRequestDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
+import com.otilm.api.model.common.attribute.common.content.data.FileAttributeContentData;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.search.AttributeProjectable;
 import com.otilm.api.model.core.search.FilterFieldSource;
+import com.otilm.core.attribute.engine.AttributeEngine.CustomAttributeContentFilter;
 import com.otilm.core.attribute.engine.records.ProjectedAttributeContent;
 import com.otilm.core.dao.repository.AttributeContent2ObjectRepository;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,14 +34,12 @@ import org.springframework.stereotype.Component;
  * of twenty-five objects would otherwise issue twenty-five round trips before it could be serialized.
  *
  * <p>
- * A request that names no attribute-sourced column does nothing at all here, which is what keeps a response without
- * {@code columns} identical to what it was before this existed.
+ * A request that names no attribute-sourced column leaves every listing entry unchanged.
  */
 @Component
 @RequiredArgsConstructor
 public class AttributeColumnProjector {
 
-    /** Separates the attribute name from its content type in a field identifier, as the catalogue builds it. */
     private static final String FIELD_IDENTIFIER_SEPARATOR = "|";
 
     /**
@@ -49,8 +51,8 @@ public class AttributeColumnProjector {
             .of(AttributeContentType.SECRET, AttributeContentType.CODEBLOCK);
 
     private final AttributeContent2ObjectRepository attributeContent2ObjectRepository;
+    private final AttributeEngine attributeEngine;
 
-    /** One requested attribute column, split into the parts the stored content is matched by. */
     private record RequestedColumn(FilterFieldSource source, AttributeType attributeType, String attributeName,
             AttributeContentType contentType, String fieldIdentifier) {
     }
@@ -67,6 +69,18 @@ public class AttributeColumnProjector {
      */
     public <T extends AttributeProjectable> void project(Resource resource, List<SearchColumnRequestDto> columns,
             List<T> entries, Function<T, UUID> uuidOf) {
+        project(resource, columns, entries, uuidOf, uuidOf);
+    }
+
+    /**
+     * As above, for a listing whose metadata is stored against a different object than its other attributes.
+     *
+     * @param metadataUuidOf the uuid metadata content is stored against. A key's own attributes hang off the key while
+     * its metadata hangs off each key item, so one resolver cannot serve both. Passing the same resolver twice - which
+     * the overload above does - keeps the whole page in one query.
+     */
+    public <T extends AttributeProjectable> void project(Resource resource, List<SearchColumnRequestDto> columns,
+            List<T> entries, Function<T, UUID> uuidOf, Function<T, UUID> metadataUuidOf) {
         if (columns == null || columns.isEmpty() || entries == null || entries.isEmpty()) {
             return;
         }
@@ -76,6 +90,44 @@ public class AttributeColumnProjector {
             return;
         }
 
+        // Grouping by the resolver rather than branching on whether the two differ: when they are the same reference
+        // the two lists land in one entry, so the common case still issues a single query.
+        Map<Function<T, UUID>, List<RequestedColumn>> byResolver = new LinkedHashMap<>();
+        byResolver.computeIfAbsent(uuidOf, resolver -> new ArrayList<>()).addAll(columnsOtherThanMetadata(requested));
+        byResolver.computeIfAbsent(metadataUuidOf, resolver -> new ArrayList<>()).addAll(metadataColumns(requested));
+
+        CustomAttributeContentFilter contentFilter = attributeEngine.loadCustomAttributeContentFilter();
+
+        // Keyed by identity: a listing DTO may implement equals, and two equal entries are still two rows that each
+        // need their own values.
+        Map<T, Map<FilterFieldSource, Map<String, List<BaseAttributeContentV3<?>>>>> collected = new IdentityHashMap<>();
+
+        byResolver.forEach((resolver, resolverColumns) -> {
+            if (!resolverColumns.isEmpty()) {
+                collectPass(resource, resolverColumns, entries, resolver, contentFilter, collected);
+            }
+        });
+
+        // Set once per entry, after every pass, so a second pass adds to the first rather than replacing it.
+        collected.forEach((entry, values) -> {
+            if (!values.isEmpty()) {
+                entry.setAttributeValues(values);
+            }
+        });
+    }
+
+    private static List<RequestedColumn> metadataColumns(List<RequestedColumn> requested) {
+        return requested.stream().filter(column -> column.attributeType() == AttributeType.META).toList();
+    }
+
+    private static List<RequestedColumn> columnsOtherThanMetadata(List<RequestedColumn> requested) {
+        return requested.stream().filter(column -> column.attributeType() != AttributeType.META).toList();
+    }
+
+    /** Loads and collects the columns that share one uuid resolver, adding what it finds to {@code collected}. */
+    private <T extends AttributeProjectable> void collectPass(Resource resource, List<RequestedColumn> requested,
+            List<T> entries, Function<T, UUID> uuidOf, CustomAttributeContentFilter contentFilter,
+            Map<T, Map<FilterFieldSource, Map<String, List<BaseAttributeContentV3<?>>>>> collected) {
         Map<UUID, List<T>> entriesByUuid = entries
                 .stream()
                 .filter(entry -> uuidOf.apply(entry) != null)
@@ -87,9 +139,20 @@ public class AttributeColumnProjector {
         List<ProjectedAttributeContent> stored = attributeContent2ObjectRepository
                 .getProjectedAttributesContent(resource, List.copyOf(entriesByUuid.keySet()),
                         requested.stream().map(RequestedColumn::attributeType).distinct().toList(),
-                        requested.stream().map(RequestedColumn::attributeName).distinct().toList());
+                        requested.stream().map(RequestedColumn::attributeName).distinct().toList(),
+                        AttributeType.CUSTOM, contentFilter.allowedDefinitionUuids(),
+                        contentFilter.forbiddenDefinitionUuids());
 
-        applyToEntries(collectValues(stored, requested), entriesByUuid);
+        collectValues(stored, requested).forEach((objectUuid, values) -> {
+            List<T> matching = entriesByUuid.get(objectUuid);
+            if (matching == null || values.isEmpty()) {
+                return;
+            }
+            matching
+                    .forEach(entry -> collected
+                            .computeIfAbsent(entry, key -> new EnumMap<>(FilterFieldSource.class))
+                            .putAll(values));
+        });
     }
 
     /**
@@ -164,8 +227,10 @@ public class AttributeColumnProjector {
                     .computeIfAbsent(content.objectUuid(), uuid -> new EnumMap<>(FilterFieldSource.class))
                     .computeIfAbsent(column.source(), source -> new LinkedHashMap<>())
                     .computeIfAbsent(column.fieldIdentifier(), identifier -> new ArrayList<>())
-                    .add(AttributeVersionHelper
-                            .convertAttributeContentToV3(content.contentItem(), content.contentType()));
+                    .add(toProjectedValue(
+                            AttributeVersionHelper
+                                    .convertAttributeContentToV3(content.contentItem(), content.contentType()),
+                            content.contentType()));
         }
 
         return byObject;
@@ -187,23 +252,35 @@ public class AttributeColumnProjector {
     }
 
     /**
-     * Sets the collected values on the entries they belong to. An entry with no value for any requested column is left
-     * untouched rather than given an empty map, so an object that simply has none looks the same as it always did
-     * instead of gaining an empty object in the response.
+     * One value reduced to what a list cell renders. Two content types are never projected whole.
      *
      * <p>
-     * Entries sharing a uuid share one map instance. The listing serializes it and discards it, so there is nothing to
-     * copy it for.
+     * CREDENTIAL data is a nested attribute list that can carry secret-bearing content, and the cell shows the
+     * reference, so only the reference is projected. FILE data carries the base64 body, which no cell shows - a file
+     * renders as its name and media type - so a page of rows would otherwise serialize every file it lists.
      */
-    private static <T extends AttributeProjectable> void applyToEntries(
-            Map<UUID, Map<FilterFieldSource, Map<String, List<BaseAttributeContentV3<?>>>>> byObject,
-            Map<UUID, List<T>> entriesByUuid) {
-        byObject.forEach((objectUuid, values) -> {
-            List<T> entries = entriesByUuid.get(objectUuid);
-            if (entries == null || values.isEmpty()) {
-                return;
-            }
-            entries.forEach(entry -> entry.setAttributeValues(values));
-        });
+    static BaseAttributeContentV3<?> toProjectedValue(BaseAttributeContentV3<?> value,
+            AttributeContentType contentType) {
+        if (contentType == AttributeContentType.CREDENTIAL) {
+            return referenceOnly(value, contentType);
+        }
+        if (contentType == AttributeContentType.FILE && value.getData() instanceof FileAttributeContentData file) {
+            FileAttributeContentData withoutBody = new FileAttributeContentData();
+            withoutBody.setFileName(file.getFileName());
+            withoutBody.setMimeType(file.getMimeType());
+
+            BaseAttributeContentV3<Serializable> reduced = referenceOnly(value, contentType);
+            reduced.setData(withoutBody);
+            return reduced;
+        }
+        return value;
+    }
+
+    private static BaseAttributeContentV3<Serializable> referenceOnly(BaseAttributeContentV3<?> value,
+            AttributeContentType contentType) {
+        BaseAttributeContentV3<Serializable> reduced = new BaseAttributeContentV3<>();
+        reduced.setContentType(contentType);
+        reduced.setReference(value.getReference());
+        return reduced;
     }
 }

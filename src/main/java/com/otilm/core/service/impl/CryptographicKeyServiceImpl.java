@@ -324,11 +324,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
             return dto;
         }).toList();
 
-        // Attribute content of a key hangs off the key, not off its items, so several listed items may share one
-        // set of values.
+        // A key's own attributes hang off the key, so several listed items may share one set of values, while its
+        // metadata hangs off each item - the same split the key detail read makes.
         attributeColumnProjector
                 .project(Resource.CRYPTOGRAPHIC_KEY, request.getColumns(), listedKeyDtos,
-                        keyItem -> AttributeColumnProjector.parseUuid(keyItem.getKeyWrapperUuid()));
+                        keyItem -> AttributeColumnProjector.parseUuid(keyItem.getKeyWrapperUuid()),
+                        keyItem -> AttributeColumnProjector.parseUuid(keyItem.getUuid()));
 
         final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final CryptographicKeyResponseDto responseDto = new CryptographicKeyResponseDto();

@@ -21,11 +21,45 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class SearchHelper {
 
     private static final String SEARCH_LABEL_TEMPLATE = "%s (%s)";
+
+    /**
+     * Fields that share one attribute with another field of the same resource, and so display something drawn out of it
+     * rather than the attribute itself. Derived rather than listed, so a field added later is classified without an
+     * edit here: the three certificate validation checks are the case that exists today, all three reading one
+     * serialized validation result.
+     *
+     * <p>
+     * Held in a nested class so it is computed on first use rather than when {@link SearchHelper} loads. Reading it
+     * initializes {@link FilterField}, whose entries reference the JPA static metamodel, so a caller without a
+     * persistence context would otherwise fail on this class rather than on the field it asked about.
+     */
+    private static final class SharedAttributeFields {
+
+        private static final Set<FilterField> VALUES = fieldsSharingAnAttribute();
+
+        private SharedAttributeFields() {
+        }
+    }
+
+    private static Set<FilterField> fieldsSharingAnAttribute() {
+        Map<List<Object>, List<FilterField>> byAttribute = Arrays
+                .stream(FilterField.values())
+                .filter(field -> field.getFieldAttribute() != null)
+                .collect(Collectors.groupingBy(field -> List.of(field.getRootResource(), field.getFieldAttribute())));
+
+        return byAttribute
+                .values()
+                .stream()
+                .filter(group -> group.size() > 1)
+                .flatMap(List::stream)
+                .collect(Collectors.toUnmodifiableSet());
+    }
 
     public static SearchFieldDataDto prepareSearch(final FilterField fieldNameEnum) {
         return prepareSearch(fieldNameEnum, null);
@@ -123,22 +157,44 @@ public class SearchHelper {
         fieldDataDto.setValue(attributeSearchInfo.getContentItems());
         fieldDataDto.setAttributeContentType(attributeSearchInfo.getAttributeContentType());
         fieldDataDto.setDisplayable(isDisplayable(attributeSearchInfo));
-        // Ordering by an attribute needs a correlated scalar subquery over JSONB that no index
-        // supports, and a multi-valued attribute leaves the sort key ambiguous. Until that lands,
-        // every attribute-sourced field says so here rather than at the point a header refuses.
+        // Ordering by an attribute needs a correlated scalar subquery over JSONB that no index supports, and a
+        // multi-valued attribute leaves the sort key ambiguous, so no attribute-sourced field is sortable.
         fieldDataDto.setSortable(false);
         return fieldDataDto;
     }
 
     /**
-     * Whether a listing may be ordered by a property field. A sort resolves to one scalar path from the queried root,
-     * so a field with no attribute behind it has nothing to order by; a native array holds many values per row rather
-     * than one; and a JSON-path field's attribute is the whole JSONB column, which would order by the serialized
-     * document instead of by the value the field names.
+     * What the catalogue advertises as sortable, which is nothing yet.
+     *
+     * <p>
+     * A secured search can be ordered by a field, but no listing service passes the sort a request carries to the
+     * repository, so a catalogue reporting {@code true} would advertise an ordering that does not happen: a client
+     * sorting on such a field would get the default order back and no indication why. {@link #isOrderableField} is the
+     * predicate this becomes once the listings are wired.
      */
     private static boolean isSortable(final FilterField filterField) {
+        return false;
+    }
+
+    /**
+     * Whether a sort on a property field would order by the value the column shows.
+     *
+     * <p>
+     * A sort resolves to one scalar path from the queried root, so a field with no attribute behind it has nothing to
+     * order by; a native array holds many values per row rather than one; and a JSON-path field's attribute is the
+     * whole JSONB column, which would order by the serialized document instead of by the value the field names.
+     *
+     * <p>
+     * A derived field is excluded for the same reason, even though its attribute is a scalar: what it displays is not
+     * what that attribute holds. A field with an expected value displays a comparison against it rather than the value
+     * itself - {@code PRIVATE_KEY} shows whether a joined key type is one particular type - and the three certificate
+     * validation checks each name one check inside a single serialized validation result, so ordering by the attribute
+     * would order all three by the whole document.
+     */
+    public static boolean isOrderableField(final FilterField filterField) {
         return filterField.getFieldAttribute() != null && !filterField.isNativeArrayField()
-                && filterField.getJsonPath() == null;
+                && filterField.getJsonPath() == null && filterField.getExpectedValue() == null
+                && !SharedAttributeFields.VALUES.contains(filterField);
     }
 
     /**

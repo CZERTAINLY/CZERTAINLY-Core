@@ -15,11 +15,14 @@ import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.SigningRecordExternalService;
 import com.otilm.core.service.TimeQualityConfigurationExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.SearchHelper;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -66,37 +69,55 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
     }
 
     @Test
-    void anOrdinaryPropertyFieldIsBothDisplayableAndSortable() {
+    void anOrdinaryPropertyFieldIsDisplayable() {
         SearchFieldDataDto kind = field(discoveryService.getSearchableFieldInformationByGroup(),
                 FilterField.DISCOVERY_KIND.name()).orElseThrow();
 
         Assertions.assertEquals(true, kind.getDisplayable());
-        Assertions.assertEquals(true, kind.getSortable());
     }
 
     @Test
-    void aPropertyFieldReachedThroughAJoinIsStillSortable() {
-        // Ordering across a join aggregates the joined values rather than refusing, so such a field is offered.
-        SearchFieldDataDto signingProfile = field(signingRecordService.getSearchableFieldInformation(),
-                FilterField.SIGNING_RECORD_SIGNING_PROFILE.name()).orElseThrow();
-
-        Assertions.assertEquals(true, signingProfile.getSortable());
+    void noPropertyFieldIsSortableWhileNoListingOrdersByTheRequestedSort() {
+        // The catalogue must not advertise an ordering that does not happen: a secured search can be ordered, but no
+        // listing service passes the sort a request carries to the repository, so a client sorting on a field the
+        // catalogue called sortable would get the default order back with no indication why.
+        for (SearchFieldDataDto item : allFields(discoveryService.getSearchableFieldInformationByGroup())) {
+            Assertions.assertEquals(false, item.getSortable(), item.getFieldIdentifier());
+        }
     }
 
     @Test
-    void aNativeArrayPropertyFieldIsNotSortable() {
-        // It holds many values per row, so there is no single value to order the row by. No inventory in scope
-        // publishes such a field today, but the rule lives in the shared catalogue helper, so it is asserted
-        // wherever one exists rather than left uncovered until an inventory grows one.
+    void aNativeArrayPropertyFieldIsDisplayable() {
+        // A multi-valued field has no single scalar key to order a row by, but it does have values to render.
         SearchFieldDataDto ntpServers = field(timeQualityConfigurationService.getSearchableFieldInformation(),
                 FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS.name()).orElseThrow();
 
         Assertions.assertEquals(true, ntpServers.getDisplayable());
-        Assertions.assertEquals(false, ntpServers.getSortable());
     }
 
     @Test
-    void anAttributeFieldIsDisplayableButNotSortable() throws Exception {
+    void anOrdinaryPropertyFieldWouldBeOrderable() {
+        Assertions.assertTrue(SearchHelper.isOrderableField(FilterField.DISCOVERY_KIND));
+    }
+
+    @Test
+    void aNativeArrayPropertyFieldWouldNotBeOrderable() {
+        // It holds many values per row, so there is no single value to order the row by.
+        Assertions.assertFalse(SearchHelper.isOrderableField(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = FilterField.class,
+            names = {"OCSP_VALIDATION", "CRL_VALIDATION", "SIGNATURE_VALIDATION", "PRIVATE_KEY"})
+    void aDerivedPropertyFieldWouldNotBeOrderable(FilterField filterField) {
+        // What these display is not what their attribute holds: the three validation checks each name one check inside
+        // one serialized validation result, and PRIVATE_KEY shows whether a joined key type is one particular type, so
+        // ordering by the attribute would order by something the column does not show.
+        Assertions.assertFalse(SearchHelper.isOrderableField(filterField));
+    }
+
+    @Test
+    void anAttributeFieldIsDisplayableButNeverSortable() throws Exception {
         registerCustomAttribute("catalogue-flag-probe", AttributeContentType.TEXT);
 
         SearchFieldDataDto attribute = field(discoveryService.getSearchableFieldInformationByGroup(),
