@@ -207,7 +207,7 @@ class AttributeEngineJsonExtensionValueTest {
     }
 
     @Test
-    void everyDeclaredContentErrorIsReportedNotJustTheFirst() throws Exception {
+    void everyDeclaredContentErrorIsReportedNotJustTheFirst() {
         // Declared content with two bad values must name both; surfacing only the first sends the author round
         // the loop once per mistake.
         DataAttributeV3 definition = extensionDefinition("2.5.29.19");

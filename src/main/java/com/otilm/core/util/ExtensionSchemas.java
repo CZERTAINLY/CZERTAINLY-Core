@@ -55,7 +55,6 @@ public final class ExtensionSchemas {
                                     .add(DisallowSchemaLoader.getInstance())))
             .getSchema(SchemaLocation.of(SpecVersion.VersionFlag.V202012.getId()));
 
-    /** Keywords whose values are instance data rather than subschemas, so a {@code $ref} inside is a literal. */
     // Draft 2020-12 keywords whose values are subschemas. Walking only these keeps the check off instance data
     // (const, enum, default, examples) and off unknown keywords, which the dialect permits as annotations — a
     // member named $ref inside either is a literal. "definitions" is absent for that reason: 2020-12 replaced

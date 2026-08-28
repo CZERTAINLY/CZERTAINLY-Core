@@ -142,8 +142,8 @@ class ExtensionSchemasTest {
 
     @Test
     void requireValidSchemaAcceptsABooleanRoot() {
-        ExtensionSchemas.requireValidSchema("true");
-        ExtensionSchemas.requireValidSchema("false");
+        assertThatNoException().isThrownBy(() -> ExtensionSchemas.requireValidSchema("true"));
+        assertThatNoException().isThrownBy(() -> ExtensionSchemas.requireValidSchema("false"));
     }
 
     @Test
@@ -168,7 +168,9 @@ class ExtensionSchemasTest {
 
     @Test
     void requireValidSchemaAcceptsALocalFragmentRef() {
-        ExtensionSchemas.requireValidSchema("{\"$defs\":{\"x\":{\"type\":\"integer\"}},\"$ref\":\"#/$defs/x\"}");
+        assertThatNoException()
+                .isThrownBy(() -> ExtensionSchemas
+                        .requireValidSchema("{\"$defs\":{\"x\":{\"type\":\"integer\"}},\"$ref\":\"#/$defs/x\"}"));
     }
 
     @Test

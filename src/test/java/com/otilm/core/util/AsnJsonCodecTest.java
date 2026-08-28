@@ -179,7 +179,7 @@ class AsnJsonCodecTest {
     }
 
     @Test
-    void encodesAnAsn1Null() throws Exception {
+    void encodesAnAsn1Null() {
         assertThat(AsnJsonCodec.encodeFromString("{\"null\":null}")).isEqualTo(new byte[]{0x05, 0x00});
     }
 
@@ -192,7 +192,7 @@ class AsnJsonCodecTest {
     }
 
     @Test
-    void sortsSetMembersAsDerRequires() throws Exception {
+    void sortsSetMembersAsDerRequires() {
         // DER orders SET components by encoding, so the declared order is not preserved.
         byte[] declaredOutOfOrder = AsnJsonCodec.encodeFromString("{\"set\":[{\"integer\":5},{\"integer\":1}]}");
 

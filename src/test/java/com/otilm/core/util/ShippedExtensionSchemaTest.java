@@ -78,9 +78,8 @@ class ShippedExtensionSchemaTest {
                 .filter(oid -> oid.getCategory() == OidCategory.CERTIFICATE_EXTENSION)
                 .filter(oid -> StructuredExtensionCodec.structuredTargetName(oid.getOid()) == null)
                 .toList();
-        assertThat(extensions).isNotEmpty();
-
         assertThat(extensions)
+                .isNotEmpty()
                 .allSatisfy(oid -> assertThat(ExtensionSchemas.shippedSchema(oid.getOid()))
                         .as("no shipped schema for %s (%s)", oid.getOid(), oid.getDisplayName())
                         .isPresent());
@@ -152,7 +151,7 @@ class ShippedExtensionSchemaTest {
         assertThat(parsed.getPermittedSubtrees()).hasSize(1);
         GeneralName base = parsed.getPermittedSubtrees()[0].getBase();
         assertThat(base.getTagNo()).isEqualTo(GeneralName.dNSName);
-        assertThat(base.getName().toString()).isEqualTo("example.com");
+        assertThat(base.getName()).hasToString("example.com");
         assertThat(parsed.getExcludedSubtrees()).isNull();
 
         // Neither subtree list may be empty, and the outer members are context-tagged.

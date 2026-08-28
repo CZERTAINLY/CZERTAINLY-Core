@@ -41,6 +41,11 @@ public final class AsnJsonCodec {
 
     // ObjectMapperFactory is the single home of production mapper recipes; reading a JSON tree needs
     // nothing beyond the wire recipe.
+    private static final String TAG_NO = "tagNo";
+    private static final String EXPLICIT = "explicit";
+    private static final String VALUE = "value";
+    private static final String PAD_BITS = "padBits";
+
     private static final Logger logger = LoggerFactory.getLogger(AsnJsonCodec.class);
     private static final ObjectMapper MAPPER = ObjectMapperFactory.wire();
 
@@ -153,13 +158,13 @@ public final class AsnJsonCodec {
     }
 
     private static ASN1Encodable parseTagged(JsonNode node, String path) {
-        if (!node.isObject() || !node.has("tagNo") || !node.has("value")) {
+        if (!node.isObject() || !node.has(TAG_NO) || !node.has(VALUE)) {
             throw new ValidationException("Node at %s must carry tagNo and value".formatted(path));
         }
-        rejectUnknownMembers(node, path, Set.of("tagNo", "explicit", "value"));
-        int tagNo = requireBoundedInt(node.get("tagNo"), path + ".tagNo", 0, 30);
-        boolean explicit = !node.has("explicit") || requireBoolean(node.get("explicit"), path + ".explicit");
-        return new DERTaggedObject(explicit, tagNo, toAsn1(node.get("value"), path + ".value"));
+        rejectUnknownMembers(node, path, Set.of(TAG_NO, EXPLICIT, VALUE));
+        int tagNo = requireBoundedInt(node.get(TAG_NO), path + "." + TAG_NO, 0, 30);
+        boolean explicit = !node.has(EXPLICIT) || requireBoolean(node.get(EXPLICIT), path + "." + EXPLICIT);
+        return new DERTaggedObject(explicit, tagNo, toAsn1(node.get(VALUE), path + "." + VALUE));
     }
 
     private static ASN1Encodable parseOid(JsonNode value, String path) {
@@ -171,12 +176,12 @@ public final class AsnJsonCodec {
     }
 
     private static ASN1Encodable parseBitString(JsonNode node, String path) {
-        if (!node.isObject() || !node.has("value")) {
+        if (!node.isObject() || !node.has(VALUE)) {
             throw new ValidationException("Node at %s must carry a base64 value and optional padBits".formatted(path));
         }
-        rejectUnknownMembers(node, path, Set.of("value", "padBits"));
-        byte[] bytes = requireBase64(node.get("value"), path + ".value");
-        int padBits = node.has("padBits") ? requireBoundedInt(node.get("padBits"), path + ".padBits", 0, 7) : 0;
+        rejectUnknownMembers(node, path, Set.of(VALUE, PAD_BITS));
+        byte[] bytes = requireBase64(node.get(VALUE), path + "." + VALUE);
+        int padBits = node.has(PAD_BITS) ? requireBoundedInt(node.get(PAD_BITS), path + "." + PAD_BITS, 0, 7) : 0;
         if (bytes.length == 0 && padBits != 0) {
             throw new ValidationException("Value at %s has no content, so padBits must be 0".formatted(path));
         }

@@ -2626,9 +2626,11 @@ class AttributeEngineITest extends BaseSpringBootTest {
                     definition.getName(), AttributeContentType.STRING,
                     List.of(new StringAttributeContentV3("{\"sequence\":[{\"integer\":1}]}")));
 
+            List<BaseAttribute> definitions = List.of(definition);
+            List<RequestAttribute> values = List.of(tooShort);
             ValidationException thrown = Assertions
-                    .assertThrows(ValidationException.class, () -> attributeEngine
-                            .validateUpdateDataAttributes(null, null, List.of(definition), List.of(tooShort)));
+                    .assertThrows(ValidationException.class,
+                            () -> attributeEngine.validateUpdateDataAttributes(null, null, definitions, values));
             Assertions
                     .assertTrue(
                             thrown
