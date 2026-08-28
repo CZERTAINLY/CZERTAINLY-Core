@@ -159,13 +159,14 @@ public class ConnectorApiFactory {
                         mqAuthorityApiClientV3.isPresent(), mqComplianceApiClient.isPresent(),
                         mqComplianceApiClientV2.isPresent(), mqConnectorApiClient.isPresent(),
                         mqDiscoveryApiClient.isPresent(), mqDiscoveryApiClientV2.isPresent(),
-                        mqEndEntityApiClient.isPresent(),mqEndEntityProfileApiClient.isPresent(), mqEntityInstanceApiClient.isPresent(),
-                        mqHealthApiClient.isPresent(), mqHealthApiClientV2.isPresent(), mqInfoApiClientV2.isPresent(),
-                        mqLocationApiClient.isPresent(), mqMetricsApiClientV2.isPresent(),
-                        mqNotificationInstanceApiClient.isPresent(), mqTokenInstanceApiClient.isPresent(),
-                        mqTokenInstanceApiClientV2.isPresent(), mqKeyManagementApiClient.isPresent(),
-                        mqCryptographicOperationsApiClient.isPresent(), mqSignatureFormattingApiClient.isPresent(),
-                        mqContentSigningFormattingApiClient.isPresent(), mqVaultApiClient.isPresent(), true);
+                        mqEndEntityApiClient.isPresent(), mqEndEntityProfileApiClient.isPresent(),
+                        mqEntityInstanceApiClient.isPresent(), mqHealthApiClient.isPresent(),
+                        mqHealthApiClientV2.isPresent(), mqInfoApiClientV2.isPresent(), mqLocationApiClient.isPresent(),
+                        mqMetricsApiClientV2.isPresent(), mqNotificationInstanceApiClient.isPresent(),
+                        mqTokenInstanceApiClient.isPresent(), mqTokenInstanceApiClientV2.isPresent(),
+                        mqKeyManagementApiClient.isPresent(), mqCryptographicOperationsApiClient.isPresent(),
+                        mqSignatureFormattingApiClient.isPresent(), mqContentSigningFormattingApiClient.isPresent(),
+                        mqVaultApiClient.isPresent(), true);
     }
 
     /**
