@@ -56,9 +56,11 @@ public class CryptoAssetWriter {
      * <p>
      * The columns store {@link CryptoAssetIdentityFields#normalized()}, not the caller's raw input. An asset row is a
      * deduplicated view over every producer that reported it, so it has no single raw spelling to hold; the producers'
-     * own spellings live per source. Storing the raw input made the row a function of sync order -- the upsert
-     * reassigns the identity columns on conflict, so the last producer to sync decided what an {@code EQUALS} filter
-     * would match and whether an omitted-versus-blank field counted as empty.
+     * own spellings live per source. Storing the raw input made the row a function of sync order, and normalizing it
+     * was only half the fix: the upsert still reassigned every identity column on conflict, so two producers whose
+     * normalized fields genuinely differ -- {@code primitive} above all, which is deliberately out of the key -- still
+     * let the last one to sync decide what an {@code EQUALS} filter matched. The statement now fills a column once and
+     * never reassigns it, so re-sync is idempotent in the columns as well as in the key.
      *
      * <p>
      * The length bound is checked before the alias lookup on purpose: a write that is already doomed must not take

@@ -64,6 +64,18 @@ public record AssetNormalizer(IdentityTables tables) {
      * Post-quantum families, standardized and pre-standard alike, folded for comparison. Used <em>only</em> to
      * recognize a hybrid construction for out-of-key provenance; no identity slot reads this set.
      */
+    /**
+     * The longest primitive worth storing. The CycloneDX vocabulary's longest member is well inside it, so this bounds
+     * malformed producer text without truncating anything real.
+     */
+    private static final int MAX_PRIMITIVE_LENGTH = 64;
+
+    /**
+     * The longest component name this normalizer will process, matching {@code ck_crypto_asset_name_length} and the
+     * writer's own pre-check. Held as a constant here because normalization runs long before the write.
+     */
+    private static final int MAX_NORMALIZABLE_NAME_LENGTH = 1024;
+
     private static final Set<String> PQC_FAMILIES = Set
             .of("ml-kem", "ml-dsa", "slh-dsa", "fn-dsa", "xmss", "lms", "kyber", "dilithium", "falcon", "sphincs+",
                     "classic mceliece", "frodokem", "bike", "hqc", "ntru", "ntru-prime", "sike", "sidh", "gemss",
@@ -118,6 +130,9 @@ public record AssetNormalizer(IdentityTables tables) {
      * The word guards a token spelling is matched with. A guard on both sides is what stops {@code dsa} matching inside
      * {@code ECDSA}; spelled once so a rule cannot be built with one side missing.
      */
+    /** The {@code -<digits>} parameter-set size {@link #sizedFamilyToken} appends to a family token. */
+    private static final Pattern FAMILY_SIZE_SUFFIX = Pattern.compile("-\\d+$");
+
     private static final String LEFT_WORD_GUARD = "(?<![A-Za-z0-9])";
 
     private static final String RIGHT_WORD_GUARD = "(?![A-Za-z0-9])";
@@ -167,8 +182,10 @@ public record AssetNormalizer(IdentityTables tables) {
         // properties block happens to be present. A producer bug once stamped relatedCryptoMaterialProperties onto
         // algorithms and certificates; a presence-based router would have pulled those into the wrong chain and
         // minted phantom material rows from the empty blocks it left behind.
+        String componentName = text(component.get("name"));
+        requireNormalizableName(componentName);
         NormalizedAsset norm = new NormalizedAsset(normalizeAssetType(text(properties.get("assetType"))),
-                text(component.get("name")));
+                componentName);
 
         IdentityTables.OidEntry enrichment = deriveFamily(norm, properties, algorithm);
         deriveParameterSet(norm, algorithm, enrichment);
@@ -205,6 +222,26 @@ public record AssetNormalizer(IdentityTables tables) {
     }
 
     /** Routes the producer's spelling onto one of the four known types, or {@code null} for the unroutable tier. */
+    /**
+     * Refuses a name too long to store before it is normalized.
+     *
+     * <p>
+     * Several derivations below are quadratic in the name length -- the grammar rules backtrack, and the residue pass
+     * runs a full replace per family -- so a handful of long-named components in one third-party document is a CPU
+     * stall on the ingest path. Measured before the bound: 203 ms at 14 000 characters, 34 678 ms at 224 000.
+     *
+     * <p>
+     * The bound is the storage bound, so nothing refused here could have been written anyway: the column's CHECK and
+     * the writer's pre-check both stop at the same length. Refusing costs the component its row and reports it as a
+     * skip, which is what the walker does with anything it cannot key -- and a skip names the failure class only, never
+     * the name that caused it.
+     */
+    private static void requireNormalizableName(String name) {
+        if (name != null && name.codePointCount(0, name.length()) > MAX_NORMALIZABLE_NAME_LENGTH) {
+            throw new IllegalArgumentException("A component name exceeds the storable length");
+        }
+    }
+
     public String normalizeAssetType(String raw) {
         if (raw == null || AsciiText.isBlank(raw)) {
             return null;
@@ -339,9 +376,23 @@ public record AssetNormalizer(IdentityTables tables) {
                 }
             }
         }
-        boolean anyPqc = unique.stream().anyMatch(PQC_FAMILIES::contains);
-        boolean anyClassical = unique.stream().anyMatch(token -> !PQC_FAMILIES.contains(token));
+        boolean anyPqc = unique.stream().anyMatch(AssetNormalizer::isPqcFamily);
+        boolean anyClassical = unique.stream().anyMatch(token -> !isPqcFamily(token));
         return anyPqc && anyClassical ? List.copyOf(unique) : List.of();
+    }
+
+    /**
+     * Whether a secondary token names a post-quantum family, with or without its parameter-set size.
+     *
+     * <p>
+     * {@code PQC_FAMILIES} holds bare tokens while {@link #sizedFamilyToken} emits the sized spelling, so a plain
+     * membership test saw {@code ml-kem} and missed {@code ml-kem-768} -- the standard parameter set. The classical
+     * half then won the family, and a migrated hybrid read as un-migrated to any rule keyed on family plus hybrid
+     * components.
+     */
+    private static boolean isPqcFamily(String token) {
+        return PQC_FAMILIES.contains(token)
+                || PQC_FAMILIES.contains(FAMILY_SIZE_SUFFIX.matcher(token).replaceFirst(""));
     }
 
     /**
@@ -772,14 +823,11 @@ public record AssetNormalizer(IdentityTables tables) {
             return null;
         }
         List<String> found = new ArrayList<>();
-        for (String spelling : tables.curveSpellingsByLength()) {
-            if (spelling.length() < 4) {
-                continue;
-            }
-            Pattern word = Pattern
-                    .compile(LEFT_WORD_GUARD + Pattern.quote(spelling) + RIGHT_WORD_GUARD, Pattern.CASE_INSENSITIVE);
-            if (word.matcher(name).find()) {
-                found.add(canonicalCurve(spelling));
+        // Patterns come precompiled from the tables. Compiled here, this was 254 Pattern.compile calls per EC-bearing
+        // name, which made normalization quadratic in the name length on producer-controlled text.
+        for (IdentityTables.CurveSpelling spelling : tables.curveSpellingPatterns()) {
+            if (spelling.word().matcher(name).find()) {
+                found.add(canonicalCurve(spelling.spelling()));
             }
         }
         return joinCurves(found);
@@ -901,8 +949,20 @@ public record AssetNormalizer(IdentityTables tables) {
     private void derivePrimitive(NormalizedAsset norm, JsonNode algorithm) {
         String declared = text(algorithm.get("primitive"));
         if (declared != null && !AsciiText.isBlank(declared) && !tables.isSentinel(declared)) {
-            norm.setPrimitive(AsciiText.strip(declared));
-            return;
+            String stripped = AsciiText.strip(declared);
+            // Every other typed slot is registry-bounded; this one is producer text straight through, and it lands in
+            // an indexed column with no length CHECK. Past roughly 2704 bytes the btree itself refuses the row with
+            // SQLSTATE 54000 -- not a constraint violation, so nothing names the field, and PostgreSQL reports it with
+            // a DETAIL line carrying every column of the row. Costing the slot keeps that channel shut; the asset
+            // still keys and still stores.
+            if (stripped.codePointCount(0, stripped.length()) > MAX_PRIMITIVE_LENGTH) {
+                norm
+                        .note("the declared primitive exceeds " + MAX_PRIMITIVE_LENGTH
+                                + " characters and was dropped rather than stored");
+            } else {
+                norm.setPrimitive(stripped);
+                return;
+            }
         }
         String fromFunctions = primitiveFromFunctions(algorithm.get("cryptoFunctions"));
         if (fromFunctions != null) {

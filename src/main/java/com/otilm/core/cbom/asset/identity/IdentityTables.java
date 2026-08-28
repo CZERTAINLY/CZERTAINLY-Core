@@ -69,11 +69,22 @@ public final class IdentityTables {
     private final Map<String, String> dnAttributeOids;
     private final Map<String, Integer> nameIntrinsicSizes;
     private final List<String> curveSpellingsByLength;
+    private final List<CurveSpelling> curveSpellingPatterns;
     private final int sizeMin;
     private final int sizeMax;
 
     /** One row of the ordered name grammar: the family a spelling names, and the two guard forms it is matched with. */
     public record GrammarRule(Pattern strict, Pattern loose, Pattern unguarded, String family) {
+    }
+
+    /**
+     * One curve spelling and the word-guarded pattern that finds it in a name.
+     *
+     * <p>
+     * Precompiled here beside the other table-derived patterns. Compiled per call instead, this cost 254
+     * {@code Pattern.compile} invocations for every EC-bearing name the pipeline normalized.
+     */
+    public record CurveSpelling(String spelling, Pattern word) {
     }
 
     /** A secondary construction token the name carries beside its family. */
@@ -143,6 +154,15 @@ public final class IdentityTables {
         this.familyTokens = Map.copyOf(tokens);
 
         this.curveSpellingsByLength = curveSpellings();
+        this.curveSpellingPatterns = curveSpellingsByLength
+                .stream()
+                // Below four characters a spelling is too short to be a word in a name without colliding.
+                .filter(spelling -> spelling.length() >= 4)
+                .map(spelling -> new CurveSpelling(spelling,
+                        Pattern
+                                .compile("(?<![A-Za-z0-9])" + Pattern.quote(spelling) + "(?![A-Za-z0-9])",
+                                        Pattern.CASE_INSENSITIVE)))
+                .toList();
         this.curveStrip = Pattern
                 .compile("(?<![A-Za-z0-9])(?:" + alternation(curveStripTokens()) + ")(?![A-Za-z0-9])",
                         Pattern.CASE_INSENSITIVE);
@@ -232,6 +252,10 @@ public final class IdentityTables {
 
     public List<SecondaryMarker> secondaryMarkers() {
         return secondaryMarkers;
+    }
+
+    public List<CurveSpelling> curveSpellingPatterns() {
+        return curveSpellingPatterns;
     }
 
     public Pattern curveStrip() {

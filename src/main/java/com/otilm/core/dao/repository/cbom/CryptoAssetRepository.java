@@ -49,6 +49,16 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
      * resolves the surviving row's uuid by its key afterwards.
      *
      * <p>
+     * <b>Identity columns:</b> filled once, never reassigned. The key is built from the whole component, not from these
+     * ten columns, so it is no longer a function of them -- and assigning {@code EXCLUDED.*} therefore let the last
+     * producer to sync decide what an {@code EQUALS} filter matches. {@code primitive} is the clearest case, because it
+     * is deliberately kept out of the key: two CBOMs describing one RSA-2048 land on one key carrying different
+     * primitives, and the row flipped on every re-sync. {@code COALESCE} makes a later report able to fill a gap but
+     * never to overwrite an answer, which is the same rule the guard below already used and the only one that makes a
+     * re-sync idempotent. The cost is accepted: a producer correcting its own spelling does not update the row, and
+     * reconciling a genuine disagreement is an explicit decision rather than a side effect of sync order.
+     *
+     * <p>
      * <b>Identity guard:</b> an existing guard survives, because it is a safety refusal rather than a field. A guard
      * says this row was deliberately kept separate — a refuted certificate digest, a bare common name facing a full
      * subject DN — and {@code CryptoAssetAliasWriter} refuses an alias by reading the guard that is on the row now.
@@ -70,16 +80,16 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
                     0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT (identity_key) DO UPDATE SET
                 ruleset_version = EXCLUDED.ruleset_version,
-                asset_type = EXCLUDED.asset_type,
-                name = EXCLUDED.name,
-                oid = EXCLUDED.oid,
-                algorithm_family = EXCLUDED.algorithm_family,
-                primitive = EXCLUDED.primitive,
-                parameter_set = EXCLUDED.parameter_set,
-                curve = EXCLUDED.curve,
-                mode = EXCLUDED.mode,
-                padding = EXCLUDED.padding,
-                variant = EXCLUDED.variant,
+                asset_type = COALESCE(crypto_asset.asset_type, EXCLUDED.asset_type),
+                name = COALESCE(crypto_asset.name, EXCLUDED.name),
+                oid = COALESCE(crypto_asset.oid, EXCLUDED.oid),
+                algorithm_family = COALESCE(crypto_asset.algorithm_family, EXCLUDED.algorithm_family),
+                primitive = COALESCE(crypto_asset.primitive, EXCLUDED.primitive),
+                parameter_set = COALESCE(crypto_asset.parameter_set, EXCLUDED.parameter_set),
+                curve = COALESCE(crypto_asset.curve, EXCLUDED.curve),
+                mode = COALESCE(crypto_asset.mode, EXCLUDED.mode),
+                padding = COALESCE(crypto_asset.padding, EXCLUDED.padding),
+                variant = COALESCE(crypto_asset.variant, EXCLUDED.variant),
                 identity_guard = COALESCE(crypto_asset.identity_guard, EXCLUDED.identity_guard),
                 i_upd = CURRENT_TIMESTAMP
             """, nativeQuery = true)
