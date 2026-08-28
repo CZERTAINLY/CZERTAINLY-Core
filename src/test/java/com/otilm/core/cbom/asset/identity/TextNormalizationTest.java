@@ -1,5 +1,9 @@
 package com.otilm.core.cbom.asset.identity;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -23,6 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * because escapes are resolved before the lexer runs.
  */
 class TextNormalizationTest {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     // ---------------------------------------------------------------- ASCII folding
 
@@ -138,6 +144,61 @@ class TextNormalizationTest {
     @Test
     void runsOfWhitespaceCollapseToOneSpace() {
         assertThat(AsciiText.collapseWhitespace("a \t\n b")).isEqualTo("a b");
+    }
+
+    /**
+     * Every text primitive treats an absent value as absent rather than throwing.
+     *
+     * <p>
+     * A reducer reads a slot straight out of a producer's document, so every one of these is called with {@code null}
+     * on ordinary input. A guard that is only exercised through a caller is a guard that moves when the caller does.
+     */
+    @Test
+    void everyTextPrimitivePassesAbsenceThrough() {
+        assertThat(AsciiText.fold(null)).isNull();
+        assertThat(AsciiText.upper(null)).isNull();
+        assertThat(AsciiText.lookupKey(null)).isNull();
+        assertThat(AsciiText.strip(null)).isNull();
+        assertThat(AsciiText.collapseWhitespace(null)).isNull();
+        assertThat(AsciiText.isBlank(null)).isTrue();
+    }
+
+    /** The printable test is the ASCII range exactly: the control characters below it and everything above it fail. */
+    @Test
+    void printabilityIsTheAsciiRangeAndNothingElse() {
+        assertThat(AsciiText.isAsciiPrintable("AES-256/GCM")).isTrue();
+        assertThat(AsciiText.isAsciiPrintable("")).isTrue();
+        assertThat(AsciiText.isAsciiPrintable("a\tb")).isFalse();
+        assertThat(AsciiText.isAsciiPrintable("a" + Character.toString(0x7F) + "b")).isFalse();
+        assertThat(AsciiText.isAsciiPrintable("caf\u00e9")).isFalse();
+    }
+
+    /**
+     * The OID shape is digit groups separated by single dots, and nothing else.
+     *
+     * <p>
+     * The grammar is scanned rather than matched because {@code \d+(\.\d+)*} recurses inside Java's matcher and
+     * overflows the stack on a long enough input. These cases pin the grammar the scan implements, so a later move back
+     * to a regex has something to answer to.
+     */
+    @Test
+    void theDottedDigitShapeIsDigitGroupsSeparatedBySingleDots() {
+        assertThat(AsciiText.isDottedDigits("1.2.840.113549", 3)).isTrue();
+        assertThat(AsciiText.isDottedDigits("1.2", 1)).isTrue();
+
+        assertThat(AsciiText.isDottedDigits("1.2", 3)).describedAs("too few arcs").isFalse();
+        assertThat(AsciiText.isDottedDigits("1..2", 1)).describedAs("empty arc").isFalse();
+        assertThat(AsciiText.isDottedDigits(".1.2", 1)).describedAs("leading dot").isFalse();
+        assertThat(AsciiText.isDottedDigits("1.2.", 1)).describedAs("trailing dot").isFalse();
+        assertThat(AsciiText.isDottedDigits("1.2a", 1)).describedAs("non-digit").isFalse();
+        assertThat(AsciiText.isDottedDigits("", 0)).isFalse();
+        assertThat(AsciiText.isDottedDigits(null, 0)).isFalse();
+    }
+
+    /** A digit is an ASCII digit, exactly as {@code \d} is by default -- so no keyed value moves with the locale. */
+    @Test
+    void anArabicIndicDigitIsNotADigitHere() {
+        assertThat(AsciiText.isDottedDigits("1." + Character.toString(0x0661), 1)).isFalse();
     }
 
     // ---------------------------------------------------------------- slot escaping
@@ -289,9 +350,127 @@ class TextNormalizationTest {
     void anAbsentLocationIsTheEmptyString() {
         assertThat(Occurrences.sanitizeLocation(null)).isEmpty();
         assertThat(sanitize("   ")).isEmpty();
+        assertThat(Occurrences.sanitizeLocation(new IntNode(7)))
+                .describedAs("a location that is not a string states no location")
+                .isEmpty();
+    }
+
+    /**
+     * The cap may not cut between the halves of a surrogate pair.
+     *
+     * <p>
+     * The cap counts UTF-16 units, so 1023 basic-plane characters followed by one astral character left a lone high
+     * surrogate as the last char. {@link IdentityDigests#sha256Hex} refuses that, so the component became a reported
+     * skip and vanished from the inventory; the same string also has no valid UTF-8 encoding for the jsonb evidence
+     * column. The pair is dropped whole instead.
+     */
+    @Test
+    void theLengthCapNeverSplitsASurrogatePair() {
+        String astral = Character.toString(0x1F5DD);
+
+        assertThat(sanitize("a".repeat(1023) + astral))
+                .describedAs("the pair starts at unit 1023 and cannot fit, so neither half is kept")
+                .isEqualTo("a".repeat(1023));
+        assertThat(sanitize("a".repeat(1022) + astral)).isEqualTo("a".repeat(1022) + astral);
+        assertThat(sanitize("a".repeat(2000))).hasSize(1024);
+    }
+
+    // ---------------------------------------------------------------- occurrence discriminator
+
+    /**
+     * Location alone under-discriminates, so the triple carries line and offset too.
+     *
+     * <p>
+     * Measured on one producer's scan, 33 distinct secret keys occupied only 21 distinct location sets -- one source
+     * file held five of them -- so a location-only discriminator silently merged twelve different secrets.
+     */
+    @Test
+    void twoSecretsInOneFileAreNotMerged() {
+        String first = Occurrences.triples(occurrences("[{\"location\": \"a.py\", \"line\": 1, \"offset\": 0}]"));
+        String second = Occurrences.triples(occurrences("[{\"location\": \"a.py\", \"line\": 9, \"offset\": 0}]"));
+
+        assertThat(first).isNotEqualTo(second);
+    }
+
+    /** The hashed string is exposed by name because a digest tells an implementer nothing about why it differs. */
+    @Test
+    void theDiscriminatorIsTheDigestOfTheExposedString() {
+        JsonNode component = occurrences("[{\"location\": \"a.py\", \"line\": 1, \"offset\": 2}]");
+
+        assertThat(Occurrences.triples(component)).isEqualTo("a.py#1#2");
+        assertThat(Occurrences.discriminator(component)).isEqualTo(IdentityDigests.sha256Hex("a.py#1#2"));
+    }
+
+    /** Triples are sorted and de-duplicated, so a producer's array order cannot re-key an asset between scans. */
+    @Test
+    void arrayOrderAndRepetitionDoNotReachTheKey() {
+        String ascending = Occurrences
+                .triples(occurrences("[{\"location\": \"a.py\", \"line\": 1}, {\"location\": \"b.py\", \"line\": 2}]"));
+        String descendingWithARepeat = Occurrences
+                .triples(occurrences("[{\"location\": \"b.py\", \"line\": 2}, {\"location\": \"a.py\", \"line\": 1},"
+                        + " {\"location\": \"b.py\", \"line\": 2}]"));
+
+        assertThat(ascending).isEqualTo("a.py#1#\nb.py#2#").isEqualTo(descendingWithARepeat);
+    }
+
+    /**
+     * An integral line renders through its exact integer value, never through a float's rendering of it.
+     *
+     * <p>
+     * {@code JsonNode.asText()} on a large integral node can yield exponent notation, which would key the same line two
+     * ways depending on how the producer serialized it. A non-integral line has no exact integer to render, so it keeps
+     * the producer's own spelling rather than being rounded into one.
+     */
+    @Test
+    void anIntegralLineRendersThroughItsExactValue() {
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 10000000000}]")))
+                .isEqualTo("a#10000000000#");
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 1.5}]")))
+                .describedAs("no exact integer exists, so the producer's spelling stands")
+                .isEqualTo("a#1.5#");
+    }
+
+    /**
+     * A producer-controlled line cannot forge a triple boundary.
+     *
+     * <p>
+     * Triples are joined with a newline, so a line of {@code "1\nb#9#9"} would otherwise render as two triples and
+     * claim an occurrence the producer never reported. The newline is escaped in the slot; {@code #} is left literal
+     * because it separates fields <em>within</em> one triple, which the producer already controls all three of.
+     */
+    @Test
+    void aCraftedLineCannotForgeATripleBoundary() {
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": \"1\\nb\"}]")))
+                .isEqualTo("a#1%0Ab#");
+    }
+
+    /** No occurrences at all is absence, not an empty digest -- an assetless discriminator must not key anything. */
+    @Test
+    void aComponentWithNoOccurrencesHasNoDiscriminator() {
+        assertThat(Occurrences.triples(null)).isNull();
+        assertThat(Occurrences.discriminator(null)).isNull();
+        assertThat(Occurrences.triples(read("{}"))).isNull();
+        assertThat(Occurrences.triples(read("{\"evidence\": {}}"))).isNull();
+        assertThat(Occurrences.triples(read("{\"evidence\": {\"occurrences\": \"a.py\"}}"))).isNull();
+        assertThat(Occurrences.triples(occurrences("[]"))).isNull();
+        assertThat(Occurrences.triples(occurrences("[\"a.py\", 7]")))
+                .describedAs("entries that are not objects carry no triple at all")
+                .isNull();
     }
 
     private static String sanitize(String location) {
         return Occurrences.sanitizeLocation(new TextNode(location));
+    }
+
+    private static JsonNode occurrences(String occurrencesArrayJson) {
+        return read("{\"evidence\": {\"occurrences\": " + occurrencesArrayJson + "}}");
+    }
+
+    private static JsonNode read(String json) {
+        try {
+            return MAPPER.readTree(json);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException(json, e);
+        }
     }
 }
