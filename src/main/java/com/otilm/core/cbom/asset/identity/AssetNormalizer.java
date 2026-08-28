@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
  * cipher-suite codes (one placeholder stamped on three different suites), and {@code algorithmFamily} itself. So every
  * such field is <em>corroborated</em> rather than trusted, and loses when it contradicts something better supported.
  */
-public final class AssetNormalizer {
+public record AssetNormalizer(IdentityTables tables) {
 
     /**
      * Producers spell the asset type inconsistently. One real document emits {@code relatedCryptoMaterial} in camelCase
@@ -144,13 +144,8 @@ public final class AssetNormalizer {
 
     private static final Pattern CURVE_ALTERNATIVES = Pattern.compile("\\s*(?:/|,|\\+|\\bor\\b|\\band\\b)\\s*");
 
-    private final IdentityTables tables;
-
-    public AssetNormalizer(IdentityTables tables) {
-        this.tables = tables;
-    }
-
     /** The ratified tables this pipeline reads. Exposed so the identity chain resolves names through the same data. */
+    @Override
     public IdentityTables tables() {
         return tables;
     }

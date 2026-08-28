@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  * proof-of-concept round passed 62 of 62 scenarios while carrying 66 unresolved guesses: two conformant implementations
  * could write different keys for one asset and never be able to share a table.
  */
-public final class CryptoAssetIdentity {
+public record CryptoAssetIdentity(AssetNormalizer normalizer) {
 
     /** The tier vocabulary's version marker, carried inside certificate pre-images. */
     private static final String SPEC_ID = "v1";
@@ -72,13 +72,8 @@ public final class CryptoAssetIdentity {
 
     private static final Pattern DOUBLE_SPACE = Pattern.compile("  +");
 
-    private final AssetNormalizer normalizer;
-
-    public CryptoAssetIdentity(AssetNormalizer normalizer) {
-        this.normalizer = normalizer;
-    }
-
     /** The pipeline this chain keys over. Exposed so a caller builds document scope from the same tables. */
+    @Override
     public AssetNormalizer normalizer() {
         return normalizer;
     }
