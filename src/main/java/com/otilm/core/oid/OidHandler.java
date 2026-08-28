@@ -1,5 +1,6 @@
 package com.otilm.core.oid;
 
+import com.otilm.api.model.common.validation.OidFormat;
 import com.otilm.api.model.core.oid.OidCategory;
 import java.time.Duration;
 import java.util.Collections;
@@ -22,7 +23,9 @@ public class OidHandler {
     }
 
     /** Dotted-decimal OID form (e.g. {@code 2.5.4.3}); anything else is treated as a short RDN code. */
-    private static final Pattern OID_PATTERN = Pattern.compile("^[0-2](\\.(0|[1-9]\\d{0,38})){1,127}$");
+    // Shared with the contract's @Pattern validation so both agree, and because the arc rules are easy to get
+    // subtly wrong: a first arc of 0 or 1 caps the second at 39, which a plain [0-2](\.\d+)+ misses.
+    private static final Pattern OID_PATTERN = Pattern.compile(OidFormat.REGEX);
 
     /** {@code true} if {@code value} is a well-formed dotted-decimal OID (never {@code null}-safe true). */
     public static boolean isOid(String value) {
