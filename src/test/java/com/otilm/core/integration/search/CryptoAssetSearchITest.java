@@ -286,6 +286,43 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
                 .containsExactlyInAnyOrder(bareCn, bare, populated);
     }
 
+    /**
+     * The facet advertises EQUALS and NOT_EQUALS only. A hand-built request with another condition must be refused with
+     * a shaped error: EMPTY used to reach the boolean value prep with no value (an NPE, so a 500), and NOT_EMPTY would
+     * have read "any guard is set" as "OID refuted" while silently switching the refuted carve-outs off for the whole
+     * request.
+     */
+    @Test
+    void theRefutedFacetRefusesConditionsItDoesNotAdvertise() {
+        assertThatThrownBy(() -> search(aPropertyEmptyFilter(FilterField.CBOM_ASSET_OID_REFUTED)))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("EMPTY");
+        assertThatThrownBy(() -> search(aPropertyNotEmptyFilter(FilterField.CBOM_ASSET_OID_REFUTED)))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("NOT_EMPTY");
+    }
+
+    /**
+     * LIKE's wildcards are not part of the free-text contract: the search string matches literally, so an underscore in
+     * producer vocabulary ("AES_128") cannot over-match lookalikes and a lone percent cannot dump the inventory.
+     */
+    @Test
+    void freeTextTreatsLikeWildcardsAsLiteralText() {
+        UUID underscored = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES_128",
+                        "oid-underscore", null, null, null, null, null, null, null), null);
+        assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AESX128",
+                        "oid-lookalike", null, null, null, null, null, null, null), null);
+
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "s_1")))
+                .describedAs("an underscore matches a literal underscore, not any character")
+                .containsExactly(underscored);
+        assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "%")))
+                .describedAs("a lone percent matches rows containing a literal percent -- here, none")
+                .isEmpty();
+    }
+
     @Test
     void theSourceCbomFilterMatchesThroughSourcesWithoutDuplicatingRows() {
         Cbom alpha = newCbom("urn:uuid:alpha");

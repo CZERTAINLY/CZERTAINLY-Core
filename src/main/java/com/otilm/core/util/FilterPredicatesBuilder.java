@@ -81,6 +81,8 @@ public class FilterPredicatesBuilder {
     private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
     private static final String TEXTREGEXEQ_FUNCTION_NAME = "textregexeq";
     private static final String ARRAY_CONTAINS_FUNCTION_NAME = PostgresFunctionContributor.ARRAY_CONTAINS;
+
+    private static final char LIKE_ESCAPE_CHAR = '\\';
     private static final String ARRAY_ITEM_CONTAINS_FUNCTION_NAME = PostgresFunctionContributor.ARRAY_ITEM_CONTAINS;
 
     private static final Set<FilterConditionOperator> OID_CONDITIONS_A_NULL_OID_SATISFIES = Set
@@ -339,6 +341,16 @@ public class FilterPredicatesBuilder {
         }
         if (filterField == FilterField.CBOM_ASSET_SOURCE_CBOM) {
             return getCryptoAssetSourceCbomPredicate(criteriaBuilder, query, root, filterDto, filterValues);
+        }
+
+        // An expectedValue field compares one stored constant against the boolean the caller sends, so only EQUALS
+        // and NOT_EQUALS are answerable -- exactly what SearchHelper advertises for it. The rest are refused here:
+        // the boolean value prep below would otherwise fail on a valueless EMPTY, and NOT_EMPTY would read "any
+        // value is set" -- which for the refuted-OID facet means any guard at all, not refutedness.
+        if (filterField.getExpectedValue() != null && filterDto.getCondition() != FilterConditionOperator.EQUALS
+                && filterDto.getCondition() != FilterConditionOperator.NOT_EQUALS) {
+            throw new ValidationException("Condition " + filterDto.getCondition() + " is not supported for field "
+                    + filterField + "; the field supports EQUALS and NOT_EQUALS.");
         }
 
         Expression expression = null;
@@ -625,13 +637,24 @@ public class FilterPredicatesBuilder {
         }
 
         Expression<String> pattern = criteriaBuilder
-                .lower(criteriaBuilder.literal("%" + filterValues.getFirst() + "%"));
-        Predicate nameMatches = criteriaBuilder.like(criteriaBuilder.lower(root.get(CryptoAsset_.NAME)), pattern);
-        Predicate oidMatches = criteriaBuilder.like(criteriaBuilder.lower(root.get(CryptoAsset_.OID)), pattern);
+                .lower(criteriaBuilder.literal("%" + escapeLikeWildcards(filterValues.getFirst().toString()) + "%"));
+        Predicate nameMatches = criteriaBuilder
+                .like(criteriaBuilder.lower(root.get(CryptoAsset_.NAME)), pattern, LIKE_ESCAPE_CHAR);
+        Predicate oidMatches = criteriaBuilder
+                .like(criteriaBuilder.lower(root.get(CryptoAsset_.OID)), pattern, LIKE_ESCAPE_CHAR);
         if (!refutedOidsOptedIn) {
             oidMatches = criteriaBuilder.and(oidMatches, oidNotRefuted(criteriaBuilder, root));
         }
         return criteriaBuilder.or(nameMatches, oidMatches);
+    }
+
+    /**
+     * LIKE's {@code %}, {@code _} and the escape character itself, escaped so free-text input matches literally. The
+     * generic CONTAINS on single columns leaves wildcards active (a platform-wide trait predating this field); the
+     * free-text box is new surface, and a search box promises literal matching.
+     */
+    private static String escapeLikeWildcards(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private static Predicate oidNotRefuted(CriteriaBuilder cb, From<?, ?> from) {
