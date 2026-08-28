@@ -194,10 +194,16 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
         ClientCertificateRequestDto request = uploadRequest(csrMissingCommonName);
         request.setRaProfileUuid(v3.raProfile().getUuid());
 
-        // when / then — strict policy fails closed: an unavailable attribute set blocks issuance
+        // when / then — strict policy fails closed: an unavailable attribute set blocks issuance. The reason string
+        // matters: "unavailable" alone also matches the NotFoundException wrapping, which would mean the resolution
+        // never reached the connector at all.
         assertThatThrownBy(() -> clientOperationService.submitCertificateRequest(request, null))
                 .isInstanceOf(CertificateException.class)
-                .hasMessageContaining("unavailable");
+                .hasMessageContaining("the authority connector is unavailable");
+        mockServer
+                .verify(WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v3/authorityProvider/certificates/request/attributes")));
 
         // and — nothing is persisted for the profile
         assertThat(certificateRepository.findAll())

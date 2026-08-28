@@ -4,6 +4,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.ConnectorServerException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
@@ -365,9 +366,15 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
         var request = baseRequest();
         request.setCsrAttributes(List.of(commonNameAttribute("FailClosedOnRequestSchema")));
 
-        // when / then
+        // when / then — ConnectorServerException specifically: that is what schemaOrEmpty rethrows for a non-501 5xx.
+        // A bare ConnectorException would also be satisfied by the 404 an unstubbed WireMock route produces, which
+        // would pass without the 500 boundary ever being reached.
         assertThatThrownBy(() -> clientOperationService.submitCertificateRequest(request, null))
-                .isInstanceOf(ConnectorException.class);
+                .isInstanceOf(ConnectorServerException.class);
+        mockServer
+                .verify(WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v3/authorityProvider/certificates/request/attributes")));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
