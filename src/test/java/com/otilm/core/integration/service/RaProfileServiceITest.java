@@ -402,7 +402,6 @@ class RaProfileServiceITest extends ApprovalProfileData {
         ValueSourceBindingDto binding = new ValueSourceBindingDto();
         binding.setAttributeUuid("ra-attr-1");
         binding.setValueSourceType(ValueSourceType.STATIC_LIST);
-        binding.setCollectionRef("cmdb.servers");
 
         RaProfileCertificateRequestAttributesUpdateDto updateDto = new RaProfileCertificateRequestAttributesUpdateDto();
         updateDto.setRequestAttributes(List.of(definition));

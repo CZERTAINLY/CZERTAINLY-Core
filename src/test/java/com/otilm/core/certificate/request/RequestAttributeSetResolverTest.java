@@ -167,7 +167,7 @@ class RequestAttributeSetResolverTest {
             // given
             DataAttributeV3 connector = def("u1", "server");
             ValueSourceBindingSpec binding = new ValueSourceBindingSpec("u1", null, ValueSourceType.STATIC_LIST,
-                    "cmdb.servers", List.of());
+                    List.of());
 
             // when
             List<BaseAttribute> result = RequestAttributeSetResolver
@@ -185,7 +185,7 @@ class RequestAttributeSetResolverTest {
             // it must still bind via the attribute name fallback rather than silently dropping the value source
             DataAttributeV3 connector = def("changed-uuid", "server");
             ValueSourceBindingSpec binding = new ValueSourceBindingSpec("old-uuid", "server",
-                    ValueSourceType.CONNECTOR_CALLBACK, null, List.of());
+                    ValueSourceType.CONNECTOR_CALLBACK, List.of());
 
             // when
             List<BaseAttribute> result = RequestAttributeSetResolver
@@ -203,7 +203,7 @@ class RequestAttributeSetResolverTest {
             DataAttributeV3 connector = def("u1", "server");
             SourceParam param = new SourceParam();
             param.setAttributeName("datacenter");
-            ValueSourceBindingSpec binding = new ValueSourceBindingSpec("u1", null, ValueSourceType.STATIC_LIST, null,
+            ValueSourceBindingSpec binding = new ValueSourceBindingSpec("u1", null, ValueSourceType.STATIC_LIST,
                     List.of(param));
 
             // when
@@ -233,7 +233,7 @@ class RequestAttributeSetResolverTest {
             // given: a binding that matches neither the UUID nor the name
             DataAttributeV3 connector = def("u1", "server");
             ValueSourceBindingSpec mismatch = new ValueSourceBindingSpec("other", "other", ValueSourceType.STATIC_LIST,
-                    "x", List.of());
+                    List.of());
 
             // when
             List<BaseAttribute> result = RequestAttributeSetResolver

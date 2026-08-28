@@ -144,7 +144,6 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         binding.setRaProfileUuid(raProfile.getUuid());
         binding.setAttributeUuid("u1");
         binding.setValueSourceType(ValueSourceType.STATIC_LIST.name());
-        binding.setCollectionRef("cmdb.servers");
         writer.replaceValueSourceBindings(raProfile.getUuid(), List.of(binding));
 
         // when
@@ -337,7 +336,6 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         binding.setRaProfileUuid(raProfile.getUuid());
         binding.setAttributeUuid("c1");
         binding.setValueSourceType(ValueSourceType.STATIC_LIST.name());
-        binding.setCollectionRef("cmdb.servers");
         writer.replaceValueSourceBindings(raProfile.getUuid(), List.of(binding));
 
         // when
@@ -409,7 +407,6 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         binding.setRaProfileUuid(raProfile.getUuid());
         binding.setAttributeUuid(boundUuid);
         binding.setValueSourceType(ValueSourceType.STATIC_LIST.name());
-        binding.setCollectionRef("cmdb.servers");
         writer.replaceValueSourceBindings(raProfile.getUuid(), List.of(binding));
 
         // when — resolving through the bean the issue/register projection uses
@@ -454,7 +451,6 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         ValueSourceBindingDto bindingDto = new ValueSourceBindingDto();
         bindingDto.setAttributeUuid(boundUuid);
         bindingDto.setValueSourceType(ValueSourceType.STATIC_LIST);
-        bindingDto.setCollectionRef("cmdb.servers");
         SourceParam param = new SourceParam();
         param.setAttributeName("datacenter");
         bindingDto.setParams(List.of(param));
@@ -470,7 +466,6 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         assertThat(stored.getExternalCsrValidationStrict()).isTrue();
         assertThat(stored.getValueSourceBindings()).hasSize(1);
         assertThat(stored.getValueSourceBindings().get(0).getValueSourceType()).isEqualTo(ValueSourceType.STATIC_LIST);
-        assertThat(stored.getValueSourceBindings().get(0).getCollectionRef()).isEqualTo("cmdb.servers");
         assertThat(stored.getValueSourceBindings().get(0).getParams())
                 .extracting(SourceParam::getAttributeName)
                 .containsExactly("datacenter");

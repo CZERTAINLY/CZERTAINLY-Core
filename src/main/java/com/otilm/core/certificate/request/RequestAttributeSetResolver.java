@@ -99,7 +99,7 @@ public final class RequestAttributeSetResolver {
      * stays Spring/JPA-free. {@code attributeUuid} is the primary key; {@code attributeName} is the fallback.
      */
     public record ValueSourceBindingSpec(String attributeUuid, String attributeName, ValueSourceType valueSourceType,
-            String collectionRef, List<SourceParam> params) {
+            List<SourceParam> params) {
     }
 
     /**

@@ -216,8 +216,7 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         for (RaProfileValueSourceBinding row : rows) {
             specs
                     .add(new ValueSourceBindingSpec(row.getAttributeUuid(), row.getAttributeName(),
-                            parseValueSourceType(row.getValueSourceType()), row.getCollectionRef(),
-                            deserializeParams(row.getParams())));
+                            parseValueSourceType(row.getValueSourceType()), deserializeParams(row.getParams())));
         }
         return specs;
     }
@@ -229,7 +228,6 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
             dto.setAttributeUuid(row.getAttributeUuid());
             dto.setAttributeName(row.getAttributeName());
             dto.setValueSourceType(parseValueSourceType(row.getValueSourceType()));
-            dto.setCollectionRef(row.getCollectionRef());
             dto.setParams(deserializeParams(row.getParams()));
             dtos.add(dto);
         }
@@ -255,7 +253,6 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
             entity.setAttributeUuid(binding.getAttributeUuid());
             entity.setAttributeName(binding.getAttributeName());
             entity.setValueSourceType(binding.getValueSourceType().name());
-            entity.setCollectionRef(binding.getCollectionRef());
             entity.setParams(serializeParams(binding.getParams()));
             entities.add(entity);
         }
