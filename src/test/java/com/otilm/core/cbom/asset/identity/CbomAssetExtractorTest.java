@@ -218,6 +218,66 @@ class CbomAssetExtractorTest {
         assertThat(extraction.skips()).allSatisfy(skip -> assertThat(skip.reason()).doesNotContain(secret));
     }
 
+    /**
+     * One unkeyable component costs its own row and nothing else.
+     *
+     * <p>
+     * This is the class's headline guarantee -- a producer's malformed asset must not cost an operator the other four
+     * thousand -- and until this test existed nothing in the suite ever produced a non-empty skip list, so the broad
+     * {@code catch (RuntimeException)} it rests on was never executed. A lone surrogate is the cheapest trigger: the
+     * identity digest refuses one rather than letting the encoder fold it onto {@code ?}. It goes in the material
+     * value, which is the field the digest actually reads -- a surrogate in the component name would sit outside this
+     * tier's pre-image and key perfectly well.
+     */
+    @Test
+    void oneUnkeyableComponentIsSkippedAndTheRestSurvive() {
+        String secret = "s3cr3t-material-value";
+        JsonNode document = read("{\"components\":[" + "{\"type\":\"cryptographic-asset\",\"name\":\"good-one\","
+                + "\"cryptoProperties\":{\"assetType\":\"algorithm\",\"algorithmProperties\":"
+                + "{\"primitive\":\"block-cipher\"}}}," + "{\"type\":\"cryptographic-asset\",\"name\":\"broken\","
+                + "\"cryptoProperties\":{\"assetType\":\"related-crypto-material\","
+                + "\"relatedCryptoMaterialProperties\":{\"type\":\"private-key\",\"value\":\"" + secret
+                + "\\ud800\"}}}," + "{\"type\":\"cryptographic-asset\",\"name\":\"good-two\","
+                + "\"cryptoProperties\":{\"assetType\":\"algorithm\",\"algorithmProperties\":"
+                + "{\"primitive\":\"hash\"}}}]}");
+
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR.extract(document);
+
+        assertThat(extraction.skips())
+                .describedAs("exactly the malformed component is skipped")
+                .singleElement()
+                .satisfies(skip -> assertThat(skip.componentName()).isEqualTo("broken"));
+        assertThat(extraction.assets())
+                .describedAs("the other two are keyed regardless")
+                .extracting(CbomAssetExtractor.ExtractedAsset::componentName)
+                .containsExactly("good-one", "good-two");
+        assertThat(extraction.skips().getFirst().reason())
+                .describedAs("the failure class only -- never the payload, and never the exception's own message")
+                .isEqualTo("IllegalArgumentException")
+                .doesNotContain(secret);
+    }
+
+    /**
+     * A location long enough to be capped must not be cut through a surrogate pair.
+     *
+     * <p>
+     * The cap counts UTF-16 units, so a path ending in an astral character used to leave a lone high surrogate behind
+     * -- well-formed producer input made malformed by the platform, which the identity digest then refused, so the
+     * asset vanished with nothing an operator could act on.
+     */
+    @Test
+    void anAstralCharacterAtTheLocationCapDoesNotCostTheAsset() {
+        String location = "file:///" + "a".repeat(1_020) + "\uD83D\uDD11/key.pem";
+        JsonNode document = read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"TLSv1.2\","
+                + "\"cryptoProperties\":{\"assetType\":\"protocol\",\"protocolProperties\":{\"type\":\"tls\"}},"
+                + "\"evidence\":{\"occurrences\":[{\"location\":\"" + location + "\"}]}}]}");
+
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR.extract(document);
+
+        assertThat(extraction.skips()).isEmpty();
+        assertThat(extraction.assets()).hasSize(1);
+    }
+
     // ---------------------------------------------------------------- the ingest mapper
 
     /**

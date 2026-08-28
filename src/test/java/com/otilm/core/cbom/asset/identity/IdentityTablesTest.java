@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,7 +98,7 @@ class IdentityTablesTest {
         List<String> unresolved = new ArrayList<>();
         tables.families().forEach(family -> {
             if (!family.equals(tables.familyToken(family))
-                    || !family.equals(tables.familyToken(family.toLowerCase()))) {
+                    || !family.equals(tables.familyToken(family.toLowerCase(Locale.ROOT)))) {
                 unresolved.add(family);
             }
         });

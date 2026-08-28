@@ -170,15 +170,43 @@ class IdentityVectorTest {
      */
     @Test
     void aMutatedExpectationIsRejected() {
-        JsonNode vector = vectorFile.get("vectors").get(0);
+        // Selected by id, not by index. The mutation has to land on a field this vector's own tier keys on, and a
+        // vector file regenerated into a different order would otherwise silently move the test onto a tier whose
+        // pre-image ignores it -- which is how the assertion below became vacuous in the first place.
+        JsonNode vector = vectorById("crt-dn-public-key-target");
         JsonNode component = vector.get("component");
         CryptoAssetIdentity.Identity actual = identity
                 .of(component, DocumentScope.of(documentAround(vector), normalizer), Set.of());
         String ratifiedPreImage = vector.get("expected").get("preImage").asText();
 
         assertThat(actual.preImage()).isEqualTo(ratifiedPreImage);
-        assertThat(actual.preImage()).isNotEqualTo(ratifiedPreImage + "X");
-        assertThat(actual.key()).isNotEqualTo("0".repeat(64));
+
+        // The mutation goes on the INPUT. Comparing the ratified pre-image against itself-plus-a-character cannot
+        // fail: AssertJ has already thrown if the line above did not hold, so the old assertion was a statement about
+        // string concatenation rather than about this pipeline. Perturbing the component is what proves the
+        // comparison has teeth -- and the vector file carries no integrity pin of its own, so this is the only thing
+        // standing between a silently edited expectation and a green run.
+        ObjectNode mutated = component.deepCopy();
+        ObjectNode certificate = (ObjectNode) mutated.get("cryptoProperties").get("certificateProperties");
+        certificate.put("subjectName", certificate.get("subjectName").asText() + "-mutated");
+        CryptoAssetIdentity.Identity fromMutatedInput = identity
+                .of(mutated, DocumentScope.of(documentAround(vector), normalizer), Set.of());
+
+        assertThat(fromMutatedInput.preImage())
+                .describedAs("a perturbed component must not reproduce the ratified pre-image")
+                .isNotEqualTo(ratifiedPreImage);
+        assertThat(fromMutatedInput.key())
+                .describedAs("and therefore must not reproduce the ratified key")
+                .isNotEqualTo(actual.key());
+    }
+
+    private JsonNode vectorById(String id) {
+        for (JsonNode vector : vectorFile.get("vectors")) {
+            if (id.equals(vector.path("id").asText())) {
+                return vector;
+            }
+        }
+        throw new AssertionError("the ratified vector set no longer carries " + id);
     }
 
     /** Rebuilds the single-component document the vector describes, so its {@code refTargets} can resolve. */
