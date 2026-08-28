@@ -239,6 +239,16 @@ spring:
   datasource:
     driver-class-name: org.postgresql.Driver
     hikari:
+      # PostgreSQL answers a constraint violation with a DETAIL line quoting the whole failing row, and pgjdbc copies
+      # it into the exception message. Hibernate's SqlExceptionHelper logs that message at ERROR the moment the
+      # statement fails, upstream of every catch, so no handler downstream can keep it out of the log. Some rows hold
+      # values that must not be logged -- crypto_asset.identity_key is 64 hex characters, exactly pgjdbc's per-value
+      # truncation point, so it would print whole. Off here rather than per feature: a value reaching the log this way
+      # is a property of the driver, not of the table. The constraint NAME survives, which is all
+      # CryptoAssetConstraintTranslator reads, so operator-facing messages are unaffected. A failing row can still be
+      # identified from the statement and its parameters at DEBUG.
+      data-source-properties:
+        logServerErrorDetail: false
       connectionTimeout: ${CONNECTION_POOL_CONNECTION_TIMEOUT:30000}
       idleTimeout: ${CONNECTION_POOL_IDLE_TIMEOUT:600000}
       maxLifetime: ${CONNECTION_POOL_MAX_LIFETIME:1800000}

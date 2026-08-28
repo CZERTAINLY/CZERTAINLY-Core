@@ -26,6 +26,7 @@ import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.dao.entity.acme.AcmeAccount;
 import com.otilm.core.dao.entity.acme.AcmeProfile;
+import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.entity.notifications.Notification;
 import com.otilm.core.dao.entity.scep.ScepProfile;
 import com.otilm.core.dao.entity.signing.SigningProfile;
@@ -70,6 +71,9 @@ public enum ResourceToClass {
     // ENTITIES
     ENTITY(Resource.ENTITY, EntityInstanceReference.class),
     LOCATION(Resource.LOCATION, Location.class),
+
+    // CBOMS
+    CRYPTO_ASSET(Resource.CRYPTO_ASSET, CryptoAsset.class),
 
     // CRYPTOGRAPHY
     TOKEN_PROFILE(Resource.TOKEN_PROFILE, TokenProfile.class),

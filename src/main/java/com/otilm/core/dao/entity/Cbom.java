@@ -1,9 +1,12 @@
 package com.otilm.core.dao.entity;
 
+import com.otilm.api.model.core.cbom.CbomAssetSyncState;
 import com.otilm.api.model.core.cbom.CbomDto;
 import com.otilm.core.util.DtoMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -11,6 +14,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.Check;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.proxy.HibernateProxy;
 
@@ -20,6 +24,10 @@ import org.hibernate.proxy.HibernateProxy;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "cbom")
+// Stated here as well as in the migration so the entity-generated schema the tests run against carries the same
+// invariant and the same constraint name as production.
+@Check(name = "ck_cbom_asset_sync_state",
+        constraints = "asset_sync_state IN ('PENDING', 'IN_PROGRESS', 'SYNCED', 'FAILED')")
 public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -55,6 +63,24 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
     @Column(name = "total_assets_count", nullable = false)
     private int totalAssetsCount;
 
+    /**
+     * Where this CBOM stands in cryptographic-asset ingest, independent of the header sync that created the row.
+     * Existing header-only rows read as {@code PENDING}, which is correct: their assets have never been ingested.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "asset_sync_state", nullable = false, columnDefinition = "TEXT")
+    private CbomAssetSyncState assetSyncState = CbomAssetSyncState.PENDING;
+
+    /**
+     * Why asset ingest last failed for this CBOM. Operator-visible, so the text is always shaped by us -- never a
+     * driver message, whose DETAIL line carries the failing row.
+     */
+    @Column(name = "asset_sync_error", columnDefinition = "TEXT")
+    private String assetSyncError;
+
+    @Column(name = "assets_synced_at")
+    private OffsetDateTime assetsSyncedAt;
+
     @Override
     public CbomDto mapToDto() {
         CbomDto dto = new CbomDto();
@@ -71,6 +97,8 @@ public class Cbom extends UniquelyIdentified implements DtoMapper<CbomDto> {
         dto.setProtocols(this.protocolsCount);
         dto.setCryptoMaterial(this.cryptoMaterialCount);
         dto.setTotalAssets(this.totalAssetsCount);
+        dto.setAssetSyncState(this.assetSyncState);
+        dto.setAssetSyncedAt(this.assetsSyncedAt);
         return dto;
     }
 
