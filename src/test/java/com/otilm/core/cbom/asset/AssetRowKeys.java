@@ -50,16 +50,14 @@ public final class AssetRowKeys {
     /**
      * A plain SHA-256, not the identity chain's. The chain's digest refuses unpaired surrogates because a silently
      * substituted {@code ?} would collide two real pre-images; a fixture that only needs a stable function of ten
-     * columns has no such exposure, and depending on the chain for it would tie every persistence test to the
-     * ratified decision tables.
+     * columns has no such exposure, and depending on the chain for it would tie every persistence test to the ratified
+     * decision tables.
      */
     private static String sha256Hex(String text) {
         try {
             return HexFormat
                     .of()
-                    .formatHex(MessageDigest
-                            .getInstance("SHA-256")
-                            .digest(text.getBytes(StandardCharsets.UTF_8)));
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not available", e);
         }
