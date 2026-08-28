@@ -38,7 +38,9 @@ public final class CipherSuites {
         StringBuilder octets = new StringBuilder();
         for (JsonNode element : identifiers) {
             if (!element.isTextual()) {
-                continue;
+                // Skipping it instead let ["0x13", {}, "0x01"] produce the code of the well-formed ["0x13", "0x01"],
+                // so a malformed list impersonated a real suite. All-or-nothing means the malformed element decides.
+                return null;
             }
             for (String token : element.textValue().split(",")) {
                 String trimmed = AsciiText.strip(token);

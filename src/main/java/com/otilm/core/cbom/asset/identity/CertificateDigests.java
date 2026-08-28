@@ -26,15 +26,31 @@ public final class CertificateDigests {
      * identical {@code component.hashes[]} digest would fork the same certificate between a 1.6 and a 1.7 producer on
      * the strength of <em>where</em> the same bytes were written.
      */
+    /**
+     * The 1.7 fingerprint field's digest, or {@code null} when the field is absent or carries no content.
+     *
+     * <p>
+     * Named rather than inlined because the chain step is derived from it: labelling a key {@code crt:fingerprint} on
+     * the mere presence of a {@code fingerprint} node reported that step for a key actually built from
+     * {@code component.hashes[]}, whenever the node was present but unusable. Comparing against this value cannot drift
+     * from the digest spelling the key used.
+     */
+    public static String fingerprintDigest(JsonNode certificateProperties) {
+        JsonNode fingerprint = certificateProperties == null ? null : certificateProperties.get("fingerprint");
+        if (fingerprint == null || !fingerprint.isObject() || !isPresent(fingerprint.get(CbomNames.CONTENT))) {
+            return null;
+        }
+        JsonNode algorithm = fingerprint.get("alg");
+        String label = algorithm != null && !algorithm.isNull() ? algorithm.asText() : "sha-256";
+        return AsciiText.fold(AsciiText.strip(label)) + ":"
+                + AsciiText.fold(AsciiText.strip(fingerprint.get(CbomNames.CONTENT).asText()));
+    }
+
     public static List<String> claimed(JsonNode component, JsonNode certificateProperties) {
         List<String> digests = new ArrayList<>();
-        JsonNode fingerprint = certificateProperties == null ? null : certificateProperties.get("fingerprint");
-        if (fingerprint != null && fingerprint.isObject() && isPresent(fingerprint.get(CbomNames.CONTENT))) {
-            JsonNode algorithm = fingerprint.get("alg");
-            String label = algorithm != null && !algorithm.isNull() ? algorithm.asText() : "sha-256";
-            digests
-                    .add(AsciiText.fold(AsciiText.strip(label)) + ":"
-                            + AsciiText.fold(AsciiText.strip(fingerprint.get(CbomNames.CONTENT).asText())));
+        String fromFingerprint = fingerprintDigest(certificateProperties);
+        if (fromFingerprint != null) {
+            digests.add(fromFingerprint);
         }
         String fromComponent = componentHash(component);
         if (fromComponent != null) {

@@ -1,6 +1,7 @@
 package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -583,7 +584,7 @@ public record AssetNormalizer(IdentityTables tables) {
         } else if (parameterSetIdentifier != null && parameterSetIdentifier.isTextual()) {
             String text = AsciiText.strip(parameterSetIdentifier.textValue());
             if (DIGITS.matcher(text).matches()) {
-                Integer accepted = accept(Integer.parseInt(text), CbomNames.PARAMETER_SET_IDENTIFIER, notes);
+                Integer accepted = accept(new BigInteger(text), CbomNames.PARAMETER_SET_IDENTIFIER, notes);
                 if (accepted != null) {
                     return accepted;
                 }
@@ -617,6 +618,20 @@ public record AssetNormalizer(IdentityTables tables) {
                 return Integer.parseInt(level.group(1));
             }
         }
+        return null;
+    }
+
+    /**
+     * The whitelist decides before the value is narrowed. {@code DIGITS} is unbounded, so a schema-valid digit-only
+     * {@code parameterSetIdentifier} of twenty digits reached {@code Integer.parseInt} and threw -- and the throw cost
+     * the whole asset its row, where an out-of-range size is supposed to cost only the size slot plus a note.
+     */
+    private Integer accept(BigInteger candidate, String origin, List<String> notes) {
+        if (candidate.compareTo(BigInteger.valueOf(tables.sizeMin())) >= 0
+                && candidate.compareTo(BigInteger.valueOf(tables.sizeMax())) <= 0) {
+            return candidate.intValueExact();
+        }
+        notes.add("size " + candidate + " from " + origin + " outside whitelist");
         return null;
     }
 
@@ -966,11 +981,16 @@ public record AssetNormalizer(IdentityTables tables) {
         }
         stripped = tables.curveStrip().matcher(stripped).replaceAll(" ");
 
+        // Compared as BigInteger, kept as text. A component name is an unrestricted string, so a legitimate name
+        // carrying a long decimal identifier threw here and cost the asset its row; the run itself still enters the
+        // residue verbatim, leading zeros and all.
+        BigInteger floor = BigInteger.valueOf(tables.sizeMin());
         Set<String> kept = new TreeSet<>();
         Matcher runs = DIGITS.matcher(stripped);
         while (runs.find()) {
-            int value = Integer.parseInt(runs.group());
-            if (value < tables.sizeMin() || (parameterSet != null && value == parameterSet)) {
+            BigInteger value = new BigInteger(runs.group());
+            if (value.compareTo(floor) < 0
+                    || (parameterSet != null && value.equals(BigInteger.valueOf(parameterSet)))) {
                 continue;
             }
             kept.add(runs.group());
@@ -979,17 +999,16 @@ public record AssetNormalizer(IdentityTables tables) {
         // A trailing separator-delimited digest length is a TRUNCATION marker, but only when the name carries a base
         // length too -- otherwise `SHA-256` would read its own only digit run as a truncation of itself. Both
         // spellings must produce the same marker: NIST writes `SHA-512/224` and producers write `SHA-512-224`.
-        List<Integer> allRuns = new ArrayList<>();
+        int runsAtOrAboveFloor = 0;
         Matcher nameRuns = DIGITS.matcher(name);
         while (nameRuns.find()) {
-            int value = Integer.parseInt(nameRuns.group());
-            if (value >= tables.sizeMin()) {
-                allRuns.add(value);
+            if (new BigInteger(nameRuns.group()).compareTo(floor) >= 0) {
+                runsAtOrAboveFloor++;
             }
         }
         Matcher truncation = TRUNCATION.matcher(AsciiText.strip(name));
-        if (truncation.find() && family != null && tables.truncatableFamilies().contains(family) && allRuns.size() >= 2
-                && Integer.parseInt(truncation.group(1)) >= tables.sizeMin()) {
+        if (truncation.find() && family != null && tables.truncatableFamilies().contains(family)
+                && runsAtOrAboveFloor >= 2 && Integer.parseInt(truncation.group(1)) >= tables.sizeMin()) {
             kept.add("t" + truncation.group(1));
         }
 

@@ -11,6 +11,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The content-derived slots: a public key's digest, a certificate's claimed digests, and a cipher suite's code.
@@ -197,6 +198,35 @@ class ContentDigestTest {
         assertThat(CipherSuites.code(read("[]"))).isNull();
         assertThat(CipherSuites.code(read("\"not-an-array\""))).isNull();
         assertThat(CipherSuites.code(null)).isNull();
+    }
+
+    /**
+     * A non-textual element makes the whole list unreadable, rather than being passed over.
+     *
+     * <p>
+     * Skipping it let a malformed list impersonate a well-formed one: the code below is byte-identical to the code of
+     * {@code ["0x13", "0x01"]}, so a suite nobody declared would have been hashed into a protocol identity.
+     */
+    @Test
+    void aNonTextualIdentifierMakesTheListUnreadable() {
+        assertThat(CipherSuites.code(read("[\"0x13\",{},\"0x01\"]"))).isNull();
+        assertThat(CipherSuites.code(read("[\"0x13\",13,\"0x01\"]"))).isNull();
+        assertThat(CipherSuites.code(read("[\"0x13\",\"0x01\"]"))).isEqualTo("1301");
+    }
+
+    /**
+     * An unpaired surrogate is refused rather than digested.
+     *
+     * <p>
+     * {@code String.getBytes(UTF_8)} substitutes {@code ?} for one silently, which is an identity collision: three
+     * distinct producer strings would share one pre-image.
+     */
+    @Test
+    void anUnpairedSurrogateCannotBeDigested() {
+        assertThatThrownBy(() -> Digests.sha256Hex("RSA\uD800")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Digests.sha256Hex("\uDC00RSA")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(Digests.sha256Hex("RSA?")).isNotEqualTo(Digests.sha256Hex("RSA"));
+        assertThat(Digests.sha256Hex("RSA\uD83D\uDE00")).isNotBlank();
     }
 
     /**

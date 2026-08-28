@@ -26,8 +26,13 @@ public final class MaterialRedaction {
     /**
      * Material types whose plaintext is low-entropy enough that publishing {@code sha256(value)} would itself be an
      * offline dictionary attack served by the platform.
+     *
+     * <p>
+     * {@code other} and {@code unknown} are in the set for the same reason an absent type is: the platform cannot know
+     * what a producer put there, and guessing wrong publishes a reversible digest. Withholding is the only protection
+     * available, since the stored digest is deliberately unsalted.
      */
-    private static final Set<String> LOW_ENTROPY_TYPES = Set.of("password", "token", "credential");
+    private static final Set<String> LOW_ENTROPY_TYPES = Set.of("password", "token", "credential", "other", "unknown");
 
     /**
      * Types that should never carry an inlined value at all. A producer that does so has exfiltrated key material into
@@ -64,7 +69,15 @@ public final class MaterialRedaction {
                 ? com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode()
                 : cryptoProperties.deepCopy();
         JsonNode material = payload.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES);
-        if (material == null || !material.isObject()) {
+        if (material != null && !material.isObject()) {
+            // Dropped, not passed through. A producer emitting the block as an array or a string put key material
+            // somewhere no redaction step reads, and the payload is both stored and hashed into the backstop
+            // pre-image -- so passing it through retained the plaintext this class exists to remove. The non-object
+            // `cryptoProperties` case one line above already failed closed; this one did not.
+            payload.remove(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES);
+            return new MaterialRedaction(payload, null, null, null, null, List.of("non-object material block dropped"));
+        }
+        if (material == null) {
             return new MaterialRedaction(payload, null, null, null, null, List.of());
         }
         ObjectNode materialNode = (ObjectNode) material;
@@ -116,8 +129,8 @@ public final class MaterialRedaction {
     }
 
     /**
-     * Fails closed: an absent or unrecognised material type is treated as low-entropy, because guessing wrong publishes
-     * a reversible digest.
+     * Fails closed on an absent or blank type, and on every type in {@link #LOW_ENTROPY_TYPES} -- which includes the
+     * two types that say the producer did not know either.
      */
     private static boolean digestPublishable(String materialType) {
         if (materialType == null || materialType.isBlank()) {

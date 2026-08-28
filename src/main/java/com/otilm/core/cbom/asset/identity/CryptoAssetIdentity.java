@@ -207,7 +207,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             if (refuted.contains(digest)) {
                 continue;
             }
-            boolean fromFingerprint = index == 0 && certificate != null && certificate.get("fingerprint") != null;
+            boolean fromFingerprint = digest.equals(CertificateDigests.fingerprintDigest(certificate));
             return new String[]{
                     "CRT|H|" + SPEC_ID + "|" + KeySlot.of(digest),
                     fromFingerprint ? "crt:fingerprint" : "crt:component-hash"};
@@ -323,8 +323,11 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         }
         // No key material on the target. Identify it by its own normalized identity so the composite still
         // discriminates, rather than degrading to an empty slot.
-        JsonNode targetType = targetProperties == null ? null : targetProperties.get("assetType");
-        if (targetType != null && targetType.isTextual() && "algorithm".equals(targetType.textValue())) {
+        // Normalized, not raw -- the same rule the router applies. A raw comparison let a target spelled
+        // `Algorithm` route as an algorithm for its own row while contributing no discriminator here, so
+        // capitalization alone moved the certificate's identity.
+        String targetType = normalizer.normalizeAssetType(text(targetProperties, "assetType"));
+        if (CbomNames.ASSET_TYPE_ALGORITHM.equals(targetType)) {
             AssetNormalizer.Result targetNormalized = normalizer.normalize(target);
             return "A:"
                     + Digests.sha256Hex(algorithm(targetNormalized.asset(), targetNormalized.redaction().payload())[0]);

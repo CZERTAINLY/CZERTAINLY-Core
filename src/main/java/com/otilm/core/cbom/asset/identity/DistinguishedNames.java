@@ -104,7 +104,12 @@ public final class DistinguishedNames {
         if (normalizedDn == null || normalizedDn.isEmpty()) {
             return false;
         }
-        return splitUnescaped(normalizedDn, ",").stream().allMatch(part -> part.startsWith(COMMON_NAME_OID + "="));
+        // Every RDN must be a single common-name AVA. Checking only the start of each one classified the multi-valued
+        // `CN=x+SN=y` as CN-only whenever CN happened to sort first, so the reported step depended on attribute order.
+        // `CN=a,CN=b` stays CN-only: it carries nothing but common names, which is what the name claims.
+        return splitUnescaped(normalizedDn, ",")
+                .stream()
+                .allMatch(part -> part.startsWith(COMMON_NAME_OID + "=") && splitUnescaped(part, "+").size() == 1);
     }
 
     private static String normalizeValue(String raw, String oid) {
