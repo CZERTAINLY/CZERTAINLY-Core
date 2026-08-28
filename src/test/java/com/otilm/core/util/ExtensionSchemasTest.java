@@ -242,6 +242,30 @@ class ExtensionSchemasTest {
     }
 
     @Test
+    void requireValidSchemaAcceptsReferencesThatResolveInsideTheDocument() {
+        assertThatNoException()
+                .isThrownBy(() -> ExtensionSchemas.requireValidSchema("{\"$defs\":{\"n\":{\"$ref\":\"\"}}}"));
+        assertThatNoException()
+                .isThrownBy(() -> ExtensionSchemas
+                        .requireValidSchema("{\"$id\":\"https://example.test/s\",\"$defs\":{\"n\":"
+                                + "{\"type\":\"object\"}},\"$ref\":\"https://example.test/s#/$defs/n\"}"));
+    }
+
+    @Test
+    void requireValidSchemaRejectsARemoteDynamicRef() {
+        // $dynamicRef is the dialect's other reference keyword and networknt resolves it just as lazily.
+        assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema("{\"$dynamicRef\":\"https://example.invalid/x\"}"))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void requireValidSchemaRejectsADuplicateKey() {
+        // The last wins silently, so the operator's first constraint would vanish.
+        assertThatThrownBy(() -> ExtensionSchemas.requireValidSchema("{\"required\":[\"a\"],\"required\":[\"b\"]}"))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
     void anUnloadableStoredSchemaIsReportedRatherThanThrown() {
         // A value written straight into the database must not turn every request into a 500.
         OidHandler

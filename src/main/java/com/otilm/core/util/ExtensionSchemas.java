@@ -1,5 +1,6 @@
 package com.otilm.core.util;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -60,6 +61,9 @@ public final class ExtensionSchemas {
     // member named $ref inside either is a literal. "definitions" is absent for that reason: 2020-12 replaced
     // it with $defs and treats it as an annotation. DisallowSchemaLoader remains the boundary for anything this
     // list does not reach.
+    /** Both reference keywords the dialect defines; networknt resolves each lazily. */
+    private static final Set<String> REFERENCE_KEYWORDS = Set.of("$ref", "$dynamicRef");
+
     private static final Set<String> SUBSCHEMA_KEYWORDS = Set
             .of("additionalProperties", "items", "not", "if", "then", "else", "contains", "propertyNames",
                     "unevaluatedItems", "unevaluatedProperties");
@@ -133,7 +137,11 @@ public final class ExtensionSchemas {
         }
         JsonNode parsed;
         try {
-            parsed = MAPPER.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(schemaDocument);
+            parsed = MAPPER
+                    .reader()
+                    .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                    .with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                    .readTree(schemaDocument);
         } catch (IOException e) {
             throw new ValidationException("Not a valid JSON Schema document: not JSON");
         }
@@ -141,7 +149,7 @@ public final class ExtensionSchemas {
             throw new ValidationException("Not a valid JSON Schema document: the root must be an object or a boolean");
         }
         requireSupportedDialect(parsed);
-        rejectNonLocalRefs(parsed, "$");
+        rejectNonLocalRefs(parsed, "$", documentId(parsed));
         requireWellFormedKeywords(parsed);
         try {
             FACTORY.getSchema(parsed);
@@ -188,20 +196,48 @@ public final class ExtensionSchemas {
      * Rejects a {@code $ref} that points outside the document. Such a reference cannot be resolved without fetching it,
      * which the platform does not do, so accepting one would register a schema that silently constrains nothing.
      */
-    private static void rejectNonLocalRefs(JsonNode node, String path) {
+    private static void rejectNonLocalRefs(JsonNode node, String path, String documentId) {
         if (node == null || !node.isObject()) {
             return;
         }
-        JsonNode ref = node.get("$ref");
-        if (ref != null && ref.isTextual() && !ref.textValue().startsWith("#")) {
-            throw new ValidationException(
-                    "Not a valid JSON Schema document: $ref at %s points outside the document; only local references such as #/$defs/name are supported"
-                            .formatted(path));
+        for (String keyword : REFERENCE_KEYWORDS) {
+            JsonNode ref = node.get(keyword);
+            if (ref != null && ref.isTextual() && !resolvesWithinDocument(ref.textValue(), documentId)) {
+                throw new ValidationException(
+                        "Not a valid JSON Schema document: %s at %s points outside the document; only local references such as #/$defs/name are supported"
+                                .formatted(keyword, path));
+            }
         }
         for (Map.Entry<String, JsonNode> property : node.properties()) {
             String childPath = path + "." + property.getKey();
-            subschemasOf(property.getKey(), property.getValue()).forEach(child -> rejectNonLocalRefs(child, childPath));
+            subschemasOf(property.getKey(), property.getValue())
+                    .forEach(child -> rejectNonLocalRefs(child, childPath, documentId));
         }
+    }
+
+    /** The document's own {@code $id}, against which an absolute self-reference resolves, or {@code null}. */
+    private static String documentId(JsonNode document) {
+        JsonNode id = document == null ? null : document.get("$id");
+        return id != null && id.isTextual() ? id.textValue() : null;
+    }
+
+    /**
+     * Whether a reference stays inside the document: empty (the root), a fragment, or absolute but matching the
+     * document's own {@code $id}.
+     *
+     * <p>
+     * A nested {@code $id} re-scopes the base URI, which this does not follow — a reference relying on one falls
+     * through to the loader, which refuses it, so the failure surfaces later rather than being missed.
+     */
+    private static boolean resolvesWithinDocument(String ref, String documentId) {
+        if (ref.isEmpty() || ref.startsWith("#")) {
+            return true;
+        }
+        if (documentId == null) {
+            return false;
+        }
+        int fragment = ref.indexOf('#');
+        return documentId.equals(fragment < 0 ? ref : ref.substring(0, fragment));
     }
 
     /** The subschemas a keyword's value holds, or nothing when the keyword does not hold subschemas. */

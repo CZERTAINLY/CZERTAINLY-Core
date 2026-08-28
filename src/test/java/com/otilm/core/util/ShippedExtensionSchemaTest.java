@@ -247,4 +247,21 @@ class ShippedExtensionSchemaTest {
                 + "[{\"sequence\":[" + subtreeMembers + "]}]}}}]}";
     }
 
+    @Test
+    void nameConstraintsTypesOtherNameAndIpAddress() {
+        // OtherName is an OID plus an explicitly tagged value; RFC 5280 4.2.1.10 requires an iPAddress
+        // constraint to carry 8 octets for IPv4 (address and mask) or 32 for IPv6.
+        assertAccepts("2.5.29.30",
+                nameConstraintsWithSubtree(
+                        "{\"tagged\":{\"tagNo\":0,\"explicit\":false,\"value\":{\"sequence\":[{\"oid\":\"1.2.3\"},"
+                                + "{\"tagged\":{\"tagNo\":0,\"explicit\":true,\"value\":{\"utf8String\":\"x\"}}}]}}}"));
+        assertRejects("2.5.29.30", nameConstraintsWithSubtree(
+                "{\"tagged\":{\"tagNo\":0,\"explicit\":false,\"value\":{\"sequence\":[]}}}"));
+
+        assertAccepts("2.5.29.30", nameConstraintsWithSubtree(
+                "{\"tagged\":{\"tagNo\":7,\"explicit\":false,\"value\":{\"octetString\":\"wAACAP////8=\"}}}"));
+        assertRejects("2.5.29.30", nameConstraintsWithSubtree(
+                "{\"tagged\":{\"tagNo\":7,\"explicit\":false,\"value\":{\"octetString\":\"wAACAA==\"}}}"));
+    }
+
 }

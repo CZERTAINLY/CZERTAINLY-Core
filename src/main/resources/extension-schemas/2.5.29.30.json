@@ -192,7 +192,46 @@
                           "type": "object",
                           "required": [
                             "sequence"
-                          ]
+                          ],
+                          "properties": {
+                            "sequence": {
+                              "type": "array",
+                              "minItems": 2,
+                              "maxItems": 2,
+                              "prefixItems": [
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "oid"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "tagged"
+                                  ],
+                                  "properties": {
+                                    "tagged": {
+                                      "type": "object",
+                                      "required": [
+                                        "tagNo",
+                                        "explicit"
+                                      ],
+                                      "properties": {
+                                        "tagNo": {
+                                          "const": 0
+                                        },
+                                        "explicit": {
+                                          "const": true
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              ],
+                              "items": false
+                            }
+                          }
                         }
                       }
                     }
@@ -402,7 +441,22 @@
                           "type": "object",
                           "required": [
                             "octetString"
-                          ]
+                          ],
+                          "properties": {
+                            "octetString": {
+                              "type": "string",
+                              "oneOf": [
+                                {
+                                  "minLength": 12,
+                                  "maxLength": 12
+                                },
+                                {
+                                  "minLength": 44,
+                                  "maxLength": 44
+                                }
+                              ]
+                            }
+                          }
                         }
                       }
                     }
