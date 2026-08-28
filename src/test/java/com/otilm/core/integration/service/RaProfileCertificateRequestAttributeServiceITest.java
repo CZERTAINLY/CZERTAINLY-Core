@@ -290,6 +290,25 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     }
 
     @Test
+    void mergeWithAStaticSetLogsNoWarningWhenTheConnectorServesNoSchema() throws Exception {
+        // Every v2 authority serves no request schema by contract, so this is the steady state for a MERGE profile
+        // with a static set — and resolution is correct: the static set is what 2.19.x would have resolved. Warning
+        // here would fire per certificate request, per EST /csrattrs and per ACME/SCEP/CMP request, forever.
+        RaProfile raProfile = newRaProfile();
+        attachConnector(raProfile);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
+                        AttributeSetMergeMode.MERGE, null);
+        when(extendedAttributeService.listCertificateRequestAttributes(any())).thenReturn(List.of());
+        ListAppender<ILoggingEvent> logged = captureResolutionLogs();
+
+        List<BaseAttribute> resolved = service.resolveIssueAttributeSet(raProfile);
+
+        assertThat(resolved).extracting(BaseAttribute::getName).containsExactly("static-only");
+        assertThat(messagesLoggedAt(logged, Level.WARN)).isEmpty();
+    }
+
+    @Test
     void staticOnlyResolutionLogsNoWarning() {
         // The common path must stay quiet: STATIC_ONLY never asks the connector for anything.
         RaProfile raProfile = newRaProfile();
@@ -480,6 +499,42 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     }
 
     @Test
+    void updateConfigurationLeavesBindingsAloneWhenTheFieldIsAbsent() {
+        // given — a profile with a stored binding
+        RaProfile raProfile = newRaProfile();
+        RaProfileCertificateRequestAttributesUpdateDto withBinding = new RaProfileCertificateRequestAttributesUpdateDto();
+        withBinding.setValueSourceBindings(List.of(binding("kept")));
+        service.updateConfiguration(raProfile, withBinding);
+
+        // when — an unrelated edit that does not mention bindings at all
+        RaProfileCertificateRequestAttributesUpdateDto staticSetOnly = new RaProfileCertificateRequestAttributesUpdateDto();
+        staticSetOnly.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
+        staticSetOnly.setValueSourceBindings(null);
+        service.updateConfiguration(raProfile, staticSetOnly);
+
+        // then — the binding survives; the static set was still written
+        RaProfileCertificateRequestAttributesDto stored = service.getConfiguration(raProfile);
+        assertThat(stored.getValueSourceBindings())
+                .extracting(ValueSourceBindingDto::getAttributeName)
+                .containsExactly("kept");
+        assertThat(stored.getRequestAttributes()).extracting(BaseAttribute::getName).containsExactly("server");
+    }
+
+    @Test
+    void updateConfigurationClearsBindingsWhenTheFieldIsAnEmptyList() {
+        RaProfile raProfile = newRaProfile();
+        RaProfileCertificateRequestAttributesUpdateDto withBinding = new RaProfileCertificateRequestAttributesUpdateDto();
+        withBinding.setValueSourceBindings(List.of(binding("dropped")));
+        service.updateConfiguration(raProfile, withBinding);
+
+        RaProfileCertificateRequestAttributesUpdateDto cleared = new RaProfileCertificateRequestAttributesUpdateDto();
+        cleared.setValueSourceBindings(List.of());
+        service.updateConfiguration(raProfile, cleared);
+
+        assertThat(service.getConfiguration(raProfile).getValueSourceBindings()).isEmpty();
+    }
+
+    @Test
     void updateConfigurationReplacesValueSourceBindings() {
         // given — a profile whose bindings are already stored
         RaProfile raProfile = newRaProfile();
@@ -496,6 +551,21 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         assertThat(service.getConfiguration(raProfile).getValueSourceBindings())
                 .extracting(ValueSourceBindingDto::getAttributeName)
                 .containsExactly("second");
+    }
+
+    @Test
+    void updateConfigurationRejectsABindingWithoutAValueSourceType() {
+        // The HTTP path is covered by @Valid + @NotNull, but this is a public service method and the rejection that
+        // used to short-circuit every non-empty binding list is gone.
+        RaProfile raProfile = newRaProfile();
+        ValueSourceBindingDto incomplete = new ValueSourceBindingDto();
+        incomplete.setAttributeName("server");
+        RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
+        request.setValueSourceBindings(List.of(incomplete));
+
+        assertThatThrownBy(() -> service.updateConfiguration(raProfile, request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("value source");
     }
 
     private static ValueSourceBindingDto binding(String attributeName) {

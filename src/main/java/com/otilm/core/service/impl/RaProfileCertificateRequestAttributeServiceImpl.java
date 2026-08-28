@@ -89,18 +89,18 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         List<BaseAttribute> connectorSet = effective == AttributeSetMergeMode.STATIC_ONLY
                 ? List.of()
                 : listConnectorRequestAttributes(raProfile);
-        if (effective != AttributeSetMergeMode.STATIC_ONLY && connectorSet.isEmpty()) {
-            // Silent otherwise: the operator asked to combine a connector set that does not exist, and under
-            // CONNECTOR_ONLY the static set is skipped too, so what resolves is the platform default set.
-            logger
-                    .warn("RA profile {} resolves request attributes with merge mode {}, but the authority connector "
-                            + "supplied no request-attribute schema; the resolved set comes from the static set or "
-                            + "the platform default only", raProfile.getName(), effective.getCode());
-        }
-
         List<BaseAttribute> merged = RequestAttributeSetResolver.merge(staticSet, connectorSet, mode);
         if (merged.isEmpty()) {
-            // fall back to the editable platform default set when nothing resolved.
+            if (effective != AttributeSetMergeMode.STATIC_ONLY) {
+                // Only once the fallback actually bites: a mode that admits the connector set resolved nothing, so
+                // the platform default silently stands in for the configuration the operator asked for. Warning
+                // merely because the connector served no schema would fire on every request of every v2-backed
+                // profile whose static set resolves correctly.
+                logger
+                        .warn("RA profile {} resolves request attributes with merge mode {}, but neither the "
+                                + "authority connector nor the static set yielded any definition; falling back to "
+                                + "the platform default set", raProfile.getName(), effective.getCode());
+            }
             merged = new ArrayList<>(getDefaultSet());
         }
 
@@ -150,14 +150,19 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
     }
 
     @Override
+    @Transactional
     public void updateConfiguration(RaProfile raProfile, RaProfileCertificateRequestAttributesUpdateDto request) {
         AttributeEngine.validateRequestAttributeDefinitions(request.getRequestAttributes());
         writer
                 .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(request.getRequestAttributes()),
                         request.getMergeMode(), request.getExternalCsrValidationStrict());
-        writer
-                .replaceValueSourceBindings(raProfile.getUuid(),
-                        toBindingEntities(raProfile, request.getValueSourceBindings()));
+        // Absent bindings leave the stored rows alone; the replace is wholesale, so treating absent as empty would
+        // let any unrelated edit to the static set delete them. An explicitly empty list still clears.
+        if (request.getValueSourceBindings() != null) {
+            writer
+                    .replaceValueSourceBindings(raProfile.getUuid(),
+                            toBindingEntities(raProfile, request.getValueSourceBindings()));
+        }
     }
 
     @Override
@@ -238,6 +243,13 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
             return entities;
         }
         for (ValueSourceBindingDto binding : bindings) {
+            if (binding.getValueSourceType() == null) {
+                throw new ValidationException(ValidationError
+                        .create("Value-source binding for attribute '%s' does not declare a value source type."
+                                .formatted(binding.getAttributeUuid() == null
+                                        ? binding.getAttributeName()
+                                        : binding.getAttributeUuid())));
+            }
             RaProfileValueSourceBinding entity = new RaProfileValueSourceBinding();
             entity.setRaProfileUuid(raProfile.getUuid());
             entity.setAttributeUuid(binding.getAttributeUuid());
