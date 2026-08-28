@@ -116,6 +116,21 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
                 .setSort(new SearchSortRequestDto(FilterFieldSource.PROPERTY, FilterField.CBOM_ASSET_NAME.name(),
                         SortDirection.ASC));
         assertThatThrownBy(() -> list(sorted)).isInstanceOf(ValidationException.class).hasMessageContaining("Sorting");
+
+        // (pageNumber - 1) * itemsPerPage must fit an int: the JPA offset is an int, so an unchecked product either
+        // throws deep in Hibernate (a 400, not the shaped 422) or -- worse -- wraps positive and silently serves the
+        // wrong page while echoing the requested number.
+        SearchRequestDto wrapping = new SearchRequestDto();
+        wrapping.setPageNumber(4294969);
+        wrapping.setItemsPerPage(1000);
+        assertThatThrownBy(() -> list(wrapping))
+                .describedAs("offset 4,294,968,000 wraps to +704 -- must be refused, not served")
+                .isInstanceOf(ValidationException.class);
+
+        SearchRequestDto overflowing = new SearchRequestDto();
+        overflowing.setPageNumber(2147485);
+        overflowing.setItemsPerPage(1000);
+        assertThatThrownBy(() -> list(overflowing)).isInstanceOf(ValidationException.class);
     }
 
     @Test
@@ -135,6 +150,11 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
         UUID guarded = assetWriter
                 .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cn", null, null,
                         null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
+        UUID contradicted = assetWriter
+                .upsertIdentity(
+                        new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "contradicted-cert", null,
+                                null, null, null, null, null, null, null),
+                        CryptoAssetIdentityGuard.REFUTED_CERTIFICATE_DIGEST);
 
         UUID neverEvaluated = seedNamed(CryptographicAssetType.ALGORITHM, "RSA", "oid-never-evaluated");
 
@@ -151,12 +171,67 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
         assertThat(sourcedDto.getUuid()).isEqualTo(sourced);
 
         CryptographicAssetDto guardedDto = dtoFor(page, guarded);
-        assertThat(guardedDto.isQuarantined()).isTrue();
+        assertThat(guardedDto.isQuarantined())
+                .describedAs("BARE_CN_SUBJECT is a permanent DN-scope split with no reconciliation path -- not the "
+                        + "contract's 'contradicting claims quarantined pending reconciliation'")
+                .isFalse();
+
+        CryptographicAssetDto contradictedDto = dtoFor(page, contradicted);
+        assertThat(contradictedDto.isQuarantined())
+                .describedAs("REFUTED_CERTIFICATE_DIGEST is the one guard the contract sentence describes: "
+                        + "contradicting claims, pending reconciliation")
+                .isTrue();
 
         CryptographicAssetDto neverEvaluatedDto = dtoFor(page, neverEvaluated);
         assertThat(neverEvaluatedDto.getPqcVerdict())
                 .describedAs("never evaluated -> UNKNOWN, not null")
                 .isEqualTo(PqcVerdict.UNKNOWN);
+    }
+
+    /**
+     * The contract orders rows "by name ascending", and the only name it defines is the served display field -- for a
+     * nameless row, its OID fallback. Sorting the bare column instead would put every nameless row last (NULL sorts
+     * last under ASC), serving ["zzz-cipher", "0.aaa"]: descending on the wire.
+     */
+    @Test
+    void ordersByTheServedNameNotTheBareColumn() {
+        UUID named = seedNamed(CryptographicAssetType.ALGORITHM, "zzz-cipher", "9.9.9");
+        UUID oidServed = seedNamed(CryptographicAssetType.CERTIFICATE, null, "0.aaa");
+
+        PaginationResponseDto<CryptographicAssetDto> page = list(new SearchRequestDto());
+        assertThat(page.getItems()).extracting(CryptographicAssetDto::getUuid).containsExactly(oidServed, named);
+        assertThat(page.getItems()).extracting(CryptographicAssetDto::getName).containsExactly("0.aaa", "zzz-cipher");
+    }
+
+    /**
+     * A refuted OID must not be served as the display name: the contract's principle for refuted identifiers (stated on
+     * the detail contract's per-OID flag) is that a client labels them instead of presenting them as fact, and the list
+     * DTO carries no such flag. The row serves no name at all -- the interfaces-owned both-null residual -- and sorts
+     * with the nameless rows, consistently with the search that refuses to match the same string.
+     */
+    @Test
+    void aRefutedOidIsNotServedAsTheName() {
+        UUID refutedNameless = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, null, "0.0.1", "ml-kem",
+                        null, null, null, null, null, null), CryptoAssetIdentityGuard.REFUTED_OID);
+        UUID named = seedNamed(CryptographicAssetType.ALGORITHM, "aes", "1.2.3");
+
+        PaginationResponseDto<CryptographicAssetDto> page = list(new SearchRequestDto());
+        assertThat(dtoFor(page, refutedNameless).getName()).isNull();
+        assertThat(page.getItems())
+                .extracting(CryptographicAssetDto::getUuid)
+                .describedAs("serves no name -> sorts after named rows even though '0.0.1' < 'aes'")
+                .containsExactly(named, refutedNameless);
+    }
+
+    @Test
+    void aRowWithNeitherNameNorOidServesNoName() {
+        UUID bare = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, null, null,
+                        null, null, null, null, null, null), null);
+        assertThat(dtoFor(list(new SearchRequestDto()), bare).getName())
+                .describedAs("interfaces-owned residual: the REQUIRED name has no value to serve")
+                .isNull();
     }
 
     /**
@@ -212,8 +287,9 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
         PaginationResponseDto<CryptographicAssetDto> withOptInResult = list(withOptIn);
         assertThat(withOptInResult.getItems()).extracting(CryptographicAssetDto::getUuid).containsExactly(refuted);
         assertThat(withOptInResult.getItems().getFirst().isQuarantined())
-                .describedAs("the opted-in row is served flagged as quarantined, not laundered")
-                .isTrue();
+                .describedAs("REFUTED_OID is one component contradicting itself, not 'sources making contradicting "
+                        + "claims pending reconciliation' -- served unflagged")
+                .isFalse();
     }
 
     /**
@@ -262,6 +338,11 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
                 .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, "oid-bare-only",
                         null, null, null, null, null, null, null), null);
 
+        UUID refutedNameless = assetWriter
+                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, null,
+                        "oid-refuted-label", "ml-kem", null, null, null, null, null, null),
+                        CryptoAssetIdentityGuard.REFUTED_OID);
+
         List<NameAndUuidDto> objects = resourceExtension().listResourceObjects(SecurityFilter.create(), null, null);
 
         assertThat(nameFor(objects, named))
@@ -270,6 +351,26 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
         assertThat(nameFor(objects, bare))
                 .describedAs("a name-less row falls back to its oid")
                 .isEqualTo("oid-bare-only");
+        assertThat(nameFor(objects, refutedNameless))
+                .describedAs("a refuted OID is never presented as a label -- the picker shows no name rather than a "
+                        + "value the refuted ruling calls a false fact")
+                .isNull();
+    }
+
+    @Test
+    void listResourceObjectsHonoursPickerFilters() {
+        UUID aes = seedNamed(CryptographicAssetType.ALGORITHM, "AES", "oid-picker-aes");
+        seedNamed(CryptographicAssetType.ALGORITHM, "RSA", "oid-picker-rsa");
+
+        List<NameAndUuidDto> filtered = resourceExtension()
+                .listResourceObjects(SecurityFilter.create(),
+                        List.of(aPropertyEqualsFilter(FilterField.CBOM_ASSET_NAME, "aes")), null);
+
+        assertThat(filtered)
+                .describedAs("a search typed into the role editor's picker narrows the objects, like the "
+                        + "entity-instance precedent")
+                .extracting(NameAndUuidDto::getUuid)
+                .containsExactly(aes.toString());
     }
 
     @Test
@@ -281,8 +382,8 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
         assertThat(found.getName()).isEqualTo("aes");
 
         UUID missing = UUID.randomUUID();
-        assertThatThrownBy(() -> resourceExtension().getResourceObjectInternal(missing))
-                .isInstanceOf(NotFoundException.class);
+        ResourceExtensionService extension = resourceExtension();
+        assertThatThrownBy(() -> extension.getResourceObjectInternal(missing)).isInstanceOf(NotFoundException.class);
     }
 
     @Test
@@ -294,7 +395,9 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
         assertThat(found.getName()).isEqualTo("aes");
 
         UUID missing = UUID.randomUUID();
-        assertThatThrownBy(() -> resourceExtension().getResourceObjectExternal(SecuredUUID.fromUUID(missing)))
+        SecuredUUID missingUuid = SecuredUUID.fromUUID(missing);
+        ResourceExtensionService extension = resourceExtension();
+        assertThatThrownBy(() -> extension.getResourceObjectExternal(missingUuid))
                 .isInstanceOf(NotFoundException.class);
     }
 
@@ -304,8 +407,9 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
         resourceExtension().evaluatePermissionChain(SecuredUUID.fromUUID(existing));
 
         UUID missing = UUID.randomUUID();
-        assertThatThrownBy(() -> resourceExtension().evaluatePermissionChain(SecuredUUID.fromUUID(missing)))
-                .isInstanceOf(NotFoundException.class);
+        SecuredUUID missingUuid = SecuredUUID.fromUUID(missing);
+        ResourceExtensionService extension = resourceExtension();
+        assertThatThrownBy(() -> extension.evaluatePermissionChain(missingUuid)).isInstanceOf(NotFoundException.class);
     }
 
     // ---- helpers ----

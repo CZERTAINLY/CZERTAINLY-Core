@@ -2,7 +2,10 @@ package com.otilm.core.integration.api.web;
 
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
+import com.otilm.core.cbom.asset.CryptoAssetIdentityCalculator;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
+import com.otilm.core.dao.entity.Cbom;
+import com.otilm.core.dao.repository.CbomRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.service.writer.cbom.CryptoAssetWriter;
 import com.otilm.core.util.BaseSpringBootTest;
@@ -47,11 +50,16 @@ class CryptographicAssetAuthorizationHttpITest extends BaseSpringBootTest {
     @Autowired
     private CryptoAssetWriter assetWriter;
 
+    @Autowired
+    private CbomRepository cbomRepository;
+
+    private CryptoAssetIdentityFields seededFields;
+
     @BeforeEach
     void seedAsset() {
-        assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA",
-                        "1.2.840.10045.4.3.2", "ecdsa", "signature", "P-256", "secp256r1", null, null, null), null);
+        seededFields = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA", "1.2.840.10045.4.3.2",
+                "ecdsa", "signature", "P-256", "secp256r1", null, null, null);
+        assetWriter.upsertIdentity(seededFields, null);
     }
 
     @Test
@@ -67,9 +75,12 @@ class CryptographicAssetAuthorizationHttpITest extends BaseSpringBootTest {
 
     @Test
     void servesBothOperationsWithoutMentioningTheIdentityKeyWhenPermitted() throws Exception {
+        // The positive control: the seeded row must actually reach the response, or a filter/security regression
+        // that empties the page would satisfy every doesNotContain assertion below vacuously.
         String listResponse = mockMvc
                 .perform(post(LIST_ENDPOINT).contentType("application/json").content("{}"))
-                .andExpect(status().isOk())
+                .andExpectAll(status().isOk(), jsonPath("$.totalItems").value(1),
+                        jsonPath("$.items[0].name").value("ecdsa"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -82,5 +93,53 @@ class CryptographicAssetAuthorizationHttpITest extends BaseSpringBootTest {
                 .getResponse()
                 .getContentAsString();
         assertThat(searchableFieldsResponse).doesNotContainPattern(IDENTITY_KEY);
+
+        // The name pattern catches field names; a wire leak would realistically be the VALUE. The calculator can
+        // recompute this row's exact key from the same fixture input, so assert the strongest possible fact: the
+        // literal key appears in neither raw response.
+        String exactIdentityKey = CryptoAssetIdentityCalculator.calculate(seededFields);
+        assertThat(listResponse).doesNotContain(exactIdentityKey);
+        assertThat(searchableFieldsResponse).doesNotContain(exactIdentityKey);
+    }
+
+    @Test
+    void refusesInvalidPagingWithAShapedUnprocessableEntity() throws Exception {
+        mockMvc
+                .perform(post(LIST_ENDPOINT).contentType("application/json").content("{\"pageNumber\":0}"))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    /**
+     * The source-CBOM value list crosses a resource gate -- CBOM serial numbers belong to the CBOM resource -- so it is
+     * scoped by the caller's own {@code cboms:list} access rather than served platform-wide: a caller holding only
+     * {@code cryptoAssets:list} still gets the searchable fields, but that one value list comes back empty.
+     */
+    @Test
+    void scopesTheSourceCbomValueListByTheCallersCbomAccess() throws Exception {
+        Cbom cbom = new Cbom();
+        cbom.setSerialNumber("urn:uuid:scoped");
+        cbom.setVersion(1);
+        cbom.setSpecVersion("1.7");
+        cbomRepository.save(cbom);
+
+        String permitted = mockMvc
+                .perform(get(SEARCHABLE_FIELDS_ENDPOINT))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(permitted).contains("urn:uuid:scoped");
+
+        denyObjectAccess(Resource.CBOM, ResourceAction.LIST);
+        String scoped = mockMvc
+                .perform(get(SEARCHABLE_FIELDS_ENDPOINT))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(scoped).doesNotContain("urn:uuid:scoped");
+        assertThat(scoped)
+                .describedAs("the fields themselves still serve; only the cross-resource value list is scoped")
+                .contains("CBOM_ASSET_SOURCE_CBOM");
     }
 }

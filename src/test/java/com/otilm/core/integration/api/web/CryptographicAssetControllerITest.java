@@ -48,7 +48,8 @@ class CryptographicAssetControllerITest extends BaseSpringBootTest {
 
         assertThat(cryptographicAssetController.getSearchableFieldInformation()).isNotEmpty();
 
-        assertThatThrownBy(() -> cryptographicAssetController.getCryptographicAsset(UUID.randomUUID()))
+        UUID anyUuid = UUID.randomUUID();
+        assertThatThrownBy(() -> cryptographicAssetController.getCryptographicAsset(anyUuid))
                 .isInstanceOf(NotSupportedException.class);
         assertThatThrownBy(() -> statisticsController.getCryptographicAssetStatistics())
                 .isInstanceOf(NotSupportedException.class);
@@ -64,5 +65,8 @@ class CryptographicAssetControllerITest extends BaseSpringBootTest {
                 .orElseThrow(() -> new AssertionError("Resource not synced: " + Resource.CRYPTO_ASSET.getCode()));
 
         assertThat(synced.getActions()).contains(ResourceAction.LIST.getCode(), ResourceAction.DETAIL.getCode());
+        assertThat(synced.getListObjectsEndpoint())
+                .describedAs("the one auth-sync behaviour @AuthEndpoint adds: the advertised object listing route")
+                .isEqualTo("/v1/cryptoAssets");
     }
 }

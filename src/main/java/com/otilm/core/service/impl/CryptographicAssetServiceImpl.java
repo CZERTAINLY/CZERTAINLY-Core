@@ -17,14 +17,17 @@ import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.comparator.SearchFieldDataComparator;
+import com.otilm.core.dao.entity.Cbom_;
 import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.entity.cbom.CryptoAsset_;
 import com.otilm.core.dao.repository.CbomRepository;
 import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import com.otilm.core.model.cbom.CryptoAssetListRow;
 import com.otilm.core.security.authz.ExternalAuthorization;
+import com.otilm.core.security.authz.ObjectFilterAspect;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CryptographicAssetExternalService;
@@ -73,6 +76,8 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
 
     private CbomRepository cbomRepository;
 
+    private ObjectFilterAspect objectFilterAspect;
+
     @Autowired
     public void setCryptoAssetRepository(CryptoAssetRepository cryptoAssetRepository) {
         this.cryptoAssetRepository = cryptoAssetRepository;
@@ -81,6 +86,11 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
     @Autowired
     public void setCbomRepository(CbomRepository cbomRepository) {
         this.cbomRepository = cbomRepository;
+    }
+
+    @Autowired
+    public void setObjectFilterAspect(ObjectFilterAspect objectFilterAspect) {
+        this.objectFilterAspect = objectFilterAspect;
     }
 
     @Override
@@ -93,12 +103,16 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
                 criteriaQuery) -> FilterPredicatesBuilder
                         .getFiltersPredicate(cb, criteriaQuery, root, request.getFilters());
         Pageable page = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        // The documented order is name ASC, uuid ASC. Only the name term is spelled here: the repository appends
-        // the ascending-uuid tiebreak to every paged secured query (SortOrderBuilder), which is what keeps page
-        // boundaries deterministic inside a group of equal names.
+        // The contract's "ordered by name ascending" means the SERVED name -- displayLabel's guarded coalesce --
+        // not the bare column, which would sort every oid-served row after the named ones (NULL sorts last).
+        // Only this term is spelled here: the repository appends the ascending-uuid tiebreak to every paged
+        // secured query (SortOrderBuilder), which keeps page boundaries deterministic inside equal labels.
         List<UUID> pageUuids = cryptoAssetRepository
-                .findUuidsUsingSecurityFilter(filter, where, page, (root, cb) -> cb.asc(root.get(CryptoAsset_.name)));
-        long totalItems = cryptoAssetRepository.countUsingSecurityFilter(filter, where);
+                .findUuidsUsingSecurityFilter(filter, where, page, (root, cb) -> cb.asc(displayLabel(root, cb)));
+        // The plain-count variant: every crypto-asset predicate is either single-column or an EXISTS subquery and
+        // the resource declares no groups or owner, so no query shape can duplicate a root row -- and
+        // count(DISTINCT) forfeits parallel aggregation, which at millions of rows is seconds per page request.
+        long totalItems = cryptoAssetRepository.countRowsUsingSecurityFilter(filter, where);
         PaginationResponseDto<CryptographicAssetDto> response = new PaginationResponseDto<>();
         response.setItems(loadPage(pageUuids));
         response.setItemsPerPage(request.getItemsPerPage());
@@ -152,10 +166,8 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
                         SearchHelper.prepareSearch(FilterField.CBOM_ASSET_PQC_VERDICT),
                         SearchHelper.prepareSearch(FilterField.CBOM_ASSET_PQC_RULESET_VERSION),
                         SearchHelper.prepareSearch(FilterField.CBOM_ASSET_RULESET_VERSION),
-                        SearchHelper.prepareSearch(FilterField.CBOM_ASSET_SOURCE_COUNT),
-                        SearchHelper
-                                .prepareSearch(FilterField.CBOM_ASSET_SOURCE_CBOM,
-                                        cbomRepository.findDistinctSerialNumber()));
+                        SearchHelper.prepareSearch(FilterField.CBOM_ASSET_SOURCE_COUNT), SearchHelper
+                                .prepareSearch(FilterField.CBOM_ASSET_SOURCE_CBOM, cbomSerialNumbersScopedToCaller()));
         List<SearchFieldDataDto> sorted = new ArrayList<>(fields);
         sorted.sort(new SearchFieldDataComparator());
         return List.of(new SearchFieldDataByGroupDto(sorted, FilterFieldSource.PROPERTY));
@@ -183,11 +195,21 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
     @ExternalAuthorization(resource = Resource.CRYPTO_ASSET, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
             PaginationRequestDto pagination) {
+        // A search typed into the role editor's picker arrives as filters; honour them the way the inventory list
+        // does (the entity-instance extension is the platform's filter-honouring precedent).
+        TriFunction<Root<CryptoAsset>, CriteriaBuilder, CriteriaQuery<?>, Predicate> where = filters == null
+                || filters.isEmpty()
+                        ? null
+                        : (root, cb, criteriaQuery) -> FilterPredicatesBuilder
+                                .getFiltersPredicate(cb, criteriaQuery, root, filters);
         return cryptoAssetRepository
-                .listResourceObjects(filter, CryptographicAssetServiceImpl::displayLabel, null, pagination);
+                .listResourceObjects(filter, CryptographicAssetServiceImpl::displayLabel, where, pagination);
     }
 
-    // DETAIL is this resource's own object-read gate, and it has no parent resource to chain through.
+    // DETAIL is this resource's own object-read gate, and it has no parent resource to chain through. Sibling
+    // extension services gate this with UPDATE because their one generic caller writes attribute content; that
+    // caller is unreachable here while hasCustomAttributes stays false, and DETAIL avoids syncing a spurious
+    // update action onto a read-only resource -- if custom attributes are ever enabled, this must become UPDATE.
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTO_ASSET, action = ResourceAction.DETAIL)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
@@ -210,6 +232,31 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
         if (request.getItemsPerPage() > MAX_ITEMS_PER_PAGE) {
             request.setItemsPerPage(MAX_ITEMS_PER_PAGE);
         }
+        // The JPA offset is an int. An unchecked (pageNumber - 1) * itemsPerPage either throws deep in Hibernate
+        // (a 400, not the shaped 422) or -- worse -- wraps positive and silently serves the wrong page while
+        // echoing the requested page number.
+        if ((long) (request.getPageNumber() - 1) * request.getItemsPerPage() > Integer.MAX_VALUE) {
+            throw new ValidationException("Page number " + request.getPageNumber() + " with "
+                    + request.getItemsPerPage() + " items per page exceeds the addressable offset.");
+        }
+    }
+
+    /**
+     * The source-CBOM value list crosses a resource gate -- serial numbers belong to the CBOM resource, and every other
+     * platform value list stays inside its own resource's table. So this one is scoped by the caller's own
+     * {@code cboms:list} object access, populated the same way the rule-filter-fields listing scopes its field
+     * resources: a caller without CBOM access gets an empty value list (the filter itself keeps working by hand), never
+     * the platform's whole document inventory.
+     */
+    private List<String> cbomSerialNumbersScopedToCaller() {
+        SecurityFilter cbomFilter = SecurityFilter.create();
+        objectFilterAspect.populateSecurityFilter(Resource.CBOM, ResourceAction.LIST, null, null, cbomFilter);
+        return cbomRepository
+                .countGroupedUsingSecurityFilter(cbomFilter, null, Cbom_.serialNumber, null, null)
+                .keySet()
+                .stream()
+                .sorted()
+                .toList();
     }
 
     private List<CryptographicAssetDto> loadPage(List<UUID> pageUuids) {
@@ -230,29 +277,48 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
     }
 
     /**
-     * The role-permissions object picker's display label: the asset's name, or -- for a bare producer row with none --
-     * its recorded OID, the next-best stable label. Both are producer-derived display values.
+     * The display label, everywhere one is served: the list's {@code name}, the picker's label, and the list order. The
+     * producer name, else the recorded OID -- EXCEPT a {@code REFUTED_OID} row, whose OID must never be presented as
+     * fact: the refuted ruling's principle is that a client labels such a value instead of serving it bare, and neither
+     * this DTO nor the picker's carries a flag to label it with. Must stay in lock-step with {@link #servedName}, its
+     * in-memory twin.
      */
     private static Expression<String> displayLabel(Root<CryptoAsset> root, CriteriaBuilder cb) {
-        return cb.coalesce(root.get(CryptoAsset_.name), root.get(CryptoAsset_.oid));
+        Expression<String> oidUnlessRefuted = cb
+                .<String>selectCase()
+                .when(cb.equal(root.get(CryptoAsset_.identityGuard), CryptoAssetIdentityGuard.REFUTED_OID),
+                        cb.nullLiteral(String.class))
+                .otherwise(root.get(CryptoAsset_.oid));
+        return cb.coalesce(root.get(CryptoAsset_.name), oidUnlessRefuted);
+    }
+
+    /** The in-memory twin of {@link #displayLabel}; the list orders by that expression and serves this value. */
+    private static String servedName(CryptoAssetListRow row) {
+        if (row.name() != null) {
+            return row.name();
+        }
+        return row.identityGuard() == CryptoAssetIdentityGuard.REFUTED_OID ? null : row.oid();
     }
 
     private static CryptographicAssetDto toDto(CryptoAssetListRow row) {
         CryptographicAssetDto dto = new CryptographicAssetDto();
         dto.setUuid(row.uuid());
         // The contract marks name REQUIRED and the wire mapper drops nulls, so a nameless producer row serves its
-        // recorded OID -- the same next-best stable label displayLabel gives the object picker. A row with neither
-        // still serializes without the field; that residual is interfaces' contract friction, raised on the PR.
-        dto.setName(row.name() != null ? row.name() : row.oid());
+        // recorded OID unless that OID is refuted. A row with no servable label at all serializes without the
+        // field; that residual is interfaces' contract friction, raised on the PR.
+        dto.setName(servedName(row));
         dto.setType(row.assetType());
         dto.setSourceCbomCount(row.sourceCount());
         dto.setOccurrenceCount(row.occurrenceCount());
         // A never-evaluated asset is served as UNKNOWN, the ratified "the rules cannot classify this asset"
         // verdict, because the contract marks the field required.
         dto.setPqcVerdict(row.pqcVerdict() == null ? PqcVerdict.UNKNOWN : row.pqcVerdict());
-        // The guard records that a safety rule kept contradicting or ambiguous producer claims apart, which is
-        // exactly the contract's "contradicting claims quarantined pending reconciliation".
-        dto.setQuarantined(row.identityGuard() != null);
+        // The contract's sentence -- "sources make contradicting claims ... quarantined pending reconciliation" --
+        // describes exactly one guard: REFUTED_CERTIFICATE_DIGEST (contradicting claims, reconciliation queue).
+        // BARE_CN_SUBJECT is a permanent DN-scope split with, by the ratified addendum, no reconciliation path at
+        // all, and REFUTED_OID is one component contradicting itself; flagging either would advertise an operator
+        // queue that can never drain. Widening this needs the flag re-worded in interfaces, not a wider test here.
+        dto.setQuarantined(row.identityGuard() == CryptoAssetIdentityGuard.REFUTED_CERTIFICATE_DIGEST);
         return dto;
     }
 }

@@ -71,14 +71,22 @@ class CryptographicAssetSearchableFieldsITest extends BaseSpringBootTest {
                                 "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
                         CryptoAssetIdentityGuard.REFUTED_OID);
 
-        Cbom cbom = new Cbom();
-        cbom.setSerialNumber(SEEDED_SERIAL);
-        cbom.setVersion(1);
-        cbom.setSpecVersion("1.7");
-        cbomRepository.save(cbom);
+        newCbom(SEEDED_SERIAL, 1);
+        // A second version of the same serial plus an earlier-sorting one: the value list must collapse the
+        // duplicate and come back sorted.
+        newCbom(SEEDED_SERIAL, 2);
+        newCbom("urn:uuid:aaa-first", 1);
 
         groups = cryptographicAssetService.getSearchableFieldInformationByGroup();
         fields = groups.get(0).getSearchFieldData();
+    }
+
+    private void newCbom(String serialNumber, int version) {
+        Cbom cbom = new Cbom();
+        cbom.setSerialNumber(serialNumber);
+        cbom.setVersion(version);
+        cbom.setSpecVersion("1.7");
+        cbomRepository.save(cbom);
     }
 
     /**
@@ -123,7 +131,8 @@ class CryptographicAssetSearchableFieldsITest extends BaseSpringBootTest {
         assertThat(refuted.getType()).isEqualTo(FilterFieldType.BOOLEAN);
 
         assertThat((List<String>) fieldFor(FilterField.CBOM_ASSET_SOURCE_CBOM).getValue())
-                .containsExactly(SEEDED_SERIAL);
+                .describedAs("scoped to the caller's CBOM access, duplicate serial collapsed, sorted")
+                .containsExactly("urn:uuid:aaa-first", SEEDED_SERIAL);
     }
 
     @Test
