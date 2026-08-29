@@ -9,6 +9,7 @@ import com.otilm.api.exception.NotSupportedException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.client.v1.DiscoverySyncApiClient;
+import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
@@ -84,6 +85,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -294,18 +296,13 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         if (!DISCOVERABLE_RESOURCES.contains(resource)) {
             throw new ValidationException("Resource " + resource.getCode() + " is not discoverable");
         }
-        var client = connectorApiFactory.getDiscoveryApiClientV2(connector);
         // Discoverable in general is not the same as discoverable by this connector, and the supported set is
         // never persisted -- it is relayed live -- so answering that question costs a call.
-        boolean supported = client
-                .listSupportedResources(connector)
-                .stream()
-                .anyMatch(supportedResource -> supportedResource.getResource() == resource);
-        if (!supported) {
+        if (!liveSupportedResources(connectorUuid.getValue()).contains(resource)) {
             throw new ValidationException(
                     "Connector " + connectorUuid.getValue() + " does not discover " + resource.getCode());
         }
-        return client.listResourceAttributes(connector, resource);
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).listResourceAttributes(connector, resource);
     }
 
     /** The connector, once its v2 discovery interface is known to exist — the only generation with a schema. */
@@ -316,6 +313,73 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                     "Connector " + connectorUuid.getValue() + " does not implement the v2 discovery interface");
         }
         return connector;
+    }
+
+    /**
+     * Stores each resource's own attributes under that resource's wire code, which is the operation the request builder
+     * later reads them back by. Without this a v2 run would send the connector an empty configuration for every
+     * resource it targets, and the connector would scan on defaults.
+     */
+    private void storeResourceAttributes(DiscoveryDto request, Connector connector, Discovery discovery)
+            throws AttributeException, NotFoundException {
+        if (request.getResourceAttributes() == null) {
+            return;
+        }
+        for (Map.Entry<Resource, List<RequestAttribute>> perResource : request.getResourceAttributes().entrySet()) {
+            attributeEngine
+                    .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                            .builder(Resource.DISCOVERY, discovery.getUuid())
+                            .connector(connector.getUuid())
+                            .operation(perResource.getKey().getCode())
+                            .build(), perResource.getValue());
+        }
+    }
+
+    /**
+     * Decides what a run may target, before anything is written.
+     *
+     * <p>
+     * The two generations are mirror images: a v2 connector needs {@code resources}, since it discovers several kinds
+     * and cannot guess which the caller meant, while a v1 connector must not be given any — it discovers certificates
+     * and nothing else, so accepting the field would let a caller believe they had selected something. An empty list or
+     * a null element never reaches here; bean validation refuses both.
+     */
+    private void validateRequestedResources(DiscoveryDto request, Connector connector,
+            ConnectorInterfaceEntity discoveryV2) throws NotFoundException, ConnectorException {
+        if (discoveryV2 == null) {
+            if (request.getResources() != null) {
+                throw new ValidationException("Connector " + connector.getUuid()
+                        + " implements only the v1 discovery interface, which discovers certificates only");
+            }
+            return;
+        }
+        if (request.getResources() == null) {
+            throw new ValidationException(
+                    "resources is required for connector " + connector.getUuid() + ", which discovers several kinds");
+        }
+        // Asked inline, as the create path already asks the connector to validate attributes. Catching an
+        // unsupported resource now costs one call; catching it at start costs a run that opens and immediately fails.
+        List<Resource> supported = liveSupportedResources(connector.getUuid());
+        List<Resource> unsupported = request
+                .getResources()
+                .stream()
+                .filter(resource -> !supported.contains(resource))
+                .toList();
+        if (!unsupported.isEmpty()) {
+            throw new ValidationException("Connector " + connector.getUuid() + " does not discover "
+                    + unsupported.stream().map(Resource::getCode).toList());
+        }
+    }
+
+    /** What the connector says it can discover right now. Never persisted, so every caller asks. */
+    private List<Resource> liveSupportedResources(UUID connectorUuid) throws NotFoundException, ConnectorException {
+        ApiClientConnectorInfo connector = connectorService.getConnectorForApiClient(connectorUuid);
+        return connectorApiFactory
+                .getDiscoveryApiClientV2(connector)
+                .listSupportedResources(connector)
+                .stream()
+                .map(DiscoverySupportedResourceDto::getResource)
+                .toList();
     }
 
     private Optional<ConnectorInterfaceEntity> discoveryV2Interface(UUID connectorUuid) {
@@ -542,9 +606,18 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 .mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()),
                         FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
 
+        ConnectorInterfaceEntity discoveryV2 = discoveryV2Interface(connector.getUuid()).orElse(null);
+        validateRequestedResources(request, connector, discoveryV2);
+
         Discovery discovery = new Discovery();
         discovery.setName(request.getName());
         discovery.setConnectorName(connector.getName());
+        // The association is what routes every later operation to the v2 adapter; without it the run is a v1 run
+        // no matter what the connector implements.
+        if (discoveryV2 != null) {
+            discovery.setConnectorInterfaceUuid(discoveryV2.getUuid());
+            discovery.setResources(List.copyOf(request.getResources()));
+        }
         // Captured here rather than at start: this is where a caller is still on the thread. A v2 run's import
         // runs from an agenda tick with no principal of its own, and authorization refuses CERTIFICATE:CREATE
         // without one, so the run has to remember who to act as.
@@ -565,6 +638,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                             .builder(Resource.DISCOVERY, discovery.getUuid())
                             .connector(connector.getUuid())
                             .build(), request.getAttributes());
+            storeResourceAttributes(request, connector, discovery);
             if (request.getTriggers() != null) {
                 triggerService
                         .createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY,

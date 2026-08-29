@@ -753,6 +753,59 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void creatingAgainstAV2ConnectorRecordsTheAssociationThatRoutesTheRun() throws Exception {
+        giveConnectorAV2DiscoveryInterface();
+        stubSupportedResources("""
+                [{"resource":"certificates"},{"resource":"keys"}]""");
+
+        DiscoveryDetailDto created = discoveryService
+                .createDiscovery(v2Request(List.of(Resource.CRYPTOGRAPHIC_KEY)), true);
+
+        // Without the association the run is a v1 run whatever the connector implements, so every later operation
+        // routes to the wrong adapter.
+        Discovery persisted = discoveryRepository.findByUuid(UUID.fromString(created.getUuid())).orElseThrow();
+        Assertions.assertNotNull(persisted.getConnectorInterfaceUuid());
+        Assertions.assertEquals(List.of(Resource.CRYPTOGRAPHIC_KEY), persisted.getResources());
+    }
+
+    @Test
+    void creatingAgainstAV2ConnectorRequiresTheResourcesToTarget() {
+        giveConnectorAV2DiscoveryInterface();
+
+        // A v2 connector discovers several kinds and cannot guess which was meant.
+        DiscoveryDto request = v2Request(null);
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+    }
+
+    @Test
+    void creatingAgainstAV1ConnectorRefusesResources() {
+        // Accepting the field would let a caller believe they had selected something a v1 connector cannot honour.
+        DiscoveryDto request = v2Request(List.of(Resource.CERTIFICATE));
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+    }
+
+    @Test
+    void creatingRefusesAResourceTheConnectorDoesNotDiscover() {
+        giveConnectorAV2DiscoveryInterface();
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+
+        // Caught now, at one connector call, rather than by a run that opens and immediately fails.
+        DiscoveryDto request = v2Request(List.of(Resource.CRYPTOGRAPHIC_KEY));
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+    }
+
+    private DiscoveryDto v2Request(List<Resource> resources) {
+        DiscoveryDto request = new DiscoveryDto();
+        request.setName("created-" + UUID.randomUUID());
+        request.setConnectorUuid(connector.getUuid().toString());
+        request.setKind("IpAndPort");
+        request.setAttributes(List.of());
+        request.setResources(resources);
+        return request;
+    }
+
+    @Test
     void aLifecycleOperationOnAnUnknownRunIsNotFound() {
         SecuredUUID missing = SecuredUUID.fromUUID(UUID.randomUUID());
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.cancelDiscovery(missing));
