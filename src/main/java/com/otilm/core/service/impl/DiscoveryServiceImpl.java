@@ -663,13 +663,26 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     @Async
     public void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException {
         UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+        List<UUID> refused = new ArrayList<>();
         for (SecuredUUID uuid : discoveryUuids) {
-            deleteDiscovery(uuid);
+            try {
+                deleteDiscovery(uuid);
+            } catch (ValidationException e) {
+                // A v2 run still at its connector refuses deletion until it is cancelled. One of those in the
+                // selection must not decide the fate of the rest: the runs ahead of it are already deleted, and the
+                // ones behind it would keep their rows while the caller saw nothing but a single error.
+                refused.add(uuid.getValue());
+                logger.debug("Discovery {} was not deleted in the bulk request: {}", uuid.getValue(), e.getMessage());
+            }
         }
         notificationProducer
                 .produceInternalNotificationMessage(Resource.DISCOVERY, null,
                         NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid),
-                        "Discovery histories have been deleted.", null);
+                        refused.isEmpty()
+                                ? "Discovery histories have been deleted."
+                                : "Discovery histories have been deleted, except " + refused.size()
+                                        + " that are still running. Cancel those first.",
+                        null);
     }
 
     @Override

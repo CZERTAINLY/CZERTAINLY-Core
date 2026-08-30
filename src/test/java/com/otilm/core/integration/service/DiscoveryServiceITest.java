@@ -886,6 +886,29 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void aLiveV2RunInABulkDeleteDoesNotStopTheRestBeingDeleted() throws Exception {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        Discovery live = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Discovery finished = new Discovery();
+        finished.setName("already-finished");
+        finished.setStatus(DiscoveryStatus.COMPLETED);
+        finished.setConnectorStatus(DiscoveryStatus.COMPLETED);
+        finished.setConnectorInterface(live.getConnectorInterface());
+        discoveryRepository.saveAndFlush(finished);
+
+        discoveryService
+                .bulkRemoveDiscovery(
+                        List.of(SecuredUUID.fromUUID(live.getUuid()), SecuredUUID.fromUUID(finished.getUuid())));
+
+        Assertions
+                .assertTrue(discoveryRepository.findByUuid(finished.getUuid()).isEmpty(),
+                        "a run that refuses deletion must not keep the rest of the batch alive");
+        Assertions
+                .assertTrue(discoveryRepository.findByUuid(live.getUuid()).isPresent(),
+                        "the live run itself is still refused");
+    }
+
+    @Test
     void aTerminatedV2RunDeletesNormally() throws Exception {
         givenV2Run(List.of(Resource.CERTIFICATE));
         Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
