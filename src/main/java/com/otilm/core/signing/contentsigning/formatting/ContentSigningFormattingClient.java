@@ -89,7 +89,11 @@ public class ContentSigningFormattingClient {
         return call("embedArchiveTimestamp", connector, client -> client.embedArchiveTimestamp(connector, request));
     }
 
-    /** The REST transport reports a body-less 2xx as an unchecked {@link IllegalStateException}. */
+    /**
+     * The REST transport reports a body-less 2xx as an unchecked {@link IllegalStateException}. Every connector refusal
+     * is a connector fault here, including the operator-fixable ones: {@link ConnectorException} carries the
+     * connector's message but not its {@code errorCode}, so there is nothing to classify on.
+     */
     private <T> T call(String step, ApiClientConnectorInfo connector, ConnectorCall<T> operation)
             throws SigningEngineException {
         ContentSigningFormattingSyncApiClient apiClient = connectorApiFactory

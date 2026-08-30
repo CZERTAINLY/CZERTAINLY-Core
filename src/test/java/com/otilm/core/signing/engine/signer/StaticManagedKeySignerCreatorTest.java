@@ -79,6 +79,28 @@ class StaticManagedKeySignerCreatorTest {
                             .isEqualTo(SigningEngineFailure.MISCONFIGURED));
         }
 
+        /**
+         * An operator can pick a digest the platform has no signature-algorithm entry for. Without the translation the
+         * enum's unchecked throw reaches the engine's catch-all and is logged as a platform fault, hiding a Signing
+         * Profile the operator could fix.
+         */
+        @Test
+        void throwsMisconfigured_whenTheKeyAndAttributesNameNoKnownSignatureAlgorithm() {
+            // given — no signing attributes at all, so no digest or RSA scheme can be read for an RSA key
+            ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(
+                    SigningCertificateBuilder.valid(),
+                    List
+                            .of(CryptographicKeyItemModelFixtures.activeSigningPrivateKey(KeyAlgorithm.RSA),
+                                    CryptographicKeyItemModelFixtures.publicKey(KeyAlgorithm.RSA)),
+                    null, List.of());
+
+            // when / then
+            assertThatThrownBy(() -> creator.create(scheme))
+                    .isInstanceOf(SigningEngineException.class)
+                    .satisfies(ex -> assertThat(((SigningEngineException) ex).failure())
+                            .isEqualTo(SigningEngineFailure.MISCONFIGURED));
+        }
+
         @Test
         void throwsMisconfigured_whenKeyHasNoPublicKeyItem() {
             // given — only a private (RSA) key item is present; the signer still requires a public key item

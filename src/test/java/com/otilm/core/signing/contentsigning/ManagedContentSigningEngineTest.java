@@ -7,6 +7,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.connector.signatures.contentsigning.common.ComputeDtbsRequestDto;
 import com.otilm.api.model.connector.signatures.contentsigning.common.ComputeDtbsResponseDto;
@@ -82,6 +83,8 @@ class ManagedContentSigningEngineTest {
 
     private static final Instant PLATFORM_TIME = Instant.parse("2026-03-04T11:25:00Z");
 
+    private static final SignatureAlgorithm SIGNATURE_ALGORITHM = SignatureAlgorithm.SHA256_WITH_RSA_PSS;
+
     @Mock
     ContentSigningFormattingClient formattingClient;
     @Mock
@@ -103,6 +106,7 @@ class ManagedContentSigningEngineTest {
     void createEngine() throws SigningEngineException {
         engine = new ManagedContentSigningEngine(formattingClient, acquisitions, signingCertificateValidatorFactory,
                 TestClockSource.ofWallTime(PLATFORM_TIME), signingRecordStrategyFactory, recordFactory);
+        lenient().when(acquisitions.signatureAlgorithm(any())).thenReturn(SIGNATURE_ALGORITHM);
         lenient().when(signingRecordStrategyFactory.strategyFor(any())).thenReturn(signingRecordStrategy);
         lenient().when(signingCertificateValidatorFactory.getValidator(any())).thenReturn(signingCertificateValidator);
         lenient()
@@ -171,6 +175,88 @@ class ManagedContentSigningEngineTest {
             assertThat(captured.getValue().getFormattingContext()).isEqualTo("context".getBytes());
             assertThat(captured.getValue().getSignatureValue()).isEqualTo("signature".getBytes());
             assertThat(captured.getValue().getFamily()).isEqualTo(profile.family());
+        }
+
+        @Test
+        void namesTheResolvedSignersAlgorithmOnBothHalvesOfThePair() throws SigningEngineException {
+            // given
+            ResolvedManagedContentSigningProfile profile = aSignedOnlyProfile();
+            stubComputeDtbs(digestOf(DOCUMENT));
+            when(acquisitions.signatureValue(any(), any())).thenReturn("signature".getBytes());
+            stubEmbedSignatureValue("signed document".getBytes());
+
+            // when
+            engine.sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API);
+
+            // then
+            ArgumentCaptor<ComputeDtbsRequestDto> compute = ArgumentCaptor.forClass(ComputeDtbsRequestDto.class);
+            ArgumentCaptor<EmbedSignatureValueRequestDto> embed = ArgumentCaptor
+                    .forClass(EmbedSignatureValueRequestDto.class);
+            verify(formattingClient).computeDtbs(any(), compute.capture());
+            verify(formattingClient).embedSignatureValue(any(), embed.capture());
+            assertThat(compute.getValue().getSignatureAlgorithm()).isEqualTo(SIGNATURE_ALGORITHM);
+            assertThat(embed.getValue().getSignatureAlgorithm()).isEqualTo(compute.getValue().getSignatureAlgorithm());
+        }
+
+        @Test
+        void resolvesTheSignersAlgorithmOnceForTheRun() throws SigningEngineException {
+            // given
+            ResolvedManagedContentSigningProfile profile = aSignedOnlyProfile();
+            stubComputeDtbs(digestOf(DOCUMENT));
+            when(acquisitions.signatureValue(any(), any())).thenReturn("signature".getBytes());
+            stubEmbedSignatureValue("signed document".getBytes());
+
+            // when
+            engine.sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API);
+
+            // then
+            verify(acquisitions).signatureAlgorithm(profile);
+        }
+
+        /**
+         * A scheme whose algorithm cannot be resolved has no signature the connector could prepare for, so the run
+         * stops before the connector is asked to format anything.
+         */
+        @Test
+        void refusesBeforeComputeDtbsWhenTheSignersAlgorithmCannotBeResolved() throws SigningEngineException {
+            // given
+            ResolvedManagedContentSigningProfile profile = aSignedOnlyProfile();
+            when(acquisitions.signatureAlgorithm(profile))
+                    .thenThrow(new SigningEngineException(SigningEngineFailure.MISCONFIGURED,
+                            "no SignerCreator supports the scheme", "The system is misconfigured."));
+
+            // when
+            SigningEngineException thrown = catchThrowableOfType(() -> engine
+                    .sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API),
+                    SigningEngineException.class);
+
+            // then
+            assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.MISCONFIGURED);
+            verify(formattingClient, never()).computeDtbs(any(), any());
+            verify(acquisitions, never()).signatureValue(any(), any());
+        }
+
+        /**
+         * v1 policy pins the authorized digest to the one the signer's algorithm signs, so a profile that disagrees
+         * with the request can be satisfied by no connector. The run stops before it asks one, which is what keeps the
+         * binding gate from reporting an operator's misconfiguration as a connector fault.
+         */
+        @Test
+        void refusesBeforeComputeDtbsWhenTheAuthorizedDigestIsNotTheOneTheSignerSigns() throws SigningEngineException {
+            // given
+            ResolvedManagedContentSigningProfile profile = aSignedOnlyProfile();
+            when(acquisitions.signatureAlgorithm(profile)).thenReturn(SignatureAlgorithm.SHA512_WITH_RSA);
+
+            // when
+            SigningEngineException thrown = catchThrowableOfType(() -> engine
+                    .sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API),
+                    SigningEngineException.class);
+
+            // then
+            assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.INVALID_INPUT);
+            assertThat(thrown.operatorMessage()).contains("SHA512withRSA", "SHA-256");
+            verify(formattingClient, never()).computeDtbs(any(), any());
+            verify(acquisitions, never()).signatureValue(any(), any());
         }
 
         @Test
