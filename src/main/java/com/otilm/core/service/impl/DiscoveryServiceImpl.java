@@ -345,13 +345,20 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
      * a null element never reaches here; bean validation refuses both.
      */
     private void validateRequestedResources(DiscoveryDto request, Connector connector,
-            ConnectorInterfaceEntity discoveryV2) throws NotFoundException, ConnectorException {
-        if (discoveryV2 == null) {
+            ConnectorInterfaceEntity discoveryInterface) throws NotFoundException, ConnectorException {
+        if (discoveryInterface == null) {
             if (request.getResources() != null) {
                 throw new ValidationException("Connector " + connector.getUuid()
                         + " implements only the v1 discovery interface, which discovers certificates only");
             }
             return;
+        }
+        // Refused at create, where a caller is present to be told, rather than by a run that is accepted and then
+        // fails at dispatch. Everything below speaks the v2 protocol, so a version Core has no client for cannot be
+        // validated against, let alone driven.
+        if (!DISCOVERY_V2.equals(discoveryInterface.getVersion())) {
+            throw new ValidationException("Connector " + connector.getUuid() + " exposes discovery interface version "
+                    + discoveryInterface.getVersion() + ", which this version of the platform cannot drive");
         }
         if (request.getResources() == null) {
             throw new ValidationException(
@@ -382,6 +389,30 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 .toList();
     }
 
+    /**
+     * The discovery interface a run against this connector is driven through, whatever its version — the adapter
+     * factory is the one place that maps a version onto a generation, so nothing here names one.
+     *
+     * <p>
+     * Empty means the connector exposes no discovery interface at all, which is a framework-v1 connector and a v1 run.
+     * Several is legal for a connector implementing more than one generation, and is refused rather than guessed: the
+     * choice belongs to the caller, and picking silently would decide how a run is driven for its whole life.
+     */
+    private Optional<ConnectorInterfaceEntity> discoveryInterface(UUID connectorUuid) {
+        List<ConnectorInterfaceEntity> interfaces = connectorInterfaceRepository
+                .findByConnectorUuidAndInterfaceCode(connectorUuid, ConnectorInterface.DISCOVERY);
+        if (interfaces.size() > 1) {
+            throw new ValidationException("Connector " + connectorUuid + " exposes "
+                    + interfaces.stream().map(ConnectorInterfaceEntity::getVersion).sorted().toList()
+                    + " of the discovery interface; which one to run against cannot be chosen automatically");
+        }
+        return interfaces.stream().findFirst();
+    }
+
+    /**
+     * The connector's v2 discovery interface specifically, for the relays — they speak to it through the v2 API client,
+     * so a different generation is not a matter of routing but of a client that does not exist yet.
+     */
     private Optional<ConnectorInterfaceEntity> discoveryV2Interface(UUID connectorUuid) {
         return connectorInterfaceRepository
                 .findByConnectorUuidAndInterfaceCodeAndVersion(connectorUuid, ConnectorInterface.DISCOVERY,
@@ -606,16 +637,16 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 .mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()),
                         FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
 
-        ConnectorInterfaceEntity discoveryV2 = discoveryV2Interface(connector.getUuid()).orElse(null);
-        validateRequestedResources(request, connector, discoveryV2);
+        ConnectorInterfaceEntity discoveryInterface = discoveryInterface(connector.getUuid()).orElse(null);
+        validateRequestedResources(request, connector, discoveryInterface);
 
         Discovery discovery = new Discovery();
         discovery.setName(request.getName());
         discovery.setConnectorName(connector.getName());
         // The association is what routes every later operation to the v2 adapter; without it the run is a v1 run
         // no matter what the connector implements.
-        if (discoveryV2 != null) {
-            discovery.setConnectorInterfaceUuid(discoveryV2.getUuid());
+        if (discoveryInterface != null) {
+            discovery.setConnectorInterfaceUuid(discoveryInterface.getUuid());
             discovery.setResources(List.copyOf(request.getResources()));
         }
         // Captured here rather than at start: this is where a caller is still on the thread. A v2 run's import

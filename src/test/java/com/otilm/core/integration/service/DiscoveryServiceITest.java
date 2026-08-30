@@ -797,6 +797,39 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
     }
 
+    @Test
+    void creatingAgainstAFutureInterfaceVersionRefusesRatherThanRunningItAsV1() {
+        ConnectorInterfaceEntity future = new ConnectorInterfaceEntity();
+        future.setConnectorUuid(connector.getUuid());
+        future.setInterfaceCode(ConnectorInterface.DISCOVERY);
+        future.setVersion("v9");
+        connectorInterfaceRepository.saveAndFlush(future);
+
+        // The association is recorded whatever the version, so the adapter factory is the one thing that decides
+        // which generation drives a run. Keying create on "v2" instead would leave a v9-only connector looking
+        // like a legacy connector and silently drive it through the v1 adapter.
+        DiscoveryDto request = v2Request(List.of(Resource.CERTIFICATE));
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+    }
+
+    @Test
+    void aConnectorExposingSeveralDiscoveryInterfacesIsRefusedRatherThanGuessed() {
+        giveConnectorAV2DiscoveryInterface();
+        ConnectorInterfaceEntity future = new ConnectorInterfaceEntity();
+        future.setConnectorUuid(connector.getUuid());
+        future.setInterfaceCode(ConnectorInterface.DISCOVERY);
+        future.setVersion("v3");
+        connectorInterfaceRepository.saveAndFlush(future);
+
+        // Picking one silently would decide how the run is driven for its whole life, on no input from the caller.
+        DiscoveryDto request = v2Request(List.of(Resource.CERTIFICATE));
+        ValidationException refused = Assertions
+                .assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+        Assertions
+                .assertTrue(refused.getMessage().contains("v2") && refused.getMessage().contains("v3"),
+                        "the refusal names the versions to choose between: " + refused.getMessage());
+    }
+
     private DiscoveryDto v2Request(List<Resource> resources) {
         DiscoveryDto request = new DiscoveryDto();
         request.setName("created-" + UUID.randomUUID());
