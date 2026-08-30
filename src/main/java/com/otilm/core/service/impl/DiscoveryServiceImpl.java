@@ -9,7 +9,6 @@ import com.otilm.api.exception.NotSupportedException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.client.v1.DiscoverySyncApiClient;
-import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
@@ -27,7 +26,6 @@ import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.discovery.DiscoveryItemDto;
 import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
-import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
@@ -66,11 +64,11 @@ import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.DiscoveryInternalService;
-import com.otilm.core.service.TriggerExternalService;
 import com.otilm.core.service.TriggerInternalService;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapter;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
 import com.otilm.core.service.writer.DiscoveryWriter;
+import com.otilm.core.service.writer.discovery.DiscoveryRunWriter;
 import com.otilm.core.tasks.ScheduledJobInfo;
 import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.FilterPredicatesBuilder;
@@ -85,6 +83,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -135,10 +134,10 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     private DiscoveryProviderAdapterFactory discoveryProviderAdapterFactory;
     private DiscoveryWriter discoveryWriter;
+    private DiscoveryRunWriter discoveryRunWriter;
     private ConnectorRepository connectorRepository;
     private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
-    private TriggerExternalService triggerService;
 
     private CommentInternalService commentService;
     private DiscoveryMessageRepository discoveryMessageRepository;
@@ -186,8 +185,8 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     }
 
     @Autowired
-    public void setTriggerService(TriggerExternalService triggerService) {
-        this.triggerService = triggerService;
+    public void setDiscoveryRunWriter(DiscoveryRunWriter discoveryRunWriter) {
+        this.discoveryRunWriter = discoveryRunWriter;
     }
 
     @Autowired
@@ -256,7 +255,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         return responseDto;
     }
 
-    // The three relays below are keyed and gated on the CONNECTOR, not the run: DISCOVERY has no object access,
+    // The relays below are keyed and gated on the CONNECTOR, not the run: DISCOVERY has no object access,
     // so gating there would silently skip the per-connector ACL. NOT_SUPPORTED because each one goes on to call
     // the connector, which must never happen inside a transaction.
 
@@ -321,8 +320,8 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
      * <p>
      * The two generations publish it in different places. A v1 connector serves kind-scoped definitions from the legacy
      * function-group endpoints, which is what {@code mergeAndValidateAttributes} reads. A v2 connector does not expose
-     * those at all — it answers {@code listRunAttributes} — so putting every run through the v1 path validated a v2 run
-     * against endpoints its connector never implements.
+     * those at all — it answers {@code listRunAttributes} — so a v2 run cannot go through the v1 path, which would
+     * validate it against endpoints its connector never implements.
      */
     private void validateRunAttributes(DiscoveryDto request, Connector connector,
             ConnectorInterfaceEntity discoveryInterface)
@@ -345,34 +344,28 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
      * later reads them back by. Without this a v2 run would send the connector an empty configuration for every
      * resource it targets, and the connector would scan on defaults.
      */
-    private void storeResourceAttributes(DiscoveryDto request, Connector connector, Discovery discovery)
-            throws AttributeException, NotFoundException, ConnectorException {
+    /**
+     * Reads the attribute definitions behind each resource the request files content against, in request order.
+     *
+     * <p>
+     * Separated from the writing of them so that every connector call a create makes happens here, outside any
+     * transaction — {@link DiscoveryRunWriter} then commits the definitions and their content together.
+     */
+    private Map<Resource, List<BaseAttribute>> fetchResourceDefinitions(DiscoveryDto request, Connector connector)
+            throws ConnectorException, NotFoundException {
         if (request.getResourceAttributes() == null || request.getResourceAttributes().isEmpty()) {
-            return;
+            return Map.of();
         }
         ApiClientConnectorInfo connectorInfo = connectorService.getConnectorForApiClient(connector.getUuid());
-        for (Map.Entry<Resource, List<RequestAttribute>> perResource : request.getResourceAttributes().entrySet()) {
-            String operation = perResource.getKey().getCode();
-            // The definitions must exist before content can be filed against them: the engine resolves every
-            // submitted attribute to an attribute_definition row, and a relay hands the schema out without
-            // recording it, so posting back what was just fetched would answer 404.
-            //
-            // Keyed by operation rather than by sourceObjectType, which records where content came from rather
-            // than which schema it belongs to: a definition is keyed by operation, so two resources declaring an
-            // attribute of the same name would otherwise collide on one definition, and the request builder reads
-            // them back by operation too.
-            attributeEngine
-                    .updateDataAttributeDefinitions(connector.getUuid(), operation,
+        Map<Resource, List<BaseAttribute>> definitions = new LinkedHashMap<>();
+        for (Resource resource : request.getResourceAttributes().keySet()) {
+            definitions
+                    .put(resource,
                             connectorApiFactory
                                     .getDiscoveryApiClientV2(connectorInfo)
-                                    .listResourceAttributes(connectorInfo, perResource.getKey()));
-            attributeEngine
-                    .updateObjectDataAttributesContent(ObjectAttributeContentInfo
-                            .builder(Resource.DISCOVERY, discovery.getUuid())
-                            .connector(connector.getUuid())
-                            .operation(operation)
-                            .build(), perResource.getValue());
+                                    .listResourceAttributes(connectorInfo, resource));
         }
+        return definitions;
     }
 
     /**
@@ -517,7 +510,6 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     public PaginationResponseDto<DiscoveryMessageDto> getDiscoveryRunMessages(SecuredUUID uuid, int itemsPerPage,
             int pageNumber) throws NotFoundException {
         Discovery discovery = getDiscoveryEntity(uuid);
-        // Page number for the user always starts from 1. But for JPA, page number starts from 0
         int pageSize = Math.clamp(itemsPerPage, 1, MAX_ITEMS_PER_PAGE);
         Pageable p = PageRequest.of(pageNumber > 1 ? pageNumber - 1 : 0, pageSize);
 
@@ -559,7 +551,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         return responseDto;
     }
 
-    // The three lifecycle operations. NOT_SUPPORTED because each one calls the connector, which must never happen
+    // Lifecycle operations. NOT_SUPPORTED because each one calls the connector, which must never happen
     // inside a transaction; the adapter opens its own around each state change.
 
     @Override
@@ -627,7 +619,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         // A v2 run that is still live is driven by agenda rows this delete would cascade away, so nothing would
         // ever end it: no terminal transition, no DISCOVERY_FINISHED, a connector still scanning, and a scheduled
         // job left open forever now that the task waits for that event. Cancel ends it properly first. A v1 run has
-        // no agenda and its provider call is already over, so it is deleted as before.
+        // no agenda and its provider call is already over, so it can be deleted directly.
         if (discovery.getConnectorInterfaceUuid() != null && !DiscoveryRunLifecycle.isTerminal(discovery.getStatus())) {
             throw new ValidationException("Discovery " + uuid.getValue() + " is " + discovery.getStatus()
                     + " and cannot be deleted; cancel it first");
@@ -685,7 +677,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     // NOT_SUPPORTED because validation asks the connector what it can discover, and a connector call must never
     // hold a transaction open -- a slow or hostile connector would pin a pooled connection for its whole timeout.
-    // The writes below open their own transactions.
+    // Everything this method then persists commits as one unit, in DiscoveryRunWriter's own transaction.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public DiscoveryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity)
             throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
@@ -726,24 +718,10 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         discovery.setKind(request.getKind());
 
         if (saveEntity) {
-            discovery = discoveryRepository.save(discovery);
-            attributeEngine
-                    .updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(),
-                            request.getCustomAttributes());
-            attributeEngine
-                    .updateObjectDataAttributesContent(ObjectAttributeContentInfo
-                            .builder(Resource.DISCOVERY, discovery.getUuid())
-                            .connector(connector.getUuid())
-                            .build(), request.getAttributes());
-            storeResourceAttributes(request, connector, discovery);
-            if (request.getTriggers() != null) {
-                triggerService
-                        .createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY,
-                                discovery.getUuid(), request.getTriggers(), false);
-                discovery = discoveryRepository.findWithTriggersByUuid(discovery.getUuid());
-            }
-            // Zero without asking: the run was inserted a few lines above and nothing since then writes a message.
-            return DiscoveryDtoMapper.toDetailDto(discovery, 0);
+            // Everything the connector has to say is read here, before a transaction exists, so the writes below can
+            // commit as one unit without a connector call inside them.
+            return discoveryRunWriter
+                    .createRun(discovery, request, connector.getUuid(), fetchResourceDefinitions(request, connector));
         }
 
         return null;

@@ -307,13 +307,15 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         UUID discoveryUuid = discovery.getUuid();
         DiscoveryInitiateResponseDto response;
         try {
-            response = client.resume(discovery);
-        } catch (Exception e) {
+            response = call(discoveryUuid, "resume", () -> client.resume(discovery));
+        } catch (ValidationException | ConnectorException e) {
+            // A lost checkpoint is not an error to answer with: the run can never be driven again, so it is disposed
+            // of here rather than reported. Every other refusal keeps the shape call() gave it.
             if (isCheckpointLost(e)) {
                 disposeCheckpointLost(discoveryUuid);
                 return;
             }
-            throw failed(discoveryUuid, "resume", e);
+            throw e;
         }
         transactionHandler.runInNewTransaction(() -> {
             Discovery locked = lock(discoveryUuid);
@@ -400,8 +402,8 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
      * <p>
      * A conformant connector's refusal is a {@code ConnectorProblemException} over REST and a
      * {@link ValidationException} over MQ, and {@code ExceptionHandlingAdvice} maps both — as it maps a connector being
-     * unreachable or broken. Wrapping them turned every one of those into a 500, so the same refusal answered
-     * differently depending on the transport underneath.
+     * unreachable or broken. Wrapping them would turn each into a 500, answering the same refusal differently depending
+     * on the transport underneath.
      */
     private <T> T call(UUID discoveryUuid, String operation, ConnectorCall<T> connectorCall) throws ConnectorException {
         try {
