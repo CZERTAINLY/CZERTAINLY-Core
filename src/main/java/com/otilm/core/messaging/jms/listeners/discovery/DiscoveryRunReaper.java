@@ -145,8 +145,7 @@ public class DiscoveryRunReaper {
                 return false;
             }
             // Sent even with no handle to replay: control calls are addressed by runId, with meta optional, so a
-            // connector that started scanning before the handle was persisted can still be told to stop. This is
-            // also what the stop-expired path has always done.
+            // connector that started scanning before the handle was persisted can still be told to stop.
             bestEffortConnectorCancel(reaped);
             return true;
         } catch (RuntimeException e) {

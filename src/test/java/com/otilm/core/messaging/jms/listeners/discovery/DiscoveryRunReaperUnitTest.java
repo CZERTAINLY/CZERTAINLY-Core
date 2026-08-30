@@ -157,7 +157,7 @@ class DiscoveryRunReaperUnitTest {
         assertThat(withContext.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
         assertThat(withoutContext.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
         // Both are told. A control call is addressed by runId with meta optional, so a run whose handle was
-        // never persisted can still be scanning and can still be stopped -- skipping it left that scan running.
+        // never persisted can still be scanning and can still be stopped -- skipping it would leave that scan running.
         verify(discoveryV2Client).cancel(withContext);
         verify(discoveryV2Client).cancel(withoutContext);
     }

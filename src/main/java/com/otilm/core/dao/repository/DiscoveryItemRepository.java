@@ -48,10 +48,9 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
      * branch <i>after</i> its numbering, so a row keeps the same synthesized number whether or not the caller filtered.
      *
      * <p>
-     * {@code i_cre} is a timestamp here only because this change converts it. It was declared {@code VARCHAR} — alone
-     * among the audited tables — so coalescing it with {@code discovered_at} would have failed at plan time on a
-     * Flyway-built database, invisibly to tests, which build their schema from the entities that always mapped it as a
-     * timestamp.
+     * {@code i_cre} must be a timestamp for the {@code discovered_at} coalesce below to plan at all. It is the one
+     * audited column in the schema declared {@code VARCHAR}, and a regression here is invisible to tests: they build
+     * their schema from the entities, which map it as a timestamp whatever the migration says.
      *
      * @param resource enum member name to restrict to — what both tables store — or null for every resource
      * @param newlyDiscovered tri-state: null means both
@@ -101,7 +100,7 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
               ) c
              WHERE (CAST(:newlyDiscovered AS BOOLEAN) IS NULL
                     OR c.newly_discovered = CAST(:newlyDiscovered AS BOOLEAN))
-             ORDER BY 3 NULLS LAST, 6, 1
+             ORDER BY 3, 6, 1
              LIMIT :limit OFFSET :offset
             """, nativeQuery = true)
     List<DiscoveryItemRow> listItems(@Param("discoveryUuid") UUID discoveryUuid, @Param("resource") String resource,

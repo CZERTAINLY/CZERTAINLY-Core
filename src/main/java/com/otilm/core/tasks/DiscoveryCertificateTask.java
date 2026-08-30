@@ -107,7 +107,7 @@ public class DiscoveryCertificateTask implements ScheduledJobTask {
         discovery = discoveryInternalService.runDiscovery(UUID.fromString(discovery.getUuid()), scheduledJobInfo);
         // Only a run that has already finished reports here. Anything still running -- v1 post-processing, or a v2
         // run that has just been handed to its tick workers -- reports when it ends, through DISCOVERY_FINISHED.
-        // Returning a result now closed the job as succeeded before the run had discovered anything.
+        // Returning a result now would close the job as succeeded before the run had discovered anything.
         if (DiscoveryRunLifecycle.isTerminal(discovery.getStatus())) {
             return new ScheduledTaskResult(
                     discovery.getStatus() == DiscoveryStatus.FAILED

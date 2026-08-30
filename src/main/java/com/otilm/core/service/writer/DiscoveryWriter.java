@@ -72,11 +72,9 @@ public class DiscoveryWriter {
      * loaded run.
      *
      * <p>
-     * The detail is mapped in here, inside this write's transaction, to save the caller a second read of a row it has
-     * just changed. It used to be the only safe place: dispatch loaded the whole run to route it, parking it in the
-     * first-level cache its {@code NOT_SUPPORTED} scope shares across every read, so a re-read there answered with the
-     * pre-refusal entity. Dispatch now routes on a scalar and loads nothing, so that hazard is gone — but a caller that
-     * starts loading the run again would bring it back.
+     * The detail is mapped in here, inside this write's transaction, so the caller need not re-read a row it has just
+     * changed. A caller in a {@code NOT_SUPPORTED} scope must not: that scope shares one first-level cache across every
+     * read, so a re-read of a run it had already loaded answers with the stale, pre-refusal entity.
      * </p>
      */
     @Transactional

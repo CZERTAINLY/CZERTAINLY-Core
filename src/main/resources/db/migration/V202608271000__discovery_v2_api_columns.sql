@@ -22,13 +22,6 @@ ALTER TABLE "discovery_certificate" ADD COLUMN "discovered_at" TIMESTAMPTZ;
 -- read away rather than a second copy here. Neither the job nor its name is stored.
 ALTER TABLE "discovery" ADD COLUMN "scheduled_job_history_uuid" UUID;
 
--- Serves both the items listing and its count. Every existing discovery_certificate index is partial -- on
--- unique_ref IS NOT NULL, on the pending predicate, on processed_error IS NOT NULL -- and a v1 run's rows satisfy
--- none of them, so without this both sequentially scan one of the largest tables in a mature deployment. The
--- i_cre column is included because the listing orders the certificate branch by it.
-CREATE INDEX "idx_discovery_certificate_run"
-    ON "discovery_certificate" ("discovery_uuid", "i_cre", "uuid");
-
 -- discovery_certificate is the only table in the schema whose audit columns are VARCHAR; every other one declares
 -- them as a timestamp, and the entity has always mapped them as OffsetDateTime. Nothing noticed while no query
 -- compared them against a timestamp -- the items listing is the first, and it fails at plan time as they stand.
@@ -40,3 +33,13 @@ CREATE INDEX "idx_discovery_certificate_run"
 ALTER TABLE "discovery_certificate"
     ALTER COLUMN "i_cre" TYPE TIMESTAMPTZ USING "i_cre"::timestamptz,
     ALTER COLUMN "i_upd" TYPE TIMESTAMPTZ USING "i_upd"::timestamptz;
+
+-- Serves both the items listing and its count. Every existing discovery_certificate index is partial -- on
+-- unique_ref IS NOT NULL, on the pending predicate, on processed_error IS NOT NULL -- and a v1 run's rows satisfy
+-- none of them, so without this both sequentially scan one of the largest tables in a mature deployment. The
+-- i_cre column is included because the listing orders the certificate branch by it.
+--
+-- Built after the conversion above, not before: an index on i_cre is rebuilt by any change to that column's type,
+-- so creating it first would index the table twice.
+CREATE INDEX "idx_discovery_certificate_run"
+    ON "discovery_certificate" ("discovery_uuid", "i_cre", "uuid");

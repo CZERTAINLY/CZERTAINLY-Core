@@ -625,7 +625,7 @@ class EventHandlersITest extends BaseSpringBootTest {
                                 new DiscoveryResult(DiscoveryStatus.PROCESSING, "Provider completed.")));
 
         // A cancel is final. Post-processing that was already in flight when the run was cancelled must not
-        // resurrect it as COMPLETED, which is what the handler's own copy of the terminal set allowed.
+        // resurrect it as COMPLETED.
         Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.CANCELLED, persisted.getStatus());
         Assertions.assertEquals("Discovery cancelled", persisted.getMessage());
