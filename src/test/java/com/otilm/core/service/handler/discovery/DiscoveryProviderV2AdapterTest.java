@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -22,6 +23,17 @@ class DiscoveryProviderV2AdapterTest {
 
     private final DiscoveryProviderV2Adapter adapter = new DiscoveryProviderV2Adapter(null, null, null, null, null,
             null, null, null, null);
+
+    @Test
+    void anUnexpectedFailuresOwnWordsNeverReachTheRun() {
+        String reason = DiscoveryProviderV2Adapter
+                .startFailureReason(new IllegalArgumentException("host=vault.internal user=svc_disc pw=hunter2"));
+
+        // The run's message is published on the detail and in the message log. A driver's SQL, an NPE's field path
+        // or, as here, a connection string is for the log the adapter already writes the exception to.
+        assertThat(reason).doesNotContain("hunter2").doesNotContain("vault.internal");
+        assertThat(reason).isEqualTo("Discovery could not be started at its connector");
+    }
 
     @ParameterizedTest
     @EnumSource(value = DiscoveryStatus.class, names = "IN_PROGRESS", mode = EnumSource.Mode.EXCLUDE)

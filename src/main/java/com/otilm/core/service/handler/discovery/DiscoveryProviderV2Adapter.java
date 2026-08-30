@@ -146,12 +146,12 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
     private void validateResources(Discovery run) throws Exception {
         List<Resource> requested = run.getResources() == null ? List.of() : run.getResources();
         if (requested.isEmpty()) {
-            throw new IllegalStateException("the run targets no resources");
+            throw new RunRefusedException("the run targets no resources");
         }
         List<Resource> supported = client.supportedResources(run);
         List<Resource> unsupported = requested.stream().filter(resource -> !supported.contains(resource)).toList();
         if (!unsupported.isEmpty()) {
-            throw new IllegalStateException(
+            throw new RunRefusedException(
                     "the connector does not discover " + unsupported.stream().map(Resource::getLabel).toList());
         }
     }
@@ -218,7 +218,7 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         String serialized = AttributeDefinitionUtils.serialize(meta);
         int size = serialized == null ? 0 : serialized.getBytes(StandardCharsets.UTF_8).length;
         if (size > MAX_META_BYTES) {
-            throw new IllegalStateException("meta size exceeded: " + size + " bytes, cap " + MAX_META_BYTES);
+            throw new RunRefusedException("meta size exceeded: " + size + " bytes, cap " + MAX_META_BYTES);
         }
     }
 
@@ -255,13 +255,36 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
      * error-code vocabulary to text Core wrote and leaves the connector's own {@code detail} in the log. The validation
      * failures raised above this point are Core-authored already and pass through as they are.
      */
-    private static String startFailureReason(Exception e) {
-        String reason = e instanceof ConnectorException || e instanceof ValidationException
-                ? DiscoveryConnectorErrors.describe(e)
-                : e.getMessage();
+    // Package-private, like MAX_META_BYTES above: the rule about which text may reach the run is worth
+    // asserting directly, and it cannot be reached through start() -- every failure a connector stub can
+    // provoke arrives as a ConnectorException, which is the branch that was never in question.
+    static String startFailureReason(Exception e) {
+        // Only text Core wrote reaches the run, which publishes this on the detail and in the message log. A
+        // connector failure is named from the closed vocabulary in DiscoveryConnectorErrors, and a refusal this
+        // class raised carries its own words. Anything else -- an NPE's field path, a driver's SQL, a library's
+        // internals -- is replaced: those are for the log above, which already has the exception itself.
+        String reason;
+        if (e instanceof ConnectorException || e instanceof ValidationException) {
+            reason = DiscoveryConnectorErrors.describe(e);
+        } else if (e instanceof RunRefusedException) {
+            reason = e.getMessage();
+        } else {
+            reason = null;
+        }
         return reason == null || reason.isBlank()
                 ? "Discovery could not be started at its connector"
                 : "Discovery could not be started at its connector: " + reason;
+    }
+
+    /**
+     * A run Core itself refused — for targeting nothing, for targeting what the connector does not discover, or for a
+     * handle too large to replay. The message is Core-authored, so unlike an arbitrary runtime failure it is safe to
+     * publish on the run. An {@link IllegalStateException} still, so the paths that catch one are unaffected.
+     */
+    private static final class RunRefusedException extends IllegalStateException {
+        private RunRefusedException(String message) {
+            super(message);
+        }
     }
 
     private DiscoveryDetailDto detailOf(UUID discoveryUuid) {
