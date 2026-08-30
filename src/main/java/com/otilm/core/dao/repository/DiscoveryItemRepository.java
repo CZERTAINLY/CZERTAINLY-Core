@@ -55,29 +55,38 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
      * @param resource enum member name to restrict to — what both tables store — or null for every resource
      * @param newlyDiscovered tri-state: null means both
      */
-    // Aliases are quoted because Postgres folds an unquoted one to lower case, and the projection binds by exact
-    // column label. Ordering is positional for the same reason: on a UNION only the first branch's labels are in
-    // scope, and a qualified reference to them is not.
+    // Two phases, and the split is what keeps a page cheap. The union orders and limits on narrow columns alone,
+    // carrying a certificate row's content_id rather than its content; the payload is built afterwards, for the page's
+    // rows only. Built inside the union it would sit in the target list of a windowed subquery, so every certificate
+    // in the run -- not just the page -- would have its content read out of TOAST and wrapped in JSON on every request.
+    //
+    // Aliases on the outer select are quoted because Postgres folds an unquoted one to lower case, and the projection
+    // binds by exact column label; inside the union they stay unquoted, since the outer query refers to them by name.
+    // Ordering inside the union is positional: only the first branch's labels are in scope there, and a qualified
+    // reference to them is not. The outer ORDER BY repeats it by name -- a CTE's own ordering is not guaranteed to
+    // survive into the query that selects from it.
     @Query(value = """
-            SELECT i.uuid AS "uuid",
-                   i.inventory_uuid AS "inventoryUuid",
-                   i.sequence AS "sequence",
-                   i.unique_ref AS "uniqueRef",
-                   i.resource AS "resource",
-                   i.discovered_at AS "discoveredAt",
-                   i.payload #>> '{}' AS "payload",
-                   i.newly_discovered AS "newlyDiscovered",
-                   (i.processed_at IS NOT NULL) AS "processed",
-                   i.processed_error AS "processedError",
-                   i.meta #>> '{}' AS "meta"
+            WITH page AS (
+            SELECT i.uuid AS uuid,
+                   i.inventory_uuid AS inventory_uuid,
+                   i.sequence AS sequence,
+                   i.unique_ref AS unique_ref,
+                   i.resource AS resource,
+                   i.discovered_at AS discovered_at,
+                   i.payload AS staged_payload,
+                   NULL::bigint AS content_id,
+                   i.newly_discovered AS newly_discovered,
+                   (i.processed_at IS NOT NULL) AS processed,
+                   i.processed_error AS processed_error,
+                   i.meta #>> '{}' AS meta
               FROM {h-schema}discovery_item i
              WHERE i.discovery_uuid = :discoveryUuid
                AND (CAST(:resource AS VARCHAR) IS NULL OR i.resource = CAST(:resource AS VARCHAR))
                AND (CAST(:newlyDiscovered AS BOOLEAN) IS NULL
                     OR i.newly_discovered = CAST(:newlyDiscovered AS BOOLEAN))
             UNION ALL
-            SELECT c.uuid, c.inventory_uuid, c.sequence, c.unique_ref, c.resource, c.discovered_at, c.payload,
-                   c.newly_discovered, c.processed, c.processed_error, c.meta
+            SELECT c.uuid, c.inventory_uuid, c.sequence, c.unique_ref, c.resource, c.discovered_at, c.staged_payload,
+                   c.content_id, c.newly_discovered, c.processed, c.processed_error, c.meta
               FROM (
                 SELECT dc.uuid AS uuid,
                        cert.uuid AS inventory_uuid,
@@ -86,8 +95,8 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
                        COALESCE(dc.unique_ref, cc.fingerprint) AS unique_ref,
                        'CERTIFICATE' AS resource,
                        COALESCE(dc.discovered_at, dc.i_cre) AS discovered_at,
-                       jsonb_build_object('resource', 'certificates',
-                                          'certificateData', cc.content) #>> '{}' AS payload,
+                       NULL::jsonb AS staged_payload,
+                       dc.certificate_content_id AS content_id,
                        dc.newly_discovered AS newly_discovered,
                        dc.processed AS processed,
                        dc.processed_error AS processed_error,
@@ -102,6 +111,23 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
                     OR c.newly_discovered = CAST(:newlyDiscovered AS BOOLEAN))
              ORDER BY 3, 6, 1
              LIMIT :limit OFFSET :offset
+            )
+            SELECT p.uuid AS "uuid",
+                   p.inventory_uuid AS "inventoryUuid",
+                   p.sequence AS "sequence",
+                   p.unique_ref AS "uniqueRef",
+                   p.resource AS "resource",
+                   p.discovered_at AS "discoveredAt",
+                   COALESCE(p.staged_payload,
+                            jsonb_build_object('resource', 'certificates',
+                                               'certificateData', cc.content)) #>> '{}' AS "payload",
+                   p.newly_discovered AS "newlyDiscovered",
+                   p.processed AS "processed",
+                   p.processed_error AS "processedError",
+                   p.meta AS "meta"
+              FROM page p
+              LEFT JOIN {h-schema}certificate_content cc ON cc.id = p.content_id
+             ORDER BY p.sequence, p.discovered_at, p.uuid
             """, nativeQuery = true)
     List<DiscoveryItemRow> listItems(@Param("discoveryUuid") UUID discoveryUuid, @Param("resource") String resource,
             @Param("newlyDiscovered") Boolean newlyDiscovered, @Param("limit") int limit, @Param("offset") long offset);
