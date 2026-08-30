@@ -294,13 +294,13 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         // Checked before the connector is called at all: the client throws IllegalArgumentException for a
         // resource the contract defines no payload for, which would surface as a 500 rather than a 422.
         if (!DISCOVERABLE_RESOURCES.contains(resource)) {
-            throw new ValidationException("Resource " + resource.getCode() + " is not discoverable");
+            throw new ValidationException("Resource " + resource.getLabel() + " is not discoverable");
         }
         // Discoverable in general is not the same as discoverable by this connector, and the supported set is
         // never persisted -- it is relayed live -- so answering that question costs a call.
         if (!liveSupportedResources(connectorUuid.getValue()).contains(resource)) {
             throw new ValidationException(
-                    "Connector " + connectorUuid.getValue() + " does not discover " + resource.getCode());
+                    "Connector " + connectorUuid.getValue() + " does not discover " + resource.getLabel());
         }
         return connectorApiFactory.getDiscoveryApiClientV2(connector).listResourceAttributes(connector, resource);
     }
@@ -367,7 +367,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 .toList();
         if (!unsupported.isEmpty()) {
             throw new ValidationException("Connector " + connector.getUuid() + " does not discover "
-                    + unsupported.stream().map(Resource::getCode).toList());
+                    + unsupported.stream().map(Resource::getLabel).toList());
         }
     }
 

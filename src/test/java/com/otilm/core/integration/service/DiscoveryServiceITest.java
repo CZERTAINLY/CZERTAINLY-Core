@@ -592,7 +592,9 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
                         .postRequestedFor(WireMock.urlPathEqualTo("/v2/discoveryProvider/discoveries/initiate")));
         Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertNotNull(persisted.getEndTime());
-        Assertions.assertTrue(persisted.getMessage().contains("keys"), "the message names the refused resource");
+        Assertions
+                .assertTrue(persisted.getMessage().contains(Resource.CRYPTOGRAPHIC_KEY.getLabel()),
+                        "the message names the refused resource in the label a reader recognises");
     }
 
     @Test

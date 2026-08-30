@@ -132,7 +132,7 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         List<Resource> unsupported = requested.stream().filter(resource -> !supported.contains(resource)).toList();
         if (!unsupported.isEmpty()) {
             throw new IllegalStateException(
-                    "the connector does not discover " + unsupported.stream().map(Resource::getCode).toList());
+                    "the connector does not discover " + unsupported.stream().map(Resource::getLabel).toList());
         }
     }
 

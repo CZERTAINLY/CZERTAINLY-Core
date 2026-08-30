@@ -158,7 +158,7 @@ public class DiscoveryStatusTickWorker {
             if (state == DiscoveryRunState.FAILED || state == DiscoveryRunState.CANCELLED) {
                 terminator
                         .applyTerminalState(locked, terminalStatusFor(state),
-                                "The connector reported the run " + state.getCode());
+                                "The connector reported the run as " + state.getLabel());
                 workWriter.deleteForRun(discoveryUuid);
                 return false;
             }
