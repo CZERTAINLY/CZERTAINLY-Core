@@ -240,7 +240,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         final TriFunction<Root<Discovery>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root,
                 cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<DiscoveryListDto> listedDiscoveriesDTOs = discoveryRepository
-                .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
+                .findUsingSecurityFilter(filter, List.of("connectorInterface"), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(DiscoveryDtoMapper::toListDto)
@@ -390,23 +390,29 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     }
 
     /**
-     * The discovery interface a run against this connector is driven through, whatever its version — the adapter
-     * factory is the one place that maps a version onto a generation, so nothing here names one.
+     * The discovery interface a run is driven through, resolved the way an authority instance resolves its own: the
+     * caller names one, or a connector exposing exactly one has it chosen for it. Null means the connector declares no
+     * discovery interface at all — a framework-v1 connector, and a v1 run.
      *
      * <p>
-     * Empty means the connector exposes no discovery interface at all, which is a framework-v1 connector and a v1 run.
-     * Several is legal for a connector implementing more than one generation, and is refused rather than guessed: the
-     * choice belongs to the caller, and picking silently would decide how a run is driven for its whole life.
+     * The adapter factory is the one place that maps a version onto a generation, so nothing here names one.
      */
-    private Optional<ConnectorInterfaceEntity> discoveryInterface(UUID connectorUuid) {
+    private ConnectorInterfaceEntity resolveDiscoveryInterface(UUID connectorUuid, UUID interfaceUuid) {
         List<ConnectorInterfaceEntity> interfaces = connectorInterfaceRepository
                 .findByConnectorUuidAndInterfaceCode(connectorUuid, ConnectorInterface.DISCOVERY);
-        if (interfaces.size() > 1) {
-            throw new ValidationException("Connector " + connectorUuid + " exposes "
-                    + interfaces.stream().map(ConnectorInterfaceEntity::getVersion).sorted().toList()
-                    + " of the discovery interface; which one to run against cannot be chosen automatically");
+        if (interfaceUuid != null) {
+            return interfaces
+                    .stream()
+                    .filter(iface -> interfaceUuid.equals(iface.getUuid()))
+                    .findFirst()
+                    .orElseThrow(() -> new ValidationException(
+                            "Connector " + connectorUuid + " has no DISCOVERY interface with UUID " + interfaceUuid));
         }
-        return interfaces.stream().findFirst();
+        if (interfaces.size() > 1) {
+            throw new ValidationException("Connector " + connectorUuid
+                    + " exposes multiple DISCOVERY interfaces; supply interfaceUuid to select one.");
+        }
+        return interfaces.stream().findFirst().orElse(null);
     }
 
     /**
@@ -637,7 +643,8 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 .mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()),
                         FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
 
-        ConnectorInterfaceEntity discoveryInterface = discoveryInterface(connector.getUuid()).orElse(null);
+        ConnectorInterfaceEntity discoveryInterface = resolveDiscoveryInterface(connector.getUuid(),
+                request.getInterfaceUuid());
         validateRequestedResources(request, connector, discoveryInterface);
 
         Discovery discovery = new Discovery();
@@ -646,7 +653,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         // The association is what routes every later operation to the v2 adapter; without it the run is a v1 run
         // no matter what the connector implements.
         if (discoveryInterface != null) {
-            discovery.setConnectorInterfaceUuid(discoveryInterface.getUuid());
+            discovery.setConnectorInterface(discoveryInterface);
             discovery.setResources(List.copyOf(request.getResources()));
         }
         // Captured here rather than at start: this is where a caller is still on the thread. A v2 run's import

@@ -813,6 +813,39 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void namingTheInterfaceSelectsItWhenAConnectorExposesSeveral() throws Exception {
+        giveConnectorAV2DiscoveryInterface();
+        ConnectorInterfaceEntity chosen = connectorInterfaceRepository
+                .findByConnectorUuidAndInterfaceCodeAndVersion(connector.getUuid(), ConnectorInterface.DISCOVERY, "v2")
+                .orElseThrow();
+        ConnectorInterfaceEntity other = new ConnectorInterfaceEntity();
+        other.setConnectorUuid(connector.getUuid());
+        other.setInterfaceCode(ConnectorInterface.DISCOVERY);
+        other.setVersion("v3");
+        connectorInterfaceRepository.saveAndFlush(other);
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+
+        DiscoveryDto request = v2Request(List.of(Resource.CERTIFICATE));
+        request.setInterfaceUuid(chosen.getUuid());
+        DiscoveryDetailDto created = discoveryService.createDiscovery(request, true);
+
+        // Named explicitly, so the ambiguity that would otherwise be refused is resolved by the caller -- and the
+        // detail says which interface drives the run rather than leaving a client to infer the generation.
+        Assertions.assertEquals(chosen.getUuid(), created.getConnectorInterface().getUuid());
+        Assertions.assertEquals("v2", created.getConnectorInterface().getVersion());
+    }
+
+    @Test
+    void namingAnInterfaceTheConnectorDoesNotExposeIsRefused() {
+        giveConnectorAV2DiscoveryInterface();
+
+        DiscoveryDto request = v2Request(List.of(Resource.CERTIFICATE));
+        request.setInterfaceUuid(UUID.randomUUID());
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+    }
+
+    @Test
     void aConnectorExposingSeveralDiscoveryInterfacesIsRefusedRatherThanGuessed() {
         giveConnectorAV2DiscoveryInterface();
         ConnectorInterfaceEntity future = new ConnectorInterfaceEntity();
@@ -826,8 +859,8 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         ValidationException refused = Assertions
                 .assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
         Assertions
-                .assertTrue(refused.getMessage().contains("v2") && refused.getMessage().contains("v3"),
-                        "the refusal names the versions to choose between: " + refused.getMessage());
+                .assertTrue(refused.getMessage().contains("interfaceUuid"),
+                        "the refusal says how to resolve it: " + refused.getMessage());
     }
 
     private DiscoveryDto v2Request(List<Resource> resources) {

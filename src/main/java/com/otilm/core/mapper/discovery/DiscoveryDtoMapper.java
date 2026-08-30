@@ -7,6 +7,7 @@ import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoveredItemPayloadDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.connector.v2.ConnectorInterfaceDto;
 import com.otilm.api.model.core.discovery.DiscoveryItemDto;
 import com.otilm.api.model.core.discovery.DiscoveryMessageDto;
 import com.otilm.core.dao.entity.Discovery;
@@ -58,6 +59,7 @@ public class DiscoveryDtoMapper {
         // Omitted rather than defaulted when absent: null is what a v1 run, and a connector that reports no
         // progress at all, are meant to publish.
         dto.setProgress(discovery.getProgress());
+        dto.setConnectorInterface(connectorInterfaceOf(discovery));
         return dto;
     }
 
@@ -72,7 +74,16 @@ public class DiscoveryDtoMapper {
         dto.setConnectorUuid(discovery.getConnectorUuid().toString());
         dto.setKind(discovery.getKind());
         dto.setConnectorName(discovery.getConnectorName());
+        dto.setConnectorInterface(connectorInterfaceOf(discovery));
         return dto;
+    }
+
+    /**
+     * Which interface drives the run, and so which generation. Null for a v1 run, which is how a client tells the two
+     * apart without inferring it from behaviour.
+     */
+    private static ConnectorInterfaceDto connectorInterfaceOf(Discovery discovery) {
+        return discovery.getConnectorInterface() == null ? null : discovery.getConnectorInterface().mapToDto();
     }
 
     /**

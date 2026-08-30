@@ -16,6 +16,7 @@ import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.io.Serial;
@@ -93,6 +94,19 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "connector_interface_uuid")
     private UUID connectorInterfaceUuid;
 
+    // The same association as an object, for reads that publish which interface drives the run. Written through
+    // setConnectorInterface so the scalar above, which every write and the dispatch projection use, stays in step.
+    //
+    // NO_CONSTRAINT because the migration declared this column without a foreign key -- unlike
+    // authority_instance_reference, whose own migration does declare one. Left as the schema really is: mapping a
+    // constraint here would only add it to the schema tests build from the entities, so they would enforce something
+    // production does not and fail on fixtures production would accept.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "connector_interface_uuid", insertable = false, updatable = false,
+            foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @ToString.Exclude
+    private ConnectorInterfaceEntity connectorInterface;
+
     // The connector's opaque run handle, nulled on every terminal transition.
     // S1948: every entity is Serializable via UniquelyIdentifiedObject, but nothing Java-serializes them
     // today -- Jackson owns this JSONB field's persistence shape -- so the suppression holds only until Discovery
@@ -159,6 +173,12 @@ public class Discovery extends UniquelyIdentifiedAndAudited implements Serializa
     @SQLJoinTableRestriction("resource = 'DISCOVERY'")
     @ToString.Exclude
     private List<Trigger> triggers = new ArrayList<>();
+
+    /** Keeps the scalar in step with the association, as {@code AuthorityInstanceReference} does with its own. */
+    public void setConnectorInterface(ConnectorInterfaceEntity connectorInterface) {
+        this.connectorInterface = connectorInterface;
+        this.connectorInterfaceUuid = connectorInterface == null ? null : connectorInterface.getUuid();
+    }
 
     @Override
     public boolean equals(Object o) {
