@@ -384,6 +384,13 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 throw new ValidationException("Connector " + connector.getUuid()
                         + " implements only the v1 discovery interface, which discovers certificates only");
             }
+            // Refused rather than ignored. Per-resource attributes are collected against definitions only a v2
+            // connector publishes, so honouring them would send Core to a v2 endpoint this connector does not
+            // implement, and dropping them silently would accept a run configured differently from what was asked.
+            if (request.getResourceAttributes() != null && !request.getResourceAttributes().isEmpty()) {
+                throw new ValidationException("Connector " + connector.getUuid()
+                        + " implements only the v1 discovery interface, which has no per-resource attributes");
+            }
             return;
         }
         // Refused at create, where a caller is present to be told, rather than by a run that is accepted and then
@@ -408,6 +415,22 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         if (!unsupported.isEmpty()) {
             throw new ValidationException("Connector " + connector.getUuid() + " does not discover "
                     + unsupported.stream().map(Resource::getLabel).toList());
+        }
+        // Each key must name a resource the run targets. Checked against resources rather than against what the
+        // connector supports, because resources was just checked against that: keys are a subset of a subset. A key
+        // outside it would send Core for a schema the run has no use for and file content nothing ever reads back.
+        if (request.getResourceAttributes() != null) {
+            List<Resource> untargeted = request
+                    .getResourceAttributes()
+                    .keySet()
+                    .stream()
+                    .filter(resource -> !request.getResources().contains(resource))
+                    .toList();
+            if (!untargeted.isEmpty()) {
+                throw new ValidationException("resourceAttributes carries attributes for "
+                        + untargeted.stream().map(Resource::getLabel).toList()
+                        + ", which this discovery does not target");
+            }
         }
     }
 

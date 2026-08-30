@@ -62,6 +62,7 @@ import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.MetaDefinitions;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -777,6 +778,35 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         // A v2 connector discovers several kinds and cannot guess which was meant.
         DiscoveryDto request = v2Request(null);
         Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+    }
+
+    @Test
+    void creatingAgainstAV1ConnectorRefusesPerResourceAttributes() {
+        // Honouring them would send Core to a v2 endpoint this connector does not implement; dropping them would
+        // accept a run configured differently from the one that was asked for.
+        DiscoveryDto request = v2Request(null);
+        request.setResourceAttributes(Map.of(Resource.CERTIFICATE, List.of()));
+
+        ValidationException refused = Assertions
+                .assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+        // The message, not just the type: unvalidated, the request reaches a v2 client call against a v1 connector,
+        // which also fails -- but for a reason the caller cannot act on.
+        Assertions.assertTrue(refused.getMessage().contains("per-resource attributes"), refused.getMessage());
+    }
+
+    @Test
+    void creatingRefusesPerResourceAttributesForAResourceTheRunDoesNotTarget() {
+        giveConnectorAV2DiscoveryInterface();
+        stubSupportedResources("""
+                [{"resource":"certificates"},{"resource":"keys"}]""");
+        DiscoveryDto request = v2Request(List.of(Resource.CERTIFICATE));
+        request.setResourceAttributes(Map.of(Resource.CRYPTOGRAPHIC_KEY, List.of()));
+
+        // The connector discovers keys, so the key is legal in itself -- it is this run that does not target them,
+        // and filing attributes against it would store content nothing ever reads back.
+        ValidationException refused = Assertions
+                .assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+        Assertions.assertTrue(refused.getMessage().contains("does not target"), refused.getMessage());
     }
 
     @Test
