@@ -664,9 +664,13 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public DiscoveryDetailDto runDiscovery(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo) {
-        Discovery discovery = discoveryRepository.findByUuid(discoveryUuid).orElse(null);
+        // Routed on the association alone. Loading the run here would park it in the first-level cache this
+        // NOT_SUPPORTED scope shares across every read, where a later read answers from the stale copy.
+        UUID connectorInterfaceUuid = discoveryRepository.findConnectorInterfaceUuid(discoveryUuid).orElse(null);
         try {
-            return discoveryProviderAdapterFactory.forDiscovery(discovery).start(discoveryUuid, scheduledJobInfo);
+            return discoveryProviderAdapterFactory
+                    .forConnectorInterface(connectorInterfaceUuid, discoveryUuid)
+                    .start(discoveryUuid, scheduledJobInfo);
         } catch (UnsupportedDiscoveryVersionException e) {
             // A routing refusal must still end as a terminal, user-visible run state: the async caller swallows
             // whatever escapes here, and the scheduler expects a result rather than an exception.
