@@ -1,0 +1,194 @@
+package com.otilm.core.service.writer.cbom;
+
+import com.otilm.api.exception.ValidationError;
+import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.core.cryptoasset.PqcVerdict;
+import com.otilm.core.cbom.asset.CryptoAssetIdentityCalculator;
+import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
+import com.otilm.core.cbom.asset.JsonColumnText;
+import com.otilm.core.cluster.ClusterOperationSynchronizer;
+import com.otilm.core.dao.CryptoAssetConstraintTranslator;
+import com.otilm.core.dao.repository.cbom.CryptoAssetAliasRepository;
+import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
+import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Short transactional writes against {@code crypto_asset}. The repository carries no {@code @Transactional}; every
+ * {@code @Modifying} write goes through this bean, and every method is {@code REQUIRED} so it joins the ingest
+ * transaction it belongs to or opens its own.
+ */
+@Service
+public class CryptoAssetWriter {
+
+    private final CryptoAssetRepository assetRepository;
+    private final CryptoAssetAliasRepository aliasRepository;
+    private final ClusterOperationSynchronizer clusterOperationSynchronizer;
+
+    public CryptoAssetWriter(CryptoAssetRepository assetRepository, CryptoAssetAliasRepository aliasRepository,
+            ClusterOperationSynchronizer clusterOperationSynchronizer) {
+        this.assetRepository = assetRepository;
+        this.aliasRepository = aliasRepository;
+        this.clusterOperationSynchronizer = clusterOperationSynchronizer;
+    }
+
+    /**
+     * Keys the asset from its identity fields and inserts or refreshes the row under that key, stamping the rule-set
+     * generation that produced it.
+     *
+     * <p>
+     * The key is computed here rather than accepted from the caller, so a caller cannot store a row under a key that
+     * does not describe it. Callers that must redirect an ingested asset onto another row -- the alias repair path --
+     * resolve the alias and address the surviving asset by uuid instead; they never re-key it, because rewriting the
+     * canonical row's identity columns with the absorbed row's fields would change what the canonical row claims to be.
+     *
+     * <p>
+     * The columns store {@link CryptoAssetIdentityFields#normalized()}, not the caller's raw input. An asset row is a
+     * deduplicated view over every producer that reported it, so it has no single raw spelling to hold; the producers'
+     * own spellings live per source. Storing the raw input made the row a function of sync order -- the upsert
+     * reassigns the identity columns on conflict, so the last producer to sync decided what an {@code EQUALS} filter
+     * would match and whether an omitted-versus-blank field counted as empty. The key never moved; only the answer did.
+     * The key is unchanged by this: it was always computed over the folded fields.
+     *
+     * @return the uuid of the surviving row, which is the inserted uuid only when the insert won
+     * @throws ValidationException if an identity column exceeds its length bound, or if a guard is being stamped on a
+     * key an alias already refers to
+     */
+    @Transactional
+    public UUID upsertIdentity(CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
+        CryptoAssetIdentityFields stored = fields.normalized();
+        requireWithinLengthBounds(stored);
+        String key = CryptoAssetIdentityCalculator.calculate(fields);
+        if (guard != null) {
+            requireNoAlias(key, guard);
+        }
+        assetRepository
+                .upsertIdentity(UUID.randomUUID(), key, CryptoAssetIdentityCalculator.RULESET_VERSION,
+                        stored.assetType() == null ? null : stored.assetType().name(), stored.name(), stored.oid(),
+                        stored.algorithmFamily(), stored.primitive(), stored.parameterSet(), stored.curve(),
+                        stored.mode(), stored.padding(), stored.variant(), guard == null ? null : guard.name());
+        return assetRepository
+                .findUuidByIdentityKey(key)
+                // Deliberately says nothing about the key: this text can reach an operator.
+                .orElseThrow(() -> new IllegalStateException(
+                        "The cryptographic asset row disappeared between its upsert and its lookup"));
+    }
+
+    /**
+     * Re-derives the asset's merged payload, provenance pointer and source count from the sources it currently has.
+     * Call it in the same transaction as any change to those sources, so the two can never be observed apart.
+     */
+    @Transactional
+    public void recomputeMerge(UUID assetUuid) {
+        assetRepository.recomputeMergeFromSources(assetUuid);
+    }
+
+    /**
+     * Stores a PQC verdict with the rule that produced it, the rule-set generation, and the fields the rule read. The
+     * identity columns and the identity rule-set version are untouched: a verdict is not an identity.
+     *
+     * @param reason operator-facing text, which the caller must have shaped itself
+     */
+    @Transactional
+    public void applyPqcVerdict(UUID assetUuid, PqcVerdict verdict, String ruleId, String reason, int rulesetVersion,
+            Map<String, Object> evaluatedFields) {
+        assetRepository
+                .applyPqcVerdict(assetUuid, verdict == null ? null : verdict.name(), ruleId, reason, rulesetVersion,
+                        JsonColumnText.render(evaluatedFields));
+    }
+
+    /**
+     * The bounds the migration declares on the two identity columns a producer can realistically make long. Held here
+     * as well so the refusal happens before the statement runs; {@code CryptoAssetWriterTest} pins them against the
+     * migration, so a bound that moves in one place fails rather than diverging.
+     */
+    static final int MAX_OID_LENGTH = 255;
+
+    static final int MAX_NAME_LENGTH = 1024;
+
+    /**
+     * Refuses an over-long identity column before it can reach the statement.
+     *
+     * <p>
+     * The CHECK constraints remain, and remain the authority; this only keeps the database from being the thing that
+     * says no. PostgreSQL reports a failed CHECK with a {@code DETAIL: Failing row contains (...)} line carrying every
+     * column of the offending row, and Hibernate's {@code SqlExceptionHelper} logs the driver's message at ERROR the
+     * moment the statement fails -- upstream of every catch, so no translation or handler downstream can prevent it.
+     * That row contains {@code identity_key}, which is 64 hex characters, exactly at the driver's per-value truncation
+     * point, so it prints whole. Letting a length bound be enforced by the constraint therefore turns an over-long name
+     * -- something a producer controls -- into a way to make the platform log an identity key. Enforced here, the
+     * constraint is a backstop that a correct pipeline never reaches.
+     *
+     * <p>
+     * Counted in code points, because PostgreSQL's {@code length()} counts characters. {@link String#length} counts
+     * UTF-16 units, which would refuse a name of 513 astral characters that the constraint accepts -- and a pre-check
+     * stricter than its constraint rejects valid rows, while one looser than its constraint leaves the channel open for
+     * exactly the inputs it was added to stop.
+     */
+    private static void requireWithinLengthBounds(CryptoAssetIdentityFields stored) {
+        rejectIfLonger(stored.oid(), MAX_OID_LENGTH, "ck_crypto_asset_oid_length");
+        rejectIfLonger(stored.name(), MAX_NAME_LENGTH, "ck_crypto_asset_name_length");
+    }
+
+    /**
+     * @param constraintName the constraint this check anticipates, which supplies the operator-facing sentence so the
+     * pre-check and the backstop cannot say different things
+     */
+    static void rejectIfLonger(String value, int limit, String constraintName) {
+        if (value != null && value.codePointCount(0, value.length()) > limit) {
+            throw new ValidationException(
+                    ValidationError.create(CryptoAssetConstraintTranslator.explain(constraintName)));
+        }
+    }
+
+    /**
+     * Refuses a guard on a key some alias already refers to.
+     *
+     * <p>
+     * A guard and an alias are contradictory statements about one key: the alias says this key <em>is</em> another one,
+     * the guard says a safety rule requires it to stand alone. {@link CryptoAssetAliasWriter#record} already refuses
+     * the alias when the guard came first; this is the same rule read from the other end, so whichever decision arrives
+     * second is the one that fails, and the operator who made it is told what it contradicts rather than silently
+     * overwriting or being silently overwritten.
+     *
+     * <p>
+     * Both sides are checked. An alias that <em>absorbed</em> the key means the row is expected to disappear into
+     * another; an alias that points at it as <em>canonical</em> means other rows are expected to merge into it. A guard
+     * contradicts both. The lock is {@link CryptoAssetAliasWriter#ALIAS_DECISION_LOCK}, so this check and a concurrent
+     * alias decision cannot each read a table the other is about to change.
+     *
+     * <p>
+     * It is taken before this method writes anything, which keeps this path inside the ranked lock order -- the
+     * advisory lock above every {@code crypto_asset} row lock. A caller that has already taken an asset row lock in the
+     * same transaction, by upserting a source, inverts that order and can deadlock against a concurrent transaction
+     * doing the reverse; {@link CryptoAssetSourceWriter} states the obligation that avoids it.
+     */
+    private void requireNoAlias(String key, CryptoAssetIdentityGuard guard) {
+        clusterOperationSynchronizer.lock(CryptoAssetAliasWriter.ALIAS_DECISION_LOCK);
+        if (aliasRepository.findByAbsorbedKey(key).isPresent()) {
+            throw new ValidationException(ValidationError
+                    .create("The {} safety rule would keep this cryptographic asset separate, but an alias already "
+                            + "merges it into another asset. Withdraw that alias first, or leave the asset merged.",
+                            guard.name()));
+        }
+        if (aliasRepository.existsByCanonicalKey(key)) {
+            throw new ValidationException(ValidationError
+                    .create("The {} safety rule would keep this cryptographic asset separate, but another asset is "
+                            + "already merged into it by an alias. Withdraw that alias first, or leave the assets "
+                            + "merged.", guard.name()));
+        }
+    }
+
+    /**
+     * Deletes an asset. Its source rows and aliases go with it by cascade; the CBOM rows they referenced do not.
+     *
+     * @return 1 if a row was deleted, 0 if it was already gone
+     */
+    @Transactional
+    public int delete(UUID assetUuid) {
+        return assetRepository.deleteAsset(assetUuid);
+    }
+}

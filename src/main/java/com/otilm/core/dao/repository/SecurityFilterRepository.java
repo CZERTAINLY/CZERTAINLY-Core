@@ -42,9 +42,26 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
             TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Pageable p,
             BiFunction<Root<T>, CriteriaBuilder, Order> order);
 
+    /**
+     * Same, with the ordering the caller's request asked for. The {@code order} argument stays the ordering applied
+     * when the request names none, so a caller that never supplies a sort keeps the order it has today.
+     */
+    List<T> findUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Pageable p,
+            BiFunction<Root<T>, CriteriaBuilder, Order> order, SortSpecification sort);
+
     List<UUID> findUuidsUsingSecurityFilter(SecurityFilter filter,
             TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Pageable p,
             BiFunction<Root<T>, CriteriaBuilder, Order> order);
+
+    /**
+     * Same, with the ordering the caller's request asked for. The returned list is ranked by that ordering, and the
+     * rank is the only place it survives: a caller that loads the objects with a {@code uuid IN (...)} query gets them
+     * in whatever order that query itself defines, so it has to put them back in the order of this list.
+     */
+    List<UUID> findUuidsUsingSecurityFilter(SecurityFilter filter,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Pageable p,
+            BiFunction<Root<T>, CriteriaBuilder, Order> order, SortSpecification sort);
 
     Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute<?, ?> join,
             SingularAttribute<?, ?> groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupByExpression,

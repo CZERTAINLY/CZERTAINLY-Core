@@ -10,6 +10,7 @@ import com.otilm.api.model.core.oid.properties.RdnAttributeTypeOidPropertiesDto;
 import com.otilm.core.dao.entity.oid.CertificateExtensionCustomOidEntry;
 import com.otilm.core.dao.entity.oid.CustomOidEntry;
 import com.otilm.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry;
+import com.otilm.core.util.ExtensionSchemas;
 
 public class CustomOidEntryMapper {
 
@@ -44,6 +45,9 @@ public class CustomOidEntryMapper {
             CertificateExtensionOidPropertiesDto props = new CertificateExtensionOidPropertiesDto();
             props.setDefaultCritical(systemOid.getDefaultCritical());
             props.setValueEncoding(systemOid.getValueEncoding());
+            // A system OID's schema lives in Core rather than the registry row, so without this the operator
+            // sees no schema for an extension whose JSON value Core will nonetheless reject on shape.
+            props.setValueSchema(ExtensionSchemas.shippedSchema(systemOid.getOid()).orElse(null));
             dto.setAdditionalProperties(props);
         }
         return dto;
@@ -60,6 +64,7 @@ public class CustomOidEntryMapper {
             CertificateExtensionOidPropertiesDto dto = new CertificateExtensionOidPropertiesDto();
             dto.setDefaultCritical(ext.getDefaultCritical());
             dto.setValueEncoding(ext.getValueEncoding());
+            dto.setValueSchema(ext.getValueSchema());
             return dto;
         }
         return null;
