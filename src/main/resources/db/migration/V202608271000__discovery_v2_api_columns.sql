@@ -21,3 +21,10 @@ ALTER TABLE "discovery_certificate" ADD COLUMN "discovered_at" TIMESTAMPTZ;
 -- The execution alone: scheduled_job_history already carries scheduled_job_uuid, so the job it belongs to is one
 -- read away rather than a second copy here. Neither the job nor its name is stored.
 ALTER TABLE "discovery" ADD COLUMN "scheduled_job_history_uuid" UUID;
+
+-- Serves both the items listing and its count. Every existing discovery_certificate index is partial -- on
+-- unique_ref IS NOT NULL, on the pending predicate, on processed_error IS NOT NULL -- and a v1 run's rows satisfy
+-- none of them, so without this both sequentially scan one of the largest tables in a mature deployment. The
+-- i_cre column is included because the listing orders the certificate branch by it.
+CREATE INDEX "idx_discovery_certificate_run"
+    ON "discovery_certificate" ("discovery_uuid", "i_cre", "uuid");

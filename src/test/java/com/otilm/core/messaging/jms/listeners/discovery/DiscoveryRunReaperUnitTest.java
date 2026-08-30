@@ -3,7 +3,9 @@ package com.otilm.core.messaging.jms.listeners.discovery;
 import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.cluster.ClusterOperationSynchronizer;
+import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
 import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.dao.repository.ScheduledJobHistoryRepository;
@@ -62,6 +64,8 @@ class DiscoveryRunReaperUnitTest {
     @Mock
     private DiscoveryV2Client discoveryV2Client;
     @Mock
+    private ConnectorInterfaceRepository connectorInterfaceRepository;
+    @Mock
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
@@ -77,7 +81,8 @@ class DiscoveryRunReaperUnitTest {
     void setUp() {
         // A real terminator, not a mock: the reaper delegates the terminal mutation to it, and that mutation
         // is what these tests assert on. Its collaborators are unused by applyTerminalState.
-        reaper = new DiscoveryRunReaper(discoveryRepository, workRepository, workWriter, discoveryV2Client,
+        reaper = new DiscoveryRunReaper(
+                discoveryRepository, workRepository, workWriter, discoveryV2Client, connectorInterfaceRepository,
                 transactionHandler, clusterSynchronizer, new DiscoveryRunTerminator(discoveryRepository, workWriter,
                         messageWriter, transactionHandler, eventPublisher, scheduledJobHistoryRepository),
                 Duration.ofMinutes(5), Duration.ofDays(7));
@@ -88,6 +93,10 @@ class DiscoveryRunReaperUnitTest {
         lenient()
                 .when(clusterSynchronizer.tryLock(ClusterOperationSynchronizer.Operation.DISCOVERY_WORK_SWEEP))
                 .thenReturn(true);
+        // Every fixture run is a v2 run, which is what makes it eligible for the connector-side cancel.
+        ConnectorInterfaceEntity v2Interface = new ConnectorInterfaceEntity();
+        v2Interface.setVersion("v2");
+        lenient().when(connectorInterfaceRepository.findById(any())).thenReturn(Optional.of(v2Interface));
     }
 
     @Test

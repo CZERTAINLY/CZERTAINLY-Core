@@ -1,6 +1,6 @@
 package com.otilm.core.service.handler.discovery;
 
-import com.otilm.api.exception.ConnectorClientException;
+import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.ConnectorProblemException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
@@ -19,6 +19,7 @@ import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.exception.UnsupportedDiscoveryVersionException;
 import com.otilm.core.mapper.discovery.DiscoveryDtoMapper;
 import com.otilm.core.messaging.jms.configuration.DiscoveryWorkProperties;
+import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.ConnectorCapabilityService;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
@@ -105,8 +106,22 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
             // Outside any transaction, by DiscoveryV2Client's own NOT_SUPPORTED boundary.
             validateResources(run);
             DiscoveryInitiateResponseDto response = client.initiate(run);
-            recordInitiated(discoveryUuid, response, scheduledJobInfo);
-            scheduleFirstTicks(discoveryUuid);
+            // Past this point the connector holds an open run, so every exit tells it to drop one it will never
+            // be asked about again -- otherwise its scan keeps going until its own timeout, and the run is
+            // terminal by then so the reaper will not collect it either.
+            try {
+                if (!recordInitiated(discoveryUuid, response, scheduledJobInfo)) {
+                    logger
+                            .info("Discovery {} ended while it was being started; dropping it at the connector",
+                                    discoveryUuid);
+                    dropAtConnector(run, response);
+                    return detailOf(discoveryUuid);
+                }
+                scheduleFirstTicks(discoveryUuid);
+            } catch (Exception bookkeepingFailed) {
+                dropAtConnector(run, response);
+                throw bookkeepingFailed;
+            }
             return detailOf(discoveryUuid);
         } catch (Exception e) {
             if (e instanceof InterruptedException) {
@@ -139,15 +154,23 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
     /**
      * Records what the connector answered, under the run's lock.
      *
+     * @return whether the run was still live to record against; {@code false} when it ended while the connector was
+     * being called, which leaves the caller to drop the now-orphaned connector-side run
      * @throws IllegalStateException if the handle exceeds the cap — thrown before anything is persisted, so the run
      * fails rather than being driven with a handle it cannot replay
      */
-    private void recordInitiated(UUID discoveryUuid, DiscoveryInitiateResponseDto response,
+    private boolean recordInitiated(UUID discoveryUuid, DiscoveryInitiateResponseDto response,
             ScheduledJobInfo scheduledJobInfo) {
-        transactionHandler.runInNewTransaction(() -> {
+        return Boolean.TRUE.equals(transactionHandler.runInNewTransaction(() -> {
             Discovery locked = discoveryRepository
                     .findWithLockByUuid(discoveryUuid)
                     .orElseThrow(() -> new IllegalStateException("Discovery " + discoveryUuid + " vanished mid-start"));
+            // Re-asserted under the lock, as DiscoveryRunTerminator.endIf does. The run was created IN_PROGRESS and
+            // started asynchronously, so a cancel in that window has already told the connector to drop it and
+            // deleted the agenda; writing IN_PROGRESS here would revive a run nothing can drive.
+            if (DiscoveryRunLifecycle.isTerminal(locked.getStatus())) {
+                return false;
+            }
             enforceMetaCap(response.getMeta());
             locked.setRunMeta(response.getMeta());
             locked.setStoppable(stoppable(locked, response));
@@ -159,8 +182,28 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
             if (scheduledJobInfo != null) {
                 locked.setScheduledJobHistoryUuid(scheduledJobInfo.jobHistoryUuid());
             }
-            return discoveryRepository.save(locked);
-        });
+            discoveryRepository.save(locked);
+            return true;
+        }));
+    }
+
+    /**
+     * Tells the connector to drop a run it opened that Core will never drive — a start that failed after initiate
+     * succeeded, or one the caller cancelled while initiate was in flight. Best effort, and against a detached entity:
+     * the handle is restored only to address the call, never to be written back.
+     */
+    private void dropAtConnector(Discovery run, DiscoveryInitiateResponseDto response) {
+        try {
+            run.setRunMeta(response.getMeta());
+            client.cancel(run);
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            logger
+                    .warn("Could not drop discovery {} at its connector; its scan may keep running until the "
+                            + "connector's own timeout", run.getUuid(), e);
+        }
     }
 
     private static void enforceMetaCap(List<MetadataAttribute> meta) {
@@ -199,12 +242,21 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         }
     }
 
-    /** Carries the connector's own words where it gave any: a bare exception name tells an operator nothing. */
+    /**
+     * The run's message is a user-visible surface, so only Core-authored text reaches it.
+     *
+     * <p>
+     * A connector failure is described through {@link DiscoveryConnectorErrors#describe}, which maps the closed
+     * error-code vocabulary to text Core wrote and leaves the connector's own {@code detail} in the log. The validation
+     * failures raised above this point are Core-authored already and pass through as they are.
+     */
     private static String startFailureReason(Exception e) {
-        String message = e.getMessage();
-        return message == null || message.isBlank()
+        String reason = e instanceof ConnectorException || e instanceof ValidationException
+                ? DiscoveryConnectorErrors.describe(e)
+                : e.getMessage();
+        return reason == null || reason.isBlank()
                 ? "Discovery could not be started at its connector"
-                : "Discovery could not be started at its connector: " + message;
+                : "Discovery could not be started at its connector: " + reason;
     }
 
     private DiscoveryDetailDto detailOf(UUID discoveryUuid) {
@@ -217,7 +269,7 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
     }
 
     @Override
-    public void stop(Discovery discovery) {
+    public void stop(Discovery discovery) throws ConnectorException {
         requireStatus(discovery, "stopped", DiscoveryStatus.IN_PROGRESS);
         // Both gates: the interface must advertise the capability, and this run must have been declared stoppable
         // at initiate. A run that was never checkpointable cannot be stopped even by a connector that can stop others.
@@ -228,20 +280,24 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         DiscoveryStopResponseDto response = call(discoveryUuid, "stop", () -> client.stop(discovery));
         transactionHandler.runInNewTransaction(() -> {
             Discovery locked = lock(discoveryUuid);
+            // The status checked before the connector call was a snapshot; the call can take tens of seconds, and a
+            // tick worker or the reaper may have ended the run since. Writing STOPPED over that would resurrect it.
+            requireStatus(locked, "stopped", DiscoveryStatus.IN_PROGRESS);
             enforceMetaCap(response.getMeta());
             locked.setRunMeta(response.getMeta());
             locked.setStatus(DiscoveryStatus.STOPPED);
             locked.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC));
-            return discoveryRepository.save(locked);
+            discoveryRepository.save(locked);
+            // In the same transaction as the status: a failure between the two would leave a stopped run with an
+            // attempt budget it never refreshed. The agenda itself stays, parked -- a stopped run is resumable.
+            workWriter.resetAttempt(discoveryUuid, DiscoveryWorkType.STATUS, 0);
+            workWriter.resetAttempt(discoveryUuid, DiscoveryWorkType.DRAIN, 0);
+            return locked;
         });
-        // The agenda stays, parked: a stopped run is resumable, and rebuilding its rows on resume would lose the
-        // attempt counters that bound a run the connector has gone quiet on.
-        workWriter.resetAttempt(discoveryUuid, DiscoveryWorkType.STATUS, 0);
-        workWriter.resetAttempt(discoveryUuid, DiscoveryWorkType.DRAIN, 0);
     }
 
     @Override
-    public void resume(Discovery discovery) {
+    public void resume(Discovery discovery) throws ConnectorException {
         requireStatus(discovery, "resumed", DiscoveryStatus.STOPPED);
         // The flag alone, deliberately: the run's own snapshot describes whether it could be stopped, and the
         // connector's 410 is the authority on whether its checkpoint still exists.
@@ -261,6 +317,8 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         }
         transactionHandler.runInNewTransaction(() -> {
             Discovery locked = lock(discoveryUuid);
+            // Same reason as stop: the legality check ran against a snapshot taken before the connector call.
+            requireStatus(locked, "resumed", DiscoveryStatus.STOPPED);
             enforceMetaCap(response.getMeta());
             locked.setRunMeta(response.getMeta());
             locked.setStoppable(stoppable(locked, response));
@@ -273,7 +331,7 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
     }
 
     @Override
-    public void cancel(Discovery discovery) {
+    public void cancel(Discovery discovery) throws ConnectorException {
         requireStatus(discovery, "cancelled", DiscoveryStatus.IN_PROGRESS, DiscoveryStatus.STOPPED);
         UUID discoveryUuid = discovery.getUuid();
         // 404 is not a failure: it says the connector no longer tracks the run, which is the state cancel asked
@@ -295,22 +353,21 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
     }
 
     /**
-     * Keyed on HTTP status, not on {@code ErrorCode}: over MQ the proxy classifies by status alone and discards the
-     * problem body, so the code is absent on one of the two transports the platform supports.
+     * A resume the connector cannot honour: either it no longer tracks the run at all, or it still does but its
+     * checkpoint is gone. {@link DiscoveryConnectorErrors#isRunNoLongerTracked} already covers the first, including the
+     * bodiless 404 that arrives as a plain {@code ConnectorEntityNotFoundException} over the AMQP proxy; the second is
+     * the contract's 410.
+     *
+     * <p>
+     * Compared as an int rather than through {@code HttpStatus.valueOf}, which throws on a valid-but-unmapped code and
+     * would replace the connector's error with an opaque failure of our own.
      */
     private static boolean isCheckpointLost(Exception e) {
-        HttpStatus status = statusOf(e);
-        return status == HttpStatus.NOT_FOUND || status == HttpStatus.GONE;
-    }
-
-    private static HttpStatus statusOf(Exception e) {
-        if (e instanceof ConnectorProblemException problem) {
-            return problem.getHttpStatus();
+        if (DiscoveryConnectorErrors.isRunNoLongerTracked(e)) {
+            return true;
         }
-        if (e instanceof ConnectorClientException client) {
-            return client.getHttpStatus();
-        }
-        return null;
+        return e instanceof ConnectorProblemException problem && problem.getProblemDetail() != null
+                && problem.getProblemDetail().getStatus() == HttpStatus.GONE.value();
     }
 
     private void requireStatus(Discovery discovery, String verb, DiscoveryStatus... legal) {
@@ -336,12 +393,20 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
                 .orElseThrow(() -> new IllegalStateException("Discovery " + discoveryUuid + " vanished mid-operation"));
     }
 
-    /** Runs a connector call, letting a validation refusal through and wrapping everything else. */
-    private <T> T call(UUID discoveryUuid, String operation, ConnectorCall<T> connectorCall) {
+    /**
+     * Runs a connector call, letting anything the platform already maps to a status pass through untouched and wrapping
+     * only the genuinely unexpected.
+     *
+     * <p>
+     * A conformant connector's refusal is a {@code ConnectorProblemException} over REST and a
+     * {@link ValidationException} over MQ, and {@code ExceptionHandlingAdvice} maps both — as it maps a connector being
+     * unreachable or broken. Wrapping them turned every one of those into a 500, so the same refusal answered
+     * differently depending on the transport underneath.
+     */
+    private <T> T call(UUID discoveryUuid, String operation, ConnectorCall<T> connectorCall) throws ConnectorException {
         try {
             return connectorCall.execute();
-        } catch (ValidationException e) {
-            // The connector's own refusal -- a run past the point of no return -- already carries the right status.
+        } catch (ValidationException | ConnectorException e) {
             throw e;
         } catch (Exception e) {
             throw failed(discoveryUuid, operation, e);

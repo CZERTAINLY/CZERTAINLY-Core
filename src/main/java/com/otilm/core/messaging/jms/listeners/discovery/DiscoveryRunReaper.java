@@ -4,6 +4,7 @@ import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.dao.entity.Discovery;
+import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
@@ -58,6 +59,7 @@ public class DiscoveryRunReaper {
     private final DiscoveryWorkRepository workRepository;
     private final DiscoveryWorkWriter workWriter;
     private final DiscoveryV2Client discoveryV2Client;
+    private final ConnectorInterfaceRepository connectorInterfaceRepository;
     private final TransactionHandler transactionHandler;
     private final ClusterOperationSynchronizer clusterSynchronizer;
     private final DiscoveryRunTerminator terminator;
@@ -65,7 +67,8 @@ public class DiscoveryRunReaper {
     private final Duration stoppedMaxDuration;
 
     public DiscoveryRunReaper(DiscoveryRepository discoveryRepository, DiscoveryWorkRepository workRepository,
-            DiscoveryWorkWriter workWriter, DiscoveryV2Client discoveryV2Client, TransactionHandler transactionHandler,
+            DiscoveryWorkWriter workWriter, DiscoveryV2Client discoveryV2Client,
+            ConnectorInterfaceRepository connectorInterfaceRepository, TransactionHandler transactionHandler,
             ClusterOperationSynchronizer clusterSynchronizer, DiscoveryRunTerminator terminator,
             @Value("${discovery.work.reap-grace:PT5M}") Duration reapGrace,
             @Value("${discovery.run.stopped-max-duration:P7D}") Duration stoppedMaxDuration) {
@@ -73,6 +76,7 @@ public class DiscoveryRunReaper {
         this.workRepository = workRepository;
         this.workWriter = workWriter;
         this.discoveryV2Client = discoveryV2Client;
+        this.connectorInterfaceRepository = connectorInterfaceRepository;
         this.transactionHandler = transactionHandler;
         this.clusterSynchronizer = clusterSynchronizer;
         this.terminator = terminator;
@@ -194,8 +198,9 @@ public class DiscoveryRunReaper {
      * is a notification, not that operation.
      */
     private void bestEffortConnectorCancel(ReapedRun reaped) {
-        if (reaped.run().getConnectorInterfaceUuid() == null) {
-            // A v1 run has no cancel to send; its provider call is synchronous and already over.
+        if (!drivesV2(reaped.run())) {
+            // A v1 run has no cancel to send -- its provider call is synchronous and already over -- and a
+            // generation this platform cannot drive has no client to send one with.
             return;
         }
         try {
@@ -209,6 +214,13 @@ public class DiscoveryRunReaper {
                     .warn("Best-effort connector cancel failed for discovery run {}; the connector-side scan may keep "
                             + "running until its own timeout", reaped.run().getUuid(), e);
         }
+    }
+
+    private boolean drivesV2(Discovery run) {
+        return run.getConnectorInterfaceUuid() != null && connectorInterfaceRepository
+                .findById(run.getConnectorInterfaceUuid())
+                .map(iface -> "v2".equals(iface.getVersion()))
+                .orElse(false);
     }
 
     /**

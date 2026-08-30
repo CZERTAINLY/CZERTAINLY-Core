@@ -43,9 +43,15 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
      * the certificate branch builds its payload at read time.
      *
      * <p>
-     * Both filters are applied inside each branch, before the union, so a single-resource query reads one table and the
-     * other branch is pruned on a constant. The certificate branch's synthesized {@code sequence} is numbered over the
-     * whole run and filtered afterwards, so a row keeps the same number whether or not the caller filtered.
+     * The resource filter is applied inside each branch, before the union, so a single-resource query reads one table
+     * and the other branch is pruned on a constant. The {@code newlyDiscovered} filter is applied to the certificate
+     * branch <i>after</i> its numbering, so a row keeps the same synthesized number whether or not the caller filtered.
+     *
+     * <p>
+     * {@code i_cre} is cast explicitly: {@code discovery_certificate} declares it {@code VARCHAR} — alone among the
+     * audited tables, and no migration has ever converted it — so comparing or coalescing it with a timestamp fails at
+     * plan time on a Flyway-built database. Tests build their schema from the entities, where the column is a
+     * timestamp, and so cannot catch it.
      *
      * @param resource enum member name to restrict to — what both tables store — or null for every resource
      * @param newlyDiscovered tri-state: null means both
@@ -76,10 +82,11 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
               FROM (
                 SELECT dc.uuid AS uuid,
                        cert.uuid AS inventory_uuid,
-                       COALESCE(dc.sequence, ROW_NUMBER() OVER (ORDER BY dc.i_cre, dc.uuid)) AS sequence,
+                       COALESCE(dc.sequence,
+                                    ROW_NUMBER() OVER (ORDER BY dc.i_cre::timestamptz, dc.uuid)) AS sequence,
                        COALESCE(dc.unique_ref, cc.fingerprint) AS unique_ref,
                        'CERTIFICATE' AS resource,
-                       COALESCE(dc.discovered_at, dc.i_cre) AS discovered_at,
+                       COALESCE(dc.discovered_at, dc.i_cre::timestamptz) AS discovered_at,
                        jsonb_build_object('resource', 'certificates',
                                           'certificateData', cc.content) #>> '{}' AS payload,
                        dc.newly_discovered AS newly_discovered,

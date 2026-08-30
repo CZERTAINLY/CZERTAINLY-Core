@@ -18,9 +18,14 @@ import com.otilm.core.serialization.ObjectMapperFactory;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Maps a discovery run and its message log onto the shapes the API publishes. */
 public class DiscoveryDtoMapper {
+
+    private static final Logger logger = LoggerFactory.getLogger(DiscoveryDtoMapper.class);
 
     private static final ObjectMapper JSON_COLUMN = ObjectMapperFactory.jsonColumn();
 
@@ -97,7 +102,7 @@ public class DiscoveryDtoMapper {
         dto.setSequence(row.getSequence());
         dto.setUniqueRef(row.getUniqueRef());
         dto.setDiscoveredAt(row.getDiscoveredAt() == null ? null : row.getDiscoveredAt().atOffset(ZoneOffset.UTC));
-        dto.setPayload(read(row.getPayload(), DiscoveredItemPayloadDto.class));
+        dto.setPayload(read(row.getUuid(), row.getPayload(), DiscoveredItemPayloadDto.class));
         dto.setNewlyDiscovered(row.isNewlyDiscovered());
         dto.setProcessed(row.isProcessed());
         dto.setProcessedError(row.getProcessedError());
@@ -108,14 +113,22 @@ public class DiscoveryDtoMapper {
         return dto;
     }
 
-    private static <T> T read(String json, Class<T> type) {
+    /**
+     * Staging is deliberately permissive, so a payload can carry a resource this build has no type for. That is
+     * answered per row rather than by failing the page: one unreadable item would otherwise 500 the whole listing,
+     * permanently, for a run whose other items are perfectly readable.
+     */
+    private static <T> T read(UUID itemUuid, String json, Class<T> type) {
         if (json == null) {
             return null;
         }
         try {
             return JSON_COLUMN.readValue(json, type);
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Unreadable discovery item " + type.getSimpleName(), e);
+            logger
+                    .warn("Discovery item {} has an unreadable {}; listing it without one", itemUuid,
+                            type.getSimpleName(), e);
+            return null;
         }
     }
 

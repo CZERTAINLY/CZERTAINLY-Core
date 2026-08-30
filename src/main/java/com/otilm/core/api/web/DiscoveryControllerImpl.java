@@ -93,7 +93,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.LIST)
     public PaginationResponseDto<DiscoveryMessageDto> getDiscoveryRunMessages(@LogResource(uuid = true) String uuid,
             int itemsPerPage, int pageNumber) throws NotFoundException {
         return discoveryService.getDiscoveryRunMessages(SecuredUUID.fromString(uuid), itemsPerPage, pageNumber);
@@ -194,7 +194,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.LIST)
     public PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(@LogResource(uuid = true) String uuid,
-            @LogResource(resource = true) Resource resource, Boolean newlyDiscovered, int itemsPerPage, int pageNumber)
+            @LogResource(name = true) Resource resource, Boolean newlyDiscovered, int itemsPerPage, int pageNumber)
             throws NotFoundException {
         return discoveryService
                 .getDiscoveryItems(SecuredUUID.fromString(uuid), resource, newlyDiscovered, itemsPerPage, pageNumber);
@@ -202,19 +202,19 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.STOP)
-    public void stopDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void stopDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException, ConnectorException {
         discoveryService.stopDiscovery(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.RESUME)
-    public void resumeDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void resumeDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException, ConnectorException {
         discoveryService.resumeDiscovery(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.CANCEL)
-    public void cancelDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void cancelDiscovery(@LogResource(uuid = true) String uuid) throws NotFoundException, ConnectorException {
         discoveryService.cancelDiscovery(SecuredUUID.fromString(uuid));
     }
 

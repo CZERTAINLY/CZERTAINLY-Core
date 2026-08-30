@@ -645,7 +645,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void aResumeTheConnectorCannotHonourEndsTheRunAndKeepsWhatItStaged() {
+    void aResumeTheConnectorCannotHonourEndsTheRunAndKeepsWhatItStaged() throws Exception {
         givenV2Run(List.of(Resource.CERTIFICATE));
         Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         run.setStatus(DiscoveryStatus.STOPPED);
@@ -665,7 +665,7 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void aRunTheConnectorAlreadyForgotCancelsSuccessfully() {
+    void aRunTheConnectorAlreadyForgotCancelsSuccessfully() throws Exception {
         givenV2Run(List.of(Resource.CERTIFICATE));
         Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         WireMock

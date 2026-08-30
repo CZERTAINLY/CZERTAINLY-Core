@@ -89,7 +89,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.BiConsumer;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -321,16 +320,27 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
      * resource it targets, and the connector would scan on defaults.
      */
     private void storeResourceAttributes(DiscoveryDto request, Connector connector, Discovery discovery)
-            throws AttributeException, NotFoundException {
-        if (request.getResourceAttributes() == null) {
+            throws AttributeException, NotFoundException, ConnectorException {
+        if (request.getResourceAttributes() == null || request.getResourceAttributes().isEmpty()) {
             return;
         }
+        ApiClientConnectorInfo connectorInfo = connectorService.getConnectorForApiClient(connector.getUuid());
         for (Map.Entry<Resource, List<RequestAttribute>> perResource : request.getResourceAttributes().entrySet()) {
+            String operation = perResource.getKey().getCode();
+            // The definitions must exist before content can be filed against them: the engine resolves every
+            // submitted attribute to an attribute_definition row, and a relay hands the schema out without
+            // recording it, so posting back what was just fetched would answer 404. Registered per operation, the
+            // same key the content is stored under and the request builder later reads it back by.
+            attributeEngine
+                    .updateDataAttributeDefinitions(connector.getUuid(), operation,
+                            connectorApiFactory
+                                    .getDiscoveryApiClientV2(connectorInfo)
+                                    .listResourceAttributes(connectorInfo, perResource.getKey()));
             attributeEngine
                     .updateObjectDataAttributesContent(ObjectAttributeContentInfo
                             .builder(Resource.DISCOVERY, discovery.getUuid())
                             .connector(connector.getUuid())
-                            .operation(perResource.getKey().getCode())
+                            .operation(operation)
                             .build(), perResource.getValue());
         }
     }
@@ -525,21 +535,21 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.STOP)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void stopDiscovery(SecuredUUID uuid) throws NotFoundException {
+    public void stopDiscovery(SecuredUUID uuid) throws NotFoundException, ConnectorException {
         lifecycle(uuid, "stopped", DiscoveryProviderAdapter::stop);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.RESUME)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void resumeDiscovery(SecuredUUID uuid) throws NotFoundException {
+    public void resumeDiscovery(SecuredUUID uuid) throws NotFoundException, ConnectorException {
         lifecycle(uuid, "resumed", DiscoveryProviderAdapter::resume);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CANCEL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void cancelDiscovery(SecuredUUID uuid) throws NotFoundException {
+    public void cancelDiscovery(SecuredUUID uuid) throws NotFoundException, ConnectorException {
         lifecycle(uuid, "cancelled", DiscoveryProviderAdapter::cancel);
     }
 
@@ -551,15 +561,24 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
      * as a 500. Translated here into the same 422 an illegal transition answers with: from a caller's side both mean
      * the same thing — this run cannot be asked to do this.
      */
-    private void lifecycle(SecuredUUID uuid, String verb, BiConsumer<DiscoveryProviderAdapter, Discovery> operation)
-            throws NotFoundException {
+    private void lifecycle(SecuredUUID uuid, String verb, DiscoveryLifecycleOperation operation)
+            throws NotFoundException, ConnectorException {
         Discovery discovery = getDiscoveryEntity(uuid);
         try {
-            operation.accept(discoveryProviderAdapterFactory.forDiscovery(discovery), discovery);
+            operation.perform(discoveryProviderAdapterFactory.forDiscovery(discovery), discovery);
         } catch (UnsupportedOperationException | UnsupportedDiscoveryVersionException e) {
+            // The adapter's own words say which generation refused and why; they stay in the log rather than on the
+            // wire, where a connector-reported version string would be unvalidated input.
+            logger.debug("Discovery {} cannot be {}", uuid.getValue(), verb, e);
             throw new ValidationException(
                     "Discovery " + uuid.getValue() + " cannot be " + verb + ": not supported by its connector version");
         }
+    }
+
+    /** What {@link #lifecycle} routes: an adapter operation that may fail at the connector. */
+    @FunctionalInterface
+    private interface DiscoveryLifecycleOperation {
+        void perform(DiscoveryProviderAdapter adapter, Discovery discovery) throws ConnectorException;
     }
 
     // S8989 wants explicit rollbackFor on the class-level @Transactional for this checked exception; changing
@@ -626,6 +645,10 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
+    // NOT_SUPPORTED because validation asks the connector what it can discover, and a connector call must never
+    // hold a transaction open -- a slow or hostile connector would pin a pooled connection for its whole timeout.
+    // The writes below open their own transactions.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public DiscoveryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity)
             throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
