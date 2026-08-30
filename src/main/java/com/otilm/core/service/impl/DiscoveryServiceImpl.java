@@ -616,12 +616,17 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         Discovery discovery = discoveryRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Discovery.class, uuid));
-        // A v2 run that is still live is driven by agenda rows this delete would cascade away, so nothing would
+        // A v2 run still at its connector is driven by agenda rows this delete would cascade away, so nothing would
         // ever end it: no terminal transition, no DISCOVERY_FINISHED, a connector still scanning, and a scheduled
-        // job left open forever now that the task waits for that event. Cancel ends it properly first. A v1 run has
-        // no agenda and its provider call is already over, so it can be deleted directly.
-        if (discovery.getConnectorInterfaceUuid() != null && !DiscoveryRunLifecycle.isTerminal(discovery.getStatus())) {
-            throw new ValidationException("Discovery " + uuid.getValue() + " is " + discovery.getStatus()
+        // job left open forever now that the task waits for that event. Cancel ends it properly first.
+        //
+        // Gated on having left the connector rather than on being terminal, so the refused states are exactly the
+        // ones cancel accepts. Gated on terminal, a run in PROCESSING could be neither cancelled nor deleted: its
+        // connector is already done with it, so there is no scan to strand, but it would sit here forever. A v1 run
+        // has no agenda and its provider call is already over, so it can be deleted directly.
+        if (discovery.getConnectorInterfaceUuid() != null
+                && !DiscoveryRunLifecycle.hasLeftTheConnector(discovery.getStatus())) {
+            throw new ValidationException("Discovery " + uuid.getValue() + " is " + discovery.getStatus().getLabel()
                     + " and cannot be deleted; cancel it first");
         }
         Long certsDeleted = discoveryCertificateRepository.deleteByDiscovery(discovery);

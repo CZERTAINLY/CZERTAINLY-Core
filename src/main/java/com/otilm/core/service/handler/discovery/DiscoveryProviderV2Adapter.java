@@ -25,6 +25,8 @@ import com.otilm.core.service.handler.ConnectorCapabilityService;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import com.otilm.core.tasks.ScheduledJobInfo;
 import com.otilm.core.util.AttributeDefinitionUtils;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -75,6 +77,9 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
     private final ConnectorCapabilityService capabilityService;
     private final TransactionHandler transactionHandler;
     private final DiscoveryWorkProperties workProperties;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @SuppressWarnings("java:S107")
     public DiscoveryProviderV2Adapter(DiscoveryRepository discoveryRepository,
@@ -286,6 +291,9 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
             enforceMetaCap(response.getMeta());
             locked.setRunMeta(response.getMeta());
             locked.setStatus(DiscoveryStatus.STOPPED);
+            // Both, always together: connector_status is the connector's view of the run, and the connector has
+            // just acknowledged the stop. Left behind it keeps reporting IN_PROGRESS for a run nobody is scanning.
+            locked.setConnectorStatus(DiscoveryStatus.STOPPED);
             locked.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC));
             discoveryRepository.save(locked);
             // In the same transaction as the status: a failure between the two would leave a stopped run with an
@@ -325,6 +333,7 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
             locked.setRunMeta(response.getMeta());
             locked.setStoppable(stoppable(locked, response));
             locked.setStatus(DiscoveryStatus.IN_PROGRESS);
+            locked.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
             locked.setStoppedAt(null);
             return discoveryRepository.save(locked);
         });
@@ -339,6 +348,14 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         // 404 is not a failure: it says the connector no longer tracks the run, which is the state cancel asked
         // for. The client hands the status back rather than throwing precisely so this can be read, not caught.
         call(discoveryUuid, "cancel", () -> client.cancel(discovery));
+        // Recorded here rather than in the terminator, which ends runs whose connector said nothing at all -- the
+        // reaper's, most of them -- and must leave the connector's last known view standing. This cancel was
+        // acknowledged, so the connector's view really is CANCELLED.
+        transactionHandler.runInNewTransaction(() -> {
+            Discovery locked = lock(discoveryUuid);
+            locked.setConnectorStatus(DiscoveryStatus.CANCELLED);
+            return discoveryRepository.save(locked);
+        });
         terminator.end(discoveryUuid, DiscoveryStatus.CANCELLED, "Discovery cancelled");
     }
 
@@ -389,10 +406,22 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         return capabilityService.supports(iface, FeatureFlag.DISCOVERY_STOP_RESUME);
     }
 
+    /**
+     * Takes the run's row lock and reads the row as it now is.
+     *
+     * <p>
+     * The refresh is what makes the re-assertions above this call mean anything. Every lifecycle operation runs
+     * {@code NOT_SUPPORTED} and has already loaded the run to decide the call was legal, so the run sits in the
+     * persistence context this new transaction shares with it: the locking read finds that instance and answers with
+     * its pre-call field values, however far the row has moved since. Re-checking that snapshot only re-checks what was
+     * already checked before the connector call.
+     */
     private Discovery lock(UUID discoveryUuid) {
-        return discoveryRepository
+        Discovery run = discoveryRepository
                 .findWithLockByUuid(discoveryUuid)
                 .orElseThrow(() -> new IllegalStateException("Discovery " + discoveryUuid + " vanished mid-operation"));
+        entityManager.refresh(run);
+        return run;
     }
 
     /**
