@@ -2,6 +2,7 @@ package com.otilm.core.service.handler.discovery;
 
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.ConnectorProblemException;
+import com.otilm.api.exception.PlatformException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
@@ -259,18 +260,16 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
     // asserting directly, and it cannot be reached through start() -- every failure a connector stub can
     // provoke arrives as a ConnectorException, which is the branch that was never in question.
     static String startFailureReason(Exception e) {
-        // Only text Core wrote reaches the run, which publishes this on the detail and in the message log. A
-        // connector failure is named from the closed vocabulary in DiscoveryConnectorErrors, and a refusal this
-        // class raised carries its own words. Anything else -- an NPE's field path, a driver's SQL, a library's
-        // internals -- is replaced: those are for the log above, which already has the exception itself.
-        String reason;
-        if (e instanceof ConnectorException || e instanceof ValidationException) {
-            reason = DiscoveryConnectorErrors.describe(e);
-        } else if (e instanceof RunRefusedException) {
-            reason = e.getMessage();
-        } else {
-            reason = null;
-        }
+        // Only text Core wrote reaches the run, which publishes this on the detail and in the message log.
+        //
+        // A connector failure is named from the closed vocabulary in DiscoveryConnectorErrors rather than through
+        // safeMessage: ConnectorException is a PlatformException, so safeMessage would pass the connector's own
+        // prose, which is the thing that must not reach a user-visible field. Everything else goes through the
+        // platform's gate, which admits a message only from an exception Core shaped -- an NPE's field path or a
+        // driver's SQL is not one, and is left to the log above, which already has the exception itself.
+        String reason = e instanceof ConnectorException || e instanceof ValidationException
+                ? DiscoveryConnectorErrors.describe(e)
+                : PlatformException.safeMessage(e, "");
         return reason == null || reason.isBlank()
                 ? "Discovery could not be started at its connector"
                 : "Discovery could not be started at its connector: " + reason;
@@ -278,10 +277,10 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
 
     /**
      * A run Core itself refused — for targeting nothing, for targeting what the connector does not discover, or for a
-     * handle too large to replay. The message is Core-authored, so unlike an arbitrary runtime failure it is safe to
-     * publish on the run. An {@link IllegalStateException} still, so the paths that catch one are unaffected.
+     * handle too large to replay. {@link PlatformException} is what marks its message as Core-authored, and so
+     * publishable on the run; an {@link IllegalStateException} still, so the paths that catch one are unaffected.
      */
-    private static final class RunRefusedException extends IllegalStateException {
+    private static final class RunRefusedException extends IllegalStateException implements PlatformException {
         private RunRefusedException(String message) {
             super(message);
         }
