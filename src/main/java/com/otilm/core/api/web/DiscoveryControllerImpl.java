@@ -168,7 +168,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.CONNECTOR, affiliatedResource = Resource.DISCOVERY,
-            operation = Operation.LIST)
+            operation = Operation.LIST_RESOURCES)
     public List<DiscoverySupportedResourceDto> listDiscoveryResources(@LogResource(uuid = true) String connectorUuid)
             throws NotFoundException, ConnectorException {
         return discoveryService.listDiscoveryResources(SecuredUUID.fromString(connectorUuid));
@@ -183,8 +183,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    @AuditLogged(module = Module.DISCOVERY, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR,
-            operation = Operation.LIST_ATTRIBUTES)
+    @AuditLogged(module = Module.DISCOVERY, resource = Resource.ATTRIBUTE, name = "discovery",
+            affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> getDiscoveryResourceAttributes(
             @LogResource(uuid = true, affiliated = true) String connectorUuid,
             @LogResource(name = true) Resource resource) throws NotFoundException, ConnectorException {
@@ -194,8 +194,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.LIST)
     public PaginationResponseDto<DiscoveryItemDto> getDiscoveryItems(@LogResource(uuid = true) String uuid,
-            @LogResource(name = true) Resource resource, Boolean newlyDiscovered, int itemsPerPage, int pageNumber)
-            throws NotFoundException {
+            @LogResource(resource = true, affiliated = true) Resource resource, Boolean newlyDiscovered,
+            int itemsPerPage, int pageNumber) throws NotFoundException {
         return discoveryService
                 .getDiscoveryItems(SecuredUUID.fromString(uuid), resource, newlyDiscovered, itemsPerPage, pageNumber);
     }

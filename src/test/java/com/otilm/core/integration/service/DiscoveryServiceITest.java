@@ -874,6 +874,46 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void aLiveV2RunCannotBeDeletedOutFromUnderItsAgenda() {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+
+        // Deleting it would cascade away the agenda rows that drive it, so nothing would ever end the run: no
+        // terminal transition, no event, a connector still scanning, and a scheduled job open forever.
+        ValidationException refused = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> discoveryService.deleteDiscovery(discovery.getSecuredUuid()));
+        Assertions.assertTrue(refused.getMessage().contains("cancel"), refused.getMessage());
+    }
+
+    @Test
+    void aTerminatedV2RunDeletesNormally() throws Exception {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        run.setStatus(DiscoveryStatus.COMPLETED);
+        discoveryRepository.saveAndFlush(run);
+
+        discoveryService.deleteDiscovery(discovery.getSecuredUuid());
+
+        Assertions.assertTrue(discoveryRepository.findByUuid(discovery.getUuid()).isEmpty());
+    }
+
+    @Test
+    void aV2RunsAttributesAreValidatedAgainstTheV2Schema() throws Exception {
+        giveConnectorAV2DiscoveryInterface();
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+
+        discoveryService.createDiscovery(v2Request(List.of(Resource.CERTIFICATE)), true);
+
+        // The v1 kind-scoped endpoint is what mergeAndValidateAttributes reads, and a v2-only connector does not
+        // implement it; the run-level schema comes from the v2 relay instead.
+        WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/v2/discoveryProvider/attributes")));
+        WireMock
+                .verify(0,
+                        WireMock.getRequestedFor(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes")));
+    }
+
+    @Test
     void aLifecycleOperationOnAnUnknownRunIsNotFound() {
         SecuredUUID missing = SecuredUUID.fromUUID(UUID.randomUUID());
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.cancelDiscovery(missing));
@@ -1196,6 +1236,12 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     private void stubConnectorEndpoints() {
+        // A v2 connector publishes its run-level schema here, not on the v1 kind-scoped endpoints; create reads it
+        // to validate what the caller submitted.
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/v2/discoveryProvider/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
         WireMock
                 .stubFor(WireMock
                         .get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))

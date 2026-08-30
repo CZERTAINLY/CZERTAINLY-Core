@@ -28,3 +28,15 @@ ALTER TABLE "discovery" ADD COLUMN "scheduled_job_history_uuid" UUID;
 -- i_cre column is included because the listing orders the certificate branch by it.
 CREATE INDEX "idx_discovery_certificate_run"
     ON "discovery_certificate" ("discovery_uuid", "i_cre", "uuid");
+
+-- discovery_certificate is the only table in the schema whose audit columns are VARCHAR; every other one declares
+-- them as a timestamp, and the entity has always mapped them as OffsetDateTime. Nothing noticed while no query
+-- compared them against a timestamp -- the items listing is the first, and it fails at plan time as they stand.
+--
+-- Converted rather than cast at every call site, so the column finally matches the entity that maps it. Existing
+-- values are ISO-8601 text written by Hibernate, so the cast is total; they are interpreted in the server's zone,
+-- which is where they were written. Rewrites the table under an ACCESS EXCLUSIVE lock -- brief, but this is one of
+-- the larger tables in a mature deployment, so it wants a maintenance window rather than a busy period.
+ALTER TABLE "discovery_certificate"
+    ALTER COLUMN "i_cre" TYPE TIMESTAMPTZ USING "i_cre"::timestamptz,
+    ALTER COLUMN "i_upd" TYPE TIMESTAMPTZ USING "i_upd"::timestamptz;

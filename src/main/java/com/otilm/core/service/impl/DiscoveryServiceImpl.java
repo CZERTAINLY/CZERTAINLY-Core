@@ -58,6 +58,7 @@ import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.jms.producers.NotificationProducer;
 import com.otilm.core.messaging.model.NotificationRecipient;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -315,6 +316,31 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     }
 
     /**
+     * Validates the run's own attributes against the schema its connector actually publishes.
+     *
+     * <p>
+     * The two generations publish it in different places. A v1 connector serves kind-scoped definitions from the legacy
+     * function-group endpoints, which is what {@code mergeAndValidateAttributes} reads. A v2 connector does not expose
+     * those at all — it answers {@code listRunAttributes} — so putting every run through the v1 path validated a v2 run
+     * against endpoints its connector never implements.
+     */
+    private void validateRunAttributes(DiscoveryDto request, Connector connector,
+            ConnectorInterfaceEntity discoveryInterface)
+            throws ConnectorException, AttributeException, NotFoundException {
+        if (discoveryInterface == null) {
+            connectorService
+                    .mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()),
+                            FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
+            return;
+        }
+        ApiClientConnectorInfo connectorInfo = connectorService.getConnectorForApiClient(connector.getUuid());
+        attributeEngine
+                .validateUpdateDataAttributes(connector.getUuid(), null,
+                        connectorApiFactory.getDiscoveryApiClientV2(connectorInfo).listRunAttributes(connectorInfo),
+                        request.getAttributes());
+    }
+
+    /**
      * Stores each resource's own attributes under that resource's wire code, which is the operation the request builder
      * later reads them back by. Without this a v2 run would send the connector an empty configuration for every
      * resource it targets, and the connector would scan on defaults.
@@ -329,8 +355,12 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
             String operation = perResource.getKey().getCode();
             // The definitions must exist before content can be filed against them: the engine resolves every
             // submitted attribute to an attribute_definition row, and a relay hands the schema out without
-            // recording it, so posting back what was just fetched would answer 404. Registered per operation, the
-            // same key the content is stored under and the request builder later reads it back by.
+            // recording it, so posting back what was just fetched would answer 404.
+            //
+            // Keyed by operation rather than by sourceObjectType, which records where content came from rather
+            // than which schema it belongs to: a definition is keyed by operation, so two resources declaring an
+            // attribute of the same name would otherwise collide on one definition, and the request builder reads
+            // them back by operation too.
             attributeEngine
                     .updateDataAttributeDefinitions(connector.getUuid(), operation,
                             connectorApiFactory
@@ -594,6 +624,14 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         Discovery discovery = discoveryRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Discovery.class, uuid));
+        // A v2 run that is still live is driven by agenda rows this delete would cascade away, so nothing would
+        // ever end it: no terminal transition, no DISCOVERY_FINISHED, a connector still scanning, and a scheduled
+        // job left open forever now that the task waits for that event. Cancel ends it properly first. A v1 run has
+        // no agenda and its provider call is already over, so it is deleted as before.
+        if (discovery.getConnectorInterfaceUuid() != null && !DiscoveryRunLifecycle.isTerminal(discovery.getStatus())) {
+            throw new ValidationException("Discovery " + uuid.getValue() + " is " + discovery.getStatus()
+                    + " and cannot be deleted; cancel it first");
+        }
         Long certsDeleted = discoveryCertificateRepository.deleteByDiscovery(discovery);
         logger.debug("Deleted {} discovery certificates", certsDeleted);
 
@@ -662,13 +700,11 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 .orElseThrow(() -> new NotFoundException(Connector.class, request.getConnectorUuid()));
 
         attributeEngine.validateCustomAttributesContent(Resource.DISCOVERY, request.getCustomAttributes());
-        connectorService
-                .mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()),
-                        FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
 
         ConnectorInterfaceEntity discoveryInterface = resolveDiscoveryInterface(connector.getUuid(),
                 request.getInterfaceUuid());
         validateRequestedResources(request, connector, discoveryInterface);
+        validateRunAttributes(request, connector, discoveryInterface);
 
         Discovery discovery = new Discovery();
         discovery.setName(request.getName());

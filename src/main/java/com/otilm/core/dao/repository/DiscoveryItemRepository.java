@@ -48,10 +48,10 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
      * branch <i>after</i> its numbering, so a row keeps the same synthesized number whether or not the caller filtered.
      *
      * <p>
-     * {@code i_cre} is cast explicitly: {@code discovery_certificate} declares it {@code VARCHAR} — alone among the
-     * audited tables, and no migration has ever converted it — so comparing or coalescing it with a timestamp fails at
-     * plan time on a Flyway-built database. Tests build their schema from the entities, where the column is a
-     * timestamp, and so cannot catch it.
+     * {@code i_cre} is a timestamp here only because this change converts it. It was declared {@code VARCHAR} — alone
+     * among the audited tables — so coalescing it with {@code discovered_at} would have failed at plan time on a
+     * Flyway-built database, invisibly to tests, which build their schema from the entities that always mapped it as a
+     * timestamp.
      *
      * @param resource enum member name to restrict to — what both tables store — or null for every resource
      * @param newlyDiscovered tri-state: null means both
@@ -83,10 +83,10 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
                 SELECT dc.uuid AS uuid,
                        cert.uuid AS inventory_uuid,
                        COALESCE(dc.sequence,
-                                    ROW_NUMBER() OVER (ORDER BY dc.i_cre::timestamptz, dc.uuid)) AS sequence,
+                                    ROW_NUMBER() OVER (ORDER BY dc.i_cre, dc.uuid)) AS sequence,
                        COALESCE(dc.unique_ref, cc.fingerprint) AS unique_ref,
                        'CERTIFICATE' AS resource,
-                       COALESCE(dc.discovered_at, dc.i_cre::timestamptz) AS discovered_at,
+                       COALESCE(dc.discovered_at, dc.i_cre) AS discovered_at,
                        jsonb_build_object('resource', 'certificates',
                                           'certificateData', cc.content) #>> '{}' AS payload,
                        dc.newly_discovered AS newly_discovered,
