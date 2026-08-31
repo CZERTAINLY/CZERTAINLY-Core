@@ -42,6 +42,7 @@ import com.otilm.api.model.core.logging.records.ActorRecord;
 import com.otilm.api.model.core.logging.records.LogRecord;
 import com.otilm.api.model.core.logging.records.ResourceObjectIdentity;
 import com.otilm.api.model.core.logging.records.ResourceRecord;
+import com.otilm.api.model.core.logging.records.SourceRecord;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.core.attribute.engine.AttributeEngine;
@@ -1838,6 +1839,63 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
 
     }
 
+    @Test
+    void testAuditLogSourceFilters_twoSegmentJsonPath() {
+        AuditLog localCall = createAuditLog(List.of(),
+                SourceRecord.builder().method("GET").path("/v1/certificates").ipAddress("127.0.0.1").build());
+        AuditLog remoteCall = createAuditLog(List.of(),
+                SourceRecord.builder().method("GET").path("/v1/keys").ipAddress("10.0.0.7").build());
+        AuditLog withoutSource = createAuditLog(List.of());
+        SearchRequestDto searchRequestDto = new SearchRequestDto();
+
+        searchRequestDto
+                .setFilters(List.of(aPropertyEqualsFilter(FilterField.AUDIT_LOG_SOURCE_IP_ADDRESS, "127.0.0.1")));
+        Assertions
+                .assertEquals(Set.of(localCall.getId()),
+                        extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+
+        searchRequestDto.setFilters(List.of(aPropertyEqualsFilter(FilterField.AUDIT_LOG_SOURCE_PATH, "/v1/keys")));
+        Assertions
+                .assertEquals(Set.of(remoteCall.getId()),
+                        extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+
+        searchRequestDto.setFilters(List.of(aPropertyEmptyFilter(FilterField.AUDIT_LOG_SOURCE_IP_ADDRESS)));
+        Assertions
+                .assertEquals(Set.of(withoutSource.getId()),
+                        extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+    }
+
+    @Test
+    void testGroupNameNotEqualsFilter_matchesResourcesOutsideTheNamedGroup() {
+        Group excludedGroup = new Group();
+        excludedGroup.setName("excluded group");
+        groupRepository.save(excludedGroup);
+        Group otherGroup = new Group();
+        otherGroup.setName("other group");
+        groupRepository.save(otherGroup);
+
+        associateGroupWithCertificate(excludedGroup, certificate1);
+        associateGroupWithCertificate(otherGroup, certificate2);
+
+        CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
+        searchRequestDto.setFilters(List.of(aPropertyNotEqualsFilter(FilterField.GROUP_NAME, "excluded group")));
+
+        Assertions
+                .assertEquals(Set.of(certificate2.getUuid(), certificate3.getUuid()),
+                        getUuidsFromListCertificatesResponse(
+                                certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+    }
+
+    private void associateGroupWithCertificate(final Group group, final Certificate certificate) {
+        certificate.setGroups(Set.of(group));
+        certificateRepository.save(certificate);
+        GroupAssociation association = new GroupAssociation();
+        association.setGroupUuid(group.getUuid());
+        association.setResource(Resource.CERTIFICATE);
+        association.setObjectUuid(certificate.getUuid());
+        groupAssociationRepository.save(association);
+    }
+
     // ─── Exception paths ───────────────────────────────────────────────────
 
     @Test
@@ -2060,6 +2118,10 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
     }
 
     private AuditLog createAuditLog(List<ResourceObjectIdentity> resourceObjects) {
+        return createAuditLog(resourceObjects, null);
+    }
+
+    private AuditLog createAuditLog(List<ResourceObjectIdentity> resourceObjects, SourceRecord source) {
         AuditLog entity = new AuditLog();
         entity.setVersion("1.0");
         entity.setModule(Module.AUTH);
@@ -2079,6 +2141,7 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
                         .actor(new ActorRecord(ActorType.USER, AuthMethod.CERTIFICATE, null, null))
                         .operation(Operation.LOGOUT)
                         .operationResult(OperationResult.FAILURE)
+                        .source(source)
                         .resource(new ResourceRecord(Resource.USER, resourceObjects))
                         .build());
         auditLogRepository.save(entity);

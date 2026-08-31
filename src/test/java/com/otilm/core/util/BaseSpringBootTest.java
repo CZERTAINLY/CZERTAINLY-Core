@@ -105,6 +105,27 @@ public class BaseSpringBootTest {
     }
 
     /**
+     * Denies the OBJECT-access vote for one resource+action -- the vote {@code ObjectFilterAspect} turns into a
+     * security filter -- while {@link #denyResourceAccess} denies the method-security resource vote. A path that scopes
+     * data by a populated filter (rather than refusing the call) is exercised through this one: the filter comes back
+     * "only specific objects, none allowed", so the scoped query returns nothing instead of everything.
+     */
+    protected void denyObjectAccess(Resource resource, ResourceAction action) {
+        OpaObjectAccessResult noObjects = new OpaObjectAccessResult();
+        noObjects.setActionAllowedForGroupOfObjects(false);
+        noObjects.setAllowedObjects(List.of());
+        noObjects.setForbiddenObjects(List.of());
+        when(opaClient
+                .checkObjectAccess(Mockito.any(),
+                        Mockito
+                                .argThat(req -> req != null && req.getProperties() != null
+                                        && resource.getCode().equals(req.getProperties().get("name"))
+                                        && action.getCode().equals(req.getProperties().get("action"))),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(noObjects);
+    }
+
+    /**
      * Every resource-access request submitted to OPA so far, in submission order.
      */
     protected List<OpaRequestedResource> captureOpaRequests() {
