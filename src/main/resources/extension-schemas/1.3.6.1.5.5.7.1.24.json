@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "required": [
+    "sequence"
+  ],
+  "properties": {
+    "sequence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "integer"
+        ],
+        "properties": {
+          "integer": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          }
+        }
+      }
+    }
+  }
+}

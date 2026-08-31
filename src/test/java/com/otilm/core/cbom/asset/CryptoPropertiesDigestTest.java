@@ -92,4 +92,55 @@ class CryptoPropertiesDigestTest {
                 .describedAs("a payload with one real value must out-rank a payload of declared absences")
                 .isGreaterThan(CryptoPropertiesDigest.leafCount(allNull));
     }
+
+    /**
+     * A blank string describes nothing, so it must not out-rank a source that said nothing.
+     *
+     * <p>
+     * The election stores the richest payload verbatim, so richness decides which producer's description becomes the
+     * row. Counting {@code "   "} as content let a source saying {@code {"curve":"   "}} beat one that omitted the
+     * field entirely -- whitespace winning outright and becoming the stored view. Measured against the ratified
+     * reference over 2364 corpus payloads: this is the only rule the two disagreed on.
+     */
+    @Test
+    void aBlankStringIsAbsenceRatherThanContent() {
+        assertThat(CryptoPropertiesDigest.of(Map.of("curve", "   ")).leafCount()).isZero();
+        assertThat(CryptoPropertiesDigest.of(Map.of("curve", "")).leafCount()).isZero();
+        assertThat(CryptoPropertiesDigest.of(Map.of("curve", "P-256")).leafCount()).isOne();
+    }
+
+    /**
+     * Blankness follows the specification's whitespace set, not {@link String#isBlank()}.
+     *
+     * <p>
+     * {@code isBlank} consults {@link Character#isWhitespace}, which does not consider a no-break space whitespace --
+     * and a no-break space is exactly what arrives in text pasted out of a document or a spreadsheet.
+     */
+    @Test
+    void aNoBreakSpaceIsBlankToo() {
+        String noBreakSpace = Character.toString(0x00A0);
+        boolean theJdkCallsItBlank = noBreakSpace.isBlank();
+
+        assertThat(theJdkCallsItBlank)
+                .describedAs("the JDK does not agree, which is why this rule is explicit")
+                .isFalse();
+        assertThat(CryptoPropertiesDigest.of(Map.of("curve", noBreakSpace)).leafCount()).isZero();
+    }
+
+    /**
+     * A richer description beats a blank one, which is the property the election actually depends on.
+     *
+     * <p>
+     * Stated as a comparison rather than as two counts, because the counts exist only to be ordered.
+     */
+    @Test
+    void aRealValueOutranksWhitespaceAtEveryDepth() {
+        int whitespace = CryptoPropertiesDigest
+                .of(Map.of("algorithmProperties", Map.of("curve", "   ", "mode", " ")))
+                .leafCount();
+        int stated = CryptoPropertiesDigest.of(Map.of("algorithmProperties", Map.of("curve", "P-256"))).leafCount();
+
+        assertThat(whitespace).isZero();
+        assertThat(stated).isGreaterThan(whitespace);
+    }
 }

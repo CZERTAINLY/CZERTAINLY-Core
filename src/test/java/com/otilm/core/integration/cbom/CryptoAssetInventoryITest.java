@@ -5,8 +5,9 @@ import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.core.cbom.CbomAssetSyncState;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
-import com.otilm.core.cbom.asset.CryptoAssetIdentityCalculator;
+import com.otilm.core.cbom.asset.AssetRowKeys;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
+import com.otilm.core.cbom.asset.identity.IdentityRuleset;
 import com.otilm.core.dao.CryptoAssetConstraintTranslator;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.entity.cbom.CbomTombstone;
@@ -102,8 +103,8 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void reIngestingTheSameAssetKeepsOneRow() {
-        UUID first = assetWriter.upsertIdentity(rsa2048(), null);
-        UUID second = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID first = upsert(rsa2048(), null);
+        UUID second = upsert(rsa2048(), null);
 
         assertThat(second).isEqualTo(first);
         assertThat(assetRepository.count()).isEqualTo(1);
@@ -111,35 +112,34 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void differentAssetsGetDifferentRows() {
-        assetWriter.upsertIdentity(rsa2048(), null);
-        assetWriter.upsertIdentity(algorithm("RSA", "4096"), null);
+        upsert(rsa2048(), null);
+        upsert(algorithm("RSA", "4096"), null);
 
         assertThat(assetRepository.count()).isEqualTo(2);
     }
 
     @Test
     void everyUpsertStampsTheRulesetVersionThatKeyedTheRow() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
 
-        assertThat(asset(assetUuid).getRulesetVersion()).isEqualTo(CryptoAssetIdentityCalculator.RULESET_VERSION);
+        assertThat(asset(assetUuid).getRulesetVersion()).isEqualTo(IdentityRuleset.VERSION);
 
         // A row left behind by an older rule set: findable by query, which is what recording the version buys.
         CryptoAsset stale = asset(assetUuid);
-        stale.setRulesetVersion(CryptoAssetIdentityCalculator.RULESET_VERSION - 1);
+        stale.setRulesetVersion(IdentityRuleset.VERSION - 1);
         assetRepository.save(stale);
 
-        assertThat(assetRepository.findUuidsKeyedBefore(CryptoAssetIdentityCalculator.RULESET_VERSION))
-                .containsExactly(assetUuid);
+        assertThat(assetRepository.findUuidsKeyedBefore(IdentityRuleset.VERSION)).containsExactly(assetUuid);
 
         // The update branch of the upsert restamps it, so a re-sync clears the backlog.
-        assertThat(assetWriter.upsertIdentity(rsa2048(), null)).isEqualTo(assetUuid);
-        assertThat(assetRepository.findUuidsKeyedBefore(CryptoAssetIdentityCalculator.RULESET_VERSION)).isEmpty();
-        assertThat(asset(assetUuid).getRulesetVersion()).isEqualTo(CryptoAssetIdentityCalculator.RULESET_VERSION);
+        assertThat(upsert(rsa2048(), null)).isEqualTo(assetUuid);
+        assertThat(assetRepository.findUuidsKeyedBefore(IdentityRuleset.VERSION)).isEmpty();
+        assertThat(asset(assetUuid).getRulesetVersion()).isEqualTo(IdentityRuleset.VERSION);
     }
 
     @Test
     void aPqcVerdictLeavesTheIdentityStampAlone() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         CryptoAsset before = asset(assetUuid);
 
         assetWriter
@@ -163,7 +163,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
      */
     @Test
     void aReEvaluationAdvancesEvaluatedAtButNotDecidedAt() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
 
         assetWriter.applyPqcVerdict(assetUuid, PqcVerdict.NOT_READY, "RSA-CLASSICAL", "not quantum resistant", 7, null);
         CryptoAsset firstVerdict = asset(assetUuid);
@@ -189,7 +189,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void theMergedPayloadIsTheRichestSourcePayloadAndSaysWhichSourceItCameFrom() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         Map<String, Object> lean = Map.of("primitive", "signature");
         Map<String, Object> rich = Map.of("primitive", "signature", "padding", "pkcs1v15", "parameterSet", "2048");
 
@@ -208,7 +208,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void detachingTheElectedSourceReElectsFromWhatIsLeft() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         Map<String, Object> lean = Map.of("primitive", "signature");
         Map<String, Object> rich = Map.of("primitive", "signature", "padding", "pkcs1v15");
         sourceWriter.upsertSource(assetUuid, leanCbom.getUuid(), lean, List.of(), OffsetDateTime.now());
@@ -224,7 +224,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void detachingTheLastSourceLeavesTheAssetWithNothingToAttribute() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         sourceWriter
                 .upsertSource(assetUuid, leanCbom.getUuid(), Map.of("primitive", "signature"), List.of(),
                         OffsetDateTime.now());
@@ -245,7 +245,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void deletingASourceRowNullsThePointerRatherThanLeavingItDangling() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         sourceWriter
                 .upsertSource(assetUuid, leanCbom.getUuid(), Map.of("primitive", "signature"), List.of(),
                         OffsetDateTime.now());
@@ -262,7 +262,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void reIngestingASourceKeepsWhenItWasFirstSeen() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         OffsetDateTime first = OffsetDateTime.now().minusDays(3);
         OffsetDateTime later = OffsetDateTime.now();
 
@@ -278,7 +278,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void aSourceThatReportedNoPropertiesLeavesTheMergeBookkeepingEmpty() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
 
         sourceWriter.upsertSource(assetUuid, leanCbom.getUuid(), null, null, OffsetDateTime.now());
 
@@ -301,7 +301,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void anEquallyRichPairElectsDeterministically() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         Map<String, Object> one = Map.of("primitive", "signature");
         Map<String, Object> other = Map.of("primitive", "keyAgree");
         sourceWriter.upsertSource(assetUuid, leanCbom.getUuid(), one, List.of(), OffsetDateTime.now());
@@ -318,7 +318,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void aVerdictCanBeCleared() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         assetWriter.applyPqcVerdict(assetUuid, PqcVerdict.NOT_READY, "RSA-CLASSICAL", "reason", 7, Map.of("a", "b"));
 
         assetWriter.applyPqcVerdict(assetUuid, null, null, null, 8, null);
@@ -334,7 +334,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void storedEvidenceIsCappedAndTheOccurrenceCountStillRecordsWhatWasSeen() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         List<Map<String, Object>> occurrences = new ArrayList<>();
         for (int i = 0; i < 60; i++) {
             Map<String, Object> occurrence = new LinkedHashMap<>();
@@ -360,8 +360,8 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void deletingAnAssetTakesItsSourcesAndAliasesWithIt() {
-        UUID absorbedUuid = assetWriter.upsertIdentity(algorithm("RSA", "2048"), null);
-        UUID canonicalUuid = assetWriter.upsertIdentity(algorithm("RSA", "4096"), null);
+        UUID absorbedUuid = upsert(algorithm("RSA", "2048"), null);
+        UUID canonicalUuid = upsert(algorithm("RSA", "4096"), null);
         sourceWriter
                 .upsertSource(canonicalUuid, leanCbom.getUuid(), Map.of("primitive", "signature"), List.of(),
                         OffsetDateTime.now());
@@ -383,7 +383,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void aCbomStillReferencedByTheInventoryCannotBeDeletedAndTheRefusalLeaksNothing() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         sourceWriter
                 .upsertSource(assetUuid, leanCbom.getUuid(), Map.of("primitive", "signature"), List.of(),
                         OffsetDateTime.now());
@@ -411,7 +411,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void theCbomDeleteServicePathRefusesWhileTheInventoryReferencesItAndForwardsNoDriverText() throws Exception {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         sourceWriter
                 .upsertSource(assetUuid, leanCbom.getUuid(), Map.of("primitive", "signature"), List.of(),
                         OffsetDateTime.now());
@@ -450,9 +450,9 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void addingRemovingAndRePointingAnAliasChangesNoIdentityKey() {
-        UUID absorbedUuid = assetWriter.upsertIdentity(algorithm("RSA", "2048"), null);
-        UUID canonicalUuid = assetWriter.upsertIdentity(algorithm("RSA", "4096"), null);
-        UUID otherUuid = assetWriter.upsertIdentity(algorithm("ECDSA", "P-256"), null);
+        UUID absorbedUuid = upsert(algorithm("RSA", "2048"), null);
+        UUID canonicalUuid = upsert(algorithm("RSA", "4096"), null);
+        UUID otherUuid = upsert(algorithm("ECDSA", "P-256"), null);
         Map<UUID, String> keysBefore = Map
                 .of(absorbedUuid, asset(absorbedUuid).getIdentityKey(), canonicalUuid,
                         asset(canonicalUuid).getIdentityKey(), otherUuid, asset(otherUuid).getIdentityKey());
@@ -472,7 +472,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         assertKeysUnchanged(keysBefore);
 
         // And keying is unaffected: the same fields still land on the same row, alias or no alias.
-        assertThat(assetWriter.upsertIdentity(algorithm("RSA", "2048"), null)).isEqualTo(absorbedUuid);
+        assertThat(upsert(algorithm("RSA", "2048"), null)).isEqualTo(absorbedUuid);
     }
 
     /**
@@ -482,7 +482,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
      */
     @Test
     void anOutOfOrderResyncStillLeavesARealSeenAtWindow() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         OffsetDateTime later = OffsetDateTime.now();
         OffsetDateTime earlier = later.minusDays(2);
 
@@ -508,7 +508,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
      */
     @Test
     void aDelayedRetryWidensTheWindowButKeepsTheNewerContent() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         OffsetDateTime later = OffsetDateTime.now();
         OffsetDateTime earlier = later.minusDays(2);
         Map<String, Object> newer = Map.of("primitive", "signature", "parameterSetIdentifier", "2048");
@@ -543,7 +543,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
      */
     @Test
     void aReIngestAtTheSameInstantRefreshesTheContent() {
-        UUID assetUuid = assetWriter.upsertIdentity(rsa2048(), null);
+        UUID assetUuid = upsert(rsa2048(), null);
         OffsetDateTime sameInstant = OffsetDateTime.now();
 
         sourceWriter
@@ -564,18 +564,17 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
     void aLaterUnguardedReportDoesNotClearASafetyGuard() {
         CryptoAssetIdentityFields bareCnFields = new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE,
                 "example.com", null, null, null, null, null, null, null, null);
-        UUID bareCn = assetWriter.upsertIdentity(bareCnFields, CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
+        UUID bareCn = upsert(bareCnFields, CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
 
-        assertThat(assetWriter.upsertIdentity(bareCnFields, null))
+        assertThat(upsert(bareCnFields, null))
                 .describedAs("the same normalized identity lands on the same row")
                 .isEqualTo(bareCn);
         assertThat(asset(bareCn).getIdentityGuard())
                 .describedAs("re-ingest without a guard must not lift one that was set")
                 .isEqualTo(CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
 
-        UUID fullDn = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE,
-                        "CN=example.com,O=Example,C=CZ", null, null, null, null, null, null, null, null), null);
+        UUID fullDn = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE,
+                "CN=example.com,O=Example,C=CZ", null, null, null, null, null, null, null, null), null);
         String bareCnKey = asset(bareCn).getIdentityKey();
         String fullDnKey = asset(fullDn).getIdentityKey();
 
@@ -587,12 +586,10 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void anAliasIsRefusedWhereASafetyRuleCausedTheSplit() {
-        UUID bareCn = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "example.com", null,
-                        null, null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
-        UUID fullDn = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE,
-                        "CN=example.com,O=Example,C=CZ", null, null, null, null, null, null, null, null), null);
+        UUID bareCn = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "example.com", null,
+                null, null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
+        UUID fullDn = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE,
+                "CN=example.com,O=Example,C=CZ", null, null, null, null, null, null, null, null), null);
         String bareCnKey = asset(bareCn).getIdentityKey();
         String fullDnKey = asset(fullDn).getIdentityKey();
 
@@ -616,11 +613,11 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
     @Test
     void aGuardIsRefusedWhenAnAliasAlreadyMergesTheKey() {
         CryptoAssetIdentityFields absorbedFields = algorithm("RSA", "2048");
-        UUID absorbed = assetWriter.upsertIdentity(absorbedFields, null);
-        UUID canonical = assetWriter.upsertIdentity(algorithm("RSA", "4096"), null);
+        UUID absorbed = upsert(absorbedFields, null);
+        UUID canonical = upsert(algorithm("RSA", "4096"), null);
         aliasWriter.record(asset(absorbed).getIdentityKey(), asset(canonical).getIdentityKey(), "same key", "operator");
 
-        assertThatThrownBy(() -> assetWriter.upsertIdentity(absorbedFields, CryptoAssetIdentityGuard.REFUTED_OID))
+        assertThatThrownBy(() -> upsert(absorbedFields, CryptoAssetIdentityGuard.REFUTED_OID))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("REFUTED_OID");
         assertThat(asset(absorbed).getIdentityGuard()).describedAs("the refused guard left no trace").isNull();
@@ -628,13 +625,12 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void aGuardIsRefusedWhenAnotherAssetIsMergedIntoTheKey() {
-        UUID absorbed = assetWriter.upsertIdentity(algorithm("RSA", "2048"), null);
+        UUID absorbed = upsert(algorithm("RSA", "2048"), null);
         CryptoAssetIdentityFields canonicalFields = algorithm("RSA", "4096");
-        UUID canonical = assetWriter.upsertIdentity(canonicalFields, null);
+        UUID canonical = upsert(canonicalFields, null);
         aliasWriter.record(asset(absorbed).getIdentityKey(), asset(canonical).getIdentityKey(), "same key", "operator");
 
-        assertThatThrownBy(
-                () -> assetWriter.upsertIdentity(canonicalFields, CryptoAssetIdentityGuard.REFUTED_CERTIFICATE_DIGEST))
+        assertThatThrownBy(() -> upsert(canonicalFields, CryptoAssetIdentityGuard.REFUTED_CERTIFICATE_DIGEST))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("REFUTED_CERTIFICATE_DIGEST");
         assertThat(asset(canonical).getIdentityGuard()).isNull();
@@ -643,11 +639,11 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
     @Test
     void anUnguardedUpsertIsUnaffectedByAnAlias() {
         CryptoAssetIdentityFields absorbedFields = algorithm("RSA", "2048");
-        UUID absorbed = assetWriter.upsertIdentity(absorbedFields, null);
-        UUID canonical = assetWriter.upsertIdentity(algorithm("RSA", "4096"), null);
+        UUID absorbed = upsert(absorbedFields, null);
+        UUID canonical = upsert(algorithm("RSA", "4096"), null);
         aliasWriter.record(asset(absorbed).getIdentityKey(), asset(canonical).getIdentityKey(), "same key", "operator");
 
-        assertThat(assetWriter.upsertIdentity(absorbedFields, null))
+        assertThat(upsert(absorbedFields, null))
                 .describedAs("only a guard contradicts an alias; ordinary re-ingest does not")
                 .isEqualTo(absorbed);
     }
@@ -668,7 +664,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         CryptoAssetIdentityFields overlong = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "RSA",
                 "1.2.840.113549".repeat(40), null, null, null, null, null, null, null);
 
-        assertThatThrownBy(() -> assetWriter.upsertIdentity(overlong, null))
+        assertThatThrownBy(() -> upsert(overlong, null))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("longer than 255 characters");
         assertThat(assetRepository.count()).isZero();
@@ -679,7 +675,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         CryptoAssetIdentityFields overlong = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM,
                 "A".repeat(1025), null, null, null, null, null, null, null, null);
 
-        assertThatThrownBy(() -> assetWriter.upsertIdentity(overlong, null))
+        assertThatThrownBy(() -> upsert(overlong, null))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("longer than 1024 characters");
         assertThat(assetRepository.count()).isZero();
@@ -701,9 +697,9 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
         assertThatThrownBy(() -> transaction
                 .executeWithoutResult(status -> assetRepository
-                        .upsertIdentity(UUID.randomUUID(), "b".repeat(64),
-                                CryptoAssetIdentityCalculator.RULESET_VERSION, CryptographicAssetType.ALGORITHM.name(),
-                                "A".repeat(1025), null, null, null, null, null, null, null, null, null)))
+                        .upsertIdentity(UUID.randomUUID(), "b".repeat(64), IdentityRuleset.VERSION,
+                                CryptographicAssetType.ALGORITHM.name(), "A".repeat(1025), null, null, null, null, null,
+                                null, null, null, null)))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .satisfies(failure -> assertThat(CryptoAssetConstraintTranslator.constraintNameOf(failure))
                         .describedAs("the refusal must come from the name bound, not "
@@ -717,7 +713,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         CryptoAssetIdentityFields atLimit = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM,
                 "A".repeat(1024), null, null, null, null, null, null, null, null);
 
-        assertThat(assetWriter.upsertIdentity(atLimit, null)).isNotNull();
+        assertThat(upsert(atLimit, null)).isNotNull();
     }
 
     @Test
@@ -725,7 +721,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         CryptoAssetIdentityFields atLimit = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "RSA",
                 "1".repeat(255), null, null, null, null, null, null, null);
 
-        assertThat(assetWriter.upsertIdentity(atLimit, null)).isNotNull();
+        assertThat(upsert(atLimit, null)).isNotNull();
     }
 
     /**
@@ -735,7 +731,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
      */
     @Test
     void anAliasIsRefusedWhenTheCanonicalAssetDoesNotExist() {
-        UUID absorbed = assetWriter.upsertIdentity(algorithm("RSA", "2048"), null);
+        UUID absorbed = upsert(algorithm("RSA", "2048"), null);
         String absorbedKey = asset(absorbed).getIdentityKey();
 
         assertThatThrownBy(() -> aliasWriter.record(absorbedKey, "0".repeat(64), "typo", "operator"))
@@ -746,9 +742,9 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void anAliasIsRefusedWhenItWouldFormAChainOrPointAtItself() {
-        UUID first = assetWriter.upsertIdentity(algorithm("RSA", "2048"), null);
-        UUID second = assetWriter.upsertIdentity(algorithm("RSA", "4096"), null);
-        UUID third = assetWriter.upsertIdentity(algorithm("RSA", "8192"), null);
+        UUID first = upsert(algorithm("RSA", "2048"), null);
+        UUID second = upsert(algorithm("RSA", "4096"), null);
+        UUID third = upsert(algorithm("RSA", "8192"), null);
         String firstKey = asset(first).getIdentityKey();
         String secondKey = asset(second).getIdentityKey();
         String thirdKey = asset(third).getIdentityKey();
@@ -774,7 +770,7 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
 
     @Test
     void anAliasIsRefusedWhenThereIsNothingToDecideAboutOrAKeyIsMissing() {
-        String existing = asset(assetWriter.upsertIdentity(rsa2048(), null)).getIdentityKey();
+        String existing = asset(upsert(rsa2048(), null)).getIdentityKey();
 
         assertThatThrownBy(() -> aliasWriter.record("never-ingested", existing, "typo", "operator"))
                 .describedAs("a redirect from a key no asset and no alias carries is one no ingest can follow")
@@ -894,5 +890,17 @@ class CryptoAssetInventoryITest extends BaseSpringBootTest {
         cbom.setSpecVersion("1.7");
         Optional<Cbom> saved = Optional.of(cbomRepository.save(cbom));
         return saved.orElseThrow();
+    }
+
+    /**
+     * Upserts through the writer with a fixture key derived from the fields.
+     *
+     * <p>
+     * The writer no longer computes the key -- the extraction pipeline does, from the whole component -- so a
+     * persistence test has to supply one. {@link AssetRowKeys} makes it a stable function of the normalized fields,
+     * which is what keeps every dedup assertion below meaning what it meant before.
+     */
+    private UUID upsert(CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
+        return assetWriter.upsertIdentity(AssetRowKeys.forFields(fields), fields, guard);
     }
 }

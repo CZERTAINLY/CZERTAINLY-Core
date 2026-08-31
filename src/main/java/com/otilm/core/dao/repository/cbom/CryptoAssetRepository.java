@@ -2,6 +2,8 @@ package com.otilm.core.dao.repository.cbom;
 
 import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
+import com.otilm.core.model.cbom.CryptoAssetListRow;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,6 +51,16 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
      * resolves the surviving row's uuid by its key afterwards.
      *
      * <p>
+     * <b>Identity columns:</b> filled once, never reassigned. The key is built from the whole component, not from these
+     * ten columns, so it is no longer a function of them -- and assigning {@code EXCLUDED.*} therefore let the last
+     * producer to sync decide what an {@code EQUALS} filter matches. {@code primitive} is the clearest case, because it
+     * is deliberately kept out of the key: two CBOMs describing one RSA-2048 land on one key carrying different
+     * primitives, and the row flipped on every re-sync. {@code COALESCE} makes a later report able to fill a gap but
+     * never to overwrite an answer, which is the same rule the guard below already used and the only one that makes a
+     * re-sync idempotent. The cost is accepted: a producer correcting its own spelling does not update the row, and
+     * reconciling a genuine disagreement is an explicit decision rather than a side effect of sync order.
+     *
+     * <p>
      * <b>Identity guard:</b> an existing guard survives, because it is a safety refusal rather than a field. A guard
      * says this row was deliberately kept separate — a refuted certificate digest, a bare common name facing a full
      * subject DN — and {@code CryptoAssetAliasWriter} refuses an alias by reading the guard that is on the row now.
@@ -70,16 +82,16 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
                     0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT (identity_key) DO UPDATE SET
                 ruleset_version = EXCLUDED.ruleset_version,
-                asset_type = EXCLUDED.asset_type,
-                name = EXCLUDED.name,
-                oid = EXCLUDED.oid,
-                algorithm_family = EXCLUDED.algorithm_family,
-                primitive = EXCLUDED.primitive,
-                parameter_set = EXCLUDED.parameter_set,
-                curve = EXCLUDED.curve,
-                mode = EXCLUDED.mode,
-                padding = EXCLUDED.padding,
-                variant = EXCLUDED.variant,
+                asset_type = COALESCE(crypto_asset.asset_type, EXCLUDED.asset_type),
+                name = COALESCE(crypto_asset.name, EXCLUDED.name),
+                oid = COALESCE(crypto_asset.oid, EXCLUDED.oid),
+                algorithm_family = COALESCE(crypto_asset.algorithm_family, EXCLUDED.algorithm_family),
+                primitive = COALESCE(crypto_asset.primitive, EXCLUDED.primitive),
+                parameter_set = COALESCE(crypto_asset.parameter_set, EXCLUDED.parameter_set),
+                curve = COALESCE(crypto_asset.curve, EXCLUDED.curve),
+                mode = COALESCE(crypto_asset.mode, EXCLUDED.mode),
+                padding = COALESCE(crypto_asset.padding, EXCLUDED.padding),
+                variant = COALESCE(crypto_asset.variant, EXCLUDED.variant),
                 identity_guard = COALESCE(crypto_asset.identity_guard, EXCLUDED.identity_guard),
                 i_upd = CURRENT_TIMESTAMP
             """, nativeQuery = true)
@@ -141,8 +153,8 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
     /**
      * Stores a PQC verdict together with the rule that produced it and the fields that rule read. The identity columns
      * and {@code ruleset_version} are untouched: a verdict is not an identity.
-     */
-    /**
+     *
+     * <p>
      * <b>Decided versus evaluated:</b> the contract asks two different questions of a verdict, so the row answers both.
      * {@code pqc_evaluated_at} advances on every call, including one that re-confirms the verdict it already held;
      * {@code pqc_decided_at} moves only when the value actually changes, so it dates the finding rather than the last
@@ -173,4 +185,111 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
     @Modifying
     @Query("DELETE FROM CryptoAsset a WHERE a.uuid = :uuid")
     int deleteAsset(@Param("uuid") UUID uuid);
+
+    /**
+     * Distinct stored values of one normalized filter column, for the searchable-fields value lists. The columns hold
+     * the stored normalized spelling (case/whitespace/Unicode-folded), so the lists collapse casing variants of one
+     * token. Class-level canonicalization -- folding P-256 and secp256r1 into one secg/* representative -- is the
+     * ingest pipeline's obligation (core#2072): these lists offer exactly what that pipeline stores, one entry per
+     * stored spelling, and become the ratified class representatives the moment it writes them.
+     *
+     * <p>
+     * Native recursive CTEs -- a loose index scan. Postgres has no btree skip scan, so {@code SELECT DISTINCT} walks
+     * the whole table (a parallel seq scan pinning workers): hundreds of milliseconds per column at millions of rows,
+     * for eight columns on every filter-panel open. The CTE instead hops index-min to index-min over the per-column
+     * btrees the migration already ships -- O(distinct values x log rows), reliably milliseconds. {@code min()} ignores
+     * NULLs, and the strictly-greater walk makes the values distinct and sorted by construction.
+     */
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(algorithm_family) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(algorithm_family) FROM {h-schema}crypto_asset WHERE algorithm_family > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
+    List<String> findDistinctAlgorithmFamily();
+
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(primitive) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(primitive) FROM {h-schema}crypto_asset WHERE primitive > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
+    List<String> findDistinctPrimitive();
+
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(parameter_set) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(parameter_set) FROM {h-schema}crypto_asset WHERE parameter_set > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
+    List<String> findDistinctParameterSet();
+
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(curve) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(curve) FROM {h-schema}crypto_asset WHERE curve > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
+    List<String> findDistinctCurve();
+
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(mode) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(mode) FROM {h-schema}crypto_asset WHERE mode > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
+    List<String> findDistinctMode();
+
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(padding) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(padding) FROM {h-schema}crypto_asset WHERE padding > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
+    List<String> findDistinctPadding();
+
+    @Query(value = """
+            WITH RECURSIVE vals AS (
+                SELECT min(variant) AS v FROM {h-schema}crypto_asset
+                UNION ALL
+                SELECT (SELECT min(variant) FROM {h-schema}crypto_asset WHERE variant > vals.v)
+                FROM vals WHERE vals.v IS NOT NULL
+            )
+            SELECT v FROM vals WHERE v IS NOT NULL ORDER BY v
+            """, nativeQuery = true)
+    List<String> findDistinctVariant();
+
+    /**
+     * List-page rows for the given assets. A projection rather than the entity: the list serves none of the JSONB
+     * payload columns, and a page can be 1000 rows. The occurrence total is summed over the per-source rows, whose
+     * count is deliberately uncapped (capping drops evidence payloads, never the count). Rows come back in no
+     * particular order -- IN provides none -- so the caller restores its page order.
+     */
+    @Query("""
+            SELECT new com.otilm.core.model.cbom.CryptoAssetListRow(a.uuid, a.name, a.oid, a.assetType,
+                    a.pqcVerdict, a.sourceCount, a.identityGuard, COALESCE(SUM(s.occurrenceCount), 0L))
+            FROM CryptoAsset a
+            LEFT JOIN CryptoAssetSource s ON s.assetUuid = a.uuid
+            WHERE a.uuid IN :uuids
+            GROUP BY a.uuid, a.name, a.oid, a.assetType, a.pqcVerdict, a.sourceCount, a.identityGuard
+            """)
+    List<CryptoAssetListRow> findListRowsByUuids(@Param("uuids") Collection<UUID> uuids);
 }

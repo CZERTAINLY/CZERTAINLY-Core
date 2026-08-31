@@ -115,11 +115,6 @@ public final class StructuredExtensionCodec {
                 throw new ValidationException(
                         "'%s' is not a dotted-decimal extended-key-usage purpose OID".formatted(oid));
             }
-            try {
-                new ASN1ObjectIdentifier(oid);
-            } catch (IllegalArgumentException e) {
-                throw new ValidationException("'%s' is not a valid extended-key-usage purpose OID".formatted(oid));
-            }
         }
         return List.copyOf(oids);
     }

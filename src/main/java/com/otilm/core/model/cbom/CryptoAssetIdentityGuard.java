@@ -17,8 +17,10 @@ package com.otilm.core.model.cbom;
  * subject DN. Two certificates can share a common name.</li>
  * <li>{@link #REFUTED_OID} -- an OID whose registry meaning contradicted the component's other properties, so what the
  * OID would have contributed -- a family, a size, a mode, a curve -- was discarded. An arc that is wrong about the
- * family is no reason to trust its size. The arc itself is unaffected: it is stored and filterable on every row,
- * refuted or not.</li>
+ * family is no reason to trust its size. The arc itself stays stored and auditable on every row, but the inventory
+ * search neutralizes it by default: a refuted OID answers value predicates (and the free-text OID side) only after the
+ * caller opts into the refuted facet, while its presence -- EMPTY/NOT_EMPTY -- stays a true fact
+ * (FilterPredicatesBuilder's carve-outs).</li>
  * </ul>
  *
  * <p>

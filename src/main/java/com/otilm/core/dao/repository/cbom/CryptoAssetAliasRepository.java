@@ -14,9 +14,9 @@ import org.springframework.stereotype.Repository;
  * The duplicate-repair alias table.
  *
  * <p>
- * Nothing on the keying path calls this interface. {@code CryptoAssetIdentityCalculator} takes ten typed fields and no
- * collaborator at all, so no alias can influence whether a key conforms. Aliases are resolved one layer up, at upsert
- * time, which is how they survive re-ingest without touching identity.
+ * Nothing on the keying path calls this interface. {@code CryptoAssetIdentity} routes on the asset type and reads the
+ * whole component, and no collaborator at all, so no alias can influence whether a key conforms. Aliases are resolved
+ * one layer up, at upsert time, which is how they survive re-ingest without touching identity.
  *
  * <p>
  * A plain {@link JpaRepository} rather than a {@code SecurityFilterRepository}: aliases are an operator repair record,

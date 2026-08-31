@@ -1,6 +1,7 @@
 package com.otilm.core.util.mocks;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.clients.signing.contentsigning.ContentSigningFormattingPaths;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
@@ -165,6 +166,29 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
             throw new RuntimeException("Failed to serialize attribute definition for WireMock stub", e);
         }
         return this;
+    }
+
+    /**
+     * The {@code signatureAlgorithm} each request to {@code operation} carried, in call order. An empty entry marks a
+     * request that named none.
+     */
+    public List<String> signatureAlgorithmsReceivedBy(ContentSigningFormattingOperation operation) {
+        return server
+                .findAll(WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching(".*" + ContentSigningFormattingPaths.operation(operation))))
+                .stream()
+                .map(request -> signatureAlgorithmOf(request.getBodyAsString()))
+                .toList();
+    }
+
+    private static String signatureAlgorithmOf(String body) {
+        try {
+            JsonNode algorithm = OBJECT_MAPPER.readTree(body).path("signatureAlgorithm");
+            return algorithm.isTextual() ? algorithm.asText() : "";
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Recorded request body is not JSON", e);
+        }
     }
 
     private static DataAttributeV2 attributeDefinition(UUID attrUuid, String attrName, boolean required) {

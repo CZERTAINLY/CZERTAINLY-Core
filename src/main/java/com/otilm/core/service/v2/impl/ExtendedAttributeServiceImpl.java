@@ -168,6 +168,20 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
+    public List<BaseAttribute> listCertificateRequestAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException {
+        var authorityRef = raProfile.getAuthorityInstanceReference();
+        if (authorityRef.getConnector() == null) {
+            throw new NotFoundException(CONNECTOR_UNAVAILABLE_MESSAGE);
+        }
+        // No legacy-connector check here (unlike issue/revoke): the request schema is v3-only, so an older authority
+        // routes to an adapter that returns an empty schema — uniform "no schema", not a version-framed 404.
+        return authorityProviderAdapterFactory
+                .forAuthority(authorityRef)
+                .listCertificateRequestAttributes(authorityRef, raProfile);
+    }
+
+    @Override
     public void mergeAndValidateRenewAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
             throws ConnectorException, AttributeException, NotFoundException {
         var authorityRef = raProfile.getAuthorityInstanceReference();
