@@ -681,6 +681,29 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.CANCELLED, persisted.getStatus());
         Assertions.assertNull(persisted.getRunMeta());
+        // Both statuses, committed together with the terminal transition. Written in a transaction of its own, the
+        // run would be non-terminal between the two commits and a status tick could write this back.
+        Assertions
+                .assertEquals(DiscoveryStatus.CANCELLED, persisted.getConnectorStatus(),
+                        "a cancelled run must not go on reporting its connector as still scanning");
+    }
+
+    @Test
+    void aCreateThatFailsPartWayThroughLeavesNoRunBehind() {
+        giveConnectorAV2DiscoveryInterface();
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+        DiscoveryDto request = v2Request(List.of(Resource.CERTIFICATE));
+        // Associating a trigger that does not exist fails after the run row and its attributes are written, and
+        // fails with a checked exception -- which Spring does not roll back on by default.
+        request.setTriggers(List.of(UUID.randomUUID()));
+
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.createDiscovery(request, true));
+
+        Assertions
+                .assertTrue(discoveryRepository.findByName(request.getName()).isEmpty(),
+                        "a half-created run is left IN_PROGRESS with part of its configuration missing, reachable "
+                                + "only to be deleted");
     }
 
     @Test

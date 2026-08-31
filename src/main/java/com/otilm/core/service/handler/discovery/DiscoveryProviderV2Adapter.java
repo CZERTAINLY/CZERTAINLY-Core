@@ -370,15 +370,18 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         // 404 is not a failure: it says the connector no longer tracks the run, which is the state cancel asked
         // for. The client hands the status back rather than throwing precisely so this can be read, not caught.
         call(discoveryUuid, "cancel", () -> client.cancel(discovery));
-        // Recorded here rather than in the terminator, which ends runs whose connector said nothing at all -- the
-        // reaper's, most of them -- and must leave the connector's last known view standing. This cancel was
-        // acknowledged, so the connector's view really is CANCELLED.
-        transactionHandler.runInNewTransaction(() -> {
-            Discovery locked = lock(discoveryUuid);
-            locked.setConnectorStatus(DiscoveryStatus.CANCELLED);
-            return discoveryRepository.save(locked);
+        // Through the terminator's own decide hook, so connector_status and the terminal transition commit together
+        // under one lock. Written in a transaction of its own instead, the run stays non-terminal between the two
+        // commits: a status tick landing in that window passes every guard -- the run has not left the connector,
+        // and its status has not changed since the poll -- and writes the connector's answer back over this.
+        //
+        // Set from here rather than inside the terminator, which also ends runs whose connector said nothing at all
+        // (the reaper's, most of them) and must leave the connector's last known view standing. This cancel was
+        // acknowledged, so here the connector's view really is CANCELLED.
+        terminator.endWith(discoveryUuid, run -> {
+            run.setConnectorStatus(DiscoveryStatus.CANCELLED);
+            return new DiscoveryRunTerminator.Ending(DiscoveryStatus.CANCELLED, "Discovery cancelled");
         });
-        terminator.end(discoveryUuid, DiscoveryStatus.CANCELLED, "Discovery cancelled");
     }
 
     /**

@@ -56,7 +56,11 @@ public class DiscoveryRunWriter {
      * @param resourceDefinitions per-resource attribute definitions already read from the connector, keyed by the
      * resource whose submitted content they describe; empty when the request carried no per-resource attributes
      */
-    @Transactional
+    // rollbackFor, against the platform's usual default: the writes below are checked-exception paths --
+    // AttributeException from the engine, NotFoundException from the trigger associations -- and Spring rolls back
+    // only unchecked ones. On the default, an attribute that fails to persist would commit the run row it was
+    // supposed to belong to, which is the exact orphan this bean exists to prevent, and the likeliest failure here.
+    @Transactional(rollbackFor = Exception.class)
     public DiscoveryDetailDto createRun(Discovery discovery, DiscoveryDto request, UUID connectorUuid,
             Map<Resource, List<BaseAttribute>> resourceDefinitions) throws AttributeException, NotFoundException {
         Discovery saved = discoveryRepository.save(discovery);
