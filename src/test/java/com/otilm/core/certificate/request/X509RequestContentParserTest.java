@@ -23,7 +23,10 @@ import java.util.List;
 import java.util.Map;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.DERBMPString;
+import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERPrintableString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
@@ -406,6 +409,81 @@ class X509RequestContentParserTest {
             assertThat(content.getExtensions()).isNull();
             assertThat(content.getKeyUsage()).isNull();
             assertThat(content.getExtendedKeyUsage()).isNull();
+        }
+
+        @Test
+        void keepsOtherNameStringType_forIa5AndPrintableValues() throws Exception {
+            // given — a value recorded under the wrong encoding is re-encoded as that type when rendered back
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com", new GeneralName(GeneralName.otherName,
+                            new OtherName(new ASN1ObjectIdentifier("1.2.3.4.1"), new DERIA5String("ia5@example.com"))
+                                    .toASN1Primitive()),
+                            new GeneralName(GeneralName.otherName, new OtherName(new ASN1ObjectIdentifier("1.2.3.4.2"),
+                                    new DERPrintableString("PRINTABLE")).toASN1Primitive()));
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then
+            assertThat(content.getSubjectAltNames().get(0).getValueEncoding())
+                    .isEqualTo(ExtensionValueEncoding.IA5_STRING);
+            assertThat(content.getSubjectAltNames().get(0).getValue()).isEqualTo("ia5@example.com");
+            assertThat(content.getSubjectAltNames().get(1).getValueEncoding())
+                    .isEqualTo(ExtensionValueEncoding.PRINTABLE_STRING);
+            assertThat(content.getSubjectAltNames().get(1).getValue()).isEqualTo("PRINTABLE");
+        }
+
+        @Test
+        void fallsBackToDer_forAStringTypeTheEncodingsCannotName() throws Exception {
+            // given — BMPString has no ExtensionValueEncoding counterpart, so only Base64(DER) preserves its type
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com",
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.2.3.4.3"), new DERBMPString("bmp"))
+                                            .toASN1Primitive()));
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then
+            assertThat(content.getSubjectAltNames()).singleElement().satisfies(san -> {
+                assertThat(san.getValueEncoding()).isEqualTo(ExtensionValueEncoding.DER);
+                assertThat(san.getValue()).isNotEqualTo("bmp");
+            });
+        }
+
+        @Test
+        void otherNameSurvivesRenderAndReparse_forEveryStringType() throws Exception {
+            // given — the rekey CSR is rendered from this content, so a coerced type would change the identity
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com",
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.3.6.1.4.1.311.20.2.3"),
+                                            new DERUTF8String("user@example.com")).toASN1Primitive()),
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.2.3.4.1"),
+                                            new DERIA5String("ia5@example.com")).toASN1Primitive()),
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.2.3.4.2"),
+                                            new DERPrintableString("PRINTABLE")).toASN1Primitive()),
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.2.3.4.3"), new DERBMPString("bmp"))
+                                            .toASN1Primitive()));
+            X509RequestContent seeded = X509RequestContentParser.parse(certificate).content();
+
+            // when
+            Extensions rendered = X509RequestContentRenderer.toExtensions(seeded);
+            GeneralNames renderedSans = GeneralNames.fromExtensions(rendered, Extension.subjectAlternativeName);
+
+            // then — each otherName keeps the ASN.1 type it had in the certificate
+            assertThat(OtherName.getInstance(renderedSans.getNames()[0].getName()).getValue())
+                    .isInstanceOf(DERUTF8String.class);
+            assertThat(OtherName.getInstance(renderedSans.getNames()[1].getName()).getValue())
+                    .isInstanceOf(DERIA5String.class);
+            assertThat(OtherName.getInstance(renderedSans.getNames()[2].getName()).getValue())
+                    .isInstanceOf(DERPrintableString.class);
+            assertThat(OtherName.getInstance(renderedSans.getNames()[3].getName()).getValue())
+                    .isInstanceOf(DERBMPString.class);
         }
 
         @Test

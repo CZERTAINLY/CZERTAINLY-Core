@@ -9,21 +9,27 @@ import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.CertificateRequestEntity;
 import com.otilm.core.util.CertificateTestUtil;
+import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
+import java.util.Date;
 import java.util.Optional;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.KeyPurposeId;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -192,6 +198,65 @@ class RenewContentSeederTest {
                 .hasMessageContaining("x400Address");
     }
 
+    @Test
+    void carriesOnlyIdentity_whenSeedingFromASuppliedCsrThatAlsoRequestsExtensions() throws Exception {
+        // given — a CSR whose extension block holds an EKU beside its SAN
+        Certificate oldCertificate = certificateEntity(
+                CertificateTestUtil.createCertificateWithSubjectAndSans("CN=old.example.com"));
+        String supplied = pkcs10WithEku("CN=new.example.com");
+        Certificate newCertificate = new Certificate();
+        newCertificate.setCertificateRequest(csrEntity(supplied));
+
+        // when
+        Optional<X509RequestContent> seeded = RenewContentSeeder
+                .seed(oldCertificate, newCertificate,
+                        ClientCertificateRenewRequestDto.builder().request(supplied).build());
+
+        // then — subject and SAN travel; everything else stays on the CSR beside the content
+        assertThat(seeded).isPresent();
+        assertThat(seeded.get().getSubject().getFirst().getValue()).isEqualTo("new.example.com");
+        assertThat(seeded.get().getSubjectAltNames()).isNotEmpty();
+        assertThat(seeded.get().getExtendedKeyUsage()).isNull();
+        assertThat(seeded.get().getKeyUsage()).isNull();
+        assertThat(seeded.get().getExtensions()).isNull();
+    }
+
+    @Test
+    void seedsNothing_whenThereIsNeitherSubjectNorSanToCarry() throws Exception {
+        // given — an empty-subject certificate with no SAN; content carrying neither would fail the wire
+        // model's own "at least one of" assertion
+        Certificate oldCertificate = certificateEntity(CertificateTestUtil.createCertificateWithSubjectAndSans(""));
+
+        // when
+        Optional<X509RequestContent> seeded = RenewContentSeeder.seed(oldCertificate, new Certificate(), null);
+
+        // then
+        assertThat(seeded).isEmpty();
+    }
+
+    @Test
+    void rekeySanExtensions_failsClosed_whenTheSanExtensionIsMalformed() throws Exception {
+        // given — a SAN extension whose value is not a GeneralNames sequence at all
+        X509Certificate oldCertificate = certificateWithRawSanExtension(new byte[]{0x01, 0x02, 0x03});
+
+        // when / then — a controlled validation failure, not a raw decoding exception
+        assertThatThrownBy(() -> RenewContentSeeder.rekeySanExtensions(oldCertificate))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("could not be decoded");
+    }
+
+    @Test
+    void seedsNothing_whenTheSanExtensionIsMalformed() throws Exception {
+        // given
+        Certificate oldCertificate = certificateEntity(certificateWithRawSanExtension(new byte[]{0x01, 0x02, 0x03}));
+
+        // when
+        Optional<X509RequestContent> seeded = RenewContentSeeder.seed(oldCertificate, new Certificate(), null);
+
+        // then — renew falls back to the CSR rather than failing
+        assertThat(seeded).isEmpty();
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private static Certificate certificateEntity(X509Certificate certificate) throws Exception {
@@ -222,5 +287,38 @@ class RenewContentSeederTest {
         builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
         return Base64.getEncoder().encodeToString(builder.build(signer).getEncoded());
+    }
+
+    private static String pkcs10WithEku(String subjectDn) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair kp = kpg.generateKeyPair();
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
+                kp.getPublic());
+        ExtensionsGenerator extGen = new ExtensionsGenerator();
+        extGen
+                .addExtension(Extension.subjectAlternativeName, false,
+                        new GeneralNames(new GeneralName(GeneralName.dNSName, "supplied.example.com")));
+        extGen.addExtension(Extension.extendedKeyUsage, false, new ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth));
+        builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
+        return Base64.getEncoder().encodeToString(builder.build(signer).getEncoded());
+    }
+
+    /** A certificate whose SAN extension value is the given bytes verbatim, so decoding it fails. */
+    private static X509Certificate certificateWithRawSanExtension(byte[] extensionValue) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair kp = kpg.generateKeyPair();
+        X500Name subject = new X500Name("CN=malformed.example.com");
+        JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(subject, BigInteger.ONE, new Date(),
+                new Date(System.currentTimeMillis() + 86400000L), subject, kp.getPublic());
+        builder.addExtension(Extension.subjectAlternativeName, false, extensionValue);
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(kp.getPrivate());
+        return new JcaX509CertificateConverter()
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(builder.build(signer));
     }
 }

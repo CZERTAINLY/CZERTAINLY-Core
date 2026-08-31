@@ -13,6 +13,7 @@ import com.otilm.core.util.X509RequestContentRenderer;
 import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.asn1.x509.Extensions;
@@ -44,7 +45,12 @@ public final class RenewContentSeeder {
                                 parsed.unsupportedSans());
                 return Optional.empty();
             }
-            return Optional.of(parsed.content());
+            X509RequestContent content = identityOnly(parsed.content());
+            if (isEmpty(content.getSubject()) && isEmpty(content.getSubjectAltNames())) {
+                log.warn("Not seeding structured renew content: no subject or subject alternative name to carry");
+                return Optional.empty();
+            }
+            return Optional.of(content);
         } catch (CertificateException | CertificateRequestException | RuntimeException e) {
             log.warn("Not seeding structured renew content: the identity to carry forward could not be read", e);
             return Optional.empty();
@@ -56,7 +62,14 @@ public final class RenewContentSeeder {
      * platform builds this CSR itself, so nothing downstream can recover a SAN dropped here.
      */
     public static Extensions rekeySanExtensions(X509Certificate oldCertificate) {
-        ParsedRequestContent parsed = X509RequestContentParser.parse(oldCertificate);
+        ParsedRequestContent parsed;
+        try {
+            parsed = X509RequestContentParser.parse(oldCertificate);
+        } catch (RuntimeException e) {
+            throw new ValidationException(
+                    "The certificate's identity could not be decoded, so it cannot be carried into a re-keyed request. Error: "
+                            + e.getMessage());
+        }
         if (!parsed.unsupportedSans().isEmpty()) {
             throw new ValidationException(
                     "The certificate carries a subject alternative name the platform cannot re-request: %s"
@@ -68,6 +81,23 @@ public final class RenewContentSeeder {
             throw new ValidationException(
                     "Failed to build the subject alternative name of the re-keyed request. Error: " + e.getMessage());
         }
+    }
+
+    /**
+     * Narrows parsed content to the identity the renew wire carries. A CSR source also yields key usage, extended key
+     * usage and requested extensions; those stay on the CSR travelling beside the content, so both sources put the same
+     * shape on the wire and nothing extension-shaped can reach it reduced.
+     */
+    private static X509RequestContent identityOnly(X509RequestContent content) {
+        content.setKeyUsage(null);
+        content.setExtendedKeyUsage(null);
+        content.setExtensions(null);
+        return content;
+    }
+
+    /** Content with neither dimension would fail the wire model's own "something must be provided" assertion. */
+    private static boolean isEmpty(List<?> values) {
+        return values == null || values.isEmpty();
     }
 
     private static boolean operatorSuppliedCsr(Certificate newCertificate, ClientCertificateRenewRequestDto request) {

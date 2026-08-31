@@ -29,7 +29,9 @@ import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1IA5String;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.ASN1PrintableString;
 import org.bouncycastle.asn1.ASN1String;
+import org.bouncycastle.asn1.ASN1UTF8String;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
@@ -220,14 +222,32 @@ public final class X509RequestContentParser {
         entry.setType(GeneralNameType.OTHER_NAME);
         entry.setOtherNameOid(otherName.getTypeID().getId());
         ASN1Encodable value = otherName.getValue();
-        if (value instanceof ASN1String str) {
-            entry.setValue(str.getString());
-            entry.setValueEncoding(ExtensionValueEncoding.UTF8_STRING);
+        ExtensionValueEncoding stringEncoding = namedStringEncoding(value);
+        if (stringEncoding != null) {
+            entry.setValue(((ASN1String) value).getString());
+            entry.setValueEncoding(stringEncoding);
         } else {
             entry.setValue(Base64.getEncoder().encodeToString(value.toASN1Primitive().getEncoded()));
             entry.setValueEncoding(ExtensionValueEncoding.DER);
         }
         return entry;
+    }
+
+    /**
+     * The encoding a string value keeps its ASN.1 type under, or null when only Base64(DER) preserves it. A value
+     * recorded under the wrong encoding is re-encoded as that type when rendered back into a request.
+     */
+    private static ExtensionValueEncoding namedStringEncoding(ASN1Encodable value) {
+        if (value instanceof ASN1UTF8String) {
+            return ExtensionValueEncoding.UTF8_STRING;
+        }
+        if (value instanceof ASN1IA5String) {
+            return ExtensionValueEncoding.IA5_STRING;
+        }
+        if (value instanceof ASN1PrintableString) {
+            return ExtensionValueEncoding.PRINTABLE_STRING;
+        }
+        return null;
     }
 
     private static String decodeIpAddress(byte[] octets) {
