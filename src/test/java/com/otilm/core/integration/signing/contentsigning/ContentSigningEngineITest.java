@@ -9,8 +9,10 @@ import com.otilm.api.model.client.signing.profile.record.SigningRecordPersistenc
 import com.otilm.api.model.client.signing.profile.record.SigningRecordPolicyRequestDto;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.common.signature.SignatureFamily;
 import com.otilm.api.model.common.signature.SignatureLevel;
+import com.otilm.api.model.connector.signatures.contentsigning.common.ContentSigningFormattingOperation;
 import com.otilm.api.model.connector.signatures.contentsigning.common.InlineDocumentTransferDto;
 import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
 import com.otilm.api.model.core.cryptography.token.TokenInstanceDetailDto;
@@ -241,6 +243,28 @@ class ContentSigningEngineITest extends BaseSpringBootTest {
         assertThat(documentText(signed)).isEqualTo("signed-document");
         assertThat(signed.timestampSerials()).isEmpty();
         assertThat(recordsFor(contentProfile.getName())).hasSize(1);
+    }
+
+    /** The unit test mocks the algorithm; here a real key and a real cryptographic provider resolve it. */
+    @Test
+    void tellsTheConnectorTheResolvedSignersAlgorithmOnBothHalvesOfThePair() throws Exception {
+        // given
+        SigningProfileDto contentProfile = createContentSigningProfile("algorithm-pades", SignatureFamily.PADES,
+                SignatureLevel.SIGNED, null);
+        byte[] document = "a document signed with a resolved algorithm".getBytes(StandardCharsets.UTF_8);
+
+        // when
+        engine
+                .sign(signingRequest(SignatureLevel.SIGNED, document), modelOf(contentProfile),
+                        resolvedContentSigningProfile(contentProfile), SigningProtocol.CSC_API);
+
+        // then
+        List<String> computed = contentSigningFormattingMock
+                .signatureAlgorithmsReceivedBy(ContentSigningFormattingOperation.COMPUTE_DTBS);
+        List<String> embedded = contentSigningFormattingMock
+                .signatureAlgorithmsReceivedBy(ContentSigningFormattingOperation.EMBED_SIGNATURE_VALUE);
+        assertThat(computed).containsExactly(SignatureAlgorithm.SHA256_WITH_RSA.getCode());
+        assertThat(embedded).isEqualTo(computed);
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.otilm.core.signing.contentsigning.acquisition;
 
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfile;
 import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
@@ -19,6 +20,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static com.otilm.core.util.builders.ResolvedManagedContentSigningProfileBuilder.aResolvedContentSigningProfile;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,6 +34,23 @@ class LiveContentSigningAcquisitionsTest {
     Signer signer;
     @Mock
     InternalTimestampSource timestampSource;
+
+    /** The algorithm is asked before there is anything to sign, so answering it must not exercise the key. */
+    @Test
+    void answersTheAlgorithmItWouldSignWithWithoutSigning() throws SigningEngineException {
+        // given
+        ResolvedManagedContentSigningProfile profile = aResolvedContentSigningProfile().build();
+        when(signerFactory.signatureAlgorithm(profile.resolvedScheme()))
+                .thenReturn(SignatureAlgorithm.SHA256_WITH_RSA_PSS);
+
+        // when
+        SignatureAlgorithm algorithm = new LiveContentSigningAcquisitions(signerFactory, timestampSource)
+                .signatureAlgorithm(profile);
+
+        // then
+        assertThat(algorithm).isEqualTo(SignatureAlgorithm.SHA256_WITH_RSA_PSS);
+        verify(signerFactory, never()).create(any());
+    }
 
     @Test
     void signsTheDtbsWithTheProfilesManagedKey() throws SigningEngineException {

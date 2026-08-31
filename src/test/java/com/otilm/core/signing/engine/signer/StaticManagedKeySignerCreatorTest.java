@@ -1,5 +1,6 @@
 package com.otilm.core.signing.engine.signer;
 
+import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.core.model.crypto.CryptographicKeyItemModelFixtures;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
@@ -7,6 +8,7 @@ import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
 import com.otilm.core.service.CryptographicOperationInternalService;
 import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
+import com.otilm.core.util.builders.RsaSignatureAttributesBuilder;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -77,6 +79,51 @@ class StaticManagedKeySignerCreatorTest {
                     .isInstanceOf(SigningEngineException.class)
                     .satisfies(ex -> assertThat(((SigningEngineException) ex).failure())
                             .isEqualTo(SigningEngineFailure.MISCONFIGURED));
+        }
+
+        @Test
+        void throwsMisconfigured_whenTheSigningAttributesNameNoSignatureAlgorithm() {
+            // given — no signing attributes at all, so no digest or RSA scheme can be read for an RSA key
+            ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(
+                    SigningCertificateBuilder.valid(),
+                    List
+                            .of(CryptographicKeyItemModelFixtures.activeSigningPrivateKey(KeyAlgorithm.RSA),
+                                    CryptographicKeyItemModelFixtures.publicKey(KeyAlgorithm.RSA)),
+                    null, List.of());
+
+            // when / then
+            assertThatThrownBy(() -> creator.create(scheme))
+                    .isInstanceOf(SigningEngineException.class)
+                    .satisfies(ex -> {
+                        assertThat(((SigningEngineException) ex).failure())
+                                .isEqualTo(SigningEngineFailure.MISCONFIGURED);
+                        assertThat(((SigningEngineException) ex).operatorMessage())
+                                .contains("name no signature algorithm");
+                    });
+        }
+
+        @Test
+        void throwsMisconfigured_whenTheAttributesNameAnUnsupportedSignatureAlgorithm() {
+            // given — SHA-1 with RSA resolves to SHA1WITHRSA, outside the SignatureAlgorithm enum
+            ResolvedStaticKeyManagedSigning scheme = new ResolvedStaticKeyManagedSigning(
+                    SigningCertificateBuilder.valid(),
+                    List
+                            .of(CryptographicKeyItemModelFixtures.activeSigningPrivateKey(KeyAlgorithm.RSA),
+                                    CryptographicKeyItemModelFixtures.publicKey(KeyAlgorithm.RSA)),
+                    null,
+                    RsaSignatureAttributesBuilder.rsaSignatureAttributes().withDigest(DigestAlgorithm.SHA_1).build());
+
+            // when / then
+            assertThatThrownBy(() -> creator.create(scheme))
+                    .isInstanceOf(SigningEngineException.class)
+                    .satisfies(ex -> {
+                        assertThat(((SigningEngineException) ex).failure())
+                                .isEqualTo(SigningEngineFailure.MISCONFIGURED);
+                        assertThat(((SigningEngineException) ex).operatorMessage())
+                                .contains("SHA1WITHRSA", "which the platform does not support");
+                        assertThat(((SigningEngineException) ex).clientMessage())
+                                .isEqualTo("Signing key algorithm is not supported.");
+                    });
         }
 
         @Test

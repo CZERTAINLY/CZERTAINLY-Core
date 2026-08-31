@@ -1,5 +1,6 @@
 package com.otilm.core.signing.engine.signer;
 
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
@@ -28,5 +29,14 @@ public class SignerFactory {
                                 .formatted(signingScheme.getClass().getSimpleName()),
                         "The system is misconfigured."))
                 .create(signingScheme);
+    }
+
+    /**
+     * The signature algorithm {@link #create} would sign with, answered without exercising the key. It resolves a
+     * throwaway {@link Signer} that the signing call resolves again, and the two agree by the determinism
+     * {@link SignerCreator#create} requires.
+     */
+    public SignatureAlgorithm signatureAlgorithm(ResolvedManagedScheme signingScheme) throws SigningEngineException {
+        return create(signingScheme).getSignatureAlgorithm();
     }
 }
