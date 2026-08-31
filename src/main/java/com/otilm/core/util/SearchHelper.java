@@ -201,15 +201,17 @@ public class SearchHelper {
      * Whether an attribute field may be requested as a column.
      *
      * <p>
-     * Three kinds of content are withheld. A secret is never rendered anywhere. Encrypted content is stored as
-     * ciphertext that only its own decryption path can read, and a listing does not take that path. A code block is
-     * multi-line by construction - the frontend renders it as a block element - so a single-line table cell cannot hold
-     * one without breaking the row.
+     * Four kinds of field are withheld. A secret is never rendered anywhere. Encrypted content is stored as ciphertext
+     * that only its own decryption path can read, and a listing does not take that path. A code block is multi-line by
+     * construction - the frontend renders it as a block element - so a single-line table cell cannot hold one without
+     * breaking the row. And an attribute whose definition is marked not visible is one the contract says to hide from
+     * the user, which rules out putting its values in a column of their own.
      */
     private static boolean isDisplayable(final SearchFieldObject attributeSearchInfo) {
         return attributeSearchInfo.getAttributeContentType() != AttributeContentType.SECRET
                 && attributeSearchInfo.getAttributeContentType() != AttributeContentType.CODEBLOCK
-                && attributeSearchInfo.getProtectionLevel() != ProtectionLevel.ENCRYPTED;
+                && attributeSearchInfo.getProtectionLevel() != ProtectionLevel.ENCRYPTED
+                && attributeSearchInfo.isVisible();
     }
 
     private static SearchFieldTypeEnum retrieveSearchFieldTypeEnumByContentType(

@@ -5,6 +5,7 @@ import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.FileAttributeContentData;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.search.AttributeProjectable;
 import com.otilm.api.model.core.search.FilterFieldSource;
@@ -49,6 +50,15 @@ public class AttributeColumnProjector {
      */
     private static final Set<AttributeContentType> WITHHELD_CONTENT_TYPES = Set
             .of(AttributeContentType.SECRET, AttributeContentType.CODEBLOCK);
+
+    /** What a list cell reads out of a file value: a file renders as its name, with its media type behind it. */
+    private static final Set<String> FILE_IDENTITY_FIELDS = Set.of("fileName", "mimeType");
+
+    /**
+     * What a list cell reads out of a resource value: which resource the value points at, so the cell can link to it,
+     * and the name and uuid that label and address the link.
+     */
+    private static final Set<String> RESOURCE_IDENTITY_FIELDS = Set.of("resource", "uuid", "name");
 
     private final AttributeContent2ObjectRepository attributeContent2ObjectRepository;
     private final AttributeEngine attributeEngine;
@@ -124,7 +134,6 @@ public class AttributeColumnProjector {
         return requested.stream().filter(column -> column.attributeType() != AttributeType.META).toList();
     }
 
-    /** Loads and collects the columns that share one uuid resolver, adding what it finds to {@code collected}. */
     private <T extends AttributeProjectable> void collectPass(Resource resource, List<RequestedColumn> requested,
             List<T> entries, Function<T, UUID> uuidOf, CustomAttributeContentFilter contentFilter,
             Map<T, Map<FilterFieldSource, Map<String, List<BaseAttributeContentV3<?>>>>> collected) {
@@ -215,8 +224,11 @@ public class AttributeColumnProjector {
 
         for (ProjectedAttributeContent content : stored) {
             // Encrypted content is ciphertext that only its own decryption path can read, and a listing does not take
-            // that path. The catalogue withholds such fields; a row that reaches here anyway is dropped.
-            if (content.encryptedContent() != null || WITHHELD_CONTENT_TYPES.contains(content.contentType())) {
+            // that path. An attribute whose definition says it is not visible is not to be shown to a user, which is
+            // what a column does with it. The catalogue withholds both kinds of field; a row that reaches here anyway
+            // is dropped, because the flag it withheld them with is a hint on a response the caller is free to ignore.
+            if (content.encryptedContent() != null || WITHHELD_CONTENT_TYPES.contains(content.contentType())
+                    || !AttributeDefinitionProperties.isVisible(content.definition())) {
                 continue;
             }
             RequestedColumn column = matchRequested(requested, content);
@@ -252,28 +264,82 @@ public class AttributeColumnProjector {
     }
 
     /**
-     * One value reduced to what a list cell renders. Two content types are never projected whole.
+     * One value reduced to what a list cell renders. A content type whose value can carry more than the cell shows is
+     * never projected whole.
      *
      * <p>
-     * CREDENTIAL data is a nested attribute list that can carry secret-bearing content, and the cell shows the
-     * reference, so only the reference is projected. FILE data carries the base64 body, which no cell shows - a file
-     * renders as its name and media type - so a page of rows would otherwise serialize every file it lists.
+     * CREDENTIAL data is a nested attribute list that can carry secret-bearing content, and OBJECT data is arbitrary
+     * serializable data of no declared shape; the cell shows the reference for both, so only the reference is
+     * projected. FILE data carries the base64 body, which no cell shows - a file renders as its name and media type -
+     * so a page of rows would otherwise serialize every file it lists. RESOURCE data identifies another object, and its
+     * subtypes carry that object's own content alongside the identity: a certificate body, a secret, or the resolved
+     * attributes of the referenced object. The cell renders a link labelled by name, so only the identity is projected.
+     *
+     * <p>
+     * Each reduction builds a fresh value rather than clearing fields on the deserialized one, so nothing stored is
+     * touched, and each keeps only what it names - a field added to a content class later is dropped rather than
+     * published.
      */
     static BaseAttributeContentV3<?> toProjectedValue(BaseAttributeContentV3<?> value,
             AttributeContentType contentType) {
-        if (contentType == AttributeContentType.CREDENTIAL) {
-            return referenceOnly(value, contentType);
-        }
-        if (contentType == AttributeContentType.FILE && value.getData() instanceof FileAttributeContentData file) {
-            FileAttributeContentData withoutBody = new FileAttributeContentData();
-            withoutBody.setFileName(file.getFileName());
-            withoutBody.setMimeType(file.getMimeType());
+        return switch (contentType) {
+            case CREDENTIAL, OBJECT -> referenceOnly(value, contentType);
+            case FILE -> withData(value, contentType, fileIdentity(value.getData()));
+            case RESOURCE -> withData(value, contentType, resourceIdentity(value.getData()));
+            default -> value;
+        };
+    }
 
-            BaseAttributeContentV3<Serializable> reduced = referenceOnly(value, contentType);
-            reduced.setData(withoutBody);
-            return reduced;
+    /** A file's name and media type, without the body that follows them in the same value. */
+    private static Serializable fileIdentity(Object data) {
+        if (data instanceof FileAttributeContentData file) {
+            FileAttributeContentData identity = new FileAttributeContentData();
+            identity.setFileName(file.getFileName());
+            identity.setMimeType(file.getMimeType());
+            return identity;
         }
-        return value;
+        return namedEntries(data, FILE_IDENTITY_FIELDS);
+    }
+
+    /** Which object a resource value points at and what to label it, without that object's own content. */
+    private static Serializable resourceIdentity(Object data) {
+        if (data instanceof ResourceObjectContentData resourceObject) {
+            ResourceObjectContentData identity = new ResourceObjectContentData(resourceObject.getResource());
+            identity.setUuid(resourceObject.getUuid());
+            identity.setName(resourceObject.getName());
+            return identity;
+        }
+        return namedEntries(data, RESOURCE_IDENTITY_FIELDS);
+    }
+
+    /**
+     * The named entries of a value that did not arrive as its content class.
+     *
+     * <p>
+     * Content stored under the version 2 contract deserializes to a generic map: the persisted json carries no
+     * {@code contentType} for the polymorphic reader to key on, so the reader binds an unresolved type variable and
+     * Jackson produces a map. A reduction that only recognised the typed class would let such a value through whole.
+     * Anything else - a scalar, or null - yields no data at all, so an unrecognised shape is dropped rather than passed
+     * on.
+     */
+    private static Serializable namedEntries(Object data, Set<String> keep) {
+        if (!(data instanceof Map<?, ?> map)) {
+            return null;
+        }
+        LinkedHashMap<String, Serializable> identity = new LinkedHashMap<>();
+        map.forEach((key, entry) -> {
+            if (keep.contains(String.valueOf(key)) && entry instanceof Serializable serializable) {
+                identity.put(String.valueOf(key), serializable);
+            }
+        });
+        return identity.isEmpty() ? null : identity;
+    }
+
+    private static BaseAttributeContentV3<Serializable> withData(BaseAttributeContentV3<?> value,
+            AttributeContentType contentType, Serializable data) {
+        BaseAttributeContentV3<Serializable> reduced = referenceOnly(value, contentType);
+        reduced.setData(data);
+        return reduced;
     }
 
     private static BaseAttributeContentV3<Serializable> referenceOnly(BaseAttributeContentV3<?> value,

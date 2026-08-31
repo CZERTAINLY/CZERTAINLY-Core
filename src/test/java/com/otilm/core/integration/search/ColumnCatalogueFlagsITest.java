@@ -110,9 +110,9 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
     @EnumSource(value = FilterField.class,
             names = {"OCSP_VALIDATION", "CRL_VALIDATION", "SIGNATURE_VALIDATION", "PRIVATE_KEY"})
     void aDerivedPropertyFieldWouldNotBeOrderable(FilterField filterField) {
-        // What these display is not what their attribute holds: the three validation checks each name one check inside
-        // one serialized validation result, and PRIVATE_KEY shows whether a joined key type is one particular type, so
-        // ordering by the attribute would order by something the column does not show.
+        // What these display is not what their attribute holds: the validation-check fields each name one check
+        // inside one serialized validation result, and PRIVATE_KEY shows whether a joined key type is one particular
+        // type, so ordering by the attribute would order by something the column does not show.
         Assertions.assertFalse(SearchHelper.isOrderableField(filterField));
     }
 
@@ -136,6 +136,16 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
     }
 
     @Test
+    void aHiddenAttributeIsNotOfferedAsAColumn() throws Exception {
+        // The definition says its values are not to be shown to a user; a column is a place they would be shown.
+        registerCustomAttribute("catalogue-hidden-probe", AttributeContentType.TEXT, false);
+
+        SearchFieldDataDto attribute = field(discoveryService.getSearchableFieldInformationByGroup(),
+                "catalogue-hidden-probe|" + AttributeContentType.TEXT.name()).orElseThrow();
+        Assertions.assertEquals(false, attribute.getDisplayable());
+    }
+
+    @Test
     void aResourceWithoutCustomAttributesPublishesNoEmptyGroup() {
         // CBOMs and signing records carry no custom attributes; the catalogue says so by leaving the group out
         // rather than by publishing an empty one for the picker to render as a bare heading.
@@ -155,6 +165,11 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
     }
 
     private void registerCustomAttribute(String name, AttributeContentType contentType) throws Exception {
+        registerCustomAttribute(name, contentType, true);
+    }
+
+    private void registerCustomAttribute(String name, AttributeContentType contentType, boolean visible)
+            throws Exception {
         CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setUuid(UUID.randomUUID().toString());
         attribute.setName(name);
@@ -162,6 +177,7 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
         attribute.setContentType(contentType);
         CustomAttributeProperties properties = new CustomAttributeProperties();
         properties.setLabel(name);
+        properties.setVisible(visible);
         attribute.setProperties(properties);
         attributeEngine.updateCustomAttributeDefinition(attribute, List.of(Resource.DISCOVERY));
     }

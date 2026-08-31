@@ -106,10 +106,15 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
      * it to them would return nothing for either source. The allowed and forbidden definition uuids are the caller's
      * attribute permissions: without them, resource LIST access alone would be enough to read the plaintext of a
      * restricted custom attribute by naming it as a column.
+     *
+     * <p>
+     * Selects the definition document alongside the content because the {@code visible} flag lives in it rather than in
+     * a column, and an attribute whose definition says it is not to be shown to a user must not be projected into a
+     * column. The catalogue queries above select the same document for the same reason.
      */
     @Query("""
             SELECT new com.otilm.core.attribute.engine.records.ProjectedAttributeContent(
-                aco.objectUuid, ad.type, ad.name, ad.contentType, aci.json, aci.encryptedData)
+                aco.objectUuid, ad.type, ad.name, ad.contentType, aci.json, aci.encryptedData, ad.definition)
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid

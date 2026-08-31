@@ -111,6 +111,10 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
     }
 
     private UUID registerCustomAttribute(String name, String label) throws Exception {
+        return registerCustomAttribute(name, label, true);
+    }
+
+    private UUID registerCustomAttribute(String name, String label, boolean visible) throws Exception {
         CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setUuid(UUID.randomUUID().toString());
         attribute.setName(name);
@@ -120,6 +124,7 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
         properties.setLabel(label);
         properties.setList(true);
         properties.setMultiSelect(true);
+        properties.setVisible(visible);
         attribute.setProperties(properties);
         attributeEngine.updateCustomAttributeDefinition(attribute, List.of(Resource.DISCOVERY));
         return UUID.fromString(attribute.getUuid());
@@ -233,7 +238,6 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
     void anObjectWithoutAValueIsStillReturned() {
         List<DiscoveryListDto> discoveries = list(List.of(customColumn(ENVIRONMENT)));
 
-        // The point of the assertion: absence omits the entry, it does not drop the row from the page.
         Assertions.assertNull(entry(discoveries, withoutValues).getAttributeValues());
     }
 
@@ -264,6 +268,22 @@ class AttributeColumnProjectionITest extends BaseSpringBootTest {
         List<DiscoveryListDto> discoveries = list(List.of(customColumn(ENVIRONMENT), customColumn(OWNING_TEAM)));
 
         Assertions.assertNull(entry(discoveries, withValues).getAttributeValues());
+    }
+
+    @Test
+    void aHiddenAttributeColumnProjectsNoValues() throws Exception {
+        // The definition says its values are not to be shown to a user, which is what a column does with them. The
+        // catalogue withholds such a field, but that flag is a hint on a response the caller is free to ignore, so
+        // the projection drops the values again on the way out.
+        UUID hiddenUuid = registerCustomAttribute("helper-only", "Helper only", false);
+        Discovery hidden = saveDiscovery("discovery-hidden-attribute");
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.DISCOVERY, hidden.getUuid(),
+                        List.of(attributeContent(hiddenUuid, "helper-only", "internal")));
+
+        List<DiscoveryListDto> discoveries = list(List.of(customColumn("helper-only")));
+
+        Assertions.assertNull(entry(discoveries, hidden).getAttributeValues());
     }
 
     @Test
