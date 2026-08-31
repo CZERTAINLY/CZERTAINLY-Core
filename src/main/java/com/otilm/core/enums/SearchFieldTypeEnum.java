@@ -57,6 +57,10 @@ public enum SearchFieldTypeEnum {
     // only the presence of a value can be tested, never the value itself.
     PRESENCE(FilterFieldType.STRING, List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY), false,
             null),
+    // A single text input matched case-insensitively across several columns at once; which columns is
+    // defined per FilterField in FilterPredicatesBuilder. Only CONTAINS is offered: the field spans
+    // columns, so per-column operators (EQUALS, EMPTY, ...) have no single answer.
+    FREE_TEXT(FilterFieldType.STRING, List.of(FilterConditionOperator.CONTAINS), false, null),
     BOOLEAN(FilterFieldType.BOOLEAN,
             List
                     .of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS,
