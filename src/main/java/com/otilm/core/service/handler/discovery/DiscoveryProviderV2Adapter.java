@@ -114,12 +114,12 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
                     logger
                             .info("Discovery {} ended while it was being started; dropping it at the connector",
                                     discoveryUuid);
-                    dropAtConnector(run, response);
+                    dropAtConnector(run, response.getMeta());
                     return detailOf(discoveryUuid);
                 }
                 scheduleFirstTicks(discoveryUuid);
             } catch (Exception bookkeepingFailed) {
-                dropAtConnector(run, response);
+                dropAtConnector(run, response.getMeta());
                 throw bookkeepingFailed;
             }
             return detailOf(discoveryUuid);
@@ -198,9 +198,9 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
      * succeeded, or one the caller cancelled while initiate was in flight. Best effort, and against a detached entity:
      * the handle is restored only to address the call, never to be written back.
      */
-    private void dropAtConnector(Discovery run, DiscoveryInitiateResponseDto response) {
+    private void dropAtConnector(Discovery run, List<MetadataAttribute> meta) {
         try {
-            run.setRunMeta(response.getMeta());
+            run.setRunMeta(meta);
             client.cancel(run);
         } catch (Exception e) {
             if (e instanceof InterruptedException) {
@@ -213,14 +213,41 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
     }
 
     private static void enforceMetaCap(List<MetadataAttribute> meta) {
-        if (meta == null || meta.isEmpty()) {
-            return;
-        }
-        String serialized = AttributeDefinitionUtils.serialize(meta);
-        int size = serialized == null ? 0 : serialized.getBytes(StandardCharsets.UTF_8).length;
+        int size = metaSize(meta);
         if (size > MAX_META_BYTES) {
             throw new RunRefusedException("meta size exceeded: " + size + " bytes, cap " + MAX_META_BYTES);
         }
+    }
+
+    private static boolean exceedsMetaCap(List<MetadataAttribute> meta) {
+        return metaSize(meta) > MAX_META_BYTES;
+    }
+
+    private static int metaSize(List<MetadataAttribute> meta) {
+        if (meta == null || meta.isEmpty()) {
+            return 0;
+        }
+        String serialized = AttributeDefinitionUtils.serialize(meta);
+        return serialized == null ? 0 : serialized.getBytes(StandardCharsets.UTF_8).length;
+    }
+
+    /**
+     * Disposes of a run whose connector has already acted on a request Core cannot record: the handle it answered with
+     * is too large to replay, so every later call would send a request the transport cannot carry.
+     *
+     * <p>
+     * Rolling the local write back instead would leave Core describing a state the connector has left — paused while it
+     * scans, or scanning while it is paused — and no tick reconciles that, since a stopped run is restarted only by an
+     * explicit resume. The run ends, and the connector is told to drop it.
+     */
+    private void endUndriveable(Discovery run, String operation, List<MetadataAttribute> meta) {
+        logger
+                .error("Discovery {} answered {} with a handle of {} bytes, over the {} byte cap; ending the run",
+                        run.getUuid(), operation, metaSize(meta), MAX_META_BYTES);
+        terminator
+                .end(run.getUuid(), DiscoveryStatus.FAILED,
+                        "The connector's run handle is too large to replay, so the run cannot be driven further");
+        dropAtConnector(run, meta);
     }
 
     /**
@@ -305,12 +332,16 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         }
         UUID discoveryUuid = discovery.getUuid();
         DiscoveryStopResponseDto response = call(discoveryUuid, "stop", () -> client.stop(discovery));
+        // The connector has already stopped: the run is disposed of rather than rolled back over it.
+        if (exceedsMetaCap(response.getMeta())) {
+            endUndriveable(discovery, "stop", response.getMeta());
+            return;
+        }
         transactionHandler.runInNewTransaction(() -> {
             Discovery locked = lock(discoveryUuid);
             // The status checked before the connector call was a snapshot; the call can take tens of seconds, and a
             // tick worker or the reaper may have ended the run since. Writing STOPPED over that would resurrect it.
             requireStatus(locked, "stopped", DiscoveryStatus.IN_PROGRESS);
-            enforceMetaCap(response.getMeta());
             locked.setRunMeta(response.getMeta());
             locked.setStatus(DiscoveryStatus.STOPPED);
             // Both, always together: connector_status is the connector's view of the run, and the connector has
@@ -347,11 +378,16 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
             }
             throw e;
         }
+        // As in stop, and the direction that cannot repair itself: nothing but an explicit resume restarts a
+        // stopped run, so the divergence would stand until the reaper cancelled it days later.
+        if (exceedsMetaCap(response.getMeta())) {
+            endUndriveable(discovery, "resume", response.getMeta());
+            return;
+        }
         transactionHandler.runInNewTransaction(() -> {
             Discovery locked = lock(discoveryUuid);
             // Same reason as stop: the legality check ran against a snapshot taken before the connector call.
             requireStatus(locked, "resumed", DiscoveryStatus.STOPPED);
-            enforceMetaCap(response.getMeta());
             locked.setRunMeta(response.getMeta());
             locked.setStoppable(stoppable(locked, response));
             locked.setStatus(DiscoveryStatus.IN_PROGRESS);

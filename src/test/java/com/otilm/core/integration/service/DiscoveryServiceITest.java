@@ -646,6 +646,42 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void aResumeAnsweredWithAnUnreplayableHandleEndsTheRunRatherThanLeavingItStopped() throws Exception {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        run.setStatus(DiscoveryStatus.STOPPED);
+        run.setStoppable(true);
+        discoveryRepository.saveAndFlush(run);
+        giveInterfaceStopResumeFlag();
+        stubOversizedHandle("/v2/discoveryProvider/discoveries/resume");
+
+        adapterFactory.forDiscovery(run).resume(run);
+
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        // Rolled back instead, Core would sit STOPPED while the connector runs, with nothing to reconcile it.
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions.assertTrue(persisted.getMessage().contains("too large to replay"), persisted.getMessage());
+        Assertions.assertNull(persisted.getRunMeta());
+    }
+
+    @Test
+    void aStopAnsweredWithAnUnreplayableHandleEndsTheRunRatherThanLeavingItInProgress() throws Exception {
+        givenV2Run(List.of(Resource.CERTIFICATE));
+        Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        run.setStoppable(true);
+        discoveryRepository.saveAndFlush(run);
+        giveInterfaceStopResumeFlag();
+        stubOversizedHandle("/v2/discoveryProvider/discoveries/stop");
+
+        adapterFactory.forDiscovery(run).stop(run);
+
+        Discovery persisted = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        // The connector is already paused; reverting to IN_PROGRESS would describe a scan nobody is running.
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions.assertNull(persisted.getRunMeta());
+    }
+
+    @Test
     void aResumeTheConnectorCannotHonourEndsTheRunAndKeepsWhatItStaged() throws Exception {
         givenV2Run(List.of(Resource.CERTIFICATE));
         Discovery run = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
@@ -1034,6 +1070,22 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
                 .orElseThrow();
         iface.setFeatures(List.of(FeatureFlag.DISCOVERY_STOP_RESUME));
         connectorInterfaceRepository.saveAndFlush(iface);
+    }
+
+    private void stubOversizedHandle(String path) {
+        WireMock
+                .stubFor(WireMock
+                        .post(WireMock.urlPathEqualTo(path))
+                        .willReturn(WireMock
+                                .aResponse()
+                                .withStatus(200)
+                                .withHeader("Content-Type", "application/json")
+                                .withBody("""
+                                        {"meta":[{"uuid":"7f7f0000-0000-4000-8000-00000000000a",
+                                                  "name":"connectorRunId","type":"meta","version":3,
+                                                  "contentType":"string",
+                                                  "content":[{"contentType":"string","data":"%s"}]}]}"""
+                                        .formatted("x".repeat(70_000)))));
     }
 
     private void stubResumeStatus(int status) {

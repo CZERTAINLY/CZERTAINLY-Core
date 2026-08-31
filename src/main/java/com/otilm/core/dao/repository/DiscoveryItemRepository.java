@@ -49,6 +49,11 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
      * the same synthesized number whether or not the caller filtered.
      *
      * <p>
+     * A staged item's {@code processed} and {@code inventoryUuid} read columns nothing writes yet: only certificates
+     * have an import pipeline, so an item row answers {@code false} and {@code null} until key ingestion lands
+     * (core#1965). They are selected here so that pipeline needs no change to this query.
+     *
+     * <p>
      * {@code i_cre} must be a timestamp for the {@code discovered_at} coalesce to plan. It is the one audited column
      * declared {@code VARCHAR}, and a regression is invisible to tests, which build their schema from the entities.
      *
