@@ -19,6 +19,7 @@ import com.otilm.core.util.StructuredExtensionCodec;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -42,9 +43,10 @@ import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.OtherName;
 
 /**
- * Parses a {@link CertificateRequest} (PKCS#10 or CRMF) into typed {@link X509RequestContent}, decoding directly from
- * BouncyCastle ASN.1 so RFC 4514 special characters survive verbatim. SAN kinds {@link GeneralNameType} cannot model
- * are reported in {@link ParsedRequestContent#unsupportedSans()}.
+ * Parses a {@link CertificateRequest} (PKCS#10 or CRMF) or an issued {@link X509Certificate} into typed
+ * {@link X509RequestContent}, decoding directly from BouncyCastle ASN.1 so RFC 4514 special characters survive
+ * verbatim. SAN kinds {@link GeneralNameType} cannot model are reported in
+ * {@link ParsedRequestContent#unsupportedSans()}.
  */
 @Slf4j
 public final class X509RequestContentParser {
@@ -61,6 +63,19 @@ public final class X509RequestContentParser {
         List<String> unrepresentable = new ArrayList<>();
         x509.setExtensions(parseExtensions(request, x509, unrepresentable));
         return new ParsedRequestContent(x509, unsupportedSans, unrepresentable);
+    }
+
+    /**
+     * Parses an issued certificate's identity into typed content: subject RDNs and SAN entries, no extensions. SAN
+     * kinds {@link GeneralNameType} cannot model are reported in {@link ParsedRequestContent#unsupportedSans()}.
+     */
+    public static ParsedRequestContent parse(X509Certificate certificate) {
+        X509RequestContent x509 = new X509RequestContent();
+        x509.setCertificateType(CertificateType.X509);
+        x509.setSubject(parseSubject(X500Name.getInstance(certificate.getSubjectX500Principal().getEncoded())));
+        List<String> unsupportedSans = new ArrayList<>();
+        x509.setSubjectAltNames(parseSans(certificateSans(certificate), unsupportedSans));
+        return new ParsedRequestContent(x509, unsupportedSans, new ArrayList<>());
     }
 
     /**
@@ -128,12 +143,24 @@ public final class X509RequestContentParser {
     }
 
     private static List<GeneralNameEntry> parseSans(CertificateRequest request, List<String> unsupportedSans) {
-        List<GeneralNameEntry> result = new ArrayList<>();
         Extensions extensions = extractExtensions(request);
-        if (extensions == null) {
-            return result;
+        GeneralNames generalNames = extensions == null
+                ? null
+                : GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
+        return parseSans(generalNames, unsupportedSans);
+    }
+
+    /** The SAN extension of an issued certificate, read as raw DER so an exotic kind reaches the loop below. */
+    private static GeneralNames certificateSans(X509Certificate certificate) {
+        byte[] encoded = certificate.getExtensionValue(Extension.subjectAlternativeName.getId());
+        if (encoded == null) {
+            return null;
         }
-        GeneralNames generalNames = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
+        return GeneralNames.getInstance(ASN1OctetString.getInstance(encoded).getOctets());
+    }
+
+    private static List<GeneralNameEntry> parseSans(GeneralNames generalNames, List<String> unsupportedSans) {
+        List<GeneralNameEntry> result = new ArrayList<>();
         if (generalNames == null) {
             return result;
         }
@@ -145,11 +172,11 @@ public final class X509RequestContentParser {
                     result.add(entry);
                 } else {
                     unsupportedSans.add(kind);
-                    log.warn("SAN {} in CSR has no typed representation; counted for whitelist enforcement", kind);
+                    log.warn("SAN {} has no typed representation; counted for whitelist enforcement", kind);
                 }
             } catch (RuntimeException | IOException ex) {
                 unsupportedSans.add(kind);
-                log.warn("Failed to decode SAN {} in CSR; counted for whitelist enforcement", kind, ex);
+                log.warn("Failed to decode SAN {}; counted for whitelist enforcement", kind, ex);
             }
         }
         return result;
