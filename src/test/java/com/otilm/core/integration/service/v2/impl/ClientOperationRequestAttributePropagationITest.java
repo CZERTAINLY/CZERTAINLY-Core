@@ -182,7 +182,6 @@ class ClientOperationRequestAttributePropagationITest extends BaseSpringBootTest
                 .issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(),
                         request, null);
 
-        // then
         assertThat(response.getRequestAttributeWarnings()).isEmpty();
     }
 

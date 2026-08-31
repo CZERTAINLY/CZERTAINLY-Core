@@ -156,7 +156,6 @@ class ProtocolRequestAttributeValidatorTest {
         // when
         List<String> warnings = validator.validate(csrWithSubject("CN=mapped.example.com"), mock(RaProfile.class));
 
-        // then
         assertThat(warnings).isEmpty();
     }
 

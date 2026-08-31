@@ -520,11 +520,9 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         return new SubmittedRequest(certificate, prepared.requestAttributeWarnings());
     }
 
-    /** A prepared certificate request and the lenient request-attribute warnings its validation raised. */
     private record PreparedRequest(String csr, List<String> requestAttributeWarnings) {
     }
 
-    /** A submitted certificate request and the lenient request-attribute warnings its validation raised. */
     private record SubmittedRequest(CertificateDetailDto certificate, List<String> requestAttributeWarnings) {
     }
 
