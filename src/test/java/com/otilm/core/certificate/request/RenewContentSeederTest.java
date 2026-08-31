@@ -103,6 +103,23 @@ class RenewContentSeederTest {
     }
 
     @Test
+    void seedsFromPredecessorCertificate_whenTheRequestNamesACsrTheSuccessorDoesNotCarry() throws Exception {
+        // given — a request DTO carrying a CSR, but no stored request on the successor to read it back from
+        Certificate oldCertificate = certificateEntity(
+                CertificateTestUtil.createCertificateWithSubjectAndSans("CN=old.example.com"));
+        Certificate newCertificate = new Certificate();
+
+        // when
+        Optional<X509RequestContent> seeded = RenewContentSeeder
+                .seed(oldCertificate, newCertificate,
+                        ClientCertificateRenewRequestDto.builder().request(pkcs10("CN=new.example.com")).build());
+
+        // then — the predecessor is the fallback, never an unread CSR
+        assertThat(seeded).isPresent();
+        assertThat(seeded.get().getSubject().getFirst().getValue()).isEqualTo("old.example.com");
+    }
+
+    @Test
     void seedsNothing_whenAPredecessorSanCannotBeRepresented() throws Exception {
         // given — an x400Address SAN; sending the rest would be an identity narrower than the predecessor's
         Certificate oldCertificate = certificateEntity(CertificateTestUtil
