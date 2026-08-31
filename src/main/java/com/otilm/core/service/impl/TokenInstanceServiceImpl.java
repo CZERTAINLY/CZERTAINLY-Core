@@ -211,17 +211,9 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         TokenInstanceBasicModel tokenInstance = createNewTokenInstance(request, connector, binding, creationResult);
         tokenInstanceReferenceWriter.save(tokenInstance);
 
-        if (creationResult != null) {
-            attributeEngine
-                    .updateMetadataAttributes(creationResult.getMetadata(),
-                            ObjectAttributeContentInfo
-                                    .builder(Resource.TOKEN, tokenInstance.uuid())
-                                    .connector(connector.uuid())
-                                    .build());
-            logger.debug("Metadata and Custom attributes created");
-        }
-
-        updateTokenAttributes(request, tokenInstance);
+        tokenInstanceReferenceWriter
+                .updateAttributes(tokenInstance.uuid(), tokenInstance.connectorUuid(), request.getCustomAttributes(),
+                        request.getAttributes(), creationResult == null ? List.of() : creationResult.getMetadata());
 
         try {
             var status = adapter.getStatus(tokenInstance);
@@ -250,6 +242,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         attributeEngine.validateCustomAttributesContent(Resource.TOKEN, request.getCustomAttributes());
         validateAndMergeTokenRequestAttributes(connector, adapter, request.getAttributes(), request.getKind());
 
+        com.otilm.api.model.connector.cryptography.token.TokenInstanceDto remoteResult = null;
         if (adapter instanceof RemoteTokenLifecycleCapability cap) {
             var dataAttributes = attributeEngine
                     .getDataAttributesByContent(tokenInstance.connectorUuid(), request.getAttributes());
@@ -262,19 +255,12 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             remoteRequest.setName(tokenName);
             remoteRequest.setKind(request.getKind());
             remoteRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
-            com.otilm.api.model.connector.cryptography.token.TokenInstanceDto remoteResult = cap
-                    .updateRemoteToken(tokenInstance, remoteRequest);
-            attributeEngine
-                    .updateMetadataAttributes(remoteResult.getMetadata(),
-                            ObjectAttributeContentInfo
-                                    .builder(Resource.TOKEN, tokenInstance.uuid())
-                                    .connector(tokenInstance.connectorUuid())
-                                    .build());
-            logger.debug("Metadata and Custom attributes updated");
+            remoteResult = cap.updateRemoteToken(tokenInstance, remoteRequest);
         }
-
-        updateTokenAttributes(request, tokenInstance);
         tokenInstanceReferenceWriter.save(tokenInstance);
+        tokenInstanceReferenceWriter
+                .updateAttributes(tokenInstance.uuid(), tokenInstance.connectorUuid(), request.getCustomAttributes(),
+                        request.getAttributes(), remoteResult == null ? List.of() : remoteResult.getMetadata());
 
         try {
             tokenInstance = refreshTokenInstanceStatus(tokenInstance, adapter);
@@ -450,18 +436,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                 .orElseThrow(() -> new NotFoundException(TokenInstanceBasicModel.class, uuid));
         logger.trace("Token Instance Reference: '{}'", tokenInstance);
         return tokenInstance;
-    }
-
-    private void updateTokenAttributes(TokenInstanceRequestDto request, TokenInstanceBasicModel tokenInstanceReference)
-            throws NotFoundException, AttributeException {
-        attributeEngine
-                .updateObjectCustomAttributesContent(Resource.TOKEN, tokenInstanceReference.uuid(),
-                        request.getCustomAttributes());
-        attributeEngine
-                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
-                        .builder(Resource.TOKEN, tokenInstanceReference.uuid())
-                        .connector(tokenInstanceReference.connectorUuid())
-                        .build(), request.getAttributes());
     }
 
     private TokenInstanceDetailDto assembleTokenInstanceDetail(TokenInstanceBasicModel tokenInstanceReference) {
