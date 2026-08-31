@@ -31,8 +31,8 @@ public class SearchHelper {
     /**
      * Fields that share one attribute with another field of the same resource, and so display something drawn out of it
      * rather than the attribute itself. Derived rather than listed, so a field added later is classified without an
-     * edit here: the three certificate validation checks are the case that exists today, all three reading one
-     * serialized validation result.
+     * edit here: the certificate validation-check fields are the case that exists today, each reading one serialized
+     * validation result.
      *
      * <p>
      * Held in a nested class so it is computed on first use rather than when {@link SearchHelper} loads. Reading it
@@ -187,9 +187,9 @@ public class SearchHelper {
      * <p>
      * A derived field is excluded for the same reason, even though its attribute is a scalar: what it displays is not
      * what that attribute holds. A field with an expected value displays a comparison against it rather than the value
-     * itself - {@code PRIVATE_KEY} shows whether a joined key type is one particular type - and the three certificate
-     * validation checks each name one check inside a single serialized validation result, so ordering by the attribute
-     * would order all three by the whole document.
+     * itself - {@code PRIVATE_KEY} shows whether a joined key type is one particular type - and the certificate
+     * validation-check fields each name one check inside a single serialized validation result, so ordering by the
+     * attribute would order them all by the whole document.
      */
     public static boolean isOrderableField(final FilterField filterField) {
         return filterField.getFieldAttribute() != null && !filterField.isNativeArrayField()
