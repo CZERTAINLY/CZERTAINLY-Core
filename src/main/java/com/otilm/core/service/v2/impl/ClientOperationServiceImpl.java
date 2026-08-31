@@ -1897,12 +1897,26 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                             .formatted(certificate.toStringShort())));
         }
 
+        List<String> requestAttributeWarnings = List.of();
         if (registered) {
             // The CSR attach and completion attributes commit before the async ISSUE probe can deny, so gate here.
             // A verified challenge is itself the holder's authorization; demanding the operator permission on top
             // would make challenge-based self-service unusable for the identities it exists for.
             if (!challengeAuthorized) {
                 certificateService.checkCreatePermissions();
+            }
+            // Validate the operator's CSR against the resolved request-attribute set before it is attached, so a
+            // strict violation rejects with nothing persisted. After the challenge gate above, so a caller who
+            // cannot authorize cannot probe the policy. A null format is not validated here: the parser selects on
+            // format, and the attach below already rejects it with a clear message.
+            if (request.getFormat() != null) {
+                try {
+                    requestAttributeWarnings = validateUploadedRequestAttributes(request.getRequest(),
+                            request.getFormat(), raProfile);
+                } catch (CertificateException e) {
+                    throw new ValidationException(
+                            ValidationError.create("Invalid certificate signing request: " + e.getMessage()));
+                }
             }
             UUID certificateRequestUuid;
             try {
@@ -1930,6 +1944,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData("");
         response.setUuid(certificateUuid);
+        response.setRequestAttributeWarnings(requestAttributeWarnings);
         return response;
     }
 

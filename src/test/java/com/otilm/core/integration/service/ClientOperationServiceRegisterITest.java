@@ -35,6 +35,8 @@ import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.logging.enums.AuthMethod;
 import com.otilm.api.model.core.other.ResourceEvent;
+import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
+import com.otilm.api.model.core.raprofile.RaProfileCertificateRequestAttributesUpdateDto;
 import com.otilm.api.model.core.settings.PlatformSettingsDto;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.v2.AvailableOperationsDto;
@@ -45,6 +47,7 @@ import com.otilm.api.model.core.v2.ClientCertificateRegistrationDto;
 import com.otilm.api.model.core.v2.ClientCertificateRekeyRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.otilm.api.model.core.v2.OperationSupport;
+import com.otilm.core.attribute.CsrAttributes;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.AttributeOperation;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -83,6 +86,7 @@ import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CertificateExternalService;
 import com.otilm.core.service.CertificateInternalService;
+import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
 import com.otilm.core.service.ResourceObjectAssociationService;
 import com.otilm.core.service.SettingExternalService;
 import com.otilm.core.service.handler.ConnectorCapabilityService;
@@ -112,7 +116,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
@@ -228,6 +236,9 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     // owner's username through this client). The default-owner path uses the logged profile and never calls it.
     @MockitoBean
     private UserManagementApiClient userManagementApiClient;
+
+    @Autowired
+    private RaProfileCertificateRequestAttributeService requestAttributeService;
 
     private RaProfile raProfile;
     // Pre-computed secured UUIDs so each assertThrows lambda contains only the call under test.
@@ -2402,6 +2413,78 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     private String csrBase64(KeyPair keyPair, String subjectDn) throws Exception {
         PKCS10CertificationRequest csr = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
                 keyPair.getPublic()).build(new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate()));
+        return Base64.getEncoder().encodeToString(csr.getEncoded());
+    }
+
+    @Test
+    void issueExistingReturnsWarnings_whenLenientProfileAndUnmappedExtension() throws Exception {
+        // given — a platform-level REGISTERED placeholder, then the RA profile reconfigured lenient with a
+        // resolved set that maps only CommonName
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(mock(AuthorityProviderAdapter.class));
+        String certUuid = register().getUuid();
+        persistLenientCommonNameConfig();
+
+        // and — an operator CSR whose subject is that CommonName but which also carries an unmapped extension
+        ClientCertificateIssueRequestDto issueRequest = new ClientCertificateIssueRequestDto();
+        issueRequest.setRequest(csrWithUnmappedExtensionBase64());
+
+        ClientCertificateDataResponseDto response = clientOperationService
+                .issueExistingCertificate(authorityParent, securedRaProfile, certUuid, issueRequest);
+
+        // then — the CSR was accepted and the warning reached the operator
+        Assertions
+                .assertTrue(
+                        response
+                                .getRequestAttributeWarnings()
+                                .stream()
+                                .anyMatch(w -> w.contains("Extension '2.5.29.19' is not allowed")),
+                        "the unmapped extension must surface as a warning, got: "
+                                + response.getRequestAttributeWarnings());
+    }
+
+    @Test
+    void issueExistingRejectsUnmappedExtension_whenStrictProfile() throws Exception {
+        // given — the same placeholder and CSR, but the RA profile is strict
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(mock(AuthorityProviderAdapter.class));
+        String certUuid = register().getUuid();
+        persistCommonNameConfig(Boolean.TRUE);
+
+        ClientCertificateIssueRequestDto issueRequest = new ClientCertificateIssueRequestDto();
+        issueRequest.setRequest(csrWithUnmappedExtensionBase64());
+
+        // when / then — strict rejects before the CSR is attached
+        ValidationException ex = Assertions
+                .assertThrows(ValidationException.class, () -> clientOperationService
+                        .issueExistingCertificate(authorityParent, securedRaProfile, certUuid, issueRequest));
+        Assertions.assertTrue(ex.getMessage().contains("request-attribute policy"), ex.getMessage());
+        Assertions
+                .assertNull(certificateRepository
+                        .findByUuid(UUID.fromString(certUuid))
+                        .orElseThrow()
+                        .getCertificateRequestUuid(), "a rejected CSR must not be attached to the placeholder");
+    }
+
+    private void persistLenientCommonNameConfig() {
+        persistCommonNameConfig(Boolean.FALSE);
+    }
+
+    private void persistCommonNameConfig(Boolean externalCsrValidationStrict) {
+        RaProfileCertificateRequestAttributesUpdateDto config = new RaProfileCertificateRequestAttributesUpdateDto();
+        config.setRequestAttributes(List.of(CsrAttributes.commonNameAttribute()));
+        config.setMergeMode(AttributeSetMergeMode.STATIC_ONLY);
+        config.setExternalCsrValidationStrict(externalCsrValidationStrict);
+        requestAttributeService.updateConfiguration(raProfile, config);
+    }
+
+    private String csrWithUnmappedExtensionBase64() throws Exception {
+        ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();
+        extensionsGenerator.addExtension(Extension.basicConstraints, false, new BasicConstraints(false));
+        KeyPair keyPair = generateKeyPair();
+        JcaPKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(
+                new X500Name("CN=device-1"), keyPair.getPublic());
+        builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensionsGenerator.generate());
+        PKCS10CertificationRequest csr = builder
+                .build(new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate()));
         return Base64.getEncoder().encodeToString(csr.getEncoded());
     }
 }
