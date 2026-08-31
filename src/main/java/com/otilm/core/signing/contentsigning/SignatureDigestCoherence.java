@@ -1,5 +1,6 @@
 package com.otilm.core.signing.contentsigning;
 
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.connector.signatures.contentsigning.common.DigestOnlyDocumentTransferDto;
@@ -44,7 +45,7 @@ public final class SignatureDigestCoherence {
         String oid = signatureAlgorithm.getDigestAlgorithmIdentifier().getAlgorithm().getId();
         try {
             return DigestAlgorithm.findByOid(oid);
-        } catch (RuntimeException e) {
+        } catch (ValidationException e) {
             throw new SigningEngineException(SigningEngineFailure.MISCONFIGURED,
                     "signature algorithm '%s' commits to the digest identified by OID %s, which the platform has no digest algorithm for"
                             .formatted(signatureAlgorithm.getCode(), oid),

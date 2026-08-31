@@ -15,6 +15,10 @@ public interface SignerCreator {
      * The signature algorithm of the returned {@link Signer} must derive purely from the {@link ResolvedManagedScheme},
      * which is immutable for the run. An algorithm depending on anything else -- a clock, a counter, a remote lookup --
      * would let the algorithm {@link SignerFactory#signatureAlgorithm} announces drift from the one that signs.
+     *
+     * <p>
+     * The returned {@link Signer} may be created only so its algorithm can be read and then discarded, so acquire
+     * nothing that needs releasing.
      */
     Signer create(ResolvedManagedScheme signingScheme) throws SigningEngineException;
 }
