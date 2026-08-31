@@ -12,7 +12,6 @@ import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.model.crypto.TokenInstanceBasicModel;
 import com.otilm.core.service.CommentInternalService;
-import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -40,17 +39,16 @@ public class TokenInstanceReferenceWriter {
     @Transactional
     public TokenInstanceReference save(TokenInstanceBasicModel model) {
         logger.debug("Creating token instance reference: {}", model == null ? null : model.uuid());
-        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.save(toEntity(model));
-        return tokenInstanceReference;
+        return tokenInstanceReferenceRepository.save(toEntity(model));
     }
 
     @Transactional
-    public TokenInstanceReference update(TokenInstanceBasicModel model) {
+    public TokenInstanceReference update(TokenInstanceBasicModel model) throws NotFoundException {
         Objects.requireNonNull(model, "Token instance model is required.");
         logger.debug("Updating token instance reference: {}", model.uuid());
         TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository
                 .findWithLockByUuid(model.uuid())
-                .orElseThrow(() -> new EntityNotFoundException("Token instance not found: " + model.uuid()));
+                .orElseThrow(() -> new NotFoundException("Token instance not found: " + model.uuid()));
         copyModelToEntity(tokenInstanceReference, model);
         return tokenInstanceReference;
     }
