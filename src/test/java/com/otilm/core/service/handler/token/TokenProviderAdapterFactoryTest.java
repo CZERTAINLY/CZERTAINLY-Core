@@ -12,8 +12,9 @@ import com.otilm.core.model.connector.ConnectorFunctionGroupModel;
 import com.otilm.core.model.connector.ImmutableConnectorFullModel;
 import com.otilm.core.model.connector.ImmutableConnectorInterface;
 import com.otilm.core.model.crypto.ImmutableTokenInstanceFullModel;
+import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.handler.OperationAttributeResolver;
-import com.otilm.core.service.v2.ConnectorInternalService;
+import com.otilm.core.service.v2.ConnectorExternalService;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -29,12 +30,12 @@ import static org.mockito.Mockito.when;
 class TokenProviderAdapterFactoryTest {
 
     private TokenProviderAdapterFactory factory;
-    private ConnectorInternalService connectorService;
+    private ConnectorExternalService connectorExternalService;
 
     @BeforeEach
     void setUp() {
-        connectorService = mock(ConnectorInternalService.class);
-        factory = new TokenProviderAdapterFactory(mock(ConnectorApiFactory.class), connectorService,
+        connectorExternalService = mock(ConnectorExternalService.class);
+        factory = new TokenProviderAdapterFactory(mock(ConnectorApiFactory.class), connectorExternalService,
                 mock(AttributeEngine.class), mock(OperationAttributeResolver.class));
     }
 
@@ -81,7 +82,7 @@ class TokenProviderAdapterFactoryTest {
         // given
         UUID connectorUuid = UUID.randomUUID();
         ImmutableConnectorFullModel connector = connector(List.of(cryptographyInterface("v2")), List.of());
-        when(connectorService.getConnectorFullModel(connectorUuid)).thenReturn(connector);
+        when(connectorExternalService.getConnectorFullModel(SecuredUUID.fromUUID(connectorUuid))).thenReturn(connector);
         var token = new ImmutableTokenInstanceFullModel(UUID.randomUUID(), null, "token", TokenInstanceStatus.UNKNOWN,
                 "SOFT", connectorUuid, "connector", connector.connectorInterfaces().get(0).uuid(),
                 mock(Connector.class), connector.connectorInterfaces().get(0), Set.of());

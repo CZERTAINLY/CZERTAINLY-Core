@@ -7,8 +7,6 @@ import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
 import com.otilm.api.model.core.connector.v2.ConnectorRequestDto;
-import com.otilm.core.model.connector.ImmutableConnectorBasicModel;
-import com.otilm.core.model.connector.ImmutableConnectorFullModel;
 import com.otilm.core.service.ResourceExtensionService;
 
 import java.util.UUID;
@@ -36,7 +34,4 @@ public interface ConnectorInternalService extends ResourceExtensionService {
      */
     ApiClientConnectorInfo getConnectorForApiClient(UUID connectorUuid) throws NotFoundException;
 
-    ImmutableConnectorFullModel getConnectorFullModel(UUID connectorUuid) throws NotFoundException;
-
-    ImmutableConnectorBasicModel getConnectorBasicModel(UUID connectorUuid) throws NotFoundException;
 }

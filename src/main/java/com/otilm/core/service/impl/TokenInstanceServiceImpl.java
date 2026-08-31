@@ -32,7 +32,6 @@ import com.otilm.core.model.crypto.TokenInstanceFullModel;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.CredentialInternalService;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.service.TokenInstanceExternalService;
@@ -44,6 +43,7 @@ import com.otilm.core.service.handler.token.TokenProfileValidationCapability;
 import com.otilm.core.service.handler.token.TokenProviderAdapter;
 import com.otilm.core.service.handler.token.TokenProviderAdapterFactory;
 import com.otilm.core.service.handler.token.TokenProviderBinding;
+import com.otilm.core.service.v2.ConnectorExternalService;
 import com.otilm.core.service.writer.TokenInstanceReferenceWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import java.util.ArrayList;
@@ -65,7 +65,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
     // --------------------------------------------------------------------------------
     // Services & API Clients
     // --------------------------------------------------------------------------------
-    private ConnectorInternalService connectorInternalService;
+    private ConnectorExternalService connectorExternalService;
     private CredentialInternalService credentialService;
     private AttributeEngine attributeEngine;
     private ResourceInternalService resourceService;
@@ -112,8 +112,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
     }
 
     @Autowired
-    public void setConnectorInternalService(ConnectorInternalService connectorInternalService) {
-        this.connectorInternalService = connectorInternalService;
+    public void setConnectorExternalService(ConnectorExternalService connectorExternalService) {
+        this.connectorExternalService = connectorExternalService;
     }
 
     @Autowired
@@ -141,7 +141,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
     public List<BaseAttribute> listTokenAttributes(UUID connectorUuid, @Nullable String kind)
             throws ConnectorException, NotFoundException {
         logger.info("Listing token attributes for connector '{}'", connectorUuid);
-        ImmutableConnectorFullModel connector = connectorInternalService.getConnectorWithIntAndFuncGrp(connectorUuid);
+        ImmutableConnectorFullModel connector = connectorExternalService
+                .getConnectorFullModel(SecuredUUID.fromUUID(connectorUuid));
 
         return tokenProviderAdapterFactory.forConnector(connector).listTokenAttributes(kind);
     }
@@ -188,7 +189,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                     ValidationError.create("The connector UUID '{}' is malformed", request.getConnectorUuid()));
         }
 
-        ImmutableConnectorFullModel connector = connectorInternalService.getConnectorWithIntAndFuncGrp(conectorUuid);
+        ImmutableConnectorFullModel connector = connectorExternalService
+                .getConnectorFullModel(SecuredUUID.fromUUID(conectorUuid));
         TokenProviderBinding binding = tokenProviderAdapterFactory.forConnectorWithBinding(connector);
         TokenProviderAdapter adapter = binding.adapter();
 
@@ -235,8 +237,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         logger.info("Updating token instance with uuid: '{}'", uuid);
         TokenInstanceFullModel tokenInstance = getTokenInstanceModel(uuid);
 
-        ImmutableConnectorFullModel connector = connectorInternalService
-                .getConnectorWithIntAndFuncGrp(tokenInstance.connectorUuid());
+        ImmutableConnectorFullModel connector = connectorExternalService
+                .getConnectorFullModel(SecuredUUID.fromUUID(tokenInstance.connectorUuid()));
         TokenProviderAdapter adapter = tokenProviderAdapterFactory.forToken(tokenInstance);
 
         attributeEngine.validateCustomAttributesContent(Resource.TOKEN, request.getCustomAttributes());

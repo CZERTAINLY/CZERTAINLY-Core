@@ -34,7 +34,6 @@ import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.model.auth.ResourceAction;
-import com.otilm.core.model.connector.ImmutableConnectorFullModel;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -120,11 +119,6 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     @Override
     public Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException {
         return connectorRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-    }
-
-    @Override
-    public ImmutableConnectorFullModel getConnectorWithIntAndFuncGrp(UUID connectorUuid) throws NotFoundException {
-        return connectorInternalServiceV2.getConnectorFullModel(connectorUuid);
     }
 
     @Override

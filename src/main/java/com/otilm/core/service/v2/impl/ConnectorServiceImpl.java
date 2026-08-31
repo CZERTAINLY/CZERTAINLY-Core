@@ -266,6 +266,18 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
+    public ImmutableConnectorFullModel getConnectorFullModel(SecuredUUID uuid) throws NotFoundException {
+        return loadConnectorFullModel(uuid.getValue());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
+    public ImmutableConnectorBasicModel getConnectorBasicModel(SecuredUUID uuid) throws NotFoundException {
+        return loadConnectorBasicModel(uuid.getValue());
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
     public ConnectorDetailDto createConnector(ConnectorRequestDto request)
             throws ConnectorException, NotFoundException, AlreadyExistException, AttributeException {
@@ -531,16 +543,14 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         return ImmutableConnectorInfo.of(connector);
     }
 
-    @Override
-    public ImmutableConnectorFullModel getConnectorFullModel(UUID connectorUuid) throws NotFoundException {
+    private ImmutableConnectorFullModel loadConnectorFullModel(UUID connectorUuid) throws NotFoundException {
         Connector connector = connectorRepository
                 .findWithInterfacesAndFunctionGroupsByUuid(connectorUuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
         return ImmutableConnectorFullModel.from(connector);
     }
 
-    @Override
-    public ImmutableConnectorBasicModel getConnectorBasicModel(UUID connectorUuid) throws NotFoundException {
+    private ImmutableConnectorBasicModel loadConnectorBasicModel(UUID connectorUuid) throws NotFoundException {
         Connector connector = connectorRepository
                 .findByUuid(connectorUuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));

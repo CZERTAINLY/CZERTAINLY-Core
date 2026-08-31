@@ -14,7 +14,6 @@ import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.api.model.core.cryptography.token.TokenInstanceStatusDetailDto;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.model.crypto.TokenInstanceBasicModel;
-import com.otilm.core.service.v2.ConnectorInternalService;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -31,8 +30,7 @@ public class TokenProviderV1Adapter
     private final TokenInstanceSyncApiClient tokenApiClient;
     private final AttributeSyncApiClient attributeApiClient;
 
-    public TokenProviderV1Adapter(ConnectorApiFactory connectorApiFactory, ConnectorInternalService connectorService,
-            ApiClientConnectorInfo connectorInfo) {
+    public TokenProviderV1Adapter(ConnectorApiFactory connectorApiFactory, ApiClientConnectorInfo connectorInfo) {
         this.connectorInfo = connectorInfo;
         this.tokenApiClient = connectorApiFactory.getTokenInstanceApiClient(connectorInfo);
         this.attributeApiClient = connectorApiFactory.getAttributeApiClient(connectorInfo);
