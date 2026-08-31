@@ -21,14 +21,14 @@ public interface RaProfileCertificateRequestAttributeService {
      * dynamic set → platform default set, combined per {@code mode}, with value-source bindings applied.
      *
      * @param raProfile the RA Profile (its authority's connector supplies the dynamic set, if any)
-     * @param mode the merge mode; {@code null} defaults to {@link AttributeSetMergeMode#MERGE}
+     * @param mode the merge mode; {@code null} defaults to {@link AttributeSetMergeMode#STATIC_ONLY}
      */
     List<BaseAttribute> resolveIssueAttributeSet(RaProfile raProfile, AttributeSetMergeMode mode)
             throws ConnectorException, NotFoundException;
 
     /**
      * Resolves the ordered request-attribute set using the merge mode persisted on the RA Profile (defaults to
-     * {@link AttributeSetMergeMode#MERGE} when unset).
+     * {@link AttributeSetMergeMode#STATIC_ONLY} when unset).
      */
     List<BaseAttribute> resolveIssueAttributeSet(RaProfile raProfile) throws ConnectorException, NotFoundException;
 

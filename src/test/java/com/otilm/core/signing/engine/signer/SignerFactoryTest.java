@@ -1,5 +1,6 @@
 package com.otilm.core.signing.engine.signer;
 
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedManagedScheme;
 import com.otilm.core.model.signing.resolved.ResolvedStaticKeyManagedSigning;
@@ -10,7 +11,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +42,26 @@ class SignerFactoryTest {
         // then
         assertThat(result).isSameAs(expectedSigner);
         verify(creator).create(scheme);
+    }
+
+    @Test
+    void answersTheAlgorithmTheSchemesSignerWouldUse() throws SigningEngineException {
+        // given
+        ResolvedManagedScheme scheme = anyScheme();
+        Signer signer = mock(Signer.class);
+        when(signer.getSignatureAlgorithm()).thenReturn(SignatureAlgorithm.SHA256_WITH_RSA_PSS);
+        SignerCreator creator = mock(SignerCreator.class);
+        when(creator.supports(scheme)).thenReturn(true);
+        when(creator.create(scheme)).thenReturn(signer);
+
+        SignerFactory factory = new SignerFactory(List.of(creator));
+
+        // when
+        SignatureAlgorithm algorithm = factory.signatureAlgorithm(scheme);
+
+        // then
+        assertThat(algorithm).isEqualTo(SignatureAlgorithm.SHA256_WITH_RSA_PSS);
+        verify(signer, never()).sign(any());
     }
 
     @Test
