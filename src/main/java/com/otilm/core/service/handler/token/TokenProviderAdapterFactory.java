@@ -47,9 +47,6 @@ public class TokenProviderAdapterFactory {
      */
     public TokenProviderBinding forConnectorWithBinding(ImmutableConnectorFullModel connector) {
         Objects.requireNonNull(connector, "A connector is required to select a token-provider adapter.");
-        TokenProviderV1Adapter v1Adapter = new TokenProviderV1Adapter(connectorApiFactory, connector);
-        TokenProviderV2Adapter v2Adapter = new TokenProviderV2Adapter(connectorApiFactory, attributeEngine,
-                operationAttributeResolver, connector);
 
         List<ImmutableConnectorInterface> cryptographyInterfaces = connector
                 .connectorInterfaces()
@@ -65,7 +62,8 @@ public class TokenProviderAdapterFactory {
                 .findFirst()
                 .orElse(null);
         if (v2Interface != null) {
-            return new TokenProviderBinding(v2Adapter, v2Interface);
+            return new TokenProviderBinding(new TokenProviderV2Adapter(connectorApiFactory, attributeEngine,
+                    operationAttributeResolver, connector), v2Interface);
         }
         if (!cryptographyInterfaces.isEmpty()) {
             String versions = cryptographyInterfaces
@@ -78,7 +76,7 @@ public class TokenProviderAdapterFactory {
                             + connector.uuid() + ")");
         }
         if (hasLegacyCryptographyProvider(connector)) {
-            return new TokenProviderBinding(v1Adapter, null);
+            return new TokenProviderBinding(new TokenProviderV1Adapter(connectorApiFactory, connector), null);
         }
         throw new UnsupportedCryptographyProviderVersionException(
                 "Connector has no supported cryptography provider (connector " + connector.uuid() + ")");
