@@ -504,7 +504,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         logger
                 .info("Deleting token instance '{}' ('{}')", tokenInstanceReference.name(),
                         tokenInstanceReference.uuid());
-        logger.trace(tokenInstanceReference.toString());
+        logger.trace("Token instance to delete: '{}'", tokenInstanceReference);
         ValidationError error = null;
         if (tokenInstanceReference.tokenProfiles() != null && !tokenInstanceReference.tokenProfiles().isEmpty()) {
             error = ValidationError
