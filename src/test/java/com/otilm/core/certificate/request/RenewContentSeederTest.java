@@ -89,8 +89,8 @@ class RenewContentSeederTest {
 
     @Test
     void seedsFromSuppliedCsr_whenTheOperatorProvidedOneOnRenew() throws Exception {
-        // given — renew validates only the public key, so a supplied CSR may carry a different identity;
-        // structured content must not override what the operator asked for
+        // given — renew validates only the public key, so a supplied CSR may carry a different identity.
+        // Structured content must not override what the operator asked for.
         Certificate oldCertificate = certificateEntity(CertificateTestUtil
                 .createCertificateWithSubjectAndSans("CN=old.example.com",
                         new GeneralName(GeneralName.dNSName, "old.example.com")));
