@@ -4,6 +4,7 @@ import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.api.model.core.search.FilterConditionOperator;
+import com.otilm.core.cbom.asset.AssetRowKeys;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.entity.cbom.CryptoAsset;
@@ -69,21 +70,16 @@ class CryptoAssetListQueryITest extends BaseSpringBootTest {
      */
     @Test
     void pagingOrdersByNameThenUuidAndPagesDeterministically() {
-        UUID aesA = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-aes-a",
-                        null, null, null, null, null, null, null), null);
-        UUID aesB = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "  aes  ", "oid-aes-b",
-                        null, null, null, null, null, null, null), null);
-        UUID aesC = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "aes", "oid-aes-c",
-                        null, null, null, null, null, null, null), null);
-        UUID ecdsa = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA", "oid-ecdsa",
-                        null, null, null, null, null, null, null), null);
-        UUID nullNamed = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, "oid-null-name",
-                        null, null, null, null, null, null, null), null);
+        UUID aesA = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-aes-a", null,
+                null, null, null, null, null, null), null);
+        UUID aesB = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "  aes  ", "oid-aes-b", null,
+                null, null, null, null, null, null), null);
+        UUID aesC = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "aes", "oid-aes-c", null,
+                null, null, null, null, null, null), null);
+        UUID ecdsa = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA", "oid-ecdsa", null,
+                null, null, null, null, null, null), null);
+        UUID nullNamed = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, "oid-null-name",
+                null, null, null, null, null, null, null), null);
 
         List<UUID> aesByUuidAscending = sortedByUuidString(aesA, aesB, aesC);
         UUID aesFirst = aesByUuidAscending.get(0);
@@ -113,18 +109,14 @@ class CryptoAssetListQueryITest extends BaseSpringBootTest {
 
     @Test
     void distinctValueQueriesReturnCanonicalSortedValuesWithoutNullsOrDuplicates() {
-        assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "rsa-signature",
-                        "oid-1", "rsa", null, null, "SECP256R1", null, null, null), null);
-        assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "rsa-signature-2",
-                        "oid-2", " RSA ", null, null, " secp256r1 ", null, null, null), null);
-        assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ecdsa-signature",
-                        "oid-3", "ecdsa", null, null, "P-256", null, null, null), null);
-        assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "bare", "oid-4", null,
-                        null, null, null, null, null, null), null);
+        upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "rsa-signature", "oid-1", "rsa", null,
+                null, "SECP256R1", null, null, null), null);
+        upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "rsa-signature-2", "oid-2", " RSA ",
+                null, null, " secp256r1 ", null, null, null), null);
+        upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ecdsa-signature", "oid-3", "ecdsa",
+                null, null, "P-256", null, null, null), null);
+        upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "bare", "oid-4", null, null, null,
+                null, null, null, null), null);
 
         assertThat(assetRepository.findDistinctCurve())
                 .describedAs(
@@ -138,15 +130,12 @@ class CryptoAssetListQueryITest extends BaseSpringBootTest {
 
     @Test
     void listRowsProjectSourceCountAndSumOccurrenceCountPerAsset() {
-        UUID sourced = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-sourced",
-                        null, null, null, null, null, null, null), null);
-        UUID sourceless = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA",
-                        "oid-sourceless", null, null, null, null, null, null, null), null);
-        UUID guarded = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cn", null, null,
-                        null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
+        UUID sourced = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-sourced",
+                null, null, null, null, null, null, null), null);
+        UUID sourceless = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA",
+                "oid-sourceless", null, null, null, null, null, null, null), null);
+        UUID guarded = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cn", null, null,
+                null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
 
         Cbom cbomOne = newCbom("urn:uuid:proj-one");
         Cbom cbomTwo = newCbom("urn:uuid:proj-two");
@@ -194,9 +183,8 @@ class CryptoAssetListQueryITest extends BaseSpringBootTest {
      */
     @Test
     void listRowProjectionSkipsAVanishedUuid() {
-        UUID present = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-present",
-                        null, null, null, null, null, null, null), null);
+        UUID present = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-present",
+                null, null, null, null, null, null, null), null);
 
         List<CryptoAssetListRow> rows = assetRepository.findListRowsByUuids(List.of(present, UUID.randomUUID()));
 
@@ -210,9 +198,8 @@ class CryptoAssetListQueryITest extends BaseSpringBootTest {
      */
     @Test
     void plainRowCountMatchesTheDistinctCountThroughTheSourceCbomPredicate() {
-        UUID doubled = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-doubled",
-                        null, null, null, null, null, null, null), null);
+        UUID doubled = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", "oid-doubled",
+                null, null, null, null, null, null, null), null);
         Cbom one = newCbom("urn:uuid:count-one");
         Cbom two = newCbom("urn:uuid:count-two");
         sourceWriter.upsertSource(doubled, one.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
@@ -262,5 +249,9 @@ class CryptoAssetListQueryITest extends BaseSpringBootTest {
         cbom.setVersion(version);
         cbom.setSpecVersion("1.7");
         return cbomRepository.save(cbom);
+    }
+
+    private UUID upsert(CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
+        return assetWriter.upsertIdentity(AssetRowKeys.forFields(fields), fields, guard);
     }
 }

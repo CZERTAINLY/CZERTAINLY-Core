@@ -63,6 +63,17 @@ class CryptoAssetWriterTest {
                 .hasMessageContaining("longer than 1024 characters");
     }
 
+    @Test
+    void invalidIdentityKeysAreRefusedBeforeAnyWrite() {
+        assertThatCode(() -> CryptoAssetWriter.requireIdentityKeyShape("0".repeat(64))).doesNotThrowAnyException();
+        assertThatThrownBy(() -> CryptoAssetWriter.requireIdentityKeyShape(null))
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> CryptoAssetWriter.requireIdentityKeyShape("0".repeat(63)))
+                .isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> CryptoAssetWriter.requireIdentityKeyShape("0".repeat(63) + "G"))
+                .isInstanceOf(ValidationException.class);
+    }
+
     /**
      * PostgreSQL's {@code length()} counts characters, so a name of exactly the bound in astral code points is a row
      * the constraint accepts. Counting UTF-16 units here would refuse it -- half the permitted length for anyone
