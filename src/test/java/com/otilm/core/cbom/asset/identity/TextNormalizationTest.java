@@ -71,21 +71,26 @@ class TextNormalizationTest {
         assertThat(AsciiText.lookupKey(input)).isEqualTo(expected);
     }
 
+    @Test
+    void lookupKeysUseTheReferenceWhitespaceSet() {
+        assertThat(AsciiText.lookupKey("A\u0085E\u00A0S\u2007G\u202FC\u200BM")).isEqualTo("aesgc\u200Bm");
+    }
+
     // ---------------------------------------------------------------- whitespace
 
     /**
      * The whitespace stripped is the reference's, not the JDK's.
      *
      * <p>
-     * Measured, the two definitions disagree on exactly these three code points, and {@link String#strip()} misses all
-     * three because it consults {@link Character#isWhitespace}. The two no-break spaces are the ones that occur in
-     * producer text pasted out of documents: a trailing one survives {@code strip()}, NFKC then turns it into an
-     * ordinary trailing space, and {@code "RSA "} keys apart from {@code "RSA"} -- a silent inventory split on a
-     * formatting accident.
+     * Measured, the two definitions disagree on exactly these four code points, and {@link String#strip()} misses all
+     * four because it consults {@link Character#isWhitespace}. The no-break spaces are the ones that occur in producer
+     * text pasted out of documents: a trailing one survives {@code strip()}, NFKC then turns it into an ordinary
+     * trailing space, and {@code "RSA "} keys apart from {@code "RSA"} -- a silent inventory split on a formatting
+     * accident.
      */
     @ParameterizedTest
-    @ValueSource(ints = {0x0085, 0x00A0, 0x202F})
-    void theThreeCodePointsJavaMissesAreStripped(int codePoint) {
+    @ValueSource(ints = {0x0085, 0x00A0, 0x2007, 0x202F})
+    void theFourCodePointsJavaMissesAreStripped(int codePoint) {
         String character = Character.toString(codePoint);
 
         assertThat(Character.isWhitespace(codePoint))
@@ -260,6 +265,7 @@ class TextNormalizationTest {
             "2025-01-01t00:00:00z",
             "2025-01-01T00:00:00+00:00",
             "2025-01-01T02:00:00+02:00",
+            "2025-01-01T02:00:00+0200",
             "2024-12-31T19:00:00-05:00",
             "20250101000000Z",
             "2025-01-01T00:00:00.123456789Z"})
@@ -268,8 +274,8 @@ class TextNormalizationTest {
     }
 
     @Test
-    void anOffsetIsResolvedRatherThanKept() {
-        assertThat(ValidityTimestamps.normalize("2025-01-01T02:00:00+0200")).isEqualTo("1735689600");
+    void aSpaceSeparatedOffsetIsKeptRatherThanFolded() {
+        assertThat(ValidityTimestamps.normalize("2025-01-01 02:00:00+02:00")).isEqualTo("2025-01-01 02:00:00+02:00");
     }
 
     /**
@@ -279,8 +285,19 @@ class TextNormalizationTest {
     @Test
     void anUnparseableTimestampIsKeptRatherThanDropped() {
         assertThat(ValidityTimestamps.normalize("not-a-date")).isEqualTo("not-a-date");
+        assertThat(ValidityTimestamps.normalize("release.1")).isEqualTo("release.1");
+        assertThat(ValidityTimestamps.normalize("v1.2.3")).isEqualTo("v1.2.3");
         assertThat(ValidityTimestamps.normalize("")).isEmpty();
         assertThat(ValidityTimestamps.normalize(null)).isEmpty();
+    }
+
+    @Test
+    void calendarInvalidTimestampsStayLiteral() {
+        assertThat(ValidityTimestamps.normalize("2025-02-28T00:00:00Z")).isEqualTo("1740700800");
+        assertThat(ValidityTimestamps.normalize("2025-02-29T00:00:00Z")).isEqualTo("2025-02-29T00:00:00Z");
+        assertThat(ValidityTimestamps.normalize("2025-02-30T00:00:00Z")).isEqualTo("2025-02-30T00:00:00Z");
+        assertThat(ValidityTimestamps.normalize("2025-02-28T24:00:00Z")).isEqualTo("2025-02-28T24:00:00Z");
+        assertThat(ValidityTimestamps.normalize("20250229000000Z")).isEqualTo("20250229000000Z");
     }
 
     @Test
@@ -361,23 +378,26 @@ class TextNormalizationTest {
     }
 
     /**
-     * The cap may not cut between the halves of a surrogate pair.
+     * The cap counts code points rather than UTF-16 units.
      *
      * <p>
-     * The cap counts UTF-16 units, so 1023 basic-plane characters followed by one astral character left a lone high
-     * surrogate as the last char. {@link IdentityDigests#sha256Hex} refuses that, so the component became a reported
-     * skip and vanished from the inventory; the same string also has no valid UTF-8 encoding for the jsonb evidence
-     * column. The pair is dropped whole instead.
+     * Counting storage units caps an astral-heavy URI before the user-info delimiter is even visible, so a credential
+     * can survive the sanitization step that should have removed it.
      */
     @Test
-    void theLengthCapNeverSplitsASurrogatePair() {
+    void theLocationLengthCapCountsCodePoints() {
         String astral = Character.toString(0x1F5DD);
 
-        assertThat(sanitize("a".repeat(1023) + astral))
-                .describedAs("the pair starts at unit 1023 and cannot fit, so neither half is kept")
-                .isEqualTo("a".repeat(1023));
-        assertThat(sanitize("a".repeat(1022) + astral)).isEqualTo("a".repeat(1022) + astral);
+        assertThat(sanitize("a".repeat(1023) + astral + "b")).isEqualTo("a".repeat(1023) + astral);
         assertThat(sanitize("a".repeat(2000))).hasSize(1024);
+    }
+
+    @Test
+    void userInfoIsStrippedBeforeTheLocationIsCapped() {
+        String astral = Character.toString(0x1F5DD);
+        String location = "tcp://" + astral.repeat(611) + ":SuperSecretPassword123@host:443/path";
+
+        assertThat(sanitize(location)).doesNotContain("SuperSecret").isEqualTo("tcp://host:443/path");
     }
 
     // ---------------------------------------------------------------- occurrence discriminator
@@ -406,16 +426,17 @@ class TextNormalizationTest {
         assertThat(Occurrences.discriminator(component)).isEqualTo(IdentityDigests.sha256Hex("a.py#1#2"));
     }
 
-    /** Triples are sorted and de-duplicated, so a producer's array order cannot re-key an asset between scans. */
+    /** Triples are sorted, but repeated sightings are kept because multiplicity is a stated fact. */
     @Test
-    void arrayOrderAndRepetitionDoNotReachTheKey() {
+    void arrayOrderDoesNotReachTheKeyButRepetitionDoes() {
         String ascending = Occurrences
                 .triples(occurrences("[{\"location\": \"a.py\", \"line\": 1}, {\"location\": \"b.py\", \"line\": 2}]"));
         String descendingWithARepeat = Occurrences
                 .triples(occurrences("[{\"location\": \"b.py\", \"line\": 2}, {\"location\": \"a.py\", \"line\": 1},"
                         + " {\"location\": \"b.py\", \"line\": 2}]"));
 
-        assertThat(ascending).isEqualTo("a.py#1#\nb.py#2#").isEqualTo(descendingWithARepeat);
+        assertThat(ascending).isEqualTo("a.py#1#\nb.py#2#");
+        assertThat(descendingWithARepeat).isEqualTo("a.py#1#\nb.py#2#\nb.py#2#");
     }
 
     /**
@@ -423,16 +444,26 @@ class TextNormalizationTest {
      *
      * <p>
      * {@code JsonNode.asText()} on a large integral node can yield exponent notation, which would key the same line two
-     * ways depending on how the producer serialized it. A non-integral line has no exact integer to render, so it keeps
-     * the producer's own spelling rather than being rounded into one.
+     * ways depending on how the producer serialized it. A non-integral line has no exact integer to render.
      */
     @Test
     void anIntegralLineRendersThroughItsExactValue() {
         assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 10000000000}]")))
                 .isEqualTo("a#10000000000#");
         assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 1.5}]")))
-                .describedAs("no exact integer exists, so the producer's spelling stands")
-                .isEqualTo("a#1.5#");
+                .describedAs("no exact integer exists, so the numeric value is refused")
+                .isEqualTo("a##");
+    }
+
+    @Test
+    void triplesSortByCodePointNotUtf16StorageUnits() {
+        String supplementary = Character.toString(0x10000);
+        String privateUse = Character.toString(0xE000);
+
+        assertThat(Occurrences
+                .triples(occurrences(
+                        "[{\"location\": \"" + supplementary + "\"}," + "{\"location\": \"" + privateUse + "\"}]")))
+                .isEqualTo(privateUse + "##\n" + supplementary + "##");
     }
 
     /**

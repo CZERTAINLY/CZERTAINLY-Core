@@ -3,6 +3,7 @@ package com.otilm.core.cbom.asset.identity;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 /**
  * Cipher-suite identifiers, reduced to IANA codes -- never bom-refs, never raw suite names.
@@ -15,6 +16,10 @@ import java.util.TreeSet;
  * identifiers are the code bytes, so they are stable.
  */
 public final class CipherSuites {
+
+    private static final Pattern HEX_DIGITS = Pattern.compile("[0-9a-f]+");
+
+    private static final int MAX_CODE_UNIT = 0xFFFF;
 
     private CipherSuites() {
     }
@@ -47,9 +52,21 @@ public final class CipherSuites {
                 if (trimmed.isEmpty()) {
                     continue;
                 }
-                String digits = AsciiText.fold(trimmed).startsWith("0x") ? trimmed.substring(2) : trimmed;
+                String folded = AsciiText.fold(trimmed);
+                if (folded.startsWith("+") || folded.startsWith("-")) {
+                    return null;
+                }
+                String digits = folded.startsWith("0x") ? folded.substring(2) : folded;
+                if (!HEX_DIGITS.matcher(digits).matches()) {
+                    return null;
+                }
                 try {
-                    octets.append(String.format("%02x", Integer.parseInt(digits, 16)));
+                    int value = Integer.parseInt(digits, 16);
+                    if (value > MAX_CODE_UNIT) {
+                        return null;
+                    }
+                    String hex = Integer.toHexString(value);
+                    octets.append(hex.length() % 2 == 0 ? hex : "0" + hex);
                 } catch (NumberFormatException e) {
                     // A list this implementation cannot read yields no code at all rather than a partial one. The
                     // caller falls back to the suite name, which is what keeps "we know it has suites and cannot read

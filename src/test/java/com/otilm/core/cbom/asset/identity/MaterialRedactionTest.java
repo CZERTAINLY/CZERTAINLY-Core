@@ -59,8 +59,9 @@ class MaterialRedactionTest {
 
         assertThat(redaction.publishedDigest()).isNull();
         assertThat(redaction.identityDigest()).isNotNull().hasSize(64);
-        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/sha256").isMissingNode()).isTrue();
         assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/length").asInt()).isEqualTo(7);
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/redacted").asBoolean()).isTrue();
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/sha256").isMissingNode()).isTrue();
         assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest withheld"));
     }
 
@@ -70,14 +71,14 @@ class MaterialRedactionTest {
     }
 
     @Test
-    void publishableMaterialCarriesItsDigestAndLength() {
+    void publishableMaterialCarriesTheContractedRedactionEnvelope() {
         MaterialRedaction redaction = redact("public-key", "QUJDRA==");
 
         assertThat(redaction.publishedDigest()).isEqualTo(redaction.identityDigest());
-        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/sha256").asText())
-                .isEqualTo(redaction.publishedDigest());
-        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/$redacted").asText())
-                .isEqualTo(MaterialRedaction.REDACTED_MARKER);
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/redacted").asBoolean()).isTrue();
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/length").asInt()).isEqualTo(8);
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/sha256").isMissingNode()).isTrue();
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/$redacted").isMissingNode()).isTrue();
     }
 
     /** Fails closed: guessing wrong on an unknown type would publish a reversible digest. */

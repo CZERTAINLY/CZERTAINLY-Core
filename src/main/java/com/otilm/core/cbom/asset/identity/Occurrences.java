@@ -2,8 +2,8 @@ package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 /**
@@ -24,6 +24,8 @@ public final class Occurrences {
     private static final Pattern USERINFO = Pattern.compile("://[^/?#]*@");
 
     private static final int MAX_LOCATION_LENGTH = 1024;
+
+    private static final Comparator<String> CODE_POINT_ORDER = Occurrences::compareCodePoints;
 
     private Occurrences() {
     }
@@ -52,7 +54,6 @@ public final class Occurrences {
         if (occurrences == null || !occurrences.isArray()) {
             return null;
         }
-        TreeSet<String> sorted = new TreeSet<>();
         List<String> triples = new ArrayList<>();
         for (JsonNode occurrence : occurrences) {
             if (!occurrence.isObject()) {
@@ -65,8 +66,8 @@ public final class Occurrences {
         if (triples.isEmpty()) {
             return null;
         }
-        sorted.addAll(triples);
-        return String.join("\n", sorted);
+        triples.sort(CODE_POINT_ORDER);
+        return String.join("\n", triples);
     }
 
     /**
@@ -95,19 +96,16 @@ public final class Occurrences {
     }
 
     /**
-     * Where the length cap may cut, which is never between the halves of a surrogate pair.
+     * Where the length cap may cut, counting code points rather than UTF-16 code units.
      *
      * <p>
-     * The cap counts UTF-16 units, so a location of 1023 basic-plane characters followed by any astral character -- an
-     * emoji or a CJK extension character in a scanned path is enough -- left a lone high surrogate as the last char.
-     * That is well-formed input made malformed by the cap, and {@link IdentityDigests#sha256Hex} refuses it, so the
-     * component became a reported skip and vanished from the inventory with nothing an operator could act on. The same
-     * truncated string is written to stored evidence, where a lone surrogate has no valid UTF-8 encoding for a jsonb
-     * column.
+     * The specification and reference count characters, not Java storage units. Counting UTF-16 cut an astral-heavy URI
+     * early enough to drop the {@code @} separator before user-info stripping, leaving part of a credential behind.
      */
     private static int capBoundary(String text) {
-        int end = Math.min(text.length(), MAX_LOCATION_LENGTH);
-        return end > 0 && end < text.length() && Character.isHighSurrogate(text.charAt(end - 1)) ? end - 1 : end;
+        return text.codePointCount(0, text.length()) <= MAX_LOCATION_LENGTH
+                ? text.length()
+                : text.offsetByCodePoints(0, MAX_LOCATION_LENGTH);
     }
 
     /**
@@ -122,8 +120,23 @@ public final class Occurrences {
             return "";
         }
         if (value.isNumber()) {
-            return PreImageSlot.of(value.isIntegralNumber() ? value.bigIntegerValue().toString() : value.asText());
+            return value.isIntegralNumber() ? PreImageSlot.of(value.bigIntegerValue().toString()) : "";
         }
         return PreImageSlot.of(value.asText());
+    }
+
+    private static int compareCodePoints(String left, String right) {
+        int leftIndex = 0;
+        int rightIndex = 0;
+        while (leftIndex < left.length() && rightIndex < right.length()) {
+            int leftCodePoint = left.codePointAt(leftIndex);
+            int rightCodePoint = right.codePointAt(rightIndex);
+            if (leftCodePoint != rightCodePoint) {
+                return Integer.compare(leftCodePoint, rightCodePoint);
+            }
+            leftIndex += Character.charCount(leftCodePoint);
+            rightIndex += Character.charCount(rightCodePoint);
+        }
+        return Integer.compare(left.length() - leftIndex, right.length() - rightIndex);
     }
 }

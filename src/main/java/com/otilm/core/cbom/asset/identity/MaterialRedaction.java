@@ -7,21 +7,20 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Replaces inlined key material with a digest and a length, in one pass, before anything else reads the payload.
+ * Replaces inlined key material with the contracted redaction envelope, in one pass, before anything else reads the
+ * payload.
  *
  * <p>
  * <b>Ordering is the whole security property.</b> The digest is computed and the plaintext dropped before identity,
  * persistence, logging or metrics can observe the payload. The identity digest is carried out-of-band on the result so
- * the material identity chain can use it without any caller ever holding the plaintext, and the caller's input is never
- * mutated.
+ * the material identity chain can use it without any caller ever holding the plaintext. The stored payload carries no
+ * digest, and the caller's input is never mutated.
  *
  * <p>
  * The value is hashed verbatim -- no base64 decode, no trim. Normalizing first would make identity depend on the
  * normalizer.
  */
 public final class MaterialRedaction {
-
-    public static final String REDACTED_MARKER = "urn:otilm:redacted";
 
     /**
      * Material types whose plaintext is low-entropy enough that publishing {@code sha256(value)} would itself be an
@@ -113,17 +112,13 @@ public final class MaterialRedaction {
         String identityDigest = IdentityDigests.sha256Hex(value);
 
         ObjectNode redacted = materialNode.objectNode();
-        redacted.put("$redacted", REDACTED_MARKER);
-        String publishedDigest = null;
-        if (digestPublishable(materialType)) {
-            publishedDigest = identityDigest;
-            redacted.put("sha256", publishedDigest);
-            redacted.put("length", length);
-        } else {
+        redacted.put("redacted", true);
+        redacted.put("length", length);
+        String publishedDigest = digestPublishable(materialType) ? identityDigest : null;
+        if (publishedDigest == null) {
             // No digest at all. An unsalted SHA-256 of a password or a token is rainbow-table reversible, so
             // publishing it is the same leak one step removed -- and producers really do emit generic-password and
             // jwt-token material. Identity falls through to the occurrence tier, which the chain already has.
-            redacted.put("length", length);
             findings.add("digest withheld: " + materialType + " is low-entropy material");
         }
         materialNode.set(CbomNames.VALUE, redacted);
@@ -181,7 +176,7 @@ public final class MaterialRedaction {
         return identityDigest;
     }
 
-    /** The digest that may appear in the stored payload, or {@code null} for low-entropy material. */
+    /** The digest that may be used by internal callers, or {@code null} for low-entropy material. */
     public String publishedDigest() {
         return publishedDigest;
     }

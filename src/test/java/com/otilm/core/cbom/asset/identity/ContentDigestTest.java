@@ -136,6 +136,33 @@ class ContentDigestTest {
                 .isEqualTo("sha-256:aabb");
     }
 
+    @Test
+    void aSelfContradictoryDigestAlgorithmIsNotUsedForIdentity() {
+        assertThat(CertificateDigests
+                .componentHash(read("{\"hashes\":[" + "{\"alg\":\"SHA-256\",\"content\":\"aa\"},"
+                        + "{\"alg\":\"SHA-384\",\"content\":\"cc\"}," + "{\"alg\":\"SHA-256\",\"content\":\"bb\"}]}")))
+                .isEqualTo("sha-384:cc");
+        assertThat(CertificateDigests
+                .componentHash(read("{\"hashes\":[" + "{\"alg\":\"SHA-256\",\"content\":\"aa\"},"
+                        + "{\"alg\":\"SHA-256\",\"content\":\"bb\"}]}")))
+                .isNull();
+    }
+
+    @Test
+    void digestClaimPartsCannotForgeAColonBoundary() {
+        assertThat(CertificateDigests
+                .fingerprintDigest(read("{\"fingerprint\":" + "{\"alg\":\"sha-256:aabbcc\",\"content\":\"dd\"}}")))
+                .isNotEqualTo(CertificateDigests
+                        .fingerprintDigest(
+                                read("{\"fingerprint\":" + "{\"alg\":\"sha-256\",\"content\":\"aabbcc:dd\"}}")));
+        assertThat(CertificateDigests
+                .fingerprintDigest(read("{\"fingerprint\":" + "{\"alg\":\"sha-256:aabbcc\",\"content\":\"dd\"}}")))
+                .isEqualTo("sha-256%3Aaabbcc:dd");
+        assertThat(CertificateDigests
+                .fingerprintDigest(read("{\"fingerprint\":" + "{\"alg\":\"sha-256\",\"content\":\"aabbcc:dd\"}}")))
+                .isEqualTo("sha-256:aabbcc%3Add");
+    }
+
     /**
      * The 1.7 fingerprint field and an identical component hash produce the same tier, in a fixed order.
      *
@@ -173,10 +200,18 @@ class ContentDigestTest {
     @CsvSource({
             "'[\"0x13\",\"0x1\"]', 1301",
             "'[\"0x13\",\"0x01\"]', 1301",
+            "'[\"0x1301\"]', 1301",
             "'[\"0x13,0x01\"]', 1301",
-            "'[\"0xC0\",\"0x30\"]', c030"})
+            "'[\"0xC0\",\"0x30\"]', c030",
+            "'[\"0x100\",\"0x1\"]', 010001"})
     void everyEncodingOfOneSuiteYieldsOneCode(String identifiers, String expected) {
         assertThat(CipherSuites.code(read(identifiers))).isEqualTo(expected);
+    }
+
+    @Test
+    void oddNibbleTokensAreEvenPaddedIndividually() {
+        assertThat(CipherSuites.code(read("[\"0x131\",\"0x1\"]"))).isEqualTo("013101");
+        assertThat(CipherSuites.code(read("[\"0x13\",\"0x101\"]"))).isEqualTo("130101");
     }
 
     /**
@@ -195,6 +230,13 @@ class ContentDigestTest {
     @Test
     void anUnreadableIdentifierListYieldsNoCode() {
         assertThat(CipherSuites.code(read("[\"nonsense\"]"))).isNull();
+        assertThat(CipherSuites.code(read("[\"0x10000\"]"))).isNull();
+        assertThat(CipherSuites.code(read("[\"0x100000000\"]"))).isNull();
+        assertThat(CipherSuites.code(read("[\"-1\"]"))).isNull();
+        assertThat(CipherSuites.code(read("[\"+0x1\"]"))).isNull();
+        assertThat(CipherSuites.code(read("[\"1_3\"]"))).isNull();
+        assertThat(CipherSuites.code(read("[\"0x1_3\"]"))).isNull();
+        assertThat(CipherSuites.code(read("[\"0x-5\"]"))).isNull();
         assertThat(CipherSuites.code(read("[]"))).isNull();
         assertThat(CipherSuites.code(read("\"not-an-array\""))).isNull();
         assertThat(CipherSuites.code(null)).isNull();

@@ -7,6 +7,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -25,7 +26,7 @@ import java.util.regex.Pattern;
  */
 public final class ValidityTimestamps {
 
-    private static final Pattern FRACTION = Pattern.compile("\\.\\d+");
+    private static final Pattern FRACTION = Pattern.compile("([Tt]\\d{2}:\\d{2}:\\d{2})\\.\\d+");
 
     /**
      * Parsed case-insensitively, because the reference's parser is. RFC 3339 permits a lowercase {@code t} separator
@@ -34,21 +35,26 @@ public final class ValidityTimestamps {
      * {@code 2025-01-01t00:00:00z} unparsed, keying it on its spelling instead of on its instant.
      */
     private static final List<DateTimeFormatter> OFFSET_FORMATS = List
-            .of(caseInsensitiveOffset("+HH:MM"), caseInsensitive("yyyy-MM-dd'T'HH:mm:ssZ"));
+            .of(caseInsensitiveOffset("+HH:MM"), caseInsensitive("uuuu-MM-dd'T'HH:mm:ssZ"));
 
     private static final List<DateTimeFormatter> LOCAL_FORMATS = List
-            .of(caseInsensitive("yyyy-MM-dd'T'HH:mm:ss'Z'"), caseInsensitive("yyyyMMddHHmmss'Z'"));
+            .of(caseInsensitive("uuuu-MM-dd'T'HH:mm:ss'Z'"), caseInsensitive("uuuuMMddHHmmss'Z'"));
 
     private static DateTimeFormatter caseInsensitive(String pattern) {
-        return new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern(pattern).toFormatter();
+        return new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .appendPattern(pattern)
+                .toFormatter()
+                .withResolverStyle(ResolverStyle.STRICT);
     }
 
     private static DateTimeFormatter caseInsensitiveOffset(String offsetPattern) {
         return new DateTimeFormatterBuilder()
                 .parseCaseInsensitive()
-                .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
+                .appendPattern("uuuu-MM-dd'T'HH:mm:ss")
                 .appendOffset(offsetPattern, "Z")
-                .toFormatter();
+                .toFormatter()
+                .withResolverStyle(ResolverStyle.STRICT);
     }
 
     private ValidityTimestamps() {
@@ -66,10 +72,11 @@ public final class ValidityTimestamps {
         if (raw == null || AsciiText.isBlank(raw)) {
             return "";
         }
-        String cleaned = FRACTION.matcher(AsciiText.strip(raw)).replaceAll("").replace("z", "Z");
+        String cleaned = AsciiText.strip(raw);
+        String parseCandidate = FRACTION.matcher(cleaned).replaceAll("$1").replace("z", "Z");
         for (DateTimeFormatter format : OFFSET_FORMATS) {
             try {
-                return Long.toString(OffsetDateTime.parse(cleaned, format).toEpochSecond());
+                return Long.toString(OffsetDateTime.parse(parseCandidate, format).toEpochSecond());
             } catch (DateTimeParseException e) {
                 // Not this offset spelling. The local spellings are tried below, and a value matching none is returned
                 // cleaned rather than dropped.
@@ -77,7 +84,9 @@ public final class ValidityTimestamps {
         }
         for (DateTimeFormatter format : LOCAL_FORMATS) {
             try {
-                return Long.toString(LocalDateTime.parse(cleaned, format).toInstant(ZoneOffset.UTC).getEpochSecond());
+                return Long
+                        .toString(
+                                LocalDateTime.parse(parseCandidate, format).toInstant(ZoneOffset.UTC).getEpochSecond());
             } catch (DateTimeParseException e) {
                 // As above.
             }

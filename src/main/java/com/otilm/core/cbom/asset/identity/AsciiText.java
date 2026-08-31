@@ -30,7 +30,29 @@ import java.util.regex.Pattern;
  */
 public final class AsciiText {
 
-    private static final Pattern LOOKUP_SEPARATORS = Pattern.compile("[\\s_\\-/]+");
+    /**
+     * The whitespace the reference strips and collapses, which is not the whitespace Java strips.
+     *
+     * <p>
+     * Measured over the whole BMP, the two definitions disagree on exactly four code points, all in one direction:
+     * {@code U+0085 NEXT LINE}, {@code U+00A0 NO-BREAK SPACE}, {@code U+2007 FIGURE SPACE} and
+     * {@code U+202F NARROW NO-BREAK SPACE} are whitespace to the reference and are not whitespace to
+     * {@link Character#isWhitespace}, which is what {@link String#strip()} consults. Nothing runs the other way --
+     * every character the JDK calls whitespace is in this set -- so substituting {@link #strip} for the JDK's is always
+     * safe. {@code U+200B ZERO WIDTH SPACE} is correctly whitespace to neither.
+     *
+     * <p>
+     * The no-break spaces are exactly the ones that occur in producer text pasted out of documents. A trailing one
+     * survives {@code String.strip()}, and NFKC then turns it into an ordinary trailing space, keying {@code "RSA "}
+     * apart from {@code "RSA"}: a silent inventory split on a formatting accident.
+     */
+    private static final String PYTHON_WHITESPACE = " \t\n\u000B\f\r\u001C\u001D\u001E\u001F\u0085\u00A0"
+            + "\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029"
+            + "\u202F\u205F\u3000";
+
+    private static final Pattern LOOKUP_SEPARATORS = Pattern.compile("[" + PYTHON_WHITESPACE + "_\\-/]+");
+
+    private static final Pattern WHITESPACE_RUN = Pattern.compile("[" + PYTHON_WHITESPACE + "]+");
 
     private AsciiText() {
     }
@@ -98,28 +120,6 @@ public final class AsciiText {
         }
         return true;
     }
-
-    /**
-     * The whitespace the reference strips and collapses, which is not the whitespace Java strips.
-     *
-     * <p>
-     * Measured over the whole BMP, the two definitions disagree on exactly four code points, all in one direction:
-     * {@code U+0085 NEXT LINE}, {@code U+00A0 NO-BREAK SPACE}, {@code U+2007 FIGURE SPACE} and
-     * {@code U+202F NARROW NO-BREAK SPACE} are whitespace to the reference and are not whitespace to
-     * {@link Character#isWhitespace}, which is what {@link String#strip()} consults. Nothing runs the other way --
-     * every character the JDK calls whitespace is in this set -- so substituting {@link #strip} for the JDK's is always
-     * safe. {@code U+200B ZERO WIDTH SPACE} is correctly whitespace to neither.
-     *
-     * <p>
-     * Two of the three -- the no-break spaces -- are exactly the ones that occur in producer text pasted out of
-     * documents. A trailing one survives {@code String.strip()}, and NFKC then turns it into an ordinary trailing
-     * space, keying {@code "RSA "} apart from {@code "RSA"}: a silent inventory split on a formatting accident.
-     */
-    private static final String PYTHON_WHITESPACE = " \t\n\u000B\f\r\u001C\u001D\u001E\u001F\u0085\u00A0"
-            + "\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029"
-            + "\u202F\u205F\u3000";
-
-    private static final Pattern WHITESPACE_RUN = Pattern.compile("[" + PYTHON_WHITESPACE + "]+");
 
     /** Strips leading and trailing whitespace as the reference defines it, not as the JDK defines it. */
     public static String strip(String text) {

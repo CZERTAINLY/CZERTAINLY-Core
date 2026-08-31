@@ -2,9 +2,11 @@ package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** The content digests a certificate claims, in preference order, reduced to one spelling. */
 public final class CertificateDigests {
@@ -33,8 +35,8 @@ public final class CertificateDigests {
         }
         JsonNode algorithm = fingerprint.get("alg");
         String label = algorithm != null && !algorithm.isNull() ? algorithm.asText() : "sha-256";
-        return AsciiText.fold(AsciiText.strip(label)) + ":"
-                + AsciiText.fold(AsciiText.strip(fingerprint.get(CbomNames.CONTENT).asText()));
+        return claim(AsciiText.fold(AsciiText.strip(label)),
+                AsciiText.fold(AsciiText.strip(fingerprint.get(CbomNames.CONTENT).asText())));
     }
 
     /**
@@ -72,23 +74,59 @@ public final class CertificateDigests {
             return null;
         }
         Map<String, String> byAlgorithm = new LinkedHashMap<>();
+        Set<String> contradicted = new HashSet<>();
         for (JsonNode hash : hashes) {
             if (!hash.isObject()) {
                 continue;
             }
             JsonNode algorithm = hash.get("alg");
             JsonNode content = hash.get("content");
-            byAlgorithm
-                    .put(AsciiText.upper(algorithm == null || algorithm.isNull() ? "" : algorithm.asText()),
-                            AsciiText.fold(content == null || content.isNull() ? "" : content.asText()));
+            String normalizedAlgorithm = AsciiText
+                    .upper(AsciiText.strip(algorithm == null || algorithm.isNull() ? "" : algorithm.asText()));
+            String normalizedContent = AsciiText
+                    .fold(AsciiText.strip(content == null || content.isNull() ? "" : content.asText()));
+            if (normalizedContent.isEmpty()) {
+                continue;
+            }
+            String existing = byAlgorithm.putIfAbsent(normalizedAlgorithm, normalizedContent);
+            if (existing != null && !existing.equals(normalizedContent)) {
+                contradicted.add(normalizedAlgorithm);
+            }
         }
         for (String algorithm : PREFERENCE) {
             String content = byAlgorithm.get(algorithm);
-            if (content != null && !content.isEmpty()) {
-                return AsciiText.fold(algorithm) + ":" + content;
+            if (content != null && !contradicted.contains(algorithm)) {
+                return claim(AsciiText.fold(algorithm), content);
             }
         }
         return null;
+    }
+
+    private static String claim(String algorithm, String content) {
+        return digestPart(algorithm) + ":" + digestPart(content);
+    }
+
+    private static String digestPart(String value) {
+        StringBuilder escaped = null;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            String replacement = switch (character) {
+                case '%' -> "%25";
+                case ':' -> "%3A";
+                default -> null;
+            };
+            if (replacement == null) {
+                if (escaped != null) {
+                    escaped.append(character);
+                }
+                continue;
+            }
+            if (escaped == null) {
+                escaped = new StringBuilder(value.length() + 8).append(value, 0, index);
+            }
+            escaped.append(replacement);
+        }
+        return escaped == null ? value : escaped.toString();
     }
 
     static boolean isPresent(JsonNode node) {
