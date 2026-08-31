@@ -219,16 +219,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         TokenInstanceBasicModel tokenInstance = createNewTokenInstance(request, connector, binding, creationResult);
         tokenInstanceReferenceWriter.save(tokenInstance);
 
-        try {
-            var status = adapter.getStatus(tokenInstance);
-            tokenInstance = tokenInstance.withNewStatus(status.getStatus());
-            tokenInstanceReferenceWriter.save(tokenInstance);
-        } catch (Exception e) {
-            logger.warn("Can't check the the status of the token '{}'", tokenInstance.name(), e);
-        }
-
-        logger.debug("Token Instance Reference: '{}'", tokenInstance);
-
         if (creationResult != null) {
             attributeEngine
                     .updateMetadataAttributes(creationResult.getMetadata(),
@@ -238,6 +228,16 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                                     .build());
             logger.debug("Metadata and Custom attributes created");
         }
+
+        try {
+            var status = adapter.getStatus(tokenInstance);
+            tokenInstance = tokenInstance.withNewStatus(status.getStatus());
+            tokenInstanceReferenceWriter.save(tokenInstance);
+        } catch (Exception e) {
+            logger.warn("Can't check the the status of the token '{}'", tokenInstance.name(), e);
+        }
+
+        logger.debug("Token Instance Reference: '{}'", tokenInstance);
 
         return updateTokenAttributesAndAssembleTokenInstanceDetail(request, tokenInstance);
     }
