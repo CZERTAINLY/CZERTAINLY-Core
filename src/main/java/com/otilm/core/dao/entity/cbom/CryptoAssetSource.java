@@ -17,7 +17,6 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Check;
-import org.hibernate.annotations.Checks;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -44,9 +43,8 @@ import org.hibernate.type.SqlTypes;
                 columnNames = {"asset_uuid", "cbom_uuid"}))
 // Stated here as well as in the migration, so the entity-generated schema the tests run against carries the same
 // invariants and the same constraint names as production.
-@Checks({
-        @Check(name = "ck_crypto_asset_source_occurrence_count", constraints = "occurrence_count >= 0"),
-        @Check(name = "ck_crypto_asset_source_properties_leaf_count", constraints = "properties_leaf_count >= 0")})
+@Check(name = "ck_crypto_asset_source_occurrence_count", constraints = "occurrence_count >= 0")
+@Check(name = "ck_crypto_asset_source_properties_leaf_count", constraints = "properties_leaf_count >= 0")
 public class CryptoAssetSource extends UniquelyIdentified {
 
     @Column(name = "asset_uuid", nullable = false)

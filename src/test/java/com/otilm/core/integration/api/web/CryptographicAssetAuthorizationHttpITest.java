@@ -2,7 +2,7 @@ package com.otilm.core.integration.api.web;
 
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
-import com.otilm.core.cbom.asset.CryptoAssetIdentityCalculator;
+import com.otilm.core.cbom.asset.AssetRowKeys;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.repository.CbomRepository;
@@ -59,7 +59,7 @@ class CryptographicAssetAuthorizationHttpITest extends BaseSpringBootTest {
     void seedAsset() {
         seededFields = new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA", "1.2.840.10045.4.3.2",
                 "ecdsa", "signature", "P-256", "secp256r1", null, null, null);
-        assetWriter.upsertIdentity(seededFields, null);
+        assetWriter.upsertIdentity(AssetRowKeys.forFields(seededFields), seededFields, null);
     }
 
     @Test
@@ -97,7 +97,7 @@ class CryptographicAssetAuthorizationHttpITest extends BaseSpringBootTest {
         // The name pattern catches field names; a wire leak would realistically be the VALUE. The calculator can
         // recompute this row's exact key from the same fixture input, so assert the strongest possible fact: the
         // literal key appears in neither raw response.
-        String exactIdentityKey = CryptoAssetIdentityCalculator.calculate(seededFields);
+        String exactIdentityKey = AssetRowKeys.forFields(seededFields);
         assertThat(listResponse).doesNotContain(exactIdentityKey);
         assertThat(searchableFieldsResponse).doesNotContain(exactIdentityKey);
     }

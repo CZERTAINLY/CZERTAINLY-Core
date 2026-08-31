@@ -3,9 +3,9 @@ package com.otilm.core.service.writer.cbom;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
-import com.otilm.core.cbom.asset.CryptoAssetIdentityCalculator;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.cbom.asset.JsonColumnText;
+import com.otilm.core.cbom.asset.identity.IdentityRuleset;
 import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.dao.CryptoAssetConstraintTranslator;
 import com.otilm.core.dao.repository.cbom.CryptoAssetAliasRepository;
@@ -13,6 +13,7 @@ import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class CryptoAssetWriter {
+
+    private static final Pattern IDENTITY_KEY = Pattern.compile("[0-9a-f]{64}");
 
     private final CryptoAssetRepository assetRepository;
     private final CryptoAssetAliasRepository aliasRepository;
@@ -36,42 +39,58 @@ public class CryptoAssetWriter {
     }
 
     /**
-     * Keys the asset from its identity fields and inserts or refreshes the row under that key, stamping the rule-set
-     * generation that produced it.
+     * Inserts or refreshes the asset row under the identity the caller computed, stamping the rule-set generation that
+     * produced it.
      *
      * <p>
-     * The key is computed here rather than accepted from the caller, so a caller cannot store a row under a key that
-     * does not describe it. Callers that must redirect an ingested asset onto another row -- the alias repair path --
-     * resolve the alias and address the surviving asset by uuid instead; they never re-key it, because rewriting the
-     * canonical row's identity columns with the absorbed row's fields would change what the canonical row claims to be.
+     * <b>The key is the caller's, and that is a downgrade this method used to avoid.</b> It was computed here, which
+     * made "a row cannot be stored under a key that does not describe it" a structural impossibility. It is now a
+     * property the extraction pipeline is <em>tested</em> to have, which is strictly weaker. The reason for the trade
+     * is that the ratified key cannot be computed from these fields: a certificate keys on a content digest from
+     * {@code component.hashes[]}, on a composite that resolves {@code subjectPublicKeyRef} across the whole document,
+     * or on document-scoped digest refutation -- none of which is reconstructible from ten typed columns. What carries
+     * the weight instead is the byte-level conformance suite that arrives with the decision tables in core#2168,
+     * pinning the ratified vectors across every chain step.
+     *
+     * <p>
+     * Callers that must redirect an ingested asset onto another row -- the alias repair path -- resolve the alias and
+     * address the surviving asset by uuid instead; they never re-key it, because rewriting the canonical row's identity
+     * columns with the absorbed row's fields would change what the canonical row claims to be.
      *
      * <p>
      * The columns store {@link CryptoAssetIdentityFields#normalized()}, not the caller's raw input. An asset row is a
      * deduplicated view over every producer that reported it, so it has no single raw spelling to hold; the producers'
-     * own spellings live per source. Storing the raw input made the row a function of sync order -- the upsert
-     * reassigns the identity columns on conflict, so the last producer to sync decided what an {@code EQUALS} filter
-     * would match and whether an omitted-versus-blank field counted as empty. The key never moved; only the answer did.
-     * The key is unchanged by this: it was always computed over the folded fields.
+     * own spellings live per source. Storing the raw input made the row a function of sync order, and normalizing it
+     * was only half the fix: the upsert still reassigned every identity column on conflict, so two producers whose
+     * normalized fields genuinely differ -- {@code primitive} above all, which is deliberately out of the key -- still
+     * let the last one to sync decide what an {@code EQUALS} filter matched. The statement now fills a column once and
+     * never reassigns it, so re-sync is idempotent in the columns as well as in the key.
      *
+     * <p>
+     * The length bound is checked before the alias lookup on purpose: a write that is already doomed must not take
+     * {@code ALIAS_DECISION_LOCK} on its way to failing. It is measured on the <em>stored</em> text, because that is
+     * what the column receives and therefore what its {@code CHECK} will judge.
+     *
+     * @param identityKey the ratified identity, computed by the extraction pipeline from the whole component
      * @return the uuid of the surviving row, which is the inserted uuid only when the insert won
      * @throws ValidationException if an identity column exceeds its length bound, or if a guard is being stamped on a
      * key an alias already refers to
      */
     @Transactional
-    public UUID upsertIdentity(CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
+    public UUID upsertIdentity(String identityKey, CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
         CryptoAssetIdentityFields stored = fields.normalized();
+        requireIdentityKeyShape(identityKey);
         requireWithinLengthBounds(stored);
-        String key = CryptoAssetIdentityCalculator.calculate(fields);
         if (guard != null) {
-            requireNoAlias(key, guard);
+            requireNoAlias(identityKey, guard);
         }
         assetRepository
-                .upsertIdentity(UUID.randomUUID(), key, CryptoAssetIdentityCalculator.RULESET_VERSION,
+                .upsertIdentity(UUID.randomUUID(), identityKey, IdentityRuleset.VERSION,
                         stored.assetType() == null ? null : stored.assetType().name(), stored.name(), stored.oid(),
                         stored.algorithmFamily(), stored.primitive(), stored.parameterSet(), stored.curve(),
                         stored.mode(), stored.padding(), stored.variant(), guard == null ? null : guard.name());
         return assetRepository
-                .findUuidByIdentityKey(key)
+                .findUuidByIdentityKey(identityKey)
                 // Deliberately says nothing about the key: this text can reach an operator.
                 .orElseThrow(() -> new IllegalStateException(
                         "The cryptographic asset row disappeared between its upsert and its lookup"));
@@ -108,6 +127,12 @@ public class CryptoAssetWriter {
     static final int MAX_OID_LENGTH = 255;
 
     static final int MAX_NAME_LENGTH = 1024;
+
+    static void requireIdentityKeyShape(String identityKey) {
+        if (identityKey == null || !IDENTITY_KEY.matcher(identityKey).matches()) {
+            throw new ValidationException(ValidationError.create("Cryptographic asset identity key has invalid shape"));
+        }
+    }
 
     /**
      * Refuses an over-long identity column before it can reach the statement.
