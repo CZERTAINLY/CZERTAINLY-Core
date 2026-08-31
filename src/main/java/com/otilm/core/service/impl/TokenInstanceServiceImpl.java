@@ -77,15 +77,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private TokenInstanceReferenceWriter tokenInstanceReferenceWriter;
 
-    private static @NonNull TokenInstanceBasicModel createNewTokenInstance(TokenInstanceRequestDto request,
-            ImmutableConnectorFullModel connector, TokenProviderBinding binding,
-            com.otilm.api.model.connector.cryptography.token.TokenInstanceDto creationResult) {
-        return new ImmutableTokenInstanceBasicModel(UUID.randomUUID(),
-                creationResult != null ? creationResult.getUuid() : null, request.getName(),
-                TokenInstanceStatus.UNKNOWN, request.getKind(), connector.uuid(), connector.name(),
-                binding.connectorInterface() == null ? null : binding.connectorInterface().uuid(), 0);
-    }
-
     @Autowired
     public void setResourceService(ResourceInternalService resourceService) {
         this.resourceService = resourceService;
@@ -543,5 +534,14 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         logger
                 .debug("Token instance '{}': ('{}') has been deleted", tokenInstanceReference.name(),
                         tokenInstanceReference.uuid());
+    }
+
+    private static @NonNull TokenInstanceBasicModel createNewTokenInstance(TokenInstanceRequestDto request,
+            ImmutableConnectorFullModel connector, TokenProviderBinding binding,
+            com.otilm.api.model.connector.cryptography.token.TokenInstanceDto creationResult) {
+        return new ImmutableTokenInstanceBasicModel(UUID.randomUUID(),
+                creationResult != null ? creationResult.getUuid() : null, request.getName(),
+                TokenInstanceStatus.UNKNOWN, request.getKind(), connector.uuid(), connector.name(),
+                binding.connectorInterface() == null ? null : binding.connectorInterface().uuid(), 0);
     }
 }
