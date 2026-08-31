@@ -32,6 +32,8 @@ import com.otilm.core.service.writer.RaProfileCertificateRequestAttributeWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -39,6 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfileCertificateRequestAttributeService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RaProfileCertificateRequestAttributeServiceImpl.class);
 
     private final RaProfileCertificateRequestAttributeRepository requestAttributeRepository;
     private final RaProfileValueSourceBindingRepository valueSourceBindingRepository;
@@ -81,14 +85,22 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         List<BaseAttribute> staticSet = stored == null
                 ? new ArrayList<>()
                 : deserializeOrEmpty(stored.getRequestAttributes());
-        List<BaseAttribute> connectorSet = RequestAttributeSetResolver
-                .effectiveMode(mode) == AttributeSetMergeMode.STATIC_ONLY
-                        ? List.of()
-                        : listConnectorIssueAttributes(raProfile);
-
+        AttributeSetMergeMode effective = RequestAttributeSetResolver.effectiveMode(mode);
+        List<BaseAttribute> connectorSet = effective == AttributeSetMergeMode.STATIC_ONLY
+                ? List.of()
+                : listConnectorRequestAttributes(raProfile);
         List<BaseAttribute> merged = RequestAttributeSetResolver.merge(staticSet, connectorSet, mode);
         if (merged.isEmpty()) {
-            // fall back to the editable platform default set when nothing resolved.
+            if (effective != AttributeSetMergeMode.STATIC_ONLY) {
+                // Only once the fallback actually bites: a mode that admits the connector set resolved nothing, so
+                // the platform default silently stands in for the configuration the operator asked for. Warning
+                // merely because the connector served no schema would fire on every request of every v2-backed
+                // profile whose static set resolves correctly.
+                logger
+                        .warn("RA profile {} resolves request attributes with merge mode {}, but neither the "
+                                + "authority connector nor the static set yielded any definition; falling back to "
+                                + "the platform default set", raProfile.getName(), effective.getCode());
+            }
             merged = new ArrayList<>(getDefaultSet());
         }
 
@@ -99,13 +111,15 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         return requestAttributeRepository.findByRaProfileUuid(raProfile.getUuid()).orElse(null);
     }
 
-    private List<BaseAttribute> listConnectorIssueAttributes(RaProfile raProfile)
+    private List<BaseAttribute> listConnectorRequestAttributes(RaProfile raProfile)
             throws ConnectorException, NotFoundException {
         if (raProfile.getAuthorityInstanceReference() == null
                 || raProfile.getAuthorityInstanceReference().getConnector() == null) {
             return List.of(); // offline/external authority: no dynamic set
         }
-        return extendedAttributeService.listIssueCertificateAttributes(raProfile);
+        // A connector that does not serve /request/attributes resolves to an empty schema in the adapter, so the
+        // merge below lands on the static set or the platform default — the pre-connector behaviour.
+        return extendedAttributeService.listCertificateRequestAttributes(raProfile);
     }
 
     @Override
@@ -127,7 +141,7 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
             dto.setExternalCsrValidationStrict(set.getExternalCsrValidationStrict());
         }
         // Read view always exposes the effective merge mode (resolved even when no set is stored), so clients never
-        // see null; the null -> MERGE default lives once in RequestAttributeSetResolver.
+        // see null; the null -> STATIC_ONLY default lives once in RequestAttributeSetResolver.
         dto.setMergeMode(RequestAttributeSetResolver.effectiveMode(set == null ? null : set.getMergeMode()));
         dto
                 .setValueSourceBindings(
@@ -136,23 +150,19 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
     }
 
     @Override
+    @Transactional
     public void updateConfiguration(RaProfile raProfile, RaProfileCertificateRequestAttributesUpdateDto request) {
-        AttributeSetMergeMode effectiveMode = RequestAttributeSetResolver.effectiveMode(request.getMergeMode());
-        if (effectiveMode != AttributeSetMergeMode.STATIC_ONLY) {
-            throw new ValidationException(
-                    String.format("Merge mode %s is not supported. Use `Static Only` mode.", effectiveMode));
-        }
-        if (request.getValueSourceBindings() != null && !request.getValueSourceBindings().isEmpty()) {
-            throw new ValidationException(
-                    "Value-source bindings are not supported in this version. Use the `Static Only` mode without bindings.");
-        }
         AttributeEngine.validateRequestAttributeDefinitions(request.getRequestAttributes());
         writer
                 .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(request.getRequestAttributes()),
                         request.getMergeMode(), request.getExternalCsrValidationStrict());
-        writer
-                .replaceValueSourceBindings(raProfile.getUuid(),
-                        toBindingEntities(raProfile, request.getValueSourceBindings()));
+        // Absent bindings leave the stored rows alone; the replace is wholesale, so treating absent as empty would
+        // let any unrelated edit to the static set delete them. An explicitly empty list still clears.
+        if (request.getValueSourceBindings() != null) {
+            writer
+                    .replaceValueSourceBindings(raProfile.getUuid(),
+                            toBindingEntities(raProfile, request.getValueSourceBindings()));
+        }
     }
 
     @Override
@@ -206,8 +216,7 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
         for (RaProfileValueSourceBinding row : rows) {
             specs
                     .add(new ValueSourceBindingSpec(row.getAttributeUuid(), row.getAttributeName(),
-                            parseValueSourceType(row.getValueSourceType()), row.getCollectionRef(),
-                            deserializeParams(row.getParams())));
+                            parseValueSourceType(row.getValueSourceType()), deserializeParams(row.getParams())));
         }
         return specs;
     }
@@ -219,7 +228,6 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
             dto.setAttributeUuid(row.getAttributeUuid());
             dto.setAttributeName(row.getAttributeName());
             dto.setValueSourceType(parseValueSourceType(row.getValueSourceType()));
-            dto.setCollectionRef(row.getCollectionRef());
             dto.setParams(deserializeParams(row.getParams()));
             dtos.add(dto);
         }
@@ -233,12 +241,18 @@ public class RaProfileCertificateRequestAttributeServiceImpl implements RaProfil
             return entities;
         }
         for (ValueSourceBindingDto binding : bindings) {
+            if (binding.getValueSourceType() == null) {
+                throw new ValidationException(ValidationError
+                        .create("Value-source binding for attribute '%s' does not declare a value source type."
+                                .formatted(binding.getAttributeUuid() == null
+                                        ? binding.getAttributeName()
+                                        : binding.getAttributeUuid())));
+            }
             RaProfileValueSourceBinding entity = new RaProfileValueSourceBinding();
             entity.setRaProfileUuid(raProfile.getUuid());
             entity.setAttributeUuid(binding.getAttributeUuid());
             entity.setAttributeName(binding.getAttributeName());
             entity.setValueSourceType(binding.getValueSourceType().name());
-            entity.setCollectionRef(binding.getCollectionRef());
             entity.setParams(serializeParams(binding.getParams()));
             entities.add(entity);
         }

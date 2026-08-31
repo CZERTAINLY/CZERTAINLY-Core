@@ -32,6 +32,7 @@ import com.otilm.api.model.common.attribute.v3.mapping.FieldMapping;
 import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
 import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
 import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
@@ -39,6 +40,7 @@ import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
 import com.otilm.api.model.core.raprofile.RaProfileCertificateRequestAttributesUpdateDto;
 import com.otilm.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.otilm.api.model.core.raprofile.RaProfileDto;
+import com.otilm.api.model.core.raprofile.ValueSourceBindingDto;
 import com.otilm.core.dao.entity.ApprovalProfile;
 import com.otilm.core.dao.entity.ApprovalProfileRelation;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
@@ -397,10 +399,15 @@ class RaProfileServiceITest extends ApprovalProfileData {
         mapping.setFields(List.of(field));
         definition.setFieldMapping(mapping);
 
+        ValueSourceBindingDto binding = new ValueSourceBindingDto();
+        binding.setAttributeUuid("ra-attr-1");
+        binding.setValueSourceType(ValueSourceType.STATIC_LIST);
+
         RaProfileCertificateRequestAttributesUpdateDto updateDto = new RaProfileCertificateRequestAttributesUpdateDto();
         updateDto.setRequestAttributes(List.of(definition));
-        updateDto.setMergeMode(AttributeSetMergeMode.STATIC_ONLY);
+        updateDto.setMergeMode(AttributeSetMergeMode.MERGE);
         updateDto.setExternalCsrValidationStrict(Boolean.TRUE);
+        updateDto.setValueSourceBindings(List.of(binding));
 
         RaProfileDto updated = raProfileService
                 .updateRaProfileRequestAttributesConfiguration(
@@ -409,11 +416,10 @@ class RaProfileServiceITest extends ApprovalProfileData {
 
         Assertions.assertNotNull(updated.getCertificateRequestAttributes());
         Assertions.assertEquals(1, updated.getCertificateRequestAttributes().getRequestAttributes().size());
-        Assertions
-                .assertEquals(AttributeSetMergeMode.STATIC_ONLY,
-                        updated.getCertificateRequestAttributes().getMergeMode());
+        Assertions.assertEquals(AttributeSetMergeMode.MERGE, updated.getCertificateRequestAttributes().getMergeMode());
         Assertions
                 .assertEquals(Boolean.TRUE, updated.getCertificateRequestAttributes().getExternalCsrValidationStrict());
+        Assertions.assertEquals(1, updated.getCertificateRequestAttributes().getValueSourceBindings().size());
 
         // the configuration is embedded on the detail view too
         RaProfileDto detail = raProfileService.getRaProfile(raProfile.getSecuredUuid());
