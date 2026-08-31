@@ -521,7 +521,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             logger.error("Token Instances has associations and cannot be deleted: '{}'", error);
             throw new ValidationException(error);
         }
-        if (tokenInstanceReference.connector() != null) {
+        if (tokenInstanceReference.connectorUuid() != null) {
             TokenProviderAdapter adapter = tokenProviderAdapterFactory.forToken(tokenInstanceReference);
             if (adapter instanceof RemoteTokenLifecycleCapability cap) {
                 try {

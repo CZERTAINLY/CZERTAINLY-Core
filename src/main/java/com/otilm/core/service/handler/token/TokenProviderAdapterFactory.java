@@ -87,7 +87,7 @@ public class TokenProviderAdapterFactory {
     public TokenProviderAdapter forToken(TokenInstanceFullModel tokenInstance) throws NotFoundException {
         Objects.requireNonNull(tokenInstance, "A token instance is required to select a token-provider adapter.");
 
-        if (tokenInstance.connector() == null) {
+        if (tokenInstance.connectorUuid() == null) {
             throw new NotFoundException(Connector.class, tokenInstance.connectorName());
         }
 
