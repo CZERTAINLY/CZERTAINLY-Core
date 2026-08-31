@@ -6,7 +6,6 @@ import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.client.ConnectorApiFactory;
-import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.exception.UnsupportedCryptographyProviderVersionException;
 import com.otilm.core.model.connector.ConnectorFunctionGroupModel;
 import com.otilm.core.model.connector.ImmutableConnectorFullModel;
@@ -85,7 +84,7 @@ class TokenProviderAdapterFactoryTest {
         when(connectorExternalService.getConnectorFullModel(SecuredUUID.fromUUID(connectorUuid))).thenReturn(connector);
         var token = new ImmutableTokenInstanceFullModel(UUID.randomUUID(), null, "token", TokenInstanceStatus.UNKNOWN,
                 "SOFT", connectorUuid, "connector", connector.connectorInterfaces().get(0).uuid(),
-                mock(Connector.class), connector.connectorInterfaces().get(0), Set.of());
+                connector.connectorInterfaces().get(0), Set.of());
 
         // when
         TokenProviderAdapter adapter = factory.forToken(token);
