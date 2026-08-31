@@ -39,32 +39,25 @@ public interface DiscoveryItemRepository extends JpaRepository<DiscoveryItem, UU
 
     /**
      * One page of everything the run staged, certificates included. The two stores are unioned rather than merged:
-     * certificate bytes stay deduplicated in {@code certificate_content} and are never copied into a staging row, so
-     * the certificate branch builds its payload at read time.
+     * certificate bytes stay deduplicated in {@code certificate_content}, so the certificate branch builds its payload
+     * at read time — after the limit, for the page's rows only. Built inside the union it would sit in a windowed
+     * subquery's target list, detoasting every certificate in the run on every request.
      *
      * <p>
-     * The resource filter is applied inside each branch, before the union, so a single-resource query reads one table
-     * and the other branch is pruned on a constant. The {@code newlyDiscovered} filter is applied to the certificate
-     * branch <i>after</i> its numbering, so a row keeps the same synthesized number whether or not the caller filtered.
+     * The resource filter is applied inside each branch, so a single-resource query reads one table. The
+     * {@code newlyDiscovered} filter is applied to the certificate branch <i>after</i> its numbering, so a row keeps
+     * the same synthesized number whether or not the caller filtered.
      *
      * <p>
-     * {@code i_cre} must be a timestamp for the {@code discovered_at} coalesce below to plan at all. It is the one
-     * audited column in the schema declared {@code VARCHAR}, and a regression here is invisible to tests: they build
-     * their schema from the entities, which map it as a timestamp whatever the migration says.
+     * {@code i_cre} must be a timestamp for the {@code discovered_at} coalesce to plan. It is the one audited column
+     * declared {@code VARCHAR}, and a regression is invisible to tests, which build their schema from the entities.
      *
      * @param resource enum member name to restrict to — what both tables store — or null for every resource
      * @param newlyDiscovered tri-state: null means both
      */
-    // Two phases, and the split is what keeps a page cheap. The union orders and limits on narrow columns alone,
-    // carrying a certificate row's content_id rather than its content; the payload is built afterwards, for the page's
-    // rows only. Built inside the union it would sit in the target list of a windowed subquery, so every certificate
-    // in the run -- not just the page -- would have its content read out of TOAST and wrapped in JSON on every request.
-    //
-    // Aliases on the outer select are quoted because Postgres folds an unquoted one to lower case, and the projection
-    // binds by exact column label; inside the union they stay unquoted, since the outer query refers to them by name.
-    // Ordering inside the union is positional: only the first branch's labels are in scope there, and a qualified
-    // reference to them is not. The outer ORDER BY repeats it by name -- a CTE's own ordering is not guaranteed to
-    // survive into the query that selects from it.
+    // Aliases on the outer select are quoted: Postgres folds an unquoted one to lower case and the projection binds
+    // by exact label. Ordering inside the union is positional -- only the first branch's labels are in scope there --
+    // and the outer ORDER BY repeats it by name, since a CTE's ordering need not survive into the query above it.
     @Query(value = """
             WITH page AS (
             SELECT i.uuid AS uuid,

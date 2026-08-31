@@ -23,15 +23,14 @@ import org.springframework.transaction.annotation.Transactional;
  * The one transaction that creates a discovery run.
  *
  * <p>
- * Creating a run needs the connector — it publishes the per-resource attribute definitions the request's content is
- * filed against — but a connector call must never hold a transaction open. So the caller resolves everything the
- * connector has to say first, outside any transaction, and hands the answers here as data. This bean then commits the
- * run and everything belonging to it together. Filing those writes independently instead leaves a run row behind on any
- * later failure: {@code IN_PROGRESS}, missing its attributes or triggers, and reachable only to be deleted.
+ * Creating a run needs the connector, which publishes the per-resource attribute definitions the request's content is
+ * filed against, and a connector call must never hold a transaction open. The caller therefore reads everything the
+ * connector has to say first and hands it here as data, so these writes can commit as one unit; filed separately, any
+ * later failure leaves an {@code IN_PROGRESS} run missing its attributes or triggers.
  *
  * <p>
- * The detail is mapped in here, inside the same transaction, because the entity's associations are lazy and the caller
- * — running {@code NOT_SUPPORTED} so it can talk to the connector — has no transaction to load them in.
+ * The detail is mapped inside the same transaction: the entity's associations are lazy and the caller, running
+ * {@code NOT_SUPPORTED}, has none to load them in.
  */
 @Service
 public class DiscoveryRunWriter {

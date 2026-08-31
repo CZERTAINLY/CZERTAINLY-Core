@@ -335,11 +335,6 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     }
 
     /**
-     * Stores each resource's own attributes under that resource's wire code, which is the operation the request builder
-     * later reads them back by. Without this a v2 run would send the connector an empty configuration for every
-     * resource it targets, and the connector would scan on defaults.
-     */
-    /**
      * Reads the attribute definitions behind each resource the request files content against, in request order.
      *
      * <p>

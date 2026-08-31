@@ -118,15 +118,13 @@ public class DiscoveryRunTerminator {
     }
 
     /**
-     * Announces the ending on the same event a v1 run raises, so both generations reach the platform's triggers, the
-     * user notification and — for a scheduled run — the scheduler, without any of them learning that a second
-     * generation exists.
+     * Announces the ending on the same event a v1 run raises, so triggers, notification and the scheduler reach both
+     * generations alike. The handler applies a terminal status only to a run that is not already terminal, so this
+     * ending stands as written and only the follow-ups are dispatched.
      *
      * <p>
-     * The handler on the other end applies a terminal status only to a run that is not already terminal, so this run's
-     * ending is left exactly as written here; what it still does is dispatch the follow-ups. Published through the
-     * event bus rather than the producer because the listener is {@code AFTER_COMMIT}: this runs while holding the
-     * run's row, and a rolled-back ending must not announce itself.
+     * Published through the event bus rather than the producer because the listener is {@code AFTER_COMMIT}: this runs
+     * while holding the run's row, and a rolled-back ending must not announce itself.
      */
     private void announceEnding(Discovery run, DiscoveryStatus status, String reason) {
         eventPublisher
@@ -136,14 +134,10 @@ public class DiscoveryRunTerminator {
     }
 
     /**
-     * Rebuilt from the one execution uuid the run stored: the history row carries the job it belongs to, so the job is
-     * read from there rather than kept as a second copy. The name is left null — the scheduler resolves the job by uuid
-     * and reads the name from that row.
-     *
-     * <p>
-     * A history row that no longer exists yields no job info at all, so the ending is announced without a scheduled
-     * part. Passing the uuid on regardless would hand the scheduler an execution it cannot find, turning a run that
-     * ended cleanly into a downstream failure.
+     * Rebuilt from the one execution uuid the run stored; the history row carries the job, and the scheduler resolves
+     * the name from it, so neither is kept as a second copy. A history row that no longer exists yields no job info at
+     * all: passing the uuid on would hand the scheduler an execution it cannot find, turning a clean ending into a
+     * downstream failure.
      */
     private ScheduledJobInfo scheduledJobOf(Discovery run) {
         if (run.getScheduledJobHistoryUuid() == null) {

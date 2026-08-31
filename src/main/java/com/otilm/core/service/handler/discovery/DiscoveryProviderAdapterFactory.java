@@ -46,9 +46,9 @@ public class DiscoveryProviderAdapterFactory {
      * needs to know which generation to hand it to.
      *
      * <p>
-     * Worth keeping scalar: dispatch runs in a {@code NOT_SUPPORTED} scope whose reads share one {@code EntityManager},
-     * so loading the run there parks it in a first-level cache that a later read in the same scope would answer from,
-     * long after another transaction has changed the row.
+     * Kept scalar: dispatch runs in a {@code NOT_SUPPORTED} scope whose reads share one {@code EntityManager}, so
+     * loading the run there parks it in a first-level cache that a later read in the same scope answers from, long
+     * after another transaction has changed the row.
      *
      * @param connectorInterfaceUuid the run's association, or {@code null} for a v1 run
      * @param discoveryUuid names the run in a refusal; it is not read
