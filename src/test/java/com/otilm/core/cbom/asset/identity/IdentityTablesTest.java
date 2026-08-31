@@ -1,10 +1,15 @@
 package com.otilm.core.cbom.asset.identity;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,6 +111,54 @@ class IdentityTablesTest {
         assertThat(unresolved).isEmpty();
     }
 
+    /** Aliases must never point at a spelling outside the canonical curve vocabulary. */
+    @Test
+    void everyCurveAliasTargetsACanonicalCurve() {
+        IdentityTables tables = IdentityTables.load();
+        Set<String> canonicalCurves = new HashSet<>(tables.curveCanonical().values());
+
+        assertThat(tables.curveAliases())
+                .allSatisfy((alias, target) -> assertThat(canonicalCurves)
+                        .describedAs("curve alias %s targets a canonical curve", alias)
+                        .contains(target));
+    }
+
+    /**
+     * OID-derived families are ratified table output, so every non-null family must resolve through the same lookup.
+     */
+    @Test
+    void everyOidFamilyResolvesThroughAFoldedLookup() {
+        IdentityTables tables = IdentityTables.load();
+        List<String> unresolved = new ArrayList<>();
+
+        tables.oidToFamily().forEach((oid, entry) -> {
+            String family = entry.family();
+            if (family != null && !family.equals(tables.familyToken(family))) {
+                unresolved.add(oid + " -> " + family);
+            }
+        });
+
+        assertThat(unresolved).isEmpty();
+    }
+
+    /** Primitive defaults must be total over concrete values that CycloneDX 1.6 can express. */
+    @Test
+    void everyPrimitiveDefaultUsesAnExpressiblePrimitive() throws IOException {
+        JsonNode raw = rawTables();
+        Set<String> expressible = textSet(raw.get("primitivesExpressibleIn16"));
+        IdentityTables tables = IdentityTables.load();
+        Map<String, String> defaults = tables.primitiveDefaults();
+
+        assertThat(defaults.keySet())
+                .allSatisfy(family -> assertThat(tables.familyToken(family))
+                        .describedAs("primitive default key is a registered family")
+                        .isEqualTo(family));
+        assertThat(defaults.values())
+                .allSatisfy(primitive -> assertThat(expressible)
+                        .describedAs("primitive default value is expressible in CycloneDX 1.6")
+                        .contains(primitive));
+    }
+
     /** The size whitelist is the one the specification names; both bounds feed the parameter-set parser. */
     @Test
     void theSizeWhitelistIsTheRatifiedRange() {
@@ -121,5 +174,20 @@ class IdentityTablesTest {
         assertThat(IdentityTables.load()).isNotNull();
         assertThat(IdentityTables.load().nameGrammar()).isNotEmpty();
         assertThat(IdentityTables.load().curveCanonical()).isNotEmpty();
+    }
+
+    private static JsonNode rawTables() throws IOException {
+        try (InputStream stream = IdentityTablesTest.class
+                .getClassLoader()
+                .getResourceAsStream("cbom/identity-tables.json")) {
+            assertThat(stream).isNotNull();
+            return ObjectMapperFactory.storage().readTree(stream);
+        }
+    }
+
+    private static Set<String> textSet(JsonNode node) {
+        Set<String> values = new HashSet<>();
+        node.forEach(value -> values.add(value.asText()));
+        return values;
     }
 }

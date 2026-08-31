@@ -388,10 +388,10 @@
    },
    "expected": {
     "chainStep": "prt:type+version+suites",
-    "preImage": "PRT|tls|1.3|0f2cb44170f42cc966535f392a10dcd4499426df69dc476f1bf36609f7fa8c1e",
-    "identityKey": "a53859127ac3adbe86ee38e23b82eabcfa0e3e9e9cf968cd7cf9629870e0c8fb",
+    "preImage": "PRT|tls|1.3|e8f908767b5475e0dcfb3fca2e9416416a25a17b71ea03dc6b38e34514c9fa00",
+    "identityKey": "612745f3985934576bc86b8c8f6ec109894fc430f1147c1f4fd40638d6f65723",
     "innerPreImages": {
-     "cipherSuites": "1301"
+     "cipherSuites": "c:1301"
     }
    }
   },
@@ -419,10 +419,10 @@
    },
    "expected": {
     "chainStep": "prt:type+version+suites",
-    "preImage": "PRT|tls|1.3|0f2cb44170f42cc966535f392a10dcd4499426df69dc476f1bf36609f7fa8c1e",
-    "identityKey": "a53859127ac3adbe86ee38e23b82eabcfa0e3e9e9cf968cd7cf9629870e0c8fb",
+    "preImage": "PRT|tls|1.3|e8f908767b5475e0dcfb3fca2e9416416a25a17b71ea03dc6b38e34514c9fa00",
+    "identityKey": "612745f3985934576bc86b8c8f6ec109894fc430f1147c1f4fd40638d6f65723",
     "innerPreImages": {
-     "cipherSuites": "1301"
+     "cipherSuites": "c:1301"
     }
    }
   },
@@ -8459,10 +8459,10 @@
    },
    "expected": {
     "chainStep": "prt:type+version+suites",
-    "preImage": "PRT|tls|1.2|a17193ba21fd3eb78453bd049fb624b2902ebeb79184d1cee507d3f9e7186005",
-    "identityKey": "d2fae3a3e63a1961cad036b20da7773b034f06515d41bf3d2598bbc7b525a142",
+    "preImage": "PRT|tls|1.2|ef592c4242cadd9a5f40eac87568fe2cf9f0e2de090be42cfbe219acda0f47a8",
+    "identityKey": "e4eccb961122345d2465548e97c33d7134ffcdc496385db72da29a7c260d4f5f",
     "innerPreImages": {
-     "cipherSuites": "c030"
+     "cipherSuites": "c:c030"
     }
    }
   },
@@ -8492,10 +8492,10 @@
    },
    "expected": {
     "chainStep": "prt:type+version+suites",
-    "preImage": "PRT|tls|1.3|a17193ba21fd3eb78453bd049fb624b2902ebeb79184d1cee507d3f9e7186005",
-    "identityKey": "2f96abe313e0c2bccc57be649036dd0a99f1ad888c21cd9c77b5cef2b6718745",
+    "preImage": "PRT|tls|1.3|ef592c4242cadd9a5f40eac87568fe2cf9f0e2de090be42cfbe219acda0f47a8",
+    "identityKey": "b73249a26011e88ef0dcb59b30436a5d6595c7cd86637dd44cb75d5111e9e96b",
     "innerPreImages": {
-     "cipherSuites": "c030"
+     "cipherSuites": "c:c030"
     }
    }
   },
@@ -8533,10 +8533,10 @@
    },
    "expected": {
     "chainStep": "prt:type+version+suites",
-    "preImage": "PRT|tls|1.3|a17193ba21fd3eb78453bd049fb624b2902ebeb79184d1cee507d3f9e7186005",
-    "identityKey": "2f96abe313e0c2bccc57be649036dd0a99f1ad888c21cd9c77b5cef2b6718745",
+    "preImage": "PRT|tls|1.3|ef592c4242cadd9a5f40eac87568fe2cf9f0e2de090be42cfbe219acda0f47a8",
+    "identityKey": "b73249a26011e88ef0dcb59b30436a5d6595c7cd86637dd44cb75d5111e9e96b",
     "innerPreImages": {
-     "cipherSuites": "c030"
+     "cipherSuites": "c:c030"
     }
    }
   },
@@ -8573,10 +8573,10 @@
    },
    "expected": {
     "chainStep": "prt:type+version+suites",
-    "preImage": "PRT|tls|1.3|dc36ee3c8af8a2c5eb5e85031c45dca304782fdcac1e6b1e1c07a7d0be632621",
-    "identityKey": "31f85cbfdeda633c5b7236e8121e8e6936a02b1abb0ca0d5cf77dc0cecdf4f41",
+    "preImage": "PRT|tls|1.3|2e76772512c151fff03b85242a284a508eb89f6b2003ccaf56acfb0c0ba104ac",
+    "identityKey": "22058e84f1fbcbaa0f5443c10f375199e7acaba2b229db888bfb418022607c62",
     "innerPreImages": {
-     "cipherSuites": "1301\n1302"
+     "cipherSuites": "c:1301\nc:1302"
     }
    }
   },
@@ -8626,10 +8626,10 @@
    },
    "expected": {
     "chainStep": "prt:type+version+suites",
-    "preImage": "PRT|tls|1.3|4e3f4627f9eb3bdec2a105fd0ca685402098a86cca5388e7b3274065a5bb7fe9|pqc",
-    "identityKey": "36ded3bbb62c152d10fa6b8d9ad2d60c0221ad35fbaa21a07b598ec7918b2fbe",
+    "preImage": "PRT|tls|1.3|d1a1b4239d94b6737df984730ed07b971be03e7d3b4b63865a771a88f8798912|pqc",
+    "identityKey": "da31028fce98499a08bb009be57af006be46e36d65bbdadeab787756988c452c",
     "innerPreImages": {
-     "cipherSuites": "TLS_AES_256_GCM_SHA384\nTLS_AES_256_GCM_SHA384_ML_KEM_768"
+     "cipherSuites": "n:TLS_AES_256_GCM_SHA384\nn:TLS_AES_256_GCM_SHA384_ML_KEM_768"
     }
    }
   },
@@ -8661,10 +8661,10 @@
    },
    "expected": {
     "chainStep": "prt:type+version+suites",
-    "preImage": "PRT|tls|1.2|807c5ebc1703d9064f30ca78f476d14d73ba7709987b43f56875e0ffcf4bc19d|13443",
-    "identityKey": "7cdf37b6ae0f40bb411b63507f859bda74609c812fbe75e83c43df5f5e821c73",
+    "preImage": "PRT|tls|1.2|d298017046b6b0be1ea9cb2392d9354fbffd850691672d8fd0dd12f7bbaafee8|13443",
+    "identityKey": "b5064f93880cf22b461aae424a73b08b7f39e10bac861ad6591ff29c6481e936",
     "innerPreImages": {
-     "cipherSuites": "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+     "cipherSuites": "n:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
     }
    }
   },
