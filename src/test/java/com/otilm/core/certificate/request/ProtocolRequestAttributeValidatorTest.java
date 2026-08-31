@@ -13,7 +13,11 @@ import java.security.KeyPairGenerator;
 import java.security.cert.CertificateException;
 import java.util.Base64;
 import java.util.List;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.BasicConstraints;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
@@ -108,6 +112,63 @@ class ProtocolRequestAttributeValidatorTest {
         KeyPair keyPair = kpg.generateKeyPair();
         JcaPKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
                 keyPair.getPublic());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate());
+        PKCS10CertificationRequest csr = builder.build(signer);
+        return CertificateRequestUtils
+                .createCertificateRequest(Base64.getEncoder().encodeToString(csr.getEncoded()),
+                        CertificateRequestFormat.PKCS10);
+    }
+
+    @Test
+    void warnsOnUnmappedExtension_whenLenient() throws Exception {
+        // given — a lenient profile whose resolved set maps only CommonName, and a CSR carrying an extension
+        // no definition maps
+        when(svc.resolveIssueAttributeSet(any())).thenReturn(List.of(CsrAttributes.commonNameAttribute()));
+        when(svc.resolveExternalCsrValidationStrict(any())).thenReturn(false);
+
+        // when
+        List<String> warnings = validator.validate(csrWithUnmappedExtension(), mock(RaProfile.class));
+
+        // then — the whitelist ran under lenient and reported the extension as a warning
+        assertThat(warnings).anySatisfy(w -> assertThat(w).contains("Extension '2.5.29.19' is not allowed"));
+    }
+
+    @Test
+    void rejectsUnmappedExtension_whenStrict() throws Exception {
+        // given — the same set and CSR under a strict profile
+        when(svc.resolveIssueAttributeSet(any())).thenReturn(List.of(CsrAttributes.commonNameAttribute()));
+        when(svc.resolveExternalCsrValidationStrict(any())).thenReturn(true);
+        CertificateRequest request = csrWithUnmappedExtension();
+
+        // when / then — strict is unchanged: the same finding is an error
+        assertThatThrownBy(() -> validator.validate(request, mock(RaProfile.class)))
+                .isInstanceOf(RequestAttributePolicyViolationException.class)
+                .satisfies(ex -> assertThat(((RequestAttributePolicyViolationException) ex).getPolicyDetails())
+                        .anySatisfy(d -> assertThat(d).contains("Extension '2.5.29.19' is not allowed")));
+    }
+
+    @Test
+    void returnsNoWarnings_whenLenientAndEverythingMapped() throws Exception {
+        // given — a lenient profile whose set maps CommonName, and a CSR carrying exactly that
+        when(svc.resolveIssueAttributeSet(any())).thenReturn(List.of(CsrAttributes.commonNameAttribute()));
+        when(svc.resolveExternalCsrValidationStrict(any())).thenReturn(false);
+
+        // when
+        List<String> warnings = validator.validate(csrWithSubject("CN=mapped.example.com"), mock(RaProfile.class));
+
+        // then
+        assertThat(warnings).isEmpty();
+    }
+
+    private static CertificateRequest csrWithUnmappedExtension() throws Exception {
+        ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();
+        extensionsGenerator.addExtension(Extension.basicConstraints, false, new BasicConstraints(false));
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair keyPair = kpg.generateKeyPair();
+        JcaPKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(
+                new X500Name("CN=mapped.example.com"), keyPair.getPublic());
+        builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensionsGenerator.generate());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate());
         PKCS10CertificationRequest csr = builder.build(signer);
         return CertificateRequestUtils

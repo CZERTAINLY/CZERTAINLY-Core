@@ -81,9 +81,9 @@ public class ProtocolRequestAttributeValidator {
             RaProfile raProfile, boolean strict) {
         try {
             ParsedRequestContent parsed = X509RequestContentParser.parse(request);
-            // Whitelist enforcement is tied to strict mode, so lenient mode does NOT run the whitelist check.
+            // The whitelist always runs; RequestAttributePolicy routes its findings to warnings when not strict.
             return CertificateRequestContentValidator
-                    .validate(definitions, parsed, new RequestAttributePolicy(strict, strict));
+                    .validate(definitions, parsed, new RequestAttributePolicy(strict, true));
         } catch (RuntimeException e) {
             log
                     .warn("Certificate request could not be processed for validation (RA profile {})",
