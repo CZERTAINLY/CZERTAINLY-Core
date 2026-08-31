@@ -574,7 +574,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             logger.debug("Deleting token instance without connector: '{}'", tokenInstanceReference);
         }
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN, tokenInstanceReference.uuid());
-        commentService.removeObjectComments(Resource.TOKEN, tokenInstanceReference.getUuid());
+        commentService.removeObjectComments(Resource.TOKEN, tokenInstanceReference.uuid());
         tokenInstanceReferenceWriter.delete(tokenInstanceReference);
 
         logger
