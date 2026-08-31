@@ -258,10 +258,11 @@ class ContentDigestTest {
     @Test
     void suiteNamesCannotForgeAnotherToken() {
         JsonNode oneSuite = read("{\"protocolProperties\":{\"cipherSuites\":[{\"name\":\"TLS_A\\nTLS_B\"}]}}");
-        JsonNode twoSuites = read("{\"protocolProperties\":{\"cipherSuites\":[{\"name\":\"TLS_A\"},"
-                + "{\"name\":\"TLS_B\"}]}}");
+        JsonNode twoSuites = read(
+                "{\"protocolProperties\":{\"cipherSuites\":[{\"name\":\"TLS_A\"}," + "{\"name\":\"TLS_B\"}]}}");
         JsonNode numericName = read("{\"protocolProperties\":{\"cipherSuites\":[{\"name\":\"1301\"}]}}");
-        JsonNode numericCode = read("{\"protocolProperties\":{\"cipherSuites\":[{\"identifiers\":[\"0x13\",\"0x01\"]}]}}");
+        JsonNode numericCode = read(
+                "{\"protocolProperties\":{\"cipherSuites\":[{\"identifiers\":[\"0x13\",\"0x01\"]}]}}");
 
         assertThat(CipherSuites.tokens(oneSuite, Set.of())).isEqualTo("n:TLS_A%0ATLS_B");
         assertThat(CipherSuites.tokens(twoSuites, Set.of())).isEqualTo("n:TLS_A\nn:TLS_B");

@@ -135,7 +135,8 @@ class OccurrenceEvidenceCapperTest {
         List<Map<String, Object>> occurrences = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             occurrences
-                    .add(occurrenceWithDetail("marker" + i, "y".repeat(OccurrenceEvidenceCapper.MAX_EVIDENCE_BYTES / 8)));
+                    .add(occurrenceWithDetail("marker" + i,
+                            "y".repeat(OccurrenceEvidenceCapper.MAX_EVIDENCE_BYTES / 8)));
         }
 
         List<Map<String, Object>> capped = OccurrenceEvidenceCapper.cap(occurrences);

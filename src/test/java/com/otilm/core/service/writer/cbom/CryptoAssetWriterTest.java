@@ -66,7 +66,8 @@ class CryptoAssetWriterTest {
     @Test
     void invalidIdentityKeysAreRefusedBeforeAnyWrite() {
         assertThatCode(() -> CryptoAssetWriter.requireIdentityKeyShape("0".repeat(64))).doesNotThrowAnyException();
-        assertThatThrownBy(() -> CryptoAssetWriter.requireIdentityKeyShape(null)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> CryptoAssetWriter.requireIdentityKeyShape(null))
+                .isInstanceOf(ValidationException.class);
         assertThatThrownBy(() -> CryptoAssetWriter.requireIdentityKeyShape("0".repeat(63)))
                 .isInstanceOf(ValidationException.class);
         assertThatThrownBy(() -> CryptoAssetWriter.requireIdentityKeyShape("0".repeat(63) + "G"))
