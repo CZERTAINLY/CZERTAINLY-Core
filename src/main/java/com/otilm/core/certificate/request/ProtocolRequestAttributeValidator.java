@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>
  * <b>What it does:</b> resolves the request-attribute set and the effective strictness via the request-attribute
- * service, then runs {@link CertificateRequestContentValidator}.
+ * service, then runs {@link CertificateRequestContentValidator} and returns the warnings it raised.
  *
  * <p>
  * <b>Failure shaping:</b> a strict policy violation throws {@link RequestAttributePolicyViolationException}. That is a
@@ -33,16 +33,16 @@ public class ProtocolRequestAttributeValidator {
         this.requestAttributeService = requestAttributeService;
     }
 
-    public void validate(CertificateRequest request, RaProfile raProfile) throws CertificateException {
+    public List<String> validate(CertificateRequest request, RaProfile raProfile) throws CertificateException {
         if (raProfile == null) {
-            return;
+            return List.of();
         }
         List<BaseAttribute> definitions = resolveDefinitions(raProfile);
         if (definitions.isEmpty()) {
-            return;
+            return List.of();
         }
         boolean strict = requestAttributeService.resolveExternalCsrValidationStrict(raProfile);
-        reportResult(runKernel(definitions, request, raProfile, strict), raProfile);
+        return reportResult(runKernel(definitions, request, raProfile, strict), raProfile);
     }
 
     /**
@@ -93,7 +93,7 @@ public class ProtocolRequestAttributeValidator {
         }
     }
 
-    private void reportResult(RequestAttributeValidationResult result, RaProfile raProfile) {
+    private List<String> reportResult(RequestAttributeValidationResult result, RaProfile raProfile) {
         if (!result.getWarnings().isEmpty()) {
             log
                     .warn("Request-attribute validation (lenient) RA profile {}: {}", raProfile.getName(),
@@ -106,5 +106,6 @@ public class ProtocolRequestAttributeValidator {
                             .formatted(raProfile.getName(), String.join("; ", errors)),
                     errors);
         }
+        return result.getWarnings();
     }
 }
