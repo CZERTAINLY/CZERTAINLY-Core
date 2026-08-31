@@ -13,13 +13,17 @@ import com.otilm.api.model.core.auth.UserDetailDto;
 import com.otilm.api.model.core.auth.UserRequestDto;
 import com.otilm.api.model.core.auth.UserUpdateRequestDto;
 import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.listview.ListViewColumnDto;
+import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.Group;
+import com.otilm.core.dao.entity.ListView;
 import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.GroupRepository;
+import com.otilm.core.dao.repository.ListViewRepository;
 import com.otilm.core.helpers.CertificateGeneratorHelper;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.service.CertificateUploadService;
@@ -62,6 +66,9 @@ class UserManagementServiceITest extends BaseSpringBootTest {
 
     @Autowired
     private GroupRepository groupRepository;
+
+    @Autowired
+    private ListViewRepository listViewRepository;
 
     @Autowired
     private UserManagementExternalService userManagementService;
@@ -287,6 +294,33 @@ class UserManagementServiceITest extends BaseSpringBootTest {
         createSession(userUuid);
         userManagementService.disableUser(userUuid.toString());
         Assertions.assertTrue(sessionRepository.findByPrincipalName(userUuid.toString()).isEmpty());
+    }
+
+    /**
+     * A saved list view is keyed by the user UUID with no foreign key to cascade from, so the rows only go away if the
+     * deletion path removes them itself.
+     */
+    @Test
+    void deleteUserRemovesTheirSavedListViews() {
+        SessionTableHelper.createSessionTables(jdbcTemplate);
+        UUID deletedUser = UUID.randomUUID();
+        UUID survivingUser = UUID.randomUUID();
+        saveListView(deletedUser, "Theirs");
+        saveListView(survivingUser, "Mine");
+
+        userManagementService.deleteUser(deletedUser.toString());
+
+        Assertions.assertTrue(listViewRepository.findByUserUuidOrderByNameAsc(deletedUser).isEmpty());
+        Assertions.assertEquals(1, listViewRepository.findByUserUuidOrderByNameAsc(survivingUser).size());
+    }
+
+    private void saveListView(UUID userUuid, String name) {
+        ListView view = new ListView();
+        view.setUserUuid(userUuid);
+        view.setResource(Resource.CERTIFICATE);
+        view.setName(name);
+        view.setColumns(List.of(new ListViewColumnDto(FilterFieldSource.PROPERTY, "COMMON_NAME", null)));
+        listViewRepository.save(view);
     }
 
     private void createSession(UUID userUuid) {

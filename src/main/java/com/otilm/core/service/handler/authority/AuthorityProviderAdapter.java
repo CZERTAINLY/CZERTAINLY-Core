@@ -105,8 +105,8 @@ public interface AuthorityProviderAdapter {
      * Optional on the connector: v3 resolves 404, {@code OPERATION_NOT_SUPPORTED} (501) and an empty array to an empty
      * list; v2 has no such endpoint and always returns empty.
      * <p>
-     * Not consumed by any flow today; {@code GET /v1/certificates/csr/attributes} resolves CSR attributes
-     * platform-side.
+     * This is the connector-supplied set that an RA profile's merge mode combines with the platform-owned static set;
+     * an empty result leaves resolution on the static set or the platform default.
      */
     List<BaseAttribute> listCertificateRequestAttributes(AuthorityInstanceReference authority, RaProfile raProfile)
             throws ConnectorException;

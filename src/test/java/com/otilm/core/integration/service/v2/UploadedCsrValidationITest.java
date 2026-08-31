@@ -8,6 +8,7 @@ import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
 import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
+import com.otilm.api.model.core.raprofile.RaProfileCertificateRequestAttributesUpdateDto;
 import com.otilm.api.model.core.v2.ClientCertificateRequestDto;
 import com.otilm.core.attribute.CsrAttributes;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
@@ -15,12 +16,15 @@ import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
+import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
+import com.otilm.core.dao.repository.ConnectorInterfaceRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
+import com.otilm.core.dao.repository.FunctionGroupRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
 import com.otilm.core.service.v2.ClientOperationExternalService;
-import com.otilm.core.service.writer.RaProfileCertificateRequestAttributeWriter;
-import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.builders.AuthorityFixtures;
 import java.io.StringWriter;
 import java.math.BigInteger;
 import java.security.KeyPair;
@@ -65,7 +69,7 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
     private ClientOperationExternalService clientOperationService;
 
     @Autowired
-    private RaProfileCertificateRequestAttributeWriter requestAttributeWriter;
+    private RaProfileCertificateRequestAttributeService requestAttributeService;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -78,6 +82,15 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
 
     @Autowired
     private CertificateRepository certificateRepository;
+
+    @Autowired
+    private FunctionGroupRepository functionGroupRepository;
+
+    @Autowired
+    private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
+
+    @Autowired
+    private ConnectorInterfaceRepository connectorInterfaceRepository;
 
     private WireMockServer mockServer;
     private RaProfile raProfile;
@@ -110,7 +123,7 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
 
         stubIssueAttributesAndSigning();
 
-        persistCommonNameConfig(AttributeSetMergeMode.STATIC_ONLY, Boolean.TRUE);
+        persistCommonNameConfig(raProfile, AttributeSetMergeMode.STATIC_ONLY, Boolean.TRUE);
 
         csrMissingCommonName = pemEncodedCsrWithSubject("O=Acme,C=US");
     }
@@ -140,7 +153,7 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
     @Test
     void acceptsUploadedCsr_whenLenientProfileAndRequiredRdnMissing() throws Exception {
         // given — same CSR, RA profile reconfigured with externalCsrValidationStrict=false
-        persistCommonNameConfig(AttributeSetMergeMode.STATIC_ONLY, Boolean.FALSE);
+        persistCommonNameConfig(raProfile, AttributeSetMergeMode.STATIC_ONLY, Boolean.FALSE);
 
         ClientCertificateRequestDto request = uploadRequest(csrMissingCommonName);
 
@@ -165,39 +178,47 @@ class UploadedCsrValidationITest extends BaseSpringBootTest {
 
     @Test
     void rejectsUploadedCsr_whenStrictProfileAndAttributeSetCannotBeResolved() {
-        // given — a strict profile whose merge mode consults the authority connector, and that connector errors.
-        // MERGE is seeded via the writer: the update service rejects non-STATIC_ONLY modes
-        persistCommonNameConfig(AttributeSetMergeMode.MERGE, Boolean.TRUE);
+        // given — a strict profile on a v3 authority whose /request/attributes errors. Only a v3 connector serves
+        // that endpoint, so the v2 fixture above can never fail this way: its request set is empty by contract.
+        AuthorityFixtures.Fixture v3 = AuthorityFixtures
+                .v3Authority(new AuthorityFixtures.Repos(connectorRepository, functionGroupRepository,
+                        connector2FunctionGroupRepository, authorityInstanceReferenceRepository, raProfileRepository,
+                        connectorInterfaceRepository), mockServer);
+        persistCommonNameConfig(v3.raProfile(), AttributeSetMergeMode.MERGE, Boolean.TRUE);
 
         mockServer
                 .stubFor(WireMock
-                        .get(WireMock
-                                .urlPathMatching(
-                                        "/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
+                        .post(WireMock.urlPathMatching("/v3/authorityProvider/certificates/request/attributes"))
                         .willReturn(WireMock.serverError().withBody("authority connector is unavailable")));
 
         ClientCertificateRequestDto request = uploadRequest(csrMissingCommonName);
+        request.setRaProfileUuid(v3.raProfile().getUuid());
 
-        // when / then — strict policy fails closed: an unavailable attribute set blocks issuance
+        // when / then — strict policy fails closed: an unavailable attribute set blocks issuance. The reason string
+        // matters: "unavailable" alone also matches the NotFoundException wrapping, which would mean the resolution
+        // never reached the connector at all.
         assertThatThrownBy(() -> clientOperationService.submitCertificateRequest(request, null))
                 .isInstanceOf(CertificateException.class)
-                .hasMessageContaining("unavailable");
+                .hasMessageContaining("the authority connector is unavailable");
+        mockServer
+                .verify(WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v3/authorityProvider/certificates/request/attributes")));
 
         // and — nothing is persisted for the profile
         assertThat(certificateRepository.findAll())
-                .noneMatch(c -> c.getRaProfileUuid() != null && c.getRaProfileUuid().equals(raProfile.getUuid()));
+                .noneMatch(c -> c.getRaProfileUuid() != null && c.getRaProfileUuid().equals(v3.raProfile().getUuid()));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
 
-    /**
-     * Persists the profile's request-attribute config directly through the writer, bypassing the gated update service.
-     */
-    private void persistCommonNameConfig(AttributeSetMergeMode mergeMode, Boolean externalCsrValidationStrict) {
-        requestAttributeWriter
-                .saveStaticSet(raProfile,
-                        AttributeDefinitionUtils.serialize(List.of(CsrAttributes.commonNameAttribute())), mergeMode,
-                        externalCsrValidationStrict);
+    private void persistCommonNameConfig(RaProfile profile, AttributeSetMergeMode mergeMode,
+            Boolean externalCsrValidationStrict) {
+        RaProfileCertificateRequestAttributesUpdateDto config = new RaProfileCertificateRequestAttributesUpdateDto();
+        config.setRequestAttributes(List.of(CsrAttributes.commonNameAttribute()));
+        config.setMergeMode(mergeMode);
+        config.setExternalCsrValidationStrict(externalCsrValidationStrict);
+        requestAttributeService.updateConfiguration(profile, config);
     }
 
     private ClientCertificateRequestDto uploadRequest(String pemCsr) {

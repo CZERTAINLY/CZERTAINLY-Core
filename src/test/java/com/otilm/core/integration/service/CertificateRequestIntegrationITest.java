@@ -4,6 +4,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
+import com.otilm.api.exception.ConnectorServerException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.connector.v2.ConnectorInterface;
@@ -263,7 +264,8 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
                   }
                 ]
                 """.formatted(SAN_ATTR_UUID, EXT_ATTR_UUID, CUSTOM_EXT_OID);
-        stubIssueAttributes(connectorAttrsJson);
+        stubRequestAttributes(connectorAttrsJson);
+        stubIssueAttributes("[]");
         stubSigning();
 
         // Extension value: DER-encoded UTF8String "rendererExtValue", then base64 for transport.
@@ -302,8 +304,8 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
 
     @Test
     void failsRequest_whenConnectorAttributeFetchFails() throws Exception {
-        // given — the v3 connector issue-attributes endpoint errors. Issuance-definition resolution fails on a genuine
-        // connector failure rather than silently falling back to the default CSR set, so the request is rejected.
+        // given — the v3 connector issue-attributes endpoint errors. Operation-attribute validation fails on a
+        // genuine connector failure rather than letting the request through, so the request is rejected.
         stubIssueAttributes("[]");
         mockServer
                 .stubFor(WireMock
@@ -345,7 +347,45 @@ class CertificateRequestIntegrationITest extends BaseSpringBootTest {
                 .hasMessageContaining("RA profile");
     }
 
+    @Test
+    void failsRequest_whenConnectorRequestSchemaFetchFails() throws Exception {
+        // given — a merge mode that admits the connector set, and a request-attributes endpoint answering 500.
+        // A 500 is not one of the statuses the adapter resolves to an empty schema, so definition resolution must
+        // fail closed rather than silently falling back to the platform default set.
+        requestAttributeWriter
+                .saveStaticSet(raProfile,
+                        AttributeDefinitionUtils.serialize(List.of(CsrAttributes.commonNameAttribute())),
+                        AttributeSetMergeMode.MERGE, null);
+        stubIssueAttributes("[]");
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v3/authorityProvider/certificates/request/attributes"))
+                        .willReturn(WireMock.serverError().withBody("request-attributes endpoint is unavailable")));
+        stubSigning();
+
+        var request = baseRequest();
+        request.setCsrAttributes(List.of(commonNameAttribute("FailClosedOnRequestSchema")));
+
+        // when / then — ConnectorServerException specifically: that is what schemaOrEmpty rethrows for a non-501 5xx.
+        // A bare ConnectorException would also be satisfied by the 404 an unstubbed WireMock route produces, which
+        // would pass without the 500 boundary ever being reached.
+        assertThatThrownBy(() -> clientOperationService.submitCertificateRequest(request, null))
+                .isInstanceOf(ConnectorServerException.class);
+        mockServer
+                .verify(WireMock
+                        .postRequestedFor(
+                                WireMock.urlPathMatching("/v3/authorityProvider/certificates/request/attributes")));
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
+
+    /** Stubs the connector's certificate-request schema — the set an RA profile's merge mode combines. */
+    private void stubRequestAttributes(String connectorAttrsJson) {
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock.urlPathMatching("/v3/authorityProvider/certificates/request/attributes"))
+                        .willReturn(WireMock.okJson(connectorAttrsJson)));
+    }
 
     private void stubIssueAttributes(String connectorAttrsJson) {
         mockServer

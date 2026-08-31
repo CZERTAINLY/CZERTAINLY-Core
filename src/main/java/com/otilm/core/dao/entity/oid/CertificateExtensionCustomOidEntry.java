@@ -21,4 +21,7 @@ public class CertificateExtensionCustomOidEntry extends CustomOidEntry {
     @Column(name = "value_encoding")
     @Enumerated(EnumType.STRING)
     private ExtensionValueEncoding valueEncoding;
+
+    @Column(name = "value_schema")
+    private String valueSchema;
 }

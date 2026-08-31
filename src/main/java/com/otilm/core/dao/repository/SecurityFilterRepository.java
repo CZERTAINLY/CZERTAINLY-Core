@@ -42,9 +42,26 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
             TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Pageable p,
             BiFunction<Root<T>, CriteriaBuilder, Order> order);
 
+    /**
+     * Same, with the ordering the caller's request asked for. The {@code order} argument stays the ordering applied
+     * when the request names none, so a caller that never supplies a sort keeps the order it has today.
+     */
+    List<T> findUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Pageable p,
+            BiFunction<Root<T>, CriteriaBuilder, Order> order, SortSpecification sort);
+
     List<UUID> findUuidsUsingSecurityFilter(SecurityFilter filter,
             TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Pageable p,
             BiFunction<Root<T>, CriteriaBuilder, Order> order);
+
+    /**
+     * Same, with the ordering the caller's request asked for. The returned list is ranked by that ordering, and the
+     * rank is the only place it survives: a caller that loads the objects with a {@code uuid IN (...)} query gets them
+     * in whatever order that query itself defines, so it has to put them back in the order of this list.
+     */
+    List<UUID> findUuidsUsingSecurityFilter(SecurityFilter filter,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Pageable p,
+            BiFunction<Root<T>, CriteriaBuilder, Order> order, SortSpecification sort);
 
     Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute<?, ?> join,
             SingularAttribute<?, ?> groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupByExpression,
@@ -53,6 +70,15 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
     Long countUsingSecurityFilter(SecurityFilter filter);
 
     Long countUsingSecurityFilter(SecurityFilter filter,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause);
+
+    /**
+     * Row count without the DISTINCT the variant above emits. Correct only where no predicate can duplicate the root
+     * row: every joining shape must go through EXISTS subqueries and the resource's security filter must add no join of
+     * its own. Where that holds, prefer this one -- Postgres cannot parallelize {@code count(DISTINCT ...)}, which at
+     * millions of rows is seconds against milliseconds for a plain {@code count(*)}.
+     */
+    Long countRowsUsingSecurityFilter(SecurityFilter filter,
             TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause);
 
     Integer deleteUsingSecurityFilter(SecurityFilter filter,
