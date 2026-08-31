@@ -9,6 +9,7 @@ import com.otilm.core.model.crypto.ImmutableTokenInstanceFullModel;
 import com.otilm.core.model.crypto.TokenInstanceBasicModel;
 import com.otilm.core.model.crypto.TokenInstanceFullModel;
 import com.otilm.core.security.authz.SecurityFilter;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -25,6 +27,14 @@ import org.springframework.stereotype.Repository;
 public interface TokenInstanceReferenceRepository extends SecurityFilterRepository<TokenInstanceReference, UUID> {
 
     Optional<TokenInstanceReference> findByUuid(UUID uuid);
+
+    /**
+     * Loads an existing token instance for a read-modify-write operation. The lock must be acquired inside the
+     * transaction that performs the update.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT token FROM TokenInstanceReference token WHERE token.uuid = :uuid")
+    Optional<TokenInstanceReference> findWithLockByUuid(@Param("uuid") UUID uuid);
 
     boolean existsByUuid(UUID uuid);
 

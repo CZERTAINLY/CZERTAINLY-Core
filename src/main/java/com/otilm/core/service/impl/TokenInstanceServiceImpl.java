@@ -161,7 +161,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         try {
             TokenProviderAdapter adapter = tokenProviderAdapterFactory.forToken(tokenInstance);
             tokenInstance = refreshTokenInstanceStatus(tokenInstance, adapter);
-            tokenInstanceReferenceWriter.update(tokenInstance);
+            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
             return assembleTokenInstanceDetail(tokenInstance);
         } catch (Exception e) {
             logger
@@ -218,7 +218,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         try {
             var status = adapter.getStatus(tokenInstance);
             tokenInstance = tokenInstance.withNewStatus(status.getStatus());
-            tokenInstanceReferenceWriter.save(tokenInstance);
+            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
         } catch (Exception e) {
             logger.warn("Can't check the the status of the token '{}'", tokenInstance.name(), e);
         }
@@ -257,7 +257,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             remoteRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
             remoteResult = cap.updateRemoteToken(tokenInstance, remoteRequest);
         }
-        tokenInstanceReferenceWriter.save(tokenInstance);
         tokenInstanceReferenceWriter
                 .updateAttributes(tokenInstance.uuid(), tokenInstance.connectorUuid(), request.getCustomAttributes(),
                         request.getAttributes(), remoteResult == null ? List.of() : remoteResult.getMetadata());
@@ -268,7 +267,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             logger.error("Unable to refresh token status after update: '{}'", e.getMessage());
             tokenInstance = tokenInstance.withNewStatus(TokenInstanceStatus.WARNING);
         }
-        tokenInstanceReferenceWriter.save(tokenInstance);
+        tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
 
         return assembleTokenInstanceDetail(tokenInstance);
     }
@@ -292,7 +291,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         if (adapter instanceof TokenActivationCapability cap) {
             cap.activate(tokenInstanceReference, attributes);
             tokenInstanceReference = tokenInstanceReference.withNewStatus(TokenInstanceStatus.ACTIVATED);
-            tokenInstanceReferenceWriter.save(tokenInstanceReference);
+            tokenInstanceReferenceWriter.updateStatus(tokenInstanceReference.uuid(), tokenInstanceReference.status());
             logger.info("Token instance activated");
         }
     }
@@ -307,7 +306,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         if (adapter instanceof TokenActivationCapability cap) {
             cap.deactivate(tokenInstanceReference);
             tokenInstanceReference = tokenInstanceReference.withNewStatus(TokenInstanceStatus.DEACTIVATED);
-            tokenInstanceReferenceWriter.save(tokenInstanceReference);
+            tokenInstanceReferenceWriter.updateStatus(tokenInstanceReference.uuid(), tokenInstanceReference.status());
             logger.info("Token instance deactivated");
         }
     }
@@ -342,7 +341,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         TokenInstanceFullModel tokenInstance = getTokenInstanceModel(uuid);
         TokenProviderAdapter adapter = tokenProviderAdapterFactory.forToken(tokenInstance);
         tokenInstance = refreshTokenInstanceStatus(tokenInstance, adapter);
-        tokenInstanceReferenceWriter.save(tokenInstance);
+        tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
         logger.info("Token instance status reloaded. Status of the token instance: '{}'", tokenInstance.status());
         return assembleTokenInstanceDetail(tokenInstance);
     }

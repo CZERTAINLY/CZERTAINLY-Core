@@ -4,6 +4,7 @@ import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
+import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -15,11 +16,15 @@ import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TokenInstanceReferenceWriter {
+
+    private static final Logger logger = LoggerFactory.getLogger(TokenInstanceReferenceWriter.class);
 
     private final TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private final AttributeEngine attributeEngine;
@@ -34,22 +39,40 @@ public class TokenInstanceReferenceWriter {
 
     @Transactional
     public TokenInstanceReference save(TokenInstanceBasicModel model) {
-        return tokenInstanceReferenceRepository.save(toEntity(model));
+        logger.debug("Creating token instance reference: {}", model == null ? null : model.uuid());
+        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.save(toEntity(model));
+        return tokenInstanceReference;
     }
 
     @Transactional
     public TokenInstanceReference update(TokenInstanceBasicModel model) {
         Objects.requireNonNull(model, "Token instance model is required.");
-        if (!tokenInstanceReferenceRepository.existsByUuid(model.uuid())) {
-            throw new EntityNotFoundException("Token instance not found: " + model.uuid());
+        logger.debug("Updating token instance reference: {}", model.uuid());
+        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository
+                .findWithLockByUuid(model.uuid())
+                .orElseThrow(() -> new EntityNotFoundException("Token instance not found: " + model.uuid()));
+        copyModelToEntity(tokenInstanceReference, model);
+        return tokenInstanceReference;
+    }
+
+    @Transactional
+    public void updateStatus(UUID uuid, TokenInstanceStatus status) {
+        logger.debug("Updating token instance status: {} -> {}", uuid, status);
+        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository
+                .findWithLockByUuid(uuid)
+                .orElse(null);
+        if (tokenInstanceReference == null) {
+            logger.warn("Skipping status update for missing token instance: {}", uuid);
+            return;
         }
-        return tokenInstanceReferenceRepository.save(toEntity(model));
+        tokenInstanceReference.setStatus(status);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void updateAttributes(UUID tokenUuid, UUID connectorUuid, List<RequestAttribute> customAttributes,
             List<RequestAttribute> dataAttributes, List<MetadataAttribute> metadataAttributes)
             throws NotFoundException, AttributeException {
+        logger.debug("Updating token instance attributes: {}", tokenUuid);
         attributeEngine
                 .updateMetadataAttributes(metadataAttributes,
                         ObjectAttributeContentInfo.builder(Resource.TOKEN, tokenUuid).connector(connectorUuid).build());
@@ -63,6 +86,7 @@ public class TokenInstanceReferenceWriter {
     @Transactional
     public void delete(TokenInstanceBasicModel model) {
         Objects.requireNonNull(model, "Token instance model is required.");
+        logger.debug("Deleting token instance reference: {}", model.uuid());
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN, model.uuid());
         commentService.removeObjectComments(Resource.TOKEN, model.uuid());
         tokenInstanceReferenceRepository.deleteById(model.uuid());
@@ -72,6 +96,11 @@ public class TokenInstanceReferenceWriter {
         Objects.requireNonNull(model, "Token instance model is required.");
         TokenInstanceReference tokenInstanceReference = new TokenInstanceReference();
         tokenInstanceReference.setUuid(model.uuid());
+        copyModelToEntity(tokenInstanceReference, model);
+        return tokenInstanceReference;
+    }
+
+    private void copyModelToEntity(TokenInstanceReference tokenInstanceReference, TokenInstanceBasicModel model) {
         tokenInstanceReference.setTokenInstanceUuid(model.tokenInstanceUuid());
         tokenInstanceReference.setName(model.name());
         tokenInstanceReference.setStatus(model.status());
@@ -79,6 +108,5 @@ public class TokenInstanceReferenceWriter {
         tokenInstanceReference.setConnectorUuid(model.connectorUuid());
         tokenInstanceReference.setConnectorName(model.connectorName());
         tokenInstanceReference.setConnectorInterfaceUuid(model.connectorInterfaceUuid());
-        return tokenInstanceReference;
     }
 }
