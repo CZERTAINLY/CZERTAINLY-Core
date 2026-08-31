@@ -81,6 +81,32 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
         return raProfileRepository.save(raProfile);
     }
 
+    private RaProfile newProfileWithAuthority(String authorityInstanceUuid, AttributeSetMergeMode mergeMode) {
+        Connector connector = new Connector();
+        connector.setUrl("http://localhost");
+        connector.setVersion(ConnectorVersion.V1);
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connector = connectorRepository.save(connector);
+
+        AuthorityInstanceReference authority = new AuthorityInstanceReference();
+        authority.setAuthorityInstanceUuid(authorityInstanceUuid);
+        authority.setConnector(connector);
+        authority = authorityInstanceReferenceRepository.save(authority);
+
+        RaProfile raProfile = new RaProfile();
+        raProfile.setName("rp-" + UUID.randomUUID());
+        raProfile.setEnabled(true);
+        raProfile.setAuthorityInstanceReference(authority);
+        raProfile.setAuthorityInstanceReferenceUuid(authority.getUuid());
+        raProfile = raProfileRepository.save(raProfile);
+
+        RaProfileCertificateRequestAttribute requestAttribute = new RaProfileCertificateRequestAttribute();
+        requestAttribute.setRaProfile(raProfile);
+        requestAttribute.setMergeMode(mergeMode);
+        raProfileCertificateRequestAttributeRepository.save(requestAttribute);
+        return raProfile;
+    }
+
     @Test
     void withProfileReturnsTheResolvedSetNotTheSeed() throws Exception {
         // given: an enabled profile with a stored STATIC_ONLY set; no authority -> no connector fetch
@@ -95,7 +121,7 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
 
         // then: the configured set shapes the response, and the connector was never consulted
         assertThat(resolved).extracting(BaseAttribute::getName).containsExactly("department");
-        verify(extendedAttributeService, never()).listIssueCertificateAttributes(any());
+        verify(extendedAttributeService, never()).listCertificateRequestAttributes(any());
     }
 
     @Test
@@ -115,69 +141,46 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
     }
 
     @Test
-    void csrResolutionStaysPlatformOnly_regressionForConnectorRequestSchema() throws Exception {
-        // Regression pin: the connector-provided certificate-request schema exists on the adapter
-        // (listCertificateRequestAttributes) but is deliberately NOT consumed here. The fixture carries an authority
-        // and connector, so the resolution actually reaches the connector-consulting path — the pin is that the
-        // issue-attribute listing is its ONLY consultation.
-        Connector connector = new Connector();
-        connector.setUrl("http://localhost");
-        connector.setVersion(ConnectorVersion.V1);
-        connector.setStatus(ConnectorStatus.CONNECTED);
-        connector = connectorRepository.save(connector);
+    void connectorWithoutRequestSchemaFallsBackToPlatformDefaultSet() throws Exception {
+        // Regression against 2.19.x: an authority whose connector does not serve /request/attributes resolves to an
+        // empty connector set (the adapter maps 404 / OPERATION_NOT_SUPPORTED / bare 501 to empty), and resolution
+        // must land on the platform default set exactly as it did before the connector was consulted at all.
+        RaProfile raProfile = newProfileWithAuthority("2", AttributeSetMergeMode.MERGE);
+        when(extendedAttributeService.listCertificateRequestAttributes(any())).thenReturn(List.of());
 
-        AuthorityInstanceReference authority = new AuthorityInstanceReference();
-        authority.setAuthorityInstanceUuid("2");
-        authority.setConnector(connector);
-        authority = authorityInstanceReferenceRepository.save(authority);
+        List<BaseAttribute> resolved = certificateService
+                .getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
 
-        RaProfile raProfile = new RaProfile();
-        raProfile.setName("rp-" + UUID.randomUUID());
-        raProfile.setEnabled(true);
-        raProfile.setAuthorityInstanceReference(authority);
-        raProfile.setAuthorityInstanceReferenceUuid(authority.getUuid());
-        raProfile = raProfileRepository.save(raProfile);
-
-        RaProfileCertificateRequestAttribute requestAttribute = new RaProfileCertificateRequestAttribute();
-        requestAttribute.setRaProfile(raProfile);
-        requestAttribute.setMergeMode(AttributeSetMergeMode.MERGE);
-        raProfileCertificateRequestAttributeRepository.save(requestAttribute);
-
-        when(extendedAttributeService.listIssueCertificateAttributes(any())).thenReturn(List.of());
-
-        certificateService.getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
-
-        verify(extendedAttributeService).listIssueCertificateAttributes(any());
+        assertThat(resolved)
+                .extracting(BaseAttribute::getName)
+                .containsExactlyElementsOf(
+                        DefaultRequestAttributeSet.seed().stream().map(BaseAttribute::getName).toList());
+        // The request schema is the only connector consultation: the issue-operation schema is a different axis.
+        verify(extendedAttributeService).listCertificateRequestAttributes(any());
         verifyNoMoreInteractions(extendedAttributeService);
+    }
+
+    @Test
+    void connectorWithoutRequestSchemaFallsBackToTheStaticOverride() throws Exception {
+        // The other half of the 2.19.x behaviour: a profile carrying a static set keeps it when the connector
+        // contributes nothing, rather than being flattened onto the platform default.
+        RaProfile raProfile = newProfileWithAuthority("3", AttributeSetMergeMode.MERGE);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "department"))),
+                        AttributeSetMergeMode.MERGE, null);
+        when(extendedAttributeService.listCertificateRequestAttributes(any())).thenReturn(List.of());
+
+        List<BaseAttribute> resolved = certificateService
+                .getCsrGenerationAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
+
+        assertThat(resolved).extracting(BaseAttribute::getName).containsExactly("department");
     }
 
     @Test
     void withProfileMergesPersistedConnectorSet() throws Exception {
         // given: an enabled profile with a persisted authority/connector reference
-        Connector connector = new Connector();
-        connector.setUrl("http://localhost");
-        connector.setVersion(ConnectorVersion.V1);
-        connector.setStatus(ConnectorStatus.CONNECTED);
-        connector = connectorRepository.save(connector);
-
-        AuthorityInstanceReference authority = new AuthorityInstanceReference();
-        authority.setAuthorityInstanceUuid("1");
-        authority.setConnector(connector);
-        authority = authorityInstanceReferenceRepository.save(authority);
-
-        RaProfile raProfile = new RaProfile();
-        raProfile.setName("rp-" + UUID.randomUUID());
-        raProfile.setEnabled(true);
-        raProfile.setAuthorityInstanceReference(authority);
-        raProfile.setAuthorityInstanceReferenceUuid(authority.getUuid());
-        raProfile = raProfileRepository.save(raProfile);
-
-        RaProfileCertificateRequestAttribute requestAttribute = new RaProfileCertificateRequestAttribute();
-        requestAttribute.setRaProfile(raProfile);
-        requestAttribute.setMergeMode(AttributeSetMergeMode.MERGE);
-        raProfileCertificateRequestAttributeRepository.save(requestAttribute);
-
-        when(extendedAttributeService.listIssueCertificateAttributes(any()))
+        RaProfile raProfile = newProfileWithAuthority("1", AttributeSetMergeMode.MERGE);
+        when(extendedAttributeService.listCertificateRequestAttributes(any()))
                 .thenReturn(List.of(def("c1", "connector-attr")));
 
         // when
@@ -186,7 +189,7 @@ class CsrGenerationAttributesITest extends BaseSpringBootTest {
 
         // then: the stubbed connector set is projected, and the connector attribute fetch was invoked
         assertThat(resolved).extracting(BaseAttribute::getName).containsExactly("connector-attr");
-        verify(extendedAttributeService).listIssueCertificateAttributes(any());
+        verify(extendedAttributeService).listCertificateRequestAttributes(any());
     }
 
     @Test
