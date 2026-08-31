@@ -137,12 +137,11 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
-    public List<BaseAttribute> listTokenAttributes(UUID connectorUuid, @Nullable String kind)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
+    public List<BaseAttribute> listTokenAttributes(SecuredUUID connectorUuid, @Nullable String kind)
             throws ConnectorException, NotFoundException {
         logger.info("Listing token attributes for connector '{}'", connectorUuid);
-        ImmutableConnectorFullModel connector = connectorExternalService
-                .getConnectorFullModel(SecuredUUID.fromUUID(connectorUuid));
+        ImmutableConnectorFullModel connector = connectorExternalService.getConnectorFullModel(connectorUuid);
 
         return tokenProviderAdapterFactory.forConnector(connector).listTokenAttributes(kind);
     }

@@ -139,7 +139,8 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
                         .willReturn(WireMock.okJson("[]")));
 
         // when
-        List<?> attributes = tokenInstanceService.listTokenAttributes(connector.getUuid(), requestedKind);
+        List<?> attributes = tokenInstanceService
+                .listTokenAttributes(SecuredUUID.fromUUID(connector.getUuid()), requestedKind);
 
         // then
         Assertions.assertNotNull(attributes);

@@ -13,7 +13,6 @@ import com.otilm.api.model.core.cryptography.token.TokenInstanceDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import java.util.List;
-import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 public interface TokenInstanceExternalService {
@@ -34,7 +33,7 @@ public interface TokenInstanceExternalService {
      * @throws ConnectorException when there are issues with connector communication or an error from the connector
      * @throws NotFoundException when the connector is not found
      */
-    List<BaseAttribute> listTokenAttributes(UUID connectorUuid, @Nullable String kind)
+    List<BaseAttribute> listTokenAttributes(SecuredUUID connectorUuid, @Nullable String kind)
             throws ConnectorException, NotFoundException;
 
     /**

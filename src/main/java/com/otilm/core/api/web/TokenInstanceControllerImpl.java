@@ -48,7 +48,7 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
             operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listTokenAttributes(UUID connectorUuid, @Nullable String kind)
             throws ConnectorException, NotFoundException {
-        return tokenInstanceService.listTokenAttributes(connectorUuid, kind);
+        return tokenInstanceService.listTokenAttributes(SecuredUUID.fromUUID(connectorUuid), kind);
     }
 
     @Override

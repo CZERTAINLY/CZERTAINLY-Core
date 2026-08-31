@@ -103,7 +103,8 @@ class TokenInstanceServiceV2ITest extends BaseSpringBootTest {
         String legacyKind = "SOFT";
 
         // when
-        List<BaseAttribute> attributes = tokenInstanceService.listTokenAttributes(connector.getUuid(), legacyKind);
+        List<BaseAttribute> attributes = tokenInstanceService
+                .listTokenAttributes(SecuredUUID.fromUUID(connector.getUuid()), legacyKind);
 
         // then
         assertNotNull(attributes);
