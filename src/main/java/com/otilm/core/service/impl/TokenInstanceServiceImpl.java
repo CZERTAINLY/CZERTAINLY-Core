@@ -221,6 +221,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             logger.debug("Metadata and Custom attributes created");
         }
 
+        updateTokenAttributes(request, tokenInstance);
+
         try {
             var status = adapter.getStatus(tokenInstance);
             tokenInstance = tokenInstance.withNewStatus(status.getStatus());
@@ -231,7 +233,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
 
         logger.debug("Token Instance Reference: '{}'", tokenInstance);
 
-        return updateTokenAttributesAndAssembleTokenInstanceDetail(request, tokenInstance);
+        return assembleTokenInstanceDetail(tokenInstance);
     }
 
     @Override
@@ -247,13 +249,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
 
         attributeEngine.validateCustomAttributesContent(Resource.TOKEN, request.getCustomAttributes());
         validateAndMergeTokenRequestAttributes(connector, adapter, request.getAttributes(), request.getKind());
-
-        try {
-            tokenInstance = refreshTokenInstanceStatus(tokenInstance, adapter);
-        } catch (ConnectorException e) {
-            logger.error("Unable to refresh token status before update: '{}'", e.getMessage());
-            tokenInstance = tokenInstance.withNewStatus(TokenInstanceStatus.WARNING);
-        }
 
         if (adapter instanceof RemoteTokenLifecycleCapability cap) {
             var dataAttributes = attributeEngine
@@ -277,8 +272,19 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                                     .build());
             logger.debug("Metadata and Custom attributes updated");
         }
+
+        updateTokenAttributes(request, tokenInstance);
         tokenInstanceReferenceWriter.save(tokenInstance);
-        return updateTokenAttributesAndAssembleTokenInstanceDetail(request, tokenInstance);
+
+        try {
+            tokenInstance = refreshTokenInstanceStatus(tokenInstance, adapter);
+        } catch (ConnectorException e) {
+            logger.error("Unable to refresh token status after update: '{}'", e.getMessage());
+            tokenInstance = tokenInstance.withNewStatus(TokenInstanceStatus.WARNING);
+        }
+        tokenInstanceReferenceWriter.save(tokenInstance);
+
+        return assembleTokenInstanceDetail(tokenInstance);
     }
 
     @Override
@@ -446,23 +452,16 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         return tokenInstance;
     }
 
-    private TokenInstanceDetailDto updateTokenAttributesAndAssembleTokenInstanceDetail(TokenInstanceRequestDto request,
-            TokenInstanceBasicModel tokenInstanceReference) throws NotFoundException, AttributeException {
-
-        TokenInstanceDetailDto detail = assembleTokenInstanceDetailBase(tokenInstanceReference);
-
-        detail
-                .setCustomAttributes(attributeEngine
-                        .updateObjectCustomAttributesContent(Resource.TOKEN, tokenInstanceReference.uuid(),
-                                request.getCustomAttributes()));
-        detail
-                .setAttributes(attributeEngine
-                        .updateObjectDataAttributesContent(ObjectAttributeContentInfo
-                                .builder(Resource.TOKEN, tokenInstanceReference.uuid())
-                                .connector(tokenInstanceReference.connectorUuid())
-                                .build(), request.getAttributes()));
-        logger.trace("Token Instance detail: '{}'", detail);
-        return detail;
+    private void updateTokenAttributes(TokenInstanceRequestDto request, TokenInstanceBasicModel tokenInstanceReference)
+            throws NotFoundException, AttributeException {
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.TOKEN, tokenInstanceReference.uuid(),
+                        request.getCustomAttributes());
+        attributeEngine
+                .updateObjectDataAttributesContent(ObjectAttributeContentInfo
+                        .builder(Resource.TOKEN, tokenInstanceReference.uuid())
+                        .connector(tokenInstanceReference.connectorUuid())
+                        .build(), request.getAttributes());
     }
 
     private TokenInstanceDetailDto assembleTokenInstanceDetail(TokenInstanceBasicModel tokenInstanceReference) {
