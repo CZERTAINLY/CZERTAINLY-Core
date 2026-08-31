@@ -12,7 +12,7 @@ import com.otilm.core.enums.FilterField;
 import com.otilm.core.enums.ResourceToClass;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
-import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.From;
 import jakarta.persistence.criteria.Order;
 import jakarta.persistence.criteria.Root;
 import java.util.ArrayList;
@@ -103,14 +103,15 @@ public final class SortOrderBuilder {
                 : criteriaBuilder.least((Expression) expression);
     }
 
+    /**
+     * Resolves the field attribute through the metamodel, because Hibernate 7 drops the implicit downcast a name lookup
+     * needs for an attribute declared on a subtype of the root.
+     */
     private static Expression<?> resolveExpression(Root<?> root, FilterField field) {
-        String path = FilterPredicatesBuilder.buildPathToProperty(field.getJoinAttributes(), field.getFieldAttribute());
+        String joinPath = FilterPredicatesBuilder.buildPathToProperty(field.getJoinAttributes(), null);
         try {
-            if (!path.contains(".")) {
-                return FilterPredicatesBuilder.prepareExpression(root, path);
-            }
-            Join<?, ?> join = FilterPredicatesBuilder.prepareJoin(root, path.substring(0, path.lastIndexOf('.')));
-            return FilterPredicatesBuilder.prepareExpression(join, path.substring(path.lastIndexOf('.') + 1));
+            From<?, ?> from = joinPath.isEmpty() ? root : FilterPredicatesBuilder.prepareJoin(root, joinPath);
+            return FilterPredicatesBuilder.resolveFieldPath(from, field.getFieldAttribute());
         } catch (IllegalArgumentException e) {
             throw new ValidationException(
                     ValidationError.create("Field %s cannot be sorted on this resource.".formatted(field.name())));

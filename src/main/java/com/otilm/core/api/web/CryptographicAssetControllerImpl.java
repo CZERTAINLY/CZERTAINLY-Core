@@ -11,6 +11,7 @@ import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.core.aop.AuditLogged;
+import com.otilm.core.auth.AuthEndpoint;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -32,6 +33,7 @@ public class CryptographicAssetControllerImpl implements CryptographicAssetContr
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CRYPTO_ASSET, operation = Operation.LIST)
+    @AuthEndpoint(resourceName = Resource.CRYPTO_ASSET)
     public PaginationResponseDto<CryptographicAssetDto> listCryptographicAssets(SearchRequestDto request) {
         return cryptographicAssetService.listCryptographicAssets(SecurityFilter.create(), request);
     }

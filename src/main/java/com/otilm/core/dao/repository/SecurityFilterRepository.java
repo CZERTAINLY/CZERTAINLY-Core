@@ -75,6 +75,15 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
     Long countUsingSecurityFilter(SecurityFilter filter,
             TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause);
 
+    /**
+     * Row count without the DISTINCT the variant above emits. Correct only where no predicate can duplicate the root
+     * row: every joining shape must go through EXISTS subqueries and the resource's security filter must add no join of
+     * its own. Where that holds, prefer this one -- Postgres cannot parallelize {@code count(DISTINCT ...)}, which at
+     * millions of rows is seconds against milliseconds for a plain {@code count(*)}.
+     */
+    Long countRowsUsingSecurityFilter(SecurityFilter filter,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause);
+
     Integer deleteUsingSecurityFilter(SecurityFilter filter,
             TriFunction<Root<T>, CriteriaBuilder, CriteriaDelete<T>, Predicate> additionalWhereClause);
 
