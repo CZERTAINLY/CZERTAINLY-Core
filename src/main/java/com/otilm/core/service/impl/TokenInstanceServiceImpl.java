@@ -32,7 +32,6 @@ import com.otilm.core.model.crypto.TokenInstanceFullModel;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
-import com.otilm.core.service.CommentInternalService;
 import com.otilm.core.service.ConnectorInternalService;
 import com.otilm.core.service.CredentialInternalService;
 import com.otilm.core.service.ResourceInternalService;
@@ -85,13 +84,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                 creationResult != null ? creationResult.getUuid() : null, request.getName(),
                 TokenInstanceStatus.UNKNOWN, request.getKind(), connector.uuid(), connector.name(),
                 binding.connectorInterface() == null ? null : binding.connectorInterface().uuid(), 0);
-    }
-
-    private CommentInternalService commentService;
-
-    @Autowired
-    public void setCommentService(CommentInternalService commentService) {
-        this.commentService = commentService;
     }
 
     @Autowired
@@ -573,8 +565,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         } else {
             logger.debug("Deleting token instance without connector: '{}'", tokenInstanceReference);
         }
-        attributeEngine.deleteObjectAttributeContent(Resource.TOKEN, tokenInstanceReference.uuid());
-        commentService.removeObjectComments(Resource.TOKEN, tokenInstanceReference.uuid());
         tokenInstanceReferenceWriter.delete(tokenInstanceReference);
 
         logger
