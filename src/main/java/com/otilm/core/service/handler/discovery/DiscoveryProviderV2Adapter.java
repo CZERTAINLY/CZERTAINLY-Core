@@ -43,19 +43,13 @@ import org.springframework.stereotype.Component;
  * Opens and drives a v2 run at its connector.
  *
  * <p>
- * {@code start} is the handover, not the scan: it opens the run, records what the connector answered, and schedules the
- * first agenda rows. Everything after that belongs to the tick workers, so this returns as soon as the run is driveable
- * rather than waiting for results.
+ * {@code start} is the handover, not the scan: it opens the run, records what the connector answered, schedules the
+ * first agenda rows, and returns. Every failure there ends the run terminally — a non-terminal v2 run has no owner,
+ * since the caller is asynchronous and the tick workers drive only runs that already have agenda rows.
  *
  * <p>
- * Every {@code start} failure ends the run terminally. A v2 run that is left non-terminal has no owner — the caller is
- * asynchronous and the tick workers only drive runs that already have agenda rows — so the reaper would have to collect
- * it after its grace window rather than the failure being reported at once.
- *
- * <p>
- * <b>The lifecycle operations behave the opposite way</b> and throw. They answer a client that is waiting, so a refusal
- * is a response rather than a run outcome: an illegal transition raises {@link ValidationException}, which the platform
- * maps to 422. Only two things end a run here — a cancel, and a resume the connector cannot honour.
+ * <b>The lifecycle operations behave the opposite way</b> and throw: they answer a waiting client, so an illegal
+ * transition is a {@link ValidationException} (422) rather than a run outcome.
  */
 @Component
 public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
@@ -134,7 +128,13 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
                 Thread.currentThread().interrupt();
             }
             logger.error("Discovery {} could not be started at its connector", discoveryUuid, e);
-            terminator.end(discoveryUuid, DiscoveryStatus.FAILED, startFailureReason(e));
+            terminator.endWith(discoveryUuid, failing -> {
+                // Whoever asked for the run is still on the thread and reports this failure to the scheduler itself.
+                // Announcing it here as well would finalize one job history twice: its owner notified twice, and
+                // SCHEDULED_JOB_FINISHED raised twice, so anything bound to that event acts twice.
+                failing.setScheduledJobHistoryUuid(null);
+                return new DiscoveryRunTerminator.Ending(DiscoveryStatus.FAILED, startFailureReason(e));
+            });
             return detailOf(discoveryUuid);
         }
     }
@@ -370,14 +370,10 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         // 404 is not a failure: it says the connector no longer tracks the run, which is the state cancel asked
         // for. The client hands the status back rather than throwing precisely so this can be read, not caught.
         call(discoveryUuid, "cancel", () -> client.cancel(discovery));
-        // Through the terminator's own decide hook, so connector_status and the terminal transition commit together
-        // under one lock. Written in a transaction of its own instead, the run stays non-terminal between the two
-        // commits: a status tick landing in that window passes every guard -- the run has not left the connector,
-        // and its status has not changed since the poll -- and writes the connector's answer back over this.
-        //
-        // Set from here rather than inside the terminator, which also ends runs whose connector said nothing at all
-        // (the reaper's, most of them) and must leave the connector's last known view standing. This cancel was
-        // acknowledged, so here the connector's view really is CANCELLED.
+        // Through the decide hook so connector_status and the terminal transition commit under one lock: split, the
+        // run is non-terminal between the two commits and a status tick in that window overwrites this. Set here
+        // rather than in the terminator, which also ends runs whose connector said nothing and must leave its last
+        // known view standing; this cancel was acknowledged.
         terminator.endWith(discoveryUuid, run -> {
             run.setConnectorStatus(DiscoveryStatus.CANCELLED);
             return new DiscoveryRunTerminator.Ending(DiscoveryStatus.CANCELLED, "Discovery cancelled");
@@ -436,10 +432,8 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
      *
      * <p>
      * The refresh is what makes the re-assertions above this call mean anything. Every lifecycle operation runs
-     * {@code NOT_SUPPORTED} and has already loaded the run to decide the call was legal, so the run sits in the
-     * persistence context this new transaction shares with it: the locking read finds that instance and answers with
-     * its pre-call field values, however far the row has moved since. Re-checking that snapshot only re-checks what was
-     * already checked before the connector call.
+     * {@code NOT_SUPPORTED} and has already loaded the run, so the locking read finds that same instance in the shared
+     * persistence context and answers with its pre-call field values, however far the row has moved since.
      */
     private Discovery lock(UUID discoveryUuid) {
         Discovery run = discoveryRepository
