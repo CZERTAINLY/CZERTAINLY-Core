@@ -13,6 +13,7 @@ import com.otilm.core.dao.entity.AttributeContent2Object;
 import com.otilm.core.dao.entity.AttributeContent2Object_;
 import com.otilm.core.dao.entity.AttributeContentItem_;
 import com.otilm.core.dao.entity.AttributeDefinition_;
+import com.otilm.core.dao.entity.Cbom_;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
 import com.otilm.core.dao.entity.CryptographicKeyItem_;
 import com.otilm.core.dao.entity.GroupAssociation;
@@ -20,9 +21,13 @@ import com.otilm.core.dao.entity.GroupAssociation_;
 import com.otilm.core.dao.entity.ResourceObjectAssociation_;
 import com.otilm.core.dao.entity.ScheduledJobHistory;
 import com.otilm.core.dao.entity.UniquelyIdentified_;
+import com.otilm.core.dao.entity.cbom.CryptoAssetSource;
+import com.otilm.core.dao.entity.cbom.CryptoAssetSource_;
+import com.otilm.core.dao.entity.cbom.CryptoAsset_;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.enums.ResourceToClass;
 import com.otilm.core.enums.SearchFieldTypeEnum;
+import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import jakarta.persistence.criteria.CommonAbstractCriteria;
@@ -47,10 +52,12 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -59,6 +66,7 @@ import java.util.stream.Collectors;
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.Duration;
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.hibernate.query.criteria.JpaExpression;
 
 public class FilterPredicatesBuilder {
@@ -76,19 +84,37 @@ public class FilterPredicatesBuilder {
     private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
     private static final String TEXTREGEXEQ_FUNCTION_NAME = "textregexeq";
     private static final String ARRAY_CONTAINS_FUNCTION_NAME = PostgresFunctionContributor.ARRAY_CONTAINS;
+
+    private static final char LIKE_ESCAPE_CHAR = '\\';
     private static final String ARRAY_ITEM_CONTAINS_FUNCTION_NAME = PostgresFunctionContributor.ARRAY_ITEM_CONTAINS;
+
+    private static final Set<FilterConditionOperator> OID_CONDITIONS_A_NULL_OID_SATISFIES = Set
+            .of(FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS);
+    private static final Set<FilterConditionOperator> OID_CONDITIONS_A_NULL_OID_NEVER_SATISFIES = Set
+            .of(FilterConditionOperator.EQUALS, FilterConditionOperator.CONTAINS, FilterConditionOperator.STARTS_WITH,
+                    FilterConditionOperator.ENDS_WITH, FilterConditionOperator.MATCHES,
+                    FilterConditionOperator.NOT_MATCHES);
 
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder,
             final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
         Map<String, From> joinedAssociations = new HashMap<>();
+
+        // An explicit filter on the refuted-OID facet is the caller opting into matching refuted OID
+        // values, so the carve-outs below switch off for the whole request; the facet's own predicate
+        // then selects rows by refutedness. Without this, combining the facet with an OID filter would
+        // be self-contradictory and always empty.
+        boolean refutedOidsOptedIn = filterDtos != null && filterDtos
+                .stream()
+                .anyMatch(dto -> dto.getFieldSource() == FilterFieldSource.PROPERTY
+                        && FilterField.CBOM_ASSET_OID_REFUTED.name().equals(dto.getFieldIdentifier()));
 
         List<Predicate> predicates = new ArrayList<>();
         if (filterDtos != null) {
             for (SearchFilterRequestDto filterDto : filterDtos) {
                 if (filterDto.getFieldSource() == FilterFieldSource.PROPERTY) {
                     predicates
-                            .add(getPropertyFilterPredicate(criteriaBuilder, query, root, filterDto,
-                                    joinedAssociations));
+                            .add(getPropertyFilterPredicate(criteriaBuilder, query, root, filterDto, joinedAssociations,
+                                    refutedOidsOptedIn));
                 } else {
                     predicates.add(getAttributeFilterPredicate(criteriaBuilder, query, root, filterDto));
                 }
@@ -328,7 +354,7 @@ public class FilterPredicatesBuilder {
 
     private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder,
             final CommonAbstractCriteria query, final Root<T> root, SearchFilterRequestDto filterDto,
-            Map<String, From> joinedAssociations) {
+            Map<String, From> joinedAssociations, boolean refutedOidsOptedIn) {
         final FilterField filterField = FilterField.valueOf(filterDto.getFieldIdentifier());
         From from = getJoinedAssociation(root, joinedAssociations, filterField, filterDto.getCondition());
 
@@ -338,6 +364,41 @@ public class FilterPredicatesBuilder {
                 && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
             throw new ValidationException("Filter for field " + filterField + " with operator "
                     + filterDto.getCondition() + " requires at least one value.");
+        }
+
+        // FREE_TEXT has no single fieldAttribute (it spans several columns) and CBOM_ASSET_SOURCE_CBOM's
+        // fieldAttribute declares on Cbom, not on the crypto-asset root, so the generic from.get(...) below would
+        // throw for it. Both are therefore built by dedicated branches before that generic resolution runs.
+        if (filterField.getType() == SearchFieldTypeEnum.FREE_TEXT) {
+            return getCryptoAssetFreeTextPredicate(criteriaBuilder, root, filterField, filterDto, filterValues,
+                    refutedOidsOptedIn);
+        }
+        if (filterField == FilterField.CBOM_ASSET_SOURCE_CBOM) {
+            return getCryptoAssetSourceCbomPredicate(criteriaBuilder, query, root, filterDto, filterValues);
+        }
+
+        // An expectedValue field compares one stored constant against the boolean the caller sends, so only EQUALS
+        // and NOT_EQUALS are answerable -- exactly what SearchHelper advertises for it. The rest are refused here:
+        // the boolean value prep below would otherwise fail on a valueless EMPTY, and NOT_EMPTY would read "any
+        // value is set" -- which for the refuted-OID facet means any guard at all, not refutedness.
+        if (filterField.getExpectedValue() != null) {
+            if (filterDto.getCondition() != FilterConditionOperator.EQUALS
+                    && filterDto.getCondition() != FilterConditionOperator.NOT_EQUALS) {
+                throw new ValidationException("Condition " + filterDto.getCondition() + " is not supported for field "
+                        + filterField + "; the field supports EQUALS and NOT_EQUALS.");
+            }
+            // The value prep below reads getValue().toString() through Boolean.parseBoolean, which turns a JSON
+            // array ["true"] into "[true]" -> false and silently INVERTS the predicate -- after the facet's mere
+            // presence has already disarmed the refuted-OID carve-outs for the whole request. Only a scalar
+            // boolean is meaningful; everything else is refused before any predicate is built.
+            Object rawValue = filterDto.getValue();
+            boolean scalarBoolean = rawValue != null && !(rawValue instanceof Collection<?>)
+                    && !rawValue.getClass().isArray()
+                    && ("true".equalsIgnoreCase(rawValue.toString()) || "false".equalsIgnoreCase(rawValue.toString()));
+            if (!scalarBoolean) {
+                throw new ValidationException(
+                        "Field " + filterField + " accepts a single boolean value, true or false.");
+            }
         }
 
         Expression expression = null;
@@ -592,7 +653,109 @@ public class FilterPredicatesBuilder {
 
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
+
+        // A refuted OID must answer OID value predicates exactly as an absent one would: the stored value
+        // is auditable, but it must never decide membership. Conditions a NULL oid satisfies
+        // (the or(isNull, ...) negatives) admit refuted rows too; conditions a NULL oid can never satisfy
+        // exclude them. EMPTY/NOT_EMPTY stay untouched -- that an OID was recorded is a true fact.
+        if (filterField == FilterField.CBOM_ASSET_OID && !refutedOidsOptedIn) {
+            if (OID_CONDITIONS_A_NULL_OID_SATISFIES.contains(conditionOperator)) {
+                predicate = criteriaBuilder.or(predicate, oidRefuted(criteriaBuilder, from));
+            } else if (OID_CONDITIONS_A_NULL_OID_NEVER_SATISFIES.contains(conditionOperator)) {
+                predicate = criteriaBuilder.and(predicate, oidNotRefuted(criteriaBuilder, from));
+            }
+        }
         return predicate;
+    }
+
+    /**
+     * Matches a single text input, case-insensitively, across the crypto-asset name and oid columns at once. A refuted
+     * oid is excluded from its side of the match unless the caller opted into the refuted-OID facet, so the row stays
+     * findable through its name but the neutralized oid cannot answer the query.
+     *
+     * <p>
+     * Index note, superseding migration V202608271000's rationale comment ("FilterPredicatesBuilder never emits
+     * lower()" -- true when the migration shipped, falsified by this method; the applied file is Flyway-checksum
+     * frozen, so the correction lives here). The conclusion still holds: infix {@code %x%} LIKE is unservable by any
+     * btree, so free text is a sequential scan by design in v1. Measured while confirming: prefix LIKE (STARTS_WITH) is
+     * equally unservable under a non-C collation without {@code text_pattern_ops}, so the upgrade path if this surface
+     * gets hot is a trigram GIN on lower(name)/lower(oid) for infix plus {@code text_pattern_ops} btrees for prefix --
+     * a new indexing migration, never an edit to the applied one.
+     */
+    private static <T> Predicate getCryptoAssetFreeTextPredicate(CriteriaBuilder criteriaBuilder, Root<T> root,
+            FilterField filterField, SearchFilterRequestDto filterDto, List<Object> filterValues,
+            boolean refutedOidsOptedIn) {
+        if (filterField != FilterField.CBOM_ASSET_FREE_TEXT) {
+            throw new ValidationException("Free-text filter is not defined for field " + filterField + ".");
+        }
+        if (filterDto.getCondition() != FilterConditionOperator.CONTAINS) {
+            throw new ValidationException(
+                    "Free-text filter for field " + filterField + " supports only the CONTAINS operator.");
+        }
+        if (filterValues.size() > 1) {
+            throw new ValidationException("Free-text filter for field " + filterField + " accepts a single value.");
+        }
+
+        // Bound as a parameter, never a literal: an inlined pattern lands verbatim in the SQL statement text --
+        // Postgres server logs, pg_stat_statements -- and people paste secrets into search boxes. lower() stays on
+        // the SQL side so both operands fold under the database's collation, not two different case rules.
+        Expression<String> pattern = criteriaBuilder
+                .lower(((HibernateCriteriaBuilder) criteriaBuilder)
+                        .value("%" + escapeLikeWildcards(filterValues.getFirst().toString()) + "%"));
+        Predicate nameMatches = criteriaBuilder
+                .like(criteriaBuilder.lower(root.get(CryptoAsset_.NAME)), pattern, LIKE_ESCAPE_CHAR);
+        Predicate oidMatches = criteriaBuilder
+                .like(criteriaBuilder.lower(root.get(CryptoAsset_.OID)), pattern, LIKE_ESCAPE_CHAR);
+        if (!refutedOidsOptedIn) {
+            oidMatches = criteriaBuilder.and(oidMatches, oidNotRefuted(criteriaBuilder, root));
+        }
+        return criteriaBuilder.or(nameMatches, oidMatches);
+    }
+
+    /**
+     * LIKE's {@code %}, {@code _} and the escape character itself, escaped so free-text input matches literally. The
+     * generic CONTAINS on single columns leaves wildcards active (a platform-wide trait predating this field); the
+     * free-text box is new surface, and a search box promises literal matching.
+     */
+    private static String escapeLikeWildcards(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    }
+
+    private static Predicate oidNotRefuted(CriteriaBuilder cb, From<?, ?> from) {
+        Path<CryptoAssetIdentityGuard> guard = from.get(CryptoAsset_.IDENTITY_GUARD);
+        return cb.or(cb.isNull(guard), cb.notEqual(guard, CryptoAssetIdentityGuard.REFUTED_OID));
+    }
+
+    private static Predicate oidRefuted(CriteriaBuilder cb, From<?, ?> from) {
+        return cb.equal(from.get(CryptoAsset_.IDENTITY_GUARD), CryptoAssetIdentityGuard.REFUTED_OID);
+    }
+
+    /**
+     * Matches through an EXISTS subquery against {@code crypto_asset_source}, never a join: the uuid page query this
+     * predicate feeds carries no DISTINCT, so a join would repeat a row that has several matching sources.
+     */
+    private static <T> Predicate getCryptoAssetSourceCbomPredicate(CriteriaBuilder cb, CommonAbstractCriteria query,
+            Root<T> root, SearchFilterRequestDto filterDto, List<Object> filterValues) {
+        Subquery<Integer> subquery = query.subquery(Integer.class);
+        Root<CryptoAssetSource> source = subquery.from(CryptoAssetSource.class);
+        Predicate correlation = cb
+                .equal(source.get(CryptoAssetSource_.assetUuid), root.get(UniquelyIdentified_.uuid.getName()));
+        FilterConditionOperator condition = filterDto.getCondition();
+        switch (condition) {
+            case EQUALS, NOT_EQUALS -> {
+                Join cbom = source.join(CryptoAssetSource_.cbom);
+                subquery.select(cb.literal(1)).where(correlation, cbom.get(Cbom_.serialNumber).in(filterValues));
+                return condition == FilterConditionOperator.EQUALS ? cb.exists(subquery) : cb.not(cb.exists(subquery));
+            }
+            case EMPTY, NOT_EMPTY -> {
+                subquery.select(cb.literal(1)).where(correlation);
+                return condition == FilterConditionOperator.NOT_EMPTY
+                        ? cb.exists(subquery)
+                        : cb.not(cb.exists(subquery));
+            }
+            default -> throw new ValidationException("Unexpected condition " + condition + " for filter field "
+                    + FilterField.CBOM_ASSET_SOURCE_CBOM + ".");
+        }
     }
 
     public static boolean isJsonArray(FilterField filterField) {
