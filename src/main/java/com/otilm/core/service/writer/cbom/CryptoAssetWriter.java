@@ -13,6 +13,7 @@ import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class CryptoAssetWriter {
+
+    private static final Pattern IDENTITY_KEY = Pattern.compile("[0-9a-f]{64}");
 
     private final CryptoAssetRepository assetRepository;
     private final CryptoAssetAliasRepository aliasRepository;
@@ -76,6 +79,7 @@ public class CryptoAssetWriter {
     @Transactional
     public UUID upsertIdentity(String identityKey, CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
         CryptoAssetIdentityFields stored = fields.normalized();
+        requireIdentityKeyShape(identityKey);
         requireWithinLengthBounds(stored);
         if (guard != null) {
             requireNoAlias(identityKey, guard);
@@ -123,6 +127,12 @@ public class CryptoAssetWriter {
     static final int MAX_OID_LENGTH = 255;
 
     static final int MAX_NAME_LENGTH = 1024;
+
+    static void requireIdentityKeyShape(String identityKey) {
+        if (identityKey == null || !IDENTITY_KEY.matcher(identityKey).matches()) {
+            throw new ValidationException(ValidationError.create("Cryptographic asset identity key has invalid shape"));
+        }
+    }
 
     /**
      * Refuses an over-long identity column before it can reach the statement.

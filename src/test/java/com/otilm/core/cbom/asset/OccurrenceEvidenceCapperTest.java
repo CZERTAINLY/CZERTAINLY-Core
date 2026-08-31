@@ -22,6 +22,12 @@ class OccurrenceEvidenceCapperTest {
         return occurrence;
     }
 
+    private static Map<String, Object> occurrenceWithDetail(String location, String detail) {
+        Map<String, Object> occurrence = occurrence(location, null);
+        occurrence.put("detail", detail);
+        return occurrence;
+    }
+
     private static String snippet(int length) {
         return SECRET_MARKER + "x".repeat(length);
     }
@@ -51,6 +57,19 @@ class OccurrenceEvidenceCapperTest {
                 .describedAs("the snippet goes even under budget: at a secret-scanner finding it IS the secret, so "
                         + "whether it reaches a stored column must not depend on how large the rest of the array was")
                 .noneMatch(occurrence -> occurrence.containsKey("additionalContext"));
+    }
+
+    @Test
+    void storedLocationsAreSanitizedEvenWhenEvidenceFits() {
+        List<Map<String, Object>> capped = OccurrenceEvidenceCapper
+                .cap(List.of(occurrence("https://user:p@ss@host/path?token=secret#fragment", null)));
+
+        assertThat(capped).containsExactly(occurrence("https://host/path", null));
+        assertThat(render(capped))
+                .doesNotContain("user")
+                .doesNotContain("p@ss")
+                .doesNotContain("token=secret")
+                .doesNotContain("fragment");
     }
 
     @Test
@@ -111,12 +130,12 @@ class OccurrenceEvidenceCapperTest {
 
     @Test
     void whatWillNotFitWithoutSnippetsIsDroppedOccurrenceByOccurrenceFromTheTail() {
-        // Ten occurrences with an oversized location each: no additionalContext to drop, so whole occurrences go.
+        // Ten occurrences with an oversized non-location field each: no additionalContext to drop, so whole
+        // occurrences go. Location is different because the published contract caps it at 1024 characters.
         List<Map<String, Object>> occurrences = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
             occurrences
-                    .add(occurrence("marker" + i + "-" + "y".repeat(OccurrenceEvidenceCapper.MAX_EVIDENCE_BYTES / 8),
-                            null));
+                    .add(occurrenceWithDetail("marker" + i, "y".repeat(OccurrenceEvidenceCapper.MAX_EVIDENCE_BYTES / 8)));
         }
 
         List<Map<String, Object>> capped = OccurrenceEvidenceCapper.cap(occurrences);
@@ -126,13 +145,13 @@ class OccurrenceEvidenceCapperTest {
         assertThat(capped.getFirst()).isEqualTo(occurrences.getFirst());
         assertThat(render(capped))
                 .describedAs("dropping is from the tail, so the earliest occurrences survive")
-                .contains("marker0-");
+                .contains("marker0");
     }
 
     @Test
     void oneOccurrenceTooBigToStoreLeavesNoEvidenceRatherThanAFragment() {
         List<Map<String, Object>> occurrences = List
-                .of(occurrence("x".repeat(OccurrenceEvidenceCapper.MAX_EVIDENCE_BYTES * 2), null));
+                .of(occurrenceWithDetail("src/a.java", "x".repeat(OccurrenceEvidenceCapper.MAX_EVIDENCE_BYTES * 2)));
 
         assertThat(OccurrenceEvidenceCapper.cap(occurrences))
                 .describedAs("the occurrence count on the row still records that it was seen")

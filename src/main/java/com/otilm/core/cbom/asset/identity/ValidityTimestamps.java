@@ -33,13 +33,22 @@ public final class ValidityTimestamps {
      * and gets the {@code t} for free from a case-insensitive matcher. A case-sensitive Java formatter would leave
      * {@code 2025-01-01t00:00:00z} unparsed, keying it on its spelling instead of on its instant.
      */
-    private static final DateTimeFormatter OFFSET_FORMAT = caseInsensitive("yyyy-MM-dd'T'HH:mm:ssZ");
+    private static final List<DateTimeFormatter> OFFSET_FORMATS = List
+            .of(caseInsensitiveOffset("+HH:MM"), caseInsensitive("yyyy-MM-dd'T'HH:mm:ssZ"));
 
     private static final List<DateTimeFormatter> LOCAL_FORMATS = List
             .of(caseInsensitive("yyyy-MM-dd'T'HH:mm:ss'Z'"), caseInsensitive("yyyyMMddHHmmss'Z'"));
 
     private static DateTimeFormatter caseInsensitive(String pattern) {
         return new DateTimeFormatterBuilder().parseCaseInsensitive().appendPattern(pattern).toFormatter();
+    }
+
+    private static DateTimeFormatter caseInsensitiveOffset(String offsetPattern) {
+        return new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
+                .appendOffset(offsetPattern, "Z")
+                .toFormatter();
     }
 
     private ValidityTimestamps() {
@@ -58,11 +67,13 @@ public final class ValidityTimestamps {
             return "";
         }
         String cleaned = FRACTION.matcher(AsciiText.strip(raw)).replaceAll("").replace("z", "Z");
-        try {
-            return Long.toString(OffsetDateTime.parse(cleaned.replace("Z", "+0000"), OFFSET_FORMAT).toEpochSecond());
-        } catch (DateTimeParseException e) {
-            // Not the offset spelling. The local spellings are tried below, and a value matching none is returned
-            // cleaned rather than dropped.
+        for (DateTimeFormatter format : OFFSET_FORMATS) {
+            try {
+                return Long.toString(OffsetDateTime.parse(cleaned, format).toEpochSecond());
+            } catch (DateTimeParseException e) {
+                // Not this offset spelling. The local spellings are tried below, and a value matching none is returned
+                // cleaned rather than dropped.
+            }
         }
         for (DateTimeFormatter format : LOCAL_FORMATS) {
             try {

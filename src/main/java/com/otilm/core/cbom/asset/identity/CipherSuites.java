@@ -86,9 +86,9 @@ public final class CipherSuites {
             String code = code(suite.get("identifiers"));
             JsonNode name = suite.get("name");
             if (code != null && !refuted.contains(code)) {
-                tokens.add(code);
+                tokens.add("c:" + code);
             } else if (name != null && name.isTextual() && !AsciiText.isBlank(name.textValue())) {
-                tokens.add(AsciiText.upper(AsciiText.strip(name.textValue())));
+                tokens.add("n:" + PreImageSlot.of(AsciiText.upper(AsciiText.strip(name.textValue()))));
             }
         }
         return tokens.isEmpty() ? null : String.join("\n", tokens);

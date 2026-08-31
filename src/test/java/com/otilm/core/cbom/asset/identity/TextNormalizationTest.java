@@ -258,6 +258,9 @@ class TextNormalizationTest {
             "2025-01-01T00:00:00Z",
             "2025-01-01T00:00:00.000Z",
             "2025-01-01t00:00:00z",
+            "2025-01-01T00:00:00+00:00",
+            "2025-01-01T02:00:00+02:00",
+            "2024-12-31T19:00:00-05:00",
             "20250101000000Z",
             "2025-01-01T00:00:00.123456789Z"})
     void everySpellingOfOneInstantFoldsToOneValue(String spelling) {
@@ -342,13 +345,15 @@ class TextNormalizationTest {
     @Test
     void credentialsAndVolatilePartsNeverReachAKey() {
         assertThat(sanitize("tcp://user:pass@host:443/path")).isEqualTo("tcp://host:443/path");
+        assertThat(sanitize("https://user:p@ss@host/path")).isEqualTo("https://host/path");
+        assertThat(sanitize("https://user@a@b@host/path")).isEqualTo("https://host/path");
         assertThat(sanitize("https://host/path?token=secret")).isEqualTo("https://host/path");
         assertThat(sanitize("file:///a/b#fragment")).isEqualTo("file:///a/b");
     }
 
     @Test
     void anAbsentLocationIsTheEmptyString() {
-        assertThat(Occurrences.sanitizeLocation(null)).isEmpty();
+        assertThat(Occurrences.sanitizeLocation((JsonNode) null)).isEmpty();
         assertThat(sanitize("   ")).isEmpty();
         assertThat(Occurrences.sanitizeLocation(new IntNode(7)))
                 .describedAs("a location that is not a string states no location")

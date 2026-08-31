@@ -241,8 +241,8 @@ class ContentDigestTest {
         JsonNode properties = read("{\"protocolProperties\":{\"cipherSuites\":["
                 + "{\"name\":\"TLS_AES_128_GCM_SHA256\",\"identifiers\":[\"0xC0\",\"0x30\"]}]}}");
 
-        assertThat(CipherSuites.tokens(properties, Set.of())).isEqualTo("c030");
-        assertThat(CipherSuites.tokens(properties, Set.of("c030"))).isEqualTo("TLS_AES_128_GCM_SHA256");
+        assertThat(CipherSuites.tokens(properties, Set.of())).isEqualTo("c:c030");
+        assertThat(CipherSuites.tokens(properties, Set.of("c030"))).isEqualTo("n:TLS_AES_128_GCM_SHA256");
     }
 
     /** A name-only suite list is still resolvable, which is what makes a name-emitting producer split visibly. */
@@ -251,8 +251,24 @@ class ContentDigestTest {
         JsonNode properties = read(
                 "{\"protocolProperties\":{\"cipherSuites\":[{\"name\":\"tls_aes_128_gcm_sha256\"}]}}");
 
-        assertThat(CipherSuites.tokens(properties, Set.of())).isEqualTo("TLS_AES_128_GCM_SHA256");
+        assertThat(CipherSuites.tokens(properties, Set.of())).isEqualTo("n:TLS_AES_128_GCM_SHA256");
         assertThat(CipherSuites.declared(properties)).isTrue();
+    }
+
+    @Test
+    void suiteNamesCannotForgeAnotherToken() {
+        JsonNode oneSuite = read("{\"protocolProperties\":{\"cipherSuites\":[{\"name\":\"TLS_A\\nTLS_B\"}]}}");
+        JsonNode twoSuites = read("{\"protocolProperties\":{\"cipherSuites\":[{\"name\":\"TLS_A\"},"
+                + "{\"name\":\"TLS_B\"}]}}");
+        JsonNode numericName = read("{\"protocolProperties\":{\"cipherSuites\":[{\"name\":\"1301\"}]}}");
+        JsonNode numericCode = read("{\"protocolProperties\":{\"cipherSuites\":[{\"identifiers\":[\"0x13\",\"0x01\"]}]}}");
+
+        assertThat(CipherSuites.tokens(oneSuite, Set.of())).isEqualTo("n:TLS_A%0ATLS_B");
+        assertThat(CipherSuites.tokens(twoSuites, Set.of())).isEqualTo("n:TLS_A\nn:TLS_B");
+        assertThat(CipherSuites.tokens(numericName, Set.of())).isEqualTo("n:1301");
+        assertThat(CipherSuites.tokens(numericCode, Set.of())).isEqualTo("c:1301");
+        assertThat(CipherSuites.digest(oneSuite, Set.of())).isNotEqualTo(CipherSuites.digest(twoSuites, Set.of()));
+        assertThat(CipherSuites.digest(numericName, Set.of())).isNotEqualTo(CipherSuites.digest(numericCode, Set.of()));
     }
 
     /** "Declared but unreadable" must never look like "none were offered". */

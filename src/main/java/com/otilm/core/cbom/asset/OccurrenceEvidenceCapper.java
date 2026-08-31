@@ -2,6 +2,7 @@ package com.otilm.core.cbom.asset;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.otilm.core.cbom.asset.identity.Occurrences;
 import com.otilm.core.serialization.ObjectMapperFactory;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,6 +44,7 @@ public final class OccurrenceEvidenceCapper {
     public static final int MAX_EVIDENCE_BYTES = 64 * 1024;
 
     static final String ADDITIONAL_CONTEXT = "additionalContext";
+    static final String LOCATION = "location";
 
     private static final ObjectWriter WRITER = ObjectMapperFactory.jsonColumn().writer();
 
@@ -84,9 +86,13 @@ public final class OccurrenceEvidenceCapper {
             if (ADDITIONAL_CONTEXT.equals(key)) {
                 return;
             }
-            stripped.put(key, strip(value));
+            stripped.put(key, LOCATION.equals(key) ? sanitizeLocation(value) : strip(value));
         });
         return stripped;
+    }
+
+    private static String sanitizeLocation(Object value) {
+        return value instanceof String location ? Occurrences.sanitizeLocation(location) : "";
     }
 
     @SuppressWarnings("unchecked")

@@ -21,7 +21,7 @@ public final class Occurrences {
     private static final Pattern QUERY_OR_FRAGMENT = Pattern.compile("[?#]");
 
     /** {@code scheme://user:pass@host} -- a real shape, and the reason a raw location must never be hashed. */
-    private static final Pattern USERINFO = Pattern.compile("://[^/@]*@");
+    private static final Pattern USERINFO = Pattern.compile("://[^/?#]*@");
 
     private static final int MAX_LOCATION_LENGTH = 1024;
 
@@ -81,10 +81,17 @@ public final class Occurrences {
         if (location == null || !location.isTextual() || AsciiText.isBlank(location.textValue())) {
             return "";
         }
-        String text = AsciiText.strip(location.textValue());
-        text = text.substring(0, capBoundary(text));
+        return sanitizeLocation(location.textValue());
+    }
+
+    public static String sanitizeLocation(String location) {
+        if (AsciiText.isBlank(location)) {
+            return "";
+        }
+        String text = AsciiText.strip(location);
         text = QUERY_OR_FRAGMENT.split(text, 2)[0];
-        return USERINFO.matcher(text).replaceFirst("://");
+        text = USERINFO.matcher(text).replaceFirst("://");
+        return text.substring(0, capBoundary(text));
     }
 
     /**
