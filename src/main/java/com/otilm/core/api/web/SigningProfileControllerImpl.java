@@ -15,6 +15,8 @@ import com.otilm.api.model.client.signing.protocols.tsp.TspActivationDetailDto;
 import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.signature.SignatureFamily;
+import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateDto;
 import com.otilm.api.model.core.logging.enums.Module;
@@ -28,6 +30,8 @@ import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.SigningProfileExternalService;
+import com.otilm.core.util.converter.SignatureFamilyConverter;
+import com.otilm.core.util.converter.SignatureLevelConverter;
 import com.otilm.core.util.converter.SigningWorkflowTypeConverter;
 import java.util.List;
 import java.util.Set;
@@ -46,6 +50,8 @@ public class SigningProfileControllerImpl implements SigningProfileController {
     @InitBinder
     public void initBinder(final WebDataBinder webdataBinder) {
         webdataBinder.registerCustomEditor(SigningWorkflowType.class, new SigningWorkflowTypeConverter());
+        webdataBinder.registerCustomEditor(SignatureFamily.class, new SignatureFamilyConverter());
+        webdataBinder.registerCustomEditor(SignatureLevel.class, new SignatureLevelConverter());
     }
 
     @Autowired
@@ -152,6 +158,16 @@ public class SigningProfileControllerImpl implements SigningProfileController {
             throws NotFoundException, ConnectorException, AttributeException {
         return signingProfileService
                 .listSignatureFormattingConnectorAttributes(connectorUuid, SecuredUUID.fromUUID(signingProfileUuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.SIGNING, resource = Resource.SIGNING_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listContentSigningFormattingConnectorAttributes(UUID connectorUuid,
+            SignatureFamily family, SignatureLevel maxLevel, UUID signingProfileUuid)
+            throws NotFoundException, ConnectorException, AttributeException {
+        return signingProfileService
+                .listContentSigningFormattingConnectorAttributes(connectorUuid, family, maxLevel,
+                        SecuredUUID.fromUUID(signingProfileUuid));
     }
 
     @Override
