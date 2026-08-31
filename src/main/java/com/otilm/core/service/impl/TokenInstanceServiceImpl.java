@@ -221,7 +221,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             tokenInstance = tokenInstance.withNewStatus(status.getStatus());
             tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
         } catch (Exception e) {
-            logger.warn("Can't check the the status of the token '{}'", tokenInstance.name(), e);
+            logger.warn("Can't check the status of the token '{}'", tokenInstance.name(), e);
         }
 
         logger.debug("Token Instance Reference: '{}'", tokenInstance);
