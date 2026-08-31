@@ -20,6 +20,7 @@ import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.connector.discovery.v2.DiscoveredItemPayloadDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.FunctionGroupCode;
@@ -82,12 +83,10 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
@@ -116,10 +115,6 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     private static final int MAX_ITEMS_PER_PAGE = 1000;
 
     private static final String DISCOVERY_V2 = "v2";
-
-    /** What the v2 contract defines item payloads for; anything else has no discovery shape to relay. */
-    private static final Set<Resource> DISCOVERABLE_RESOURCES = EnumSet
-            .of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY);
 
     private static final String UNSUPPORTED_VERSION_MESSAGE = "The discovery's connector interface version is not supported.";
 
@@ -292,7 +287,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         ApiClientConnectorInfo connector = requireDiscoveryV2(connectorUuid);
         // Checked before the connector is called at all: the client throws IllegalArgumentException for a
         // resource the contract defines no payload for, which would surface as a 500 rather than a 422.
-        if (!DISCOVERABLE_RESOURCES.contains(resource)) {
+        if (!DiscoveredItemPayloadDto.DISCOVERABLE.contains(resource)) {
             throw new ValidationException("Resource " + resource.getLabel() + " is not discoverable");
         }
         // Discoverable in general is not the same as discoverable by this connector, and the supported set is
@@ -415,6 +410,18 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         if (!unsupported.isEmpty()) {
             throw new ValidationException("Connector " + connector.getUuid() + " does not discover "
                     + unsupported.stream().map(Resource::getLabel).toList());
+        }
+        // What the connector claims to discover is its own answer, and a run may only target what this platform can
+        // represent an item of. Without this a connector advertising anything else opens a run that fails later, at
+        // ingest, where there is no caller left to tell.
+        List<Resource> unrepresentable = request
+                .getResources()
+                .stream()
+                .filter(resource -> !DiscoveredItemPayloadDto.DISCOVERABLE.contains(resource))
+                .toList();
+        if (!unrepresentable.isEmpty()) {
+            throw new ValidationException(
+                    "Discovery cannot report " + unrepresentable.stream().map(Resource::getLabel).toList());
         }
         // Each key must name a resource the run targets. Checked against resources rather than against what the
         // connector supports, because resources was just checked against that: keys are a subset of a subset. A key

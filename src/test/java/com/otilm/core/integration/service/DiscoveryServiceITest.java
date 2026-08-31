@@ -804,6 +804,22 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void creatingRefusesAResourceThePlatformCannotReportOnEvenIfTheConnectorOffersIt() {
+        giveConnectorAV2DiscoveryInterface();
+        // A connector is free to claim anything here. Its claim decides what it can scan, not what this platform can
+        // carry an item for -- that is fixed by the payload subtypes the v2 contract registers.
+        stubSupportedResources("""
+                [{"resource":"certificates"},{"resource":"vaults"}]""");
+        DiscoveryDto request = v2Request(List.of(Resource.VAULT));
+
+        ValidationException refused = Assertions
+                .assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true));
+
+        // Refused at create, where a caller is present. Accepted, it would open a run that fails at ingest instead.
+        Assertions.assertTrue(refused.getMessage().contains("cannot report"), refused.getMessage());
+    }
+
+    @Test
     void creatingAgainstAV1ConnectorRefusesPerResourceAttributes() {
         // Honouring them would send Core to a v2 endpoint this connector does not implement; dropping them would
         // accept a run configured differently from the one that was asked for.
