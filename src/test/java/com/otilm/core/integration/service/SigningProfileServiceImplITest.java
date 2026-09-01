@@ -31,6 +31,7 @@ import com.otilm.api.model.client.signing.timequality.TimeQualityConfigurationDt
 import com.otilm.api.model.common.BulkActionMessageDto;
 import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.otilm.api.model.common.attribute.v2.content.StringAttributeContentV2;
@@ -40,6 +41,7 @@ import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.otilm.api.model.common.signature.SignatureFamily;
 import com.otilm.api.model.common.signature.SignatureLevel;
+import com.otilm.api.model.connector.signatures.contentsigning.common.ContentSigningFormattingOperation;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.connector.v2.ConnectorDetailDto;
@@ -506,7 +508,7 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             // given: signingCertificate from setUp (access allowed by default)
 
             // when
-            List<com.otilm.api.model.common.attribute.common.BaseAttribute> attrs = signingProfileService
+            List<BaseAttribute> attrs = signingProfileService
                     .listSignatureAttributesForCertificate(SecuredUUID.fromUUID(defaultSigningCertificate.getUuid()));
 
             // then
@@ -2403,6 +2405,139 @@ class SigningProfileServiceImplITest extends BaseSpringBootTest {
             assertTrue(exception.getMessage().contains(attrName),
                     "ValidationException must identify the missing required formatting attribute, but was: "
                             + exception.getMessage());
+        }
+    }
+
+    @Nested
+    class ContentSigningFormattingAttributeDiscovery {
+
+        @Test
+        void timestampingDiscovery_stillServesItsOwnDescriptors()
+                throws AttributeException, ConnectorException, NotFoundException {
+            // given
+            UUID attrUuid = UUID.fromString("0000ffff-1111-2222-3333-777777777777");
+            String attrName = "data_timestampingFormattingAttr";
+            timestampingFormattingMock.stubFormattingAttributeDefinition(attrUuid, attrName, false);
+
+            // when
+            List<BaseAttribute> discovered = signingProfileService
+                    .listSignatureFormattingConnectorAttributes(
+                            UUID.fromString(timestampingFormattingConnector.getUuid()), SecuredUUID.fromUUID(null));
+
+            // then
+            assertThat(discovered).extracting(BaseAttribute::getName).containsExactly(attrName);
+        }
+
+        @Test
+        void discovery_servesTheAggregateAProfileSaveThenAccepts()
+                throws AlreadyExistException, AttributeException, ConnectorException, NotFoundException {
+            // given: the provider declares one attribute on every content-signing operation
+            UUID attrUuid = UUID.fromString("0000dddd-1111-2222-3333-444444444444");
+            String attrName = "data_discoveredFormattingAttr";
+            contentSigningFormattingMock.stubPerOperationFormattingAttributeDefinition(attrUuid, attrName);
+
+            // when: a create-time form asks what it may configure, naming no profile of its own yet
+            List<BaseAttribute> discovered = signingProfileService
+                    .listContentSigningFormattingConnectorAttributes(
+                            UUID.fromString(contentSigningFormattingConnector.getUuid()), SignatureFamily.PADES,
+                            SignatureLevel.SIGNED, SecuredUUID.fromUUID(null));
+
+            // then: the operations declaring one shared name merge into one entry
+            assertThat(discovered).extracting(BaseAttribute::getName).containsExactly(attrName);
+
+            // and: a profile built from that answer saves, which is the whole contract of the endpoint
+            SigningProfileDto created = signingProfileService
+                    .createSigningProfile(aSigningProfileRequest()
+                            .withName("profile-built-from-discovery")
+                            .withStaticKeyManagedSigning(defaultSigningCertificate.getUuid())
+                            .withContentSigning(aContentSigningWorkflow()
+                                    .withSignatureFormattingConnector(
+                                            UUID.fromString(contentSigningFormattingConnector.getUuid()))
+                                    .withFamily(SignatureFamily.PADES)
+                                    .withMaxLevel(SignatureLevel.SIGNED)
+                                    .withSignatureFormattingConnectorAttributes(
+                                            List.of(aStringAttribute(attrUuid, attrName, "discoveredValue")))
+                                    .build())
+                            .build());
+            ContentSigningWorkflowDto workflow = assertInstanceOf(ContentSigningWorkflowDto.class,
+                    created.getWorkflow());
+            assertEquals("discoveredValue",
+                    extractStringAttrValue(workflow.getSignatureFormattingConnectorAttributes(), attrName));
+        }
+
+        @Test
+        void discovery_atALevelTheProviderDoesNotReach_isRefusedTheWaySaveWouldRefuseIt() {
+            // given: the registered provider advertises content signing but no timestamped rung
+            // when: the form asks for the descriptors of a TIMESTAMPED ceiling
+            ThrowableAssert.ThrowingCallable discover = () -> signingProfileService
+                    .listContentSigningFormattingConnectorAttributes(
+                            UUID.fromString(contentSigningFormattingConnector.getUuid()), SignatureFamily.PADES,
+                            SignatureLevel.TIMESTAMPED, SecuredUUID.fromUUID(null));
+
+            // then: the operator learns at form-build time, not at save
+            assertThatThrownBy(discover)
+                    .isInstanceOf(ValidationException.class)
+                    .hasMessageContaining("does not reach level TIMESTAMPED");
+        }
+
+        @Test
+        void discovery_atATimestampedCeiling_reachesTheTimestampOperationsToo()
+                throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+            // given: a provider that reaches TIMESTAMPED and declares one attribute on every operation
+            ContentSigningFormattingMock timestampedMock = connectorMockFactory.startContentSigningFormatting();
+            try {
+                String baselineAttr = "data_baselineRungAttr";
+                String timestampOnlyAttr = "data_timestampRungOnlyAttr";
+                ConnectorDetailDto timestamped = registerTimestampedRungConnector(timestampedMock,
+                        "content-signing-formatting-timestamped-discovery");
+                timestampedMock
+                        .stubPerOperationFormattingAttributeDefinition(
+                                UUID.fromString("0000eeee-1111-2222-3333-555555555555"), baselineAttr);
+                timestampedMock
+                        .stubFormattingAttributeDefinitionFor(
+                                ContentSigningFormattingOperation.EMBED_SIGNATURE_TIMESTAMP,
+                                UUID.fromString("0000eeee-1111-2222-3333-666666666666"), timestampOnlyAttr);
+
+                // when
+                List<BaseAttribute> discovered = signingProfileService
+                        .listContentSigningFormattingConnectorAttributes(UUID.fromString(timestamped.getUuid()),
+                                SignatureFamily.PADES, SignatureLevel.TIMESTAMPED, SecuredUUID.fromUUID(null));
+
+                // then: the aggregate carries the name only a timestamp operation declares
+                assertThat(discovered)
+                        .extracting(BaseAttribute::getName)
+                        .containsExactlyInAnyOrder(baselineAttr, timestampOnlyAttr);
+            } finally {
+                timestampedMock.stop();
+            }
+        }
+
+        @Test
+        void discovery_forAFamilyTheProviderDoesNotServe_isRefusedTheWaySaveWouldRefuseIt()
+                throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
+            // given: a provider advertising no content-signing feature on the PAdES interface
+            ContentSigningFormattingMock featurelessMock = connectorMockFactory.startContentSigningFormatting();
+            try {
+                featurelessMock.advertiseNoContentSigningFeature();
+                ConnectorDetailDto featureless = connectorService
+                        .createConnector(aV2ConnectorRequest()
+                                .withName("content-signing-formatting-featureless-discovery")
+                                .withUrl(featurelessMock.getUrl())
+                                .build());
+
+                // when
+                ThrowableAssert.ThrowingCallable discover = () -> signingProfileService
+                        .listContentSigningFormattingConnectorAttributes(UUID.fromString(featureless.getUuid()),
+                                SignatureFamily.PADES, SignatureLevel.SIGNED, SecuredUUID.fromUUID(null));
+
+                // then: refused with save's own message, before the provider is asked for any schema
+                assertThatThrownBy(discover)
+                        .isInstanceOf(ValidationException.class)
+                        .hasMessageContaining(
+                                "does not advertise the 'Content Signing' feature on its 'PAdES Formatting' interface");
+            } finally {
+                featurelessMock.stop();
+            }
         }
     }
 
