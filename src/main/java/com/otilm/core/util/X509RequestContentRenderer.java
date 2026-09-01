@@ -253,6 +253,7 @@ public final class X509RequestContentRenderer {
         }
         return switch (encoding) {
             case IA5_STRING -> new DERIA5String(value);
+            case PRINTABLE_STRING -> new DERPrintableString(value);
             case OCTET_STRING -> new DEROctetString(value.getBytes(StandardCharsets.UTF_8));
             // DER: caller supplies a base64-encoded DER object; parse it back, preserving its ASN.1 type.
             case DER -> decodeDerOrFallback(value);

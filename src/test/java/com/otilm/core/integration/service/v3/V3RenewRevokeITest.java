@@ -3,6 +3,7 @@ package com.otilm.core.integration.service.v3;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
+import com.otilm.api.model.client.connector.v2.FeatureFlag;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.core.auth.Resource;
@@ -10,6 +11,7 @@ import com.otilm.api.model.core.certificate.CertificateDetailDto;
 import com.otilm.api.model.core.certificate.CertificateRelationType;
 import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
+import com.otilm.api.model.core.v2.ClientCertificateRekeyRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.otilm.api.model.core.v2.ClientCertificateRevocationDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
@@ -34,11 +36,26 @@ import com.otilm.core.service.CertificateExternalService;
 import com.otilm.core.service.v2.ClientOperationInternalService;
 import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.CertificateTestUtil;
 import com.otilm.core.util.builders.AuthorityFixtures;
 import com.otilm.core.util.builders.CertificateRequestEntityBuilder;
 import com.otilm.core.util.builders.V3ConnectorStubs;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,6 +63,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.absent;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
@@ -138,6 +156,115 @@ class V3RenewRevokeITest extends BaseSpringBootTest {
                         "the predecessor must stay ISSUED while the successor awaits asynchronous completion");
         wireMockServer.verify(1, postRequestedFor(urlEqualTo(V3_RENEW_PATH)));
         wireMockServer.verify(0, postRequestedFor(urlPathMatching(V2_RENEW_PATTERN)));
+    }
+
+    @Test
+    void renew_carriesSeededRequestContent_whenConnectorAdvertisesStructured() throws Exception {
+        AuthorityFixtures.Fixture fixture = AuthorityFixtures
+                .v3Authority(repos(), wireMockServer, FeatureFlag.CERTIFICATE_REQUEST_STRUCTURED);
+        V3ConnectorStubs.stubAttributesAndValidate(wireMockServer);
+        UUID predecessorUuid = seedRenewalPairWithRealPredecessor(fixture);
+        UUID successorUuid = successorUuid(predecessorUuid);
+        stubRenewSchemaAndAccept();
+
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .renewCertificateAction(successorUuid, ClientCertificateRenewRequestDto.builder().build(),
+                                true));
+
+        wireMockServer
+                .verify(1,
+                        postRequestedFor(urlEqualTo(V3_RENEW_PATH))
+                                .withRequestBody(matchingJsonPath("$.requestContent.certificateType", equalTo("X.509")))
+                                .withRequestBody(matchingJsonPath("$.requestContent.subject[0].type", equalTo("CN")))
+                                .withRequestBody(matchingJsonPath("$.requestContent.subject[0].value",
+                                        equalTo("predecessor.example.com")))
+                                .withRequestBody(matchingJsonPath("$.requestContent.subjectAltNames[0].value",
+                                        equalTo("predecessor.example.com"))));
+    }
+
+    @Test
+    void rekey_seedsFromAnUploadedCsr_notThePredecessor() throws Exception {
+        AuthorityFixtures.Fixture fixture = AuthorityFixtures
+                .v3Authority(repos(), wireMockServer, FeatureFlag.CERTIFICATE_REQUEST_STRUCTURED);
+        V3ConnectorStubs.stubAttributesAndValidate(wireMockServer);
+        UUID predecessorUuid = seedRenewalPairWithRealPredecessor(fixture);
+        UUID successorUuid = successorUuid(predecessorUuid);
+        // An uploaded rekey CSR keeps the predecessor's DN (the entry validates that) but may carry a different
+        // SAN, which is the operator's own statement and must not be overridden by the predecessor's.
+        String uploaded = pkcs10WithSan("CN=predecessor.example.com", "uploaded.example.com");
+        CertificateRequestEntity uploadedCsr = CertificateRequestEntityBuilder
+                .aCertificateRequest()
+                .withContent(uploaded)
+                .build();
+        certificateRequestRepository.save(uploadedCsr);
+        Certificate successor = reloadCert(successorUuid);
+        successor.setCertificateRequest(uploadedCsr);
+        successor.setCertificateRequestUuid(uploadedCsr.getUuid());
+        certificateRepository.save(successor);
+        stubRenewSchemaAndAccept();
+
+        ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
+        request.setRequest(uploaded);
+
+        Assertions
+                .assertDoesNotThrow(
+                        () -> clientOperationInternalService.rekeyCertificateAction(successorUuid, request, true));
+
+        wireMockServer
+                .verify(1,
+                        postRequestedFor(urlEqualTo(V3_RENEW_PATH))
+                                .withRequestBody(matchingJsonPath("$.requestContent.subjectAltNames[0].value",
+                                        equalTo("uploaded.example.com"))));
+    }
+
+    private String pkcs10WithSan(String subjectDn, String dnsName) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair kp = kpg.generateKeyPair();
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
+                kp.getPublic());
+        ExtensionsGenerator extGen = new ExtensionsGenerator();
+        extGen
+                .addExtension(Extension.subjectAlternativeName, false,
+                        new GeneralNames(new GeneralName(GeneralName.dNSName, dnsName)));
+        builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
+        return Base64.getEncoder().encodeToString(builder.build(signer).getEncoded());
+    }
+
+    @Test
+    void renew_omitsRequestContent_whenConnectorDoesNotAdvertiseStructured() throws Exception {
+        AuthorityFixtures.Fixture fixture = buildV3Fixture();
+        V3ConnectorStubs.stubAttributesAndValidate(wireMockServer);
+        UUID predecessorUuid = seedRenewalPairWithRealPredecessor(fixture);
+        UUID successorUuid = successorUuid(predecessorUuid);
+        stubRenewSchemaAndAccept();
+
+        Assertions
+                .assertDoesNotThrow(() -> clientOperationInternalService
+                        .renewCertificateAction(successorUuid, ClientCertificateRenewRequestDto.builder().build(),
+                                true));
+
+        wireMockServer
+                .verify(1, postRequestedFor(urlEqualTo(V3_RENEW_PATH))
+                        .withRequestBody(matchingJsonPath("$.requestContent", absent())));
+    }
+
+    /**
+     * Seeds the renewal pair with a predecessor whose stored content is a real certificate carrying a DNS SAN, so the
+     * renew wire has an identity to seed from.
+     */
+    private UUID seedRenewalPairWithRealPredecessor(AuthorityFixtures.Fixture fixture) throws Exception {
+        X509Certificate predecessorCertificate = CertificateTestUtil
+                .createCertificateWithSubjectAndSans("CN=predecessor.example.com",
+                        new GeneralName(GeneralName.dNSName, "predecessor.example.com"));
+        UUID predecessorUuid = seedRenewalPair(fixture);
+        Certificate predecessor = reloadCert(predecessorUuid);
+        CertificateContent content = predecessor.getCertificateContent();
+        content.setContent(Base64.getEncoder().encodeToString(predecessorCertificate.getEncoded()));
+        certificateContentRepository.save(content);
+        return predecessorUuid;
     }
 
     @Test

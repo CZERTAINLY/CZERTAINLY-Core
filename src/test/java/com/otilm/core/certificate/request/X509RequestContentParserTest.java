@@ -4,6 +4,7 @@ import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
 import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.certificate.GeneralNameType;
+import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.core.model.request.CertificateRequest;
 import com.otilm.core.model.request.CrmfCertificateRequest;
@@ -11,16 +12,21 @@ import com.otilm.core.model.request.Pkcs10CertificateRequest;
 import com.otilm.core.oid.OidHandler;
 import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.cmp.CmpTestUtil;
+import com.otilm.core.util.CertificateTestUtil;
 import com.otilm.core.util.X509RequestContentRenderer;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.Security;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.DERBMPString;
+import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERPrintableString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
@@ -283,6 +289,240 @@ class X509RequestContentParserTest {
                 assertThat(s.getOtherNameOid()).isEqualTo("1.3.6.1.4.1.311.20.2.3");
                 assertThat(s.getValue()).isEqualTo("user@example.com");
             });
+        }
+    }
+
+    @Nested
+    class FromCertificate {
+
+        @Test
+        void parsesOrderedRdnsAndTypeDiscriminator_fromCertificateSubject() throws Exception {
+            // given
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com,O=Example");
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then
+            assertThat(content.getSubject()).extracting("type").containsExactly("CN", "O");
+            assertThat(content.getSubject().getFirst().getValue()).isEqualTo("host.example.com");
+            assertThat(content.getCertificateType()).isEqualTo(CertificateType.X509);
+        }
+
+        @Test
+        void keepsRepeatedAttributesInOrder_asSeparateEntries() throws Exception {
+            // given — repeated OUs are separate RDNs, the case the projector emits and the wire carries in order;
+            // a multi-valued RDN is a different thing, covered below
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com,OU=First,OU=Second");
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then
+            assertThat(content.getSubject()).extracting("value").containsExactly("host.example.com", "First", "Second");
+        }
+
+        @Test
+        void parsesEveryTypedSanKind_fromCertificateExtension() throws Exception {
+            // given
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com",
+                            new GeneralName(GeneralName.dNSName, "host.example.com"),
+                            new GeneralName(GeneralName.rfc822Name, "admin@example.com"),
+                            new GeneralName(GeneralName.iPAddress, "10.0.0.1"),
+                            new GeneralName(GeneralName.uniformResourceIdentifier, "https://example.com/a"),
+                            new GeneralName(GeneralName.registeredID, "1.2.3.4.5"),
+                            new GeneralName(GeneralName.directoryName, new X500Name("CN=dir.example.com")));
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then
+            assertThat(content.getSubjectAltNames())
+                    .extracting("type")
+                    .containsExactly(GeneralNameType.DNS, GeneralNameType.EMAIL, GeneralNameType.IP,
+                            GeneralNameType.URI, GeneralNameType.REGISTERED_ID, GeneralNameType.DIRECTORY_NAME);
+            assertThat(content.getSubjectAltNames().get(2).getValue()).isEqualTo("10.0.0.1");
+        }
+
+        @Test
+        void recoversOtherNameOidAndEncoding_fromCertificateSan() throws Exception {
+            // given — a UPN otherName, the form the OTHER_NAME wire entry needs both OID and encoding for
+            var otherName = new OtherName(new ASN1ObjectIdentifier("1.3.6.1.4.1.311.20.2.3"),
+                    new DERUTF8String("user@example.com"));
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com",
+                            new GeneralName(GeneralName.otherName, otherName.toASN1Primitive()));
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then
+            assertThat(content.getSubjectAltNames()).singleElement().satisfies(s -> {
+                assertThat(s.getType()).isEqualTo(GeneralNameType.OTHER_NAME);
+                assertThat(s.getOtherNameOid()).isEqualTo("1.3.6.1.4.1.311.20.2.3");
+                assertThat(s.getValue()).isEqualTo("user@example.com");
+                assertThat(s.getValueEncoding()).isEqualTo(ExtensionValueEncoding.UTF8_STRING);
+            });
+        }
+
+        @Test
+        void yieldsEmptySans_whenCertificateHasNoSanExtension() throws Exception {
+            // given
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com");
+
+            // when
+            ParsedRequestContent parsed = X509RequestContentParser.parse(certificate);
+
+            // then
+            assertThat(parsed.content().getSubjectAltNames()).isEmpty();
+            assertThat(parsed.unsupportedSans()).isEmpty();
+        }
+
+        @Test
+        void reportsUnrepresentableSanKind_insteadOfSilentlyDropping() throws Exception {
+            // given — an x400Address SAN, which GeneralNameType cannot model
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com",
+                            new GeneralName(GeneralName.dNSName, "host.example.com"),
+                            new GeneralName(GeneralName.x400Address, new DERSequence()));
+
+            // when
+            ParsedRequestContent parsed = X509RequestContentParser.parse(certificate);
+
+            // then — the representable entry is decoded, the other is surfaced for the caller's policy
+            assertThat(parsed.content().getSubjectAltNames()).hasSize(1);
+            assertThat(parsed.unsupportedSans()).containsExactly("x400Address");
+        }
+
+        @Test
+        void seedsNoExtensions_notEvenKeyUsageOrExtendedKeyUsage() throws Exception {
+            // given — the certificate carries an EKU, which is the CA's to set and must not be re-requested
+            X509Certificate certificate = CertificateTestUtil.createCertificateWithEku(false);
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then — left null so @JsonInclude(NON_NULL) keeps them off the wire entirely
+            assertThat(content.getExtensions()).isNull();
+            assertThat(content.getKeyUsage()).isNull();
+            assertThat(content.getExtendedKeyUsage()).isNull();
+        }
+
+        @Test
+        void keepsOtherNameStringType_forIa5AndPrintableValues() throws Exception {
+            // given — a value recorded under the wrong encoding is re-encoded as that type when rendered back
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com", new GeneralName(GeneralName.otherName,
+                            new OtherName(new ASN1ObjectIdentifier("1.2.3.4.1"), new DERIA5String("ia5@example.com"))
+                                    .toASN1Primitive()),
+                            new GeneralName(GeneralName.otherName, new OtherName(new ASN1ObjectIdentifier("1.2.3.4.2"),
+                                    new DERPrintableString("PRINTABLE")).toASN1Primitive()));
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then
+            assertThat(content.getSubjectAltNames().get(0).getValueEncoding())
+                    .isEqualTo(ExtensionValueEncoding.IA5_STRING);
+            assertThat(content.getSubjectAltNames().get(0).getValue()).isEqualTo("ia5@example.com");
+            assertThat(content.getSubjectAltNames().get(1).getValueEncoding())
+                    .isEqualTo(ExtensionValueEncoding.PRINTABLE_STRING);
+            assertThat(content.getSubjectAltNames().get(1).getValue()).isEqualTo("PRINTABLE");
+        }
+
+        @Test
+        void fallsBackToDer_forAStringTypeTheEncodingsCannotName() throws Exception {
+            // given — BMPString has no ExtensionValueEncoding counterpart, so only Base64(DER) preserves its type
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com",
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.2.3.4.3"), new DERBMPString("bmp"))
+                                            .toASN1Primitive()));
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then
+            assertThat(content.getSubjectAltNames()).singleElement().satisfies(san -> {
+                assertThat(san.getValueEncoding()).isEqualTo(ExtensionValueEncoding.DER);
+                assertThat(san.getValue()).isNotEqualTo("bmp");
+            });
+        }
+
+        @Test
+        void otherNameSurvivesRenderAndReparse_forEveryStringType() throws Exception {
+            // given — the rekey CSR is rendered from this content, so a coerced type would change the identity
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com",
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.3.6.1.4.1.311.20.2.3"),
+                                            new DERUTF8String("user@example.com")).toASN1Primitive()),
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.2.3.4.1"),
+                                            new DERIA5String("ia5@example.com")).toASN1Primitive()),
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.2.3.4.2"),
+                                            new DERPrintableString("PRINTABLE")).toASN1Primitive()),
+                            new GeneralName(GeneralName.otherName,
+                                    new OtherName(new ASN1ObjectIdentifier("1.2.3.4.3"), new DERBMPString("bmp"))
+                                            .toASN1Primitive()));
+            X509RequestContent seeded = X509RequestContentParser.parse(certificate).content();
+
+            // when
+            Extensions rendered = X509RequestContentRenderer.toExtensions(seeded);
+            GeneralNames renderedSans = GeneralNames.fromExtensions(rendered, Extension.subjectAlternativeName);
+
+            // then — each otherName keeps the ASN.1 type it had in the certificate
+            assertThat(OtherName.getInstance(renderedSans.getNames()[0].getName()).getValue())
+                    .isInstanceOf(DERUTF8String.class);
+            assertThat(OtherName.getInstance(renderedSans.getNames()[1].getName()).getValue())
+                    .isInstanceOf(DERIA5String.class);
+            assertThat(OtherName.getInstance(renderedSans.getNames()[2].getName()).getValue())
+                    .isInstanceOf(DERPrintableString.class);
+            assertThat(OtherName.getInstance(renderedSans.getNames()[3].getName()).getValue())
+                    .isInstanceOf(DERBMPString.class);
+        }
+
+        @Test
+        void flattensAMultiValuedRdn_fromACertificateSubject() throws Exception {
+            // given — CN=host+O=Acme, one RDN carrying both attributes
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans(new X500NameBuilder(BCStyle.INSTANCE)
+                            .addMultiValuedRDN(new ASN1ObjectIdentifier[]{BCStyle.CN, BCStyle.O},
+                                    new String[]{"host", "Acme"})
+                            .build());
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then — each component becomes its own entry, so the grouping is not expressible in typed content;
+            // RenewContentSeeder refuses to seed such a subject rather than sending an altered DN
+            assertThat(content.getSubject()).extracting("type").containsExactly("CN", "O");
+            assertThat(content.getSubject()).extracting("value").containsExactly("host", "Acme");
+        }
+
+        @Test
+        void seededSanSurvivesRenderAndReparse() throws Exception {
+            // given — the seeder is the renderer's inverse; a drift between them loses SAN on rekey
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans("CN=host.example.com",
+                            new GeneralName(GeneralName.dNSName, "host.example.com"),
+                            new GeneralName(GeneralName.iPAddress, "10.0.0.1"),
+                            new GeneralName(GeneralName.rfc822Name, "admin@example.com"));
+            X509RequestContent seeded = X509RequestContentParser.parse(certificate).content();
+
+            // when
+            Extensions rendered = X509RequestContentRenderer.toExtensions(seeded);
+            X509RequestContent reparsed = X509RequestContentParser.parse(pkcs10WithExtensions(rendered)).content();
+
+            // then
+            assertThat(reparsed.getSubjectAltNames())
+                    .usingRecursiveFieldByFieldElementComparator()
+                    .containsExactlyElementsOf(seeded.getSubjectAltNames());
         }
     }
 

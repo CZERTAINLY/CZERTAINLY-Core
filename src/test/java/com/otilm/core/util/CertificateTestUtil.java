@@ -37,6 +37,8 @@ import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyPurposeId;
 import org.bouncycastle.asn1.x509.SubjectAltPublicKeyInfo;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
@@ -296,6 +298,38 @@ public class CertificateTestUtil {
         certBuilder
                 .addExtension(Extension.extendedKeyUsage, true, new ExtendedKeyUsage(KeyPurposeId.id_kp_timeStamping));
         ContentSigner signer = new JcaContentSignerBuilder(signatureAlgorithm)
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .build(keyPair.getPrivate());
+        return new JcaX509CertificateConverter()
+                .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+                .getCertificate(certBuilder.build(signer));
+    }
+
+    /**
+     * Builds a self-signed RSA certificate with the given subject and, when any are supplied, a SAN extension holding
+     * the given general names verbatim. Converted through the BouncyCastle provider so SAN kinds a stricter JDK parser
+     * would reject survive into the certificate.
+     */
+    public static X509Certificate createCertificateWithSubjectAndSans(String subjectDn, GeneralName... sans)
+            throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        return createCertificateWithSubjectAndSans(new X500Name(subjectDn), sans);
+    }
+
+    /** As above, for a subject no DN string can express, such as one packing a multi-valued RDN. */
+    public static X509Certificate createCertificateWithSubjectAndSans(X500Name subject, GeneralName... sans)
+            throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        ensureBouncyCastleProvider();
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(2048);
+        KeyPair keyPair = keyGen.generateKeyPair();
+        Date notBefore = new Date();
+        Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000);
+        JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(subject, BigInteger.ONE, notBefore,
+                notAfter, subject, keyPair.getPublic());
+        if (sans.length > 0) {
+            certBuilder.addExtension(Extension.subjectAlternativeName, false, new GeneralNames(sans));
+        }
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME)
                 .build(keyPair.getPrivate());
         return new JcaX509CertificateConverter()
