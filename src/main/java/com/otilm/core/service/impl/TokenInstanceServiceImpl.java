@@ -174,16 +174,16 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             throw new AlreadyExistException(TokenInstanceReference.class, request.getName());
         }
 
-        UUID conectorUuid;
+        UUID connectorUuid;
         try {
-            conectorUuid = UUID.fromString(request.getConnectorUuid());
+            connectorUuid = UUID.fromString(request.getConnectorUuid());
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new ValidationException(
                     ValidationError.create("The connector UUID '{}' is malformed", request.getConnectorUuid()));
         }
 
         ImmutableConnectorFullModel connector = connectorExternalService
-                .getConnectorFullModel(SecuredUUID.fromUUID(conectorUuid));
+                .getConnectorFullModel(SecuredUUID.fromUUID(connectorUuid));
         TokenProviderBinding binding = tokenProviderAdapterFactory.forConnectorWithBinding(connector);
         TokenProviderAdapter adapter = binding.adapter();
 
