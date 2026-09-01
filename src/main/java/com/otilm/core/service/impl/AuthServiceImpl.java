@@ -4,6 +4,7 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.auth.UpdateUserRequestDto;
 import com.otilm.api.model.core.auth.AuthResourceDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.auth.ResourceActionsDto;
 import com.otilm.api.model.core.auth.ResourcePermissionsDto;
 import com.otilm.api.model.core.auth.UserDetailDto;
 import com.otilm.api.model.core.auth.UserProfileDetailDto;
@@ -11,6 +12,7 @@ import com.otilm.api.model.core.auth.UserProfileDto;
 import com.otilm.api.model.core.auth.UserProfilePermissionsDto;
 import com.otilm.core.auth.ContextRefreshListener;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.model.auth.ResourceSyncRequestDto;
 import com.otilm.core.security.authn.client.ResourceApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.security.authz.AnyPrincipalEndpoint;
@@ -68,8 +70,8 @@ public class AuthServiceImpl implements AuthExternalService {
         UserDetailDto userDetailDto = userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
 
         // load listing permissions
-        return new UserProfileDetailDto(userDetailDto,
-                new UserProfilePermissionsDto(getAllowedResourceListings(userProfileDto)));
+        return new UserProfileDetailDto(userDetailDto, new UserProfilePermissionsDto(
+                getAllowedResourceListings(userProfileDto), getAllowedResourceActions(userProfileDto)));
     }
 
     @Override
@@ -143,6 +145,64 @@ public class AuthServiceImpl implements AuthExternalService {
             }
         }
         return withDefaultListings(allowedListings);
+    }
+
+    /**
+     * The actions the caller holds on each resource as a whole, so a client can gate a control on the action that
+     * actually guards the endpoint instead of inferring it from listing access.
+     * <p>
+     * Object-scoped grants are deliberately left out - see {@link UserProfilePermissionsDto#getAllowedActions()} - so
+     * this is not the union {@link #getAllowedResourceListings} computes for {@code LIST}, and the two fields are not
+     * derivable from each other.
+     */
+    private List<ResourceActionsDto> getAllowedResourceActions(UserProfileDto userProfileDto) {
+        boolean allowAllResources = Boolean.TRUE.equals(userProfileDto.getPermissions().getAllowAllResources());
+        Map<Resource, ResourcePermissionsDto> mappedUserPermissions = allowAllResources
+                ? Map.of()
+                : userProfileDto
+                        .getPermissions()
+                        .getResources()
+                        .stream()
+                        .collect(Collectors
+                                .toMap(resource -> Resource.findByCode(resource.getName()), resource -> resource));
+
+        List<ResourceActionsDto> allowedActions = new ArrayList<>();
+        for (ResourceSyncRequestDto syncResource : contextRefreshListener.getResources()) {
+            Resource resource = Resource.findByCode(syncResource.getName().getCode());
+            ResourcePermissionsDto resourcePermissions = mappedUserPermissions.get(resource);
+            // Filtered out of the catalogue rather than mapped out of the grant: the authorization service may hold an
+            // action code this build no longer declares, and findByCode throws on one, which would fail the whole
+            // profile request over a permission the caller does not even need.
+            List<ResourceAction> actions = syncResource
+                    .getActions()
+                    .stream()
+                    .filter(actionCode -> isActionGranted(actionCode, allowAllResources, resourcePermissions))
+                    .map(ResourceAction::findByCode)
+                    // NONE and ANY are sentinels the auth service rejects as unknown actions, so reporting them would
+                    // name a grant that cannot exist.
+                    .filter(action -> action.getAccessType() != ResourceAction.AccessType.NOT_GRANTABLE)
+                    .sorted(Comparator.comparing(ResourceAction::getCode))
+                    .toList();
+
+            if (!actions.isEmpty()) {
+                allowedActions.add(new ResourceActionsDto(resource, actions));
+            }
+        }
+        return allowedActions.stream().sorted(Comparator.comparing(entry -> entry.getResource().getCode())).toList();
+    }
+
+    private static boolean isActionGranted(String actionCode, boolean allowAllResources,
+            ResourcePermissionsDto resourcePermissions) {
+        if (allowAllResources) {
+            return true;
+        }
+        if (resourcePermissions == null) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(resourcePermissions.getAllowAllActions())) {
+            return true;
+        }
+        return resourcePermissions.getActions() != null && resourcePermissions.getActions().contains(actionCode);
     }
 
     private List<Resource> withDefaultListings(List<Resource> listings) {

@@ -7,6 +7,7 @@ import com.otilm.api.model.client.auth.UpdateUserRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.AuthResourceDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.auth.ResourceActionsDto;
 import com.otilm.api.model.core.auth.UserDetailDto;
 import com.otilm.api.model.core.auth.UserProfileDetailDto;
 import com.otilm.api.model.core.logging.enums.AuthMethod;
@@ -130,6 +131,84 @@ class AuthServiceITest extends BaseSpringBootTest {
         Assertions
                 .assertEquals(1, allowedListings.stream().filter(r -> r == Resource.DASHBOARD).count(),
                         "DASHBOARD must appear exactly once");
+    }
+
+    /**
+     * The branding gate this field was added for: the localhost role holds SETTINGS with detail, list and update, and
+     * UPDATE_BRANDING is deliberately not among them, so a client reading the profile can keep the Appearance tab off
+     * the screen instead of offering a save the authorization service will refuse.
+     */
+    @Test
+    void testAuthProfileAllowedActions() {
+        injectLocalhostUserProfileToContext();
+
+        UserProfileDetailDto userProfileDto = authService.getAuthProfile();
+
+        Assertions
+                .assertEquals(List.of(ResourceAction.DETAIL, ResourceAction.LIST, ResourceAction.UPDATE),
+                        allowedActionsFor(userProfileDto, Resource.SETTINGS));
+        Assertions
+                .assertFalse(
+                        allowedActionsFor(userProfileDto, Resource.SETTINGS).contains(ResourceAction.UPDATE_BRANDING),
+                        "SETTINGS granted update must not imply UPDATE_BRANDING");
+        Assertions
+                .assertEquals(List.of(ResourceAction.CREATE, ResourceAction.DETAIL),
+                        allowedActionsFor(userProfileDto, Resource.CERTIFICATE));
+        Assertions
+                .assertTrue(allowedActionsFor(userProfileDto, Resource.CONNECTOR).isEmpty(),
+                        "a resource the role grants nothing on must be omitted, not reported empty");
+    }
+
+    /**
+     * Object-scoped grants are deliberately not folded in: the changed profile allows MEMBERS on one group object only,
+     * and an action held on one object says nothing about the next. Reporting it here would let a client enable a
+     * control the server refuses everywhere but that single object.
+     */
+    @Test
+    void testAuthProfileAllowedActionsExcludeObjectScopedGrants() {
+        injectLocalhostUserProfileChangedToContext();
+
+        UserProfileDetailDto userProfileDto = authService.getAuthProfile();
+
+        Assertions
+                .assertEquals(List.of(ResourceAction.CREATE, ResourceAction.DETAIL, ResourceAction.LIST),
+                        allowedActionsFor(userProfileDto, Resource.GROUP));
+        // The same grant does put GROUP in allowedListings, which is the union the two fields deliberately differ on.
+        Assertions
+                .assertTrue(userProfileDto.getPermissions().getAllowedListings().contains(Resource.GROUP),
+                        "allowedListings keeps its own semantics");
+    }
+
+    @Test
+    void testAuthProfileAllowedActionsAllowAllResources() {
+        injectAllowAllResourcesUserProfileToContext();
+
+        UserProfileDetailDto userProfileDto = authService.getAuthProfile();
+
+        Assertions
+                .assertTrue(
+                        allowedActionsFor(userProfileDto, Resource.SETTINGS).contains(ResourceAction.UPDATE_BRANDING),
+                        "a role holding every resource must hold UPDATE_BRANDING");
+        Assertions
+                .assertTrue(
+                        userProfileDto
+                                .getPermissions()
+                                .getAllowedActions()
+                                .stream()
+                                .flatMap(entry -> entry.getActions().stream())
+                                .noneMatch(action -> action.getAccessType() == ResourceAction.AccessType.NOT_GRANTABLE),
+                        "NONE and ANY are sentinels the auth service rejects and must never be reported");
+    }
+
+    private static List<ResourceAction> allowedActionsFor(UserProfileDetailDto userProfileDto, Resource resource) {
+        return userProfileDto
+                .getPermissions()
+                .getAllowedActions()
+                .stream()
+                .filter(entry -> entry.getResource() == resource)
+                .map(ResourceActionsDto::getActions)
+                .findFirst()
+                .orElseGet(List::of);
     }
 
     @Test
