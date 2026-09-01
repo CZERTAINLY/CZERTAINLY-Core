@@ -40,10 +40,6 @@ public final class CipherSuites {
      * {@code {0xC02B, 0x1301}} and {@code {0xC001, 0x132B}} share a byte multiset and would otherwise hash alike.
      *
      * <p>
-     * <b>The join is not injective for odd-width tokens, and cannot be made so here.</b> Even-width padding is what
-     * merges {@code ["0x13", "0x1"]} with {@code ["0x1301"]}.
-     *
-     * <p>
      * <b>Grouping is not identity.</b> Because every token renders to a whole number of octets, the result is the
      * declaration's <em>byte stream</em> and nothing else: {@code ["0x131", "0x1"]} and {@code ["0x01", "0x3101"]} both
      * render {@code 013101} because both state the bytes {@code 01 31 01}. That is the same equivalence that merges the
@@ -76,7 +72,7 @@ public final class CipherSuites {
             if (trimmed.isEmpty()) {
                 continue;
             }
-            String hex = octetsOf(trimmed);
+            String hex = octetsOf(AsciiText.fold(trimmed));
             if (hex == null) {
                 return false;
             }
@@ -86,15 +82,17 @@ public final class CipherSuites {
     }
 
     /**
-     * One token as an even number of lowercase hex digits, or {@code null} when it is not a readable code unit.
+     * One folded token as an even number of lowercase hex digits, or {@code null} when it is not a readable code unit.
      *
      * <p>
      * A token this implementation cannot read yields no code for the whole list rather than a partial one. The caller
      * falls back to the suite name, which is what keeps "we know it has suites and cannot read them" apart from
      * "nothing was said".
+     *
+     * @param folded a non-empty token, already ASCII-folded by the caller -- the case fold stays there because that is
+     * where the token is known to be present, and this method is about hex rather than about case
      */
-    private static String octetsOf(String token) {
-        String folded = AsciiText.fold(token);
+    private static String octetsOf(String folded) {
         if (folded.startsWith("+") || folded.startsWith("-")) {
             return null;
         }
