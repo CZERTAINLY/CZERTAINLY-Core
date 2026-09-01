@@ -169,6 +169,26 @@ public class ContentSigningFormattingMock extends BaseConnectorMock {
     }
 
     /**
+     * Declares one attribute on a single operation, so a caller can tell which operations an aggregate actually fetched
+     * from the names it returns.
+     */
+    public ContentSigningFormattingMock stubFormattingAttributeDefinitionFor(
+            ContentSigningFormattingOperation operation, UUID attrUuid, String attrName) {
+        try {
+            server
+                    .stubFor(WireMock
+                            .get(WireMock.urlPathMatching(".*" + ContentSigningFormattingPaths.attributes(operation)))
+                            .willReturn(WireMock
+                                    .okJson(OBJECT_MAPPER
+                                            .writeValueAsString(
+                                                    List.of(attributeDefinition(attrUuid, attrName, false))))));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize attribute definition for WireMock stub", e);
+        }
+        return this;
+    }
+
+    /**
      * The {@code signatureAlgorithm} each request to {@code operation} carried, in call order. An empty entry marks a
      * request that named none.
      */
