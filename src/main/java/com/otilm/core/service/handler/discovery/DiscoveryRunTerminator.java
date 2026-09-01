@@ -3,10 +3,14 @@ package com.otilm.core.service.handler.discovery;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.dao.repository.ScheduledJobHistoryRepository;
+import com.otilm.core.events.data.DiscoveryResult;
+import com.otilm.core.events.handlers.DiscoveryFinishedEventHandler;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import com.otilm.core.tasks.ScheduledJobInfo;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -14,6 +18,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,13 +34,18 @@ public class DiscoveryRunTerminator {
     private final DiscoveryWorkWriter workWriter;
     private final DiscoveryMessageWriter messageWriter;
     private final TransactionHandler transactionHandler;
+    private final ApplicationEventPublisher eventPublisher;
+    private final ScheduledJobHistoryRepository scheduledJobHistoryRepository;
 
     public DiscoveryRunTerminator(DiscoveryRepository discoveryRepository, DiscoveryWorkWriter workWriter,
-            DiscoveryMessageWriter messageWriter, TransactionHandler transactionHandler) {
+            DiscoveryMessageWriter messageWriter, TransactionHandler transactionHandler,
+            ApplicationEventPublisher eventPublisher, ScheduledJobHistoryRepository scheduledJobHistoryRepository) {
         this.discoveryRepository = discoveryRepository;
         this.workWriter = workWriter;
         this.messageWriter = messageWriter;
         this.transactionHandler = transactionHandler;
+        this.eventPublisher = eventPublisher;
+        this.scheduledJobHistoryRepository = scheduledJobHistoryRepository;
     }
 
     /**
@@ -104,5 +114,44 @@ public class DiscoveryRunTerminator {
         run.setRunMeta(null);
         messageWriter.appendRunEnded(run.getUuid(), DiscoveryRunLifecycle.severityOf(status), reason);
         logger.info("Discovery {} ended as {}: {}", run.getUuid(), status, reason);
+        announceEnding(run, status, reason);
+    }
+
+    /**
+     * Announces the ending on the same event a v1 run raises, so triggers, notification and the scheduler reach both
+     * generations alike. The handler applies a terminal status only to a run that is not already terminal, so this
+     * ending stands as written and only the follow-ups are dispatched.
+     *
+     * <p>
+     * Published through the event bus rather than the producer because the listener is {@code AFTER_COMMIT}: this runs
+     * while holding the run's row, and a rolled-back ending must not announce itself.
+     */
+    private void announceEnding(Discovery run, DiscoveryStatus status, String reason) {
+        eventPublisher
+                .publishEvent(DiscoveryFinishedEventHandler
+                        .constructEventMessage(run.getUuid(), run.getStartedByUserUuid(), scheduledJobOf(run),
+                                new DiscoveryResult(status, reason)));
+    }
+
+    /**
+     * Rebuilt from the one execution uuid the run stored; the history row carries the job, and the scheduler resolves
+     * the name from it, so neither is kept as a second copy. A history row that no longer exists yields no job info at
+     * all: passing the uuid on would hand the scheduler an execution it cannot find, turning a clean ending into a
+     * downstream failure.
+     */
+    private ScheduledJobInfo scheduledJobOf(Discovery run) {
+        if (run.getScheduledJobHistoryUuid() == null) {
+            return null;
+        }
+        return scheduledJobHistoryRepository
+                .findById(run.getScheduledJobHistoryUuid())
+                .map(history -> new ScheduledJobInfo(null, history.getScheduledJobUuid(), history.getUuid()))
+                .orElseGet(() -> {
+                    logger
+                            .warn("Discovery {} references scheduled job execution {}, which no longer exists; "
+                                    + "its ending is not reported to the scheduler", run.getUuid(),
+                                    run.getScheduledJobHistoryUuid());
+                    return null;
+                });
     }
 }

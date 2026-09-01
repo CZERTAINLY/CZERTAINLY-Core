@@ -305,6 +305,11 @@ public class DiscoveryEventIngestor {
         data.setUuid(item.getUniqueRef());
         data.setBase64Content(certificate.getCertificateData());
         data.setMeta(item.getMeta() == null ? List.of() : item.getMeta());
+        // Carried through so a staged certificate keeps the connector's own run-wide number. Without it the items
+        // listing synthesizes one from staging order, which collides with the real numbers the run's other
+        // resources carry and destroys the single ordering the listing exists to provide.
+        data.setSequence(item.getSequence());
+        data.setDiscoveredAt(item.getDiscoveredAt());
         return data;
     }
 

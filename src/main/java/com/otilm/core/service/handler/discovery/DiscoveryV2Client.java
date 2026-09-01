@@ -7,9 +7,13 @@ import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.DataAttribute;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryDrainRequestDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryInitiateRequestDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryInitiateResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunRequestDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryStatusResponseDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryStopResponseDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoverySupportedResourceDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryV2ScopedRequestDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorDto;
@@ -21,10 +25,14 @@ import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.service.CredentialInternalService;
 import com.otilm.core.service.ResourceInternalService;
 import com.otilm.core.util.AttributeDefinitionUtils;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,8 +42,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>
  * <b>Why the request is rebuilt every time:</b> a discovery v2 connector keeps no Core-visible state, so identity, the
- * connector's own run handle and the run's whole attribute configuration are replayed on every call. Nothing here is
- * cached — the handle changes as the run progresses, and a stale one addresses a run the connector has moved on from.
+ * connector's own run handle and the run's whole attribute configuration are replayed on every call. The handle is read
+ * from the run each time — it changes as the run progresses, and a stale one addresses a run the connector has moved on
+ * from.
  *
  * <p>
  * <b>{@code NOT_SUPPORTED}:</b> reading the run's attributes touches the database, but the connector call must never
@@ -45,6 +54,9 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Component
 public class DiscoveryV2Client {
+
+    /** Scope key the run's own attributes sit under; a resource's sit under its wire code. */
+    static final String RUN_SCOPE = "";
 
     private final ConnectorApiFactory connectorApiFactory;
     private final ConnectorRepository connectorRepository;
@@ -60,6 +72,32 @@ public class DiscoveryV2Client {
         this.attributeEngine = attributeEngine;
         this.credentialService = credentialService;
         this.resourceService = resourceService;
+    }
+
+    /** What this connector can discover, as it reports right now. Never persisted, so it is always asked. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public List<Resource> supportedResources(Discovery run) throws ConnectorException, NotFoundException {
+        ConnectorDto connector = connectorOf(run);
+        return connectorApiFactory
+                .getDiscoveryApiClientV2(connector)
+                .listSupportedResources(connector)
+                .stream()
+                .map(DiscoverySupportedResourceDto::getResource)
+                .toList();
+    }
+
+    /**
+     * Opens the run at the connector. The only call that sends {@code resources}: every later one addresses a run the
+     * connector already knows the scope of, and replays the handle instead.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public DiscoveryInitiateResponseDto initiate(Discovery run)
+            throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDto connector = connectorOf(run);
+        DiscoveryInitiateRequestDto request = new DiscoveryInitiateRequestDto();
+        populate(request, run, connector);
+        request.setResources(resourcesOf(run));
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).initiate(connector, request);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -94,6 +132,41 @@ public class DiscoveryV2Client {
         drain(run, highestSequence, 1, 1024L);
     }
 
+    /** Asks the connector to checkpoint and pause. Returns the refreshed handle, which replaces the stored one. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public DiscoveryStopResponseDto stop(Discovery run)
+            throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDto connector = connectorOf(run);
+        DiscoveryRunRequestDto request = new DiscoveryRunRequestDto();
+        populate(request, run, connector);
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).stop(connector, request);
+    }
+
+    /** Restarts a stopped run from its checkpoint. Answers the same shape as initiate: a handle and stoppability. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public DiscoveryInitiateResponseDto resume(Discovery run)
+            throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDto connector = connectorOf(run);
+        DiscoveryRunRequestDto request = new DiscoveryRunRequestDto();
+        populate(request, run, connector);
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).resume(connector, request);
+    }
+
+    /**
+     * Tells the connector to drop the run.
+     *
+     * @return the raw response, because its status is the answer: {@code 204} cancelled, {@code 404} the connector no
+     * longer tracks the run — which is the state cancel asked for, so the caller reads it as success rather than
+     * catching it
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public ResponseEntity<Void> cancel(Discovery run) throws ConnectorException, NotFoundException, AttributeException {
+        ConnectorDto connector = connectorOf(run);
+        DiscoveryRunRequestDto request = new DiscoveryRunRequestDto();
+        populate(request, run, connector);
+        return connectorApiFactory.getDiscoveryApiClientV2(connector).cancel(connector, request);
+    }
+
     private DiscoveryResultsResponseDto drain(Discovery run, long afterSequence, int maxItems, long maxBytes)
             throws ConnectorException, NotFoundException, AttributeException {
         ConnectorDto connector = connectorOf(run);
@@ -108,43 +181,76 @@ public class DiscoveryV2Client {
     }
 
     /**
-     * Fills the identity and configuration every v2 request carries. Run-level attributes are the run's own
-     * {@code DISCOVERY} data attributes; per-resource ones are the same attributes stored under the resource's wire
-     * code, which is how the create path separates them.
+     * Fills the identity and configuration every v2 request carries. Run-level attributes sit under {@link #RUN_SCOPE};
+     * per-resource ones under the resource's wire code, which is how the create path separates them.
      */
     private void populate(DiscoveryV2ScopedRequestDto request, Discovery run, ConnectorDto connector)
             throws ConnectorException, NotFoundException, AttributeException {
         request.setRunId(run.getUuid());
         request.setMeta(run.getRunMeta());
-        request.setAttributes(attributesFor(run, connector, null));
-        request.setResourceAttributes(resourceAttributesFor(run, connector));
-    }
-
-    private Map<Resource, List<RequestAttribute>> resourceAttributesFor(Discovery run, ConnectorDto connector)
-            throws ConnectorException, NotFoundException, AttributeException {
-        if (run.getResources() == null || run.getResources().isEmpty()) {
-            return Map.of();
-        }
+        Map<String, List<DataAttribute>> scopes = resolvedScopes(run, connector);
+        request.setAttributes(AttributeDefinitionUtils.getClientAttributes(scopes.getOrDefault(RUN_SCOPE, List.of())));
         Map<Resource, List<RequestAttribute>> byResource = new EnumMap<>(Resource.class);
-        for (Resource resource : run.getResources()) {
-            List<RequestAttribute> attributes = attributesFor(run, connector, resource.getCode());
+        for (Resource resource : resourcesOf(run)) {
+            List<RequestAttribute> attributes = AttributeDefinitionUtils
+                    .getClientAttributes(scopes.getOrDefault(resource.getCode(), List.of()));
             if (!attributes.isEmpty()) {
                 byResource.put(resource, attributes);
             }
         }
-        return byResource;
+        request.setResourceAttributes(byResource);
     }
 
-    private List<RequestAttribute> attributesFor(Discovery run, ConnectorDto connector, String operation)
+    /**
+     * Every scope's definitions with their credential and referenced-object content loaded, exactly as the v1 flow
+     * resolves it before its own call.
+     */
+    private Map<String, List<DataAttribute>> resolvedScopes(Discovery run, ConnectorDto connector)
             throws ConnectorException, NotFoundException, AttributeException {
-        List<DataAttribute> definitions = attributeEngine
+        Map<String, List<DataAttribute>> scopes = definitionScopes(run, connector);
+        // Resolved across all scopes at once, and only once per distinct definition: a credential the run and a
+        // resource both declare is one lookup, not two, and for a SECRET reference a lookup is a connector round
+        // trip. Duplicates take the resolved content from the instance that was actually resolved.
+        List<DataAttribute> toResolve = new ArrayList<>();
+        Map<String, DataAttribute> firstOfEach = new LinkedHashMap<>();
+        Map<DataAttribute, DataAttribute> duplicates = new IdentityHashMap<>();
+        for (List<DataAttribute> scope : scopes.values()) {
+            for (DataAttribute definition : scope) {
+                DataAttribute first = firstOfEach
+                        .putIfAbsent(AttributeDefinitionUtils.serialize(definition), definition);
+                if (first == null) {
+                    toResolve.add(definition);
+                } else {
+                    duplicates.put(definition, first);
+                }
+            }
+        }
+        credentialService.loadFullCredentialData(toResolve);
+        resourceService.loadResourceObjectContentData(toResolve);
+        duplicates.forEach((duplicate, resolved) -> duplicate.setContent(resolved.getContent()));
+        return scopes;
+    }
+
+    /** The run's own definitions under {@link #RUN_SCOPE}, then each targeted resource's under its wire code. */
+    private Map<String, List<DataAttribute>> definitionScopes(Discovery run, ConnectorDto connector)
+            throws NotFoundException, AttributeException {
+        Map<String, List<DataAttribute>> scopes = new LinkedHashMap<>();
+        scopes.put(RUN_SCOPE, fromEngine(run, connector, null));
+        for (Resource resource : resourcesOf(run)) {
+            scopes.put(resource.getCode(), fromEngine(run, connector, resource.getCode()));
+        }
+        return scopes;
+    }
+
+    private List<DataAttribute> fromEngine(Discovery run, ConnectorDto connector, String operation)
+            throws NotFoundException, AttributeException {
+        return attributeEngine
                 .getDefinitionObjectAttributeContent(AttributeType.DATA, UUID.fromString(connector.getUuid()),
                         operation, Resource.DISCOVERY, run.getUuid());
-        // Credentials and referenced objects are stored as references; the connector needs the resolved
-        // content, exactly as the v1 flow resolves it before its own call.
-        credentialService.loadFullCredentialData(definitions);
-        resourceService.loadResourceObjectContentData(definitions);
-        return AttributeDefinitionUtils.getClientAttributes(definitions);
+    }
+
+    private static List<Resource> resourcesOf(Discovery run) {
+        return run.getResources() == null ? List.of() : run.getResources();
     }
 
     private ConnectorDto connectorOf(Discovery run) throws NotFoundException {

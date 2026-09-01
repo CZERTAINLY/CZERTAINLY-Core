@@ -62,6 +62,7 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         run.setProgress(progress);
         run.setStoppedAt(stoppedAt);
         run.setConnectorState("running");
+        run.setStoppable(true);
         UUID runUuid = discoveryRepository.saveAndFlush(run).getUuid();
         // Without the clear, findById answers from the persistence context and the jsonb columns are never read.
         entityManager.clear();
@@ -80,6 +81,7 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         assertThat(back.getProgress().getByResource()).containsOnlyKeys(Resource.CRYPTOGRAPHIC_KEY);
         assertThat(back.getProgress().getByResource().get(Resource.CRYPTOGRAPHIC_KEY).getProcessed()).isEqualTo(3L);
         assertThat(back.getConnectorState()).isEqualTo("running");
+        assertThat(back.getStoppable()).isTrue();
         // Compared as instants: the driver may hand the timestamptz back under a different zone offset.
         assertThat(back.getStoppedAt().toInstant()).isEqualTo(stoppedAt.toInstant());
     }
