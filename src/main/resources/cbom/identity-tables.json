@@ -3249,7 +3249,7 @@
    "why": "cbom-lens familyExact"
   },
   {
-   "pattern": "^Ed(25519|448)(ph|ctx)?$",
+   "pattern": "(?<![A-Za-z0-9])Ed(25519|448)(ph|ctx)?(?![A-Za-z0-9])",
    "family": "EdDSA",
    "why": "registry has no Ed25519 family token; EdDSA is the family, Ed25519 the curve"
   },

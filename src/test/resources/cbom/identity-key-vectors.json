@@ -2,7 +2,7 @@
  "$comment": "Frozen byte-level conformance vectors for core#2070 (R15/D19). The identity value is SHA-256 over the pre-image encoded UTF-8, lowercase hex. A mismatch on preImage names the slot; a mismatch on identityKey alone means the hashing or encoding differs.",
  "specId": "v1",
  "hash": "sha256(preImage.encode('utf-8')).hexdigest()",
- "vectorCount": 264,
+ "vectorCount": 265,
  "vectors": [
   {
    "id": "crt-dn-public-key-target",
@@ -411,6 +411,37 @@
         "name": "TLS_AES_128_GCM_SHA256",
         "identifiers": [
          "0x13,0x01"
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expected": {
+    "chainStep": "prt:type+version+suites",
+    "preImage": "PRT|tls|1.3|e8f908767b5475e0dcfb3fca2e9416416a25a17b71ea03dc6b38e34514c9fa00",
+    "identityKey": "612745f3985934576bc86b8c8f6ec109894fc430f1147c1f4fd40638d6f65723",
+    "innerPreImages": {
+     "cipherSuites": "c:1301"
+    }
+   }
+  },
+  {
+   "id": "prt-suites-whole-code",
+   "why": "the same suite as a single whole two-byte code: must equal the unpadded and packed vectors. CycloneDX's own 1.7 conformance fixture spells TLS 1.3 suites this way, so a strict one-octet parser passes every other suite vector and still splits the fixture's rows off from the corpus'",
+   "component": {
+    "type": "cryptographic-asset",
+    "name": "web",
+    "cryptoProperties": {
+     "assetType": "protocol",
+     "protocolProperties": {
+      "type": "tls",
+      "version": "1.3",
+      "cipherSuites": [
+       {
+        "name": "TLS_AES_128_GCM_SHA256",
+        "identifiers": [
+         "0x1301"
         ]
        }
       ]
@@ -5759,8 +5790,8 @@
    },
    "expected": {
     "chainStep": "alg:name",
-    "preImage": "ALG||ed25519/ed448|256||||",
-    "identityKey": "13fa7d403d49622e9aa94160aa92faffcbf7b71d12e15ed70ed0b6c5b614c1c4"
+    "preImage": "ALG|EdDSA|256|other/Ed25519+other/Ed448|||",
+    "identityKey": "daa747977f8a9b3df7831c33d6d62e63ab0adb104d47eb81c2681ec277beab53"
    }
   },
   {
@@ -5793,8 +5824,8 @@
    },
    "expected": {
     "chainStep": "alg:name",
-    "preImage": "ALG||ssh%20ed25519%20key|256||||sshkey",
-    "identityKey": "9ab770840f788f85cfd0c6b476312f24c15938d08218d586f5cb747c997bd541"
+    "preImage": "ALG|EdDSA|256|other/Ed25519|||sshkey",
+    "identityKey": "a7577a1f97f4f58dc549a715fc8119ccdbba678e418f239ee0be50ea2b414a13"
    }
   },
   {
@@ -6015,8 +6046,8 @@
    },
    "expected": {
     "chainStep": "alg:name",
-    "preImage": "ALG||ed25519%20host%20key|256|other/Ed25519|||hostkey",
-    "identityKey": "82486f46895177d8924244eb0759082e3606e1aca9d0fc4bf9f05fe35feb5a58"
+    "preImage": "ALG|EdDSA|256|other/Ed25519|||hostkey",
+    "identityKey": "487da0afca264f4c6aa82fd69167d591b0d5c96cf068163070b896e3905fc47e"
    }
   },
   {

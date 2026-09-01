@@ -86,7 +86,15 @@ NAME_GRAMMAR = [
     {"pattern": r"^ssh-ed25519$", "family": "EdDSA", "why": "cbom-lens familyExact"},
     {"pattern": r"^ssh-rsa$", "family": "RSASSA-PKCS1", "why": "cbom-lens familyExact"},
     {"pattern": r"^ssh-dss$", "family": "DSA", "why": "cbom-lens familyExact"},
-    {"pattern": r"^Ed(25519|448)(ph|ctx)?$", "family": "EdDSA",
+    # Word-guarded, not anchored. The anchored form resolved a bare `Ed25519` and nothing
+    # else, so every name that says the same thing with a word beside it fell through to no
+    # family at all -- measured, 19 corpus rows: `Ed25519 host key` (x4), straylight's
+    # `ed25519 (pub, sign, certify, ...)` (x12), `SSH Ed25519 key`, `Ed25519/Ed448` and
+    # `Ed25519/Ed448 (OID)`. A key artifact named after its algorithm is still that algorithm;
+    # leaving those family-less made the AC5 `algorithmFamily` filter blind to the most common
+    # Edwards spelling in the corpus. The guard keeps it from matching inside a longer token,
+    # so `X25519` and `Curve25519` are untouched.
+    {"pattern": r"(?<![A-Za-z0-9])Ed(25519|448)(ph|ctx)?(?![A-Za-z0-9])", "family": "EdDSA",
      "why": "registry has no Ed25519 family token; EdDSA is the family, Ed25519 the curve"},
 
     # --- KDFs and password-based constructions FIRST ----------------------------
@@ -682,7 +690,11 @@ def curve_aliases(registry: dict, canonical: dict[str, str]) -> dict[str, str]:
 
     Keys are the bare forms producers actually write (`P-256`, `secp256r1`,
     `prime256v1`, `nistp256`, `Ed25519`, `x25519`), not the namespaced registry
-    tokens, because no producer writes the namespace except cbom-lens on 1.7.
+    tokens, because producers overwhelmingly write the bare form. Namespaced values do
+    occur -- 37 of them across 17 corpus documents, from sbom-tools, sbomify and
+    ClaveQuantum as well as cbom-lens -- and one of them, sbomify's `nist/P-384`, is not
+    even the canonical authority, so the alias table has to fold namespaced spellings too
+    rather than assume they arrive canonical.
     """
     aliases: dict[str, str] = {}
 
@@ -806,7 +818,7 @@ def main() -> None:
     print(f"  grammar rules         : {len(NAME_GRAMMAR)}")
     print(f"  primitive defaults    : {len(PRIMITIVE_DEFAULTS)}")
     # Closed-vocabulary tokens must be printable ASCII. Measured: all 129 families, 197
-    # curves, 7 modes, 6 padding tokens and 40 stoplist tokens already are, so this
+    # curves, 8 modes, 8 padding tokens and 41 stoplist tokens already are, so this
     # asserts an existing property rather than imposing a new one — and it means the
     # lookup path never needs a Unicode-dependent case operation.
     vocab_checks = {

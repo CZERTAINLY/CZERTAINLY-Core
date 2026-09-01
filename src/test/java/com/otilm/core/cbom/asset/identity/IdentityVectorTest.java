@@ -139,7 +139,7 @@ class IdentityVectorTest {
      */
     @Test
     void theWholeRatifiedSetIsRun() {
-        assertThat(vectorFile.get("vectors")).hasSize(vectorFile.get("vectorCount").asInt()).hasSize(264);
+        assertThat(vectorFile.get("vectors")).hasSize(vectorFile.get("vectorCount").asInt()).hasSize(265);
     }
 
     /**

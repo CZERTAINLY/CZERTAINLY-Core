@@ -23,9 +23,10 @@ import java.util.stream.Collectors;
  * <p>
  * The tables are <em>data, never code</em>: they load from {@code cbom/identity-tables.json}, the same artifact the
  * reference implementation reads, so a vocabulary change is a reviewed data change rather than a code change in two
- * languages. The shipped file's SHA-256 is {@code 1331969bb507...}, which is the hash every published
- * cross-implementation agreement figure was measured against -- quote an agreement number only with the artifact hash
- * it was taken against, because a number measured before a fix is a historical number, not a current one.
+ * languages. The shipped file's SHA-256 is {@code ee359d357bcb...}. Every published cross-implementation agreement
+ * figure predates it and was measured against {@code 1331969bb507...} -- quote an agreement number only with the
+ * artifact hash it was taken against, because a number measured before a table change is a historical number, not a
+ * current one.
  *
  * <p>
  * Every lookup here is fold-insensitive by way of {@link AsciiText#lookupKey}: a producer writing {@code aes} or

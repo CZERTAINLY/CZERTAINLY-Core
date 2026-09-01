@@ -42,7 +42,7 @@ class IdentityTablesTest {
             assertThat(stream).isNotNull();
             assertThat(IdentityDigests.sha256HexOfBytes(stream.readAllBytes()))
                     .describedAs("the decision tables are ratified data; editing them re-keys the inventory")
-                    .isEqualTo("1331969bb507eb65c887eec44321af8768f752862afe344e528c86d3de53407b");
+                    .isEqualTo("ee359d357bcb80f77585ae5e46ac32e536194921a2b2f4c0a48a090ddc314baa");
         }
     }
 
