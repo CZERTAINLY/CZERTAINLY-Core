@@ -162,8 +162,8 @@ public class SearchHelper {
         fieldDataDto.setValue(attributeSearchInfo.getContentItems());
         fieldDataDto.setAttributeContentType(attributeSearchInfo.getAttributeContentType());
         fieldDataDto.setDisplayable(isDisplayable(attributeSearchInfo));
-        // Ordering by an attribute needs a correlated scalar subquery over JSONB that no index supports, and a
-        // multi-valued attribute leaves the sort key ambiguous, so no attribute-sourced field is sortable.
+        // Left false here and decided per resource by applyAttributeSortability: this method is handed one attribute
+        // definition and not the resource whose catalogue it is being built for, and ordering is wired per listing.
         fieldDataDto.setSortable(false);
         return fieldDataDto;
     }
@@ -184,6 +184,30 @@ public class SearchHelper {
     private static final Set<Resource> SORT_WIRED_RESOURCES = Set
             .of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, Resource.DISCOVERY, Resource.CONNECTOR,
                     Resource.SECRET, Resource.CBOM, Resource.SIGNING_RECORD);
+
+    /**
+     * Whether the listing of this resource applies the sort a request carries.
+     */
+    public static boolean listingAppliesSort(final Resource resource) {
+        return SORT_WIRED_RESOURCES.contains(resource);
+    }
+
+    /**
+     * Marks the attribute fields of one resource's catalogue sortable where that resource's listing applies a sort.
+     *
+     * <p>
+     * Ordering an attribute resolves to a correlated scalar subquery over the stored json, which works on any resource;
+     * what varies is whether the listing passes the sort on. A field the catalogue withholds as a column is withheld
+     * from ordering too - there is nothing to order a column by when the column cannot be shown.
+     */
+    public static List<SearchFieldDataDto> applyAttributeSortability(final List<SearchFieldDataDto> fields,
+            final Resource resource) {
+        if (!listingAppliesSort(resource)) {
+            return fields;
+        }
+        fields.forEach(field -> field.setSortable(Boolean.TRUE.equals(field.getDisplayable())));
+        return fields;
+    }
 
     /**
      * What the catalogue advertises as sortable: a field whose path can be ordered by, on a listing that applies the

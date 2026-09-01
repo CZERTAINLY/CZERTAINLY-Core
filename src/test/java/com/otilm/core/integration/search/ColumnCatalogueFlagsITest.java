@@ -141,13 +141,30 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
         Assertions.assertFalse(SearchHelper.isOrderableField(filterField));
     }
 
+    /**
+     * Discovery applies a requested sort, so a displayable attribute of its catalogue advertises ordering too.
+     */
     @Test
-    void anAttributeFieldIsDisplayableButNeverSortable() throws Exception {
+    void aDisplayableAttributeFieldOfAWiredListingIsSortable() throws Exception {
         registerCustomAttribute("catalogue-flag-probe", AttributeContentType.TEXT);
 
         SearchFieldDataDto attribute = field(discoveryService.getSearchableFieldInformationByGroup(),
                 "catalogue-flag-probe|" + AttributeContentType.TEXT.name()).orElseThrow();
         Assertions.assertEquals(true, attribute.getDisplayable());
+        Assertions.assertEquals(true, attribute.getSortable());
+    }
+
+    /**
+     * A column the catalogue withholds cannot be ordered on either - there is nothing to order by when the value is
+     * never rendered. Secret content is the clearest case.
+     */
+    @Test
+    void anAttributeFieldWithheldAsAColumnIsNotSortable() throws Exception {
+        registerCustomAttribute("catalogue-secret-probe", AttributeContentType.SECRET);
+
+        SearchFieldDataDto attribute = field(discoveryService.getSearchableFieldInformationByGroup(),
+                "catalogue-secret-probe|" + AttributeContentType.SECRET.name()).orElseThrow();
+        Assertions.assertEquals(false, attribute.getDisplayable());
         Assertions.assertEquals(false, attribute.getSortable());
     }
 
