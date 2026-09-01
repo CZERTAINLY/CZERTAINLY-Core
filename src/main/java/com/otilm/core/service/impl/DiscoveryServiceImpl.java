@@ -443,7 +443,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 .getResourceSearchableFields(Resource.DISCOVERY, false);
 
         List<SearchFieldDataDto> fields = List
-                .of(SearchHelper.prepareSearch(FilterField.CKI_NAME),
+                .of(SearchHelper.prepareSearch(FilterField.DISCOVERY_NAME),
                         SearchHelper
                                 .prepareSearch(FilterField.DISCOVERY_STATUS,
                                         Arrays.stream(DiscoveryStatus.values()).map(DiscoveryStatus::getCode).toList()),

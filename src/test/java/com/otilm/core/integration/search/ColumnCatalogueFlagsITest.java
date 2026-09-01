@@ -58,6 +58,15 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
         return catalogue.stream().flatMap(group -> group.getSearchFieldData().stream()).toList();
     }
 
+    /** The property group only, since the source is carried by the group rather than by each field. */
+    private static List<SearchFieldDataDto> propertyFields(List<SearchFieldDataByGroupDto> catalogue) {
+        return catalogue
+                .stream()
+                .filter(group -> group.getFilterFieldSource() == FilterFieldSource.PROPERTY)
+                .flatMap(group -> group.getSearchFieldData().stream())
+                .toList();
+    }
+
     @Test
     void everyPublishedFieldAnswersBothFlags() {
         // A flag left null reaches the picker as "unknown", and an absent flag is read as a no - so a field that
@@ -76,13 +85,29 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
         Assertions.assertEquals(true, kind.getDisplayable());
     }
 
+    /**
+     * Discovery is one of the listings that applies a requested sort, so its orderable property fields advertise it.
+     * The catalogue promising an ordering the listing then discards is the failure this guards, in both directions: a
+     * wired listing must say so, and {@code CryptographicAssetSearchableFieldsITest.noFieldReportsSortable} holds the
+     * other side, where an unwired listing reports nothing sortable.
+     */
     @Test
-    void noPropertyFieldIsSortableWhileNoListingOrdersByTheRequestedSort() {
-        // The catalogue must not advertise an ordering that does not happen: a secured search can be ordered, but no
-        // listing service passes the sort a request carries to the repository, so a client sorting on a field the
-        // catalogue called sortable would get the default order back with no indication why.
-        for (SearchFieldDataDto item : allFields(discoveryService.getSearchableFieldInformationByGroup())) {
-            Assertions.assertEquals(false, item.getSortable(), item.getFieldIdentifier());
+    void aPropertyFieldOfAWiredListingIsSortable() {
+        SearchFieldDataDto name = field(discoveryService.getSearchableFieldInformationByGroup(),
+                FilterField.DISCOVERY_NAME.name()).orElseThrow();
+
+        Assertions.assertEquals(true, name.getSortable());
+    }
+
+    /**
+     * A field whose path cannot be ordered by stays non-sortable on a wired listing: the resource being wired is not on
+     * its own enough.
+     */
+    @Test
+    void aNonOrderablePropertyFieldOfAWiredListingIsNotSortable() {
+        for (SearchFieldDataDto item : propertyFields(discoveryService.getSearchableFieldInformationByGroup())) {
+            boolean orderable = SearchHelper.isOrderableField(FilterField.valueOf(item.getFieldIdentifier()));
+            Assertions.assertEquals(orderable, item.getSortable(), item.getFieldIdentifier());
         }
     }
 

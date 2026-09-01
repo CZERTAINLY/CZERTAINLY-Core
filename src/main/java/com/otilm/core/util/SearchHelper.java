@@ -4,6 +4,7 @@ import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.otilm.api.model.common.enums.IPlatformEnum;
 import com.otilm.api.model.common.enums.PlatformEnum;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldType;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
@@ -168,16 +169,28 @@ public class SearchHelper {
     }
 
     /**
-     * What the catalogue advertises as sortable, which is nothing yet.
+     * The resources whose listing passes the sort a request carries to the repository.
      *
      * <p>
-     * A secured search can be ordered by a field, but no listing service passes the sort a request carries to the
-     * repository, so a catalogue reporting {@code true} would advertise an ordering that does not happen: a client
-     * sorting on such a field would get the default order back and no indication why. {@link #isOrderableField} is the
-     * predicate this becomes once the listings are wired.
+     * The flag is published per field while the ordering is wired per listing, and seven of the sixteen listings that
+     * accept a search request are wired. A field of any other resource is reported not sortable however orderable its
+     * path is, because a catalogue reporting {@code true} there would advertise an ordering that listing discards: the
+     * client sorts, receives the default order, and is told nothing.
+     *
+     * <p>
+     * Explicit rather than derived: the wiring lives in each listing service and nothing on a {@link FilterField} knows
+     * whether its listing was wired. A listing that gains ordering adds itself here.
+     */
+    private static final Set<Resource> SORT_WIRED_RESOURCES = Set
+            .of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, Resource.DISCOVERY, Resource.CONNECTOR,
+                    Resource.SECRET, Resource.CBOM, Resource.SIGNING_RECORD);
+
+    /**
+     * What the catalogue advertises as sortable: a field whose path can be ordered by, on a listing that applies the
+     * ordering.
      */
     private static boolean isSortable(final FilterField filterField) {
-        return false;
+        return SORT_WIRED_RESOURCES.contains(filterField.getRootResource()) && isOrderableField(filterField);
     }
 
     /**
