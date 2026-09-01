@@ -3,6 +3,7 @@ package com.otilm.core.service.handler.discovery;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryProgressDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunState;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryStatusResponseDto;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
@@ -162,7 +163,7 @@ public class DiscoveryStatusTickWorker {
             String previousConnectorState = locked.getConnectorState();
             locked.setConnectorState(state.getCode());
             locked.setConnectorStatus(connectorStatusFor(state));
-            if (status.getProgress() != null) {
+            if (reportsSomething(status.getProgress())) {
                 locked.setProgress(status.getProgress());
             }
             if (state == DiscoveryRunState.FAILED || state == DiscoveryRunState.CANCELLED) {
@@ -175,6 +176,16 @@ public class DiscoveryStatusTickWorker {
             applyLiveState(locked, state, previousConnectorState);
             return true;
         }));
+    }
+
+    /**
+     * Whether a reported snapshot is worth keeping. An all-null one says what omitting the field says — nothing to
+     * report — so treating it as a report would replace what the run already knows with blanks. Connector responses are
+     * not bean-validated, so the contract's "omit rather than send an empty object" cannot be enforced on arrival.
+     */
+    private static boolean reportsSomething(DiscoveryProgressDto progress) {
+        return progress != null && (progress.getProcessed() != null || progress.getTotalEstimate() != null
+                || progress.getFailed() != null || progress.getPhase() != null || progress.getByResource() != null);
     }
 
     private void applyLiveState(Discovery run, DiscoveryRunState state, String previousConnectorState) {

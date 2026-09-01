@@ -99,6 +99,56 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
         assertThat(reloaded.getProgress().getPhase()).isEqualTo("scanning");
     }
 
+    /**
+     * An empty snapshot says what omitting the field says, and connector responses are not bean-validated, so the one
+     * place the difference can be refused is here. Kept apart from the omitted-progress case because the two arrive as
+     * different JSON and only this one passes a null check.
+     */
+    @Test
+    void emptyProgressAnswer_keepsTheSnapshotTheRunAlreadyHas() throws Exception {
+        Discovery run = v2Run(DiscoveryStatus.IN_PROGRESS);
+        armStatusRow(run, 0);
+        DiscoveryStatusResponseDto reporting = statusResponse(DiscoveryRunState.RUNNING);
+        DiscoveryProgressDto progress = new DiscoveryProgressDto();
+        progress.setProcessed(31L);
+        progress.setFailed(12L);
+        reporting.setProgress(progress);
+        answers(reporting);
+        worker.tick(run.getUuid(), 0);
+
+        armStatusRow(run, 0);
+        DiscoveryStatusResponseDto silent = statusResponse(DiscoveryRunState.RUNNING);
+        silent.setProgress(new DiscoveryProgressDto());
+        answers(silent);
+
+        worker.tick(run.getUuid(), 0);
+
+        Discovery reloaded = reload(run);
+        assertThat(reloaded.getProgress()).isNotNull();
+        assertThat(reloaded.getProgress().getProcessed())
+                .as("an empty report must not blank out what the run already knows")
+                .isEqualTo(31L);
+        assertThat(reloaded.getProgress().getFailed()).isEqualTo(12L);
+    }
+
+    @Test
+    void runningAnswer_storesTheFailedTargetCount() throws Exception {
+        Discovery run = v2Run(DiscoveryStatus.IN_PROGRESS);
+        armStatusRow(run, 0);
+        DiscoveryStatusResponseDto response = statusResponse(DiscoveryRunState.RUNNING);
+        DiscoveryProgressDto progress = new DiscoveryProgressDto();
+        progress.setProcessed(42L);
+        progress.setFailed(65_492L);
+        response.setProgress(progress);
+        answers(response);
+
+        worker.tick(run.getUuid(), 0);
+
+        // A sweep of address space fails most of what it attempts; without this the run detail cannot tell
+        // "examined 42 of 65534" from "found 42, nothing else to look at".
+        assertThat(reload(run).getProgress().getFailed()).isEqualTo(65_492L);
+    }
+
     @Test
     void stoppedAnswer_pausesTheRunAndStartsTheResumeWindow() throws Exception {
         Discovery run = v2Run(DiscoveryStatus.IN_PROGRESS);

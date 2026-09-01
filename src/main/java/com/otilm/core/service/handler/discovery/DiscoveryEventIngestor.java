@@ -362,6 +362,7 @@ public class DiscoveryEventIngestor {
         snapshot.setProcessed(event.getProcessed());
         snapshot.setTotalEstimate(event.getTotalEstimate());
         snapshot.setPhase(event.getPhase());
+        snapshot.setFailed(event.getFailed());
         snapshot.setByResource(event.getByResource());
         return snapshot;
     }
