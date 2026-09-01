@@ -487,6 +487,24 @@ class X509RequestContentParserTest {
         }
 
         @Test
+        void flattensAMultiValuedRdn_fromACertificateSubject() throws Exception {
+            // given — CN=host+O=Acme, one RDN carrying both attributes
+            X509Certificate certificate = CertificateTestUtil
+                    .createCertificateWithSubjectAndSans(new X500NameBuilder(BCStyle.INSTANCE)
+                            .addMultiValuedRDN(new ASN1ObjectIdentifier[]{BCStyle.CN, BCStyle.O},
+                                    new String[]{"host", "Acme"})
+                            .build());
+
+            // when
+            X509RequestContent content = X509RequestContentParser.parse(certificate).content();
+
+            // then — each component becomes its own entry, so the grouping is not expressible in typed content;
+            // RenewContentSeeder refuses to seed such a subject rather than sending an altered DN
+            assertThat(content.getSubject()).extracting("type").containsExactly("CN", "O");
+            assertThat(content.getSubject()).extracting("value").containsExactly("host", "Acme");
+        }
+
+        @Test
         void seededSanSurvivesRenderAndReparse() throws Exception {
             // given — the seeder is the renderer's inverse; a drift between them loses SAN on rekey
             X509Certificate certificate = CertificateTestUtil

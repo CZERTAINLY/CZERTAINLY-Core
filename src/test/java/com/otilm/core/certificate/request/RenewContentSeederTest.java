@@ -18,9 +18,12 @@ import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Optional;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x500.X500NameBuilder;
+import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
@@ -257,6 +260,53 @@ class RenewContentSeederTest {
         assertThat(seeded).isEmpty();
     }
 
+    @Test
+    void seedsNothing_whenThePredecessorSubjectPacksAMultiValuedRdn() throws Exception {
+        // given — CN=host+O=Acme is one RDN naming the entry by both attributes; a flat typed subject would be
+        // rebuilt as CN=host,O=Acme, a different DER encoding that no DN comparison matches
+        Certificate oldCertificate = certificateEntity(CertificateTestUtil
+                .createCertificateWithSubjectAndSans(multiValuedSubject(),
+                        new GeneralName(GeneralName.dNSName, "old.example.com")));
+
+        // when
+        Optional<X509RequestContent> seeded = RenewContentSeeder.seed(oldCertificate, new Certificate(), null);
+
+        // then — the CSR beside the content carries the true subject
+        assertThat(seeded).isEmpty();
+    }
+
+    @Test
+    void seedsNothing_whenASuppliedCsrSubjectPacksAMultiValuedRdn() throws Exception {
+        // given
+        Certificate oldCertificate = certificateEntity(
+                CertificateTestUtil.createCertificateWithSubjectAndSans("CN=old.example.com"));
+        String supplied = pkcs10(multiValuedSubject());
+        Certificate newCertificate = new Certificate();
+        newCertificate.setCertificateRequest(csrEntity(supplied));
+
+        // when
+        Optional<X509RequestContent> seeded = RenewContentSeeder
+                .seed(oldCertificate, newCertificate,
+                        ClientCertificateRenewRequestDto.builder().request(supplied).build());
+
+        // then
+        assertThat(seeded).isEmpty();
+    }
+
+    @Test
+    void seedsRepeatedAttributes_whichAreSeparateRdnsNotAMultiValuedOne() throws Exception {
+        // given — OU=First,OU=Second is two RDNs, so the flat typed subject rebuilds it exactly
+        Certificate oldCertificate = certificateEntity(
+                CertificateTestUtil.createCertificateWithSubjectAndSans("CN=old.example.com,OU=First,OU=Second"));
+
+        // when
+        Optional<X509RequestContent> seeded = RenewContentSeeder.seed(oldCertificate, new Certificate(), null);
+
+        // then
+        assertThat(seeded).isPresent();
+        assertThat(seeded.get().getSubject()).extracting("value").containsExactly("old.example.com", "First", "Second");
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private static Certificate certificateEntity(X509Certificate certificate) throws Exception {
@@ -274,12 +324,21 @@ class RenewContentSeederTest {
         return entity;
     }
 
+    private static X500Name multiValuedSubject() {
+        return new X500NameBuilder(BCStyle.INSTANCE)
+                .addMultiValuedRDN(new ASN1ObjectIdentifier[]{BCStyle.CN, BCStyle.O}, new String[]{"host", "Acme"})
+                .build();
+    }
+
     private static String pkcs10(String subjectDn) throws Exception {
+        return pkcs10(new X500Name(subjectDn));
+    }
+
+    private static String pkcs10(X500Name subject) throws Exception {
         KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
         kpg.initialize(2048);
         KeyPair kp = kpg.generateKeyPair();
-        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
-                kp.getPublic());
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(subject, kp.getPublic());
         ExtensionsGenerator extGen = new ExtensionsGenerator();
         extGen
                 .addExtension(Extension.subjectAlternativeName, false,

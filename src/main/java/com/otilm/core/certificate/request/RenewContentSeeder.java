@@ -16,6 +16,8 @@ import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.bouncycastle.asn1.x500.RDN;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extensions;
 
 /**
@@ -36,9 +38,22 @@ public final class RenewContentSeeder {
     public static Optional<X509RequestContent> seed(Certificate oldCertificate, Certificate newCertificate,
             ClientCertificateRenewRequestDto request) {
         try {
-            ParsedRequestContent parsed = operatorSuppliedCsr(newCertificate, request)
-                    ? X509RequestContentParser.parse(storedCsr(newCertificate))
-                    : X509RequestContentParser.parse(storedCertificate(oldCertificate));
+            ParsedRequestContent parsed;
+            X500Name sourceSubject;
+            if (operatorSuppliedCsr(newCertificate, request)) {
+                CertificateRequest csr = storedCsr(newCertificate);
+                sourceSubject = csr.getSubject();
+                parsed = X509RequestContentParser.parse(csr);
+            } else {
+                X509Certificate certificate = storedCertificate(oldCertificate);
+                sourceSubject = X500Name.getInstance(certificate.getSubjectX500Principal().getEncoded());
+                parsed = X509RequestContentParser.parse(certificate);
+            }
+            if (hasMultiValuedRdn(sourceSubject)) {
+                log
+                        .warn("Not seeding structured renew content: the subject packs a multi-valued RDN, which typed content cannot express");
+                return Optional.empty();
+            }
             if (!parsed.unsupportedSans().isEmpty()) {
                 log
                         .warn("Not seeding structured renew content: subject alternative name {} has no typed representation",
@@ -81,6 +96,21 @@ public final class RenewContentSeeder {
             throw new ValidationException(
                     "Failed to build the subject alternative name of the re-keyed request. Error: " + e.getMessage());
         }
+    }
+
+    /**
+     * Whether the subject packs two or more attributes into a single RDN, rendered {@code CN=host+O=Acme}. A typed
+     * subject is a flat ordered list, so that grouping is lost and rebuilding the DN yields {@code CN=host,O=Acme} — a
+     * different DER encoding and a different X.500 name, which no DN comparison treats as equal. The CSR beside the
+     * content carries the true subject, so the content is dropped rather than sent altered.
+     */
+    private static boolean hasMultiValuedRdn(X500Name subject) {
+        for (RDN rdn : subject.getRDNs()) {
+            if (rdn.size() > 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

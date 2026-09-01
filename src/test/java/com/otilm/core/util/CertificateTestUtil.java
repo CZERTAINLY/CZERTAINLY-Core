@@ -312,13 +312,18 @@ public class CertificateTestUtil {
      */
     public static X509Certificate createCertificateWithSubjectAndSans(String subjectDn, GeneralName... sans)
             throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
+        return createCertificateWithSubjectAndSans(new X500Name(subjectDn), sans);
+    }
+
+    /** As above, for a subject no DN string can express, such as one packing a multi-valued RDN. */
+    public static X509Certificate createCertificateWithSubjectAndSans(X500Name subject, GeneralName... sans)
+            throws NoSuchAlgorithmException, OperatorCreationException, CertificateException, IOException {
         ensureBouncyCastleProvider();
         KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
         keyGen.initialize(2048);
         KeyPair keyPair = keyGen.generateKeyPair();
         Date notBefore = new Date();
         Date notAfter = new Date(System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000);
-        X500Name subject = new X500Name(subjectDn);
         JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(subject, BigInteger.ONE, notBefore,
                 notAfter, subject, keyPair.getPublic());
         if (sans.length > 0) {
