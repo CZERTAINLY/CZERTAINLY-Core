@@ -24,6 +24,7 @@ import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.dao.repository.OwnerAssociationRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.dao.repository.SecurityFilterProjectionSpec;
 import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -234,6 +235,41 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
                 cr) -> cb.equal(root.get(Group_.name), "ABCD");
         groups = groupRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause);
         Assertions.assertEquals(0, groups.size());
+    }
+
+    @Test
+    void findUsingSecurityFilter_returnsProjectedValues() {
+        // given
+        SecurityFilter filter = SecurityFilter.create();
+        String expectedSubject = certificateGroup.getSubjectDn();
+
+        // when
+        List<String> subjects = certificateRepository
+                .findUsingSecurityFilter(filter, String.class,
+                        (root, cb) -> new SecurityFilterProjectionSpec<>(root.get(Certificate_.subjectDn), List.of()));
+
+        // then
+        Assertions.assertTrue(subjects.contains(expectedSubject));
+    }
+
+    @Test
+    void findUsingSecurityFilter_returnsGroupedProjectedValues() {
+        // given
+        SecurityFilter filter = SecurityFilter.create();
+        String expectedSubject = certificateGroup.getSubjectDn();
+
+        // when
+        List<Object[]> groupedSubjects = certificateRepository
+                .findUsingSecurityFilter(filter, Object[].class,
+                        (root, cb) -> new SecurityFilterProjectionSpec<>(
+                                cb.array(root.get(Certificate_.subjectDn), cb.count(root)),
+                                List.of(root.get(Certificate_.subjectDn))));
+
+        // then
+        Assertions
+                .assertTrue(groupedSubjects
+                        .stream()
+                        .anyMatch(row -> expectedSubject.equals(row[0]) && Long.valueOf(1L).equals(row[1])));
     }
 
     private static SortSpecification propertySort(String fieldIdentifier, SortDirection direction) {
