@@ -361,6 +361,17 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         return certificate.get("subjectPublicKeyRef");
     }
 
+    /**
+     * Whether a node carries content, which is stricter than carrying a value.
+     *
+     * <p>
+     * Kept here rather than borrowed from the digest helpers: it guards this tier's fingerprint branch and nothing
+     * else, and a package-private helper on another class is one deletion away from taking this branch with it.
+     */
+    private static boolean hasContent(JsonNode node) {
+        return node != null && !node.isNull() && !node.asText().isEmpty();
+    }
+
     private String publicKeyDigest(JsonNode properties, DocumentScope scope) {
         JsonNode target = scope
                 .resolve(subjectPublicKeyRef(objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES))));
@@ -537,11 +548,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // UUID stable across documents and hand-written labels like `server-key-2024`, and nothing distinguishes the
         // two. Two different keys can share an id, so it must never outrank a fingerprint or a value digest.
         JsonNode fingerprint = material == null ? null : material.get("fingerprint");
-        // CertificateDigests.isPresent, not a null check: an empty content string made every such component key as
+        // Emptiness, not nullness: an empty content string made every such component key as
         // `MAT|<kind>|F|unknown:`, so two different secret keys collapsed onto one row and the value-hash tier one
         // branch below -- which would have kept them apart -- was never reached.
-        if (fingerprint != null && fingerprint.isObject()
-                && CertificateDigests.isPresent(fingerprint.get(CbomNames.CONTENT))) {
+        if (fingerprint != null && fingerprint.isObject() && hasContent(fingerprint.get(CbomNames.CONTENT))) {
             JsonNode algorithm = fingerprint.get("alg");
             String label = AsciiText.fold(algorithm == null || algorithm.isNull() ? "unknown" : algorithm.asText());
             return new String[]{
