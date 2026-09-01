@@ -86,17 +86,13 @@ public class DiscoveryV2Client {
                 .toList();
     }
 
-    /**
-     * Opens the run at the connector. The only call that sends {@code resources}: every later one addresses a run the
-     * connector already knows the scope of, and replays the handle instead.
-     */
+    /** Opens the run at the connector, minting the handle every later call replays. */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public DiscoveryInitiateResponseDto initiate(Discovery run)
             throws ConnectorException, NotFoundException, AttributeException {
         ConnectorDto connector = connectorOf(run);
         DiscoveryInitiateRequestDto request = new DiscoveryInitiateRequestDto();
         populate(request, run, connector);
-        request.setResources(resourcesOf(run));
         return connectorApiFactory.getDiscoveryApiClientV2(connector).initiate(connector, request);
     }
 
@@ -183,11 +179,16 @@ public class DiscoveryV2Client {
     /**
      * Fills the identity and configuration every v2 request carries. Run-level attributes sit under {@link #RUN_SCOPE};
      * per-resource ones under the resource's wire code, which is how the create path separates them.
+     *
+     * <p>
+     * The resource set goes on every request, not only initiate: a stateless connector rebuilding a resumed run cannot
+     * recover it from {@code resourceAttributes}, which omits any resource declaring no attributes of its own.
      */
     private void populate(DiscoveryV2ScopedRequestDto request, Discovery run, ConnectorDto connector)
             throws ConnectorException, NotFoundException, AttributeException {
         request.setRunId(run.getUuid());
         request.setMeta(run.getRunMeta());
+        request.setResources(resourcesOf(run));
         Map<String, List<DataAttribute>> scopes = resolvedScopes(run, connector);
         request.setAttributes(AttributeDefinitionUtils.getClientAttributes(scopes.getOrDefault(RUN_SCOPE, List.of())));
         Map<Resource, List<RequestAttribute>> byResource = new EnumMap<>(Resource.class);

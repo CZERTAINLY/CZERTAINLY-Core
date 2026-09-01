@@ -9,6 +9,7 @@ import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryDrainRequestDto;
+import com.otilm.api.model.connector.discovery.v2.DiscoveryInitiateResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryResultsResponseDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryRunRequestDto;
 import com.otilm.api.model.connector.discovery.v2.DiscoveryStatusResponseDto;
@@ -106,6 +107,21 @@ class DiscoveryV2ClientTest {
         assertThat(sent.getValue().getMeta())
                 .as("the connector is stateless; without its own handle it cannot resolve the run")
                 .isEqualTo(run.getRunMeta());
+    }
+
+    @Test
+    void aNonInitiateCall_stillCarriesTheRunsResourceSet() throws Exception {
+        run.setResources(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY));
+        when(apiClient.resume(any(), any())).thenReturn(new DiscoveryInitiateResponseDto());
+
+        client.resume(run);
+
+        ArgumentCaptor<DiscoveryRunRequestDto> sent = ArgumentCaptor.forClass(DiscoveryRunRequestDto.class);
+        verify(apiClient).resume(any(ConnectorDto.class), sent.capture());
+        assertThat(sent.getValue().getResources())
+                .as("a connector rebuilding a resumed run after a restart cannot recover its scope from "
+                        + "resourceAttributes, which omits any resource declaring no attributes of its own")
+                .containsExactly(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY);
     }
 
     @Test
