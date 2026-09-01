@@ -21,6 +21,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.Tuple;
 import jakarta.persistence.TypedQuery;
+import jakarta.persistence.criteria.CommonAbstractCriteria;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaDelete;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -117,8 +118,8 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     public List<T> findUsingSecurityFilter(final SecurityFilter filter, List<String> fetchAssociations,
             final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
             final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order, final SortSpecification sort) {
-        if (SortOrderBuilder.traversesJoin(sort)) {
-            return loadInUuidOrder(findUuidsOrderedByJoinedField(filter, additionalWhereClause, p, sort),
+        if (SortOrderBuilder.needsRankedUuidQuery(sort)) {
+            return loadInUuidOrder(findUuidsOrderedBySortKey(filter, additionalWhereClause, p, sort),
                     fetchAssociations);
         }
         final CriteriaQuery<T> cr = createCriteriaBuilder(filter, fetchAssociations, additionalWhereClause, order, sort,
@@ -137,8 +138,8 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     public List<UUID> findUuidsUsingSecurityFilter(final SecurityFilter filter,
             final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
             final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order, final SortSpecification sort) {
-        if (SortOrderBuilder.traversesJoin(sort)) {
-            return findUuidsOrderedByJoinedField(filter, additionalWhereClause, p, sort);
+        if (SortOrderBuilder.needsRankedUuidQuery(sort)) {
+            return findUuidsOrderedBySortKey(filter, additionalWhereClause, p, sort);
         }
         final CriteriaQuery<UUID> cr = createCriteriaBuilderUuid(filter, additionalWhereClause, order, sort, p != null);
         return window(entityManager.createQuery(cr), p).getResultList();
@@ -150,7 +151,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
      * query therefore groups by the root's uuid and orders by the aggregate the ordering resolves - one row per root,
      * which is what the window is allowed to cut.
      */
-    private List<UUID> findUuidsOrderedByJoinedField(final SecurityFilter filter,
+    private List<UUID> findUuidsOrderedBySortKey(final SecurityFilter filter,
             final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
             final Pageable p, final SortSpecification sort) {
         final Class<T> entity = this.entityInformation.getJavaType();
@@ -159,7 +160,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         final Root<T> root = cr.from(entity);
         final Path<?> uuid = root.get(UniquelyIdentified_.UUID);
 
-        final SortOrderBuilder.GroupedOrdering ordering = SortOrderBuilder.resolveGrouped(root, cb, sort);
+        final SortOrderBuilder.GroupedOrdering ordering = SortOrderBuilder.resolveGrouped(root, cb, cr, sort);
         cr.multiselect(uuid, ordering.sortKey());
         cr.groupBy(uuid);
         cr.orderBy(ordering.orders());
@@ -199,10 +200,10 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     private List<Order> resolveOrdering(final Root<T> root, final CriteriaBuilder cb,
-            final BiFunction<Root<T>, CriteriaBuilder, Order> order, final SortSpecification sort,
-            final boolean paged) {
+            final CommonAbstractCriteria query, final BiFunction<Root<T>, CriteriaBuilder, Order> order,
+            final SortSpecification sort, final boolean paged) {
         final Order defaultOrder = order == null ? null : order.apply(root, cb);
-        return SortOrderBuilder.resolve(root, cb, sort, defaultOrder, paged);
+        return SortOrderBuilder.resolve(root, cb, query, sort, defaultOrder, paged);
     }
 
     private void applyPredicates(final CriteriaQuery<?> cr, final SecurityFilter filter,
@@ -440,7 +441,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
         fetchAssociations(root, fetchAssociations);
 
-        final List<Order> orders = resolveOrdering(root, cb, order, sort, paged);
+        final List<Order> orders = resolveOrdering(root, cb, cr, order, sort, paged);
         if (!orders.isEmpty()) {
             cr.orderBy(orders);
         }
@@ -460,7 +461,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
         cr.select(root.get("uuid"));
 
-        final List<Order> orders = resolveOrdering(root, cb, order, sort, paged);
+        final List<Order> orders = resolveOrdering(root, cb, cr, order, sort, paged);
         if (!orders.isEmpty()) {
             cr.orderBy(orders);
         }

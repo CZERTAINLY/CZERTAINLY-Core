@@ -353,9 +353,10 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
     }
 
     @Test
-    void reportsWhetherASortTraversesAJoin() {
-        Assertions.assertFalse(SortOrderBuilder.traversesJoin(propertySort("SUBJECTDN", SortDirection.ASC)));
-        Assertions.assertTrue(SortOrderBuilder.traversesJoin(propertySort("RA_PROFILE_NAME", SortDirection.ASC)));
+    void reportsWhetherASortNeedsTheRankedUuidQuery() {
+        Assertions.assertFalse(SortOrderBuilder.needsRankedUuidQuery(propertySort("SUBJECTDN", SortDirection.ASC)));
+        Assertions
+                .assertTrue(SortOrderBuilder.needsRankedUuidQuery(propertySort("RA_PROFILE_NAME", SortDirection.ASC)));
     }
 
     /**

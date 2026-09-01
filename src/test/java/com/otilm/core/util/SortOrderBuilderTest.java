@@ -1,6 +1,5 @@
 package com.otilm.core.util;
 
-import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchSortRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SortDirection;
@@ -17,17 +16,19 @@ import org.junit.jupiter.api.Test;
 class SortOrderBuilderTest {
 
     @Test
-    void noSortTraversesNoJoin() {
-        Assertions.assertFalse(SortOrderBuilder.traversesJoin(null));
+    void noSortNeedsNoRankedUuidQuery() {
+        Assertions.assertFalse(SortOrderBuilder.needsRankedUuidQuery(null));
     }
 
+    /**
+     * An attribute sort resolves to a scalar subquery, and the entity query selects DISTINCT, which cannot be ordered
+     * by an expression absent from its select list. It therefore goes through the query that carries the sort key.
+     */
     @Test
-    void attributeSourcedFieldIsRejected() {
-        SortSpecification sort = new SortSpecification(FilterFieldSource.META, "anything", SortDirection.ASC);
+    void attributeSourcedFieldNeedsTheRankedUuidQuery() {
+        SortSpecification sort = new SortSpecification(FilterFieldSource.META, "anything|TEXT", SortDirection.ASC);
 
-        ValidationException e = Assertions
-                .assertThrows(ValidationException.class, () -> SortOrderBuilder.traversesJoin(sort));
-        Assertions.assertTrue(e.getMessage().contains(FilterFieldSource.META.getLabel()));
+        Assertions.assertTrue(SortOrderBuilder.needsRankedUuidQuery(sort));
     }
 
     @Test
