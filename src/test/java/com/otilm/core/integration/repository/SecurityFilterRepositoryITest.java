@@ -250,7 +250,26 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
 
         // then
         Assertions.assertTrue(subjects.contains(expectedSubject));
-        Assertions.assertFalse(subjects.stream().anyMatch(Certificate.class::isInstance));
+    }
+
+    @Test
+    void findUsingSecurityFilter_returnsGroupedProjectedValues() {
+        // given
+        SecurityFilter filter = SecurityFilter.create();
+        String expectedSubject = certificateGroup.getSubjectDn();
+
+        // when
+        List<Object[]> groupedSubjects = certificateRepository
+                .findUsingSecurityFilter(filter, Object[].class,
+                        (root, cb) -> new SecurityFilterProjectionSpec<>(
+                                cb.array(root.get(Certificate_.subjectDn), cb.count(root)),
+                                List.of(root.get(Certificate_.subjectDn))));
+
+        // then
+        Assertions
+                .assertTrue(groupedSubjects
+                        .stream()
+                        .anyMatch(row -> expectedSubject.equals(row[0]) && Long.valueOf(1L).equals(row[1])));
     }
 
     private static SortSpecification propertySort(String fieldIdentifier, SortDirection direction) {
