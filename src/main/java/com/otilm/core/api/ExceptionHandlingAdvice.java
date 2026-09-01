@@ -246,13 +246,12 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
-     * Handler for {@link ConnectorClientException}.
-     *
-     * @return
+     * Handler for {@link ConnectorClientException}. A connector answering 401 or 403 refused the platform's (or its
+     * upstream's) credentials — an upstream fault, never the caller's session — so those surface as 502; every other
+     * client status stays 400.
      */
     @ExceptionHandler(ConnectorClientException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorMessageDto handleConnectorClientException(ConnectorClientException ex) {
+    public ResponseEntity<ErrorMessageDto> handleConnectorClientException(ConnectorClientException ex) {
         StringBuilder messageBuilder = new StringBuilder();
         messageBuilder.append(ex.getMessage());
 
@@ -269,11 +268,23 @@ public class ExceptionHandlingAdvice {
         }
 
         if (ex.getHttpStatus() != null) {
-            messageBuilder.append(" ").append("Original response code ").append(ex.getHttpStatus()).append(". ");
+            messageBuilder
+                    .append(" ")
+                    .append("Original response code ")
+                    .append(ex.getHttpStatus().value())
+                    .append(". ");
         }
 
-        LOG.info("HTTP 400: {}", messageBuilder);
-        return ErrorMessageDto.getInstance(messageBuilder.toString());
+        boolean authOrigin = ex.getHttpStatus() == HttpStatus.UNAUTHORIZED
+                || ex.getHttpStatus() == HttpStatus.FORBIDDEN;
+        HttpStatus responseStatus = authOrigin ? HttpStatus.BAD_GATEWAY : HttpStatus.BAD_REQUEST;
+
+        if (authOrigin) {
+            LOG.warn("HTTP {}: {}", responseStatus.value(), messageBuilder);
+        } else {
+            LOG.info("HTTP {}: {}", responseStatus.value(), messageBuilder);
+        }
+        return ResponseEntity.status(responseStatus).body(ErrorMessageDto.getInstance(messageBuilder.toString()));
     }
 
     /**
@@ -335,21 +346,30 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
-     * Handler for {@link ConnectorProblemException}.
-     *
-     * @return ResponseEntity with status code from the exception and body containing error message.
+     * Handler for {@link ConnectorProblemException}. Auth (401/403) and server (5xx) statuses from a connector are an
+     * upstream fault, never the caller's session or a Core bug — they surface as 502. Entity (404) and validation (422)
+     * semantics pass through verbatim.
      */
     @ExceptionHandler(ConnectorProblemException.class)
     public ResponseEntity<ErrorMessageDto> handleConnectorProblemException(ConnectorProblemException ex) {
-        String errorMessage = ex.getFullMessage(false);
-        if (LOG.isErrorEnabled()) {
-            LOG
-                    .error("HTTP %d: %s %s"
-                            .formatted(ex.getHttpStatus().value(), errorMessage, ex.getProblemDetail().toString()));
+        int originalStatus = ex.getProblemDetail().getStatus();
+        // Sub-400 statuses reach this handler too: the client throws for ANY non-2xx problem+json response, so a
+        // connector's 3xx problem document must not surface as a bodyless-redirect-shaped Core response.
+        boolean translated = originalStatus < 400 || originalStatus == 401 || originalStatus == 403
+                || originalStatus >= 500;
+        int responseStatus = translated ? HttpStatus.BAD_GATEWAY.value() : originalStatus;
+
+        StringBuilder messageBuilder = new StringBuilder(ex.getFullMessage(false));
+        if (translated) {
+            messageBuilder.append(" Original response code ").append(originalStatus).append(".");
         }
 
-        ErrorMessageDto errorMessageDto = ErrorMessageDto.getInstance(errorMessage);
-        return ResponseEntity.status(ex.getProblemDetail().getStatus()).body(errorMessageDto);
+        if (originalStatus >= 500) {
+            LOG.error("HTTP {}: {} {}", responseStatus, messageBuilder, ex.getProblemDetail());
+        } else {
+            LOG.warn("HTTP {}: {} {}", responseStatus, messageBuilder, ex.getProblemDetail());
+        }
+        return ResponseEntity.status(responseStatus).body(ErrorMessageDto.getInstance(messageBuilder.toString()));
     }
 
     /**
