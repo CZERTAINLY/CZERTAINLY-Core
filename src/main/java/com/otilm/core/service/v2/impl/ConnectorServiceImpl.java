@@ -57,6 +57,7 @@ import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.CredentialRepository;
 import com.otilm.core.dao.repository.EntityInstanceReferenceRepository;
 import com.otilm.core.dao.repository.ProxyRepository;
+import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.VaultInstanceRepository;
 import com.otilm.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
@@ -233,7 +234,7 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
                 cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<ConnectorDto> connectorDtos = connectorRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("created")))
+                        (root, cb) -> cb.desc(root.get("created")), SortSpecification.from(request.getSort()))
                 .stream()
                 .map(Connector::mapToListDto)
                 .toList();

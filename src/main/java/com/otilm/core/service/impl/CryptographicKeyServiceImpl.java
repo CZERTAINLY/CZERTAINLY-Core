@@ -68,6 +68,7 @@ import com.otilm.core.dao.entity.UniquelyIdentified;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
 import com.otilm.core.dao.repository.CryptographicKeyRepository;
 import com.otilm.core.dao.repository.GroupRepository;
+import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.enums.FilterField;
@@ -96,6 +97,7 @@ import com.otilm.core.util.CryptographyUtil;
 import com.otilm.core.util.FilterPredicatesBuilder;
 import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
+import com.otilm.core.util.SortOrderBuilder;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -118,7 +120,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -310,17 +311,22 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
 
         List<UUID> filteredKeyUuids = cryptographicKeyItemRepository
                 .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("createdAt")));
+                        (root, cb) -> cb.desc(root.get("createdAt")), SortSpecification.from(request.getSort()));
 
-        List<CryptographicKeyItem> filteredKeys = cryptographicKeyItemRepository
-                .findFullByUuidInOrderByCreatedAtDesc(filteredKeyUuids);
+        List<CryptographicKeyItem> filteredKeys = SortOrderBuilder
+                .rankBy(filteredKeyUuids, cryptographicKeyItemRepository.findFullByUuidIn(filteredKeyUuids),
+                        CryptographicKeyItem::getUuid);
 
-        List<Integer> associationsCounts = cryptographicKeyItemRepository.getCountsOfAssociations(filteredKeyUuids);
+        Map<UUID, Integer> associationsCounts = cryptographicKeyItemRepository
+                .getCountsOfAssociations(filteredKeyUuids)
+                .stream()
+                .collect(Collectors
+                        .toMap(CryptographicKeyItemRepository.KeyItemAssociationCount::getUuid,
+                                CryptographicKeyItemRepository.KeyItemAssociationCount::getAssociations));
 
-        List<KeyItemDto> listedKeyDtos = IntStream.range(0, filteredKeys.size()).mapToObj(i -> {
-            CryptographicKeyItem cki = filteredKeys.get(i);
+        List<KeyItemDto> listedKeyDtos = filteredKeys.stream().map(cki -> {
             KeyItemDto dto = cki.mapToSummaryDto();
-            dto.setAssociations(associationsCounts.get(i));
+            dto.setAssociations(associationsCounts.getOrDefault(cki.getUuid(), 0));
             return dto;
         }).toList();
 

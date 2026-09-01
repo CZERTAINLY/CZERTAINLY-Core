@@ -16,8 +16,13 @@ import jakarta.persistence.criteria.From;
 import jakarta.persistence.criteria.Order;
 import jakarta.persistence.criteria.Root;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
 
 /**
  * Turns a {@link SortSpecification} into the {@link Order} terms of a secured search.
@@ -87,6 +92,33 @@ public final class SortOrderBuilder {
         return new GroupedOrdering(sortKey, List.of(direct(criteriaBuilder, sortKey, sort.direction()), tieBreak));
     }
 
+    /**
+     * Puts the rows of the second phase of a two-phase listing back into the order of the first.
+     *
+     * <p>
+     * The listing selects a page of uuids in the requested order and then loads the objects with a {@code uuid IN
+     * (...)} query, whose own order is whatever that query defines. Ordering only the first phase is therefore
+     * discarded by the second, and the ordering survives solely as the rank of the uuid list. Applied whether or not
+     * the request named a sort: the ranked list is the one carrying the tie-break, so re-ranking is also what makes a
+     * default-ordered page stable across page boundaries when the default term has ties.
+     *
+     * @param rankedUuids the uuids in the order the first phase returned them
+     * @param rows the objects the second phase loaded, in any order
+     * @param uuidOf reads the uuid of a loaded object
+     */
+    public static <T> List<T> rankBy(List<UUID> rankedUuids, List<T> rows, Function<T, UUID> uuidOf) {
+        Map<UUID, Integer> rank = new HashMap<>();
+        for (int i = 0; i < rankedUuids.size(); i++) {
+            rank.put(rankedUuids.get(i), i);
+        }
+        // A row whose uuid is not in the ranked list cannot happen for a query keyed by that list, but sorting it last
+        // keeps the method total rather than throwing on a caller that passes a wider row set.
+        return rows
+                .stream()
+                .sorted(Comparator.comparingInt(row -> rank.getOrDefault(uuidOf.apply(row), Integer.MAX_VALUE)))
+                .toList();
+    }
+
     private static Order direct(CriteriaBuilder criteriaBuilder, Expression<?> expression, SortDirection direction) {
         return direction == SortDirection.DESC ? criteriaBuilder.desc(expression) : criteriaBuilder.asc(expression);
     }
@@ -123,12 +155,21 @@ public final class SortOrderBuilder {
             throw new ValidationException(ValidationError
                     .create("Sorting by %s fields is not supported.".formatted(sort.fieldSource().getLabel())));
         }
+        FilterField field;
         try {
-            return FilterField.valueOf(sort.fieldIdentifier());
+            field = FilterField.valueOf(sort.fieldIdentifier());
         } catch (IllegalArgumentException e) {
             throw new ValidationException(
                     ValidationError.create("Unknown sort field identifier %s.".formatted(sort.fieldIdentifier())));
         }
+        // Refused against the same predicate the catalogue publishes as `sortable`, so a request the frontend was told
+        // to withhold is answered with an error rather than with a silently unordered page. Checked before the path is
+        // resolved, because several of these fields do resolve to a path - it is just not the value the column shows.
+        if (!SearchHelper.isOrderableField(field)) {
+            throw new ValidationException(
+                    ValidationError.create("Field %s cannot be used to order this listing.".formatted(field.name())));
+        }
+        return field;
     }
 
     /**

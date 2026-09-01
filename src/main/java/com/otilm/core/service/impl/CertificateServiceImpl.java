@@ -112,6 +112,7 @@ import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.dao.repository.LocationRepository;
 import com.otilm.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
+import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.dao.repository.acme.AcmeAccountRepository;
 import com.otilm.core.dao.repository.cmp.CmpProfileRepository;
 import com.otilm.core.dao.repository.scep.ScepProfileRepository;
@@ -174,6 +175,7 @@ import com.otilm.core.util.KeySizeUtil;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
+import com.otilm.core.util.SortOrderBuilder;
 import com.otilm.core.util.X509ObjectToString;
 import com.otilm.core.validation.certificate.ICertificateValidator;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -581,14 +583,16 @@ public class CertificateServiceImpl
                 request.getFilters(), request.isIncludeArchived());
         List<UUID> certificateUuids = certificateRepository
                 .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("created")));
+                        (root, cb) -> cb.desc(root.get("created")), SortSpecification.from(request.getSort()));
 
         // We use DTO projection instead of Hibernate entities for performance reasons.
         List<CertificateDto> certificates;
         if (certificateUuids.isEmpty()) {
             certificates = Collections.emptyList();
         } else {
-            certificates = certificateRepository.findCertificateDtosByUuidsIn(certificateUuids);
+            certificates = SortOrderBuilder
+                    .rankBy(certificateUuids, certificateRepository.findCertificateDtosByUuidsIn(certificateUuids),
+                            certificate -> UUID.fromString(certificate.getUuid()));
             List<GroupAssociation> groupAssociations = groupAssociationRepository
                     .findWithAssociationsByResourceAndObjectUuidIn(Resource.CERTIFICATE, certificateUuids);
             Map<String, List<GroupDto>> groupsByCert = groupAssociations

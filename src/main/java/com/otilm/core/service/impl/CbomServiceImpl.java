@@ -34,6 +34,7 @@ import com.otilm.core.dao.entity.Cbom_;
 import com.otilm.core.dao.entity.ScheduledJobHistory;
 import com.otilm.core.dao.repository.CbomRepository;
 import com.otilm.core.dao.repository.ScheduledJobHistoryRepository;
+import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.logging.LoggerWrapper;
@@ -137,7 +138,7 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
                 cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<CbomDto> cbomDtos = cbomRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("createdAt")))
+                        (root, cb) -> cb.desc(root.get("createdAt")), SortSpecification.from(request.getSort()))
                 .stream()
                 .map(Cbom::mapToDto)
                 .toList();

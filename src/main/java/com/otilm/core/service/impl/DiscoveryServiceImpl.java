@@ -38,6 +38,7 @@ import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
+import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.events.data.DiscoveryResult;
 import com.otilm.core.events.handlers.DiscoveryFinishedEventHandler;
@@ -196,7 +197,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<DiscoveryListDto> listedDiscoveriesDTOs = discoveryRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("created")))
+                        (root, cb) -> cb.desc(root.get("created")), SortSpecification.from(request.getSort()))
                 .stream()
                 .map(Discovery::mapToListDto)
                 .toList();

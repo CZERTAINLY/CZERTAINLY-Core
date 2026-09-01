@@ -602,7 +602,11 @@ public interface CertificateRepository
             LEFT JOIN OwnerAssociation oa ON oa.objectUuid = c.uuid
             LEFT JOIN RaProfile ra ON ra.uuid = c.raProfileUuid
             WHERE c.uuid IN ?1
-            ORDER BY c.created DESC
             """)
+    /**
+     * The page of certificates named by the uuid list. Carries no ORDER BY: the ordering the listing asked for lives in
+     * the rank of that list, and an ORDER BY here would replace it. Callers rank the result with
+     * {@code SortOrderBuilder.rankBy}.
+     */
     List<CertificateDto> findCertificateDtosByUuidsIn(List<UUID> uuids);
 }

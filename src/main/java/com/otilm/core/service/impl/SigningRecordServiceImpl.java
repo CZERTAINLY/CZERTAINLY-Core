@@ -23,6 +23,7 @@ import com.otilm.core.dao.entity.signing.SigningProfileVersion_;
 import com.otilm.core.dao.entity.signing.SigningProfile_;
 import com.otilm.core.dao.entity.signing.SigningRecord;
 import com.otilm.core.dao.entity.signing.SigningRecord_;
+import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.dao.repository.signing.SigningProfileRepository;
 import com.otilm.core.dao.repository.signing.SigningRecordRepository;
 import com.otilm.core.enums.FilterField;
@@ -303,7 +304,7 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
         };
         List<SigningRecordListDto> dtos = signingRecordRepository
                 .findUsingSecurityFilter(filter, List.of(), predicate, p,
-                        (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
+                        (root, cb) -> cb.desc(root.get(Audited_.CREATED)), SortSpecification.from(request.getSort()))
                 .stream()
                 .map(SigningRecordMapper::toListDto)
                 .toList();
