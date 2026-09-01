@@ -311,8 +311,9 @@ class X509RequestContentParserTest {
         }
 
         @Test
-        void splitsMultiValuedRdn_intoSeparateEntries() throws Exception {
-            // given — repeated OUs are the case the projector emits and the wire must carry in order
+        void keepsRepeatedAttributesInOrder_asSeparateEntries() throws Exception {
+            // given — repeated OUs are separate RDNs, the case the projector emits and the wire carries in order;
+            // a multi-valued RDN is a different thing, covered below
             X509Certificate certificate = CertificateTestUtil
                     .createCertificateWithSubjectAndSans("CN=host.example.com,OU=First,OU=Second");
 
