@@ -146,7 +146,8 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(attributes);
         mockServer
                 .verify(WireMock
-                        .getRequestedFor(WireMock.urlPathMatching("/v1/cryptographyProvider/[^/]+/attributes")));
+                        .getRequestedFor(
+                                WireMock.urlPathEqualTo("/v1/cryptographyProvider/" + requestedKind + "/attributes")));
     }
 
     @Test
