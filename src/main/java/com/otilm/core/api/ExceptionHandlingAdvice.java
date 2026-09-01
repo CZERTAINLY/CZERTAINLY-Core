@@ -240,6 +240,7 @@ public class ExceptionHandlingAdvice {
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
     public List<String> handleValidationException(ValidationException ex) {
         LOG.info("HTTP 422: {}", ex.getMessage());
+        LOG.debug("HTTP 422:", ex);
 
         return ex.getErrors().stream().map(ValidationError::getErrorDescription).toList();
     }

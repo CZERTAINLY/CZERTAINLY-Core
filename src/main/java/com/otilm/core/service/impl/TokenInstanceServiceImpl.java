@@ -78,6 +78,15 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private TokenInstanceReferenceWriter tokenInstanceReferenceWriter;
 
+    private static @NonNull TokenInstanceBasicModel createNewTokenInstance(TokenInstanceRequestDto request,
+            ImmutableConnectorFullModel connector, TokenProviderBinding binding,
+            com.otilm.api.model.connector.cryptography.token.TokenInstanceDto creationResult) {
+        return new ImmutableTokenInstanceBasicModel(UUID.randomUUID(),
+                creationResult != null ? creationResult.getUuid() : null, request.getName(),
+                TokenInstanceStatus.UNKNOWN, request.getKind(), connector.uuid(), connector.name(),
+                binding.connectorInterface() == null ? null : binding.connectorInterface().uuid(), 0);
+    }
+
     @Autowired
     public void setResourceService(ResourceInternalService resourceService) {
         this.resourceService = resourceService;
@@ -108,14 +117,14 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         this.connectorExternalService = connectorExternalService;
     }
 
+    // -------------------------------------------------------------------------------------
+    // Service Implementations
+    // -------------------------------------------------------------------------------------
+
     @Autowired
     public void setCredentialService(CredentialInternalService credentialService) {
         this.credentialService = credentialService;
     }
-
-    // -------------------------------------------------------------------------------------
-    // Service Implementations
-    // -------------------------------------------------------------------------------------
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.LIST)
@@ -150,19 +159,10 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             TokenInstanceStatusDetailDto status = new TokenInstanceStatusDetailDto(TokenInstanceStatus.DISCONNECTED);
             return assembleTokenInstanceDetail(tokenInstance, status);
         }
-
-        try {
-            TokenProviderAdapter adapter = tokenProviderAdapterFactory.forToken(tokenInstance);
-            TokenInstanceStatusDetailDto refreshedStatus = adapter.getStatus(tokenInstance);
-            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
-            return assembleTokenInstanceDetail(tokenInstance, refreshedStatus);
-        } catch (Exception e) {
-            logger
-                    .error("Unable to refresh status of the token instance '{}' ({}).", tokenInstance.name(),
-                            tokenInstance.uuid(), e);
-            TokenInstanceStatusDetailDto status = new TokenInstanceStatusDetailDto(TokenInstanceStatus.WARNING);
-            return assembleTokenInstanceDetail(tokenInstance, status);
-        }
+        TokenProviderAdapter adapter = tokenProviderAdapterFactory.forToken(tokenInstance);
+        TokenInstanceStatusDetailDto refreshedStatus = refreshTokenInstanceStatus(tokenInstance, adapter);
+        tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
+        return assembleTokenInstanceDetail(tokenInstance, refreshedStatus);
     }
 
     @Override
@@ -210,13 +210,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                 .updateAttributes(tokenInstance.uuid(), tokenInstance.connectorUuid(), request.getCustomAttributes(),
                         request.getAttributes(), creationResult == null ? List.of() : creationResult.getMetadata());
 
-        TokenInstanceStatusDetailDto refreshedStatus = null;
-        try {
-            refreshedStatus = adapter.getStatus(tokenInstance);
-            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
-        } catch (Exception e) {
-            logger.warn("Can't check the status of the token '{}'", tokenInstance.name(), e);
-        }
+        TokenInstanceStatusDetailDto refreshedStatus = refreshTokenInstanceStatus(tokenInstance, adapter);
+        tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
 
         logger.debug("Token Instance Reference: '{}'", tokenInstance);
         return assembleTokenInstanceDetail(tokenInstance, refreshedStatus);
@@ -255,14 +250,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                 .updateAttributes(tokenInstance.uuid(), tokenInstance.connectorUuid(), request.getCustomAttributes(),
                         request.getAttributes(), remoteResult == null ? List.of() : remoteResult.getMetadata());
 
-        TokenInstanceStatusDetailDto refreshedStatus;
-        try {
-            refreshedStatus = adapter.getStatus(tokenInstance);
-            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
-        } catch (ConnectorException e) {
-            logger.error("Unable to refresh token status after update: '{}'", e.getMessage());
-            refreshedStatus = new TokenInstanceStatusDetailDto(TokenInstanceStatus.WARNING);
-        }
+        TokenInstanceStatusDetailDto refreshedStatus = refreshTokenInstanceStatus(tokenInstance, adapter);
+        tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
 
         return assembleTokenInstanceDetail(tokenInstance, refreshedStatus);
     }
@@ -484,6 +473,20 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         attributeEngine.validateUpdateDataAttributes(connector.uuid(), null, definitions, safeAttributes);
     }
 
+    private TokenInstanceStatusDetailDto refreshTokenInstanceStatus(TokenInstanceBasicModel tokenInstance,
+            TokenProviderAdapter adapter) {
+        TokenInstanceStatusDetailDto status;
+        try {
+            status = adapter.getStatus(tokenInstance);
+        } catch (Exception e) {
+            logger
+                    .warn("Unable to communicate with connector while refreshing status of token instance '{}' ({})",
+                            tokenInstance.name(), tokenInstance.uuid(), e);
+            status = new TokenInstanceStatusDetailDto(TokenInstanceStatus.WARNING);
+        }
+        return status;
+    }
+
     private void deleteTokenInstance(TokenInstanceFullModel tokenInstanceReference)
             throws ValidationException, NotFoundException {
         logger
@@ -528,14 +531,5 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         logger
                 .debug("Token instance '{}': ('{}') has been deleted", tokenInstanceReference.name(),
                         tokenInstanceReference.uuid());
-    }
-
-    private static @NonNull TokenInstanceBasicModel createNewTokenInstance(TokenInstanceRequestDto request,
-            ImmutableConnectorFullModel connector, TokenProviderBinding binding,
-            com.otilm.api.model.connector.cryptography.token.TokenInstanceDto creationResult) {
-        return new ImmutableTokenInstanceBasicModel(UUID.randomUUID(),
-                creationResult != null ? creationResult.getUuid() : null, request.getName(),
-                TokenInstanceStatus.UNKNOWN, request.getKind(), connector.uuid(), connector.name(),
-                binding.connectorInterface() == null ? null : binding.connectorInterface().uuid(), 0);
     }
 }

@@ -190,7 +190,7 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
         // then
         Assertions.assertEquals(TokenInstanceStatus.WARNING, detail.getStatus().getStatus());
         Assertions
-                .assertEquals(TokenInstanceStatus.UNKNOWN,
+                .assertEquals(TokenInstanceStatus.WARNING,
                         tokenInstanceReferenceRepository
                                 .findById(tokenInstanceReference.getUuid())
                                 .orElseThrow()
@@ -375,7 +375,7 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(tokenName, detail.getName());
         TokenInstanceReference persisted = tokenInstanceReferenceRepository.findByName(tokenName).orElseThrow();
         Assertions.assertEquals(remoteTokenUuid.toString(), persisted.getTokenInstanceUuid());
-        Assertions.assertEquals(TokenInstanceStatus.UNKNOWN, persisted.getStatus());
+        Assertions.assertEquals(TokenInstanceStatus.WARNING, persisted.getStatus());
     }
 
     @Test
