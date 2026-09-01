@@ -1903,23 +1903,9 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             if (!challengeAuthorized) {
                 certificateService.checkCreatePermissions();
             }
-            // Validate the operator's CSR against the resolved request-attribute set before it is attached, so a
-            // strict violation rejects with nothing persisted. After the challenge gate above, so a caller who
-            // cannot authorize cannot probe the policy. A null format is not validated here: the parser selects on
-            // format, and the attach below already rejects it with a clear message.
-            if (request.getFormat() != null) {
-                CertificateRequest parsedRequest;
-                try {
-                    parsedRequest = CertificateRequestUtils
-                            .createCertificateRequest(request.getRequest(), request.getFormat());
-                } catch (CertificateRequestException | IllegalArgumentException e) {
-                    throw new ValidationException(
-                            ValidationError.create("Invalid certificate signing request: " + e.getMessage()));
-                }
-                // Only the parse above is a client fault. A strict profile whose attribute set cannot be resolved
-                // is a server-side inability, so that CertificateException propagates to the caller unshaped.
-                requestAttributeWarnings = protocolRequestAttributeValidator.validate(parsedRequest, raProfile);
-            }
+            // Runs after the challenge gate above, so a caller who cannot authorize cannot probe the policy, and
+            // before the attach below, so a strict violation rejects with nothing persisted.
+            requestAttributeWarnings = validateCompletionRequestAttributes(request, raProfile);
             UUID certificateRequestUuid;
             try {
                 certificateRequestUuid = certificateService
@@ -3111,6 +3097,29 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             throw new ValidationException(ValidationError
                     .create("Unable to validate the Subject DN of CSR and certificate. Error: " + e.getMessage()));
         }
+    }
+
+    /**
+     * Validates the operator's completion CSR for a registered certificate against the resolved request-attribute set.
+     *
+     * <p>
+     * A null format is not validated: the parser selects on format, and the CSR attach rejects it with a clear message.
+     * Only the parse is a client fault — a strict profile whose attribute set cannot be resolved is a server-side
+     * inability, so that {@link CertificateException} propagates to the caller unshaped.
+     */
+    private List<String> validateCompletionRequestAttributes(ClientCertificateIssueRequestDto request,
+            RaProfile raProfile) throws CertificateException {
+        if (request.getFormat() == null) {
+            return List.of();
+        }
+        CertificateRequest parsedRequest;
+        try {
+            parsedRequest = CertificateRequestUtils.createCertificateRequest(request.getRequest(), request.getFormat());
+        } catch (CertificateRequestException | IllegalArgumentException e) {
+            throw new ValidationException(
+                    ValidationError.create("Invalid certificate signing request: " + e.getMessage()));
+        }
+        return protocolRequestAttributeValidator.validate(parsedRequest, raProfile);
     }
 
     /**

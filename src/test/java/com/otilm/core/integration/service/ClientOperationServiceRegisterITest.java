@@ -2421,7 +2421,8 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     void issueExistingReturnsWarnings_whenLenientProfileAndUnmappedExtension() throws Exception {
         // given — a platform-level REGISTERED placeholder, then the RA profile reconfigured lenient with a
         // resolved set that maps only CommonName
-        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(mock(AuthorityProviderAdapter.class));
+        AuthorityProviderAdapter adapter = mock(AuthorityProviderAdapter.class);
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(adapter);
         String certUuid = register().getUuid();
         persistLenientCommonNameConfig();
 
@@ -2446,7 +2447,8 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     @Test
     void issueExistingRejectsUnmappedExtension_whenStrictProfile() throws Exception {
         // given — the same placeholder and CSR, but the RA profile is strict
-        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(mock(AuthorityProviderAdapter.class));
+        AuthorityProviderAdapter adapter = mock(AuthorityProviderAdapter.class);
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(adapter);
         String certUuid = register().getUuid();
         persistCommonNameConfig(Boolean.TRUE);
 
