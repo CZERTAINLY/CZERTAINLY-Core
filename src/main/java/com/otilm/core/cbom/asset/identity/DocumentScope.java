@@ -170,8 +170,8 @@ public final class DocumentScope {
                 Set<String> stated = new HashSet<>();
                 records
                         .stream()
-                        .filter(record -> record.containsKey(field))
-                        .map(record -> record.get(field))
+                        .filter(claim -> claim.containsKey(field))
+                        .map(claim -> claim.get(field))
                         .forEach(stated::add);
                 if (stated.size() > 1) {
                     refuted.add(digest);

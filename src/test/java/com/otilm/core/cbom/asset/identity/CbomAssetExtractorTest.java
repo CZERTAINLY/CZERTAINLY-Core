@@ -314,14 +314,10 @@ class CbomAssetExtractorTest {
     // ---------------------------------------------------------------- helpers
 
     private static void assertThatParsingFails(String malformed, String secret) {
-        try {
-            ObjectMapperFactory.storage().readTree(malformed);
-            org.assertj.core.api.Assertions.fail("the fixture must be malformed for this test to mean anything");
-        } catch (JsonProcessingException e) {
-            assertThat(e.getMessage())
-                    .describedAs("a parse failure must not quote the document")
-                    .doesNotContain(secret);
-        }
+        assertThatThrownBy(() -> ObjectMapperFactory.storage().readTree(malformed))
+                .describedAs("the fixture must be malformed, and its parse failure must not quote the document")
+                .isInstanceOf(JsonProcessingException.class)
+                .hasMessageNotContaining(secret);
     }
 
     private static List<String> keysOf(List<String> components) {

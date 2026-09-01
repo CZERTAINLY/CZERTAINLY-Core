@@ -33,6 +33,9 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
     /** The tier vocabulary's version marker, carried inside certificate pre-images. */
     private static final String SPEC_ID = "v1";
 
+    /** The chain step for a certificate keyed on a common name alone -- named because three sites test for it. */
+    private static final String CRT_CN_ONLY = "crt:cn-only";
+
     private static final Pattern CLAIM_PROPERTY = Pattern
             .compile("lifecycle|observation|assurance|deployment", Pattern.CASE_INSENSITIVE);
 
@@ -173,7 +176,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         if (digestRefuted) {
             return CryptoAssetIdentityGuard.REFUTED_CERTIFICATE_DIGEST;
         }
-        if ("crt:cn-only".equals(step)) {
+        if (CRT_CN_ONLY.equals(step)) {
             return CryptoAssetIdentityGuard.BARE_CN_SUBJECT;
         }
         return asset != null && asset.oidConflict() ? CryptoAssetIdentityGuard.REFUTED_OID : null;
@@ -277,7 +280,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             String suffix = discriminator == null ? "" : "|" + discriminator;
             String validity = ValidityTimestamps.normalize(text(certificate, "notValidBefore")) + "|"
                     + ValidityTimestamps.normalize(text(certificate, "notValidAfter"));
-            String step = DistinguishedNames.isCommonNameOnly(subject) ? "crt:cn-only" : "crt:subject-only";
+            String step = DistinguishedNames.isCommonNameOnly(subject) ? CRT_CN_ONLY : "crt:subject-only";
             return tier("CRT|C|" + SPEC_ID + "|" + PreImageSlot.of(subject) + "|" + validity + "|"
                     + PreImageSlot.of(token) + suffix, step, digestRefuted);
         }
@@ -327,26 +330,40 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * one points at an RSA-2048 algorithm and the other at an ECDSA-P256 one. Returning nothing for both collapsed two
      * genuinely different certificates into one row.
      */
-    private String publicKeyDigest(JsonNode properties, DocumentScope scope) {
-        JsonNode certificate = objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES));
-        JsonNode ref = certificate == null ? null : certificate.get("subjectPublicKeyRef");
-        JsonNode related = certificate == null ? null : certificate.get("relatedCryptographicAssets");
+    /**
+     * The reference naming this certificate's public key, preferring a 1.7 related-asset entry over the 1.6 field.
+     *
+     * <p>
+     * The entry's type is separator-dropped and ASCII-folded, the same reduction the asset-type router applies to
+     * producer text. Against two raw literals, {@code PublicKey} and {@code public_key} matched neither, so the ref
+     * stayed the 1.6-only {@code subjectPublicKeyRef}, resolved to nothing, and two certificates pointing at different
+     * public keys both got an empty slot -- the over-merge the two key tiers exist to prevent. Not
+     * {@code normalizeAssetType}: this is a related-asset type, which that router does not know.
+     *
+     * <p>
+     * Takes the certificate node nullable and tests it here rather than being handed a proven-present one, so the
+     * absence of {@code certificateProperties} is answered in one place instead of at every call.
+     */
+    private static JsonNode subjectPublicKeyRef(JsonNode certificate) {
+        if (certificate == null) {
+            return null;
+        }
+        JsonNode related = certificate.get("relatedCryptographicAssets");
         if (related != null && related.isArray()) {
             for (JsonNode entry : related) {
                 JsonNode type = entry.isObject() ? entry.get("type") : null;
-                // Separator-dropped and ASCII-folded, the same reduction the asset-type router applies to producer
-                // text. Two raw literals let `PublicKey` or `public_key` match neither, so the ref stayed the
-                // 1.6-only subjectPublicKeyRef, resolved to nothing, and two certificates pointing at different
-                // public keys both got an empty slot -- the over-merge this method's two tiers exist to prevent.
-                // Not normalizeAssetType: this is a related-asset type, which that router does not know.
                 String entryType = type != null && type.isTextual() ? AsciiText.lookupKey(type.textValue()) : null;
                 if (PUBLIC_KEY_REFERENCE.equals(entryType)) {
-                    ref = entry.get("ref");
-                    break;
+                    return entry.get("ref");
                 }
             }
         }
-        JsonNode target = scope.resolve(ref);
+        return certificate.get("subjectPublicKeyRef");
+    }
+
+    private String publicKeyDigest(JsonNode properties, DocumentScope scope) {
+        JsonNode target = scope
+                .resolve(subjectPublicKeyRef(objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES))));
         if (target == null) {
             return null;
         }
@@ -604,7 +621,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             keyed.add(text(objectOrNull(properties.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES)), "id"));
         }
         if (Set
-                .of("alg:name", "crt:cn-only", "crt:subject-only", "crt:backstop", "mat:occurrence", "mat:backstop",
+                .of("alg:name", CRT_CN_ONLY, "crt:subject-only", "crt:backstop", "mat:occurrence", "mat:backstop",
                         "prt:type+name", "prt:type+occurrence", "prt:type+version+name")
                 .contains(step)) {
             keyed.add(text(component, "name"));

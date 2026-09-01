@@ -61,10 +61,6 @@ public record AssetNormalizer(IdentityTables tables) {
     private static final Set<String> HYBRID_FAMILIES = Set.of("X-Wing");
 
     /**
-     * Post-quantum families, standardized and pre-standard alike, folded for comparison. Used <em>only</em> to
-     * recognize a hybrid construction for out-of-key provenance; no identity slot reads this set.
-     */
-    /**
      * The longest primitive worth storing. The CycloneDX vocabulary's longest member is well inside it, so this bounds
      * malformed producer text without truncating anything real.
      */
@@ -76,6 +72,10 @@ public record AssetNormalizer(IdentityTables tables) {
      */
     private static final int MAX_NORMALIZABLE_NAME_LENGTH = 1024;
 
+    /**
+     * Post-quantum families, standardized and pre-standard alike, folded for comparison. Used <em>only</em> to
+     * recognize a hybrid construction for out-of-key provenance; no identity slot reads this set.
+     */
     private static final Set<String> PQC_FAMILIES = Set
             .of("ml-kem", "ml-dsa", "slh-dsa", "fn-dsa", "xmss", "lms", "kyber", "dilithium", "falcon", "sphincs+",
                     "classic mceliece", "frodokem", "bike", "hqc", "ntru", "ntru-prime", "sike", "sidh", "gemss",
@@ -121,18 +121,17 @@ public record AssetNormalizer(IdentityTables tables) {
      */
     private static final List<String> KEY_SIZE_FAMILIES = List.of("RSASSA-", "RSAES-", "RSA-X931");
 
-    private static final Pattern DIGEST_IN_NAME = Pattern
-            .compile("(?<![A-Za-z0-9])(?:SHA|MD)-?(\\d{3,4})(?!\\d)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DIGEST_IN_NAME = Pattern.compile("(?<![A-Za-z0-9])(?i:SHA|MD)-?(\\d{3,4})(?!\\d)");
 
     private static final Pattern ASSET_TYPE_SEPARATORS = Pattern.compile("[\\s_]+");
+
+    /** The {@code -<digits>} parameter-set size {@link #sizedFamilyToken} appends to a family token. */
+    private static final Pattern FAMILY_SIZE_SUFFIX = Pattern.compile("-\\d+$");
 
     /**
      * The word guards a token spelling is matched with. A guard on both sides is what stops {@code dsa} matching inside
      * {@code ECDSA}; spelled once so a rule cannot be built with one side missing.
      */
-    /** The {@code -<digits>} parameter-set size {@link #sizedFamilyToken} appends to a family token. */
-    private static final Pattern FAMILY_SIZE_SUFFIX = Pattern.compile("-\\d+$");
-
     private static final String LEFT_WORD_GUARD = "(?<![A-Za-z0-9])";
 
     private static final String RIGHT_WORD_GUARD = "(?![A-Za-z0-9])";
@@ -221,7 +220,6 @@ public record AssetNormalizer(IdentityTables tables) {
     public record Result(NormalizedAsset asset, MaterialRedaction redaction) {
     }
 
-    /** Routes the producer's spelling onto one of the four known types, or {@code null} for the unroutable tier. */
     /**
      * Refuses a name too long to store before it is normalized.
      *
@@ -242,6 +240,7 @@ public record AssetNormalizer(IdentityTables tables) {
         }
     }
 
+    /** Routes the producer's spelling onto one of the four known types, or {@code null} for the unroutable tier. */
     public String normalizeAssetType(String raw) {
         if (raw == null || AsciiText.isBlank(raw)) {
             return null;
@@ -538,21 +537,26 @@ public record AssetNormalizer(IdentityTables tables) {
             }
         }
 
-        String suffix = unvocabularied ? " (declaration unvocabularied)" : "";
+        return reconcileOidAndName(norm, fromOid, fromName, entry,
+                unvocabularied ? " (declaration unvocabularied)" : "");
+    }
+
+    /**
+     * Elects the family when the producer declared none the vocabulary accepts, leaving only the arc and the name.
+     *
+     * <p>
+     * Agreement and subsumption both settle; a genuine disagreement is the only case that records a conflict, and it
+     * keeps the name because a refuted arc is the weaker witness -- the arc is one token a producer may have copied,
+     * while the name is the string the asset is actually called.
+     *
+     * <p>
+     * Every null test here is its own: the callers pass whatever the arc and the grammar produced, including nothing
+     * from either, and "neither witness spoke" is a real outcome rather than a guard against one.
+     */
+    private IdentityTables.OidEntry reconcileOidAndName(NormalizedAsset norm, String fromOid, String fromName,
+            IdentityTables.OidEntry entry, String suffix) {
         if (fromOid != null && fromName != null) {
-            if (fromOid.equals(fromName)) {
-                return settleAgreed(norm, fromOid, "corroborated" + suffix, entry);
-            }
-            if (tables.subsumes(fromOid, fromName)) {
-                return settleAgreed(norm, fromName, "name (oid subsumed)" + suffix, entry);
-            }
-            if (tables.subsumes(fromName, fromOid)) {
-                return settleAgreed(norm, fromOid, "oid (name subsumed)" + suffix, entry);
-            }
-            norm.setFamily(fromName);
-            norm.setFamilySource("name (oid refuted)" + suffix);
-            norm.setOidConflict(true);
-            return null;
+            return reconcileBothWitnesses(norm, fromOid, fromName, entry, suffix);
         }
         if (fromName != null) {
             return settleAgreed(norm, fromName, "name" + suffix, entry);
@@ -562,6 +566,27 @@ public record AssetNormalizer(IdentityTables tables) {
         }
         norm.setFamily(null);
         norm.setFamilySource("none" + suffix);
+        return null;
+    }
+
+    /**
+     * Both the arc and the name named a family: agreement and either direction of subsumption settle, the rest is a
+     * conflict.
+     */
+    private IdentityTables.OidEntry reconcileBothWitnesses(NormalizedAsset norm, String fromOid, String fromName,
+            IdentityTables.OidEntry entry, String suffix) {
+        if (fromOid.equals(fromName)) {
+            return settleAgreed(norm, fromOid, "corroborated" + suffix, entry);
+        }
+        if (tables.subsumes(fromOid, fromName)) {
+            return settleAgreed(norm, fromName, "name (oid subsumed)" + suffix, entry);
+        }
+        if (tables.subsumes(fromName, fromOid)) {
+            return settleAgreed(norm, fromOid, "oid (name subsumed)" + suffix, entry);
+        }
+        norm.setFamily(fromName);
+        norm.setFamilySource("name (oid refuted)" + suffix);
+        norm.setOidConflict(true);
         return null;
     }
 
@@ -623,53 +648,71 @@ public record AssetNormalizer(IdentityTables tables) {
      * name is parsed only as a fallback.
      */
     public Integer parseParameterSet(String name, JsonNode parameterSetIdentifier, List<String> notes) {
-        if (parameterSetIdentifier != null && parameterSetIdentifier.isNumber()
-                && !parameterSetIdentifier.isBoolean()) {
-            double value = parameterSetIdentifier.doubleValue();
-            if (value == Math.rint(value)) {
-                Integer accepted = accept((int) value, CbomNames.PARAMETER_SET_IDENTIFIER, notes);
-                if (accepted != null) {
-                    return accepted;
-                }
-            }
-        } else if (parameterSetIdentifier != null && parameterSetIdentifier.isTextual()) {
-            String text = AsciiText.strip(parameterSetIdentifier.textValue());
-            if (DIGITS.matcher(text).matches()) {
-                Integer accepted = accept(new BigInteger(text), CbomNames.PARAMETER_SET_IDENTIFIER, notes);
-                if (accepted != null) {
-                    return accepted;
-                }
-            } else if (tables
-                    .sizeStoplist()
-                    .stream()
-                    .anyMatch(token -> AsciiText.lookupKey(token).equals(AsciiText.lookupKey(text)))) {
-                notes.add("parameterSetIdentifier " + text + " is a mode/MAC, not a size");
-            } else if (canonicalCurve(text) != null) {
-                notes.add("parameterSetIdentifier " + text + " is a curve, not a size");
-            }
+        Integer declared = parameterSetFromIdentifier(parameterSetIdentifier, notes);
+        if (declared != null) {
+            return declared;
         }
+        return parameterSetFromName(name, notes);
+    }
 
-        if (name != null && !AsciiText.isBlank(name)) {
-            Matcher runs = DIGIT_RUN_2_TO_5.matcher(stripStoplist(ComponentNames.stripOpaqueTokens(name)));
-            while (runs.find()) {
-                Integer accepted = accept(Integer.parseInt(runs.group()), "name", notes);
-                if (accepted != null) {
-                    return accepted;
-                }
-            }
-            // Nothing passed the key-size whitelist. A trailing standalone integer is then a PARAMETER LEVEL, not a
-            // key size, and it must bypass the floor: `ML-DSA-44` keyed identically to bare `ML-DSA` because 44 is
-            // below 64, while `-65` and `-87` separated only by the accident of clearing it. Applied to the STRIPPED
-            // name, so a trailing digit run belonging to a curve cannot be read as a level.
-            Matcher level = PARAMETER_LEVEL.matcher(AsciiText.strip(stripStoplist(name)));
-            if (level.find()) {
-                notes
-                        .add("parameter level " + level.group(1) + " accepted below the key-size floor: it labels a "
-                                + "parameter set, not a key length");
-                return Integer.parseInt(level.group(1));
-            }
+    /**
+     * The size the producer declared, or {@code null} when it declared none this normalizer will take.
+     *
+     * <p>
+     * A rejected declaration is not silence: a stoplisted token and a curve name each leave a note explaining what the
+     * value actually was, because falling through to the name derivation with no record made a producer's wrong
+     * declaration indistinguishable from an absent one.
+     */
+    private Integer parameterSetFromIdentifier(JsonNode parameterSetIdentifier, List<String> notes) {
+        if (parameterSetIdentifier == null) {
+            return null;
+        }
+        if (parameterSetIdentifier.isNumber() && !parameterSetIdentifier.isBoolean()) {
+            double value = parameterSetIdentifier.doubleValue();
+            return value == Math.rint(value) ? accept((int) value, CbomNames.PARAMETER_SET_IDENTIFIER, notes) : null;
+        }
+        if (!parameterSetIdentifier.isTextual()) {
+            return null;
+        }
+        String text = AsciiText.strip(parameterSetIdentifier.textValue());
+        if (DIGITS.matcher(text).matches()) {
+            return accept(new BigInteger(text), CbomNames.PARAMETER_SET_IDENTIFIER, notes);
+        }
+        if (tables
+                .sizeStoplist()
+                .stream()
+                .anyMatch(token -> AsciiText.lookupKey(token).equals(AsciiText.lookupKey(text)))) {
+            notes.add("parameterSetIdentifier " + text + " is a mode/MAC, not a size");
+        } else if (canonicalCurve(text) != null) {
+            notes.add("parameterSetIdentifier " + text + " is a curve, not a size");
         }
         return null;
+    }
+
+    /** The size read out of the component name, first from a whitelisted digit run and then from a trailing level. */
+    private Integer parameterSetFromName(String name, List<String> notes) {
+        if (name == null || AsciiText.isBlank(name)) {
+            return null;
+        }
+        Matcher runs = DIGIT_RUN_2_TO_5.matcher(stripStoplist(ComponentNames.stripOpaqueTokens(name)));
+        while (runs.find()) {
+            Integer accepted = accept(Integer.parseInt(runs.group()), "name", notes);
+            if (accepted != null) {
+                return accepted;
+            }
+        }
+        // Nothing passed the key-size whitelist. A trailing standalone integer is then a PARAMETER LEVEL, not a key
+        // size, and it must bypass the floor: `ML-DSA-44` keyed identically to bare `ML-DSA` because 44 is below 64,
+        // while `-65` and `-87` separated only by the accident of clearing it. Applied to the STRIPPED name, so a
+        // trailing digit run belonging to a curve cannot be read as a level.
+        Matcher level = PARAMETER_LEVEL.matcher(AsciiText.strip(stripStoplist(name)));
+        if (!level.find()) {
+            return null;
+        }
+        notes
+                .add("parameter level " + level.group(1) + " accepted below the key-size floor: it labels a "
+                        + "parameter set, not a key length");
+        return Integer.parseInt(level.group(1));
     }
 
     /**
