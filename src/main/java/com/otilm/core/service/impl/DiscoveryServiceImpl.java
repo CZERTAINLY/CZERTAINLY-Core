@@ -25,6 +25,7 @@ import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
+import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.client.ConnectorApiFactory;
@@ -91,6 +92,7 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     private static final String UNSUPPORTED_VERSION_MESSAGE = "The discovery's connector interface version is not supported.";
 
     private AttributeEngine attributeEngine;
+    private AttributeColumnProjector attributeColumnProjector;
 
     private TriggerInternalService triggerInternalService;
     private DiscoveryRepository discoveryRepository;
@@ -154,6 +156,11 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     }
 
     @Autowired
+    public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
+        this.attributeColumnProjector = attributeColumnProjector;
+    }
+
+    @Autowired
     public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
         this.discoveryRepository = discoveryRepository;
     }
@@ -193,6 +200,10 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 .stream()
                 .map(Discovery::mapToListDto)
                 .toList();
+        attributeColumnProjector
+                .project(Resource.DISCOVERY, request.getColumns(), listedDiscoveriesDTOs,
+                        discovery -> AttributeColumnProjector.parseUuid(discovery.getUuid()));
+
         final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         final DiscoveryResponseDto responseDto = new DiscoveryResponseDto();

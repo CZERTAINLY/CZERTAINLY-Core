@@ -1391,23 +1391,49 @@ public class AttributeEngine {
 
     private List<ResponseAttribute> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid,
             SecurityResourceFilter securityResourceFilter) {
+        CustomAttributeContentFilter contentFilter = toContentFilter(securityResourceFilter);
+
+        List<ObjectAttributeContent> objectContents = attributeContent2ObjectRepository
+                .getObjectCustomAttributesContent(AttributeType.CUSTOM, objectType, objectUuid,
+                        contentFilter.allowedDefinitionUuids(), contentFilter.forbiddenDefinitionUuids());
+        return getResponseAttributes(objectContents);
+    }
+
+    /**
+     * The custom-attribute definition uuids a caller may and may not read, in the form the content queries take: a
+     * {@code null} list means "no restriction on this side", which is how both predicates are written.
+     *
+     * @param allowedDefinitionUuids the only definitions readable, or {@code null} when the caller is not restricted to
+     * a set
+     * @param forbiddenDefinitionUuids definitions explicitly withheld, or {@code null} when none are
+     */
+    public record CustomAttributeContentFilter(List<UUID> allowedDefinitionUuids, List<UUID> forbiddenDefinitionUuids) {
+    }
+
+    /**
+     * The current caller's custom-attribute content permissions. Exposed so that a reader outside this class - the
+     * listing column projector - applies the same rule as the per-object reads here, rather than a copy of it.
+     */
+    public CustomAttributeContentFilter loadCustomAttributeContentFilter() {
+        return toContentFilter(loadCustomAttributesSecurityResourceFilter());
+    }
+
+    private static CustomAttributeContentFilter toContentFilter(SecurityResourceFilter securityResourceFilter) {
         List<UUID> allowedAttributes = null;
         List<UUID> forbiddenAttributes = null;
         if (securityResourceFilter != null) {
             if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
                 allowedAttributes = securityResourceFilter.getAllowedObjects();
                 if (allowedAttributes.isEmpty()) {
+                    // An empty allow-list must still restrict, and `IN ()` is not valid SQL, so a value no definition
+                    // can carry stands in for "nothing is allowed".
                     allowedAttributes.add(null);
                 }
             } else if (!securityResourceFilter.getForbiddenObjects().isEmpty()) {
                 forbiddenAttributes = securityResourceFilter.getForbiddenObjects();
             }
         }
-
-        List<ObjectAttributeContent> objectContents = attributeContent2ObjectRepository
-                .getObjectCustomAttributesContent(AttributeType.CUSTOM, objectType, objectUuid, allowedAttributes,
-                        forbiddenAttributes);
-        return getResponseAttributes(objectContents);
+        return new CustomAttributeContentFilter(allowedAttributes, forbiddenAttributes);
     }
 
     public List<ResponseAttribute> getObjectDataAttributesContentUnversioned(Resource objectType, UUID objectUuid) {

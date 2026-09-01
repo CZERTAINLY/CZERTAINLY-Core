@@ -14,6 +14,7 @@ import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.api.model.core.signing.signingrecord.SigningRecordDto;
 import com.otilm.api.model.core.signing.signingrecord.SigningRecordListDto;
+import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.dao.entity.Audited_;
@@ -70,15 +71,18 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
     private final SigningRecordWriter signingRecordWriter;
     private final SigningProfileRepository signingProfileRepository;
     private final AttributeEngine attributeEngine;
+    private final AttributeColumnProjector attributeColumnProjector;
     private final AuthorizationEnforcer authorizationEnforcer;
 
     public SigningRecordServiceImpl(SigningRecordRepository signingRecordRepository,
             SigningRecordWriter signingRecordWriter, SigningProfileRepository signingProfileRepository,
-            AttributeEngine attributeEngine, AuthorizationEnforcer authorizationEnforcer) {
+            AttributeEngine attributeEngine, AttributeColumnProjector attributeColumnProjector,
+            AuthorizationEnforcer authorizationEnforcer) {
         this.signingRecordRepository = signingRecordRepository;
         this.signingRecordWriter = signingRecordWriter;
         this.signingProfileRepository = signingProfileRepository;
         this.attributeEngine = attributeEngine;
+        this.attributeColumnProjector = attributeColumnProjector;
         this.authorizationEnforcer = authorizationEnforcer;
     }
 
@@ -303,6 +307,10 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
                 .stream()
                 .map(SigningRecordMapper::toListDto)
                 .toList();
+        attributeColumnProjector
+                .project(Resource.SIGNING_RECORD, request.getColumns(), dtos,
+                        record -> AttributeColumnProjector.parseUuid(record.getUuid()));
+
         long totalItems = signingRecordRepository.countUsingSecurityFilter(filter, predicate);
         return PaginationResponseMapper.toDto(dtos, request.getPageNumber(), request.getItemsPerPage(), totalItems);
     }
