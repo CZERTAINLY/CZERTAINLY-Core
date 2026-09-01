@@ -5789,7 +5789,7 @@
     ]
    },
    "expected": {
-    "chainStep": "alg:name",
+    "chainStep": "alg:family",
     "preImage": "ALG|EdDSA|256|other/Ed25519+other/Ed448|||",
     "identityKey": "daa747977f8a9b3df7831c33d6d62e63ab0adb104d47eb81c2681ec277beab53"
    }
@@ -5823,7 +5823,7 @@
     ]
    },
    "expected": {
-    "chainStep": "alg:name",
+    "chainStep": "alg:family",
     "preImage": "ALG|EdDSA|256|other/Ed25519|||sshkey",
     "identityKey": "a7577a1f97f4f58dc549a715fc8119ccdbba678e418f239ee0be50ea2b414a13"
    }
@@ -6045,7 +6045,7 @@
     }
    },
    "expected": {
-    "chainStep": "alg:name",
+    "chainStep": "alg:family",
     "preImage": "ALG|EdDSA|256|other/Ed25519|||hostkey",
     "identityKey": "487da0afca264f4c6aa82fd69167d591b0d5c96cf068163070b896e3905fc47e"
    }
