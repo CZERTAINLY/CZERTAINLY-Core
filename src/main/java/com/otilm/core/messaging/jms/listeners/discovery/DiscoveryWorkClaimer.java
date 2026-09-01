@@ -5,6 +5,7 @@ import com.otilm.core.dao.entity.DiscoveryWork;
 import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.messaging.jms.configuration.DiscoveryWorkProperties;
 import com.otilm.core.messaging.model.DiscoveryWorkMessage;
+import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -38,14 +40,16 @@ public class DiscoveryWorkClaimer {
     private final DiscoveryWorkRepository workRepository;
     private final DiscoveryWorkWriter workWriter;
     private final DiscoveryWorkProperties workProperties;
+    private final Duration claimFloor;
 
     public DiscoveryWorkClaimer(ClusterOperationSynchronizer clusterSynchronizer,
             DiscoveryWorkRepository workRepository, DiscoveryWorkWriter workWriter,
-            DiscoveryWorkProperties workProperties) {
+            DiscoveryWorkProperties workProperties, @Value("${discovery.work.claim-floor:PT35S}") Duration claimFloor) {
         this.clusterSynchronizer = clusterSynchronizer;
         this.workRepository = workRepository;
         this.workWriter = workWriter;
         this.workProperties = workProperties;
+        this.claimFloor = claimFloor;
     }
 
     /**
@@ -60,8 +64,9 @@ public class DiscoveryWorkClaimer {
      * transaction.
      *
      * <p>
-     * <b>Duplicate prevention:</b> the caller passes one cutoff for its whole sweep. A claimed row is rescheduled at
-     * least the first backoff rung past its claim, so no batch of the same sweep can claim it again.
+     * <b>Duplicate prevention:</b> the caller passes one cutoff for its whole sweep, and a claimed row is parked past a
+     * tick's expected worst case rather than at its next backoff rung, so neither this sweep nor the ones running while
+     * the tick is still in flight can claim it again. See {@link #parkFor}.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<DiscoveryWorkMessage> claimDueBatch(int batchSize, OffsetDateTime dueCutoff) {
@@ -76,11 +81,31 @@ public class DiscoveryWorkClaimer {
             messages.add(new DiscoveryWorkMessage(work.getDiscoveryUuid(), work.getWorkType(), work.getAttempt()));
 
             int nextAttempt = work.getAttempt() + 1;
-            Duration nextDelay = workProperties.scheduleFor(work.getWorkType()).delayFor(nextAttempt);
             workWriter
                     .reschedule(work.getDiscoveryUuid(), work.getWorkType(), nextAttempt,
-                            OffsetDateTime.now(ZoneOffset.UTC).plus(nextDelay));
+                            OffsetDateTime.now(ZoneOffset.UTC).plus(parkFor(work.getWorkType(), nextAttempt)));
         }
         return messages;
+    }
+
+    /**
+     * How far out a claimed row is parked. This is the row's only protection while its tick runs: nothing marks a row
+     * as being worked, so the sweep republishes any row that comes due again, however recently it was published.
+     *
+     * <p>
+     * The ladder's own rung is not enough on its own. Its early rungs are one and five seconds, against a connector
+     * call that may take its full timeout, so a slow tick is republished by every sweep from a second after it started
+     * — two ticks then drain the same page, and the one that stages nothing reads that as the connector withholding
+     * items and spends the run's budget on it. The floor holds a claimed row past a tick's expected worst case.
+     *
+     * <p>
+     * A floor, not a replacement: the ceiling rungs are already longer than it, so the steady-state cadence of every
+     * ladder is untouched. What it does slow is retrying a tick the connector never answered, which is the case least
+     * worth retrying in a second. It does not cover a tick that outlives the floor itself — a lease the worker releases
+     * would, and is the proper fix (core#1962's agenda has no such column).
+     */
+    private Duration parkFor(DiscoveryWorkType workType, int nextAttempt) {
+        Duration rung = workProperties.scheduleFor(workType).delayFor(nextAttempt);
+        return rung.compareTo(claimFloor) >= 0 ? rung : claimFloor;
     }
 }

@@ -56,7 +56,6 @@ import com.otilm.core.dao.repository.ComplianceProfileRuleRepository;
 import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.CredentialRepository;
-import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.EntityInstanceReferenceRepository;
 import com.otilm.core.dao.repository.ProxyRepository;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
@@ -76,6 +75,7 @@ import com.otilm.core.service.ConnectorAuthInternalService;
 import com.otilm.core.service.handler.ConnectorAdapter;
 import com.otilm.core.service.v2.ConnectorExternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import com.otilm.core.service.writer.DiscoveryWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.FilterPredicatesBuilder;
 import com.otilm.core.util.RequestValidatorHelper;
@@ -118,7 +118,7 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private VaultInstanceRepository vaultInstanceRepository;
-    private DiscoveryRepository discoveryRepository;
+    private DiscoveryWriter discoveryWriter;
     private ComplianceProfileRepository complianceProfileRepository;
     private ComplianceProfileRuleRepository complianceProfileRuleRepository;
     private ProxyRepository proxyRepository;
@@ -157,8 +157,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     }
 
     @Autowired
-    public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
-        this.discoveryRepository = discoveryRepository;
+    public void setDiscoveryWriter(DiscoveryWriter discoveryWriter) {
+        this.discoveryWriter = discoveryWriter;
     }
 
     @Autowired
@@ -700,7 +700,7 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
             // on the interface is released, and it has to be released here: the reference is ON DELETE RESTRICT, so
             // the interfaces would otherwise refuse to cascade away with their connector. A released run keeps every
             // other column, but can no longer report which interface drove it.
-            int released = discoveryRepository
+            int released = discoveryWriter
                     .releaseConnectorInterfaces(
                             connector.getInterfaces().stream().map(ConnectorInterfaceEntity::getUuid).toList());
             if (released > 0) {
