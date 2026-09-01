@@ -15,6 +15,14 @@ package com.otilm.core.cbom.asset.identity;
  * composite is the worked example: {@code CRT|S|v1|...} carries {@code 2.5.4.3=example%20ca} because that DN sits in an
  * outer slot, while the composite's inner pre-image carries {@code 2.5.4.3=vector ca} with the space intact, because
  * only its SHA-256 enters a slot. Getting this backwards re-keys every certificate.
+ *
+ * <p>
+ * <b>{@code #} is deliberately not in the set.</b> It is the separator of the occurrence triple, owned by
+ * {@link Occurrences#slot} rather than by this class, and a triple can only be forged through it by a <em>textual</em>
+ * line or offset -- which the schema types as an integer and the upload gate refuses before this code runs. Adding it
+ * here would re-key every occurrence-bearing row to close a case that is already rejected upstream, so the separator is
+ * documented rather than escaped. A reader asking "why is {@code #} missing?" should find the answer here; if the
+ * upload gate ever stops refusing a textual position, this is the paragraph that has to change with it.
  */
 public final class PreImageSlot {
 
