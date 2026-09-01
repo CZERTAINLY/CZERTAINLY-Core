@@ -71,6 +71,7 @@ import com.otilm.api.model.core.settings.CertificateValidationSettingsDto;
 import com.otilm.api.model.core.settings.PlatformSettingsDto;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
+import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeContentPurpose;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.AttributeOperation;
@@ -299,6 +300,7 @@ public class CertificateServiceImpl
     private AcmeAccountRepository acmeAccountRepository;
 
     private AttributeEngine attributeEngine;
+    private AttributeColumnProjector attributeColumnProjector;
     private ExtendedAttributeService extendedAttributeService;
     private ResourceObjectAssociationService objectAssociationService;
     private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
@@ -534,6 +536,11 @@ public class CertificateServiceImpl
     }
 
     @Autowired
+    public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
+        this.attributeColumnProjector = attributeColumnProjector;
+    }
+
+    @Autowired
     public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
         this.extendedAttributeService = extendedAttributeService;
     }
@@ -594,6 +601,10 @@ public class CertificateServiceImpl
                 c.setGroups(groupsByCert.getOrDefault(c.getUuid(), List.of()));
             });
         }
+
+        attributeColumnProjector
+                .project(Resource.CERTIFICATE, request.getColumns(), certificates,
+                        certificate -> AttributeColumnProjector.parseUuid(certificate.getUuid()));
 
         Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         CertificateResponseDto responseDto = new CertificateResponseDto();

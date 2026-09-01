@@ -8,6 +8,7 @@ import com.otilm.api.model.common.attribute.common.DataAttribute;
 import com.otilm.api.model.common.attribute.common.MetadataAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
+import com.otilm.core.attribute.engine.AttributeDefinitionProperties;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -32,6 +33,12 @@ public class SearchFieldObject {
 
     private ProtectionLevel protectionLevel;
 
+    /**
+     * Whether the definition says its values may be shown to a user. Read here rather than at each use, because the
+     * flag lives on the properties of whichever attribute shape the definition holds.
+     */
+    private boolean visible = true;
+
     private List<String> contentItems;
 
     public SearchFieldObject(AttributeContentType attributeContentType) {
@@ -51,6 +58,7 @@ public class SearchFieldObject {
         this.attributeContentType = attributeContentType;
         this.attributeType = attributeType;
         this.label = label;
+        this.visible = AttributeDefinitionProperties.isVisible(attributeDefinition);
 
         if (attributeType == AttributeType.CUSTOM || attributeType == AttributeType.DATA) {
             if (attributeDefinition instanceof CustomAttribute customAttribute) {
