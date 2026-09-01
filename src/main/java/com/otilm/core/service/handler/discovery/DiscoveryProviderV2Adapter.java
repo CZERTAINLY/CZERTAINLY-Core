@@ -349,10 +349,17 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
             locked.setConnectorStatus(DiscoveryStatus.STOPPED);
             locked.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC));
             discoveryRepository.save(locked);
-            // In the same transaction as the status: a failure between the two would leave a stopped run with an
-            // attempt budget it never refreshed. The agenda itself stays, parked -- a stopped run is resumable.
-            workWriter.resetAttempt(discoveryUuid, DiscoveryWorkType.STATUS, 0);
-            workWriter.resetAttempt(discoveryUuid, DiscoveryWorkType.DRAIN, 0);
+            // Best-effort, not atomic with the status above: resetAttempt is REQUIRES_NEW and commits on its own,
+            // so a failure after it leaves a refreshed budget on a run that never reached STOPPED. Harmless -- the
+            // budget is a retry allowance, not state. To the ceiling rather than 0, the same as every other refresh
+            // in this class: the budget is restored without restarting the backoff ramp at full speed. The agenda
+            // itself stays, parked -- a stopped run is resumable.
+            workWriter
+                    .resetAttempt(discoveryUuid, DiscoveryWorkType.STATUS,
+                            workProperties.scheduleFor(DiscoveryWorkType.STATUS).ceilingAttempt());
+            workWriter
+                    .resetAttempt(discoveryUuid, DiscoveryWorkType.DRAIN,
+                            workProperties.scheduleFor(DiscoveryWorkType.DRAIN).ceilingAttempt());
             return locked;
         });
     }
@@ -451,8 +458,11 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
         // throws on a null argument instead of answering false.
         if (Arrays.stream(legal).noneMatch(status -> status == discovery.getStatus())) {
             // 422 rather than 409: the platform's state-transition convention, and Core maps no CONFLICT for run state.
+            // getLabel, not the enum: this reaches a person. Null renders as a phrase rather than the word "null",
+            // for the same nullable column the comment above guards against.
+            String state = discovery.getStatus() == null ? "in an unknown state" : discovery.getStatus().getLabel();
             throw new ValidationException(
-                    "Discovery " + discovery.getUuid() + " is " + discovery.getStatus() + " and cannot be " + verb);
+                    "Discovery " + discovery.getUuid() + " is " + state + " and cannot be " + verb);
         }
     }
 

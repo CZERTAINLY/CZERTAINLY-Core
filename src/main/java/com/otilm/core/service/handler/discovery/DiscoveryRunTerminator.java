@@ -11,6 +11,8 @@ import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
 import com.otilm.core.tasks.ScheduledJobInfo;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -36,6 +38,9 @@ public class DiscoveryRunTerminator {
     private final TransactionHandler transactionHandler;
     private final ApplicationEventPublisher eventPublisher;
     private final ScheduledJobHistoryRepository scheduledJobHistoryRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public DiscoveryRunTerminator(DiscoveryRepository discoveryRepository, DiscoveryWorkWriter workWriter,
             DiscoveryMessageWriter messageWriter, TransactionHandler transactionHandler,
@@ -84,6 +89,11 @@ public class DiscoveryRunTerminator {
             if (run == null) {
                 return false;
             }
+            // The lock alone proves nothing here. A lifecycle call runs NOT_SUPPORTED with the run already loaded,
+            // so this read finds that same instance and answers with its pre-call fields -- the guard below would
+            // miss an ending committed while the connector call was in flight, and the write would then rebuild
+            // every column from the stale snapshot, since Discovery is not @DynamicUpdate.
+            entityManager.refresh(run);
             if (alreadyPast.test(run.getStatus())) {
                 logger.debug("Discovery {} is already {}; leaving it alone", discoveryUuid, run.getStatus());
                 return false;

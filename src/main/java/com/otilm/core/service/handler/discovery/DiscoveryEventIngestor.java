@@ -19,6 +19,7 @@ import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.model.discovery.DiscoveryMessageCode;
 import com.otilm.core.model.discovery.DiscoveryMessageDraft;
+import com.otilm.core.model.discovery.DiscoveryProgressSnapshot;
 import com.otilm.core.model.discovery.DiscoveryRunLifecycle;
 import com.otilm.core.model.discovery.DiscoveryWorkType;
 import com.otilm.core.service.handler.CertificateHandler;
@@ -136,7 +137,7 @@ public class DiscoveryEventIngestor {
             return;
         }
         switch (event.getType()) {
-            case PROGRESS -> run.setProgress(snapshotOf((DiscoveryProgressEvent) event));
+            case PROGRESS -> applyProgress(run, (DiscoveryProgressEvent) event);
             case ERROR -> {
                 DiscoveryErrorEvent error = (DiscoveryErrorEvent) event;
                 // The connector's code identifies the problem; its prose goes to the log rather than to the
@@ -352,6 +353,17 @@ public class DiscoveryEventIngestor {
         }
         // Expedites only; a pushed event must not refresh a budget no successful call has earned.
         workWriter.expedite(run.getUuid(), workType, OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    /**
+     * A pushed report is held to the same bar as a polled one: an empty snapshot would blank what the run already
+     * knows, and nothing validates a connector's event on arrival either.
+     */
+    private static void applyProgress(Discovery run, DiscoveryProgressEvent event) {
+        DiscoveryProgressDto snapshot = snapshotOf(event);
+        if (DiscoveryProgressSnapshot.reportsSomething(snapshot)) {
+            run.setProgress(snapshot);
+        }
     }
 
     /**

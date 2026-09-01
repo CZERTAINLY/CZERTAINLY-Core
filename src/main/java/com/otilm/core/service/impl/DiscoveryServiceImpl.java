@@ -702,10 +702,10 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         for (SecuredUUID uuid : discoveryUuids) {
             try {
                 deleteDiscovery(uuid);
-            } catch (ValidationException e) {
-                // A v2 run still at its connector refuses deletion until it is cancelled. One of those in the
-                // selection must not decide the fate of the rest: the runs ahead of it are already deleted, and the
-                // ones behind it would keep their rows while the caller saw nothing but a single error.
+            } catch (ValidationException | NotFoundException e) {
+                // A v2 run still at its connector refuses deletion until it is cancelled, and a run someone else
+                // deleted between the selection and this async pass is already gone. Neither may decide the fate of
+                // the rest of the batch, which would otherwise stop here and leave the caller a single error.
                 refused.add(uuid.getValue());
                 logger.debug("Discovery {} was not deleted in the bulk request: {}", uuid.getValue(), e.getMessage());
             }
