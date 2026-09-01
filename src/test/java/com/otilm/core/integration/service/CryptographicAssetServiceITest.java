@@ -12,6 +12,7 @@ import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SortDirection;
+import com.otilm.core.cbom.asset.AssetRowKeys;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.repository.CbomRepository;
@@ -147,14 +148,11 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
                         List.of(Map.of("location", "d"), Map.of("location", "e")), OffsetDateTime.now());
         assetWriter.applyPqcVerdict(sourced, PqcVerdict.NOT_READY, "rule", "reason", 3, Map.of());
 
-        UUID guarded = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cn", null, null,
-                        null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
-        UUID contradicted = assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "contradicted-cert", null,
-                                null, null, null, null, null, null, null),
-                        CryptoAssetIdentityGuard.REFUTED_CERTIFICATE_DIGEST);
+        UUID guarded = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cn", null, null,
+                null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
+        UUID contradicted = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE,
+                "contradicted-cert", null, null, null, null, null, null, null, null),
+                CryptoAssetIdentityGuard.REFUTED_CERTIFICATE_DIGEST);
 
         UUID neverEvaluated = seedNamed(CryptographicAssetType.ALGORITHM, "RSA", "oid-never-evaluated");
 
@@ -211,9 +209,8 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
      */
     @Test
     void aRefutedOidIsNotServedAsTheName() {
-        UUID refutedNameless = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, null, "0.0.1", "ml-kem",
-                        null, null, null, null, null, null), CryptoAssetIdentityGuard.REFUTED_OID);
+        UUID refutedNameless = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, null, "0.0.1",
+                "ml-kem", null, null, null, null, null, null), CryptoAssetIdentityGuard.REFUTED_OID);
         UUID named = seedNamed(CryptographicAssetType.ALGORITHM, "aes", "1.2.3");
 
         PaginationResponseDto<CryptographicAssetDto> page = list(new SearchRequestDto());
@@ -226,9 +223,8 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
 
     @Test
     void aRowWithNeitherNameNorOidServesNoName() {
-        UUID bare = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, null, null,
-                        null, null, null, null, null, null), null);
+        UUID bare = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, null, null, null,
+                null, null, null, null, null), null);
         assertThat(dtoFor(list(new SearchRequestDto()), bare).getName())
                 .describedAs("interfaces-owned residual: the REQUIRED name has no value to serve")
                 .isNull();
@@ -240,12 +236,10 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
      */
     @Test
     void filtersNarrowResultsAcrossAssetTypes() {
-        UUID algorithmRow = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA", null, "ecdsa",
-                        "signature", "P-256", "secp256r1", null, null, null), null);
-        UUID certificateRow = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cert", null,
-                        null, null, null, "secp256r1", null, null, null), null);
+        UUID algorithmRow = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA", null,
+                "ecdsa", "signature", "P-256", "secp256r1", null, null, null), null);
+        UUID certificateRow = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cert",
+                null, null, null, null, "secp256r1", null, null, null), null);
         seedNamed(CryptographicAssetType.ALGORITHM, "RSA", "oid-unrelated");
 
         SearchRequestDto request = new SearchRequestDto();
@@ -264,11 +258,9 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
      */
     @Test
     void freeTextRefusesARefutedOidUntilTheRefutedFacetOptsIn() {
-        UUID refuted = assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
-                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
-                        CryptoAssetIdentityGuard.REFUTED_OID);
+        UUID refuted = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
+                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
+                CryptoAssetIdentityGuard.REFUTED_OID);
 
         SearchRequestDto freeTextOnly = new SearchRequestDto();
         freeTextOnly
@@ -299,9 +291,8 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
      */
     @Test
     void aNamelessRowServesItsOidAsTheRequiredName() {
-        UUID nameless = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, "oid-only-row",
-                        null, null, null, null, null, null, null), null);
+        UUID nameless = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, "oid-only-row",
+                null, null, null, null, null, null, null), null);
 
         CryptographicAssetDto dto = dtoFor(list(new SearchRequestDto()), nameless);
         assertThat(dto.getName()).isEqualTo("oid-only-row");
@@ -334,14 +325,12 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
     @Test
     void listResourceObjectsLabelsByNameOrFallsBackToOid() {
         UUID named = seedNamed(CryptographicAssetType.ALGORITHM, "AES", "oid-named");
-        UUID bare = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, "oid-bare-only",
-                        null, null, null, null, null, null, null), null);
+        UUID bare = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, "oid-bare-only",
+                null, null, null, null, null, null, null), null);
 
-        UUID refutedNameless = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, null,
-                        "oid-refuted-label", "ml-kem", null, null, null, null, null, null),
-                        CryptoAssetIdentityGuard.REFUTED_OID);
+        UUID refutedNameless = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, null,
+                "oid-refuted-label", "ml-kem", null, null, null, null, null, null),
+                CryptoAssetIdentityGuard.REFUTED_OID);
 
         List<NameAndUuidDto> objects = resourceExtension().listResourceObjects(SecurityFilter.create(), null, null);
 
@@ -419,15 +408,16 @@ class CryptographicAssetServiceITest extends BaseSpringBootTest {
     }
 
     private UUID seedNamed(CryptographicAssetType type, String name, String oid) {
-        return assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(type, name, oid, null, null, null, null, null, null, null), null);
+        return upsert(new CryptoAssetIdentityFields(type, name, oid, null, null, null, null, null, null, null), null);
     }
 
     private UUID seedFamily(String name, String family) {
-        return assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, name, null, family,
-                        null, null, null, null, null, null), null);
+        return upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, name, null, family, null, null,
+                null, null, null, null), null);
+    }
+
+    private UUID upsert(CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
+        return assetWriter.upsertIdentity(AssetRowKeys.forFields(fields), fields, guard);
     }
 
     private Cbom newCbom(String serialNumber) {

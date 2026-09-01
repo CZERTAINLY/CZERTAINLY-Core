@@ -34,9 +34,6 @@ public class RaProfileValueSourceBinding extends UniquelyIdentified {
     @Column(name = "value_source_kind", nullable = false)
     private String valueSourceType;
 
-    @Column(name = "collection_ref")
-    private String collectionRef;
-
     @Column(name = "params", length = Integer.MAX_VALUE)
     private String params;
 

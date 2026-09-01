@@ -100,6 +100,29 @@ class RequestAttributeSetResolverTest {
         }
 
         @Test
+        void connectorWinsANameCollisionEvenWhenTheUuidsDiffer() {
+            // The platform seed pins its UUIDs, so a connector supplying the same attribute almost always carries a
+            // different one. Two definitions sharing a name cannot both be registered: the attribute engine keys
+            // definitions by name (Collectors.toMap) and throws Duplicate key, which surfaces as a 500 on issue.
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .merge(List.of(def("s1", "commonName")), List.of(def("c1", "commonName")),
+                            AttributeSetMergeMode.MERGE);
+
+            assertThat(result).extracting(BaseAttribute::getName).containsExactly("commonName");
+            assertThat(result).extracting(BaseAttribute::getUuid).containsExactly("c1");
+        }
+
+        @Test
+        void staticDefinitionSurvivesWhenOnlyItsUuidIsUnclaimed() {
+            // Guard against over-deduping: a distinct name must still contribute.
+            List<BaseAttribute> result = RequestAttributeSetResolver
+                    .merge(List.of(def("s1", "department")), List.of(def("c1", "commonName")),
+                            AttributeSetMergeMode.MERGE);
+
+            assertThat(result).extracting(BaseAttribute::getName).containsExactly("commonName", "department");
+        }
+
+        @Test
         void nullModeDefaultsToStaticOnly() {
             // given / when
             List<BaseAttribute> result = RequestAttributeSetResolver
@@ -144,7 +167,7 @@ class RequestAttributeSetResolverTest {
             // given
             DataAttributeV3 connector = def("u1", "server");
             ValueSourceBindingSpec binding = new ValueSourceBindingSpec("u1", null, ValueSourceType.STATIC_LIST,
-                    "cmdb.servers", List.of());
+                    List.of());
 
             // when
             List<BaseAttribute> result = RequestAttributeSetResolver
@@ -162,7 +185,7 @@ class RequestAttributeSetResolverTest {
             // it must still bind via the attribute name fallback rather than silently dropping the value source
             DataAttributeV3 connector = def("changed-uuid", "server");
             ValueSourceBindingSpec binding = new ValueSourceBindingSpec("old-uuid", "server",
-                    ValueSourceType.CONNECTOR_CALLBACK, null, List.of());
+                    ValueSourceType.CONNECTOR_CALLBACK, List.of());
 
             // when
             List<BaseAttribute> result = RequestAttributeSetResolver
@@ -180,7 +203,7 @@ class RequestAttributeSetResolverTest {
             DataAttributeV3 connector = def("u1", "server");
             SourceParam param = new SourceParam();
             param.setAttributeName("datacenter");
-            ValueSourceBindingSpec binding = new ValueSourceBindingSpec("u1", null, ValueSourceType.STATIC_LIST, null,
+            ValueSourceBindingSpec binding = new ValueSourceBindingSpec("u1", null, ValueSourceType.STATIC_LIST,
                     List.of(param));
 
             // when
@@ -210,7 +233,7 @@ class RequestAttributeSetResolverTest {
             // given: a binding that matches neither the UUID nor the name
             DataAttributeV3 connector = def("u1", "server");
             ValueSourceBindingSpec mismatch = new ValueSourceBindingSpec("other", "other", ValueSourceType.STATIC_LIST,
-                    "x", List.of());
+                    List.of());
 
             // when
             List<BaseAttribute> result = RequestAttributeSetResolver

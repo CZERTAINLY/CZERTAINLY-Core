@@ -50,7 +50,7 @@ public class RaProfileCertificateRequestAttribute extends UniquelyIdentified {
 
     /**
      * How the static set combines with a connector-supplied set; {@code null} is treated as
-     * {@link AttributeSetMergeMode#MERGE} by the resolver.
+     * {@link AttributeSetMergeMode#STATIC_ONLY} by the resolver.
      */
     @Enumerated(EnumType.STRING)
     @Column(name = "merge_mode")

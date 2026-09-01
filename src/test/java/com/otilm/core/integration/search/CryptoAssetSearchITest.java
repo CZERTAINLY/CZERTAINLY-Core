@@ -7,6 +7,7 @@ import com.otilm.api.model.core.cbom.CbomAssetSyncState;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.api.model.core.search.FilterConditionOperator;
+import com.otilm.core.cbom.asset.AssetRowKeys;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.entity.cbom.CryptoAsset;
@@ -71,14 +72,11 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
 
     @BeforeEach
     void seedAssets() {
-        populated = assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA", "1.2.840.10045.4.3.2",
-                                "ecdsa", "signature", "P-256", "secp256r1", "cbc", "pkcs1v15", "fips186-4"),
-                        null);
-        bare = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, null, null,
-                        null, null, null, null, null, null), null);
+        populated = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA",
+                "1.2.840.10045.4.3.2", "ecdsa", "signature", "P-256", "secp256r1", "cbc", "pkcs1v15", "fips186-4"),
+                null);
+        bare = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, null, null, null, null, null,
+                null, null, null, null), null);
 
         assetWriter
                 .applyPqcVerdict(populated, PqcVerdict.NOT_READY, "ECDSA-CLASSICAL", "not quantum resistant", 3,
@@ -116,12 +114,10 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
      */
     @Test
     void aFilterAnswerDoesNotDependOnWhichProducerSyncedLast() {
-        UUID first = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", null, null, null,
-                        null, null, "GCM", null, null), null);
-        UUID second = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "  aes  ", "   ", null,
-                        null, null, null, " gcm ", null, null), null);
+        UUID first = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES", null, null, null,
+                null, null, "GCM", null, null), null);
+        UUID second = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "  aes  ", "   ", null,
+                null, null, null, " gcm ", null, null), null);
 
         assertThat(second).describedAs("both spellings key to one row").isEqualTo(first);
         assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_NAME, "aes")))
@@ -204,11 +200,9 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
      */
     @Test
     void freeTextNeverMatchesThroughARefutedOidWithoutTheOptIn() {
-        UUID refuted = assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
-                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
-                        CryptoAssetIdentityGuard.REFUTED_OID);
+        UUID refuted = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
+                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
+                CryptoAssetIdentityGuard.REFUTED_OID);
 
         assertThat(search(
                 aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "101.3.4.4")))
@@ -238,11 +232,9 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
      */
     @Test
     void oidValuePredicatesTreatARefutedOidAsAbsent() {
-        UUID refuted = assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
-                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
-                        CryptoAssetIdentityGuard.REFUTED_OID);
+        UUID refuted = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
+                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
+                CryptoAssetIdentityGuard.REFUTED_OID);
 
         assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID, "2.16.840.1.101.3.4.4.2")))
                 .describedAs("a refuted oid must not answer an EQUALS predicate")
@@ -300,14 +292,11 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
 
     @Test
     void theRefutedFacetSelectsRowsByRefutedness() {
-        UUID refuted = assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
-                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
-                        CryptoAssetIdentityGuard.REFUTED_OID);
-        UUID bareCn = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cn", null, null,
-                        null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
+        UUID refuted = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
+                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
+                CryptoAssetIdentityGuard.REFUTED_OID);
+        UUID bareCn = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.CERTIFICATE, "some-cn", null, null,
+                null, null, null, null, null, null), CryptoAssetIdentityGuard.BARE_CN_SUBJECT);
 
         assertThat(search(aPropertyEqualsFilter(FilterField.CBOM_ASSET_OID_REFUTED, "true")))
                 .describedAs("only the refuted-OID row, not the BARE_CN_SUBJECT one")
@@ -342,11 +331,8 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
      */
     @Test
     void theRefutedFacetRefusesNonScalarAndNonBooleanValues() {
-        assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
-                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
-                        CryptoAssetIdentityGuard.REFUTED_OID);
+        upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768", "2.16.840.1.101.3.4.4.2",
+                "ml-kem", "kem", null, null, null, null, null), CryptoAssetIdentityGuard.REFUTED_OID);
 
         SearchFilterRequestDto arrayValued = aPropertyFilter(FilterField.CBOM_ASSET_OID_REFUTED,
                 FilterConditionOperator.NOT_EQUALS, (Serializable) List.of("true"));
@@ -377,15 +363,12 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
      */
     @Test
     void freeTextTreatsLikeWildcardsAsLiteralText() {
-        UUID underscored = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES_128",
-                        "oid-underscore", null, null, null, null, null, null, null), null);
-        assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AESX128",
-                        "oid-lookalike", null, null, null, null, null, null, null), null);
-        UUID percented = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "50% legacy",
-                        "oid-percent", null, null, null, null, null, null, null), null);
+        UUID underscored = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AES_128",
+                "oid-underscore", null, null, null, null, null, null, null), null);
+        upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "AESX128", "oid-lookalike", null, null,
+                null, null, null, null, null), null);
+        UUID percented = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "50% legacy",
+                "oid-percent", null, null, null, null, null, null, null), null);
 
         assertThat(search(aPropertyFilter(FilterField.CBOM_ASSET_FREE_TEXT, FilterConditionOperator.CONTAINS, "s_1")))
                 .describedAs("an underscore matches a literal underscore, not any character")
@@ -403,9 +386,8 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
     void theSourceCbomFilterMatchesThroughSourcesWithoutDuplicatingRows() {
         Cbom alpha = newCbom("urn:uuid:alpha");
         Cbom beta = newCbom("urn:uuid:beta");
-        UUID other = assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "RSA", null, "rsa",
-                        "signature", null, null, null, null, null), null);
+        UUID other = upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "RSA", null, "rsa",
+                "signature", null, null, null, null, null), null);
         sourceWriter.upsertSource(populated, alpha.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
         sourceWriter.upsertSource(populated, beta.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
         sourceWriter.upsertSource(other, beta.getUuid(), Map.of("k", "v"), List.of(), OffsetDateTime.now());
@@ -572,5 +554,17 @@ class CryptoAssetSearchITest extends BaseSpringBootTest {
         cbom.setVersion(1);
         cbom.setSpecVersion("1.7");
         return cbomRepository.save(cbom);
+    }
+
+    /**
+     * Upserts through the writer with a fixture key derived from the fields.
+     *
+     * <p>
+     * The writer no longer computes the key -- the extraction pipeline does, from the whole component -- so a
+     * persistence test has to supply one. {@link AssetRowKeys} makes it a stable function of the normalized fields,
+     * which is what keeps every dedup assertion below meaning what it meant before.
+     */
+    private UUID upsert(CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
+        return assetWriter.upsertIdentity(AssetRowKeys.forFields(fields), fields, guard);
     }
 }

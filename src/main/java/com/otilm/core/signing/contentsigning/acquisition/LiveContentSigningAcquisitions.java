@@ -1,5 +1,6 @@
 package com.otilm.core.signing.contentsigning.acquisition;
 
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfile;
 import com.otilm.core.signing.engine.error.SigningEngineException;
 import com.otilm.core.signing.engine.error.SigningEngineFailure;
@@ -19,6 +20,12 @@ public class LiveContentSigningAcquisitions implements ContentSigningAcquisition
     public LiveContentSigningAcquisitions(SignerFactory signerFactory, InternalTimestampSource timestampSource) {
         this.signerFactory = signerFactory;
         this.timestampSource = timestampSource;
+    }
+
+    @Override
+    public SignatureAlgorithm signatureAlgorithm(ResolvedManagedContentSigningProfile profile)
+            throws SigningEngineException {
+        return signerFactory.signatureAlgorithm(profile.resolvedScheme());
     }
 
     @Override

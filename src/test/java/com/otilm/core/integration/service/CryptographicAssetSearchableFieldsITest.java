@@ -6,6 +6,7 @@ import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.FilterFieldType;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
+import com.otilm.core.cbom.asset.AssetRowKeys;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.repository.CbomRepository;
@@ -15,6 +16,7 @@ import com.otilm.core.service.CryptographicAssetExternalService;
 import com.otilm.core.service.writer.cbom.CryptoAssetWriter;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,22 +56,15 @@ class CryptographicAssetSearchableFieldsITest extends BaseSpringBootTest {
 
     @BeforeEach
     void seedAssetsAndCbom() {
-        assetWriter
-                .upsertIdentity(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA",
-                        "1.2.840.10045.4.3.2", "ecdsa", "signature", "P-256", "SECP256R1", null, null, null), null);
+        upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA", "1.2.840.10045.4.3.2", "ecdsa",
+                "signature", "P-256", "SECP256R1", null, null, null), null);
         // The same curve token in a second casing, on a distinct row (different oid): findDistinctCurve() must
         // still report the stored normalized spelling once, not twice. Folding ALIASES of one curve (p-256 vs
         // secp256r1) into one secg/* class representative is core#2072's ingest obligation, not this endpoint's.
-        assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA-VARIANT",
-                                "1.2.840.10045.4.3.3", "ecdsa", "signature", "P-256", " secp256r1 ", null, null, null),
-                        null);
-        assetWriter
-                .upsertIdentity(
-                        new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768",
-                                "2.16.840.1.101.3.4.4.2", "ml-kem", "kem", null, null, null, null, null),
-                        CryptoAssetIdentityGuard.REFUTED_OID);
+        upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ECDSA-VARIANT", "1.2.840.10045.4.3.3",
+                "ecdsa", "signature", "P-256", " secp256r1 ", null, null, null), null);
+        upsert(new CryptoAssetIdentityFields(CryptographicAssetType.ALGORITHM, "ML-KEM-768", "2.16.840.1.101.3.4.4.2",
+                "ml-kem", "kem", null, null, null, null, null), CryptoAssetIdentityGuard.REFUTED_OID);
 
         newCbom(SEEDED_SERIAL, 1);
         // A second version of the same serial plus an earlier-sorting one: the value list must collapse the
@@ -87,6 +82,10 @@ class CryptographicAssetSearchableFieldsITest extends BaseSpringBootTest {
         cbom.setVersion(version);
         cbom.setSpecVersion("1.7");
         cbomRepository.save(cbom);
+    }
+
+    private UUID upsert(CryptoAssetIdentityFields fields, CryptoAssetIdentityGuard guard) {
+        return assetWriter.upsertIdentity(AssetRowKeys.forFields(fields), fields, guard);
     }
 
     /**

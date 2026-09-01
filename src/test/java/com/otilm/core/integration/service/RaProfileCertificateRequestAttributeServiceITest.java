@@ -1,5 +1,9 @@
 package com.otilm.core.integration.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
@@ -10,6 +14,7 @@ import com.otilm.api.model.common.attribute.v3.mapping.FieldMapping;
 import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
 import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
 import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.SourceParam;
 import com.otilm.api.model.common.attribute.v3.mapping.ValueSourceType;
 import com.otilm.api.model.core.raprofile.AttributeSetMergeMode;
 import com.otilm.api.model.core.raprofile.RaProfileCertificateRequestAttributesDto;
@@ -27,17 +32,23 @@ import com.otilm.core.dao.entity.Setting;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.dao.repository.SettingRepository;
 import com.otilm.core.service.RaProfileCertificateRequestAttributeService;
+import com.otilm.core.service.impl.RaProfileCertificateRequestAttributeServiceImpl;
 import com.otilm.core.service.v2.ExtendedAttributeService;
 import com.otilm.core.service.writer.RaProfileCertificateRequestAttributeWriter;
 import com.otilm.core.util.AttributeDefinitionUtils;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -88,6 +99,31 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         return raProfileRepository.save(raProfile);
     }
 
+    private ListAppender<ILoggingEvent> captureResolutionLogs() {
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        resolutionLogger().addAppender(appender);
+        return appender;
+    }
+
+    private static Logger resolutionLogger() {
+        return (Logger) LoggerFactory.getLogger(RaProfileCertificateRequestAttributeServiceImpl.class);
+    }
+
+    private static List<String> messagesLoggedAt(ListAppender<ILoggingEvent> logged, Level level) {
+        return logged.list
+                .stream()
+                .filter(event -> event.getLevel() == level)
+                .map(ILoggingEvent::getFormattedMessage)
+                .toList();
+    }
+
+    /** The logger is a process-wide singleton, so a capturing appender left on it would follow the next test. */
+    @AfterEach
+    void releaseTheResolutionLogger() {
+        resolutionLogger().detachAndStopAllAppenders();
+    }
+
     private void attachConnector(RaProfile raProfile) {
         Connector connector = new Connector();
         connector.setUuid(UUID.randomUUID());
@@ -108,7 +144,6 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         binding.setRaProfileUuid(raProfile.getUuid());
         binding.setAttributeUuid("u1");
         binding.setValueSourceType(ValueSourceType.STATIC_LIST.name());
-        binding.setCollectionRef("cmdb.servers");
         writer.replaceValueSourceBindings(raProfile.getUuid(), List.of(binding));
 
         // when
@@ -144,7 +179,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         // given: a connector set with c1, and a static set with c1 (conflict) + s2 (static-only)
         RaProfile raProfile = newRaProfile();
         attachConnector(raProfile);
-        when(extendedAttributeService.listIssueCertificateAttributes(any()))
+        when(extendedAttributeService.listCertificateRequestAttributes(any()))
                 .thenReturn(List.of(def("c1", "connector-name")));
         writer
                 .saveStaticSet(raProfile,
@@ -175,7 +210,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         List<BaseAttribute> resolved = service.resolveIssueAttributeSet(raProfile, AttributeSetMergeMode.MERGE);
 
         // then: the connector fetch is skipped gracefully (no NotFoundException) and only the static set resolves
-        verify(extendedAttributeService, never()).listIssueCertificateAttributes(any());
+        verify(extendedAttributeService, never()).listCertificateRequestAttributes(any());
         assertThat(resolved).extracting(BaseAttribute::getName).containsExactly("static-only");
     }
 
@@ -184,7 +219,7 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
         // given: a stored static set whose persisted merge mode is STATIC_ONLY, plus a (would-be-winning) connector set
         RaProfile raProfile = newRaProfile();
         attachConnector(raProfile);
-        when(extendedAttributeService.listIssueCertificateAttributes(any()))
+        when(extendedAttributeService.listCertificateRequestAttributes(any()))
                 .thenReturn(List.of(def("c1", "connector-name")));
         writer
                 .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
@@ -231,13 +266,117 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     }
 
     @Test
+    void warnsWhenAMergeModeAdmitsTheConnectorButItSuppliesNothing() throws Exception {
+        // given — CONNECTOR_ONLY on an authority whose connector serves no request schema (every v2 authority, and
+        // any v3 connector answering 404). Resolution silently yields the platform default set, so the operator gets
+        // neither the connector set they asked for nor their own static set; the log is the only trace.
+        RaProfile raProfile = newRaProfile();
+        attachConnector(raProfile);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
+                        AttributeSetMergeMode.CONNECTOR_ONLY, null);
+        when(extendedAttributeService.listCertificateRequestAttributes(any())).thenReturn(List.of());
+        ListAppender<ILoggingEvent> logged = captureResolutionLogs();
+
+        // when
+        service.resolveIssueAttributeSet(raProfile);
+
+        // then
+        assertThat(messagesLoggedAt(logged, Level.WARN))
+                .anySatisfy(message -> assertThat(message)
+                        .contains(raProfile.getName())
+                        .contains(AttributeSetMergeMode.CONNECTOR_ONLY.getCode()));
+    }
+
+    @Test
+    void mergeWithAStaticSetLogsNoWarningWhenTheConnectorServesNoSchema() throws Exception {
+        // Every v2 authority serves no request schema by contract, so this is the steady state for a MERGE profile
+        // with a static set — and resolution is correct: the static set is what 2.19.x would have resolved. Warning
+        // here would fire per certificate request, per EST /csrattrs and per ACME/SCEP/CMP request, forever.
+        RaProfile raProfile = newRaProfile();
+        attachConnector(raProfile);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
+                        AttributeSetMergeMode.MERGE, null);
+        when(extendedAttributeService.listCertificateRequestAttributes(any())).thenReturn(List.of());
+        ListAppender<ILoggingEvent> logged = captureResolutionLogs();
+
+        List<BaseAttribute> resolved = service.resolveIssueAttributeSet(raProfile);
+
+        assertThat(resolved).extracting(BaseAttribute::getName).containsExactly("static-only");
+        assertThat(messagesLoggedAt(logged, Level.WARN)).isEmpty();
+    }
+
+    @Test
+    void staticOnlyResolutionLogsNoWarning() {
+        // The common path must stay quiet: STATIC_ONLY never asks the connector for anything.
+        RaProfile raProfile = newRaProfile();
+        attachConnector(raProfile);
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
+                        AttributeSetMergeMode.STATIC_ONLY, null);
+        ListAppender<ILoggingEvent> logged = captureResolutionLogs();
+
+        assertThatCode(() -> service.resolveIssueAttributeSet(raProfile)).doesNotThrowAnyException();
+
+        assertThat(messagesLoggedAt(logged, Level.WARN)).isEmpty();
+    }
+
+    @Test
+    void valueSourceBindingBindsToAConnectorSuppliedDefinition() throws Exception {
+        // given — the connector supplies the definition, and the profile binds a value source to it by UUID
+        RaProfile raProfile = newRaProfile();
+        attachConnector(raProfile);
+        when(extendedAttributeService.listCertificateRequestAttributes(any()))
+                .thenReturn(List.of(def("c1", "connector-cn")));
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of()),
+                        AttributeSetMergeMode.CONNECTOR_ONLY, null);
+        RaProfileValueSourceBinding binding = new RaProfileValueSourceBinding();
+        binding.setRaProfileUuid(raProfile.getUuid());
+        binding.setAttributeUuid("c1");
+        binding.setValueSourceType(ValueSourceType.STATIC_LIST.name());
+        writer.replaceValueSourceBindings(raProfile.getUuid(), List.of(binding));
+
+        // when
+        List<BaseAttribute> resolved = service.resolveIssueAttributeSet(raProfile);
+
+        // then — the binding rides on the connector definition, which is the point of binding by reference
+        assertThat(resolved).hasSize(1);
+        DataAttributeV3 bound = (DataAttributeV3) resolved.get(0);
+        assertThat(bound.getName()).isEqualTo("connector-cn");
+        assertThat(bound.getValueSource()).isNotNull();
+        assertThat(bound.getValueSource().getKind()).isEqualTo(ValueSourceType.STATIC_LIST);
+    }
+
+    @Test
+    void buildPathProjectsConnectorSuppliedDefinitionsUnderAMergeMode() throws Exception {
+        // given — a profile whose merge mode admits the connector set, and a connector definition carrying a mapping
+        RaProfile raProfile = newRaProfile();
+        attachConnector(raProfile);
+        when(extendedAttributeService.listCertificateRequestAttributes(any()))
+                .thenReturn(List.of(def("c1", "connector-cn")));
+        writer
+                .saveStaticSet(raProfile, AttributeDefinitionUtils.serialize(List.of(def("s1", "static-only"))),
+                        AttributeSetMergeMode.MERGE, null);
+
+        // when — resolving through the bean that feeds the structured requestContent projection
+        List<DataAttributeV3> resolved = issuanceDefinitionResolver.resolve(raProfile);
+
+        // then — the connector definition is what the projection will map onto the wire; a merge-mode change is
+        // therefore a change to the structured content a CERTIFICATE_REQUEST_STRUCTURED connector receives
+        assertThat(resolved).extracting(DataAttributeV3::getName).containsExactly("connector-cn", "static-only");
+        assertThat(resolved.get(0).getFieldMapping()).isNotNull();
+    }
+
+    @Test
     void buildPathResolverFallsBackToDefaultSet_whenConnectorSuppliesOnlyNonV3Attributes() throws Exception {
-        // given — an unconfigured profile whose v2 authority connector returns only non-v3 attributes
+        // given — an unconfigured profile whose connector request schema carries only non-v3 attributes
         RaProfile raProfile = newRaProfile();
         attachConnector(raProfile);
         InfoAttributeV2 legacy = new InfoAttributeV2();
         legacy.setName("legacy-info");
-        when(extendedAttributeService.listIssueCertificateAttributes(any())).thenReturn(List.of(legacy));
+        when(extendedAttributeService.listCertificateRequestAttributes(any())).thenReturn(List.of(legacy));
 
         // when — resolving through the bean the issue/register projection uses
         List<DataAttributeV3> resolved = issuanceDefinitionResolver.resolve(raProfile);
@@ -255,20 +394,19 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
 
     @Test
     void buildPathFallbackAppliesValueSourceBindings_toDefaultSetDefinitions() throws Exception {
-        // given — a v2-only connector forces the default-set fallback, and the profile binds a value
+        // given — a non-v3 connector schema forces the default-set fallback, and the profile binds a value
         // source to one of the default-set definitions
         RaProfile raProfile = newRaProfile();
         attachConnector(raProfile);
         InfoAttributeV2 legacy = new InfoAttributeV2();
         legacy.setName("legacy-info");
-        when(extendedAttributeService.listIssueCertificateAttributes(any())).thenReturn(List.of(legacy));
+        when(extendedAttributeService.listCertificateRequestAttributes(any())).thenReturn(List.of(legacy));
 
         String boundUuid = service.getDefaultSet().get(0).getUuid();
         RaProfileValueSourceBinding binding = new RaProfileValueSourceBinding();
         binding.setRaProfileUuid(raProfile.getUuid());
         binding.setAttributeUuid(boundUuid);
         binding.setValueSourceType(ValueSourceType.STATIC_LIST.name());
-        binding.setCollectionRef("cmdb.servers");
         writer.replaceValueSourceBindings(raProfile.getUuid(), List.of(binding));
 
         // when — resolving through the bean the issue/register projection uses
@@ -305,10 +443,18 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     void updateConfigurationRoundTripsThroughGetConfiguration() {
         // given
         RaProfile raProfile = newRaProfile();
+        String boundUuid = UUID.randomUUID().toString();
         RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
-        request.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
-        request.setMergeMode(AttributeSetMergeMode.STATIC_ONLY);
+        request.setRequestAttributes(List.of(def(boundUuid, "server")));
+        request.setMergeMode(AttributeSetMergeMode.CONNECTOR_ONLY);
         request.setExternalCsrValidationStrict(Boolean.TRUE);
+        ValueSourceBindingDto bindingDto = new ValueSourceBindingDto();
+        bindingDto.setAttributeUuid(boundUuid);
+        bindingDto.setValueSourceType(ValueSourceType.STATIC_LIST);
+        SourceParam param = new SourceParam();
+        param.setAttributeName("datacenter");
+        bindingDto.setParams(List.of(param));
+        request.setValueSourceBindings(List.of(bindingDto));
 
         // when
         service.updateConfiguration(raProfile, request);
@@ -316,24 +462,30 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
 
         // then
         assertThat(stored.getRequestAttributes()).extracting(BaseAttribute::getName).containsExactly("server");
-        assertThat(stored.getMergeMode()).isEqualTo(AttributeSetMergeMode.STATIC_ONLY);
+        assertThat(stored.getMergeMode()).isEqualTo(AttributeSetMergeMode.CONNECTOR_ONLY);
         assertThat(stored.getExternalCsrValidationStrict()).isTrue();
-        assertThat(stored.getValueSourceBindings()).isEmpty();
+        assertThat(stored.getValueSourceBindings()).hasSize(1);
+        assertThat(stored.getValueSourceBindings().get(0).getValueSourceType()).isEqualTo(ValueSourceType.STATIC_LIST);
+        assertThat(stored.getValueSourceBindings().get(0).getParams())
+                .extracting(SourceParam::getAttributeName)
+                .containsExactly("datacenter");
     }
 
-    @Test
-    void unsupportedMergeModeThrowsException() {
+    @ParameterizedTest
+    @EnumSource(AttributeSetMergeMode.class)
+    void updateConfigurationStoresEveryMergeMode(AttributeSetMergeMode mode) {
         RaProfile raProfile = newRaProfile();
         RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
         request.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
-        request.setMergeMode(AttributeSetMergeMode.CONNECTOR_ONLY);
-        assertThatThrownBy(() -> service.updateConfiguration(raProfile, request))
-                .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Merge mode CONNECTOR_ONLY is not supported");
+        request.setMergeMode(mode);
+
+        service.updateConfiguration(raProfile, request);
+
+        assertThat(service.getConfiguration(raProfile).getMergeMode()).isEqualTo(mode);
     }
 
     @Test
-    void omittedMergeModeAcceptedAsEffectiveMerge() {
+    void omittedMergeModeStoredAsStaticOnly() {
         RaProfile raProfile = newRaProfile();
         RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
         request.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
@@ -342,14 +494,80 @@ class RaProfileCertificateRequestAttributeServiceITest extends BaseSpringBootTes
     }
 
     @Test
-    void valueSourceBindingsIncludedThrowsException() {
+    void updateConfigurationLeavesBindingsAloneWhenTheFieldIsAbsent() {
+        // given — a profile with a stored binding
         RaProfile raProfile = newRaProfile();
+        RaProfileCertificateRequestAttributesUpdateDto withBinding = new RaProfileCertificateRequestAttributesUpdateDto();
+        withBinding.setValueSourceBindings(List.of(binding("kept")));
+        service.updateConfiguration(raProfile, withBinding);
+
+        // when — an unrelated edit that does not mention bindings at all
+        RaProfileCertificateRequestAttributesUpdateDto staticSetOnly = new RaProfileCertificateRequestAttributesUpdateDto();
+        staticSetOnly.setRequestAttributes(List.of(def(UUID.randomUUID().toString(), "server")));
+        staticSetOnly.setValueSourceBindings(null);
+        service.updateConfiguration(raProfile, staticSetOnly);
+
+        // then — the binding survives; the static set was still written
+        RaProfileCertificateRequestAttributesDto stored = service.getConfiguration(raProfile);
+        assertThat(stored.getValueSourceBindings())
+                .extracting(ValueSourceBindingDto::getAttributeName)
+                .containsExactly("kept");
+        assertThat(stored.getRequestAttributes()).extracting(BaseAttribute::getName).containsExactly("server");
+    }
+
+    @Test
+    void updateConfigurationClearsBindingsWhenTheFieldIsAnEmptyList() {
+        RaProfile raProfile = newRaProfile();
+        RaProfileCertificateRequestAttributesUpdateDto withBinding = new RaProfileCertificateRequestAttributesUpdateDto();
+        withBinding.setValueSourceBindings(List.of(binding("dropped")));
+        service.updateConfiguration(raProfile, withBinding);
+
+        RaProfileCertificateRequestAttributesUpdateDto cleared = new RaProfileCertificateRequestAttributesUpdateDto();
+        cleared.setValueSourceBindings(List.of());
+        service.updateConfiguration(raProfile, cleared);
+
+        assertThat(service.getConfiguration(raProfile).getValueSourceBindings()).isEmpty();
+    }
+
+    @Test
+    void updateConfigurationReplacesValueSourceBindings() {
+        // given — a profile whose bindings are already stored
+        RaProfile raProfile = newRaProfile();
+        RaProfileCertificateRequestAttributesUpdateDto first = new RaProfileCertificateRequestAttributesUpdateDto();
+        first.setValueSourceBindings(List.of(binding("first")));
+        service.updateConfiguration(raProfile, first);
+
+        // when — a second update carries a different binding
+        RaProfileCertificateRequestAttributesUpdateDto second = new RaProfileCertificateRequestAttributesUpdateDto();
+        second.setValueSourceBindings(List.of(binding("second")));
+        service.updateConfiguration(raProfile, second);
+
+        // then — bindings are replaced, not accumulated
+        assertThat(service.getConfiguration(raProfile).getValueSourceBindings())
+                .extracting(ValueSourceBindingDto::getAttributeName)
+                .containsExactly("second");
+    }
+
+    @Test
+    void updateConfigurationRejectsABindingWithoutAValueSourceType() {
+        // The HTTP path is covered by @Valid + @NotNull, but this is a public service method and the rejection that
+        // used to short-circuit every non-empty binding list is gone.
+        RaProfile raProfile = newRaProfile();
+        ValueSourceBindingDto incomplete = new ValueSourceBindingDto();
+        incomplete.setAttributeName("server");
         RaProfileCertificateRequestAttributesUpdateDto request = new RaProfileCertificateRequestAttributesUpdateDto();
-        request.setMergeMode(AttributeSetMergeMode.STATIC_ONLY);
-        request.setValueSourceBindings(List.of(new ValueSourceBindingDto()));
+        request.setValueSourceBindings(List.of(incomplete));
+
         assertThatThrownBy(() -> service.updateConfiguration(raProfile, request))
                 .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Value-source bindings are not supported in this version");
+                .hasMessageContaining("value source");
+    }
+
+    private static ValueSourceBindingDto binding(String attributeName) {
+        ValueSourceBindingDto binding = new ValueSourceBindingDto();
+        binding.setAttributeName(attributeName);
+        binding.setValueSourceType(ValueSourceType.CONNECTOR_CALLBACK);
+        return binding;
     }
 
     @Test
