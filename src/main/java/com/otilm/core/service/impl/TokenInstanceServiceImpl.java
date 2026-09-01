@@ -334,8 +334,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         TokenInstanceFullModel tokenInstance = getTokenInstanceModel(uuid);
         TokenProviderAdapter adapter = tokenProviderAdapterFactory.forToken(tokenInstance);
         TokenInstanceStatusDetailDto refreshedStatus = adapter.getStatus(tokenInstance);
-        tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
-        logger.info("Token instance status reloaded. Status of the token instance: '{}'", tokenInstance.status());
+        tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
+        logger.info("Token instance status reloaded. Status of the token instance: '{}'", refreshedStatus.getStatus());
         return assembleTokenInstanceDetail(tokenInstance, refreshedStatus);
     }
 

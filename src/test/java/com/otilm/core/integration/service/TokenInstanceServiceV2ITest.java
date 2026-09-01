@@ -175,7 +175,7 @@ class TokenInstanceServiceV2ITest extends BaseSpringBootTest {
         String connectedStatusResponse = "{\"status\":\"Connected\"}";
         TokenInstanceReference token = persistToken("persisted-attributes-token");
         persistTokenAttribute(token, attributeName, attributeValue);
-        connectorMock.stubTokenStatusContainingAttribute(connectedStatusResponse, attributeName, attributeValue);
+        connectorMock.stubTokenStatus(connectedStatusResponse);
         flushAndClear();
 
         // when
