@@ -75,7 +75,7 @@ public class DatabaseMigration {
         V202604011901__BackfillExtendedKeyUsageCritical(-1003930180, true),
         V202607031200__CreateAttributeContentResolverUserAndPermissions(1703465896, false),
         V202608071000__RegistrationSubjectDnNormalizedMigration(612311821),
-        V202608311000__GrantRaProfileMembersToAttributeContentResolver(-1002111901);
+        V202608311000__GrantRaProfileMembersToAttributeContentResolver(-2072942854);
 
         private final int checksum;
 

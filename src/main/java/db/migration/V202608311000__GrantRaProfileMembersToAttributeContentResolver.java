@@ -13,21 +13,23 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Grants {@code RA_PROFILE:MEMBERS} and {@code GROUP:MEMBERS} to the {@code attribute-content-resolver} role.
+ * Grants {@code RA_PROFILE:MEMBERS}, {@code GROUP:MEMBERS}, and {@code ATTRIBUTE:MEMBERS} to the
+ * {@code attribute-content-resolver} role, so a CERTIFICATE dereference running as this identity is not denied a
+ * transitive 403. Each grant is motivated separately.
  * <p>
- * A CERTIFICATE dereference runs as this identity and passes through
- * {@code RaProfileInternalService.evaluateCertificateRaProfilePermissions}, whose authorization names
- * {@code RA_PROFILE:MEMBERS} as the parent gate — the certificate counterpart of the SECRET path's
- * {@code VAULT_PROFILE:MEMBERS}. {@code GROUP:MEMBERS} covers the group-membership fallback the authorization
- * core evaluates when a direct decision denies, so a policy-shape change cannot reintroduce a transitive 403
- * for group-assigned certificates. Note the fallback is not certificate-scoped: should it ever become reachable
- * for this role, the grant authorizes group-based DETAIL/LIST on any group-eligible resource — deliberate
- * fail-safe breadth, consistent with the seed migration's coverage philosophy.
+ * <b>{@code RA_PROFILE:MEMBERS} (primary fix):</b> a CERTIFICATE dereference passes through
+ * {@code RaProfileInternalService.evaluateCertificateRaProfilePermissions}, whose authorization names it as the
+ * parent gate — the certificate counterpart of the SECRET path's {@code VAULT_PROFILE:MEMBERS}.
  * <p>
- * {@code ATTRIBUTE:MEMBERS} guards the custom-attribute content filter
- * ({@code AttributeEngine#loadCustomAttributesSecurityResourceFilter}): without a role-level grant that filter
- * is an empty allowlist and content is silently dropped rather than denied with a 403 — the harder-to-diagnose
- * gap should the dereference path ever load custom attributes.
+ * <b>{@code GROUP:MEMBERS} (fail-safe):</b> covers the group-membership fallback the authorization core evaluates
+ * when a direct decision denies, so a policy-shape change cannot reintroduce a transitive 403 for group-assigned
+ * certificates. The fallback is not certificate-scoped: if reachable for this role it authorizes group-based
+ * DETAIL/LIST on any group-eligible resource — deliberate breadth, matching the seed migration.
+ * <p>
+ * <b>{@code ATTRIBUTE:MEMBERS} (fail-safe):</b> guards the custom-attribute content filter
+ * ({@code AttributeEngine#loadCustomAttributesSecurityResourceFilter}), which without a role-level grant is an
+ * empty allowlist that silently drops content instead of returning a 403 — the harder-to-diagnose gap should the
+ * dereference path ever load custom attributes.
  */
 // Flyway mandates the V<version>__<Description> class-name format, which cannot match Sonar's S101 identifier pattern.
 @SuppressWarnings("java:S101")
