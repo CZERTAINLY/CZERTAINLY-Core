@@ -127,7 +127,7 @@ class TokenInstanceServiceV2ITest extends BaseSpringBootTest {
     }
 
     @Test
-    void createAndReloadStatus_persistsV2InterfaceAndSendsScopedAttributes() throws Exception {
+    void createTokenInstance_persistsSelectedV2Interface() throws Exception {
         // given
         String tokenName = "created-v2-token";
         TokenInstanceRequestDto request = TokenInstanceRequestDtoBuilder
