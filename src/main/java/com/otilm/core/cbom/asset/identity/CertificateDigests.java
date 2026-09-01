@@ -12,7 +12,9 @@ import java.util.Set;
 public final class CertificateDigests {
 
     /**
-     * Strongest first. SHA-1 is last but still accepted: a weak digest still identifies, and refusing it loses a row.
+     * Preferred first, which is not strongest first: {@code SHA-256} leads because it is what producers actually emit,
+     * and reordering would re-key every certificate claiming more than one digest. SHA-1 is last but still accepted --
+     * a weak digest still identifies, and refusing it loses a row.
      */
     private static final List<String> PREFERENCE = List.of("SHA-256", "SHA-384", "SHA-512", "SHA-1");
 
@@ -102,31 +104,30 @@ public final class CertificateDigests {
         return null;
     }
 
+    /**
+     * Joins an algorithm to its content so neither half can forge the boundary between them.
+     *
+     * <p>
+     * {@code alg} is producer-controlled, so a bare join let {@code {"alg":"sha-256:aabbcc","content":"dd"}} and
+     * {@code {"alg":"sha-256","content":"aabbcc:dd"}} render one string and collapse two certificates onto one key.
+     *
+     * <p>
+     * The {@code :} belongs to this layer and not to {@link PreImageSlot}: the claim later enters a {@code |}-delimited
+     * outer slot through {@link PreImageSlot#of}, and teaching that the {@code :} would escape this separator too,
+     * erasing the distinction it exists to draw. The consequence is that the pre-image carries the doubly-escaped
+     * spelling {@code %253A} rather than {@code %3A} -- see {@link PreImageSlot#escape}.
+     */
     private static String claim(String algorithm, String content) {
-        return digestPart(algorithm) + ":" + digestPart(content);
+        return PreImageSlot.escape(algorithm, CertificateDigests::digestEscapeFor) + ":"
+                + PreImageSlot.escape(content, CertificateDigests::digestEscapeFor);
     }
 
-    private static String digestPart(String value) {
-        StringBuilder escaped = null;
-        for (int index = 0; index < value.length(); index++) {
-            char character = value.charAt(index);
-            String replacement = switch (character) {
-                case '%' -> "%25";
-                case ':' -> "%3A";
-                default -> null;
-            };
-            if (replacement == null) {
-                if (escaped != null) {
-                    escaped.append(character);
-                }
-                continue;
-            }
-            if (escaped == null) {
-                escaped = new StringBuilder(value.length() + 8).append(value, 0, index);
-            }
-            escaped.append(replacement);
-        }
-        return escaped == null ? value : escaped.toString();
+    private static String digestEscapeFor(char character) {
+        return switch (character) {
+            case '%' -> "%25";
+            case ':' -> "%3A";
+            default -> null;
+        };
     }
 
     static boolean isPresent(JsonNode node) {

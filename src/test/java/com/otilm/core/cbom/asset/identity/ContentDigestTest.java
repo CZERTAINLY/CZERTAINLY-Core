@@ -148,6 +148,31 @@ class ContentDigestTest {
                 .isNull();
     }
 
+    /**
+     * An entry carrying no content does not decide, and does not shadow one that does.
+     *
+     * <p>
+     * The map keeps the first non-empty content per algorithm, so a trailing empty entry cannot demote an algorithm to
+     * the next preference and a leading one cannot suppress the real digest behind it. Empty is not a contradiction
+     * either -- a producer that says nothing has not said something different.
+     */
+    @Test
+    void anEmptyContentNeitherWinsNorShadows() {
+        assertThat(CertificateDigests
+                .componentHash(read("{\"hashes\":[" + "{\"alg\":\"SHA-256\",\"content\":\"aa\"},"
+                        + "{\"alg\":\"SHA-256\",\"content\":\"\"}]}")))
+                .isEqualTo("sha-256:aa");
+        assertThat(CertificateDigests
+                .componentHash(read("{\"hashes\":[" + "{\"alg\":\"SHA-256\",\"content\":\"\"},"
+                        + "{\"alg\":\"SHA-256\",\"content\":\"aa\"}]}")))
+                .isEqualTo("sha-256:aa");
+        assertThat(CertificateDigests
+                .componentHash(read("{\"hashes\":[" + "{\"alg\":\"SHA-256\",\"content\":\"\"},"
+                        + "{\"alg\":\"SHA-384\",\"content\":\"cc\"}]}")))
+                .describedAs("an algorithm that claimed nothing falls through to the next preference")
+                .isEqualTo("sha-384:cc");
+    }
+
     @Test
     void digestClaimPartsCannotForgeAColonBoundary() {
         assertThat(CertificateDigests
@@ -161,6 +186,36 @@ class ContentDigestTest {
         assertThat(CertificateDigests
                 .fingerprintDigest(read("{\"fingerprint\":" + "{\"alg\":\"sha-256\",\"content\":\"aabbcc:dd\"}}")))
                 .isEqualTo("sha-256:aabbcc%3Add");
+        assertThat(CertificateDigests
+                .fingerprintDigest(read("{\"fingerprint\":" + "{\"alg\":\"sha-256%3Aaabbcc\",\"content\":\"dd\"}}")))
+                .describedAs("escaping the escape character is what makes the encoding injective; the producer's own"
+                        + " %3A is ASCII-folded before it is escaped, so it lands lowercase")
+                .isEqualTo("sha-256%253aaabbcc:dd")
+                .isNotEqualTo(CertificateDigests
+                        .fingerprintDigest(
+                                read("{\"fingerprint\":" + "{\"alg\":\"sha-256:aabbcc\",\"content\":\"dd\"}}")));
+    }
+
+    /**
+     * What the pre-image carries, which is not what {@link CertificateDigests} returns.
+     *
+     * <p>
+     * The claim enters a {@code |}-delimited outer slot through {@link PreImageSlot#of}, which escapes the {@code %}
+     * this layer already emitted. A conformance vector cut on the return value alone would pin {@code %3A} and miss the
+     * {@code %253A} that actually reaches the key.
+     */
+    @Test
+    void theOuterSlotEscapesTheDigestEscapeAgain() {
+        String claim = CertificateDigests
+                .fingerprintDigest(read("{\"fingerprint\":" + "{\"alg\":\"sha-256:x\",\"content\":\"dd\"}}"));
+
+        assertThat(claim).isEqualTo("sha-256%3Ax:dd");
+        assertThat(PreImageSlot.of(claim)).isEqualTo("sha-256%253Ax:dd");
+        assertThat(PreImageSlot
+                .of(CertificateDigests
+                        .fingerprintDigest(read("{\"fingerprint\":" + "{\"alg\":\"sha-256\",\"content\":\"x:dd\"}}"))))
+                .describedAs("the two spellings stay apart through both layers")
+                .isNotEqualTo(PreImageSlot.of(claim));
     }
 
     /**

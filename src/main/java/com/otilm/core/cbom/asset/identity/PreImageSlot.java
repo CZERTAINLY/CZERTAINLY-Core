@@ -23,12 +23,40 @@ public final class PreImageSlot {
 
     /** An absent value renders as the empty slot, which is distinct from every present value. */
     public static String of(String value) {
-        if (value == null) {
-            return "";
-        }
+        return value == null ? "" : escape(value, PreImageSlot::escapeFor);
+    }
+
+    public static String of(Integer value) {
+        return value == null ? "" : value.toString();
+    }
+
+    /**
+     * The escape set a caller applies to its own delimiter.
+     *
+     * <p>
+     * A nested pre-image has a delimiter of its own that this class does not escape -- the {@code alg:content} digest
+     * claim is the worked example -- so the escape set is the caller's, while the walk stays here.
+     */
+    interface EscapeSet {
+
+        /** The replacement for {@code character}, or {@code null} when it passes through unchanged. */
+        String replacementFor(char character);
+    }
+
+    /**
+     * Applies an escape set, allocating only once something actually escapes.
+     *
+     * <p>
+     * <b>Escapes compose, and the outer layer wins twice.</b> A value escaped by an inner set and then passed to
+     * {@link #of} carries its {@code %} escaped again: an {@code alg} of {@code sha-256:x} becomes {@code sha-256%3Ax}
+     * from the digest set and then {@code sha-256%253Ax} in the outer slot. Composing injective escapers stays
+     * injective, so nothing collides -- but a conformance vector must pin the doubly-escaped spelling, because that is
+     * what reaches the pre-image.
+     */
+    static String escape(String value, EscapeSet escapes) {
         StringBuilder escaped = null;
         for (int index = 0; index < value.length(); index++) {
-            String replacement = escapeFor(value.charAt(index));
+            String replacement = escapes.replacementFor(value.charAt(index));
             if (replacement == null) {
                 if (escaped != null) {
                     escaped.append(value.charAt(index));
@@ -41,10 +69,6 @@ public final class PreImageSlot {
             escaped.append(replacement);
         }
         return escaped == null ? value : escaped.toString();
-    }
-
-    public static String of(Integer value) {
-        return value == null ? "" : value.toString();
     }
 
     private static String escapeFor(char character) {

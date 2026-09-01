@@ -116,9 +116,10 @@ public final class MaterialRedaction {
         redacted.put("length", length);
         String publishedDigest = digestPublishable(materialType) ? identityDigest : null;
         if (publishedDigest == null) {
-            // No digest at all. An unsalted SHA-256 of a password or a token is rainbow-table reversible, so
-            // publishing it is the same leak one step removed -- and producers really do emit generic-password and
-            // jwt-token material. Identity falls through to the occurrence tier, which the chain already has.
+            // The envelope carries no digest for any type, so this gate no longer decides what is stored -- it decides
+            // what publishedDigest() may hand an internal caller. An unsalted SHA-256 of a password or a token is
+            // rainbow-table reversible, so a caller that put one on an API would leak it one step removed, and
+            // producers really do emit generic-password and jwt-token material.
             findings.add("digest withheld: " + materialType + " is low-entropy material");
         }
         materialNode.set(CbomNames.VALUE, redacted);

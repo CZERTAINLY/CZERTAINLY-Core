@@ -99,8 +99,15 @@ public final class Occurrences {
      * Where the length cap may cut, counting code points rather than UTF-16 code units.
      *
      * <p>
-     * The specification and reference count characters, not Java storage units. Counting UTF-16 cut an astral-heavy URI
-     * early enough to drop the {@code @} separator before user-info stripping, leaving part of a credential behind.
+     * The specification and the reference count characters; Java's {@code length()} counts UTF-16 storage units. The
+     * two disagree from the first astral character onward, so a location of 1024 emoji was capped at 512 here and at
+     * 1024 by the reference -- one location, two keys. Cutting on a code-point boundary also makes the lone-surrogate
+     * case impossible rather than repaired: the old boundary check existed only because the unit count could land
+     * between the halves of a pair.
+     *
+     * <p>
+     * The cap is the last step of {@link #sanitizeLocation}, after the query, fragment and user-info have already gone,
+     * so it can neither expose nor preserve a credential -- only shorten a location that no longer carries one.
      */
     private static int capBoundary(String text) {
         return text.codePointCount(0, text.length()) <= MAX_LOCATION_LENGTH
@@ -109,18 +116,34 @@ public final class Occurrences {
     }
 
     /**
+     * A numeric position that names no line or offset, kept distinct from the empty slot.
+     *
+     * <p>
+     * {@code %3F} cannot arise from a producer value: {@link PreImageSlot} emits only {@code %25}, {@code %7C},
+     * {@code %20}, {@code %09}, {@code %0D} and {@code %0A}, and escapes any literal {@code %} to {@code %25} first.
+     * Rendering a refusal as the empty string instead would key {@code line: 1.5} identically to a stated-nothing
+     * occurrence, and the empty slot means absent everywhere else in the chain.
+     */
+    private static final String REFUSED_POSITION = "%3F";
+
+    /**
      * Renders a line or offset into its position of the triple.
      *
      * <p>
      * Escaped like any other slot value, because a producer controls it and a crafted string could otherwise forge a
      * triple boundary.
+     *
+     * <p>
+     * A non-integral number has no exact integer to render, so it is refused rather than rounded or spelled out --
+     * {@code JsonNode.asText()} on {@code 1.5} keys on the producer's serializer. Refusal is not absence, so it renders
+     * as {@link #REFUSED_POSITION}.
      */
     private static String slot(JsonNode value) {
         if (value == null || value.isNull() || value.isMissingNode()) {
             return "";
         }
         if (value.isNumber()) {
-            return value.isIntegralNumber() ? PreImageSlot.of(value.bigIntegerValue().toString()) : "";
+            return value.isIntegralNumber() ? PreImageSlot.of(value.bigIntegerValue().toString()) : REFUSED_POSITION;
         }
         return PreImageSlot.of(value.asText());
     }

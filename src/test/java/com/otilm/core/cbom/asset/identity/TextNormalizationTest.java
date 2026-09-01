@@ -79,14 +79,8 @@ class TextNormalizationTest {
     // ---------------------------------------------------------------- whitespace
 
     /**
-     * The whitespace stripped is the reference's, not the JDK's.
-     *
-     * <p>
-     * Measured, the two definitions disagree on exactly these four code points, and {@link String#strip()} misses all
-     * four because it consults {@link Character#isWhitespace}. The no-break spaces are the ones that occur in producer
-     * text pasted out of documents: a trailing one survives {@code strip()}, NFKC then turns it into an ordinary
-     * trailing space, and {@code "RSA "} keys apart from {@code "RSA"} -- a silent inventory split on a formatting
-     * accident.
+     * The whitespace stripped is the reference's, not the JDK's. These are the code points the two disagree on, and
+     * {@code AsciiText.PYTHON_WHITESPACE} carries the measurement and the reason.
      */
     @ParameterizedTest
     @ValueSource(ints = {0x0085, 0x00A0, 0x2007, 0x202F})
@@ -291,6 +285,21 @@ class TextNormalizationTest {
         assertThat(ValidityTimestamps.normalize(null)).isEmpty();
     }
 
+    /**
+     * A fraction is stripped from both accepted spellings, not only the extended one.
+     *
+     * <p>
+     * {@code uuuuMMddHHmmss'Z'} is GeneralizedTime, where a fractional second is legal, so anchoring the fraction
+     * pattern to the extended form alone left {@code 20250101000000.123Z} unparsed and keyed on its spelling -- the
+     * split this class exists to prevent, reintroduced for the one format the corpus does not yet witness.
+     */
+    @Test
+    void aFractionIsStrippedFromTheBasicSpellingToo() {
+        assertThat(ValidityTimestamps.normalize("20250101000000.123Z")).isEqualTo("1735689600");
+        assertThat(ValidityTimestamps.normalize("20250101000000Z")).isEqualTo("1735689600");
+        assertThat(ValidityTimestamps.normalize("2025-01-01T00:00:00.123Z")).isEqualTo("1735689600");
+    }
+
     @Test
     void calendarInvalidTimestampsStayLiteral() {
         assertThat(ValidityTimestamps.normalize("2025-02-28T00:00:00Z")).isEqualTo("1740700800");
@@ -381,19 +390,21 @@ class TextNormalizationTest {
      * The cap counts code points rather than UTF-16 units.
      *
      * <p>
-     * Counting storage units caps an astral-heavy URI before the user-info delimiter is even visible, so a credential
-     * can survive the sanitization step that should have removed it.
+     * The reference counts characters, so an astral-heavy location was capped at 512 characters here and at 1024 there
+     * -- one location, two keys. A location of 1024 astral characters is the shortest input that shows it.
      */
     @Test
     void theLocationLengthCapCountsCodePoints() {
         String astral = Character.toString(0x1F5DD);
 
         assertThat(sanitize("a".repeat(1023) + astral + "b")).isEqualTo("a".repeat(1023) + astral);
+        assertThat(sanitize(astral.repeat(1024) + "b")).isEqualTo(astral.repeat(1024));
         assertThat(sanitize("a".repeat(2000))).hasSize(1024);
     }
 
+    /** The cap is the last step, so no length of location can leave a credential behind it. */
     @Test
-    void userInfoIsStrippedBeforeTheLocationIsCapped() {
+    void userInfoIsStrippedWhateverTheCapCounts() {
         String astral = Character.toString(0x1F5DD);
         String location = "tcp://" + astral.repeat(611) + ":SuperSecretPassword123@host:443/path";
 
@@ -452,7 +463,25 @@ class TextNormalizationTest {
                 .isEqualTo("a#10000000000#");
         assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 1.5}]")))
                 .describedAs("no exact integer exists, so the numeric value is refused")
-                .isEqualTo("a##");
+                .isEqualTo("a#%3F#");
+    }
+
+    /**
+     * A refused position is not an absent one.
+     *
+     * <p>
+     * Rendering both as the empty slot would key an occurrence that stated an unusable line identically to one that
+     * stated no line at all, and the empty slot means absent everywhere else in the chain. The sentinel cannot collide
+     * with a producer value because {@link PreImageSlot} escapes a literal {@code %} before anything else.
+     */
+    @Test
+    void aRefusedPositionKeysApartFromAnAbsentOne() {
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 1.5}]")))
+                .isNotEqualTo(Occurrences.triples(occurrences("[{\"location\": \"a\"}]")));
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\"}]"))).isEqualTo("a##");
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": \"%3F\"}]")))
+                .describedAs("a producer spelling the sentinel is escaped, so it cannot impersonate a refusal")
+                .isEqualTo("a#%253F#");
     }
 
     @Test

@@ -26,7 +26,16 @@ import java.util.regex.Pattern;
  */
 public final class ValidityTimestamps {
 
-    private static final Pattern FRACTION = Pattern.compile("([Tt]\\d{2}:\\d{2}:\\d{2})\\.\\d+");
+    /**
+     * A fractional second, and nothing else that happens to contain a dot.
+     *
+     * <p>
+     * Anchored to a time of day so a version-shaped value keeps its own spelling: an unanchored {@code \.\d+} turned
+     * {@code v1.2.3} into {@code v1} and {@code release.1} into {@code release}, merging values that name different
+     * things. Both spellings this class accepts are anchored -- the extended {@code T15:16:00} form and the basic
+     * fourteen-digit one -- because {@code uuuuMMddHHmmss'Z'} is GeneralizedTime, where a fraction is legal.
+     */
+    private static final Pattern FRACTION = Pattern.compile("([Tt]\\d{2}:\\d{2}:\\d{2}|\\d{14})\\.\\d+");
 
     /**
      * Parsed case-insensitively, because the reference's parser is. RFC 3339 permits a lowercase {@code t} separator

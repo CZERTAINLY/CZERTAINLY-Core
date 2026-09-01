@@ -28,13 +28,23 @@ public final class CipherSuites {
      * Normalizes an identifier list to its IANA code as lowercase hex, or {@code null}.
      *
      * <p>
-     * Three encodings occur in real documents and all three must land on the same code: one element per byte unpadded
-     * ({@code ["0x13", "0x1"]}), one element per byte padded ({@code ["0xC0", "0x30"]}), and both bytes comma-packed
-     * into a single element ({@code "0x13,0x02"}).
+     * Four encodings occur in real documents and all four must land on the same code: one element per byte unpadded
+     * ({@code ["0x13", "0x1"]}), one element per byte padded ({@code ["0xC0", "0x30"]}), both bytes comma-packed into a
+     * single element ({@code "0x13,0x02"}), and the whole two-byte code in one token ({@code ["0x1301"]}, which
+     * CycloneDX's own {@code valid-cryptography-full-1.7} conformance fixture emits). Rendering each token to an even
+     * hex width is what merges them; a one-octet parser splits that fixture's TLS 1.3 suite from every per-byte
+     * spelling of it.
      *
      * <p>
      * Bytes are joined in <b>array order, before any sorting</b>, because flattening across suites collides:
      * {@code {0xC02B, 0x1301}} and {@code {0xC001, 0x132B}} share a byte multiset and would otherwise hash alike.
+     *
+     * <p>
+     * <b>The join is not injective for odd-width tokens, and cannot be made so here.</b> Even-width padding is what
+     * merges {@code ["0x13", "0x1"]} with {@code ["0x1301"]}; the price is that {@code ["0x131", "0x1"]} and
+     * {@code ["0x01", "0x3101"]} both render {@code 013101}. Nothing in the token stream says whether a token is one
+     * byte or a whole code, so no rendering separates those two without breaking the merge this exists for. No such
+     * list occurs in the 2026-08-31 corpus; a document that emits one keys two suite sets alike.
      */
     public static String code(JsonNode identifiers) {
         if (identifiers == null || !identifiers.isArray()) {
