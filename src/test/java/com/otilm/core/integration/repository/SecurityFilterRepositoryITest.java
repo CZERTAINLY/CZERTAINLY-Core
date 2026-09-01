@@ -381,6 +381,22 @@ class SecurityFilterRepositoryITest extends BaseSpringBootTest {
                         () -> certificateRepository.findUsingSecurityFilter(filter, List.of(), null, null, null, sort));
     }
 
+    /**
+     * PRIVATE_KEY resolves to a path and would order fine, but what the column displays is a comparison against an
+     * expected value rather than the value that path holds. The catalogue reports it as not sortable, and the request
+     * is refused against that same predicate rather than answered with a silently unordered page.
+     */
+    @Test
+    void rejectsSortFieldTheCatalogueWithholdsFromSorting() {
+        SecurityFilter filter = SecurityFilter.create();
+        SortSpecification sort = propertySort("PRIVATE_KEY", SortDirection.ASC);
+
+        ValidationException e = Assertions
+                .assertThrows(ValidationException.class,
+                        () -> certificateRepository.findUsingSecurityFilter(filter, List.of(), null, null, null, sort));
+        Assertions.assertTrue(e.getMessage().contains("cannot be used to order"));
+    }
+
     @Test
     void rejectsSortFieldOfAnotherResource() {
         SecurityFilter filter = SecurityFilter.create();
