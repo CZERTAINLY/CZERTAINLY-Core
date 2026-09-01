@@ -13,16 +13,18 @@ import com.otilm.core.util.X509RequestContentRenderer;
 import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extensions;
 
 /**
- * Seeds the identity a successor inherits from the certificate it replaces — subject DN and SAN, no extensions — for
- * the structured renew wire and for the rekey CSR the platform builds itself.
+ * Seeds what a successor inherits, for the structured renew wire and for the rekey CSR the platform builds itself. A
+ * predecessor certificate yields its subject DN and SAN; the extensions of an issued certificate are the CA's and are
+ * never seeded. A CSR source yields what the operator requested in it, extensions included, because the content is
+ * authoritative for a structured connector.
  */
 @Slf4j
 public final class RenewContentSeeder {
@@ -54,15 +56,20 @@ public final class RenewContentSeeder {
                         .warn("Not seeding structured renew content: the subject packs a multi-valued RDN, which typed content cannot express");
                 return Optional.empty();
             }
-            if (!parsed.unsupportedSans().isEmpty()) {
+            if (!parsed.unsupportedSans().isEmpty() || !parsed.unrepresentableExtensionValues().isEmpty()) {
+                // The content is authoritative for the connector, so a partial one narrows what was requested.
+                // Both lists hold what the typed model could not carry; either one means send nothing.
                 log
-                        .warn("Not seeding structured renew content: subject alternative name {} has no typed representation",
-                                parsed.unsupportedSans());
+                        .warn("Not seeding structured renew content: {} has no typed representation",
+                                Stream
+                                        .concat(parsed.unsupportedSans().stream(),
+                                                parsed.unrepresentableExtensionValues().stream())
+                                        .toList());
                 return Optional.empty();
             }
-            X509RequestContent content = identityOnly(parsed.content());
-            if (isEmpty(content.getSubject()) && isEmpty(content.getSubjectAltNames())) {
-                log.warn("Not seeding structured renew content: no subject or subject alternative name to carry");
+            X509RequestContent content = parsed.content();
+            if (!content.isRequestContentProvided()) {
+                log.warn("Not seeding structured renew content: the source carries no identity to send");
                 return Optional.empty();
             }
             return Optional.of(content);
@@ -81,9 +88,11 @@ public final class RenewContentSeeder {
         try {
             parsed = X509RequestContentParser.parse(oldCertificate);
         } catch (RuntimeException e) {
+            // Malformed ASN.1 surfaces as unchecked BouncyCastle exceptions whose messages may carry internals,
+            // and this one reaches the client as a 422 body; log it and answer with fixed wording.
+            log.warn("The certificate's identity could not be decoded for a re-keyed request", e);
             throw new ValidationException(
-                    "The certificate's identity could not be decoded, so it cannot be carried into a re-keyed request. Error: "
-                            + e.getMessage());
+                    "The certificate's identity could not be decoded, so it cannot be carried into a re-keyed request");
         }
         if (!parsed.unsupportedSans().isEmpty()) {
             throw new ValidationException(
@@ -93,8 +102,8 @@ public final class RenewContentSeeder {
         try {
             return X509RequestContentRenderer.toExtensions(parsed.content());
         } catch (IOException e) {
-            throw new ValidationException(
-                    "Failed to build the subject alternative name of the re-keyed request. Error: " + e.getMessage());
+            log.warn("Failed to encode the subject alternative name of a re-keyed request", e);
+            throw new ValidationException("Failed to build the subject alternative name of the re-keyed request");
         }
     }
 
@@ -111,23 +120,6 @@ public final class RenewContentSeeder {
             }
         }
         return false;
-    }
-
-    /**
-     * Narrows parsed content to the identity the renew wire carries. A CSR source also yields key usage, extended key
-     * usage and requested extensions; those stay on the CSR travelling beside the content, so both sources put the same
-     * shape on the wire and nothing extension-shaped can reach it reduced.
-     */
-    private static X509RequestContent identityOnly(X509RequestContent content) {
-        content.setKeyUsage(null);
-        content.setExtendedKeyUsage(null);
-        content.setExtensions(null);
-        return content;
-    }
-
-    /** Content with neither dimension would fail the wire model's own "something must be provided" assertion. */
-    private static boolean isEmpty(List<?> values) {
-        return values == null || values.isEmpty();
     }
 
     private static boolean operatorSuppliedCsr(Certificate newCertificate, ClientCertificateRenewRequestDto request) {

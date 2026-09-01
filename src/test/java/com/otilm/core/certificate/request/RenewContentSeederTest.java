@@ -19,6 +19,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.Optional;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DERSequence;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -184,7 +185,7 @@ class RenewContentSeederTest {
         // when
         Extensions extensions = RenewContentSeeder.rekeySanExtensions(oldCertificate);
 
-        // then — the CSR is built exactly as before this change for a certificate with no SAN
+        // then — a predecessor without SAN produces no extension block
         assertThat(extensions).isNull();
     }
 
@@ -202,8 +203,9 @@ class RenewContentSeederTest {
     }
 
     @Test
-    void carriesOnlyIdentity_whenSeedingFromASuppliedCsrThatAlsoRequestsExtensions() throws Exception {
-        // given — a CSR whose extension block holds an EKU beside its SAN
+    void carriesTheSuppliedCsrExtensions_soAStructuredConnectorSeesWhatWasRequested() throws Exception {
+        // given — a CSR whose extension block holds an EKU beside its SAN. The content is authoritative for a
+        // structured connector, so operator-requested extensions have to travel in it, not only in the CSR.
         Certificate oldCertificate = certificateEntity(
                 CertificateTestUtil.createCertificateWithSubjectAndSans("CN=old.example.com"));
         String supplied = pkcs10WithEku("CN=new.example.com");
@@ -215,13 +217,31 @@ class RenewContentSeederTest {
                 .seed(oldCertificate, newCertificate,
                         ClientCertificateRenewRequestDto.builder().request(supplied).build());
 
-        // then — subject and SAN travel; everything else stays on the CSR beside the content
+        // then
         assertThat(seeded).isPresent();
         assertThat(seeded.get().getSubject().getFirst().getValue()).isEqualTo("new.example.com");
         assertThat(seeded.get().getSubjectAltNames()).isNotEmpty();
-        assertThat(seeded.get().getExtendedKeyUsage()).isNull();
-        assertThat(seeded.get().getKeyUsage()).isNull();
-        assertThat(seeded.get().getExtensions()).isNull();
+        assertThat(seeded.get().getExtendedKeyUsage()).containsExactly(KeyPurposeId.id_kp_serverAuth.getId());
+    }
+
+    @Test
+    void seedsNothing_whenASuppliedCsrRequestsAKeyUsageBitTheModelCannotName() throws Exception {
+        // given — bit 9 is outside the nine X.509 names, so the codec drops it from the typed key usage while
+        // reporting it; sending the rest would narrow the usage the operator asked for
+        Certificate oldCertificate = certificateEntity(
+                CertificateTestUtil.createCertificateWithSubjectAndSans("CN=old.example.com"));
+        String supplied = pkcs10WithRawKeyUsage("CN=new.example.com",
+                new DERBitString(new byte[]{(byte) 0x80, (byte) 0x40}, 6));
+        Certificate newCertificate = new Certificate();
+        newCertificate.setCertificateRequest(csrEntity(supplied));
+
+        // when
+        Optional<X509RequestContent> seeded = RenewContentSeeder
+                .seed(oldCertificate, newCertificate,
+                        ClientCertificateRenewRequestDto.builder().request(supplied).build());
+
+        // then
+        assertThat(seeded).isEmpty();
     }
 
     @Test
@@ -343,6 +363,22 @@ class RenewContentSeederTest {
         extGen
                 .addExtension(Extension.subjectAlternativeName, false,
                         new GeneralNames(new GeneralName(GeneralName.dNSName, "supplied.example.com")));
+        builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
+        return Base64.getEncoder().encodeToString(builder.build(signer).getEncoded());
+    }
+
+    private static String pkcs10WithRawKeyUsage(String subjectDn, DERBitString keyUsage) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair kp = kpg.generateKeyPair();
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
+                kp.getPublic());
+        ExtensionsGenerator extGen = new ExtensionsGenerator();
+        extGen
+                .addExtension(Extension.subjectAlternativeName, false,
+                        new GeneralNames(new GeneralName(GeneralName.dNSName, "supplied.example.com")));
+        extGen.addExtension(Extension.keyUsage, false, keyUsage);
         builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extGen.generate());
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
         return Base64.getEncoder().encodeToString(builder.build(signer).getEncoded());

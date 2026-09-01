@@ -2365,7 +2365,13 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                             CERTIFICATE_REQUESTED_EVENT_MESSAGE);
 
             AuthorityProviderAdapter adapter = adapterFactory.forAuthority(raProfile.getAuthorityInstanceReference());
-            AdapterOperationResult rekeyResult = adapter.renew(oldCertificate, certificate, null);
+            // Rekey reaches the connector as a renew. An uploaded CSR is the operator's own statement of identity,
+            // so it has to travel with the call; a CSR regenerated from the predecessor carries none.
+            ClientCertificateRenewRequestDto renewEquivalent = ClientCertificateRenewRequestDto
+                    .builder()
+                    .request(request == null ? null : request.getRequest())
+                    .build();
+            AdapterOperationResult rekeyResult = adapter.renew(oldCertificate, certificate, renewEquivalent);
             connectorAccepted = true;
 
             if (rekeyResult.isAsync()) {
