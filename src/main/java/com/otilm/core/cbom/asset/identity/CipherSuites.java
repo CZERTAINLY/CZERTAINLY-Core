@@ -41,10 +41,15 @@ public final class CipherSuites {
      *
      * <p>
      * <b>The join is not injective for odd-width tokens, and cannot be made so here.</b> Even-width padding is what
-     * merges {@code ["0x13", "0x1"]} with {@code ["0x1301"]}; the price is that {@code ["0x131", "0x1"]} and
-     * {@code ["0x01", "0x3101"]} both render {@code 013101}. Nothing in the token stream says whether a token is one
-     * byte or a whole code, so no rendering separates those two without breaking the merge this exists for. No such
-     * list occurs in the 2026-08-31 corpus; a document that emits one keys two suite sets alike.
+     * merges {@code ["0x13", "0x1"]} with {@code ["0x1301"]}.
+     *
+     * <p>
+     * <b>Grouping is not identity.</b> Because every token renders to a whole number of octets, the result is the
+     * declaration's <em>byte stream</em> and nothing else: {@code ["0x131", "0x1"]} and {@code ["0x01", "0x3101"]} both
+     * render {@code 013101} because both state the bytes {@code 01 31 01}. That is the same equivalence that merges the
+     * four spellings above, not a collision beside it -- two lists keying alike means they said the same bytes. What
+     * would be a defect is a token rendering to half an octet, which is what the unpadded {@code %02x} did to
+     * {@code 0x131}: {@code 131} is not a byte stream at all, so the concatenation stopped meaning anything.
      */
     public static String code(JsonNode identifiers) {
         if (identifiers == null || !identifiers.isArray()) {
@@ -57,35 +62,57 @@ public final class CipherSuites {
                 // so a malformed list impersonated a real suite. All-or-nothing means the malformed element decides.
                 return null;
             }
-            for (String token : element.textValue().split(",")) {
-                String trimmed = AsciiText.strip(token);
-                if (trimmed.isEmpty()) {
-                    continue;
-                }
-                String folded = AsciiText.fold(trimmed);
-                if (folded.startsWith("+") || folded.startsWith("-")) {
-                    return null;
-                }
-                String digits = folded.startsWith("0x") ? folded.substring(2) : folded;
-                if (!HEX_DIGITS.matcher(digits).matches()) {
-                    return null;
-                }
-                try {
-                    int value = Integer.parseInt(digits, 16);
-                    if (value > MAX_CODE_UNIT) {
-                        return null;
-                    }
-                    String hex = Integer.toHexString(value);
-                    octets.append(hex.length() % 2 == 0 ? hex : "0" + hex);
-                } catch (NumberFormatException e) {
-                    // A list this implementation cannot read yields no code at all rather than a partial one. The
-                    // caller falls back to the suite name, which is what keeps "we know it has suites and cannot read
-                    // them" apart from "nothing was said".
-                    return null;
-                }
+            if (!appendOctets(element.textValue(), octets)) {
+                return null;
             }
         }
         return octets.isEmpty() ? null : octets.toString();
+    }
+
+    /** Appends every token of one element, or returns {@code false} for a list this implementation cannot read. */
+    private static boolean appendOctets(String element, StringBuilder octets) {
+        for (String token : element.split(",")) {
+            String trimmed = AsciiText.strip(token);
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            String hex = octetsOf(trimmed);
+            if (hex == null) {
+                return false;
+            }
+            octets.append(hex);
+        }
+        return true;
+    }
+
+    /**
+     * One token as an even number of lowercase hex digits, or {@code null} when it is not a readable code unit.
+     *
+     * <p>
+     * A token this implementation cannot read yields no code for the whole list rather than a partial one. The caller
+     * falls back to the suite name, which is what keeps "we know it has suites and cannot read them" apart from
+     * "nothing was said".
+     */
+    private static String octetsOf(String token) {
+        String folded = AsciiText.fold(token);
+        if (folded.startsWith("+") || folded.startsWith("-")) {
+            return null;
+        }
+        String digits = folded.startsWith("0x") ? folded.substring(2) : folded;
+        if (!HEX_DIGITS.matcher(digits).matches()) {
+            return null;
+        }
+        try {
+            int value = Integer.parseInt(digits, 16);
+            if (value > MAX_CODE_UNIT) {
+                return null;
+            }
+            String hex = Integer.toHexString(value);
+            return hex.length() % 2 == 0 ? hex : "0" + hex;
+        } catch (NumberFormatException e) {
+            // More hex digits than an int holds. HEX_DIGITS already passed, so this is length alone.
+            return null;
+        }
     }
 
     /**

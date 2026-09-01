@@ -75,26 +75,8 @@ public final class CertificateDigests {
         if (hashes == null || !hashes.isArray()) {
             return null;
         }
-        Map<String, String> byAlgorithm = new LinkedHashMap<>();
         Set<String> contradicted = new HashSet<>();
-        for (JsonNode hash : hashes) {
-            if (!hash.isObject()) {
-                continue;
-            }
-            JsonNode algorithm = hash.get("alg");
-            JsonNode content = hash.get("content");
-            String normalizedAlgorithm = AsciiText
-                    .upper(AsciiText.strip(algorithm == null || algorithm.isNull() ? "" : algorithm.asText()));
-            String normalizedContent = AsciiText
-                    .fold(AsciiText.strip(content == null || content.isNull() ? "" : content.asText()));
-            if (normalizedContent.isEmpty()) {
-                continue;
-            }
-            String existing = byAlgorithm.putIfAbsent(normalizedAlgorithm, normalizedContent);
-            if (existing != null && !existing.equals(normalizedContent)) {
-                contradicted.add(normalizedAlgorithm);
-            }
-        }
+        Map<String, String> byAlgorithm = collectHashes(hashes, contradicted);
         for (String algorithm : PREFERENCE) {
             String content = byAlgorithm.get(algorithm);
             if (content != null && !contradicted.contains(algorithm)) {
@@ -102,6 +84,45 @@ public final class CertificateDigests {
             }
         }
         return null;
+    }
+
+    /**
+     * The first non-empty content each algorithm claims, recording into {@code contradicted} any algorithm that claimed
+     * two different ones.
+     *
+     * <p>
+     * An entry with no content does not decide and does not shadow one that does, so a trailing empty entry cannot
+     * demote an algorithm to the next preference and a leading one cannot suppress the real digest behind it. Empty is
+     * not a contradiction either: a producer that said nothing has not said something different.
+     */
+    private static Map<String, String> collectHashes(JsonNode hashes, Set<String> contradicted) {
+        Map<String, String> byAlgorithm = new LinkedHashMap<>();
+        for (JsonNode hash : hashes) {
+            String normalizedContent = normalized(hash, "content", false);
+            if (normalizedContent == null || normalizedContent.isEmpty()) {
+                continue;
+            }
+            String normalizedAlgorithm = normalized(hash, "alg", true);
+            String existing = byAlgorithm.putIfAbsent(normalizedAlgorithm, normalizedContent);
+            if (existing != null && !existing.equals(normalizedContent)) {
+                contradicted.add(normalizedAlgorithm);
+            }
+        }
+        return byAlgorithm;
+    }
+
+    /**
+     * One field of a hash entry, stripped and then cased, or {@code null} when the entry is not an object.
+     *
+     * @param upper {@code true} for the algorithm, which is enum-shaped, {@code false} for content, which is hex
+     */
+    private static String normalized(JsonNode hash, String field, boolean upper) {
+        if (!hash.isObject()) {
+            return null;
+        }
+        JsonNode value = hash.get(field);
+        String text = AsciiText.strip(value == null || value.isNull() ? "" : value.asText());
+        return upper ? AsciiText.upper(text) : AsciiText.fold(text);
     }
 
     /**
