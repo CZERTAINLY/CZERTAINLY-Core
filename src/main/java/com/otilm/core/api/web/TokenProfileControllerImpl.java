@@ -10,7 +10,9 @@ import com.otilm.api.model.client.cryptography.tokenprofile.AddTokenProfileReque
 import com.otilm.api.model.client.cryptography.tokenprofile.BulkTokenProfileKeyUsageRequestDto;
 import com.otilm.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.otilm.api.model.client.cryptography.tokenprofile.TokenProfileKeyUsageRequestDto;
+import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.otilm.api.model.core.logging.enums.Module;
@@ -45,6 +47,13 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, operation = Operation.LIST)
     public List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled) {
         return tokenProfileService.listTokenProfiles(enabled, SecurityFilter.create());
+    }
+
+    @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE,
+            affiliatedResource = Resource.TOKEN_PROFILE, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listTokenProfileAttributes(String tokenInstanceUuid) {
+        return List.of();
     }
 
     @Override
@@ -133,6 +142,14 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, operation = Operation.ENABLE)
     public void enableTokenProfiles(@LogResource(uuid = true) List<String> uuids) {
         tokenProfileService.enableTokenProfile(SecuredUUID.fromList(uuids));
+    }
+
+    @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE,
+            affiliatedResource = Resource.TOKEN, operation = Operation.LIST_KEY_USAGES)
+    public List<KeyUsage> listSupportedTokenProfileKeyUsages(
+            @LogResource(uuid = true, affiliated = true) String tokenInstanceUuid) {
+        return List.of();
     }
 
     @Override
