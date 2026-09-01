@@ -1839,7 +1839,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueExistingCertificate(final SecuredParentUUID authorityUuid,
             final SecuredUUID raProfileUuid, final String certificateUuid,
-            final ClientCertificateIssueRequestDto request) throws NotFoundException {
+            final ClientCertificateIssueRequestDto request) throws NotFoundException, CertificateException {
         // NOT_SUPPORTED so the CSR attach below commits in its own transaction before the ISSUE action is
         // enqueued; otherwise the async consumer could read the placeholder before the CSR is visible and fail it.
         RaProfile raProfile = raProfileRepository
@@ -1908,13 +1908,17 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             // cannot authorize cannot probe the policy. A null format is not validated here: the parser selects on
             // format, and the attach below already rejects it with a clear message.
             if (request.getFormat() != null) {
+                CertificateRequest parsedRequest;
                 try {
-                    requestAttributeWarnings = validateUploadedRequestAttributes(request.getRequest(),
-                            request.getFormat(), raProfile);
-                } catch (CertificateException e) {
+                    parsedRequest = CertificateRequestUtils
+                            .createCertificateRequest(request.getRequest(), request.getFormat());
+                } catch (CertificateRequestException | IllegalArgumentException e) {
                     throw new ValidationException(
                             ValidationError.create("Invalid certificate signing request: " + e.getMessage()));
                 }
+                // Only the parse above is a client fault. A strict profile whose attribute set cannot be resolved
+                // is a server-side inability, so that CertificateException propagates to the caller unshaped.
+                requestAttributeWarnings = protocolRequestAttributeValidator.validate(parsedRequest, raProfile);
             }
             UUID certificateRequestUuid;
             try {

@@ -109,6 +109,7 @@ import com.otilm.core.util.CertificateTestUtil;
 import com.otilm.core.util.CertificateUtil;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
 import java.util.Base64;
@@ -2469,9 +2470,13 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
     }
 
     private void persistCommonNameConfig(Boolean externalCsrValidationStrict) {
+        persistCommonNameConfig(externalCsrValidationStrict, AttributeSetMergeMode.STATIC_ONLY);
+    }
+
+    private void persistCommonNameConfig(Boolean externalCsrValidationStrict, AttributeSetMergeMode mergeMode) {
         RaProfileCertificateRequestAttributesUpdateDto config = new RaProfileCertificateRequestAttributesUpdateDto();
         config.setRequestAttributes(List.of(CsrAttributes.commonNameAttribute()));
-        config.setMergeMode(AttributeSetMergeMode.STATIC_ONLY);
+        config.setMergeMode(mergeMode);
         config.setExternalCsrValidationStrict(externalCsrValidationStrict);
         requestAttributeService.updateConfiguration(raProfile, config);
     }
@@ -2486,5 +2491,27 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
         PKCS10CertificationRequest csr = builder
                 .build(new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate()));
         return Base64.getEncoder().encodeToString(csr.getEncoded());
+    }
+
+    @Test
+    void issueExistingReportsUnresolvableAttributeSetAsServerFailure_notClientFault() throws Exception {
+        // given — a REGISTERED placeholder, then a strict RA profile whose merge mode admits the connector set
+        // while the authority connector fails to serve it
+        AuthorityProviderAdapter adapter = mock(AuthorityProviderAdapter.class);
+        when(adapterFactory.forAuthority(Mockito.any())).thenReturn(adapter);
+        String certUuid = register().getUuid();
+        when(adapter.listCertificateRequestAttributes(Mockito.any(), Mockito.any()))
+                .thenThrow(new ConnectorException("authority connector is unavailable"));
+        persistCommonNameConfig(Boolean.TRUE, AttributeSetMergeMode.MERGE);
+
+        ClientCertificateIssueRequestDto issueRequest = new ClientCertificateIssueRequestDto();
+        issueRequest.setRequest(generateCsrBase64());
+
+        // when / then — an authority outage is a server-side inability, so it must not be shaped into a 422
+        // "Invalid certificate signing request" the way a malformed CSR is
+        CertificateException ex = Assertions
+                .assertThrows(CertificateException.class, () -> clientOperationService
+                        .issueExistingCertificate(authorityParent, securedRaProfile, certUuid, issueRequest));
+        Assertions.assertTrue(ex.getMessage().contains("the authority connector is unavailable"), ex.getMessage());
     }
 }

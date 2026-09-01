@@ -167,7 +167,7 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             // mean "no active registration to complete" — surface the single generic rejection, detail logged.
             throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     CmpRegistrationResolver.REGISTRATION_REJECTION);
-        } catch (IOException e) {
+        } catch (IOException | CertificateException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
                     "cannot complete certificate registration", e);
         }

@@ -1105,6 +1105,13 @@ public class ScepServiceImpl implements ScepExternalService {
             scepRegistrationTrackingWriter.discardPollMapping(scepRequest.getTransactionId(), scepProfile.getUuid());
             logger.info("SCEP registration completion rejected: {}", e.getMessage());
             throw new ScepException(REGISTRATION_REJECTION, FailInfo.BAD_MESSAGE_CHECK);
+        } catch (CertificateException e) {
+            // A strict RA profile whose request-attribute set cannot be resolved is an authority-side outage, not
+            // a client fault: no ISSUE reached the broker, so drop the staged mapping and report a server failure
+            // rather than the anti-enumeration rejection above.
+            scepRegistrationTrackingWriter.discardPollMapping(scepRequest.getTransactionId(), scepProfile.getUuid());
+            logger.error("SCEP registration completion could not be validated", e);
+            throw new ScepException("Unable to complete certificate registration");
         } catch (RuntimeException e) {
             // A row-lock timeout, a data-integrity error, an authorization error, or a failed publish also
             // means no ISSUE reached the broker. Drop the staged mapping so a retry is not short-circuited to
