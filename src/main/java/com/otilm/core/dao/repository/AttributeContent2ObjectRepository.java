@@ -5,6 +5,7 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContent;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentDetail;
 import com.otilm.core.attribute.engine.records.ObjectAttributeDefinitionContent;
+import com.otilm.core.attribute.engine.records.ProjectedAttributeContent;
 import com.otilm.core.dao.entity.AttributeContent2Object;
 import com.otilm.core.dao.entity.AttributeContentItem;
 import java.util.List;
@@ -81,6 +82,53 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
             """)
     List<ObjectAttributeContent> getObjectCustomAttributesContent(@Param("attributeType") AttributeType attributeType,
             @Param("objectType") Resource objectType, @Param("objectUuid") UUID objectUuid,
+            @Param("allowedDefinitionUuids") List<UUID> allowedDefinitionUuids,
+            @Param("forbiddenDefinitionUuids") List<UUID> forbiddenDefinitionUuids);
+
+    /**
+     * The stored content of the named attributes for a whole page of objects, for a listing that requested them as
+     * columns. One query for the page rather than one per row: a page of twenty-five objects would otherwise issue
+     * twenty-five round trips before it could be serialized.
+     *
+     * <p>
+     * Ordered by object, then definition, then {@code aco.order}, so a multi-valued attribute keeps the sequence it was
+     * stored in and the caller can group the rows in one pass.
+     *
+     * <p>
+     * Narrowed by attribute name as well as by type, because a resource may carry far more attributes than the handful
+     * a view puts on screen. Name is not unique on its own - the same name may exist under two content types - so the
+     * caller still matches the exact field identifier.
+     *
+     * <p>
+     * The two predicates guarded by {@code customType} match what the per-object custom read above applies, so a
+     * listing column cannot read what a detail page would refuse. {@code enabled} is one of them because only custom
+     * definitions are created with it set; data and metadata definitions leave the nullable column alone, and applying
+     * it to them would return nothing for either source. The allowed and forbidden definition uuids are the caller's
+     * attribute permissions: without them, resource LIST access alone would be enough to read the plaintext of a
+     * restricted custom attribute by naming it as a column.
+     *
+     * <p>
+     * Selects the definition document alongside the content because the {@code visible} flag lives in it rather than in
+     * a column, and an attribute whose definition says it is not to be shown to a user must not be projected into a
+     * column. The catalogue queries above select the same document for the same reason.
+     */
+    @Query("""
+            SELECT new com.otilm.core.attribute.engine.records.ProjectedAttributeContent(
+                aco.objectUuid, ad.type, ad.name, ad.contentType, aci.json, aci.encryptedData, ad.definition)
+                FROM AttributeContent2Object aco
+                JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
+                JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
+                WHERE ad.type IN (:attributeTypes) AND ad.name IN (:attributeNames)
+                    AND aco.objectType = :objectType AND aco.objectUuid IN (:objectUuids)
+                    AND (ad.type <> :customType
+                        OR (ad.enabled = true
+                            AND (:allowedDefinitionUuids IS NULL OR aci.attributeDefinitionUuid IN (:allowedDefinitionUuids))
+                            AND (:forbiddenDefinitionUuids IS NULL OR aci.attributeDefinitionUuid NOT IN (:forbiddenDefinitionUuids))))
+                ORDER BY aco.objectUuid, aci.attributeDefinitionUuid, aco.order
+            """)
+    List<ProjectedAttributeContent> getProjectedAttributesContent(@Param("objectType") Resource objectType,
+            @Param("objectUuids") List<UUID> objectUuids, @Param("attributeTypes") List<AttributeType> attributeTypes,
+            @Param("attributeNames") List<String> attributeNames, @Param("customType") AttributeType customType,
             @Param("allowedDefinitionUuids") List<UUID> allowedDefinitionUuids,
             @Param("forbiddenDefinitionUuids") List<UUID> forbiddenDefinitionUuids);
 
