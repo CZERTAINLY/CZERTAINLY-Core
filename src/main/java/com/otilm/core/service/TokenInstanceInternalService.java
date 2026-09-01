@@ -1,5 +1,6 @@
 package com.otilm.core.service;
 
+import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.attribute.RequestAttribute;
@@ -22,9 +23,10 @@ public interface TokenInstanceInternalService extends ResourceExtensionService {
      *
      * @param uuid UUID of the token instance
      * @param attributes attributes to be validated
+     * @throws AttributeException when the local structural validation of the attributes fails
      * @throws ConnectorException when there are issues with the communication
      * @throws NotFoundException when the token instance is not found
      */
     void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttribute> attributes)
-            throws ConnectorException, NotFoundException;
+            throws AttributeException, ConnectorException, NotFoundException;
 }
