@@ -17,10 +17,10 @@ import java.util.List;
  * operations; the sync itself stays on the CBOM services.
  *
  * <p>
- * Every operation currently rejects with {@link com.otilm.api.exception.NotSupportedException}: the API contract is
- * ratified (interfaces#909, interfaces#913) but the inventory projection and its persistence are not built yet. The
- * authorization annotations on the implementation are live, so the resource and its actions reach the auth service
- * before the data does and the endpoints answer 403 to an unpermitted caller rather than 501.
+ * The ratified contract (interfaces#909, interfaces#913) is fully served: list, detail, the searchable-field
+ * definitions and the dashboard statistics are all real reads. The authorization annotations on the implementation are
+ * what gate every operation, so the resource and its actions reach the auth service before the data does and an
+ * unpermitted caller is refused with 403.
  */
 public interface CryptographicAssetExternalService {
 
