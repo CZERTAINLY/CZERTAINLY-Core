@@ -152,7 +152,7 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
     @Test
     void testGetTokenInstance() throws ConnectorException, NotFoundException {
         // given
-        String activatedStatusResponse = "{\"status\":\"Activated\"}";
+        String activatedStatusResponse = "{\"status\":\"Activated\",\"components\":{\"hsm\":{\"status\":\"Connected\"}}}";
         mockServer
                 .stubFor(WireMock
                         .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
@@ -171,6 +171,7 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto.getConnectorUuid());
         Assertions.assertEquals(tokenInstanceReference.getConnectorUuid().toString(), dto.getConnectorUuid());
         Assertions.assertEquals(TokenInstanceStatus.ACTIVATED, dto.getStatus().getStatus());
+        Assertions.assertEquals(TokenInstanceStatus.CONNECTED, dto.getStatus().getComponents().get("hsm").getStatus());
     }
 
     @Test
@@ -218,7 +219,9 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
     @Test
     void reloadStatus_persistsConnectorStatusForV1Provider() throws Exception {
         // given
-        String connectedStatusResponse = "{\"status\":\"Connected\"}";
+        String connectedStatusResponse = "{\"status\":\"Connected\",\"components\":{\"hsm\":{\"status\":\"Connected\"}}}";
+        tokenInstanceReference.setStatus(TokenInstanceStatus.CONNECTED);
+        tokenInstanceReferenceRepository.save(tokenInstanceReference);
         mockServer
                 .stubFor(WireMock
                         .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/status"))
@@ -229,6 +232,8 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
 
         // then
         Assertions.assertEquals(TokenInstanceStatus.CONNECTED, detail.getStatus().getStatus());
+        Assertions
+                .assertEquals(TokenInstanceStatus.CONNECTED, detail.getStatus().getComponents().get("hsm").getStatus());
         Assertions
                 .assertEquals(TokenInstanceStatus.CONNECTED,
                         tokenInstanceReferenceRepository
@@ -264,7 +269,8 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
         mockServer
                 .stubFor(WireMock
                         .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/status"))
-                        .willReturn(WireMock.okJson("{}")));
+                        .willReturn(WireMock
+                                .okJson("{\"status\":\"Connected\",\"components\":{\"hsm\":{\"status\":\"Connected\"}}}")));
 
         TokenInstanceRequestDto request = new TokenInstanceRequestDto();
         request.setName("testTokenInstance2");
@@ -277,6 +283,7 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getConnectorUuid());
         Assertions.assertEquals(tokenInstanceReference.getConnectorUuid().toString(), dto.getConnectorUuid());
+        Assertions.assertEquals(TokenInstanceStatus.CONNECTED, dto.getStatus().getComponents().get("hsm").getStatus());
     }
 
     @Test
@@ -392,7 +399,8 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
         mockServer
                 .stubFor(WireMock
                         .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/status"))
-                        .willReturn(WireMock.okJson("{\"status\":\"Activated\"}")));
+                        .willReturn(WireMock
+                                .okJson("{\"status\":\"Activated\",\"components\":{\"hsm\":{\"status\":\"Connected\"}}}")));
         mockServer
                 .stubFor(WireMock
                         .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
@@ -409,6 +417,8 @@ class TokenInstanceServiceITest extends BaseSpringBootTest {
 
         // then
         Assertions.assertNotNull(detail);
+        Assertions
+                .assertEquals(TokenInstanceStatus.CONNECTED, detail.getStatus().getComponents().get("hsm").getStatus());
         mockServer
                 .verify(WireMock
                         .postRequestedFor(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))

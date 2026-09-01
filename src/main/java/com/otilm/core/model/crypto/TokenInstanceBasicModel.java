@@ -21,6 +21,4 @@ public interface TokenInstanceBasicModel {
     UUID connectorInterfaceUuid();
 
     long tokenProfileCount();
-
-    TokenInstanceBasicModel withNewStatus(TokenInstanceStatus newStatus);
 }

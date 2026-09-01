@@ -14,10 +14,4 @@ public record ImmutableTokenInstanceBasicModel(UUID uuid, String tokenInstanceUu
                 value.getStatus(), value.getKind(), value.getConnectorUuid(), value.getConnectorName(),
                 value.getConnectorInterfaceUuid(), value.getTokenProfiles().size());
     }
-
-    @Override
-    public TokenInstanceBasicModel withNewStatus(TokenInstanceStatus newStatus) {
-        return new ImmutableTokenInstanceBasicModel(uuid, tokenInstanceUuid, name, newStatus, kind, connectorUuid,
-                connectorName, connectorInterfaceUuid, tokenProfileCount);
-    }
 }

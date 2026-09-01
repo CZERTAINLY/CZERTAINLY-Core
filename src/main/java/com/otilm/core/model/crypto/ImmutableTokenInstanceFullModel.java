@@ -32,10 +32,4 @@ public record ImmutableTokenInstanceFullModel(UUID uuid, String tokenInstanceUui
     public long tokenProfileCount() {
         return tokenProfiles.size();
     }
-
-    @Override
-    public TokenInstanceFullModel withNewStatus(TokenInstanceStatus newStatus) {
-        return new ImmutableTokenInstanceFullModel(uuid, tokenInstanceUuid, name, newStatus, kind, connectorUuid,
-                connectorName, connectorInterfaceUuid, connectorInterface, tokenProfiles);
-    }
 }

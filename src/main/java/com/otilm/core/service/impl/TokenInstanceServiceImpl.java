@@ -16,6 +16,7 @@ import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.otilm.api.model.core.cryptography.token.TokenInstanceDto;
+import com.otilm.api.model.core.cryptography.token.TokenInstanceStatusDetailDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -146,19 +147,21 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
             logger
                     .warn("Connector associated with token instance '{}' is not found. Returning persisted details",
                             tokenInstance.name());
-            return assembleTokenInstanceDetail(tokenInstance.withNewStatus(TokenInstanceStatus.DISCONNECTED));
+            TokenInstanceStatusDetailDto status = new TokenInstanceStatusDetailDto(TokenInstanceStatus.DISCONNECTED);
+            return assembleTokenInstanceDetail(tokenInstance, status);
         }
 
         try {
             TokenProviderAdapter adapter = tokenProviderAdapterFactory.forToken(tokenInstance);
-            tokenInstance = refreshTokenInstanceStatus(tokenInstance, adapter);
-            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
-            return assembleTokenInstanceDetail(tokenInstance);
+            TokenInstanceStatusDetailDto refreshedStatus = adapter.getStatus(tokenInstance);
+            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
+            return assembleTokenInstanceDetail(tokenInstance, refreshedStatus);
         } catch (Exception e) {
             logger
                     .error("Unable to refresh status of the token instance '{}' ({}).", tokenInstance.name(),
                             tokenInstance.uuid(), e);
-            return assembleTokenInstanceDetail(tokenInstance.withNewStatus(TokenInstanceStatus.WARNING));
+            TokenInstanceStatusDetailDto status = new TokenInstanceStatusDetailDto(TokenInstanceStatus.WARNING);
+            return assembleTokenInstanceDetail(tokenInstance, status);
         }
     }
 
@@ -207,17 +210,16 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                 .updateAttributes(tokenInstance.uuid(), tokenInstance.connectorUuid(), request.getCustomAttributes(),
                         request.getAttributes(), creationResult == null ? List.of() : creationResult.getMetadata());
 
+        TokenInstanceStatusDetailDto refreshedStatus = null;
         try {
-            var status = adapter.getStatus(tokenInstance);
-            tokenInstance = tokenInstance.withNewStatus(status.getStatus());
-            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
+            refreshedStatus = adapter.getStatus(tokenInstance);
+            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
         } catch (Exception e) {
             logger.warn("Can't check the status of the token '{}'", tokenInstance.name(), e);
         }
 
         logger.debug("Token Instance Reference: '{}'", tokenInstance);
-
-        return assembleTokenInstanceDetail(tokenInstance);
+        return assembleTokenInstanceDetail(tokenInstance, refreshedStatus);
     }
 
     @Override
@@ -253,15 +255,16 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                 .updateAttributes(tokenInstance.uuid(), tokenInstance.connectorUuid(), request.getCustomAttributes(),
                         request.getAttributes(), remoteResult == null ? List.of() : remoteResult.getMetadata());
 
+        TokenInstanceStatusDetailDto refreshedStatus;
         try {
-            tokenInstance = refreshTokenInstanceStatus(tokenInstance, adapter);
+            refreshedStatus = adapter.getStatus(tokenInstance);
+            tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), refreshedStatus.getStatus());
         } catch (ConnectorException e) {
             logger.error("Unable to refresh token status after update: '{}'", e.getMessage());
-            tokenInstance = tokenInstance.withNewStatus(TokenInstanceStatus.WARNING);
+            refreshedStatus = new TokenInstanceStatusDetailDto(TokenInstanceStatus.WARNING);
         }
-        tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
 
-        return assembleTokenInstanceDetail(tokenInstance);
+        return assembleTokenInstanceDetail(tokenInstance, refreshedStatus);
     }
 
     @Override
@@ -282,8 +285,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
 
         if (adapter instanceof TokenActivationCapability cap) {
             cap.activate(tokenInstanceReference, attributes);
-            tokenInstanceReference = tokenInstanceReference.withNewStatus(TokenInstanceStatus.ACTIVATED);
-            tokenInstanceReferenceWriter.updateStatus(tokenInstanceReference.uuid(), tokenInstanceReference.status());
+            tokenInstanceReferenceWriter.updateStatus(tokenInstanceReference.uuid(), TokenInstanceStatus.ACTIVATED);
             logger.info("Token instance activated");
         }
     }
@@ -297,8 +299,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
 
         if (adapter instanceof TokenActivationCapability cap) {
             cap.deactivate(tokenInstanceReference);
-            tokenInstanceReference = tokenInstanceReference.withNewStatus(TokenInstanceStatus.DEACTIVATED);
-            tokenInstanceReferenceWriter.updateStatus(tokenInstanceReference.uuid(), tokenInstanceReference.status());
+            tokenInstanceReferenceWriter.updateStatus(tokenInstanceReference.uuid(), TokenInstanceStatus.DEACTIVATED);
             logger.info("Token instance deactivated");
         }
     }
@@ -332,10 +333,10 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         logger.info("Reloading status of token instance with uuid: '{}'", uuid);
         TokenInstanceFullModel tokenInstance = getTokenInstanceModel(uuid);
         TokenProviderAdapter adapter = tokenProviderAdapterFactory.forToken(tokenInstance);
-        tokenInstance = refreshTokenInstanceStatus(tokenInstance, adapter);
+        TokenInstanceStatusDetailDto refreshedStatus = adapter.getStatus(tokenInstance);
         tokenInstanceReferenceWriter.updateStatus(tokenInstance.uuid(), tokenInstance.status());
         logger.info("Token instance status reloaded. Status of the token instance: '{}'", tokenInstance.status());
-        return assembleTokenInstanceDetail(tokenInstance);
+        return assembleTokenInstanceDetail(tokenInstance, refreshedStatus);
     }
 
     @Override
@@ -429,8 +430,12 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
         return tokenInstance;
     }
 
-    private TokenInstanceDetailDto assembleTokenInstanceDetail(TokenInstanceBasicModel tokenInstanceReference) {
+    private TokenInstanceDetailDto assembleTokenInstanceDetail(TokenInstanceBasicModel tokenInstanceReference,
+            @Nullable TokenInstanceStatusDetailDto statusDetail) {
         TokenInstanceDetailDto detail = assembleTokenInstanceDetailBase(tokenInstanceReference);
+        if (statusDetail != null) {
+            detail.setStatus(statusDetail);
+        }
         detail
                 .setAttributes(attributeEngine
                         .getObjectDataAttributesContent(ObjectAttributeContentInfo
@@ -460,17 +465,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                                 .builder(Resource.TOKEN, tokenInstanceReference.uuid())
                                 .build()));
         return detail;
-    }
-
-    private TokenInstanceFullModel refreshTokenInstanceStatus(TokenInstanceFullModel originalTokenInstance,
-            TokenProviderAdapter adapter) throws ConnectorException {
-        var newStatus = adapter.getStatus(originalTokenInstance);
-
-        if (originalTokenInstance.status().equals(newStatus.getStatus())) {
-            return originalTokenInstance;
-        } else {
-            return originalTokenInstance.withNewStatus(newStatus.getStatus());
-        }
     }
 
     private void validateAndMergeTokenRequestAttributes(ImmutableConnectorFullModel connector,
