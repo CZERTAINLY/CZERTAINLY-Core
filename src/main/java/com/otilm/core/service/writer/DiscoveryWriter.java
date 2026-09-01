@@ -61,9 +61,15 @@ public class DiscoveryWriter {
      * Reports progress by discovery identifier rather than through the shared {@code Discovery} instance — see
      * {@code DiscoverySource} for why that entity must not reach a worker.
      */
+    @Transactional
+    public void updateProgressMessage(UUID discoveryUuid, String message) {
+        discoveryRepository.updateMessage(discoveryUuid, message);
+    }
+
     /**
-     * Releases every run's hold on the given connector interfaces, so the interfaces can cascade away with their
-     * connector rather than being refused by the runs' {@code ON DELETE RESTRICT} reference.
+     * Releases every run's hold on the given connector interfaces, so they can cascade away with their connector rather
+     * than being refused by the runs' {@code ON DELETE RESTRICT} reference. A run is history and outlives its
+     * connector; what it can no longer say afterwards is which interface drove it.
      *
      * @return how many runs were released
      */
@@ -73,11 +79,6 @@ public class DiscoveryWriter {
             return 0;
         }
         return discoveryRepository.releaseConnectorInterfaces(interfaceUuids);
-    }
-
-    @Transactional
-    public void updateProgressMessage(UUID discoveryUuid, String message) {
-        discoveryRepository.updateMessage(discoveryUuid, message);
     }
 
     /**

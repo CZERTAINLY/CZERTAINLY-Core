@@ -25,8 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>
  * A lifecycle call runs {@code NOT_SUPPORTED} with the run already loaded and then spends a connector call — tens of
- * seconds — outside any transaction. Whatever ended the run in that window is invisible to a locking read that answers
- * from the persistence context the caller already populated.
+ * seconds — outside any transaction. Open-in-view keeps one EntityManager on the thread for the whole request, which a
+ * {@code REQUIRES_NEW} transaction joins, so whatever ended the run in that window is invisible to a locking read
+ * answering from the persistence context the caller already populated.
  */
 class DiscoveryRunTerminatorITest extends BaseSpringBootTest {
 
@@ -47,9 +48,8 @@ class DiscoveryRunTerminatorITest extends BaseSpringBootTest {
         Discovery run = v2Run();
         UUID uuid = run.getUuid();
 
-        // Bind one EntityManager to the thread, which is what open-in-view does for every HTTP request and what
-        // makes this reachable: a REQUIRES_NEW transaction joins that same persistence context rather than opening
-        // its own, so a locking read inside it answers from the cache the caller already populated.
+        // Bind one EntityManager to the thread, as a request does: a REQUIRES_NEW transaction joins it rather than
+        // opening its own.
         EntityManager bound = entityManagerFactory.createEntityManager();
         TransactionSynchronizationManager.bindResource(entityManagerFactory, new EntityManagerHolder(bound));
         boolean endedByUs;

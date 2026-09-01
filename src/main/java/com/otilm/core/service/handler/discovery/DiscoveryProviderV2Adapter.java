@@ -349,11 +349,10 @@ public class DiscoveryProviderV2Adapter implements DiscoveryProviderAdapter {
             locked.setConnectorStatus(DiscoveryStatus.STOPPED);
             locked.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC));
             discoveryRepository.save(locked);
-            // Best-effort, not atomic with the status above: resetAttempt is REQUIRES_NEW and commits on its own,
-            // so a failure after it leaves a refreshed budget on a run that never reached STOPPED. Harmless -- the
-            // budget is a retry allowance, not state. To the ceiling rather than 0, the same as every other refresh
-            // in this class: the budget is restored without restarting the backoff ramp at full speed. The agenda
-            // itself stays, parked -- a stopped run is resumable.
+            // Best-effort, not atomic with the status above: resetAttempt is REQUIRES_NEW, so a failure after it
+            // leaves a refreshed budget on a run that never reached STOPPED -- harmless, the budget is a retry
+            // allowance rather than state. To the ceiling, not 0, so the budget is restored without restarting the
+            // ramp at full speed. The agenda stays, parked -- a stopped run is resumable.
             workWriter
                     .resetAttempt(discoveryUuid, DiscoveryWorkType.STATUS,
                             workProperties.scheduleFor(DiscoveryWorkType.STATUS).ceilingAttempt());

@@ -100,9 +100,8 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
     }
 
     /**
-     * An empty snapshot says what omitting the field says, and connector responses are not bean-validated, so the one
-     * place the difference can be refused is here. Kept apart from the omitted-progress case because the two arrive as
-     * different JSON and only this one passes a null check.
+     * Kept apart from the omitted-progress case because the two arrive as different JSON and only this one passes a
+     * null check.
      */
     @Test
     void emptyProgressAnswer_keepsTheSnapshotTheRunAlreadyHas() throws Exception {

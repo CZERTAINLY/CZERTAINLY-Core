@@ -65,8 +65,7 @@ public class DiscoveryWorkClaimer {
      *
      * <p>
      * <b>Duplicate prevention:</b> the caller passes one cutoff for its whole sweep, and a claimed row is parked past a
-     * tick's expected worst case rather than at its next backoff rung, so neither this sweep nor the ones running while
-     * the tick is still in flight can claim it again. See {@link #parkFor}.
+     * tick's expected worst case — see {@link #parkFor}.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<DiscoveryWorkMessage> claimDueBatch(int batchSize, OffsetDateTime dueCutoff) {
@@ -89,20 +88,15 @@ public class DiscoveryWorkClaimer {
     }
 
     /**
-     * How far out a claimed row is parked. This is the row's only protection while its tick runs: nothing marks a row
-     * as being worked, so the sweep republishes any row that comes due again, however recently it was published.
+     * How far out a claimed row is parked. Nothing marks a row as being worked, so the sweep republishes any row that
+     * comes due again — and the early rungs are seconds against a connector call that may take its full timeout, so two
+     * ticks drain the same page and the one that stages nothing spends the run's budget reading that as the connector
+     * withholding items.
      *
      * <p>
-     * The ladder's own rung is not enough on its own. Its early rungs are one and five seconds, against a connector
-     * call that may take its full timeout, so a slow tick is republished by every sweep from a second after it started
-     * — two ticks then drain the same page, and the one that stages nothing reads that as the connector withholding
-     * items and spends the run's budget on it. The floor holds a claimed row past a tick's expected worst case.
-     *
-     * <p>
-     * A floor, not a replacement: the ceiling rungs are already longer than it, so the steady-state cadence of every
-     * ladder is untouched. What it does slow is retrying a tick the connector never answered, which is the case least
-     * worth retrying in a second. It does not cover a tick that outlives the floor itself — a lease the worker releases
-     * would, and is the proper fix (core#1962's agenda has no such column).
+     * A floor, not a replacement: every ceiling rung is longer than it, so no steady-state cadence changes, and what it
+     * slows is retrying a tick the connector never answered. It does not cover a tick outliving the floor itself — a
+     * lease the worker releases would, and core#1962's agenda has no such column.
      */
     private Duration parkFor(DiscoveryWorkType workType, int nextAttempt) {
         Duration rung = workProperties.scheduleFor(workType).delayFor(nextAttempt);

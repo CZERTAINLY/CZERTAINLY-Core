@@ -356,8 +356,8 @@ public class DiscoveryEventIngestor {
     }
 
     /**
-     * A pushed report is held to the same bar as a polled one: an empty snapshot would blank what the run already
-     * knows, and nothing validates a connector's event on arrival either.
+     * A pushed report is held to the same bar as a polled one, and for the same reason — see
+     * {@link DiscoveryProgressSnapshot#reportsSomething}.
      */
     private static void applyProgress(Discovery run, DiscoveryProgressEvent event) {
         DiscoveryProgressDto snapshot = snapshotOf(event);

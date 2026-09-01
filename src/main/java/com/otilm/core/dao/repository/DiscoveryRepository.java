@@ -51,9 +51,8 @@ public interface DiscoveryRepository extends SecurityFilterRepository<Discovery,
     void updateMessage(@Param("uuid") UUID uuid, @Param("message") String message);
 
     /**
-     * Releases every run's hold on the given connector interfaces, so deleting the connector they belong to is not
-     * refused by the reference's {@code ON DELETE RESTRICT}. A run is history and outlives its connector; what it can
-     * no longer say afterwards is which interface drove it.
+     * Clears the interface reference from every run holding one of these interfaces. See
+     * {@code DiscoveryWriter#releaseConnectorInterfaces}, its only caller, for why.
      *
      * @return how many runs were released
      */
