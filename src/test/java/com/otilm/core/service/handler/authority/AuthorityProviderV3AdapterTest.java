@@ -45,6 +45,8 @@ import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.authority.CertificateRevocationReason;
 import com.otilm.api.model.core.certificate.CertificateType;
+import com.otilm.api.model.core.certificate.GeneralNameType;
+import com.otilm.api.model.core.enums.CertificateRequestFormat;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.v2.ClientCertificateIssueRequestDto;
@@ -68,11 +70,21 @@ import com.otilm.core.oid.OidRecord;
 import com.otilm.core.service.handler.ConnectorCapabilityService;
 import com.otilm.core.service.handler.OperationAttributeResolver;
 import com.otilm.core.service.v2.ConnectorInternalService;
+import com.otilm.core.util.CertificateTestUtil;
 import java.net.URI;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -884,6 +896,91 @@ class AuthorityProviderV3AdapterTest {
         ArgumentCaptor<CertificateRenewRequestDtoV3> wire = ArgumentCaptor.forClass(CertificateRenewRequestDtoV3.class);
         verify(certClientV3).renew(eq(connectorInfo), wire.capture());
         assertEquals(renewValues, wire.getValue().getAttributes());
+    }
+
+    @Test
+    void renewCarriesSeededContentWhenConnectorAdvertisesStructured() throws Exception {
+        givenPredecessorWithDnsSan();
+        when(capabilityService.supports(authority, FeatureFlag.CERTIFICATE_REQUEST_STRUCTURED)).thenReturn(true);
+
+        CertificateRenewRequestDtoV3 wire = renewAndCaptureWire(new ClientCertificateRenewRequestDto());
+
+        X509RequestContent content = assertInstanceOf(X509RequestContent.class, wire.getRequestContent());
+        assertEquals("old.example.com", content.getSubject().get(0).getValue());
+        assertEquals(GeneralNameType.DNS, content.getSubjectAltNames().get(0).getType());
+        assertEquals("old.example.com", content.getSubjectAltNames().get(0).getValue());
+        // the CSR still travels beside the content, authoritative for key and proof of possession
+        assertEquals("dGVzdGNzcg==", wire.getRequest());
+    }
+
+    @Test
+    void renewLeavesContentUnsetWhenConnectorDoesNotAdvertiseStructured() throws Exception {
+        givenPredecessorWithDnsSan();
+        when(capabilityService.supports(authority, FeatureFlag.CERTIFICATE_REQUEST_STRUCTURED)).thenReturn(false);
+
+        CertificateRenewRequestDtoV3 wire = renewAndCaptureWire(new ClientCertificateRenewRequestDto());
+
+        assertNull(wire.getRequestContent());
+    }
+
+    @Test
+    void renewSeedsFromSuppliedCsrRatherThanThePredecessor() throws Exception {
+        givenPredecessorWithDnsSan();
+        when(capabilityService.supports(authority, FeatureFlag.CERTIFICATE_REQUEST_STRUCTURED)).thenReturn(true);
+        String supplied = suppliedCsr("CN=new.example.com");
+        cert.getCertificateRequest().setContent(supplied);
+        cert.getCertificateRequest().setCertificateRequestFormat(CertificateRequestFormat.PKCS10);
+        ClientCertificateRenewRequestDto req = new ClientCertificateRenewRequestDto();
+        req.setRequest(supplied);
+
+        CertificateRenewRequestDtoV3 wire = renewAndCaptureWire(req);
+
+        X509RequestContent content = assertInstanceOf(X509RequestContent.class, wire.getRequestContent());
+        assertEquals("new.example.com", content.getSubject().get(0).getValue());
+    }
+
+    @Test
+    void rekeySeedsFromThePredecessorEvenWithNoRequestDto() throws Exception {
+        givenPredecessorWithDnsSan();
+        when(capabilityService.supports(authority, FeatureFlag.CERTIFICATE_REQUEST_STRUCTURED)).thenReturn(true);
+
+        // null request DTO = the rekey path, which reaches the connector through renew
+        CertificateRenewRequestDtoV3 wire = renewAndCaptureWire(null);
+
+        X509RequestContent content = assertInstanceOf(X509RequestContent.class, wire.getRequestContent());
+        assertEquals("old.example.com", content.getSubject().get(0).getValue());
+    }
+
+    private void givenPredecessorWithDnsSan() throws Exception {
+        oldCert
+                .getCertificateContent()
+                .setContent(Base64
+                        .getEncoder()
+                        .encodeToString(CertificateTestUtil
+                                .createCertificateWithSubjectAndSans("CN=old.example.com",
+                                        new GeneralName(GeneralName.dNSName, "old.example.com"))
+                                .getEncoded()));
+    }
+
+    private String suppliedCsr(String subjectDn) throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        KeyPair kp = kpg.generateKeyPair();
+        PKCS10CertificationRequestBuilder builder = new JcaPKCS10CertificationRequestBuilder(new X500Name(subjectDn),
+                kp.getPublic());
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(kp.getPrivate());
+        return Base64.getEncoder().encodeToString(builder.build(signer).getEncoded());
+    }
+
+    private CertificateRenewRequestDtoV3 renewAndCaptureWire(ClientCertificateRenewRequestDto req)
+            throws ConnectorException {
+        when(certClientV3.renew(eq(connectorInfo), any()))
+                .thenReturn(ResponseEntity.ok(new CertificateDataResponseDto()));
+        adapter.renew(oldCert, cert, req);
+        ArgumentCaptor<CertificateRenewRequestDtoV3> captor = ArgumentCaptor
+                .forClass(CertificateRenewRequestDtoV3.class);
+        verify(certClientV3).renew(eq(connectorInfo), captor.capture());
+        return captor.getValue();
     }
 
     // ---- attribute listing / validation / connection check ----

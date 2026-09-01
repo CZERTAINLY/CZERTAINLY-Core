@@ -16,11 +16,17 @@ import com.otilm.api.model.core.connector.v2.ConnectorDto;
 import com.otilm.api.model.core.connector.v2.ConnectorRequestDto;
 import com.otilm.api.model.core.connector.v2.ConnectorUpdateRequestDto;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
+import com.otilm.core.model.connector.ImmutableConnectorBasicModel;
+import com.otilm.core.model.connector.ImmutableConnectorFullModel;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import java.util.List;
 
 public interface ConnectorExternalService {
+
+    ImmutableConnectorFullModel getConnectorFullModel(SecuredUUID uuid) throws NotFoundException;
+
+    ImmutableConnectorBasicModel getConnectorBasicModel(SecuredUUID uuid) throws NotFoundException;
 
     PaginationResponseDto<ConnectorDto> listConnectors(SecurityFilter filter, SearchRequestDto request);
 

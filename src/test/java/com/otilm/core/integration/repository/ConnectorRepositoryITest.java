@@ -1,15 +1,21 @@
 package com.otilm.core.integration.repository;
 
+import com.otilm.api.model.client.connector.v2.ConnectorInterface;
+import com.otilm.api.model.core.connector.FunctionGroupCode;
 import com.otilm.core.Application;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.repository.ConnectorRepository;
-import java.util.Collections;
-import org.junit.jupiter.api.Assertions;
+import com.otilm.core.util.builders.ConnectorBuilder;
+import jakarta.persistence.EntityManager;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest(classes = Application.class)
 @Transactional
@@ -19,14 +25,58 @@ class ConnectorRepositoryITest {
     @Autowired
     private ConnectorRepository connectorRepository;
 
-    @Test
-    void testCreateConnector() {
-        Connector request = new Connector();
-        request.setName("testConnector");
-        request.setUrl("testUrl");
-        request.setFunctionGroups(Collections.emptySet());
+    @Autowired
+    private EntityManager entityManager;
 
-        Connector result = connectorRepository.save(request);
-        Assertions.assertNotNull(result.getUuid());
+    @Test
+    void save_assignsUuid_whenUuidIsMissing() {
+        // given
+        Connector connectorToSave = ConnectorBuilder.aConnector().withGeneratedUuid().build();
+
+        // when
+        Connector savedConnector = connectorRepository.save(connectorToSave);
+
+        // then
+        assertNotNull(savedConnector.getUuid());
+    }
+
+    @Test
+    void findWithInterfacesAndFunctionGroupsByUuid_returnsStoredAssociations() {
+        // given
+        var expectedInterfaceCount = 1;
+        var expectedFunctionGroupCount = 1;
+        var expectedInterfaceCode = ConnectorInterface.CRYPTOGRAPHY;
+        var expectedFunctionGroupCode = FunctionGroupCode.CRYPTOGRAPHY_PROVIDER;
+        UUID persistedConnectorUuid = persistConnectorWithAssociations(expectedInterfaceCode,
+                expectedFunctionGroupCode);
+
+        // when
+        Connector loadedConnector = connectorRepository
+                .findWithInterfacesAndFunctionGroupsByUuid(persistedConnectorUuid)
+                .orElseThrow();
+
+        // then
+        assertEquals(expectedInterfaceCount, loadedConnector.getInterfaces().size());
+        assertEquals(expectedInterfaceCode, loadedConnector.getInterfaces().iterator().next().getInterfaceCode());
+        assertEquals(expectedFunctionGroupCount, loadedConnector.getFunctionGroups().size());
+        assertEquals(expectedFunctionGroupCode,
+                loadedConnector.getFunctionGroups().iterator().next().getFunctionGroup().getCode());
+    }
+
+    private UUID persistConnectorWithAssociations(ConnectorInterface interfaceCode,
+            FunctionGroupCode functionGroupCode) {
+        ConnectorBuilder.Fixture fixture = ConnectorBuilder
+                .aConnector()
+                .withInterfaceCode(interfaceCode)
+                .withFunctionGroupCode(functionGroupCode)
+                .buildFixture();
+        entityManager.persist(fixture.connector());
+        entityManager.persist(fixture.functionGroup());
+        entityManager.persist(fixture.connectorInterface());
+        entityManager.persist(fixture.relation());
+        entityManager.flush();
+        UUID persistedConnectorUuid = fixture.connector().getUuid();
+        entityManager.clear();
+        return persistedConnectorUuid;
     }
 }
