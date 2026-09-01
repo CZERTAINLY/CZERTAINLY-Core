@@ -17,15 +17,18 @@ import com.otilm.core.service.v2.ConnectorExternalService;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/** Pins the factory's routing table, including each refusal branch. */
 class TokenProviderAdapterFactoryTest {
 
     private TokenProviderAdapterFactory factory;
@@ -77,6 +80,67 @@ class TokenProviderAdapterFactoryTest {
     }
 
     @Test
+    void forToken_throws_forInterfaceWithoutVersion() throws Exception {
+        // given
+        ImmutableConnectorInterface interfaceWithoutVersion = cryptographyInterface(null);
+        ImmutableTokenInstanceFullModel token = tokenWithInterface(interfaceWithoutVersion);
+
+        // when
+        ThrowingCallable selectAdapter = () -> factory.forToken(token);
+
+        // then
+        assertThatThrownBy(selectAdapter)
+                .isInstanceOf(UnsupportedCryptographyProviderVersionException.class)
+                .hasMessageContaining("has no version");
+    }
+
+    @Test
+    void forToken_throws_forNonCryptographyInterface() throws Exception {
+        // given
+        ImmutableConnectorInterface nonCryptographyInterface = new ImmutableConnectorInterface(UUID.randomUUID(),
+                ConnectorInterface.DISCOVERY, "v2", List.of());
+        ImmutableTokenInstanceFullModel token = tokenWithInterface(nonCryptographyInterface);
+
+        // when
+        ThrowingCallable selectAdapter = () -> factory.forToken(token);
+
+        // then
+        assertThatThrownBy(selectAdapter)
+                .isInstanceOf(UnsupportedCryptographyProviderVersionException.class)
+                .hasMessageContaining("non-cryptography");
+    }
+
+    @Test
+    void forConnectorWithBinding_throws_withoutSupportedProvider() {
+        // given
+        ImmutableConnectorFullModel connector = connector(List.of(), List.of());
+
+        // when
+        ThrowingCallable selectAdapter = () -> factory.forConnectorWithBinding(connector);
+
+        // then
+        assertThatThrownBy(selectAdapter)
+                .isInstanceOf(UnsupportedCryptographyProviderVersionException.class)
+                .hasMessageContaining("no supported cryptography provider");
+    }
+
+    @Test
+    void forToken_throwsNotFound_forMissingConnector() {
+        // given
+        String missingConnectorName = "missing-connector";
+        ImmutableTokenInstanceFullModel token = new ImmutableTokenInstanceFullModel(UUID.randomUUID(), null, "token",
+                TokenInstanceStatus.UNKNOWN, "SOFT", null, missingConnectorName, null, null, Set.of());
+
+        // when
+        ThrowingCallable selectAdapter = () -> factory.forToken(token);
+
+        // then
+        assertThatThrownBy(selectAdapter)
+                .isInstanceOf(com.otilm.api.exception.NotFoundException.class)
+                .hasMessageContaining(missingConnectorName);
+    }
+
+    @Test
     void forToken_returnsV2Adapter_forPersistedCryptographyInterface() throws Exception {
         // given
         UUID connectorUuid = UUID.randomUUID();
@@ -101,5 +165,14 @@ class TokenProviderAdapterFactoryTest {
 
     private ImmutableConnectorInterface cryptographyInterface(String version) {
         return new ImmutableConnectorInterface(UUID.randomUUID(), ConnectorInterface.CRYPTOGRAPHY, version, List.of());
+    }
+
+    private ImmutableTokenInstanceFullModel tokenWithInterface(ImmutableConnectorInterface connectorInterface)
+            throws Exception {
+        UUID connectorUuid = UUID.randomUUID();
+        ImmutableConnectorFullModel connector = connector(List.of(connectorInterface), List.of());
+        when(connectorExternalService.getConnectorFullModel(SecuredUUID.fromUUID(connectorUuid))).thenReturn(connector);
+        return new ImmutableTokenInstanceFullModel(UUID.randomUUID(), null, "token", TokenInstanceStatus.UNKNOWN,
+                "SOFT", connectorUuid, "connector", connectorInterface.uuid(), connectorInterface, Set.of());
     }
 }
