@@ -134,10 +134,7 @@ public final class CertificateDigests {
     private static Map<String, String> collectHashes(JsonNode hashes, Set<String> contradicted) {
         Map<String, String> byAlgorithm = new LinkedHashMap<>();
         for (JsonNode hash : hashes) {
-            if (!hash.isObject()) {
-                continue;
-            }
-            String content = textual(hash.get("content"));
+            String content = hash.isObject() ? textual(hash.get("content")) : "";
             if (content.isEmpty()) {
                 continue;
             }

@@ -40,8 +40,8 @@ public final class Occurrences {
      * <p>
      * <b>The authority, not the scheme delimiter.</b> Anchoring on a literal {@code ://} missed a network-path
      * reference: {@code //user:secret@host/x} is a well-formed URI reference that {@link java.net.URI} parses with
-     * {@code userInfo=user:secret}, and it is what a scanner emits for a protocol-relative URL. The alternation keeps
-     * the matched prefix so both spellings survive the replacement intact.
+     * {@code userInfo=user:secret}, and it is what a scanner emits for a protocol-relative URL. The captured group is
+     * the scheme's colon or nothing at all, so both spellings survive the replacement with their prefix intact.
      *
      * <p>
      * {@code [^/?#]*} stays <b>greedy</b> on purpose. A comma-separated multi-host authority --
@@ -49,7 +49,7 @@ public final class Occurrences {
      * stops at the first {@code @} and leaves the second standing. Greedy costs the first host, which is fidelity; lazy
      * costs a credential, which is the thing this pattern exists for.
      */
-    private static final Pattern USERINFO = Pattern.compile("(^//|://)[^/?#]*@");
+    private static final Pattern USERINFO = Pattern.compile("(^|:)//[^/?#]*@");
 
     /**
      * An unpaired surrogate, which is well-formed to Java and has no encoding at all in UTF-8.
@@ -61,7 +61,7 @@ public final class Occurrences {
      * only the cut position was ever guarded.
      */
     private static final Pattern UNPAIRED_SURROGATE = Pattern
-            .compile("[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])" + "|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]");
+            .compile("(?:[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF]))" + "|(?:(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF])");
 
     private static final int MAX_LOCATION_LENGTH = 1024;
 
@@ -144,7 +144,7 @@ public final class Occurrences {
         String text = AsciiText.strip(location);
         text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
         text = withoutQueryOrFragment(text);
-        text = USERINFO.matcher(text).replaceAll("$1");
+        text = USERINFO.matcher(text).replaceAll("$1//");
         return text.substring(0, capBoundary(text));
     }
 

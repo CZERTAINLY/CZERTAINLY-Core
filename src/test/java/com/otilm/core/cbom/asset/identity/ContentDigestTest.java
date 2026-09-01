@@ -149,14 +149,6 @@ class ContentDigestTest {
     }
 
     /**
-     * An entry carrying no content does not decide, and does not shadow one that does.
-     *
-     * <p>
-     * The map keeps the first non-empty content per algorithm, so a trailing empty entry cannot demote an algorithm to
-     * the next preference and a leading one cannot suppress the real digest behind it. Empty is not a contradiction
-     * either -- a producer that says nothing has not said something different.
-     */
-    /**
      * An alias spelling cannot escape the contradiction guard.
      *
      * <p>
@@ -203,6 +195,14 @@ class ContentDigestTest {
                 .isEqualTo("sha-256:aa");
     }
 
+    /**
+     * An entry carrying no content does not decide, and does not shadow one that does.
+     *
+     * <p>
+     * The map keeps the first non-empty content per algorithm, so a trailing empty entry cannot demote an algorithm to
+     * the next preference and a leading one cannot suppress the real digest behind it. Empty is not a contradiction
+     * either -- a producer that says nothing has not said something different.
+     */
     @Test
     void anEmptyContentNeitherWinsNorShadows() {
         assertThat(CertificateDigests
