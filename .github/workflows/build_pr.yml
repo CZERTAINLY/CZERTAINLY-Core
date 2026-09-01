@@ -215,9 +215,10 @@ jobs:
             echo "To fix, run this and commit the result:"
             echo "  python3 scripts/cbom/build_identity_tables.py --output src/main/resources/cbom/identity-tables.json"
             echo
-            echo "If the change is intended, it re-keys the cryptographic asset inventory: bump the"
-            echo "SHA-256 in IdentityTablesTest and RULESET_VERSION in the same commit, and re-run the"
-            echo "identity vector suite before merging."
+            echo "If the change is intended, it re-keys the cryptographic asset inventory: update the"
+            echo "SHA-256 pinned by IdentityTablesTest in the same commit, and re-run the identity"
+            echo "vector suite, ratifying every expectation that moves. IdentityRuleset.VERSION is a"
+            echo "separate decision and is not bumped for a table edit alone."
             exit 1
           fi
 

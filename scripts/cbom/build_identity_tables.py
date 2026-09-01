@@ -1,10 +1,22 @@
 """Generate the ratified cryptographic asset identity decision tables.
 
-The shipped table is generated during Maven ``generate-resources`` from
-repo-relative, reviewable inputs under ``src/main/cbom/identity``. The CycloneDX
-registry snapshot provides families and elliptic-curve equivalence data; the OID
-strand and grammar tables are ratified OmniTrust decisions that have no complete
-upstream source.
+The table is committed at ``src/main/resources/cbom/identity-tables.json`` and read
+from the classpath, so no build needs Python and no build reaches the network. This
+script is what produced those bytes, and the ``Generated artifacts`` job in
+``.github/workflows/build_pr.yml`` re-runs it on every pull request and fails if one
+byte differs -- which is what makes the committed file reviewable without reading it.
+
+Regenerate after changing any input::
+
+    python3 scripts/cbom/build_identity_tables.py \
+        --output src/main/resources/cbom/identity-tables.json
+
+A regeneration that moves the bytes re-keys the cryptographic asset inventory, so the
+SHA-256 pinned by ``IdentityTablesTest`` has to be ratified in the same commit.
+
+Inputs live under ``src/main/cbom/identity``. The CycloneDX registry snapshot provides
+families and elliptic-curve equivalence data; the OID strand and grammar tables are
+ratified OmniTrust decisions that have no complete upstream source.
 """
 
 from __future__ import annotations
@@ -20,7 +32,7 @@ SOURCE_DIR = REPO_ROOT / "src" / "main" / "cbom" / "identity"
 REGISTRY = SOURCE_DIR / "cryptography-defs.json"
 DEFS_SCHEMA = SOURCE_DIR / "cryptography-defs.schema.json"
 OID_STRAND = SOURCE_DIR / "oid-strand.json"
-DEFAULT_OUTPUT = REPO_ROOT / "target" / "generated-resources" / "cbom" / "identity-tables.json"
+DEFAULT_OUTPUT = REPO_ROOT / "src" / "main" / "resources" / "cbom" / "identity-tables.json"
 
 # secg first: cbom-lens pins "Canonical namespace: secg/* for short-Weierstrass
 # curves", the 1.7 golden and the upstream conformance fixtures both emit secg/*,

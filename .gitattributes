@@ -32,18 +32,21 @@
 src/main/java/db/migration/**       -text
 src/main/resources/db/migration/**  -text
 
-# Generated data artifacts. Each is produced wholesale by a generator, reviewed once at
-# ratification, and re-cut in full whenever its inputs move - so a line-by-line diff of one is
-# never the review material, it is noise that buries the code change that caused the re-cut.
-# linguist-generated collapses them behind a click in a pull request and drops them from the
-# repository's language statistics. They stay diffable: the reproducibility gate in
-# .github/workflows/build_pr.yml prints the drift when a regeneration disagrees with the
-# committed bytes, and that output is only useful if git will still render it.
+# Generated data artifacts: files a generator writes in full, never a human. Marking them
+# generated collapses them behind a click in a pull request and drops them from the repository's
+# language statistics. They stay diffable, which matters: the reproducibility gate in
+# .github/workflows/build_pr.yml prints the drift when a regeneration disagrees with the committed
+# bytes, and that output is only useful if git will still render it.
 #
-# Reproducibility, not trust, is what keeps them honest - the gate regenerates
-# identity-tables.json on every pull request and fails if it differs from what is committed.
+# The entry condition is that something regenerates the file and CI proves it. identity-tables.json
+# qualifies: `Generated artifacts` rebuilds it from the inputs on every pull request and fails on a
+# single differing byte, so nobody has to read it to trust it.
+#
+# identity-key-vectors.json is deliberately NOT listed. It looks like bulk data and it is, but no
+# generator produces it and no job checks it, so reading the diff is the only thing standing between
+# a silently edited expectation and a green run. Collapsing it would remove that guard while looking
+# like housekeeping.
 src/main/resources/cbom/identity-tables.json         linguist-generated=true
-src/test/resources/cbom/identity-key-vectors.json    linguist-generated=true
 
 # Vendored upstream snapshots feeding the generator, reviewed at the version they were taken
 # from, not hunk by hunk. cryptography-defs.schema.json is byte-identical to the copy shipped
