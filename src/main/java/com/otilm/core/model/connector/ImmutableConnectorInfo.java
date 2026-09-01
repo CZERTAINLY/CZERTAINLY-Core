@@ -26,12 +26,6 @@ public record ImmutableConnectorInfo(String uuid, String name, String url, Conne
                 connector.getProxy() == null ? null : connector.getProxy().mapToDtoSimple());
     }
 
-    public static ImmutableConnectorInfo from(ImmutableConnectorFullModel connector) {
-        List<ResponseAttribute> attributes = connector.authAttributes();
-        return new ImmutableConnectorInfo(connector.uuid().toString(), connector.name(), connector.url(),
-                connector.status(), connector.authType(), attributes, connector.proxy());
-    }
-
     private static List<ResponseAttribute> deserializeAuthAttributes(String authAttributes) {
         List<ResponseAttribute> attributes = AttributeEngine
                 .getResponseAttributesFromBaseAttributes(
