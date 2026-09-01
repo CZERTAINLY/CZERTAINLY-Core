@@ -93,11 +93,4 @@ public interface TokenInstanceReferenceRepository extends SecurityFilterReposito
         }).stream().map(value -> (TokenInstanceBasicModel) value).toList();
     }
 
-    default List<TokenInstanceFullModel> findFullModelsUsingSecurityFilter(SecurityFilter filter) {
-        return findUsingSecurityFilter(filter, List.of("connector", "connectorInterface", "tokenProfiles"), null)
-                .stream()
-                .map(value -> (TokenInstanceFullModel) ImmutableTokenInstanceFullModel.from(value))
-                .toList();
-    }
-
 }
