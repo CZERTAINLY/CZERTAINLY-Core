@@ -42,6 +42,7 @@ import com.otilm.api.model.core.secret.SecretState;
 import com.otilm.api.model.core.secret.SecretUpdateObjectsDto;
 import com.otilm.api.model.core.secret.SecretUpdateRequestDto;
 import com.otilm.api.model.core.secret.SecretVersionDto;
+import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.ConnectorRequestAttributesBuilder;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -150,9 +151,16 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
 
     private ApplicationEventPublisher applicationEventPublisher;
 
+    private AttributeColumnProjector attributeColumnProjector;
+
     @Autowired
     public void setActionProducer(ActionProducer actionProducer) {
         this.actionProducer = actionProducer;
+    }
+
+    @Autowired
+    public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
+        this.attributeColumnProjector = attributeColumnProjector;
     }
 
     private CommentInternalService commentService;
@@ -294,6 +302,11 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
         Pageable p = PageRequest.of(searchRequest.getPageNumber() - 1, searchRequest.getItemsPerPage());
         List<Secret> secrets = getSecrets(securityFilter, p, additionalWhereClause);
         List<SecretDto> secretDtos = secrets.stream().map(Secret::mapToDto).toList();
+
+        attributeColumnProjector
+                .project(Resource.SECRET, searchRequest.getColumns(), secretDtos,
+                        secret -> AttributeColumnProjector.parseUuid(secret.getUuid()));
+
         PaginationResponseDto<SecretDto> response = new PaginationResponseDto<>();
         response.setItems(secretDtos);
         response.setPageNumber(searchRequest.getPageNumber());
