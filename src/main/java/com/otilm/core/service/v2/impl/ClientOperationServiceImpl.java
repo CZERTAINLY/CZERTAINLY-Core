@@ -59,6 +59,7 @@ import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.certificate.request.IssuanceDefinitionResolver;
 import com.otilm.core.certificate.request.ProtocolRequestAttributeValidator;
 import com.otilm.core.certificate.request.RegisterWireBuilder;
+import com.otilm.core.certificate.request.RenewContentSeeder;
 import com.otilm.core.certificate.request.RequestAttributePolicyViolationException;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
@@ -2346,8 +2347,9 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         }
 
         String requestContent = generateBase64EncodedCsr(keyUuid,
-                getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate), principal, null,
-                signatureAttributes, request.getAltKeyUuid(), altTokenProfileUuid, altSignatureAttributes);
+                getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate), principal,
+                RenewContentSeeder.rekeySanExtensions(x509Certificate), signatureAttributes, request.getAltKeyUuid(),
+                altTokenProfileUuid, altSignatureAttributes);
 
         certificateRequestDto.setKeyUuid(keyUuid);
         certificateRequestDto.setRequest(requestContent);
@@ -2392,7 +2394,13 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                             CERTIFICATE_REQUESTED_EVENT_MESSAGE);
 
             AuthorityProviderAdapter adapter = adapterFactory.forAuthority(raProfile.getAuthorityInstanceReference());
-            AdapterOperationResult rekeyResult = adapter.renew(oldCertificate, certificate, null);
+            // Rekey reaches the connector as a renew. An uploaded CSR is the operator's own statement of identity,
+            // so it has to travel with the call; a CSR regenerated from the predecessor carries none.
+            ClientCertificateRenewRequestDto renewEquivalent = ClientCertificateRenewRequestDto
+                    .builder()
+                    .request(request == null ? null : request.getRequest())
+                    .build();
+            AdapterOperationResult rekeyResult = adapter.renew(oldCertificate, certificate, renewEquivalent);
             connectorAccepted = true;
 
             if (rekeyResult.isAsync()) {

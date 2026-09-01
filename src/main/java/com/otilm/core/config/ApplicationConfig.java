@@ -18,16 +18,19 @@ import com.otilm.api.clients.SchedulerApiClient;
 import com.otilm.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.otilm.api.clients.cryptography.KeyManagementApiClient;
 import com.otilm.api.clients.cryptography.TokenInstanceApiClient;
+import com.otilm.api.clients.cryptography.v2.TokenApiClient;
 import com.otilm.api.clients.secret.SecretApiClient;
 import com.otilm.api.clients.secret.VaultApiClient;
 import com.otilm.api.clients.signing.SignatureFormattingApiClient;
 import com.otilm.api.clients.signing.contentsigning.ContentSigningFormattingApiClient;
 import com.otilm.api.clients.v2.InfoApiClient;
 import com.otilm.api.clients.v2.MetricsApiClient;
+import com.otilm.api.model.connector.cryptography.v2.OperationResponseValidator;
 import com.otilm.core.security.authn.client.ResourceApiClient;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.service.DiscoveryProperties;
+import jakarta.validation.Validator;
 import javax.net.ssl.TrustManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.TypeExcludeFilter;
@@ -190,6 +193,12 @@ public class ApplicationConfig {
     }
 
     @Bean
+    public TokenApiClient tokenInstanceApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers,
+            OperationResponseValidator responseValidator) {
+        return new TokenApiClient(webClient, defaultTrustManagers, responseValidator);
+    }
+
+    @Bean
     public KeyManagementApiClient keyManagementApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
         return new KeyManagementApiClient(webClient, defaultTrustManagers);
     }
@@ -213,6 +222,12 @@ public class ApplicationConfig {
     @Bean
     public SchedulerApiClient schedulerApiClient() {
         return new SchedulerApiClient();
+    }
+
+    // Cryptography support classes
+    @Bean
+    public OperationResponseValidator cryptographyOperationResponseValidator(Validator validator) {
+        return new OperationResponseValidator(validator);
     }
 
     // Connectors v3 API Clients

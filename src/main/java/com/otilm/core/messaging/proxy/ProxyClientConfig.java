@@ -18,6 +18,8 @@ import com.otilm.api.clients.mq.TokenInstanceApiClient;
 import com.otilm.api.clients.mq.discovery.v2.DiscoveryMqTimeouts;
 import com.otilm.api.clients.mq.signing.SignatureFormattingApiClient;
 import com.otilm.api.clients.mq.signing.contentsigning.ContentSigningFormattingApiClient;
+import com.otilm.api.clients.mq.v2.TokenApiClient;
+import com.otilm.api.model.connector.cryptography.v2.OperationResponseValidator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -115,6 +117,12 @@ public class ProxyClientConfig {
     @Bean
     public TokenInstanceApiClient mqTokenInstanceApiClient(ProxyClient proxyClient) {
         return new TokenInstanceApiClient(proxyClient);
+    }
+
+    /** Creates the MQ client for stateless cryptography-provider v2 token operations. */
+    @Bean
+    public TokenApiClient mqTokenApiClientV2(ProxyClient proxyClient, OperationResponseValidator responseValidator) {
+        return new TokenApiClient(proxyClient, responseValidator);
     }
 
     /**
