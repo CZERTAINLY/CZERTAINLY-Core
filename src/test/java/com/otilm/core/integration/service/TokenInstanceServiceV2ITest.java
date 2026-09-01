@@ -149,6 +149,7 @@ class TokenInstanceServiceV2ITest extends BaseSpringBootTest {
         TokenInstanceReference reloaded = tokenInstanceReferenceRepository.findById(persisted.getUuid()).orElseThrow();
         assertEquals(connectorInterface.getUuid(), reloaded.getConnectorInterfaceUuid());
         assertEquals(TokenInstanceStatus.CONNECTED, reloaded.getStatus());
+        connectorMock.verifyScopedTokenStatusRequest(emptyScopedRequest);
     }
 
     @Test
@@ -184,6 +185,9 @@ class TokenInstanceServiceV2ITest extends BaseSpringBootTest {
         flushAndClear();
         TokenInstanceReference reloaded = tokenInstanceReferenceRepository.findById(token.getUuid()).orElseThrow();
         assertEquals(TokenInstanceStatus.CONNECTED, reloaded.getStatus());
+        String expectedScopedRequest = "{\"tokenAttributes\":[{\"name\":\"" + attributeName
+                + "\",\"content\":[{\"data\":\"" + attributeValue + "\"}]}]}";
+        connectorMock.verifyScopedTokenStatusRequest(expectedScopedRequest);
     }
 
     @Test

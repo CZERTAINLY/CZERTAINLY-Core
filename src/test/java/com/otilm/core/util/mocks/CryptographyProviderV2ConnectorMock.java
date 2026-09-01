@@ -81,4 +81,10 @@ public class CryptographyProviderV2ConnectorMock extends BaseConnectorMock {
                         WireMock.urlPathEqualTo("/v2/cryptographyProvider/tokens/tokenProfile/attributes"))
                         .withRequestBody(WireMock.equalToJson(expectedRequestJson)));
     }
+
+    public void verifyScopedTokenStatusRequest(String expectedRequestJson) {
+        server
+                .verify(postRequestedFor(WireMock.urlPathEqualTo("/v2/cryptographyProvider/tokens/status"))
+                        .withRequestBody(WireMock.equalToJson(expectedRequestJson, true, true)));
+    }
 }
