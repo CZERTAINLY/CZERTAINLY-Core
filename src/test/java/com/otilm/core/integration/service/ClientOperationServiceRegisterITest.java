@@ -2515,5 +2515,10 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
                 .assertThrows(CertificateException.class, () -> clientOperationService
                         .issueExistingCertificate(authorityParent, securedRaProfile, certUuid, issueRequest));
         Assertions.assertTrue(ex.getMessage().contains("the authority connector is unavailable"), ex.getMessage());
+        // The connector exception's message is the authority's raw response body, and the CertificateException
+        // advice appends cause messages to the response — so the cause must not travel with it.
+        Assertions
+                .assertNull(ex.getCause(),
+                        "the connector cause must not reach the REST layer, which echoes cause messages");
     }
 }

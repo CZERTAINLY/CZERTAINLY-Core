@@ -1,5 +1,6 @@
 package com.otilm.core.certificate.request;
 
+import com.otilm.api.exception.ConnectorException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.enums.CertificateRequestFormat;
@@ -63,14 +64,38 @@ class ProtocolRequestAttributeValidatorTest {
     }
 
     @Test
-    void skipsValidation_whenLenientResolutionFails() throws Exception {
+    void warnsThatValidationDidNotRun_whenLenientResolutionFails() throws Exception {
         // given — a lenient profile whose attribute set cannot be resolved
         when(svc.resolveIssueAttributeSet(any())).thenThrow(new NotFoundException("no set"));
         when(svc.resolveExternalCsrValidationStrict(any())).thenReturn(false);
+        RaProfile raProfile = mock(RaProfile.class);
+        when(raProfile.getName()).thenReturn("lenientProfile");
 
-        // when / then — lenient tolerates the availability failure and proceeds
-        assertThatCode(() -> validator.validate(mock(CertificateRequest.class), mock(RaProfile.class)))
-                .doesNotThrowAnyException();
+        // when — lenient tolerates the availability failure and proceeds
+        List<String> warnings = validator.validate(mock(CertificateRequest.class), raProfile);
+
+        // then — an empty list must keep meaning "checked, nothing found", so the skip is reported
+        assertThat(warnings)
+                .singleElement()
+                .satisfies(w -> assertThat(w)
+                        .contains("could not be performed")
+                        .contains("lenientProfile")
+                        .contains("not configured on the authority connector"));
+    }
+
+    @Test
+    void warnsThatValidationDidNotRun_whenLenientAndConnectorUnavailable() throws Exception {
+        // given — the connector itself fails rather than the set being absent
+        when(svc.resolveIssueAttributeSet(any())).thenThrow(new ConnectorException("boom"));
+        when(svc.resolveExternalCsrValidationStrict(any())).thenReturn(false);
+
+        // when
+        List<String> warnings = validator.validate(mock(CertificateRequest.class), mock(RaProfile.class));
+
+        // then
+        assertThat(warnings)
+                .singleElement()
+                .satisfies(w -> assertThat(w).contains("the authority connector is unavailable"));
     }
 
     @Test

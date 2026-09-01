@@ -3116,10 +3116,22 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         try {
             parsedRequest = CertificateRequestUtils.createCertificateRequest(request.getRequest(), request.getFormat());
         } catch (CertificateRequestException | IllegalArgumentException e) {
-            throw new ValidationException(
-                    ValidationError.create("Invalid certificate signing request: " + e.getMessage()));
+            // Fixed text: an IllegalArgumentException here carries JDK or third-party wording (a base64 decoder's
+            // "Illegal base64 character", an internal class name) that the global advice deliberately withholds.
+            logger.debug("Failed to parse completion CSR for request-attribute validation", e);
+            throw new ValidationException(ValidationError.create("Certificate signing request could not be parsed"));
         }
-        return protocolRequestAttributeValidator.validate(parsedRequest, raProfile);
+        try {
+            return protocolRequestAttributeValidator.validate(parsedRequest, raProfile);
+        } catch (CertificateException e) {
+            // The cause is the connector failure, whose message is the authority's raw response body, and the
+            // CertificateException advice appends cause messages to the response. Keep the platform-authored
+            // message, drop the cause.
+            logger
+                    .error("Request-attribute set unavailable while completing certificate registration (RA profile {})",
+                            raProfile.getName(), e);
+            throw new CertificateException(e.getMessage());
+        }
     }
 
     /**
