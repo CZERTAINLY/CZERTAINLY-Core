@@ -1,5 +1,6 @@
 package com.otilm.core.util;
 
+import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
@@ -68,6 +69,7 @@ import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.Duration;
 import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.hibernate.query.criteria.JpaExpression;
+import org.hibernate.query.criteria.JpaSubQuery;
 
 public class FilterPredicatesBuilder {
 
@@ -153,14 +155,8 @@ public class FilterPredicatesBuilder {
                         ? CryptographicKeyItem_.keyUuid.getName()
                         : UniquelyIdentified_.uuid.getName();
 
-        List<Predicate> predicates = new ArrayList<>();
-        predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.type), attributeType));
-        predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.contentType), contentType));
-        predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.name), attributeName));
-        predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectType), resource));
-        predicates
-                .add(criteriaBuilder
-                        .equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(objectUuidPath)));
+        List<Predicate> predicates = new ArrayList<>(attributeCorrelationPredicates(criteriaBuilder, root, subqueryRoot,
+                joinDefinition, attributeType, contentType, attributeName, resource, objectUuidPath));
 
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY
                 && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
@@ -1127,5 +1123,112 @@ public class FilterPredicatesBuilder {
             pathToPropertyBuilder.append(fieldAttribute.getName());
         }
         return pathToPropertyBuilder.toString();
+    }
+
+    /**
+     * The predicates that pin a content row to one attribute definition and to one object: the definition's type,
+     * content type and name, and the object the content is attached to. Shared by the filter predicate and the sort key
+     * so the two cannot disagree about which rows belong to a field.
+     */
+    private static <T> List<Predicate> attributeCorrelationPredicates(final CriteriaBuilder criteriaBuilder,
+            final Root<T> root, final Root<AttributeContent2Object> subqueryRoot, final Join joinDefinition,
+            final AttributeType attributeType, final AttributeContentType contentType, final String attributeName,
+            final Resource resource, final String objectUuidPath) {
+        return List
+                .of(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.type), attributeType),
+                        criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.contentType), contentType),
+                        criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.name), attributeName),
+                        criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectType), resource),
+                        criteriaBuilder
+                                .equal(subqueryRoot.get(AttributeContent2Object_.objectUuid),
+                                        root.get(objectUuidPath)));
+    }
+
+    /**
+     * The resource an object's attribute content is stored under. Key items carry the key's attributes, so a key item
+     * root resolves to {@code CRYPTOGRAPHIC_KEY} rather than to a resource of its own.
+     */
+    private static <T> Resource attributeResourceOf(final Root<T> root) {
+        return root.getJavaType().equals(CryptographicKeyItem.class)
+                ? Resource.CRYPTOGRAPHIC_KEY
+                : ResourceToClass.getResourceByClass(root.getJavaType());
+    }
+
+    /**
+     * Which uuid of the root the content is keyed by. For a key item, meta attributes are attached to the item while
+     * custom and data attributes are attached to the key it belongs to.
+     */
+    private static String attributeObjectUuidPath(final Resource resource, final AttributeType attributeType) {
+        return resource == Resource.CRYPTOGRAPHIC_KEY
+                && (attributeType == AttributeType.CUSTOM || attributeType == AttributeType.DATA)
+                        ? CryptographicKeyItem_.keyUuid.getName()
+                        : UniquelyIdentified_.uuid.getName();
+    }
+
+    /**
+     * A scalar sort key carrying the value of one attribute-sourced field for one row.
+     *
+     * <p>
+     * Filtering an attribute is order-agnostic and so is expressed as {@code EXISTS}, which yields no value to order
+     * by. Ordering needs the value itself, so this is a correlated scalar subquery instead: the same definition and
+     * object correlation as the filter, extracted from the stored json with the same {@code jsonb_extract_path_text}
+     * and the same per-content-type cast, so a column sorts by what the cell displays.
+     *
+     * <p>
+     * An attribute may hold several values for one object, which leaves the key ambiguous. The subquery therefore
+     * orders by {@code item_order} and takes the first row, so a multi-valued attribute sorts on its lowest-ordered
+     * value - the one the cell shows first. A row with no value for the field yields no row and so a null key, which is
+     * ordered last in both directions by the caller rather than being dropped.
+     */
+    public static <T> Expression<?> getAttributeSortKey(final CriteriaBuilder criteriaBuilder,
+            final CommonAbstractCriteria query, final Root<T> root, final FilterFieldSource fieldSource,
+            final String fieldIdentifier) {
+        final String[] identifierParts = fieldIdentifier.split("\\|");
+        if (identifierParts.length < 2) {
+            throw new ValidationException(ValidationError
+                    .create("Sort field identifier %s does not name an attribute.".formatted(fieldIdentifier)));
+        }
+        final AttributeType attributeType = fieldSource.getAttributeType();
+        final String attributeName = identifierParts[0];
+        final AttributeContentType contentType;
+        try {
+            contentType = AttributeContentType.valueOf(identifierParts[1]);
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(ValidationError
+                    .create("Unknown attribute content type %s in sort field identifier %s."
+                            .formatted(identifierParts[1], fieldIdentifier)));
+        }
+
+        final Resource resource = attributeResourceOf(root);
+        final String objectUuidPath = attributeObjectUuidPath(resource, attributeType);
+
+        // Typed to the value's own class rather than to Object: the aggregate the grouped ordering wraps this in
+        // takes a comparable, and an Object-typed subquery is not one.
+        final Class<?> valueClass = castedAttributeContentData.contains(contentType)
+                ? contentType.getContentDataClass()
+                : String.class;
+        final Subquery subquery = query.subquery(valueClass);
+        final Root<AttributeContent2Object> subqueryRoot = subquery.from(AttributeContent2Object.class);
+        final Join joinContentItem = subqueryRoot.join(AttributeContent2Object_.attributeContentItem, JoinType.INNER);
+        final Join joinDefinition = joinContentItem.join(AttributeContentItem_.attributeDefinition, JoinType.INNER);
+
+        final Expression<String> extracted = criteriaBuilder
+                .function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class,
+                        joinContentItem.get(AttributeContentItem_.json),
+                        criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
+        final Expression<?> value = castedAttributeContentData.contains(contentType)
+                ? ((JpaExpression<String>) extracted).cast(contentType.getContentDataClass())
+                : extracted;
+
+        subquery
+                .select(value)
+                .where(attributeCorrelationPredicates(criteriaBuilder, root, subqueryRoot, joinDefinition,
+                        attributeType, contentType, attributeName, resource, objectUuidPath)
+                        .toArray(new Predicate[]{}));
+        ((JpaSubQuery) subquery)
+                .orderBy(criteriaBuilder.asc(subqueryRoot.get(AttributeContent2Object_.order)))
+                .fetch(1);
+
+        return subquery;
     }
 }

@@ -10,6 +10,7 @@ import com.otilm.core.dao.entity.UniquelyIdentified_;
 import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.enums.ResourceToClass;
+import jakarta.persistence.criteria.CommonAbstractCriteria;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.From;
@@ -23,6 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
+import org.hibernate.query.NullPrecedence;
+import org.hibernate.query.criteria.JpaOrder;
 
 /**
  * Turns a {@link SortSpecification} into the {@link Order} terms of a secured search.
@@ -42,11 +45,24 @@ public final class SortOrderBuilder {
     }
 
     /**
-     * Whether applying the sort means joining away from the root. Answerable from the specification alone, so a caller
-     * can pick the shape of the query before it has a root to resolve against.
+     * Whether the sort has to be applied by the query that selects a page of uuids and carries the sort key in its
+     * select list, rather than by the entity query directly. Answerable from the specification alone, so a caller can
+     * pick the shape of the query before it has a root to resolve against.
+     *
+     * <p>
+     * Two sorts need it, for different reasons. A sort through a join gives a root as many rows as the join has
+     * matches, so a window over those rows would underfill the page. An attribute sort resolves to a scalar subquery,
+     * and the entity query selects DISTINCT, which the database will not order by an expression absent from the select
+     * list.
      */
-    public static boolean traversesJoin(SortSpecification sort) {
-        return sort != null && !resolveField(sort).getJoinAttributes().isEmpty();
+    public static boolean needsRankedUuidQuery(SortSpecification sort) {
+        if (sort == null) {
+            return false;
+        }
+        if (sort.fieldSource() != FilterFieldSource.PROPERTY) {
+            return true;
+        }
+        return !resolveField(sort).getJoinAttributes().isEmpty();
     }
 
     /**
@@ -58,10 +74,12 @@ public final class SortOrderBuilder {
      * @param defaultOrder the ordering the caller applies when the request names none, or {@code null} for no default
      * @param paged whether the query will be windowed, which is what makes an unstable order observable
      */
-    public static List<Order> resolve(Root<?> root, CriteriaBuilder criteriaBuilder, SortSpecification sort,
-            Order defaultOrder, boolean paged) {
+    public static List<Order> resolve(Root<?> root, CriteriaBuilder criteriaBuilder, CommonAbstractCriteria query,
+            SortSpecification sort, Order defaultOrder, boolean paged) {
         List<Order> orders = new ArrayList<>();
         if (sort != null) {
+            // Property-only by construction: needsRankedUuidQuery sends every attribute sort to resolveGrouped, and
+            // resolveField refuses a non-property source rather than letting one build an unorderable query here.
             FilterField field = resolveField(root, sort);
             orders.add(direct(criteriaBuilder, resolveExpression(root, field), sort.direction()));
         } else if (defaultOrder != null) {
@@ -81,15 +99,29 @@ public final class SortOrderBuilder {
      * request the ordering has to degrade for.
      */
     public static GroupedOrdering resolveGrouped(Root<?> root, CriteriaBuilder criteriaBuilder,
-            SortSpecification sort) {
-        FilterField field = resolveField(root, sort);
-        Expression<?> sortKey = aggregate(criteriaBuilder, resolveExpression(root, field), sort.direction());
+            CommonAbstractCriteria query, SortSpecification sort) {
+        String fieldName;
+        Expression<?> sortKey;
+        if (sort.fieldSource() == FilterFieldSource.PROPERTY) {
+            FilterField field = resolveField(root, sort);
+            fieldName = field.name();
+            sortKey = aggregate(criteriaBuilder, resolveExpression(root, field), sort.direction());
+        } else {
+            fieldName = sort.fieldIdentifier();
+            sortKey = aggregate(criteriaBuilder, FilterPredicatesBuilder
+                    .getAttributeSortKey(criteriaBuilder, query, root, sort.fieldSource(), sort.fieldIdentifier()),
+                    sort.direction());
+        }
 
         Order tieBreak = tieBreak(root, criteriaBuilder)
                 .orElseThrow(() -> new ValidationException(
-                        ValidationError.create("Field %s cannot be sorted on this resource.".formatted(field.name()))));
+                        ValidationError.create("Field %s cannot be sorted on this resource.".formatted(fieldName))));
 
-        return new GroupedOrdering(sortKey, List.of(direct(criteriaBuilder, sortKey, sort.direction()), tieBreak));
+        // An object holding no value for the field aggregates to null. Pinned last in both directions, so the rows a
+        // column has nothing to show for never lead the page, and reversing the sort does not put them first.
+        Order primary = ((JpaOrder) direct(criteriaBuilder, sortKey, sort.direction()))
+                .nullPrecedence(NullPrecedence.LAST);
+        return new GroupedOrdering(sortKey, List.of(primary, tieBreak));
     }
 
     /**
