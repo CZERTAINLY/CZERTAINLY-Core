@@ -1,7 +1,9 @@
 package com.otilm.core.integration.service;
 
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetDetailDto;
+import com.otilm.api.model.core.cryptoasset.CryptographicAssetEvidenceDto;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetSourceDto;
 import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
@@ -9,10 +11,14 @@ import com.otilm.core.cbom.asset.AssetRowKeys;
 import com.otilm.core.cbom.asset.CryptoAssetIdentityFields;
 import com.otilm.core.cbom.asset.OccurrenceEvidenceCapper;
 import com.otilm.core.dao.entity.Cbom;
+import com.otilm.core.dao.entity.cbom.CryptoAssetSource;
 import com.otilm.core.dao.repository.CbomRepository;
 import com.otilm.core.dao.repository.cbom.CryptoAssetRepository;
+import com.otilm.core.dao.repository.cbom.CryptoAssetSourceRepository;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import com.otilm.core.security.authz.SecuredUUID;
+import com.otilm.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.otilm.core.service.CryptographicAssetExternalService;
 import com.otilm.core.service.writer.cbom.CryptoAssetSourceWriter;
 import com.otilm.core.service.writer.cbom.CryptoAssetWriter;
@@ -24,11 +30,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
 
 /**
  * The detail operation ({@link CryptographicAssetExternalService#getCryptographicAsset}) end to end, through the
@@ -54,6 +62,9 @@ class CryptographicAssetDetailITest extends BaseSpringBootTest {
 
     @Autowired
     private CryptoAssetRepository cryptoAssetRepository;
+
+    @Autowired
+    private CryptoAssetSourceRepository cryptoAssetSourceRepository;
 
     /**
      * The detail endpoint's distinguishing obligation (core#2145 AC): the elected representative payload is one
@@ -206,6 +217,196 @@ class CryptographicAssetDetailITest extends BaseSpringBootTest {
         assertThat(source.getEvidence().get(0).getLine()).isEqualTo(0);
     }
 
+    /**
+     * F5: producers occasionally emit a numeric evidence field as a string, or a textual one as a number; the DTO must
+     * still serve the value rather than let a type mismatch drop it silently.
+     *
+     * <p>
+     * Seeded by saving the source row directly rather than through {@link CryptoAssetSourceWriter}:
+     * {@code OccurrenceEvidenceCapper#sanitizeLocation} forces a non-string {@code location} to {@code ""} at write
+     * time, so a stored numeric location can only be reached this way -- which is the point: this proves
+     * {@code toEvidenceDto}'s own coercion against whatever shape is actually in the column, independent of what
+     * today's writer happens to produce.
+     */
+    @Test
+    void evidenceFieldsCoerceNumericStringsAndNumbers() throws NotFoundException {
+        UUID assetUuid = upsert(fields("AES-EVIDENCE-COERCE"), null);
+        Cbom cbom = newCbom("urn:uuid:evidence-coerce");
+        Map<String, Object> occurrence = new HashMap<>();
+        occurrence.put("location", 123);
+        occurrence.put("line", "42");
+        occurrence.put("offset", 7);
+        CryptoAssetSource source = new CryptoAssetSource();
+        source.setAssetUuid(assetUuid);
+        source.setCbomUuid(cbom.getUuid());
+        source.setOccurrenceCount(1);
+        source.setPropertiesLeafCount(0);
+        source.setFirstSeenAt(NOW);
+        source.setLastSeenAt(NOW);
+        source.setEvidence(List.of(occurrence));
+        cryptoAssetSourceRepository.save(source);
+
+        CryptographicAssetDetailDto detail = cryptographicAssetService
+                .getCryptographicAsset(SecuredUUID.fromUUID(assetUuid));
+
+        CryptographicAssetEvidenceDto evidence = detail.getSources().get(0).getEvidence().get(0);
+        assertThat(evidence.getLocation()).isEqualTo("123");
+        assertThat(evidence.getLine()).isEqualTo(42);
+        assertThat(evidence.getOffset()).isEqualTo(7);
+    }
+
+    /**
+     * F1: sources belong to the CBOM resource -- a caller denied CBOM object access must not read a contributing
+     * document's serialNumber, version, source or payload through the detail endpoint, even though cryptoAssets:detail
+     * itself is granted. The row-level badges stay global: they reconcile with the list, which is scoped by
+     * CRYPTO_ASSET, not CBOM. electedPayload is one document's payload verbatim, so it is gated the same way sources[]
+     * is, even though it is served from the asset row rather than a source row.
+     */
+    @Test
+    void deniedCbomAccessHidesSourcesButKeepsGlobalBadges() throws NotFoundException {
+        UUID assetUuid = upsert(fields("AES-CBOM-SCOPE"), null);
+        Cbom cbomA = newCbom("urn:uuid:scope-a");
+        Cbom cbomB = newCbom("urn:uuid:scope-b");
+        sourceWriter
+                .upsertSource(assetUuid, cbomA.getUuid(), Map.of("name", "AES-CBOM-SCOPE"), occurrences("a.c", 1), NOW);
+        sourceWriter
+                .upsertSource(assetUuid, cbomB.getUuid(), Map.of("name", "AES-CBOM-SCOPE"), occurrences("b.c", 2),
+                        NOW.plusSeconds(1));
+
+        denyObjectAccess(Resource.CBOM, ResourceAction.LIST);
+
+        CryptographicAssetDetailDto detail = cryptographicAssetService
+                .getCryptographicAsset(SecuredUUID.fromUUID(assetUuid));
+
+        assertThat(detail.getSources()).isEmpty();
+        assertThat(detail.getSourceCbomCount()).isEqualTo(2);
+        assertThat(detail.getOccurrenceCount()).isEqualTo(2L);
+        assertThat(detail.getElectedPayload())
+                .describedAs("the electing document is hidden by the same denial that empties sources[]")
+                .isNull();
+    }
+
+    /**
+     * F1's positive twin for electedPayload: a partial restriction that still leaves the ELECTING document visible
+     * serves the payload normally.
+     */
+    @Test
+    void partialCbomRestrictionServesElectedPayloadWhenTheElectingDocumentIsVisible() throws NotFoundException {
+        UUID assetUuid = upsert(fields("AES-CBOM-ELECT-VISIBLE"), null);
+        Cbom richCbom = newCbom("urn:uuid:elect-visible-rich");
+        Cbom leanCbom = newCbom("urn:uuid:elect-visible-lean");
+        Map<String, Object> richPayload = Map.of("name", "AES-CBOM-ELECT-VISIBLE", "primitive", "ae", "mode", "gcm");
+        Map<String, Object> leanPayload = Map.of("name", "AES-CBOM-ELECT-VISIBLE");
+        sourceWriter.upsertSource(assetUuid, richCbom.getUuid(), richPayload, occurrences("rich.c", 1), NOW);
+        sourceWriter
+                .upsertSource(assetUuid, leanCbom.getUuid(), leanPayload, occurrences("lean.c", 2), NOW.plusSeconds(1));
+
+        forbidCbomObjects(List.of(leanCbom.getUuid()));
+
+        CryptographicAssetDetailDto detail = cryptographicAssetService
+                .getCryptographicAsset(SecuredUUID.fromUUID(assetUuid));
+
+        assertThat(detail.getSources()).hasSize(1);
+        assertThat(detail.getSources().get(0).getCbomUuid()).isEqualTo(richCbom.getUuid());
+        assertThat(detail.getElectedPayload())
+                .describedAs("the richest source elects and its document is visible, so the payload is served")
+                .isEqualTo(richPayload);
+    }
+
+    /**
+     * F1's sharp case for electedPayload: the electing (richest) document is HIDDEN while a different, non-electing
+     * document is visible. sources[] serves exactly the visible row, but electedPayload must not re-elect among what
+     * the caller can see -- election is global and deterministic, not per-caller -- so it is omitted rather than
+     * silently substituting the visible document's own payload.
+     */
+    @Test
+    void partialCbomRestrictionOmitsElectedPayloadWhenTheElectingDocumentIsHidden() throws NotFoundException {
+        UUID assetUuid = upsert(fields("AES-CBOM-ELECT-HIDDEN"), null);
+        Cbom richCbom = newCbom("urn:uuid:elect-hidden-rich");
+        Cbom leanCbom = newCbom("urn:uuid:elect-hidden-lean");
+        Map<String, Object> richPayload = Map.of("name", "AES-CBOM-ELECT-HIDDEN", "primitive", "ae", "mode", "gcm");
+        Map<String, Object> leanPayload = Map.of("name", "AES-CBOM-ELECT-HIDDEN");
+        sourceWriter.upsertSource(assetUuid, richCbom.getUuid(), richPayload, occurrences("rich.c", 1), NOW);
+        sourceWriter
+                .upsertSource(assetUuid, leanCbom.getUuid(), leanPayload, occurrences("lean.c", 2), NOW.plusSeconds(1));
+
+        forbidCbomObjects(List.of(richCbom.getUuid()));
+
+        CryptographicAssetDetailDto detail = cryptographicAssetService
+                .getCryptographicAsset(SecuredUUID.fromUUID(assetUuid));
+
+        assertThat(detail.getSources()).hasSize(1);
+        assertThat(detail.getSources().get(0).getCbomUuid())
+                .describedAs("the visible (non-electing) document still serves its own row")
+                .isEqualTo(leanCbom.getUuid());
+        assertThat(detail.getSources().get(0).getPayload()).isEqualTo(leanPayload);
+        assertThat(detail.getElectedPayload())
+                .describedAs("must not re-elect onto the visible document's payload -- election is global, not scoped")
+                .isNull();
+    }
+
+    /**
+     * F1's partial-restriction twin: a caller who can see A but not B gets exactly A's row, while the global badges
+     * still count both.
+     */
+    @Test
+    void partialCbomRestrictionServesOnlyTheVisibleSource() throws NotFoundException {
+        UUID assetUuid = upsert(fields("AES-CBOM-PARTIAL"), null);
+        Cbom cbomA = newCbom("urn:uuid:partial-a");
+        Cbom cbomB = newCbom("urn:uuid:partial-b");
+        sourceWriter
+                .upsertSource(assetUuid, cbomA.getUuid(), Map.of("name", "AES-CBOM-PARTIAL"), occurrences("a.c", 1),
+                        NOW);
+        sourceWriter
+                .upsertSource(assetUuid, cbomB.getUuid(), Map.of("name", "AES-CBOM-PARTIAL"), occurrences("b.c", 2),
+                        NOW.plusSeconds(1));
+
+        forbidCbomObjects(List.of(cbomB.getUuid()));
+
+        CryptographicAssetDetailDto detail = cryptographicAssetService
+                .getCryptographicAsset(SecuredUUID.fromUUID(assetUuid));
+
+        assertThat(detail.getSources()).hasSize(1);
+        assertThat(detail.getSources().get(0).getCbomUuid()).isEqualTo(cbomA.getUuid());
+        assertThat(detail.getSourceCbomCount()).isEqualTo(2);
+        assertThat(detail.getOccurrenceCount()).isEqualTo(2L);
+    }
+
+    /**
+     * F3: the asset-level source fan-out has no cap of its own -- one row per contributing CBOM, unlike the per-source
+     * evidence {@link OccurrenceEvidenceCapper} already bounds. 101 lightweight documents is enough to prove the served
+     * list stays bounded while sourceCbomCount and occurrenceCount keep the true totals.
+     */
+    @Test
+    void capsServedSourcesButKeepsTheTrueTotals() throws NotFoundException {
+        UUID assetUuid = upsert(fields("AES-SOURCE-CAP"), null);
+        int total = 101;
+        List<UUID> cbomUuidsOldestFirst = new ArrayList<>();
+        for (int i = 0; i < total; i++) {
+            Cbom cbom = newCbom("urn:uuid:source-cap-" + i);
+            cbomUuidsOldestFirst.add(cbom.getUuid());
+            sourceWriter
+                    .upsertSource(assetUuid, cbom.getUuid(), Map.of("name", "AES-SOURCE-CAP"),
+                            occurrences("f" + i + ".c", i), NOW.plusSeconds(i));
+        }
+
+        CryptographicAssetDetailDto detail = cryptographicAssetService
+                .getCryptographicAsset(SecuredUUID.fromUUID(assetUuid));
+
+        assertThat(detail.getSources()).hasSize(100);
+        assertThat(detail.getSourceCbomCount()).isEqualTo(total);
+        assertThat(detail.getOccurrenceCount()).isEqualTo((long) total);
+        List<UUID> servedCbomUuids = detail
+                .getSources()
+                .stream()
+                .map(CryptographicAssetSourceDto::getCbomUuid)
+                .toList();
+        assertThat(servedCbomUuids)
+                .describedAs("the cap keeps the oldest-seeded row and drops the newest -- firstSeenAt-ascending order")
+                .contains(cbomUuidsOldestFirst.get(0))
+                .doesNotContain(cbomUuidsOldestFirst.get(100));
+    }
+
     @Test
     void normalizedFieldsAbsentWhenNothingDerivable() throws NotFoundException {
         UUID assetUuid = upsert(fields("AES"), null);
@@ -264,5 +465,26 @@ class CryptographicAssetDetailITest extends BaseSpringBootTest {
         cbom.setVersion(1);
         cbom.setSpecVersion("1.7");
         return cbomRepository.save(cbom);
+    }
+
+    /**
+     * Stubs the OPA object-access vote for {@code cboms:list} so every uuid in {@code forbidden} is denied while the
+     * rest of the CBOM estate stays visible -- the CBOM twin of
+     * {@code CryptographicAssetStatisticsITest#forbidCryptoAssetObjects}, needed here because {@link #denyObjectAccess}
+     * denies everything and F1's partial-restriction case needs a real, known-size visible subset.
+     */
+    private void forbidCbomObjects(List<UUID> forbidden) {
+        OpaObjectAccessResult partial = new OpaObjectAccessResult();
+        partial.setActionAllowedForGroupOfObjects(true);
+        partial.setAllowedObjects(List.of());
+        partial.setForbiddenObjects(forbidden.stream().map(UUID::toString).toList());
+        when(opaClient
+                .checkObjectAccess(Mockito.any(),
+                        Mockito
+                                .argThat(req -> req != null && req.getProperties() != null
+                                        && Resource.CBOM.getCode().equals(req.getProperties().get("name"))
+                                        && ResourceAction.LIST.getCode().equals(req.getProperties().get("action"))),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(partial);
     }
 }

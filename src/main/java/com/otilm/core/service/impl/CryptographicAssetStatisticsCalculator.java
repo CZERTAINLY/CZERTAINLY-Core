@@ -24,6 +24,12 @@ final class CryptographicAssetStatisticsCalculator {
      * The literal {@code SecurityFilterRepositoryImpl.countGroupedUsingSecurityFilter} substitutes for a NULL group
      * key. For verdicts it means "never evaluated" and folds into {@code unknown}; for families it is the contract's
      * unassignedAssetCount and never occupies a top-N slot.
+     *
+     * <p>
+     * The literal is duplicated from {@code SecurityFilterRepositoryImpl}'s NULL group-key substitution, not shared
+     * with it. Collision with a genuine stored family is prevented by {@code CryptoAssetIdentityFields#fold()}
+     * lowercasing producer text before storage, so a stored "unassigned" coexists with this sentinel while a stored
+     * "Unassigned" can never occur.
      */
     static final String UNASSIGNED_KEY = "Unassigned";
 
@@ -50,15 +56,29 @@ final class CryptographicAssetStatisticsCalculator {
         return dto;
     }
 
-    /** Every code present with 0 when none, in enum declaration order; a NULL bucket folds into foldNullInto. */
+    /**
+     * Every code present with 0 when none, in enum declaration order; a NULL bucket folds into {@code foldNullInto}
+     * when one is given. Any other key -- one {@code codes} does not list, or the sentinel when nothing folds it -- is
+     * not a bucket this dense map has room for, and is not dropped silently: a discarded bucket is a chart that
+     * silently lies, so it fails the request instead.
+     */
     private static Map<String, Long> dense(Map<String, Long> sparse, List<String> codes, String foldNullInto) {
         Map<String, Long> result = new LinkedHashMap<>();
         for (String code : codes) {
             result.put(code, sparse.getOrDefault(code, 0L));
         }
-        Long nullBucket = sparse.get(UNASSIGNED_KEY);
-        if (nullBucket != null && foldNullInto != null) {
-            result.merge(foldNullInto, nullBucket, Long::sum);
+        for (Map.Entry<String, Long> entry : sparse.entrySet()) {
+            String key = entry.getKey();
+            if (codes.contains(key)) {
+                continue;
+            }
+            if (key.equals(UNASSIGNED_KEY) && foldNullInto != null) {
+                result.merge(foldNullInto, entry.getValue(), Long::sum);
+                continue;
+            }
+            throw new IllegalStateException("Unmapped statistics group key \"%s\": expected one of %s%s"
+                    .formatted(key, codes,
+                            foldNullInto != null ? " or the \"%s\" sentinel".formatted(UNASSIGNED_KEY) : ""));
         }
         return result;
     }

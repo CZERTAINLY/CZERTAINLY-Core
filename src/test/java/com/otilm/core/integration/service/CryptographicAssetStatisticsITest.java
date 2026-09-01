@@ -200,10 +200,12 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
 
     /**
      * The two security gates are independent: CRYPTO_ASSET scopes the inventory badges, CBOM scopes the completeness
-     * block, and forbidding one must not perturb the other.
+     * block, and forbidding one must not perturb the other. F2: a CBOM access denial that is total is a
+     * permission-shaped zero, not a fact about the estate, so the document-derived fields are omitted entirely rather
+     * than served as zeroes that read as "nothing has ever synced".
      */
     @Test
-    void cbomRestrictionsScopeTheCompletenessBlockOnly() {
+    void cbomDenialOmitsTheCompletenessBlock() {
         UUID asset1 = seedTyped(CryptographicAssetType.ALGORITHM, "cbom-restricted-1");
         seedTyped(CryptographicAssetType.CERTIFICATE, "cbom-restricted-2");
         Cbom cbom = newCbom("urn:uuid:cbom-restricted");
@@ -216,12 +218,43 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
 
         CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
 
-        assertThat(dto.getSyncCompleteness().getCbomStatBySyncState().values()).containsOnly(0L);
-        assertThat(dto.getSourceCbomCount()).isZero();
-        assertThat(dto.getSyncCompleteness().getLastCompletedSyncAt()).isNull();
+        assertThat(dto.getSourceCbomCount())
+                .describedAs("a permission-shaped zero would read as a never-synced estate; omit instead")
+                .isNull();
+        assertThat(dto.getSyncCompleteness()).isNull();
         assertThat(dto.getTotalAssets())
                 .describedAs("asset scope is CRYPTO_ASSET, document scope is CBOM -- the two gates are independent")
                 .isEqualTo(2L);
+    }
+
+    /**
+     * F2's partial-restriction twin: a caller who can see one of two cboms still gets the scoped counts, not the
+     * omission -- omission is reserved for a total denial.
+     */
+    @Test
+    void partialCbomRestrictionStillServesScopedCounts() {
+        UUID asset1 = seedTyped(CryptographicAssetType.ALGORITHM, "cbom-partial-1");
+        Cbom visible = newCbom("urn:uuid:cbom-partial-visible");
+        Cbom hidden = newCbom("urn:uuid:cbom-partial-hidden");
+        OffsetDateTime syncedAt = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+        syncStateWriter.markSynced(visible.getUuid(), syncedAt);
+        syncStateWriter.markSynced(hidden.getUuid(), syncedAt);
+        sourceWriter
+                .upsertSource(asset1, visible.getUuid(), Map.of("name", "cbom-partial-1"),
+                        List.of(Map.of("location", "a.c")), OffsetDateTime.now());
+
+        forbidCbomObjects(List.of(hidden.getUuid()));
+
+        CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
+
+        assertThat(dto.getSourceCbomCount())
+                .describedAs("only the visible cbom is counted; a partial restriction is not deniesEverything")
+                .isEqualTo(1L);
+        assertThat(dto.getSyncCompleteness()).isNotNull();
+        assertThat(
+                dto.getSyncCompleteness().getCbomStatBySyncState().values().stream().mapToLong(Long::longValue).sum())
+                .describedAs("only the visible cbom is in scope, even though both are synced")
+                .isEqualTo(1L);
     }
 
     // ---- helpers ----
@@ -258,6 +291,26 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
                         Mockito
                                 .argThat(req -> req != null && req.getProperties() != null
                                         && Resource.CRYPTO_ASSET.getCode().equals(req.getProperties().get("name"))
+                                        && ResourceAction.LIST.getCode().equals(req.getProperties().get("action"))),
+                        Mockito.any(), Mockito.any()))
+                .thenReturn(partial);
+    }
+
+    /**
+     * The CBOM twin of {@link #forbidCryptoAssetObjects}: stubs the OPA object-access vote for {@code cboms:list} so
+     * every uuid in {@code forbidden} is denied while the rest of the CBOM estate stays visible -- a PARTIAL
+     * restriction, as opposed to {@link #denyObjectAccess} which denies the whole resource.
+     */
+    private void forbidCbomObjects(List<UUID> forbidden) {
+        OpaObjectAccessResult partial = new OpaObjectAccessResult();
+        partial.setActionAllowedForGroupOfObjects(true);
+        partial.setAllowedObjects(List.of());
+        partial.setForbiddenObjects(forbidden.stream().map(UUID::toString).toList());
+        when(opaClient
+                .checkObjectAccess(Mockito.any(),
+                        Mockito
+                                .argThat(req -> req != null && req.getProperties() != null
+                                        && Resource.CBOM.getCode().equals(req.getProperties().get("name"))
                                         && ResourceAction.LIST.getCode().equals(req.getProperties().get("action"))),
                         Mockito.any(), Mockito.any()))
                 .thenReturn(partial);

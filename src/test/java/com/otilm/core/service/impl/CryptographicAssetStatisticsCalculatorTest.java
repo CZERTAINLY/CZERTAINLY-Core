@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CryptographicAssetStatisticsCalculatorTest {
 
@@ -79,6 +80,38 @@ class CryptographicAssetStatisticsCalculatorTest {
                 .assemble(0, Map.of(), Map.of(), Map.of(), 10, 0, Map.of(), null)
                 .getSyncCompleteness()
                 .getLastCompletedSyncAt());
+    }
+
+    /**
+     * F4: a key dense() has no declared code for is not a bucket it can silently drop -- a discarded bucket is a chart
+     * that lies.
+     */
+    @Test
+    void anUnmappedTypeKeyThrows() {
+        assertThrows(IllegalStateException.class, () -> CryptographicAssetStatisticsCalculator
+                .assemble(1, Map.of("bogus-type", 1L), Map.of(), Map.of(), 10, 0, Map.of(), null));
+    }
+
+    /**
+     * F4: statByType folds nothing (asset_type is NOT NULL, so densifying it never names a foldNullInto target). An
+     * Unassigned bucket appearing there means the invariant that every stored type is a real enum code broke, and that
+     * must fail loud rather than serve a silently-zeroed extra bucket.
+     */
+    @Test
+    void theUnassignedSentinelWithNoFoldTargetThrowsForType() {
+        assertThrows(IllegalStateException.class,
+                () -> CryptographicAssetStatisticsCalculator
+                        .assemble(1, Map.of(CryptographicAssetStatisticsCalculator.UNASSIGNED_KEY, 1L), Map.of(),
+                                Map.of(), 10, 0, Map.of(), null));
+    }
+
+    /** F4: the same rule for cbomStatBySyncState -- asset_sync_state is NOT NULL too. */
+    @Test
+    void theUnassignedSentinelWithNoFoldTargetThrowsForSyncState() {
+        assertThrows(IllegalStateException.class,
+                () -> CryptographicAssetStatisticsCalculator
+                        .assemble(0, Map.of(), Map.of(), Map.of(), 10, 0,
+                                Map.of(CryptographicAssetStatisticsCalculator.UNASSIGNED_KEY, 1L), null));
     }
 
     @Test

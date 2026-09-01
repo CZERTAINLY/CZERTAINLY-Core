@@ -39,6 +39,7 @@ import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.ObjectFilterAspect;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.security.authz.SecurityResourceFilter;
 import com.otilm.core.service.CryptographicAssetExternalService;
 import com.otilm.core.service.ResourceExtensionService;
 import com.otilm.core.util.FilterPredicatesBuilder;
@@ -52,9 +53,11 @@ import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -81,6 +84,11 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
 
     /** Top-N cap on the served algorithm-family distribution; the badge pair carries the overflow. */
     private static final int TOP_ALGORITHM_FAMILIES = 10;
+
+    // Per-source evidence is already bounded at 50 occurrences / 64KB by OccurrenceEvidenceCapper; the asset-level
+    // fan-out -- one row per contributing CBOM -- is not. 100 x ~70KB bounds the response while sourceCbomCount
+    // keeps carrying the true total, the same served-vs-true pattern occurrenceCount already uses.
+    private static final int MAX_SERVED_SOURCES = 100;
 
     // The OpenAPI schema documents 1000 as the maximum items per page; this is where it is actually enforced.
     private static final int MAX_ITEMS_PER_PAGE = 1000;
@@ -149,7 +157,40 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(CryptoAsset.class, uuid));
         List<CryptoAssetSource> sources = cryptoAssetSourceRepository.findWithCbomByAssetUuid(asset.getUuid());
-        return toDetailDto(asset, sources);
+        return toDetailDto(asset, sources, visibleCbomUuids(asset.getUuid()));
+    }
+
+    /**
+     * The CBOM documents whose content the caller may read, scoped by the caller's own {@code cboms:list} object access
+     * -- serial numbers and payloads belong to the CBOM resource, the same rule
+     * {@link #cbomSerialNumbersScopedToCaller} applies to the source-CBOM value list. Narrowed to the documents that
+     * actually contribute to this asset, mirroring {@link #hasContributedAssets}, so the EXISTS subquery stays cheap.
+     */
+    private Set<UUID> visibleCbomUuids(UUID assetUuid) {
+        SecurityFilter cbomFilter = SecurityFilter.create();
+        objectFilterAspect.populateSecurityFilter(Resource.CBOM, ResourceAction.LIST, null, null, cbomFilter);
+        // Unpaged: Pageable.unpaged() throws from window()'s getOffset()/getPageSize(), unsupported on that
+        // sentinel. A null Pageable and null order is this codebase's own idiom for "every matching uuid, no
+        // paging, no particular order" -- see CryptographicKeyServiceImpl#filterKeyItemsBySecurityFilter and
+        // CertificateServiceImpl#bulkDeleteCertificateBatch.
+        return new HashSet<>(
+                cbomRepository.findUuidsUsingSecurityFilter(cbomFilter, contributesToAsset(assetUuid), null, null));
+    }
+
+    /**
+     * {@link #hasContributedAssets}, narrowed to one asset: the EXISTS subquery a per-detail visibility scope needs.
+     */
+    private static TriFunction<Root<Cbom>, CriteriaBuilder, CriteriaQuery<?>, Predicate> contributesToAsset(
+            UUID assetUuid) {
+        return (root, cb, query) -> {
+            Subquery<Integer> contributed = query.subquery(Integer.class);
+            Root<CryptoAssetSource> source = contributed.from(CryptoAssetSource.class);
+            contributed
+                    .select(cb.literal(1))
+                    .where(cb.equal(source.get(CryptoAssetSource_.cbomUuid), root.get(UniquelyIdentified_.uuid)),
+                            cb.equal(source.get(CryptoAssetSource_.assetUuid), assetUuid));
+            return cb.exists(contributed);
+        };
     }
 
     /**
@@ -232,6 +273,13 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
             CryptographicAssetStatisticsDto dto = CryptographicAssetStatisticsCalculator
                     .assemble(totalAssets.get(), byType.get(), byVerdict.get(), byFamily.get(), TOP_ALGORITHM_FAMILIES,
                             sourceCbomCount.get(), bySyncState.get(), lastCompletedSyncAt.get());
+            if (deniesEverything(cbomFilter)) {
+                // A permission-shaped zero reads as "nothing has ever synced"; omitting the document-derived block
+                // instead states plainly that access, not the estate, is why nothing is served. Asset-side
+                // statistics above are untouched -- they are scoped by the independent CRYPTO_ASSET gate.
+                dto.setSourceCbomCount(null);
+                dto.setSyncCompleteness(null);
+            }
             log.debug("Cryptographic asset statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
             return dto;
         } catch (InterruptedException e) {
@@ -242,6 +290,19 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
             // request rather than silently serve zeros that no longer reconcile with the list.
             throw new IllegalStateException("Cryptographic asset statistics aggregation failed", e.getCause());
         }
+    }
+
+    /**
+     * Whether the populated filter denies every object of its resource outright: {@code areOnlySpecificObjectsAllowed}
+     * true with an empty allow-list -- the shape {@code ObjectFilterAspect#getResourceFilter} builds from an OPA "not
+     * allowed for the whole group of objects" vote that also names no individually allowed uuid, which is what
+     * {@code BaseSpringBootTest.denyObjectAccess} stubs. A partial restriction (some uuids allowed, or the whole group
+     * allowed with some forbidden) does not match this and keeps serving scoped counts as before.
+     */
+    private static boolean deniesEverything(SecurityFilter filter) {
+        SecurityResourceFilter resourceFilter = filter.getResourceFilter();
+        return resourceFilter != null && resourceFilter.areOnlySpecificObjectsAllowed()
+                && resourceFilter.getAllowedObjects().isEmpty();
     }
 
     /** A document contributed to the inventory when at least one asset-source row points at it. */
@@ -424,21 +485,65 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
         return dto;
     }
 
-    private static CryptographicAssetDetailDto toDetailDto(CryptoAsset asset, List<CryptoAssetSource> sources) {
+    private static CryptographicAssetDetailDto toDetailDto(CryptoAsset asset, List<CryptoAssetSource> sources,
+            Set<UUID> visibleCbomUuids) {
         CryptographicAssetDetailDto dto = new CryptographicAssetDetailDto();
         dto.setUuid(asset.getUuid());
         dto.setName(servedName(asset.getName(), asset.getOid(), asset.getIdentityGuard()));
         dto.setType(asset.getAssetType());
         dto.setPqcVerdict(servedVerdict(asset.getPqcVerdict()));
+        // GLOBAL badges: computed over every loaded row, before the CBOM visibility filter below, so they keep
+        // reconciling with the list (scoped by CRYPTO_ASSET, not CBOM) exactly as the list endpoint serves them --
+        // the visibility gate below is on per-document CONTENT, not on whether a document contributed.
         dto.setSourceCbomCount(asset.getSourceCount());
         dto.setOccurrenceCount(sources.stream().mapToLong(CryptoAssetSource::getOccurrenceCount).sum());
         dto.setQuarantined(quarantined(asset.getIdentityGuard()));
         dto.setVerdict(toVerdictDto(asset));
         dto.setNormalizedFields(toNormalizedFieldsDto(asset));
-        dto.setElectedPayload(asset.getMergedCryptoProperties());
-        dto.setSources(sources.stream().map(CryptographicAssetServiceImpl::toSourceDto).toList());
+        dto.setElectedPayload(servedElectedPayload(asset, sources, visibleCbomUuids));
+        dto.setSources(servedSources(sources, visibleCbomUuids));
         dto.setOids(toOidDtos(asset));
         return dto;
+    }
+
+    /**
+     * Serial numbers, versions and payloads belong to the CBOM resource -- same rule as
+     * {@link #cbomSerialNumbersScopedToCaller} -- so a source is served only for a CBOM the caller may see. Visible
+     * rows are then capped at {@link #MAX_SERVED_SOURCES}, oldest-first: {@code sources} already arrives in that order
+     * (see {@code CryptoAssetSourceRepository#findWithCbomByAssetUuid}), so filtering before limiting keeps it.
+     */
+    private static List<CryptographicAssetSourceDto> servedSources(List<CryptoAssetSource> sources,
+            Set<UUID> visibleCbomUuids) {
+        return sources
+                .stream()
+                .filter(source -> visibleCbomUuids.contains(source.getCbomUuid()))
+                .limit(MAX_SERVED_SOURCES)
+                .map(CryptographicAssetServiceImpl::toSourceDto)
+                .toList();
+    }
+
+    /**
+     * The elected payload is one document's payload verbatim -- {@code asset.getMergedCryptoProperties()} is not
+     * synthesised, it is the electing source's own content -- so unlike the row-level badges (counts) it is gated by
+     * that ONE document's visibility, the same rule {@link #servedSources} applies per row. Election itself stays
+     * global and deterministic: an invisible electing source suppresses the payload rather than re-electing among
+     * whatever the caller can see, which would make the served payload depend on who is asking.
+     */
+    private static Map<String, Object> servedElectedPayload(CryptoAsset asset, List<CryptoAssetSource> sources,
+            Set<UUID> visibleCbomUuids) {
+        UUID electingSourceUuid = asset.getPropertiesSourceUuid();
+        if (electingSourceUuid == null) {
+            return null;
+        }
+        // A pointer naming a row absent from the loaded list (should not happen, but is not this method's invariant
+        // to enforce) is treated the same as an invisible one: no visible row, no payload.
+        boolean electingDocumentVisible = sources
+                .stream()
+                .filter(source -> electingSourceUuid.equals(source.getUuid()))
+                .findFirst()
+                .map(source -> visibleCbomUuids.contains(source.getCbomUuid()))
+                .orElse(false);
+        return electingDocumentVisible ? asset.getMergedCryptoProperties() : null;
     }
 
     /**
@@ -500,11 +605,37 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
     /** Stored evidence is the capped producer occurrence array; the keys are CycloneDX occurrence field names. */
     private static CryptographicAssetEvidenceDto toEvidenceDto(Map<String, Object> occurrence) {
         CryptographicAssetEvidenceDto dto = new CryptographicAssetEvidenceDto();
-        dto.setLocation(occurrence.get("location") instanceof String location ? location : null);
-        dto.setLine(occurrence.get("line") instanceof Number line ? line.intValue() : null);
-        dto.setOffset(occurrence.get("offset") instanceof Number offset ? offset.intValue() : null);
-        dto.setSymbol(occurrence.get("symbol") instanceof String symbol ? symbol : null);
+        dto.setLocation(asServedText(occurrence.get("location")));
+        dto.setLine(asServedInteger(occurrence.get("line")));
+        dto.setOffset(asServedInteger(occurrence.get("offset")));
+        dto.setSymbol(asServedText(occurrence.get("symbol")));
         return dto;
+    }
+
+    /** A producer occasionally emits a numeric evidence field as a string; the value still names a real position. */
+    private static Integer asServedInteger(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Integer.valueOf(text.trim());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /** A locator or symbol served verbatim when textual, or in its decimal form when a producer emitted a number. */
+    private static String asServedText(Object value) {
+        if (value instanceof String text) {
+            return text;
+        }
+        if (value instanceof Number number) {
+            return String.valueOf(number);
+        }
+        return null;
     }
 
     private static List<CryptographicAssetOidDto> toOidDtos(CryptoAsset asset) {
