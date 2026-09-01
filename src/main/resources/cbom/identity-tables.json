@@ -53,6 +53,7 @@
   "ElGamal",
   "FFDH",
   "Falcon",
+  "Fernet",
   "Fortuna",
   "FrodoKEM",
   "GOST",
@@ -195,7 +196,8 @@
   "QR-UOV": [],
   "HAWK": [],
   "Raccoon": [],
-  "AIMer": []
+  "AIMer": [],
+  "Fernet": []
  },
  "ellipticCurves": [
   "anssi/FRP256v1",
@@ -3219,9 +3221,9 @@
    "why": "cbom-lens familyExact"
   },
   {
-   "pattern": "^RIPEMD-160$",
+   "pattern": "(?<![A-Za-z0-9])RIPEMD",
    "family": "RIPEMD",
-   "why": "cbom-lens familyExact"
+   "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` family-less, and the guard still admits the -160 and -128 spellings"
   },
   {
    "pattern": "^HSS-LMS$",
@@ -3252,6 +3254,11 @@
    "pattern": "(?<![A-Za-z0-9])Ed(25519|448)(ph|ctx)?(?![A-Za-z0-9])",
    "family": "EdDSA",
    "why": "registry has no Ed25519 family token; EdDSA is the family, Ed25519 the curve"
+  },
+  {
+   "pattern": "(?<![A-Za-z0-9])Concat(enation)?[-_ ]?KDF",
+   "family": "SP800-56C",
+   "why": "7 corpus rows name the construction rather than its standard; SP800-56C is the registry token for it, and the KDF block runs before the digests so the outer construction wins over the inner hash"
   },
   {
    "pattern": "(?<![A-Za-z0-9])PBKDF2",
@@ -3829,6 +3836,21 @@
    "why": "registry token"
   },
   {
+   "pattern": "(?<![A-Za-z0-9])GOST",
+   "family": "GOST",
+   "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` and `GOST R 34.10/34.11 (legacy)` resolved to nothing. Cipher suites naming GOST are classified as suites before family derivation runs, so they cannot reach this"
+  },
+  {
+   "pattern": "(?<![A-Za-z0-9])Skipjack",
+   "family": "Skipjack",
+   "why": "registry token with no rule; `Skipjack (broken cipher)` resolved to nothing, and a broken cipher going unnamed is the opposite of what the inventory is for"
+  },
+  {
+   "pattern": "(?<![A-Za-z0-9])Fernet",
+   "family": "Fernet",
+   "why": "pseudo-family: a real construction the registry cannot express, 5 corpus rows"
+  },
+  {
    "pattern": "(?<![A-Za-z0-9])HKDF",
    "family": "HKDF",
    "why": "registry token"
@@ -4065,6 +4087,9 @@
   "MD4": "hash",
   "MD5": "hash",
   "RIPEMD": "hash",
+  "Skipjack": "block-cipher",
+  "SP800-56C": "kdf",
+  "Fernet": "ae",
   "BLAKE3": "hash",
   "HMAC": "mac",
   "CMAC": "mac",

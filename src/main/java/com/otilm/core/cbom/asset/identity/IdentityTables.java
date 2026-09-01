@@ -65,6 +65,8 @@ public final class IdentityTables {
     private final Map<String, String> variantSynonyms;
     private final Set<String> truncatableFamilies;
     private final Set<String> sentinels;
+
+    private final Set<String> expressiblePrimitives;
     private final Map<String, String> primitiveDefaults;
     private final Map<String, String> familyTokens;
     private final Map<String, String> dnAttributeOids;
@@ -131,6 +133,10 @@ public final class IdentityTables {
         this.variantSynonyms = textMap(raw.get("variantSynonyms"));
         this.truncatableFamilies = textSet(raw.get("truncatableFamilies"));
         this.sentinels = textList(raw.get("sentinels"))
+                .stream()
+                .map(AsciiText::fold)
+                .collect(Collectors.toUnmodifiableSet());
+        this.expressiblePrimitives = textList(raw.get("primitivesExpressibleIn16"))
                 .stream()
                 .map(AsciiText::fold)
                 .collect(Collectors.toUnmodifiableSet());
@@ -245,6 +251,19 @@ public final class IdentityTables {
 
     public List<String> modeTokens() {
         return modeTokens;
+    }
+
+    /**
+     * Whether a declared primitive is one CycloneDX 1.6 can express, folded for comparison.
+     *
+     * <p>
+     * The table has shipped this vocabulary since the first cut and nothing read it, so a producer's declared primitive
+     * was the one typed slot that reached the key as raw text. A 1.7-only value such as {@code key-wrap} therefore
+     * keyed on its spelling, and the same asset rendered under 1.6 -- which cannot say it -- keyed differently. That is
+     * the split every other slot is bounded to prevent.
+     */
+    public boolean isExpressiblePrimitive(String value) {
+        return value != null && expressiblePrimitives.contains(AsciiText.fold(value));
     }
 
     public List<Pattern> cipherSuitePatterns() {

@@ -2,7 +2,7 @@
  "$comment": "Frozen byte-level conformance vectors for core#2070 (R15/D19). The identity value is SHA-256 over the pre-image encoded UTF-8, lowercase hex. A mismatch on preImage names the slot; a mismatch on identityKey alone means the hashing or encoding differs.",
  "specId": "v1",
  "hash": "sha256(preImage.encode('utf-8')).hexdigest()",
- "vectorCount": 265,
+ "vectorCount": 267,
  "vectors": [
   {
    "id": "crt-dn-public-key-target",
@@ -147,10 +147,10 @@
   },
   {
    "id": "alg-name-branch",
-   "why": "no derivable family: the normalized-name discriminator branch",
+   "why": "no derivable family: the normalized-name discriminator branch. OTR is deliberate -- it is corpus-witnessed, outside every table, and its defect-or-correct-answer ruling is still open, so it is a name this branch should keep answering for",
    "component": {
     "type": "cryptographic-asset",
-    "name": "ConcatenationKDF",
+    "name": "OTR",
     "cryptoProperties": {
      "assetType": "algorithm",
      "algorithmProperties": {}
@@ -158,8 +158,8 @@
    },
    "expected": {
     "chainStep": "alg:name",
-    "preImage": "ALG||concatenationkdf|||||concatenationkdf",
-    "identityKey": "c77ba1d6471d8d3b53fd7485b709fb79c0de6d61f91ec1ae6dc5bbf147177948"
+    "preImage": "ALG||otr|||||otr",
+    "identityKey": "b12b27f902b10e2f40eacf41838e0703afe6d93fc59af39e63f38fe813ec0b14"
    }
   },
   {
@@ -454,6 +454,69 @@
     "identityKey": "612745f3985934576bc86b8c8f6ec109894fc430f1147c1f4fd40638d6f65723",
     "innerPreImages": {
      "cipherSuites": "c:1301"
+    }
+   }
+  },
+  {
+   "id": "prt-suites-low-byte-packed",
+   "why": "a suite whose high byte is zero, packed: the rendered width must be the producer's own rounded up to an octet, not the width of the integer. Rendering the parsed value drops the leading zeros and yields `2f`, which both forks from the per-byte spelling below and collides with a malformed one-byte `[\"0x2F\"]` -- and the whole classic TLS block, 0x002F/0x0035/0x000A, lives in this range. `0x1301` cannot witness this: its high byte is non-zero, so it renders identically either way",
+   "component": {
+    "type": "cryptographic-asset",
+    "name": "web",
+    "cryptoProperties": {
+     "assetType": "protocol",
+     "protocolProperties": {
+      "type": "tls",
+      "version": "1.3",
+      "cipherSuites": [
+       {
+        "name": "TLS_RSA_WITH_AES_128_CBC_SHA",
+        "identifiers": [
+         "0x002F"
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expected": {
+    "chainStep": "prt:type+version+suites",
+    "preImage": "PRT|tls|1.3|dda91ce38c31df88c44a6376db97a25c21a7d515024280b38f7d3fcba8d26cfb",
+    "identityKey": "5bd38e9d084b4daedfa2ed5840f68514c0ec55d0c18c04576aec6e2ee786c112",
+    "innerPreImages": {
+     "cipherSuites": "c:002f"
+    }
+   }
+  },
+  {
+   "id": "prt-suites-low-byte-split",
+   "why": "the same suite one element per byte: must equal the packed spelling above, which is the property the 0x0000-0x00FF range breaks when the width comes from the integer rather than the producer",
+   "component": {
+    "type": "cryptographic-asset",
+    "name": "web",
+    "cryptoProperties": {
+     "assetType": "protocol",
+     "protocolProperties": {
+      "type": "tls",
+      "version": "1.3",
+      "cipherSuites": [
+       {
+        "name": "TLS_RSA_WITH_AES_128_CBC_SHA",
+        "identifiers": [
+         "0x00",
+         "0x2F"
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "expected": {
+    "chainStep": "prt:type+version+suites",
+    "preImage": "PRT|tls|1.3|dda91ce38c31df88c44a6376db97a25c21a7d515024280b38f7d3fcba8d26cfb",
+    "identityKey": "5bd38e9d084b4daedfa2ed5840f68514c0ec55d0c18c04576aec6e2ee786c112",
+    "innerPreImages": {
+     "cipherSuites": "c:002f"
     }
    }
   },
@@ -4276,8 +4339,8 @@
    },
    "expected": {
     "chainStep": "alg:family",
-    "preImage": "ALG|HMAC|128||CBC||fernet+aes-128,sha-2-256",
-    "identityKey": "ba5fbac54808f83965545b1e63dbdb4f947373169ab4a0f75a49776e8d05a154"
+    "preImage": "ALG|HMAC|128||CBC||aes-128,fernet,sha-2-256",
+    "identityKey": "13d4c2f5c0de0520d92496c7adee5ed299c3ff80a531358b03af12a0a8da3246"
    }
   },
   {
@@ -5604,9 +5667,9 @@
     ]
    },
    "expected": {
-    "chainStep": "alg:name",
-    "preImage": "ALG||gost%20r%2034.10/34.11%20(legacy)|||||gostrlegacy",
-    "identityKey": "d1d06c9d8ec503d2ccfb57bb2bc0cff6c0658743e57fe2ff3d6bd042f57758a4"
+    "chainStep": "alg:family",
+    "preImage": "ALG|GOST|||||rlegacy",
+    "identityKey": "cb5a7cab70ed453d762a28b3889566ffcad6fbee41a774bf0a7df72e5d540d39"
    }
   },
   {

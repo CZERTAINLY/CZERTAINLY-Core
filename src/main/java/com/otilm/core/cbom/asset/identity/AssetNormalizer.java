@@ -1002,6 +1002,14 @@ public record AssetNormalizer(IdentityTables tables) {
                 norm
                         .note("the declared primitive exceeds " + MAX_PRIMITIVE_LENGTH
                                 + " characters and was dropped rather than stored");
+            } else if (!tables.isExpressiblePrimitive(stripped)) {
+                // Same ruling as R10 on a declared algorithmFamily: a producer-supplied value outside the closed
+                // vocabulary does not enter the key. `key-wrap` is 1.7-only, so taking it verbatim keys the 1.7
+                // rendering of an asset apart from the 1.6 rendering that cannot express it -- the two-spec split
+                // every other typed slot is bounded to prevent. Derivation below still answers.
+                norm
+                        .note("R10: declared primitive " + stripped + " is not expressible in CycloneDX 1.6 and does "
+                                + "not enter the key; primitive derived instead");
             } else {
                 norm.setPrimitive(stripped);
                 return;

@@ -73,6 +73,14 @@ PSEUDO_FAMILIES = {
 # subsumption check total.
 PSEUDO_FAMILIES.update({name: [] for name in PQC_PSEUDO_FAMILIES})
 
+# Fernet is not post-quantum and not a registry token, but it is the same case: a real,
+# named construction that producers write and the registry cannot express. Five corpus
+# rows carry it as a bare name and resolved to no family at all, which is the answer that
+# loses information -- "AES-CBC plus HMAC, keyed and versioned this specific way" is a
+# construction, not an absence. Empty member set for the same reason the PQC entries have
+# one: nothing concrete can subsume it.
+PSEUDO_FAMILIES["Fernet"] = []
+
 # NOTE ON PATTERN DESIGN: every rule here is used for BOTH matching a family and
 # SUBSTITUTING the matched text out of the variant residue. A rule must therefore not
 # consume characters another slot needs — `^RSA-?\d` ate the leading digit of a key
@@ -92,7 +100,9 @@ NAME_GRAMMAR = [
             "one construction with two families decided by an underscore)"},
     {"pattern": r"^3DES-EDE-CBC$", "family": "3DES", "why": "cbom-lens familyExact"},
     {"pattern": r"^RC4-128$", "family": "RC4", "why": "cbom-lens familyExact"},
-    {"pattern": r"^RIPEMD-160$", "family": "RIPEMD", "why": "cbom-lens familyExact"},
+    {"pattern": r"(?<![A-Za-z0-9])RIPEMD", "family": "RIPEMD",
+     "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` "
+            "family-less, and the guard still admits the -160 and -128 spellings"},
     {"pattern": r"^HSS-LMS$", "family": "LMS", "why": "cbom-lens familyExact"},
     {"pattern": r"^XMSS(-MT)?$", "family": "XMSS", "why": "cbom-lens familyExact"},
     {"pattern": r"^ssh-ed25519$", "family": "EdDSA", "why": "cbom-lens familyExact"},
@@ -114,6 +124,10 @@ NAME_GRAMMAR = [
     # puts signature schemes ahead of digests. Measured on the wide corpus:
     # `PBKDF2-HMAC-SHA-256` derived HMAC and `HKDF-SHA-256` derived SHA-2, both
     # contradicted by their own OIDs.
+    {"pattern": r"(?<![A-Za-z0-9])Concat(enation)?[-_ ]?KDF", "family": "SP800-56C",
+     "why": "7 corpus rows name the construction rather than its standard; SP800-56C is the "
+            "registry token for it, and the KDF block runs before the digests so the outer "
+            "construction wins over the inner hash"},
     {"pattern": r"(?<![A-Za-z0-9])PBKDF2", "family": "PBKDF2", "why": "Cosmian KMS PBKDF2-HMAC-SHA-256"},
     {"pattern": r"(?<![A-Za-z0-9])PBKDF1", "family": "PBKDF1", "why": "registry token"},
     {"pattern": r"(?<![A-Za-z0-9])PBMAC1", "family": "PBMAC1", "why": "registry token"},
@@ -310,6 +324,15 @@ NAME_GRAMMAR = [
     {"pattern": r"(?<![A-Za-z0-9])RC6(?![A-Za-z0-9])", "family": "RC6", "why": "registry token"},
 
     # --- KDFs -------------------------------------------------------------------
+    {"pattern": r"(?<![A-Za-z0-9])GOST", "family": "GOST",
+     "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` and "
+            "`GOST R 34.10/34.11 (legacy)` resolved to nothing. Cipher suites naming GOST are "
+            "classified as suites before family derivation runs, so they cannot reach this"},
+    {"pattern": r"(?<![A-Za-z0-9])Skipjack", "family": "Skipjack",
+     "why": "registry token with no rule; `Skipjack (broken cipher)` resolved to nothing, and a "
+            "broken cipher going unnamed is the opposite of what the inventory is for"},
+    {"pattern": r"(?<![A-Za-z0-9])Fernet", "family": "Fernet",
+     "why": "pseudo-family: a real construction the registry cannot express, 5 corpus rows"},
     {"pattern": r"(?<![A-Za-z0-9])HKDF", "family": "HKDF", "why": "registry token"},
     {"pattern": r"(?<![A-Za-z0-9])PBKDF2", "family": "PBKDF2", "why": "registry token"},
     {"pattern": r"(?<![A-Za-z0-9])scrypt(?![A-Za-z0-9])", "family": "scrypt",
@@ -496,6 +519,9 @@ PRIMITIVE_DEFAULTS = {
     "MD4": "hash",
     "MD5": "hash",
     "RIPEMD": "hash",
+    "Skipjack": "block-cipher",
+    "SP800-56C": "kdf",
+    "Fernet": "ae",
     "BLAKE3": "hash",
     "HMAC": "mac",
     "CMAC": "mac",
