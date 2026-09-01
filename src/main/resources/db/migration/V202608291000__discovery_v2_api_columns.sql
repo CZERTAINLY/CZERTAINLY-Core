@@ -43,3 +43,29 @@ ALTER TABLE "discovery_certificate"
 -- so creating it first would index the table twice.
 CREATE INDEX "idx_discovery_certificate_run"
     ON "discovery_certificate" ("discovery_uuid", "i_cre", "uuid");
+
+-- The run's interface reference is declared as a real foreign key, the way secrets and
+-- authority_instance_reference declare theirs. RESTRICT rather than SET NULL: connector_interface_uuid is also what
+-- says a run was driven by v2 at all -- NULL means a legacy v1 run -- so nulling it to satisfy a cascade would
+-- reclassify finished v2 runs as v1. ConnectorServiceImpl.removeConnectorAssociations clears the reference before a
+-- connector is deleted, exactly as it already does for token and vault instances, so the cascade below it still
+-- proceeds.
+--
+-- Any reference already dangling is cleared first. Until now the column carried no constraint, so a connector
+-- force-deleted before this migration left its runs pointing at interfaces that cascade-deleted with it; the
+-- constraint cannot be added while those rows exist.
+UPDATE "discovery"
+SET "connector_interface_uuid" = NULL
+WHERE "connector_interface_uuid" IS NOT NULL
+  AND NOT EXISTS (SELECT 1
+                  FROM "connector_interface" ci
+                  WHERE ci."uuid" = "discovery"."connector_interface_uuid");
+
+-- No index on the column, matching vault_instance and authority_instance_reference: the association is loaded by
+-- connector_interface's own primary key, so a run detail never scans by it, and the only reader is the constraint
+-- check when an interface is deleted -- which happens on connector deletion, after the release above has already
+-- emptied the column.
+ALTER TABLE "discovery"
+    ADD CONSTRAINT "fk_discovery_connector_interface"
+        FOREIGN KEY ("connector_interface_uuid") REFERENCES "connector_interface" ("uuid")
+        ON UPDATE CASCADE ON DELETE RESTRICT;

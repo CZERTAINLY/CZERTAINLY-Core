@@ -51,6 +51,18 @@ public interface DiscoveryRepository extends SecurityFilterRepository<Discovery,
     void updateMessage(@Param("uuid") UUID uuid, @Param("message") String message);
 
     /**
+     * Releases every run's hold on the given connector interfaces, so deleting the connector they belong to is not
+     * refused by the reference's {@code ON DELETE RESTRICT}. A run is history and outlives its connector; what it can
+     * no longer say afterwards is which interface drove it.
+     *
+     * @return how many runs were released
+     */
+    @Modifying
+    @Query("UPDATE Discovery d SET d.connectorInterfaceUuid = NULL, d.updated = CURRENT_TIMESTAMP "
+            + "WHERE d.connectorInterfaceUuid IN :interfaceUuids")
+    int releaseConnectorInterfaces(@Param("interfaceUuids") Collection<UUID> interfaceUuids);
+
+    /**
      * Uuids of v2 runs (interface association present) still in one of {@code statuses} whose agenda is empty and that
      * were created before {@code threshold} — the tick engine can never drive them again. No row locking: the caller
      * re-asserts the condition under a per-run pessimistic lock before acting.

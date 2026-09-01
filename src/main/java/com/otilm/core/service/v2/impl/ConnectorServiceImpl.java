@@ -42,6 +42,7 @@ import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.ComplianceProfile;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Connector2FunctionGroup;
+import com.otilm.core.dao.entity.ConnectorInterfaceEntity;
 import com.otilm.core.dao.entity.Connector_;
 import com.otilm.core.dao.entity.Credential;
 import com.otilm.core.dao.entity.EntityInstanceReference;
@@ -55,6 +56,7 @@ import com.otilm.core.dao.repository.ComplianceProfileRuleRepository;
 import com.otilm.core.dao.repository.Connector2FunctionGroupRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.CredentialRepository;
+import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.dao.repository.EntityInstanceReferenceRepository;
 import com.otilm.core.dao.repository.ProxyRepository;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
@@ -116,6 +118,7 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private VaultInstanceRepository vaultInstanceRepository;
+    private DiscoveryRepository discoveryRepository;
     private ComplianceProfileRepository complianceProfileRepository;
     private ComplianceProfileRuleRepository complianceProfileRuleRepository;
     private ProxyRepository proxyRepository;
@@ -151,6 +154,11 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     @Autowired
     public void setCacheEvictor(CacheEvictor cacheEvictor) {
         this.cacheEvictor = cacheEvictor;
+    }
+
+    @Autowired
+    public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
+        this.discoveryRepository = discoveryRepository;
     }
 
     @Autowired
@@ -685,6 +693,21 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
             }
             connector.getTokenInstanceReferences().removeAll(connector.getTokenInstanceReferences());
             connectorRepository.save(connector);
+        }
+
+        if (!connector.getInterfaces().isEmpty()) {
+            // Discovery runs are not associations to be detached — they are history, and they stay. Only their hold
+            // on the interface is released, and it has to be released here: the reference is ON DELETE RESTRICT, so
+            // the interfaces would otherwise refuse to cascade away with their connector. A released run keeps every
+            // other column, but can no longer report which interface drove it.
+            int released = discoveryRepository
+                    .releaseConnectorInterfaces(
+                            connector.getInterfaces().stream().map(ConnectorInterfaceEntity::getUuid).toList());
+            if (released > 0) {
+                logger
+                        .debug("Released {} discovery run(s) from the interfaces of connector {}", released,
+                                connector.getUuid());
+            }
         }
 
         if (!connector.getVaultInstances().isEmpty()) {
