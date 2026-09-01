@@ -411,6 +411,55 @@ class TextNormalizationTest {
         assertThat(sanitize(location)).doesNotContain("SuperSecret").isEqualTo("tcp://host:443/path");
     }
 
+    /**
+     * Every user-info goes, not only the first.
+     *
+     * <p>
+     * One location can hold more than one URI, and {@code [^/?#]*} cannot cross a {@code /}, so a single replacement
+     * left every credential after the first standing. This is the live path to the served {@code evidence} column, so
+     * what survives is a stored, queryable secret.
+     */
+    @Test
+    void everyUserInfoIsStrippedNotOnlyTheFirst() {
+        assertThat(sanitize("jar:file://u1:p1@h1/a.jar!/https://u2:SECRET2@h2/b"))
+                .isEqualTo("jar:file://h1/a.jar!/https://h2/b");
+        assertThat(sanitize("kafka://u1:p1@b1:9092,kafka://u2:p2@b2:9092"))
+                .isEqualTo("kafka://b1:9092,kafka://b2:9092");
+        assertThat(sanitize("ldap://a:b@h1 ldap://c:d@h2")).isEqualTo("ldap://h1 ldap://h2");
+        assertThat(sanitize("tcp://a@h/" + Character.toString(0x1F5DD).repeat(497) + "/https://user:PASSWORD123@e"))
+                .describedAs("a larger cap must not preserve a credential the smaller one removed")
+                .doesNotContain("PASSWORD123");
+    }
+
+    /**
+     * A fragment-only location keeps its own text, because the empty string means absent.
+     *
+     * <p>
+     * A CycloneDX occurrence inside an OpenAPI or JSON document carries a JSON pointer. Cutting at position zero made
+     * every pointer the empty location, so they shared one discriminator with each other and with a component that
+     * stated no location at all.
+     */
+    @Test
+    void aFragmentOnlyLocationIsNotTheEmptyLocation() {
+        assertThat(sanitize("#/components/schemas/PrivateKey")).isEqualTo("#/components/schemas/PrivateKey");
+        assertThat(sanitize("#/components/schemas/PrivateKey"))
+                .isNotEqualTo(sanitize("#/components/schemas/PublicKey"));
+        assertThat(sanitize("#L42")).isEqualTo("#L42");
+        assertThat(sanitize("?path=/etc/ssl/private/a.key")).isEqualTo("?path=/etc/ssl/private/a.key");
+        assertThat(sanitize("a.py#L42")).describedAs("a trailing fragment on a real path still goes").isEqualTo("a.py");
+    }
+
+    /** An unpaired surrogate has no UTF-8 encoding, so it reaches neither the digest nor the jsonb column. */
+    @Test
+    void anUnpairedSurrogateIsScrubbedWhereverItSits() {
+        assertThat(sanitize("a\uD83Db")).isEqualTo("ab");
+        assertThat(sanitize("a\uDE00b")).isEqualTo("ab");
+        assertThat(sanitize("a".repeat(1023) + "\uD83D" + "b")).isEqualTo("a".repeat(1023) + "b");
+        assertThat(sanitize("a" + Character.toString(0x1F5DD) + "b"))
+                .describedAs("a well-formed pair is untouched")
+                .isEqualTo("a" + Character.toString(0x1F5DD) + "b");
+    }
+
     // ---------------------------------------------------------------- occurrence discriminator
 
     /**
@@ -482,6 +531,29 @@ class TextNormalizationTest {
         assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": \"%3F\"}]")))
                 .describedAs("a producer spelling the sentinel is escaped, so it cannot impersonate a refusal")
                 .isEqualTo("a#%253F#");
+    }
+
+    /**
+     * A position is rendered through its exact value, not through Jackson's node type.
+     *
+     * <p>
+     * {@code isIntegralNumber} asks how the producer serialized the number, so every double-spelled line collapsed onto
+     * one refusal: {@code 1.0} and {@code 2.0} keyed identically, and {@code 1e3} -- the line 1000 -- was refused for
+     * its spelling. A producer whose JSON writer emits {@code 1.0} for an integer had its discriminator degraded to
+     * location-only, which merges twelve of thirty-three distinct secret keys.
+     */
+    @Test
+    void aPositionRendersThroughItsValueNotItsSpelling() {
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 1.0}]"))).isEqualTo("a#1#");
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 2.0}]"))).isEqualTo("a#2#");
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 1e3}]"))).isEqualTo("a#1000#");
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 0.0}]"))).isEqualTo("a#0#");
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 1.0}]")))
+                .describedAs("two different lines must not key alike")
+                .isNotEqualTo(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 2.0}]")));
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": -1.5}]")))
+                .describedAs("only a genuinely fractional position names no line")
+                .isEqualTo("a#%3F#");
     }
 
     @Test

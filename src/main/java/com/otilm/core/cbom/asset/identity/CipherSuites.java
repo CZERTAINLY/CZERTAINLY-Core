@@ -36,6 +36,14 @@ public final class CipherSuites {
      * spelling of it.
      *
      * <p>
+     * The width is the <b>producer's</b>, rounded up to a whole octet -- never the width of the parsed value.
+     * {@code Integer.toHexString} drops leading zeros, so padding its output restored a nibble instead of an octet and
+     * the merge held only for a non-zero high byte: {@code ["0x002F"]} rendered {@code 2f} where
+     * {@code ["0x00", "0x2F"]} rendered {@code 002f}. That forked every suite in {@code 0x0000}-{@code 0x00FF} between
+     * its two spellings -- the classic TLS block, {@code 0x002F} {@code TLS_RSA_WITH_AES_128_CBC_SHA} among them -- and
+     * also let a packed {@code 0x002F} collide with a malformed one-byte {@code ["0x2F"]}.
+     *
+     * <p>
      * Bytes are joined in <b>array order, before any sorting</b>, because flattening across suites collides:
      * {@code {0xC02B, 0x1301}} and {@code {0xC001, 0x132B}} share a byte multiset and would otherwise hash alike.
      *
@@ -67,10 +75,15 @@ public final class CipherSuites {
 
     /** Appends every token of one element, or returns {@code false} for a list this implementation cannot read. */
     private static boolean appendOctets(String element, StringBuilder octets) {
-        for (String token : element.split(",")) {
+        // Limit -1 keeps trailing empty tokens, which the default drops: "," split with the default yields no tokens
+        // at all, so the blank check below never saw it and the element contributed nothing silently.
+        for (String token : element.split(",", -1)) {
             String trimmed = AsciiText.strip(token);
             if (trimmed.isEmpty()) {
-                continue;
+                // Skipped, a blank token made ["0x13","","0x01"] render byte-identically to the well-formed
+                // ["0x13","0x01"], which is the impersonation the non-textual branch above refuses. The two rules
+                // now agree: anything in the list this implementation cannot read costs the whole code.
+                return false;
             }
             String hex = octetsOf(AsciiText.fold(trimmed));
             if (hex == null) {
@@ -105,8 +118,13 @@ public final class CipherSuites {
             if (value > MAX_CODE_UNIT) {
                 return null;
             }
+            // The producer's own width, rounded up to a whole octet -- not the width of the parsed value.
+            // Integer.toHexString drops leading zeros, so padding its result restored a nibble rather than an
+            // octet: ["0x002F"] rendered 2f where ["0x00","0x2F"] rendered 002f, forking every suite in
+            // 0x0000-0x00FF -- the classic TLS block -- between its packed and per-byte spellings.
+            int width = digits.length() + (digits.length() & 1);
             String hex = Integer.toHexString(value);
-            return hex.length() % 2 == 0 ? hex : "0" + hex;
+            return "0".repeat(width - hex.length()) + hex;
         } catch (NumberFormatException e) {
             // More hex digits than an int holds. HEX_DIGITS already passed, so this is length alone.
             return null;
@@ -130,7 +148,9 @@ public final class CipherSuites {
         if (suites == null || !suites.isArray()) {
             return null;
         }
-        TreeSet<String> tokens = new TreeSet<>();
+        // Code-point order, not Java's UTF-16 order: this set is hashed into the protocol tier, and a bare TreeSet
+        // sorted two suite names with astral characters opposite to the way the occurrence triples sort them.
+        TreeSet<String> tokens = new TreeSet<>(AsciiText.BY_CODE_POINT);
         for (JsonNode suite : suites) {
             if (!suite.isObject()) {
                 continue;

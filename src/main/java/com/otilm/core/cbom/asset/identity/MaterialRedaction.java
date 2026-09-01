@@ -151,13 +151,40 @@ public final class MaterialRedaction {
      * digest is exactly as reversible as the one {@link #digestPublishable} refuses to publish.
      */
     private static void withholdFingerprint(ObjectNode materialNode, String materialType, List<String> findings) {
-        JsonNode fingerprint = materialNode.get("fingerprint");
-        if (fingerprint == null || !fingerprint.isObject() || !fingerprint.has("content")
-                || digestPublishable(materialType)) {
+        if (digestPublishable(materialType)) {
             return;
         }
-        ((ObjectNode) fingerprint).remove("content");
-        findings.add("fingerprint digest withheld: " + materialType + " is low-entropy material");
+        withholdDigestMember(materialNode, "fingerprint", materialType, findings);
+        withholdDigestMember(materialNode, "digest", materialType, findings);
+    }
+
+    /**
+     * Removes one digest-bearing member of low-entropy material, whatever shape the producer gave it.
+     *
+     * <p>
+     * <b>Fails closed on a shape it does not recognise.</b> Testing {@code isObject() && has("content")} and returning
+     * otherwise meant every other spelling passed straight through with no finding raised: a string
+     * {@code fingerprint: "sha256:5e8848..."}, an array of one, an object keyed {@code sha256} rather than
+     * {@code content}, and a nested {@code {"x": {"content": ...}}} all carried an unsalted SHA-256 of a password into
+     * the served payload. Only the one covered spelling was withheld.
+     *
+     * <p>
+     * Eighty lines up, a non-textual {@code value} is dropped rather than passed through for this same reason. Now that
+     * the envelope publishes no digest for any type, this is the only stored-payload enforcement of the low-entropy
+     * rule left, so an unrecognised shape is removed whole rather than trusted.
+     */
+    private static void withholdDigestMember(ObjectNode materialNode, String member, String materialType,
+            List<String> findings) {
+        JsonNode node = materialNode.get(member);
+        if (node == null || node.isNull()) {
+            return;
+        }
+        if (node.isObject() && node.has(CbomNames.CONTENT) && node.size() > 1) {
+            ((ObjectNode) node).remove(CbomNames.CONTENT);
+        } else {
+            materialNode.remove(member);
+        }
+        findings.add(member + " digest withheld: " + materialType + " is low-entropy material");
     }
 
     /** The redacted properties. This is what may be stored, keyed, logged or served. */

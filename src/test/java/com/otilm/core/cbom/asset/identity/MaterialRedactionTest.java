@@ -148,6 +148,61 @@ class MaterialRedactionTest {
         assertThat(redaction.identityDigest()).isNull();
     }
 
+    /**
+     * Every shape of a digest-bearing member goes for low-entropy material, not only the one covered shape.
+     *
+     * <p>
+     * A secret scanner fingerprints what it found so it can dedupe findings across runs, and that digest is exactly as
+     * reversible as the one the envelope withholds. Testing {@code isObject() && has("content")} and returning
+     * otherwise let a string, an array, an object keyed {@code sha256} and a nested object each carry an unsalted
+     * SHA-256 of a password into the served payload with no finding raised.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "\"sha256:5e884898da280471\"",
+            "[\"sha256:5e884898da280471\"]",
+            "{\"sha256\":\"5e884898da280471\"}",
+            "{\"x\":{\"content\":\"5e884898da280471\"}}",
+            "{\"content\":\"5e884898da280471\"}"})
+    void everyFingerprintShapeIsWithheldForLowEntropyMaterial(String fingerprint) {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\",\"fingerprint\":" + fingerprint
+                        + "}}"));
+
+        assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471");
+        assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest withheld"));
+    }
+
+    /** The sibling {@code digest} member carries the same hazard and the same rule. */
+    @Test
+    void aBareDigestMemberIsWithheldToo() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\","
+                        + "\"digest\":\"5e884898da280471\"}}"));
+
+        assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471");
+        assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest withheld"));
+    }
+
+    /** Publishable material keeps its fingerprint: the withhold rule is about low-entropy types only. */
+    @Test
+    void aPublishableTypeKeepsItsFingerprint() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\","
+                        + "\"fingerprint\":{\"content\":\"aabb\"}}}"));
+
+        assertThat(redaction.payload().toString()).contains("aabb");
+    }
+
+    /** An absent fingerprint raises nothing, so the finding list stays a signal rather than noise. */
+    @Test
+    void anAbsentFingerprintRaisesNoFinding() {
+        MaterialRedaction redaction = redact("password", "hunter2");
+
+        assertThat(redaction.findings())
+                .noneSatisfy(finding -> assertThat(finding).contains("fingerprint digest withheld"));
+    }
+
     private static MaterialRedaction redact(String type, String value) {
         return MaterialRedaction
                 .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"" + type + "\",\"value\":" + quote(value)

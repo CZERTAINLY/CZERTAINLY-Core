@@ -76,6 +76,15 @@ public final class ValidityTimestamps {
      * An unparseable value is returned rather than discarded: it is still a fact the producer stated, and two
      * certificates differing only in an unparseable validity must not merge. The empty string means absent, which is
      * distinct from every present value.
+     *
+     * <p>
+     * <b>An unparseable value is returned exactly as written</b>, stripped of surrounding whitespace and nothing else.
+     * The fraction-stripping and zone-case folding apply only to the parse attempt, so the two guarantees this class
+     * advertises -- that sub-second precision carries no identity, and that a spelling cannot key a value -- hold for
+     * the set of values that parse and not beyond it. {@code 2025-02-30T00:00:00Z}, {@code 2025-02-30T00:00:00.000Z}
+     * and {@code 2025-02-30t00:00:00z} are one calendar-invalid date in three spellings, and they key three ways.
+     * Normalizing the fallback instead would put {@code release.1} back on the path that turned it into
+     * {@code release}, which is the defect the anchored pattern exists to prevent.
      */
     public static String normalize(String raw) {
         if (raw == null || AsciiText.isBlank(raw)) {

@@ -1,5 +1,6 @@
 package com.otilm.core.cbom.asset.identity;
 
+import java.util.Comparator;
 import java.util.regex.Pattern;
 
 /**
@@ -53,6 +54,35 @@ public final class AsciiText {
     private static final Pattern LOOKUP_SEPARATORS = Pattern.compile("[" + PYTHON_WHITESPACE + "_\\-/]+");
 
     private static final Pattern WHITESPACE_RUN = Pattern.compile("[" + PYTHON_WHITESPACE + "]+");
+
+    /**
+     * Orders by code point, so an astral character sorts above every basic-plane one, as the reference does.
+     *
+     * <p>
+     * Java's natural {@code String} order compares UTF-16 units, which sorts a supplementary character <em>below</em>
+     * {@code U+E000}-{@code U+FFFF}, because its high surrogate is {@code U+D800}-{@code U+DBFF}. Every sorted sequence
+     * that reaches a pre-image or a canonical rendering has to use this instead of {@code compareTo} or a bare
+     * {@code TreeSet}.
+     *
+     * <p>
+     * It lives here rather than in any one of its callers because all of them are load-bearing for byte-exactness, so a
+     * correction has to land in one place. Three sequences depend on it today: canonical object member order, the
+     * occurrence triples, and the cipher-suite tokens.
+     */
+    public static final Comparator<String> BY_CODE_POINT = (left, right) -> {
+        int leftIndex = 0;
+        int rightIndex = 0;
+        while (leftIndex < left.length() && rightIndex < right.length()) {
+            int leftPoint = left.codePointAt(leftIndex);
+            int rightPoint = right.codePointAt(rightIndex);
+            if (leftPoint != rightPoint) {
+                return Integer.compare(leftPoint, rightPoint);
+            }
+            leftIndex += Character.charCount(leftPoint);
+            rightIndex += Character.charCount(rightPoint);
+        }
+        return Integer.compare(left.length() - leftIndex, right.length() - rightIndex);
+    };
 
     private AsciiText() {
     }

@@ -1,6 +1,7 @@
 package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -20,12 +21,33 @@ public final class Occurrences {
     /** Everything from the first {@code ?} or {@code #} onward: query strings and fragments carry session tokens. */
     private static final Pattern QUERY_OR_FRAGMENT = Pattern.compile("[?#]");
 
-    /** {@code scheme://user:pass@host} -- a real shape, and the reason a raw location must never be hashed. */
+    /**
+     * {@code scheme://user:pass@host} -- a real shape, and the reason a raw location must never be hashed.
+     *
+     * <p>
+     * Replaced <b>globally</b>, not once. One location can hold more than one URI: an archive scanner writes
+     * {@code jar:file://u:p@h/a.jar!/https://u2:p2@h2/b} and a Kafka bootstrap list is comma-separated. Because
+     * {@code [^/?#]*} cannot cross a {@code /}, a single replacement leaves every credential after the first standing
+     * -- and this is the one method in this package on the live path to the served {@code evidence} column, so what
+     * survives here is a stored, queryable secret.
+     */
     private static final Pattern USERINFO = Pattern.compile("://[^/?#]*@");
+
+    /**
+     * An unpaired surrogate, which is well-formed to Java and has no encoding at all in UTF-8.
+     *
+     * <p>
+     * {@link IdentityDigests#sha256Hex} refuses one, so a component carrying it becomes a reported skip and vanishes
+     * from the inventory; the same string also has no valid encoding for the {@code jsonb} evidence column. Scrubbing
+     * is unconditional rather than a cap-boundary repair, because a producer can put one anywhere in the string and
+     * only the cut position was ever guarded.
+     */
+    private static final Pattern UNPAIRED_SURROGATE = Pattern
+            .compile("[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])" + "|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]");
 
     private static final int MAX_LOCATION_LENGTH = 1024;
 
-    private static final Comparator<String> CODE_POINT_ORDER = Occurrences::compareCodePoints;
+    private static final Comparator<String> CODE_POINT_ORDER = AsciiText.BY_CODE_POINT;
 
     private Occurrences() {
     }
@@ -90,9 +112,29 @@ public final class Occurrences {
             return "";
         }
         String text = AsciiText.strip(location);
-        text = QUERY_OR_FRAGMENT.split(text, 2)[0];
-        text = USERINFO.matcher(text).replaceFirst("://");
+        text = withoutQueryOrFragment(text);
+        text = USERINFO.matcher(text).replaceAll("://");
+        text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
         return text.substring(0, capBoundary(text));
+    }
+
+    /**
+     * The location up to its first {@code ?} or {@code #}, unless the delimiter is the first character.
+     *
+     * <p>
+     * A location that <em>begins</em> with the delimiter is all fragment, and cutting at position zero rendered it as
+     * the empty string -- which is what an absent location renders as. A CycloneDX occurrence inside an OpenAPI or JSON
+     * document carries a JSON pointer, so {@code #/components/schemas/PrivateKey} and
+     * {@code #/components/schemas/PublicKey} both became the empty location and then shared one discriminator with each
+     * other and with every component that stated no location at all.
+     *
+     * <p>
+     * Such a location keeps its own text instead. It states something, and the query-and-fragment rule exists to drop a
+     * <em>trailing</em> session token from a real path, not to erase a pointer that is the whole reference.
+     */
+    private static String withoutQueryOrFragment(String text) {
+        String[] halves = QUERY_OR_FRAGMENT.split(text, 2);
+        return halves[0].isEmpty() ? text : halves[0];
     }
 
     /**
@@ -101,9 +143,13 @@ public final class Occurrences {
      * <p>
      * The specification and the reference count characters; Java's {@code length()} counts UTF-16 storage units. The
      * two disagree from the first astral character onward, so a location of 1024 emoji was capped at 512 here and at
-     * 1024 by the reference -- one location, two keys. Cutting on a code-point boundary also makes the lone-surrogate
-     * case impossible rather than repaired: the old boundary check existed only because the unit count could land
-     * between the halves of a pair.
+     * 1024 by the reference -- one location, two keys.
+     *
+     * <p>
+     * Cutting on a code-point boundary means the cap can no longer <em>create</em> a lone surrogate, which is the case
+     * the old positional guard was written for. It says nothing about one already present in the producer's text, which
+     * the cap can now carry through where the old boundary sometimes happened to trim it -- so
+     * {@link #UNPAIRED_SURROGATE} scrubs those explicitly rather than relying on where the cut lands.
      *
      * <p>
      * The cap is the last step of {@link #sanitizeLocation}, after the query, fragment and user-info have already gone,
@@ -130,36 +176,49 @@ public final class Occurrences {
      * Renders a line or offset into its position of the triple.
      *
      * <p>
-     * Escaped like any other slot value, because a producer controls it and a crafted string could otherwise forge a
-     * triple boundary.
+     * Escaped like any other slot value, because a producer controls it. Note what that does and does not buy:
+     * {@link PreImageSlot} escapes {@code %}, {@code |}, space, tab, CR and LF, but <b>not</b> {@code #}, which is this
+     * triple's own delimiter. So a textual position can still move the boundary between the line and offset fields --
+     * {@code line="1#2", offset="3"} and {@code line="1", offset="2#3"} both render {@code a#1#2#3}. The producer
+     * states all three fields either way, and the schema types line and offset as integers so a textual value is
+     * schema-invalid, but the escaping is not what prevents it.
      *
      * <p>
-     * A non-integral number has no exact integer to render, so it is refused rather than rounded or spelled out --
-     * {@code JsonNode.asText()} on {@code 1.5} keys on the producer's serializer. Refusal is not absence, so it renders
-     * as {@link #REFUSED_POSITION}.
+     * A number is rendered through its exact decimal value, so {@code 1.0} and {@code 2.0} stay apart and {@code 1e3}
+     * renders as the line {@code 1000} it names. {@code isIntegralNumber} was the wrong test: it asks Jackson's node
+     * type, not the value, so every double-serialized line collapsed onto one refusal -- and a producer whose JSON
+     * writer emits {@code 1.0} for an integer had its discriminator degraded to location-only.
+     *
+     * <p>
+     * Only a genuinely fractional position has no line to name, and that renders as {@link #REFUSED_POSITION} rather
+     * than as the empty slot, because refusal is not absence.
      */
     private static String slot(JsonNode value) {
         if (value == null || value.isNull() || value.isMissingNode()) {
             return "";
         }
         if (value.isNumber()) {
-            return value.isIntegralNumber() ? PreImageSlot.of(value.bigIntegerValue().toString()) : REFUSED_POSITION;
+            // The sentinel bypasses PreImageSlot deliberately. Escaping it would render it %253F, which is exactly
+            // what a producer spelling "%3F" renders as -- restoring the collision the sentinel exists to avoid.
+            String exact = exactPosition(value);
+            return exact == null ? REFUSED_POSITION : PreImageSlot.of(exact);
         }
         return PreImageSlot.of(value.asText());
     }
 
-    private static int compareCodePoints(String left, String right) {
-        int leftIndex = 0;
-        int rightIndex = 0;
-        while (leftIndex < left.length() && rightIndex < right.length()) {
-            int leftCodePoint = left.codePointAt(leftIndex);
-            int rightCodePoint = right.codePointAt(rightIndex);
-            if (leftCodePoint != rightCodePoint) {
-                return Integer.compare(leftCodePoint, rightCodePoint);
-            }
-            leftIndex += Character.charCount(leftCodePoint);
-            rightIndex += Character.charCount(rightCodePoint);
+    /**
+     * A numeric position as an exact integer, or {@code null} when it names no integer at all.
+     *
+     * <p>
+     * {@code stripTrailingZeros().toPlainString()} is exact and JDK-stable, which {@code asText()} is not:
+     * {@code JsonNode.asText()} on a large integral node can yield exponent notation, keying one line two ways
+     * depending on how the producer serialized it.
+     */
+    private static String exactPosition(JsonNode value) {
+        if (value.isIntegralNumber()) {
+            return value.bigIntegerValue().toString();
         }
-        return Integer.compare(left.length() - leftIndex, right.length() - rightIndex);
+        BigDecimal exact = value.decimalValue().stripTrailingZeros();
+        return exact.scale() <= 0 ? exact.toPlainString() : null;
     }
 }
