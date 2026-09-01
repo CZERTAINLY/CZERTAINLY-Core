@@ -18,7 +18,13 @@ import java.util.regex.Pattern;
  */
 public final class Occurrences {
 
-    /** Everything from the first {@code ?} or {@code #} onward: query strings and fragments carry session tokens. */
+    /**
+     * Everything from the first {@code ?} or {@code #} onward: query strings and fragments carry session tokens.
+     *
+     * <p>
+     * A match at position zero is the one case where the text before the delimiter is not the answer -- see
+     * {@link #withoutQueryOrFragment}, which keeps a leading fragment's <em>text</em> without keeping its delimiter.
+     */
     private static final Pattern QUERY_OR_FRAGMENT = Pattern.compile("[?#]");
 
     /**
@@ -30,8 +36,20 @@ public final class Occurrences {
      * {@code [^/?#]*} cannot cross a {@code /}, a single replacement leaves every credential after the first standing
      * -- and this is the one method in this package on the live path to the served {@code evidence} column, so what
      * survives here is a stored, queryable secret.
+     *
+     * <p>
+     * <b>The authority, not the scheme delimiter.</b> Anchoring on a literal {@code ://} missed a network-path
+     * reference: {@code //user:secret@host/x} is a well-formed URI reference that {@link java.net.URI} parses with
+     * {@code userInfo=user:secret}, and it is what a scanner emits for a protocol-relative URL. The alternation keeps
+     * the matched prefix so both spellings survive the replacement intact.
+     *
+     * <p>
+     * {@code [^/?#]*} stays <b>greedy</b> on purpose. A comma-separated multi-host authority --
+     * {@code mongodb://u1:p1@h1,u2:p2@h2/db} -- carries two credentials under one {@code //}, and a lazy quantifier
+     * stops at the first {@code @} and leaves the second standing. Greedy costs the first host, which is fidelity; lazy
+     * costs a credential, which is the thing this pattern exists for.
      */
-    private static final Pattern USERINFO = Pattern.compile("://[^/?#]*@");
+    private static final Pattern USERINFO = Pattern.compile("(^//|://)[^/?#]*@");
 
     /**
      * An unpaired surrogate, which is well-formed to Java and has no encoding at all in UTF-8.
@@ -98,7 +116,9 @@ public final class Occurrences {
      * <p>
      * {@code tcp://user:pass@host:443} is a real shape, and the location feeds the identity key for version-less
      * protocols and identity-less material -- so unsanitized, a password would be hashed into the key and stored in the
-     * evidence payload. The query and fragment go too: they carry session tokens and do not identify a location.
+     * evidence payload. A query string goes too, wherever it sits: it carries session tokens and identifies no
+     * location. A fragment goes with it, except when the location <em>is</em> the fragment -- a JSON pointer states a
+     * place, and {@link #withoutQueryOrFragment} keeps its text without its delimiter.
      */
     public static String sanitizeLocation(JsonNode location) {
         if (location == null || !location.isTextual() || AsciiText.isBlank(location.textValue())) {
@@ -124,7 +144,7 @@ public final class Occurrences {
         String text = AsciiText.strip(location);
         text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
         text = withoutQueryOrFragment(text);
-        text = USERINFO.matcher(text).replaceAll("://");
+        text = USERINFO.matcher(text).replaceAll("$1");
         return text.substring(0, capBoundary(text));
     }
 
@@ -139,14 +159,24 @@ public final class Occurrences {
      * other and with every component that stated no location at all.
      *
      * <p>
-     * Such a location keeps its own text instead. It states something, and the query-and-fragment rule exists to drop a
-     * <em>trailing</em> session token from a real path, not to erase a pointer that is the whole reference.
+     * Such a location keeps its own <em>text</em> instead, without its delimiter. It states something, and the
+     * query-and-fragment rule exists to drop a <em>trailing</em> session token from a real path, not to erase a pointer
+     * that is the whole reference.
      *
      * <p>
-     * <b>Only a leading {@code #} earns that.</b> A pointer keeps its text but still loses a query of its own, and a
-     * location beginning with {@code ?} names no place at all -- it is a bare query string, so keeping it verbatim
-     * would store exactly the session token this rule exists to drop. That one renders as the empty location, which is
-     * what stating no location renders as, because it states no location.
+     * <b>The delimiter itself does not come back.</b> {@code #} is the separator of the occurrence triple and the
+     * location slot is the one slot {@link PreImageSlot} does not escape, so a location that carries a {@code #} can
+     * forge a triple: with a newline in the same string, one occurrence renders as two triple lines. Returning the text
+     * whole re-opened that -- 234 colliding one-occurrence-against-two pairs over <code>{#, ?, \n, a, b, 1, 2}</code>,
+     * none before. Cutting after the delimiter keeps the pointer distinct and restores the invariant that made a
+     * newline harmless, without opening the escape set and re-keying every row.
+     *
+     * <p>
+     * <b>Only a leading {@code #} earns retention at all.</b> A pointer states a place; a location beginning with
+     * {@code ?} is a bare query string -- {@code ?X-Amz-Signature=}, {@code ?sig=}, {@code ?token=} are the shapes this
+     * rule was written for -- so keeping it verbatim would store exactly the session token the rule drops. It renders
+     * as the empty location. A sentinel distinguishable from absence would be better, as it is for a refused position,
+     * but this slot is unescaped: any sentinel a location could carry, a producer can also spell.
      */
     private static String withoutQueryOrFragment(String text) {
         String[] halves = QUERY_OR_FRAGMENT.split(text, 2);
@@ -156,7 +186,7 @@ public final class Occurrences {
         if (text.charAt(0) != '#') {
             return "";
         }
-        return "#" + QUERY_OR_FRAGMENT.split(text.substring(1), 2)[0];
+        return QUERY_OR_FRAGMENT.split(text.substring(1), 2)[0];
     }
 
     /**
@@ -206,10 +236,10 @@ public final class Occurrences {
      * schema-invalid, but the escaping is not what prevents it.
      *
      * <p>
-     * A number is rendered through its exact decimal value, so {@code 1.0} and {@code 2.0} stay apart and {@code 1e3}
-     * renders as the line {@code 1000} it names. {@code isIntegralNumber} was the wrong test: it asks Jackson's node
-     * type, not the value, so every double-serialized line collapsed onto one refusal -- and a producer whose JSON
-     * writer emits {@code 1.0} for an integer had its discriminator degraded to location-only.
+     * A number is rendered through its value rather than its spelling, so {@code 1.0} and {@code 2.0} stay apart and
+     * {@code 1e3} renders as the line {@code 1000} it names. {@code isIntegralNumber} was the wrong test: it asks
+     * Jackson's node type, not the value, so every double-serialized line collapsed onto one refusal -- and a producer
+     * whose JSON writer emits {@code 1.0} for an integer had its discriminator degraded to location-only.
      *
      * <p>
      * Only a genuinely fractional position has no line to name, and that renders as {@link #REFUSED_POSITION} rather
@@ -232,9 +262,18 @@ public final class Occurrences {
      * A numeric position as an exact integer, or {@code null} when it names no integer at all.
      *
      * <p>
-     * {@code stripTrailingZeros().toPlainString()} is exact and JDK-stable, which {@code asText()} is not:
-     * {@code JsonNode.asText()} on a large integral node can yield exponent notation, keying one line two ways
-     * depending on how the producer serialized it.
+     * <b>What the rendered string is.</b> {@code decimalValue()} on a double node is {@code BigDecimal.valueOf}, whose
+     * contract is {@code new BigDecimal(Double.toString(d))} -- so the keyed string is the shortest decimal that round
+     * trips, zero-expanded, not the value's exact binary expansion: {@code 1e23} keys as
+     * {@code 100000000000000000000000} while the double it names is {@code 99999999999999991611392}. That is a narrower
+     * dependency than {@code asText()}'s, which yielded exponent notation for a large integral node and keyed one line
+     * two ways on the producer's serializer, but it is not none: {@code Double.toString}'s algorithm was rewritten in
+     * JDK 19 (JDK-4511638). Using {@code new BigDecimal(double)} would remove it entirely at the cost of diverging from
+     * the reference kernel's rendering, so the dependency is recorded rather than closed.
+     *
+     * <p>
+     * A position that underflows to zero -- {@code 1e-1000} -- keys as the line {@code 0}, because it parses to the
+     * double {@code 0.0} before this method sees it and nothing downstream can tell the two apart.
      */
     private static String exactPosition(JsonNode value) {
         if (value.isIntegralNumber()) {

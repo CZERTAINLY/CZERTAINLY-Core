@@ -170,7 +170,52 @@ class MaterialRedactionTest {
                         + "}}"));
 
         assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471");
-        assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest withheld"));
+        assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("fingerprint"));
+    }
+
+    /**
+     * The member name is not enumerable, so the rule is an allowlist.
+     *
+     * <p>
+     * None of these is a CycloneDX field -- they are all producer extensions, and a two-name withhold list let eight of
+     * ten carry an unsalted SHA-256 of a password into the served payload with no finding at all.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "hash",
+            "hashes",
+            "sha256",
+            "checksum",
+            "thumbprint",
+            "md5",
+            "fingerprints",
+            "Fingerprint",
+            "fingerprint",
+            "digest"})
+    void anyUncontractedMemberIsDroppedForLowEntropyMaterial(String member) {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\",\"" + member
+                        + "\":\"5e884898da280471\"}}"));
+
+        assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471");
+        assertThat(redaction.findings())
+                .anySatisfy(finding -> assertThat(finding).contains("uncontracted members dropped").contains(member));
+    }
+
+    /** A contracted member is not an extension: the allowlist must not eat the pipeline's own fields. */
+    @Test
+    void everyContractedMemberSurvivesLowEntropyMaterial() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\",\"id\":\"k1\","
+                        + "\"state\":\"active\",\"format\":\"raw\",\"size\":256,\"securedBy\":{\"mechanism\":\"HSM\"},"
+                        + "\"algorithmRef\":\"a1\",\"creationDate\":\"2026-01-01T00:00:00Z\"}}"));
+
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/id").asText()).isEqualTo("k1");
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/size").asInt()).isEqualTo(256);
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/securedBy/mechanism").asText())
+                .isEqualTo("HSM");
+        assertThat(redaction.findings())
+                .noneSatisfy(finding -> assertThat(finding).contains("uncontracted members dropped"));
     }
 
     /**
@@ -198,7 +243,7 @@ class MaterialRedactionTest {
                         + "\"digest\":\"5e884898da280471\"}}"));
 
         assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471");
-        assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest withheld"));
+        assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest"));
     }
 
     /** Publishable material keeps its fingerprint: the withhold rule is about low-entropy types only. */
@@ -211,13 +256,15 @@ class MaterialRedactionTest {
         assertThat(redaction.payload().toString()).contains("aabb");
     }
 
-    /** An absent fingerprint raises nothing, so the finding list stays a signal rather than noise. */
+    /**
+     * A block carrying only contracted members raises nothing, so the finding list stays a signal rather than noise.
+     */
     @Test
     void anAbsentFingerprintRaisesNoFinding() {
         MaterialRedaction redaction = redact("password", "hunter2");
 
         assertThat(redaction.findings())
-                .noneSatisfy(finding -> assertThat(finding).contains("fingerprint digest withheld"));
+                .noneSatisfy(finding -> assertThat(finding).contains("uncontracted members dropped"));
     }
 
     private static MaterialRedaction redact(String type, String value) {

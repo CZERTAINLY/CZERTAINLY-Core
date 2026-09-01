@@ -87,7 +87,7 @@ public final class MaterialRedaction {
         // Before the value branch, and independent of it. A scanner that fingerprints a detected secret to dedupe its
         // findings emits the same unsalted digest the withhold rule below refuses to publish -- and it does so in a
         // sibling member that the value redaction never touches, on a block that may carry no inlined value at all.
-        withholdFingerprint(materialNode, materialType, findings);
+        dropUncontractedMembers(materialNode, materialType, findings);
 
         if (!materialNode.has(CbomNames.VALUE)) {
             return new MaterialRedaction(payload, materialType, null, null, null, List.copyOf(findings));
@@ -146,47 +146,52 @@ public final class MaterialRedaction {
     }
 
     /**
-     * Removes a fingerprint digest of low-entropy material. {@code value} is not the only member that can carry the
-     * plaintext's digest: a secret scanner fingerprints what it found so it can dedupe findings across runs, and that
-     * digest is exactly as reversible as the one {@link #digestPublishable} refuses to publish.
+     * The members of {@code relatedCryptoMaterialProperties} this pipeline contracts for.
+     *
+     * <p>
+     * Everything else is a producer extension. For low-entropy material the extensions are dropped rather than
+     * enumerated, because {@code value} is not the only member that can carry the plaintext's digest and the set of
+     * names that can is open: a secret scanner fingerprints what it found so it can dedupe findings across runs, and
+     * that digest is exactly as reversible as the one {@link #digestPublishable} refuses to publish.
      */
-    private static void withholdFingerprint(ObjectNode materialNode, String materialType, List<String> findings) {
+    private static final Set<String> CONTRACTED_MEMBERS = Set
+            .of("type", "id", "state", "algorithmRef", "creationDate", "activationDate", "updateDate", "expirationDate",
+                    "value", "size", "format", "securedBy");
+
+    /**
+     * Drops every uncontracted member of low-entropy material, and says which.
+     *
+     * <p>
+     * <b>An allowlist, because the hazard is open-ended.</b> The predecessor named {@code fingerprint} and
+     * {@code digest} and withheld those two: {@code hash}, {@code hashes}, {@code sha256}, {@code checksum},
+     * {@code thumbprint}, {@code md5}, {@code fingerprints} and even {@code Fingerprint} -- the match was
+     * case-sensitive -- each carried an unsalted SHA-256 of a password into the served payload with no finding raised.
+     * None of those is a CycloneDX field, which is what makes enumeration the wrong shape of defence: the next scanner
+     * invents the eleventh name and it fails open again, silently, exactly as five of six spellings did before.
+     *
+     * <p>
+     * Inverting it costs a producer's harmless extensions on low-entropy material only, and costs them loudly -- the
+     * finding names every member removed, so nothing disappears without a record. This is the same instinct as dropping
+     * an unrecognised value <em>shape</em> rather than trusting it, applied to the member name.
+     */
+    private static void dropUncontractedMembers(ObjectNode materialNode, String materialType, List<String> findings) {
         if (digestPublishable(materialType)) {
             return;
         }
-        withholdDigestMember(materialNode, "fingerprint", materialType, findings);
-        withholdDigestMember(materialNode, "digest", materialType, findings);
-    }
-
-    /**
-     * Removes one digest-bearing member of low-entropy material, whatever shape the producer gave it.
-     *
-     * <p>
-     * <b>Fails closed on a shape it does not recognise.</b> Testing {@code isObject() && has("content")} and returning
-     * otherwise meant every other spelling passed straight through with no finding raised: a string
-     * {@code fingerprint: "sha256:5e8848..."}, an array of one, an object keyed {@code sha256} rather than
-     * {@code content}, and a nested {@code {"x": {"content": ...}}} all carried an unsalted SHA-256 of a password into
-     * the served payload. Only the one covered spelling was withheld.
-     *
-     * <p>
-     * Eighty lines up, a non-textual {@code value} is dropped rather than passed through for this same reason. Now that
-     * the envelope publishes no digest for any type, this is the only stored-payload enforcement of the low-entropy
-     * rule left, so an unrecognised shape is removed whole rather than trusted.
-     *
-     * <p>
-     * <b>The member goes whole, siblings included.</b> Removing only the recognised {@code content} and keeping the
-     * rest trusted the siblings: {@code {"alg": "sha-256", "content": "decoy", "x": {"content": <digest>}}} lost the
-     * decoy and stored the nested digest. An {@code alg} with no content states nothing worth keeping, so there is no
-     * shape whose recognised part is worth the risk of mis-recognising the rest.
-     */
-    private static void withholdDigestMember(ObjectNode materialNode, String member, String materialType,
-            List<String> findings) {
-        JsonNode node = materialNode.get(member);
-        if (node == null || node.isNull()) {
+        List<String> dropped = new ArrayList<>();
+        materialNode.fieldNames().forEachRemaining(name -> {
+            if (!CONTRACTED_MEMBERS.contains(name)) {
+                dropped.add(name);
+            }
+        });
+        if (dropped.isEmpty()) {
             return;
         }
-        materialNode.remove(member);
-        findings.add(member + " digest withheld: " + materialType + " is low-entropy material");
+        dropped.sort(AsciiText.BY_CODE_POINT);
+        dropped.forEach(materialNode::remove);
+        findings
+                .add("uncontracted members dropped for low-entropy material, any of which may carry a reversible "
+                        + "digest of the plaintext: " + String.join(", ", dropped));
     }
 
     /** The redacted properties. This is what may be stored, keyed, logged or served. */

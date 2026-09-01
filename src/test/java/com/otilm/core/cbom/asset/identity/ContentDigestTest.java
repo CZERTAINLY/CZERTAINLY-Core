@@ -475,4 +475,24 @@ class ContentDigestTest {
             throw new IllegalArgumentException("test fixture is not JSON: " + json, e);
         }
     }
+
+    /**
+     * A blank algorithm label is the same silence as an absent one.
+     *
+     * <p>
+     * {@code isTextual()} is true for {@code "  "}, so the default was skipped and the label folded to the empty
+     * string: one certificate forked between {@code :aa} and {@code sha-256:aa} on whether its producer wrote a blank
+     * alg or none.
+     */
+    @Test
+    void aBlankAlgorithmLabelTakesTheDefault() {
+        String absent = CertificateDigests.fingerprintDigest(read("{\"fingerprint\":{\"content\":\"aa\"}}"));
+
+        assertThat(CertificateDigests.fingerprintDigest(read("{\"fingerprint\":{\"alg\":\"  \",\"content\":\"aa\"}}")))
+                .isEqualTo(absent);
+        assertThat(CertificateDigests.fingerprintDigest(read("{\"fingerprint\":{\"alg\":\"\",\"content\":\"aa\"}}")))
+                .isEqualTo(absent);
+        assertThat(absent).doesNotStartWith(":");
+    }
+
 }

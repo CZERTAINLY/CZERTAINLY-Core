@@ -83,6 +83,13 @@ public final class CipherSuites {
                 // Skipped, a blank token made ["0x13","","0x01"] render byte-identically to the well-formed
                 // ["0x13","0x01"], which is the impersonation the non-textual branch above refuses. The two rules
                 // now agree: anything in the list this implementation cannot read costs the whole code.
+                //
+                // That doctrine is deliberate and it has a cost worth stating: a merely sloppy list pays the same
+                // price as an unreadable one, so ["0x13,"] -- one unambiguous octet with a trailing comma -- yields no
+                // code, and tokens() falls back from c:13 to n:<NAME>, re-keying the protocol tier. Exempting a
+                // leading or trailing empty token would rescue it, at the price of a rule with two halves: an empty
+                // token is either readable or it is not, and deciding by position is a guess about producer intent.
+                // One rule, uniformly fail-closed, is the arm chosen here.
                 return false;
             }
             String hex = octetsOf(AsciiText.fold(trimmed));

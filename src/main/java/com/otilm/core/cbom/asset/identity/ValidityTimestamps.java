@@ -83,8 +83,19 @@ public final class ValidityTimestamps {
      * advertises -- that sub-second precision carries no identity, and that a spelling cannot key a value -- hold for
      * the set of values that parse and not beyond it. {@code 2025-02-30T00:00:00Z}, {@code 2025-02-30T00:00:00.000Z}
      * and {@code 2025-02-30t00:00:00z} are one calendar-invalid date in three spellings, and they key three ways.
-     * Normalizing the fallback instead would put {@code release.1} back on the path that turned it into
-     * {@code release}, which is the defect the anchored pattern exists to prevent.
+     *
+     * <p>
+     * Returning {@code parseCandidate} instead would put the unconditional {@code z -> Z} fold back on every
+     * unparseable value: {@code zebra-2025} keys as {@code Zebra-2025} and {@code cert-z-serial} as
+     * {@code cert-Z-serial}, which is the {@code main} defect the previous round closed. The anchored {@link #FRACTION}
+     * already protects {@code release.1} and {@code v1.2.3} -- measured directly at this head, both are returned
+     * untouched -- so it is the zone fold, not the fraction strip, that puts the two arms in tension.
+     *
+     * <p>
+     * A third arm exists: strip the fraction on the fallback and do <em>not</em> fold the zone case. That folds
+     * {@code .000Z} onto {@code Z}, leaves {@code zebra-2025} alone, and leaves only the lowercase spelling keying
+     * apart. It is a real option, declined because "returned exactly as written" is a contract a reader can hold in one
+     * sentence and "fraction stripped, case kept" is not, and because the corpus carries zero rows either way.
      */
     public static String normalize(String raw) {
         if (raw == null || AsciiText.isBlank(raw)) {

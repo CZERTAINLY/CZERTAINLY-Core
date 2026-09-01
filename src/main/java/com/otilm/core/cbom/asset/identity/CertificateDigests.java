@@ -48,10 +48,13 @@ public final class CertificateDigests {
             return null;
         }
         // A container alg made the "sha-256" default unreachable and rendered the claim ":aa", because asText() on an
-        // object or array yields the empty string rather than null.
+        // object or array yields the empty string rather than null. A blank textual alg reached the same claim by the
+        // other side: isTextual() is true, so the default was skipped and the label folded to "" -- and one
+        // certificate then forked between ":aa" and "sha-256:aa" on whether its alg was blank or absent, which are two
+        // spellings of the same silence. Blank-checked after the fold, the way the content is twelve lines up.
         JsonNode algorithm = fingerprint.get("alg");
-        String label = algorithm != null && algorithm.isTextual() ? algorithm.textValue() : "sha-256";
-        return claim(canonicalLabel(label), content);
+        String label = algorithm != null && algorithm.isTextual() ? canonicalLabel(algorithm.textValue()) : "";
+        return claim(label.isEmpty() ? AsciiText.fold("sha-256") : label, content);
     }
 
     /**

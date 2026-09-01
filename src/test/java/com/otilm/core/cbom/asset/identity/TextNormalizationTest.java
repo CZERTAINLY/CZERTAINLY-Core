@@ -441,10 +441,10 @@ class TextNormalizationTest {
      */
     @Test
     void aFragmentOnlyLocationIsNotTheEmptyLocation() {
-        assertThat(sanitize("#/components/schemas/PrivateKey")).isEqualTo("#/components/schemas/PrivateKey");
+        assertThat(sanitize("#/components/schemas/PrivateKey")).isEqualTo("/components/schemas/PrivateKey");
         assertThat(sanitize("#/components/schemas/PrivateKey"))
                 .isNotEqualTo(sanitize("#/components/schemas/PublicKey"));
-        assertThat(sanitize("#L42")).isEqualTo("#L42");
+        assertThat(sanitize("#L42")).isEqualTo("L42");
         assertThat(sanitize("a.py#L42")).describedAs("a trailing fragment on a real path still goes").isEqualTo("a.py");
     }
 
@@ -459,8 +459,42 @@ class TextNormalizationTest {
     void aLeadingDelimiterNeverKeepsAQueryString() {
         assertThat(sanitize("?session=SECRETTOKEN&sig=HMACSECRET")).isEmpty();
         assertThat(sanitize("#/components/schemas/PrivateKey?session=SECRETTOKEN"))
-                .isEqualTo("#/components/schemas/PrivateKey");
-        assertThat(sanitize("#frag?session=SECRETTOKEN")).isEqualTo("#frag");
+                .isEqualTo("/components/schemas/PrivateKey");
+        assertThat(sanitize("#frag?session=SECRETTOKEN")).isEqualTo("frag");
+    }
+
+    /**
+     * No sanitized location carries the triple's own separator.
+     *
+     * <p>
+     * The location slot is the one slot {@link PreImageSlot} does not escape, so a location holding a {@code #} and a
+     * newline renders as two triple lines and one occurrence impersonates two. Keeping a leading fragment's delimiter
+     * re-opened this; keeping only its text closes it, because a {@code #} can then never reach the slot at all.
+     */
+    @Test
+    void noSanitizedLocationCarriesTheTripleSeparator() {
+        assertThat(sanitize("##\na")).doesNotContain("#");
+        assertThat(sanitize("#a##\nb#1#2")).doesNotContain("#");
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"##\\na\"}]")))
+                .describedAs("one occurrence cannot render as two triples")
+                .isNotEqualTo(Occurrences.triples(occurrences("[{},{\"location\": \"a\"}]")));
+    }
+
+    /**
+     * A network-path reference carries user-info too.
+     *
+     * <p>
+     * {@code //user:secret@host/x} is a well-formed URI reference that {@code java.net.URI} parses with
+     * {@code userInfo=user:secret}, and it is what a scanner emits for a protocol-relative URL. Anchoring the pattern
+     * on a literal {@code ://} let it through.
+     */
+    @Test
+    void aNetworkPathReferenceLosesItsCredentialToo() {
+        assertThat(sanitize("//user:secret@host/x")).isEqualTo("//host/x");
+        assertThat(sanitize("x://user:secret@host/x")).isEqualTo("x://host/x");
+        assertThat(sanitize("kafka://u1:p1@b1:9092,kafka://u2:p2@b2:9092"))
+                .describedAs("every credential, not the first")
+                .isEqualTo("kafka://b1:9092,kafka://b2:9092");
     }
 
     /**
