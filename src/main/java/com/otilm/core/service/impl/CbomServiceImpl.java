@@ -24,6 +24,7 @@ import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.cbom.client.CbomRepositoryClient;
 import com.otilm.core.comparator.SearchFieldDataComparator;
@@ -93,9 +94,16 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
 
     private TransactionHandler transactionHandler;
 
+    private AttributeColumnProjector attributeColumnProjector;
+
     @Autowired
     public void setCbomRepository(CbomRepository cbomRepository) {
         this.cbomRepository = cbomRepository;
+    }
+
+    @Autowired
+    public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
+        this.attributeColumnProjector = attributeColumnProjector;
     }
 
     @Autowired
@@ -133,6 +141,8 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
                 .stream()
                 .map(Cbom::mapToDto)
                 .toList();
+        attributeColumnProjector.project(Resource.CBOM, request.getColumns(), cbomDtos, CbomDto::getUuid);
+
         final Long maxItems = cbomRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         logger.getLogger().debug("Found {} CBOMs out of {} total", cbomDtos.size(), maxItems);

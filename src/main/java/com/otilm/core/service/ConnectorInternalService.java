@@ -23,4 +23,5 @@ public interface ConnectorInternalService extends ResourceExtensionService {
             throws ConnectorException, AttributeException, NotFoundException;
 
     ApiClientConnectorInfo getConnectorForApiClient(UUID connectorUuid) throws NotFoundException;
+
 }

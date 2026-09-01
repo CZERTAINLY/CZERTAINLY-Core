@@ -17,6 +17,9 @@ public interface ConnectorRepository extends SecurityFilterRepository<Connector,
 
     Optional<Connector> findByUuid(UUID uuid);
 
+    @EntityGraph(attributePaths = {"interfaces", "functionGroups", "functionGroups.functionGroup", "proxy"})
+    Optional<Connector> findWithInterfacesAndFunctionGroupsByUuid(UUID uuid);
+
     @EntityGraph(attributePaths = {"interfaces"})
     Optional<Connector> findWithInterfacesByUuid(UUID uuid);
 
