@@ -18,11 +18,13 @@ package com.otilm.core.cbom.asset.identity;
  *
  * <p>
  * <b>{@code #} is deliberately not in the set.</b> It is the separator of the occurrence triple, owned by
- * {@link Occurrences#slot} rather than by this class, and a triple can only be forged through it by a <em>textual</em>
- * line or offset -- which the schema types as an integer and the upload gate refuses before this code runs. Adding it
- * here would re-key every occurrence-bearing row to close a case that is already rejected upstream, so the separator is
- * documented rather than escaped. A reader asking "why is {@code #} missing?" should find the answer here; if the
- * upload gate ever stops refusing a textual position, this is the paragraph that has to change with it.
+ * {@link Occurrences#slot} rather than by this class, and a triple can be forged through it by a <em>textual</em> line
+ * or offset: {@code {"line": "1#2", "offset": "3"}} and {@code {"line": "1", "offset": "2#3"}} render one slot. What
+ * keeps that out is the CycloneDX schema typing both as integers, not this escape set and not any check in core --
+ * {@code Occurrences.slot} renders a textual position without complaint if one arrives. Adding {@code #} here would
+ * re-key every occurrence-bearing row, so the exposure is documented rather than escaped, and it is an argument about
+ * cost, not a claim that the case is impossible. A reader asking "why is {@code #} missing?" should find the answer
+ * here; if a textual position ever becomes reachable, this is the paragraph that has to change with it.
  */
 public final class PreImageSlot {
 

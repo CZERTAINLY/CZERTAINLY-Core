@@ -445,8 +445,37 @@ class TextNormalizationTest {
         assertThat(sanitize("#/components/schemas/PrivateKey"))
                 .isNotEqualTo(sanitize("#/components/schemas/PublicKey"));
         assertThat(sanitize("#L42")).isEqualTo("#L42");
-        assertThat(sanitize("?path=/etc/ssl/private/a.key")).isEqualTo("?path=/etc/ssl/private/a.key");
         assertThat(sanitize("a.py#L42")).describedAs("a trailing fragment on a real path still goes").isEqualTo("a.py");
+    }
+
+    /**
+     * The kept pointer is a fragment, not a licence to keep a query.
+     *
+     * <p>
+     * A location beginning with {@code ?} is a bare query string naming no place, so keeping it verbatim stored the
+     * session token the query rule exists to drop -- and a pointer with a query of its own kept that token too.
+     */
+    @Test
+    void aLeadingDelimiterNeverKeepsAQueryString() {
+        assertThat(sanitize("?session=SECRETTOKEN&sig=HMACSECRET")).isEmpty();
+        assertThat(sanitize("#/components/schemas/PrivateKey?session=SECRETTOKEN"))
+                .isEqualTo("#/components/schemas/PrivateKey");
+        assertThat(sanitize("#frag?session=SECRETTOKEN")).isEqualTo("#frag");
+    }
+
+    /**
+     * The surrogate scrub runs before the credential strip, because removal can create what the strip looks for.
+     *
+     * <p>
+     * {@code x:\uD800//user:pass@host} does not match the user-info pattern. Scrubbing after the strip rendered
+     * {@code x://user:pass@host} -- a well-formed location carrying the credential into the digest and the evidence
+     * column, where the retained surrogate had previously made the whole string unhashable.
+     */
+    @Test
+    void aSurrogateCannotSmuggleACredentialPastTheStrip() {
+        assertThat(sanitize("x:\uD800//user:pass@host")).isEqualTo("x://host");
+        assertThat(sanitize(":/\uD800/user:pass@host")).isEqualTo("://host");
+        assertThat(sanitize("x://user:pass@host")).isEqualTo("x://host");
     }
 
     /** An unpaired surrogate has no UTF-8 encoding, so it reaches neither the digest nor the jsonb column. */
@@ -554,6 +583,20 @@ class TextNormalizationTest {
         assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": -1.5}]")))
                 .describedAs("only a genuinely fractional position names no line")
                 .isEqualTo("a#%3F#");
+    }
+
+    /**
+     * An overflowing position is refused, not fatal.
+     *
+     * <p>
+     * A JSON {@code 1e999} parses to {@code Infinity}, and {@code BigDecimal.valueOf(Infinity)} throws -- so rendering
+     * the exact value threw {@code NumberFormatException} out of the reducer on a producer-controlled number. The
+     * sentinel exists precisely so an unusable position cannot key as absent; it has to catch this one too.
+     */
+    @Test
+    void anOverflowingPositionReachesTheSentinelRatherThanThrowing() {
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": 1e999}]"))).isEqualTo("a#%3F#");
+        assertThat(Occurrences.triples(occurrences("[{\"location\": \"a\", \"line\": -1e999}]"))).isEqualTo("a#%3F#");
     }
 
     @Test

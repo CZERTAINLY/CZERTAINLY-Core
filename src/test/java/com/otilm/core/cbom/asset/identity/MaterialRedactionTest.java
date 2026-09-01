@@ -173,6 +173,23 @@ class MaterialRedactionTest {
         assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest withheld"));
     }
 
+    /**
+     * The withheld member goes whole, so a sibling cannot carry the digest through.
+     *
+     * <p>
+     * Removing only the recognised {@code content} trusted whatever sat beside it: the decoy went and the nested digest
+     * was stored.
+     */
+    @Test
+    void aSiblingCannotCarryTheWithheldDigestThrough() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\",\"fingerprint\":"
+                        + "{\"alg\":\"sha-256\",\"content\":\"decoy\",\"x\":{\"content\":\"5e884898da280471\"}}}}"));
+
+        assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471").doesNotContain("decoy");
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/fingerprint").isMissingNode()).isTrue();
+    }
+
     /** The sibling {@code digest} member carries the same hazard and the same rule. */
     @Test
     void aBareDigestMemberIsWithheldToo() {

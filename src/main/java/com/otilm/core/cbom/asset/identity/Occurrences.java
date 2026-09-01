@@ -107,14 +107,24 @@ public final class Occurrences {
         return sanitizeLocation(location.textValue());
     }
 
+    /**
+     * Sanitizes in an order the steps cannot undo for each other.
+     *
+     * <p>
+     * <b>The surrogate scrub goes first.</b> Removing a lone surrogate can <em>create</em> the {@code ://...@} shape
+     * that {@link #USERINFO} strips: {@code x:\uD800//user:pass@host} does not match the pattern, and scrubbing after
+     * the strip yields {@code x://user:pass@host} -- a well-formed, hashable location with the credential intact.
+     * Scrubbing first cannot have the mirror effect, because deleting a surrogate introduces no {@code ?}, {@code #},
+     * {@code @} or {@code :} for a later step to miss.
+     */
     public static String sanitizeLocation(String location) {
         if (AsciiText.isBlank(location)) {
             return "";
         }
         String text = AsciiText.strip(location);
+        text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
         text = withoutQueryOrFragment(text);
         text = USERINFO.matcher(text).replaceAll("://");
-        text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
         return text.substring(0, capBoundary(text));
     }
 
@@ -131,10 +141,22 @@ public final class Occurrences {
      * <p>
      * Such a location keeps its own text instead. It states something, and the query-and-fragment rule exists to drop a
      * <em>trailing</em> session token from a real path, not to erase a pointer that is the whole reference.
+     *
+     * <p>
+     * <b>Only a leading {@code #} earns that.</b> A pointer keeps its text but still loses a query of its own, and a
+     * location beginning with {@code ?} names no place at all -- it is a bare query string, so keeping it verbatim
+     * would store exactly the session token this rule exists to drop. That one renders as the empty location, which is
+     * what stating no location renders as, because it states no location.
      */
     private static String withoutQueryOrFragment(String text) {
         String[] halves = QUERY_OR_FRAGMENT.split(text, 2);
-        return halves[0].isEmpty() ? text : halves[0];
+        if (!halves[0].isEmpty()) {
+            return halves[0];
+        }
+        if (text.charAt(0) != '#') {
+            return "";
+        }
+        return "#" + QUERY_OR_FRAGMENT.split(text.substring(1), 2)[0];
     }
 
     /**
@@ -217,6 +239,11 @@ public final class Occurrences {
     private static String exactPosition(JsonNode value) {
         if (value.isIntegralNumber()) {
             return value.bigIntegerValue().toString();
+        }
+        if (value.isFloatingPointNumber() && !Double.isFinite(value.doubleValue())) {
+            // A JSON 1e999 parses to Infinity, and BigDecimal.valueOf(Infinity) throws. The sentinel exists so an
+            // unusable position is refused rather than fatal, so the overflow spelling has to reach it, not bypass it.
+            return null;
         }
         BigDecimal exact = value.decimalValue().stripTrailingZeros();
         return exact.scale() <= 0 ? exact.toPlainString() : null;

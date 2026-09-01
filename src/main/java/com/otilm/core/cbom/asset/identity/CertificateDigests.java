@@ -37,10 +37,10 @@ public final class CertificateDigests {
         }
         JsonNode contentNode = fingerprint.get(CbomNames.CONTENT);
         if (contentNode == null || !contentNode.isTextual()) {
-            // Textual only, and blank-checked after the strip rather than before it. isPresent tests asText() on the
-            // raw node, so " " passed it and rendered the claim "sha-256:" -- and two unrelated certificates then
-            // shared that first preference-order claim and merged onto one content-digest tier. A boolean or numeric
-            // content passed it too, keying on "true".
+            // Textual only, and blank-checked after the strip rather than before it. The predecessor tested asText()
+            // on the raw node, so " " passed it and rendered the claim "sha-256:" -- and two unrelated certificates
+            // then shared that first preference-order claim and merged onto one content-digest tier. A boolean or
+            // numeric content passed it too, keying on "true".
             return null;
         }
         String content = AsciiText.fold(AsciiText.strip(contentNode.textValue()));
@@ -186,7 +186,4 @@ public final class CertificateDigests {
         };
     }
 
-    static boolean isPresent(JsonNode node) {
-        return node != null && !node.isNull() && !node.asText().isEmpty();
-    }
 }

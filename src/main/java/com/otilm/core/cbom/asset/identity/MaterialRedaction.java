@@ -172,6 +172,12 @@ public final class MaterialRedaction {
      * Eighty lines up, a non-textual {@code value} is dropped rather than passed through for this same reason. Now that
      * the envelope publishes no digest for any type, this is the only stored-payload enforcement of the low-entropy
      * rule left, so an unrecognised shape is removed whole rather than trusted.
+     *
+     * <p>
+     * <b>The member goes whole, siblings included.</b> Removing only the recognised {@code content} and keeping the
+     * rest trusted the siblings: {@code {"alg": "sha-256", "content": "decoy", "x": {"content": <digest>}}} lost the
+     * decoy and stored the nested digest. An {@code alg} with no content states nothing worth keeping, so there is no
+     * shape whose recognised part is worth the risk of mis-recognising the rest.
      */
     private static void withholdDigestMember(ObjectNode materialNode, String member, String materialType,
             List<String> findings) {
@@ -179,11 +185,7 @@ public final class MaterialRedaction {
         if (node == null || node.isNull()) {
             return;
         }
-        if (node.isObject() && node.has(CbomNames.CONTENT) && node.size() > 1) {
-            ((ObjectNode) node).remove(CbomNames.CONTENT);
-        } else {
-            materialNode.remove(member);
-        }
+        materialNode.remove(member);
         findings.add(member + " digest withheld: " + materialType + " is low-entropy material");
     }
 
