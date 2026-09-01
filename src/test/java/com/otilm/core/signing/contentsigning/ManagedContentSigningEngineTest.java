@@ -7,6 +7,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.common.enums.cryptography.KeyType;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.connector.signatures.contentsigning.common.ComputeDtbsRequestDto;
 import com.otilm.api.model.connector.signatures.contentsigning.common.ComputeDtbsResponseDto;
@@ -24,6 +25,7 @@ import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.model.crypto.CryptographicKeyItemModel;
 import com.otilm.core.model.crypto.CryptographicKeyItemModelFixtures;
+import com.otilm.core.model.signing.CertificatePurposeRequirements;
 import com.otilm.core.model.signing.SigningCertificate;
 import com.otilm.core.model.signing.SigningCertificateBuilder;
 import com.otilm.core.model.signing.resolved.ResolvedManagedContentSigningProfile;
@@ -48,6 +50,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -58,6 +61,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 
+import static com.otilm.core.util.CertificateTestData.DOCUMENT_SIGNING_OID;
 import static com.otilm.core.util.builders.ResolvedManagedContentSigningProfileBuilder.aResolvedContentSigningProfile;
 import static com.otilm.core.util.builders.SigningProfileModelBuilder.aSigningProfile;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,6 +82,8 @@ class ManagedContentSigningEngineTest {
     private static final byte[] DOCUMENT = "a document".getBytes();
 
     private static final Instant PLATFORM_TIME = Instant.parse("2026-03-04T11:25:00Z");
+
+    private static final SignatureAlgorithm SIGNATURE_ALGORITHM = SignatureAlgorithm.SHA256_WITH_RSA_PSS;
 
     @Mock
     ContentSigningFormattingClient formattingClient;
@@ -100,10 +106,11 @@ class ManagedContentSigningEngineTest {
     void createEngine() throws SigningEngineException {
         engine = new ManagedContentSigningEngine(formattingClient, acquisitions, signingCertificateValidatorFactory,
                 TestClockSource.ofWallTime(PLATFORM_TIME), signingRecordStrategyFactory, recordFactory);
+        lenient().when(acquisitions.signatureAlgorithm(any())).thenReturn(SIGNATURE_ALGORITHM);
         lenient().when(signingRecordStrategyFactory.strategyFor(any())).thenReturn(signingRecordStrategy);
         lenient().when(signingCertificateValidatorFactory.getValidator(any())).thenReturn(signingCertificateValidator);
         lenient()
-                .when(signingCertificateValidator.validate(any(), any(), anyBoolean()))
+                .when(signingCertificateValidator.validate(any(), any(), anyBoolean(), any()))
                 .thenReturn(ValidationResult.ok());
     }
 
@@ -168,6 +175,88 @@ class ManagedContentSigningEngineTest {
             assertThat(captured.getValue().getFormattingContext()).isEqualTo("context".getBytes());
             assertThat(captured.getValue().getSignatureValue()).isEqualTo("signature".getBytes());
             assertThat(captured.getValue().getFamily()).isEqualTo(profile.family());
+        }
+
+        @Test
+        void namesTheResolvedSignersAlgorithmOnBothHalvesOfThePair() throws SigningEngineException {
+            // given
+            ResolvedManagedContentSigningProfile profile = aSignedOnlyProfile();
+            stubComputeDtbs(digestOf(DOCUMENT));
+            when(acquisitions.signatureValue(any(), any())).thenReturn("signature".getBytes());
+            stubEmbedSignatureValue("signed document".getBytes());
+
+            // when
+            engine.sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API);
+
+            // then
+            ArgumentCaptor<ComputeDtbsRequestDto> compute = ArgumentCaptor.forClass(ComputeDtbsRequestDto.class);
+            ArgumentCaptor<EmbedSignatureValueRequestDto> embed = ArgumentCaptor
+                    .forClass(EmbedSignatureValueRequestDto.class);
+            verify(formattingClient).computeDtbs(any(), compute.capture());
+            verify(formattingClient).embedSignatureValue(any(), embed.capture());
+            assertThat(compute.getValue().getSignatureAlgorithm()).isEqualTo(SIGNATURE_ALGORITHM);
+            assertThat(embed.getValue().getSignatureAlgorithm()).isEqualTo(compute.getValue().getSignatureAlgorithm());
+        }
+
+        @Test
+        void resolvesTheSignersAlgorithmOnceForTheRun() throws SigningEngineException {
+            // given
+            ResolvedManagedContentSigningProfile profile = aSignedOnlyProfile();
+            stubComputeDtbs(digestOf(DOCUMENT));
+            when(acquisitions.signatureValue(any(), any())).thenReturn("signature".getBytes());
+            stubEmbedSignatureValue("signed document".getBytes());
+
+            // when
+            engine.sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API);
+
+            // then
+            verify(acquisitions).signatureAlgorithm(profile);
+        }
+
+        /**
+         * A scheme whose algorithm cannot be resolved has no signature the connector could prepare for, so the run
+         * stops before the connector is asked to format anything.
+         */
+        @Test
+        void refusesBeforeComputeDtbsWhenTheSignersAlgorithmCannotBeResolved() throws SigningEngineException {
+            // given
+            ResolvedManagedContentSigningProfile profile = aSignedOnlyProfile();
+            when(acquisitions.signatureAlgorithm(profile))
+                    .thenThrow(new SigningEngineException(SigningEngineFailure.MISCONFIGURED,
+                            "no SignerCreator supports the scheme", "The system is misconfigured."));
+
+            // when
+            SigningEngineException thrown = catchThrowableOfType(() -> engine
+                    .sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API),
+                    SigningEngineException.class);
+
+            // then
+            assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.MISCONFIGURED);
+            verify(formattingClient, never()).computeDtbs(any(), any());
+            verify(acquisitions, never()).signatureValue(any(), any());
+        }
+
+        /**
+         * v1 policy pins the authorized digest to the one the signer's algorithm signs, so a profile that disagrees
+         * with the request can be satisfied by no connector. The run stops before it asks one, which is what keeps the
+         * binding gate from reporting an operator's misconfiguration as a connector fault.
+         */
+        @Test
+        void refusesBeforeComputeDtbsWhenTheAuthorizedDigestIsNotTheOneTheSignerSigns() throws SigningEngineException {
+            // given
+            ResolvedManagedContentSigningProfile profile = aSignedOnlyProfile();
+            when(acquisitions.signatureAlgorithm(profile)).thenReturn(SignatureAlgorithm.SHA512_WITH_RSA);
+
+            // when
+            SigningEngineException thrown = catchThrowableOfType(() -> engine
+                    .sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API),
+                    SigningEngineException.class);
+
+            // then
+            assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.INVALID_INPUT);
+            assertThat(thrown.operatorMessage()).contains("SHA512withRSA", "SHA-256");
+            verify(formattingClient, never()).computeDtbs(any(), any());
+            verify(acquisitions, never()).signatureValue(any(), any());
         }
 
         @Test
@@ -583,7 +672,7 @@ class ManagedContentSigningEngineTest {
         void augmentsWithASigningCertificateThatIsNoLongerFitToSign() throws SigningEngineException {
             // given: a certificate a signing run would refuse, on a path that releases none of the profile's own keys
             ResolvedManagedContentSigningProfile profile = profileWithCertificate(
-                    SigningCertificateBuilder.aSigningCertificate().state(CertificateState.REVOKED).build());
+                    SigningCertificateBuilder.aContentSigningCertificate().state(CertificateState.REVOKED).build());
             stubSignatureTimestampImprint(new byte[32]);
             stubIssuedTimestamp(BigInteger.ONE);
             stubEmbedSignatureTimestamp("timestamped foreign document".getBytes());
@@ -653,7 +742,7 @@ class ManagedContentSigningEngineTest {
         void refusesToSignWithARevokedCertificate() {
             // given
             ResolvedManagedContentSigningProfile profile = profileWithCertificate(
-                    SigningCertificateBuilder.aSigningCertificate().state(CertificateState.REVOKED).build());
+                    SigningCertificateBuilder.aContentSigningCertificate().state(CertificateState.REVOKED).build());
 
             // when
             SigningEngineException thrown = catchThrowableOfType(() -> engine
@@ -671,7 +760,7 @@ class ManagedContentSigningEngineTest {
         void refusesToSignWithAnArchivedCertificate() {
             // given
             ResolvedManagedContentSigningProfile profile = profileWithCertificate(
-                    SigningCertificateBuilder.aSigningCertificate().archived(true).build());
+                    SigningCertificateBuilder.aContentSigningCertificate().archived(true).build());
 
             // when
             SigningEngineException thrown = catchThrowableOfType(() -> engine
@@ -688,7 +777,8 @@ class ManagedContentSigningEngineTest {
         @Test
         void refusesToSignWithADeactivatedSigningKey() {
             // given
-            ResolvedManagedContentSigningProfile profile = profileWithKeyItems(SigningCertificateBuilder.valid(),
+            ResolvedManagedContentSigningProfile profile = profileWithKeyItems(
+                    SigningCertificateBuilder.aContentSigningCertificate().build(),
                     List
                             .of(CryptographicKeyItemModelFixtures
                                     .keyItem(KeyType.PRIVATE_KEY, KeyAlgorithm.RSA, KeyState.DEACTIVATED,
@@ -708,10 +798,44 @@ class ManagedContentSigningEngineTest {
         }
 
         @Test
+        void refusesToSignWhenTheCertificateMissesTheProfilesRequiredKeyUsage() {
+            // given: a certificate that satisfies the default purpose rule but not the profile's own demand
+            ResolvedManagedContentSigningProfile profile = profileWithCertificatePurpose(
+                    SigningCertificateBuilder.aContentSigningCertificate().build(),
+                    new CertificatePurposeRequirements(true, Set.of()));
+
+            // when
+            SigningEngineException thrown = catchThrowableOfType(() -> engine
+                    .sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API),
+                    SigningEngineException.class);
+
+            // then
+            assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.MISCONFIGURED);
+            assertThat(thrown.operatorMessage()).contains(REFUSAL_DETAIL).contains(profile.name());
+        }
+
+        @Test
+        void refusesToSignWhenTheCertificateMissesTheProfilesRequiredExtendedKeyUsage() {
+            // given
+            ResolvedManagedContentSigningProfile profile = profileWithCertificatePurpose(
+                    SigningCertificateBuilder.aContentSigningCertificate().build(),
+                    new CertificatePurposeRequirements(false, Set.of(DOCUMENT_SIGNING_OID)));
+
+            // when
+            SigningEngineException thrown = catchThrowableOfType(() -> engine
+                    .sign(request(SignatureLevel.SIGNED), aSigningProfile().build(), profile, SigningProtocol.CSC_API),
+                    SigningEngineException.class);
+
+            // then
+            assertThat(thrown.failure()).isEqualTo(SigningEngineFailure.MISCONFIGURED);
+            assertThat(thrown.operatorMessage()).contains(REFUSAL_DETAIL).contains(profile.name());
+        }
+
+        @Test
         void releasesNoKeyWhenTheCertificateIsUnacceptable() throws SigningEngineException {
             // given
             ResolvedManagedContentSigningProfile profile = profileWithCertificate(
-                    SigningCertificateBuilder.aSigningCertificate().state(CertificateState.REVOKED).build());
+                    SigningCertificateBuilder.aContentSigningCertificate().state(CertificateState.REVOKED).build());
 
             // when
             catchThrowableOfType(() -> engine
@@ -928,18 +1052,32 @@ class ManagedContentSigningEngineTest {
                 .build();
     }
 
+    private static List<CryptographicKeyItemModel> signingKeyItems() {
+        return List
+                .of(CryptographicKeyItemModelFixtures.activeSigningPrivateKey(KeyAlgorithm.RSA),
+                        CryptographicKeyItemModelFixtures.publicKey(KeyAlgorithm.RSA));
+    }
+
     private static ResolvedManagedContentSigningProfile profileWithCertificate(SigningCertificate certificate) {
-        return profileWithKeyItems(certificate,
-                List
-                        .of(CryptographicKeyItemModelFixtures.activeSigningPrivateKey(KeyAlgorithm.RSA),
-                                CryptographicKeyItemModelFixtures.publicKey(KeyAlgorithm.RSA)));
+        return profileWithKeyItems(certificate, signingKeyItems());
     }
 
     private static ResolvedManagedContentSigningProfile profileWithKeyItems(SigningCertificate certificate,
             List<CryptographicKeyItemModel> keyItems) {
+        return profileWithKeyItems(certificate, keyItems, CertificatePurposeRequirements.NONE);
+    }
+
+    private static ResolvedManagedContentSigningProfile profileWithCertificatePurpose(SigningCertificate certificate,
+            CertificatePurposeRequirements certificatePurpose) {
+        return profileWithKeyItems(certificate, signingKeyItems(), certificatePurpose);
+    }
+
+    private static ResolvedManagedContentSigningProfile profileWithKeyItems(SigningCertificate certificate,
+            List<CryptographicKeyItemModel> keyItems, CertificatePurposeRequirements certificatePurpose) {
         return aResolvedContentSigningProfile()
                 .withMaxLevel(SignatureLevel.TIMESTAMPED)
                 .withTimestampSourceProfileName("internal-tsa")
+                .withCertificatePurpose(certificatePurpose)
                 .withResolvedScheme(new ResolvedStaticKeyManagedSigning(certificate, keyItems, null, List.of()))
                 .build();
     }

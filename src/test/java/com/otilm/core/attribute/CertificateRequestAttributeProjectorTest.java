@@ -9,15 +9,18 @@ import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.IntegerAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.mapping.ExtendedKeyUsageMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.ExtensionMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.FieldMapping;
 import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
+import com.otilm.api.model.common.attribute.v3.mapping.KeyUsageMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.MappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.SanMappedField;
 import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
@@ -336,6 +339,116 @@ class CertificateRequestAttributeProjectorTest {
                 .hasMessageContaining(SUBJECT_ALT_NAME_OID);
     }
 
+    @Test
+    void projectsKeyUsageIntoTheTypedField() {
+        // given — one list attribute mapped to Key Usage, selecting two bits
+        var uuid = UUID.randomUUID();
+        var def = listDataAttribute(uuid, mappingOf(keyUsageField()));
+        var values = List.of(multiStringValue(uuid, "digitalSignature", "keyEncipherment"));
+
+        // when
+        X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
+
+        // then — typed values, and nothing in the opaque extension list
+        assertThat(content.getKeyUsage())
+                .containsExactly(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT);
+        assertThat(content.getExtensions()).isNull();
+    }
+
+    @Test
+    void projectsExtendedKeyUsagePurposesIntoTheTypedField() {
+        // given
+        var uuid = UUID.randomUUID();
+        var def = listDataAttribute(uuid, mappingOf(extendedKeyUsageField()));
+        var values = List.of(multiStringValue(uuid, "1.3.6.1.5.5.7.3.1", "1.3.6.1.5.5.7.3.3"));
+
+        // when
+        X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
+
+        // then
+        assertThat(content.getExtendedKeyUsage()).containsExactly("1.3.6.1.5.5.7.3.1", "1.3.6.1.5.5.7.3.3");
+        assertThat(content.getExtensions()).isNull();
+    }
+
+    @Test
+    void rejectsAKeyUsageValue_thatIsNotAKnownBit() {
+        // given
+        var uuid = UUID.randomUUID();
+        var def = listDataAttribute(uuid, mappingOf(keyUsageField()));
+        var values = List.of(stringValue(uuid, "notABit"));
+
+        // when / then
+        var defs = List.of(def);
+        assertThatThrownBy(() -> CertificateRequestAttributeProjector.project(defs, values))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("notABit");
+    }
+
+    @Test
+    void projectsNoTypedField_whenTheAttributeSuppliesNoValues() {
+        // given — the attribute carries no values at all
+        var uuid = UUID.randomUUID();
+        var def = listDataAttribute(uuid, mappingOf(keyUsageField()));
+
+        // when
+        X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), List.of());
+
+        // then — RFC 5280 forbids an empty key usage bit string, so nothing is carried at all
+        assertThat(content.getKeyUsage()).isNull();
+    }
+
+    @Test
+    void rejectsAStructuredTargetColliding_withAnExplicitExtensionMappingOnTheSameOid() {
+        // given — one attribute mapped to Key Usage, another to 2.5.29.15 as opaque DER
+        var structuredUuid = UUID.randomUUID();
+        var opaqueUuid = UUID.randomUUID();
+        var defs = List
+                .of(listDataAttribute(structuredUuid, mappingOf(keyUsageField())),
+                        dataAttribute(opaqueUuid, extensionMapping("2.5.29.15")));
+        var values = List.of(stringValue(structuredUuid, "digitalSignature"), stringValue(opaqueUuid, "AwIFoA=="));
+
+        // when / then — an extension may appear only once (RFC 5280)
+        assertThatThrownBy(() -> CertificateRequestAttributeProjector.project(defs, values))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("2.5.29.15");
+    }
+
+    @Test
+    void rejectsTheSameStructuredTarget_mappedByTwoAttributes() {
+        // given
+        var first = UUID.randomUUID();
+        var second = UUID.randomUUID();
+        var defs = List
+                .of(listDataAttribute(first, mappingOf(keyUsageField())),
+                        listDataAttribute(second, mappingOf(keyUsageField())));
+        var values = List.of(stringValue(first, "digitalSignature"), stringValue(second, "cRLSign"));
+
+        // when / then
+        assertThatThrownBy(() -> CertificateRequestAttributeProjector.project(defs, values))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("2.5.29.15");
+    }
+
+    @Test
+    void stillProjectsAStoredDerMapping_toAnOidThatNowHasAStructuredTarget() {
+        // given — a definition stored before the structured targets existed, mapping key usage as opaque
+        // base64 DER. Authoring one is now rejected, but projection never re-validates, so an existing
+        // definition must keep producing exactly what it produced before.
+        var uuid = UUID.randomUUID();
+        var def = dataAttribute(uuid, extensionMapping("2.5.29.15"));
+        var values = List.of(stringValue(uuid, "AwIFoA=="));
+
+        // when
+        X509RequestContent content = CertificateRequestAttributeProjector.project(List.of(def), values);
+
+        // then — still an opaque extension, untouched, and not diverted into the typed field
+        assertThat(content.getKeyUsage()).isNull();
+        assertThat(content.getExtensions()).singleElement().satisfies(ext -> {
+            assertThat(ext.getOid()).isEqualTo("2.5.29.15");
+            assertThat(ext.getValue()).isEqualTo("AwIFoA==");
+        });
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     /** OID of the subjectAltName extension; SAN entries render into this OID. */
@@ -376,6 +489,20 @@ class CertificateRequestAttributeProjectorTest {
         field.setFieldType(FieldType.EXTENSION);
         field.setExtensionOid(extensionOid);
         field.setOrder(order);
+        return field;
+    }
+
+    private static KeyUsageMappedField keyUsageField() {
+        KeyUsageMappedField field = new KeyUsageMappedField();
+        field.setFieldType(FieldType.KEY_USAGE);
+        field.setOrder(1);
+        return field;
+    }
+
+    private static ExtendedKeyUsageMappedField extendedKeyUsageField() {
+        ExtendedKeyUsageMappedField field = new ExtendedKeyUsageMappedField();
+        field.setFieldType(FieldType.EXTENDED_KEY_USAGE);
+        field.setOrder(1);
         return field;
     }
 

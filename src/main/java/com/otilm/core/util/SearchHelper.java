@@ -36,28 +36,16 @@ public class SearchHelper {
         fieldDataDto.setFieldIdentifier(filterField.name());
         fieldDataDto.setFieldLabel(filterField.getLabel());
         fieldDataDto.setMultiValue(filterField.getType().isMultiValue());
-        List<FilterConditionOperator> conditionOperators = new ArrayList<>(getInitialCapacity(filterField));
-
-        if (filterField.getFieldAttribute() == null) {
-            conditionOperators = new ArrayList<>(
-                    List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY));
-        }
-
-        if (filterField.getType() == SearchFieldTypeEnum.LIST && filterField.getJoinAttributes() != null
-                && filterField.getJoinAttributes().stream().anyMatch(Attribute::isCollection)) {
-            conditionOperators
-                    .addAll(List
-                            .of(FilterConditionOperator.COUNT_EQUAL, FilterConditionOperator.COUNT_NOT_EQUAL,
-                                    FilterConditionOperator.COUNT_GREATER_THAN,
-                                    FilterConditionOperator.COUNT_LESS_THAN));
-        }
-
-        fieldDataDto.setConditions(conditionOperators);
+        fieldDataDto.setConditions(availableConditions(filterField));
         fieldDataDto.setType(filterField.getType().getFieldType());
-        // Do not add null value to List filter
-        if (filterField.getType().getFieldType() == FilterFieldType.LIST && filterField.getEnumClass() == null) {
-            values = new ArrayList<>((List<?>) values);
-            ((List<?>) values).remove(null);
+        // Do not add null value to List filter. A NATIVE_ARRAY field reports FilterFieldType.LIST but is not
+        // SearchFieldTypeEnum.LIST, so its caller takes the single-value path and supplies no values at all --
+        // there is then nothing to strip, and casting the absent value to a List throws.
+        if (filterField.getType().getFieldType() == FilterFieldType.LIST && filterField.getEnumClass() == null
+                && values instanceof List<?> suppliedValues) {
+            List<Object> withoutNull = new ArrayList<>(suppliedValues);
+            withoutNull.remove(null);
+            values = withoutNull;
         }
         fieldDataDto.setValue(values);
 
@@ -74,6 +62,31 @@ public class SearchHelper {
         }
 
         return fieldDataDto;
+    }
+
+    /**
+     * The conditions a property field accepts, which is what the listing endpoint advertises for it. Callers that only
+     * need the operator set - validating a stored filter, for one - can ask for it without assembling the field's
+     * available values.
+     */
+    public static List<FilterConditionOperator> availableConditions(final FilterField filterField) {
+        // A FREE_TEXT field has no single attribute by design (it spans several columns), so the
+        // null-attribute downgrade to presence-only conditions must not apply to it.
+        boolean presenceOnly = filterField.getFieldAttribute() == null
+                && filterField.getType() != SearchFieldTypeEnum.FREE_TEXT;
+        List<FilterConditionOperator> conditionOperators = presenceOnly
+                ? new ArrayList<>(List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY))
+                : new ArrayList<>(getInitialCapacity(filterField));
+
+        if (filterField.getType() == SearchFieldTypeEnum.LIST && filterField.getJoinAttributes() != null
+                && filterField.getJoinAttributes().stream().anyMatch(Attribute::isCollection)) {
+            conditionOperators
+                    .addAll(List
+                            .of(FilterConditionOperator.COUNT_EQUAL, FilterConditionOperator.COUNT_NOT_EQUAL,
+                                    FilterConditionOperator.COUNT_GREATER_THAN,
+                                    FilterConditionOperator.COUNT_LESS_THAN));
+        }
+        return conditionOperators;
     }
 
     private static List<FilterConditionOperator> getInitialCapacity(FilterField filterField) {

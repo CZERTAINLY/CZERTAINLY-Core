@@ -20,6 +20,13 @@ import org.springframework.stereotype.Component;
  * <p>
  * Shared by the platform-built issue path and the register path — so both project structured attribute values against
  * the same resolved set that EST {@code /csrattrs} and external-CSR validation use.
+ *
+ * <p>
+ * The set resolved here is the merged one: the RA profile's static set combined with the authority connector's
+ * request-attribute schema per the profile's merge mode. A definition the merge mode admits is a definition the
+ * structured {@code requestContent} projection maps onto the wire for connectors advertising
+ * {@code CERTIFICATE_REQUEST_STRUCTURED} — so changing an RA profile's merge mode changes what those connectors
+ * receive, not merely what the issue form renders.
  */
 @Component
 public class IssuanceDefinitionResolver {

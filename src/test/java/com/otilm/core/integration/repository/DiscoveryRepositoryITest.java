@@ -7,6 +7,7 @@ import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.DiscoveryRunMetaFixture;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.OffsetDateTime;
@@ -55,11 +56,10 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         UUID interfaceUuid = UUID.randomUUID();
         OffsetDateTime stoppedAt = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
         run.setConnectorInterfaceUuid(interfaceUuid);
-        run.setRunMeta(Map.of("connectorRunId", "run-42"));
+        run.setRunMeta(DiscoveryRunMetaFixture.runMeta("connectorRunId", "run-42"));
         run.setResources(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY));
         run.setLastAppliedSequence(17L);
         run.setProgress(progress);
-        run.setRunMessages(List.of("host 10.0.0.7 refused the connection"));
         run.setStoppedAt(stoppedAt);
         run.setConnectorState("running");
         UUID runUuid = discoveryRepository.saveAndFlush(run).getUuid();
@@ -68,7 +68,10 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
 
         Discovery back = discoveryRepository.findById(runUuid).orElseThrow();
         assertThat(back.getConnectorInterfaceUuid()).isEqualTo(interfaceUuid);
-        assertThat(back.getRunMeta()).containsEntry("connectorRunId", "run-42");
+        assertThat(back.getRunMeta())
+                .as("the connector handle round-trips through jsonb as the concrete attribute class")
+                .singleElement()
+                .satisfies(handle -> assertThat(handle.getName()).isEqualTo("connectorRunId"));
         assertThat(back.getResources()).containsExactly(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY);
         assertThat(back.getLastAppliedSequence()).isEqualTo(17L);
         assertThat(back.getProgress().getProcessed()).isEqualTo(11L);
@@ -76,7 +79,6 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         assertThat(back.getProgress().getPhase()).isEqualTo("scanning");
         assertThat(back.getProgress().getByResource()).containsOnlyKeys(Resource.CRYPTOGRAPHIC_KEY);
         assertThat(back.getProgress().getByResource().get(Resource.CRYPTOGRAPHIC_KEY).getProcessed()).isEqualTo(3L);
-        assertThat(back.getRunMessages()).containsExactly("host 10.0.0.7 refused the connection");
         assertThat(back.getConnectorState()).isEqualTo("running");
         // Compared as instants: the driver may hand the timestamptz back under a different zone offset.
         assertThat(back.getStoppedAt().toInstant()).isEqualTo(stoppedAt.toInstant());

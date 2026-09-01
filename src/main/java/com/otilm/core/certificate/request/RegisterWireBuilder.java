@@ -11,6 +11,7 @@ import com.otilm.api.model.core.certificate.CertificateType;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.core.util.PlatformX500NameStyle;
+import com.otilm.core.util.StructuredExtensionCodec;
 import com.otilm.core.util.X509RequestContentRenderer;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -83,7 +84,7 @@ public final class RegisterWireBuilder {
             // No structured wire carries the content here, so anything the flat wire cannot represent would be
             // silently dropped — fail closed rather than register an identity reduced below the operator's request.
             assertFlatRepresentable(content);
-            dto.setExtensions(renderFlatExtensions(content.getExtensions()));
+            dto.setExtensions(renderFlatExtensions(content));
         }
         return dto;
     }
@@ -292,11 +293,25 @@ public final class RegisterWireBuilder {
         }
     }
 
-    private static List<CertificateExtension> renderFlatExtensions(List<RequestedExtension> extensions) {
-        if (extensions == null || extensions.isEmpty()) {
-            return null;
+    /**
+     * Renders the flat extension list, including the typed key usage and extended key usage lists.
+     *
+     * <p>
+     * Those two live outside {@code extensions}, so without encoding them here a registration against a connector that
+     * does not advertise {@code CERTIFICATE_REQUEST_STRUCTURED} would drop the requested usages and register a weaker
+     * identity than the operator asked for. The DER value and criticality are the ones the CSR-bearing operations put
+     * in the certification request, so both wire forms carry the same extension.
+     */
+    private static List<CertificateExtension> renderFlatExtensions(X509RequestContent content) {
+        List<CertificateExtension> result = new ArrayList<>();
+        addFlatStructuredExtension(result, StructuredExtensionCodec.KEY_USAGE_OID,
+                StructuredExtensionCodec.encodeKeyUsage(orEmpty(content.getKeyUsage())));
+        addFlatStructuredExtension(result, StructuredExtensionCodec.EXTENDED_KEY_USAGE_OID,
+                StructuredExtensionCodec.encodeExtendedKeyUsage(orEmpty(content.getExtendedKeyUsage())));
+        List<RequestedExtension> extensions = content.getExtensions();
+        if (extensions == null) {
+            extensions = List.of();
         }
-        List<CertificateExtension> result = new ArrayList<>(extensions.size());
         for (RequestedExtension extension : extensions) {
             // null encoding means the value already carries base64 DER (contract default).
             if (extension.getEncoding() != null && extension.getEncoding() != ExtensionValueEncoding.DER) {
@@ -313,5 +328,21 @@ public final class RegisterWireBuilder {
             result.add(flat);
         }
         return result.isEmpty() ? null : result;
+    }
+
+    private static void addFlatStructuredExtension(List<CertificateExtension> target, String extensionOid,
+            String base64Value) {
+        if (base64Value == null) {
+            return;
+        }
+        CertificateExtension flat = new CertificateExtension();
+        flat.setOid(extensionOid);
+        flat.setCritical(X509RequestContentRenderer.structuredExtensionCritical(extensionOid));
+        flat.setValueBase64(base64Value);
+        target.add(flat);
+    }
+
+    private static <T> List<T> orEmpty(List<T> values) {
+        return values == null ? List.of() : values;
     }
 }

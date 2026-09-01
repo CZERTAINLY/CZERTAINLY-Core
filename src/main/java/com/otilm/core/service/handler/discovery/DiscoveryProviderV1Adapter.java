@@ -474,8 +474,11 @@ public class DiscoveryProviderV1Adapter implements DiscoveryProviderAdapter {
                         .trace("Downloading batch {} of discovered certificates for discovery {}.", currentPage,
                                 discovery.getName());
 
+                // false: a v1 provider's certificate uuid names the certificate, not the occurrence, and nothing
+                // in the v1 contract promises it appears once per run.
                 certificateHandler
-                        .createDiscoveredCertificate(String.valueOf(currentPage), discovery, discoveredCertificates);
+                        .stageDiscoveredCertificates(String.valueOf(currentPage), discovery, discoveredCertificates,
+                                false);
                 // After the batch commits, so the write needs neither a nested transaction nor a second connection.
                 certificateHandler.reportDownloadProgress(discovery);
             } catch (InterruptedException e) {

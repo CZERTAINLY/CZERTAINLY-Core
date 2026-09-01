@@ -264,6 +264,24 @@ class ExtendedAttributeServiceImplTest {
         verifyNoInteractions(adapterFactory);
     }
 
+    // --- listCertificateRequestAttributes ---
+
+    @Test
+    void listCertificateRequestAttributes_delegatesToAdapter() throws Exception {
+        List<BaseAttribute> expected = List.of(mock(BaseAttribute.class));
+        when(adapter.listCertificateRequestAttributes(authority, raProfile)).thenReturn(expected);
+
+        assertSame(expected, service.listCertificateRequestAttributes(raProfile));
+    }
+
+    @Test
+    void listCertificateRequestAttributes_throwsWhenConnectorMissing() {
+        authority.setConnector(null);
+
+        assertThrows(NotFoundException.class, () -> service.listCertificateRequestAttributes(raProfile));
+        verifyNoInteractions(adapterFactory);
+    }
+
     // --- mergeAndValidateRenewAttributes / mergeAndValidateIdentifyAttributes ---
 
     @Test

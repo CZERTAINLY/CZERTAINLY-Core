@@ -4,8 +4,13 @@ import com.otilm.api.model.common.attribute.common.constraint.RegexpAttributeCon
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
+import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.mapping.ExtendedKeyUsageMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.ExtensionMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.FieldMapping;
+import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
+import com.otilm.api.model.common.attribute.v3.mapping.KeyUsageMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.MappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
 import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
@@ -23,7 +28,11 @@ public final class MappedDataAttributeV3Builder {
 
     private String name = "attr";
     private boolean required = false;
+    private boolean list = false;
+    private boolean readOnly = false;
+    private boolean extensibleList = false;
     private String regex = null;
+    private final List<String> content = new ArrayList<>();
     private final List<MappedField> fields = new ArrayList<>();
 
     public static MappedDataAttributeV3Builder aMappedDataAttribute() {
@@ -37,6 +46,40 @@ public final class MappedDataAttributeV3Builder {
 
     public MappedDataAttributeV3Builder required() {
         this.required = true;
+        return this;
+    }
+
+    public MappedDataAttributeV3Builder list() {
+        this.list = true;
+        return this;
+    }
+
+    public MappedDataAttributeV3Builder readOnly() {
+        this.readOnly = true;
+        return this;
+    }
+
+    public MappedDataAttributeV3Builder extensibleList() {
+        this.extensibleList = true;
+        return this;
+    }
+
+    public MappedDataAttributeV3Builder withContent(String... items) {
+        this.content.addAll(List.of(items));
+        return this;
+    }
+
+    public MappedDataAttributeV3Builder mappingKeyUsage() {
+        KeyUsageMappedField field = new KeyUsageMappedField();
+        field.setFieldType(FieldType.KEY_USAGE);
+        fields.add(field);
+        return this;
+    }
+
+    public MappedDataAttributeV3Builder mappingExtendedKeyUsage() {
+        ExtendedKeyUsageMappedField field = new ExtendedKeyUsageMappedField();
+        field.setFieldType(FieldType.EXTENDED_KEY_USAGE);
+        fields.add(field);
         return this;
     }
 
@@ -81,7 +124,17 @@ public final class MappedDataAttributeV3Builder {
         DataAttributeProperties properties = new DataAttributeProperties();
         properties.setLabel(name);
         properties.setRequired(required);
+        properties.setList(list);
+        properties.setReadOnly(readOnly);
+        properties.setExtensibleList(extensibleList);
         attribute.setProperties(properties);
+        if (!content.isEmpty()) {
+            List<BaseAttributeContentV3<?>> items = new ArrayList<>();
+            for (String item : content) {
+                items.add(new StringAttributeContentV3(item));
+            }
+            attribute.setContent(items);
+        }
         if (regex != null) {
             RegexpAttributeConstraint constraint = new RegexpAttributeConstraint();
             constraint.setData(regex);

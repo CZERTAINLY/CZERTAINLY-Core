@@ -244,16 +244,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 Resource.DISCOVERY, discovery.getUuid());
         EventHistory eventHistoryPlatform = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, null, null);
 
-        // One group per certificate, so two threads cannot race on the same insert (see DiscoveryContentGroup).
-        List<DiscoveryContentGroup> groups = discoveredCertificates
-                .stream()
-                .collect(Collectors
-                        .groupingBy(DiscoveryCertificate::getCertificateContentId, LinkedHashMap::new,
-                                Collectors.toList()))
-                .entrySet()
-                .stream()
-                .map(entry -> new DiscoveryContentGroup(entry.getKey(), entry.getValue()))
-                .toList();
+        List<DiscoveryContentGroup> groups = groupByContent(discoveredCertificates);
         DiscoveryRunContext runContext = new DiscoveryRunContext(discovery.getUuid(), discovery.getName(),
                 discovery.getConnectorUuid(), discovery.getConnectorName(), discovery.getKind(), context.getUserUuid(),
                 mergedIgnoreTriggers, mergedTriggers, eventHistoryDiscovery.getUuid(), eventHistoryPlatform.getUuid(),
@@ -270,6 +261,63 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
     }
 
+    /**
+     * Imports one bounded batch of a run's discovered certificates and reports what it counted, without deciding the
+     * run's fate — v2's {@code PROCESS} worker does that once the backlog is empty, unlike v1 which finishes a run in
+     * one pass. Event histories are attributed as system-initiated work, since a tick carries no user identity of its
+     * own.
+     *
+     * @param batch rows already claimed by the caller; an empty batch is a no-op with all-clear counts
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public DiscoveryRunCounts processBatch(Discovery discovery, List<DiscoveryCertificate> batch)
+            throws EventException {
+        if (batch.isEmpty()) {
+            return new DiscoveryRunAccumulator().counts();
+        }
+        EventMessage eventMessage = constructEventMessage(discovery.getUuid(), null, null);
+        EventContext<Certificate> context = prepareContext(eventMessage);
+        EventContextTriggers discoveryTriggers = fetchEventTriggers(context, Resource.DISCOVERY, discovery.getUuid());
+        List<TriggerAssociation> mergedTriggers = new ArrayList<>(discoveryTriggers.getTriggers());
+        List<TriggerAssociation> mergedIgnoreTriggers = new ArrayList<>(discoveryTriggers.getIgnoreTriggers());
+        mergedTriggers.addAll(context.getPlatformTriggers().getTriggers());
+        mergedIgnoreTriggers.addAll(context.getPlatformTriggers().getIgnoreTriggers());
+
+        // Before the event histories, whose rows persist immediately and would be stranded by a denial.
+        authorizationEnforcer.enforce(Resource.CERTIFICATE, ResourceAction.CREATE);
+        EventHistory eventHistoryDiscovery = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED,
+                Resource.DISCOVERY, discovery.getUuid());
+        EventHistory eventHistoryPlatform = createEventHistory(ResourceEvent.CERTIFICATE_DISCOVERED, null, null);
+
+        List<DiscoveryContentGroup> groups = groupByContent(batch);
+        // null totalGroups: this batch is not the run, so it has no percentage to report. The PROCESS worker owns
+        // v2's progress message, because it is the only party that knows what the run still has left.
+        DiscoveryRunContext runContext = new DiscoveryRunContext(discovery.getUuid(), discovery.getName(),
+                discovery.getConnectorUuid(), discovery.getConnectorName(), discovery.getKind(), context.getUserUuid(),
+                mergedIgnoreTriggers, mergedTriggers, eventHistoryDiscovery.getUuid(), eventHistoryPlatform.getUuid(),
+                null, context);
+        try {
+            return importGroups(runContext, groups, eventHistoryDiscovery, eventHistoryPlatform);
+        } catch (RuntimeException e) {
+            failIfUnfinished(eventHistoryDiscovery);
+            failIfUnfinished(eventHistoryPlatform);
+            throw e;
+        }
+    }
+
+    /** One group per certificate content, so two threads cannot race on the same insert. */
+    private static List<DiscoveryContentGroup> groupByContent(List<DiscoveryCertificate> certificates) {
+        return certificates
+                .stream()
+                .collect(Collectors
+                        .groupingBy(DiscoveryCertificate::getCertificateContentId, LinkedHashMap::new,
+                                Collectors.toList()))
+                .entrySet()
+                .stream()
+                .map(entry -> new DiscoveryContentGroup(entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
     private void failIfUnfinished(EventHistory eventHistory) {
         if (eventHistory.getStatus() != EventStatus.FINISHED) {
             saveEventHistory(eventHistory, EventStatus.FAILED);
@@ -278,6 +326,22 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     private void importAndReport(DiscoveryRunContext runContext, List<DiscoveryContentGroup> groups,
             String originalMessage, EventHistory eventHistoryDiscovery, EventHistory eventHistoryPlatform) {
+        DiscoveryRunCounts counts = importGroups(runContext, groups, eventHistoryDiscovery, eventHistoryPlatform);
+        DiscoveryResult result = decideFinalStatus(counts, originalMessage);
+        emitDiscoveryFinished(runContext.discoveryUuid(), runContext.eventContext(), result.getDiscoveryStatus(),
+                result.getMessage());
+    }
+
+    /**
+     * Runs the import pipeline over the groups and returns what it counted, without deciding the run's fate.
+     *
+     * <p>
+     * Separate from {@link #importAndReport} because the v1 flow processes a run's whole backlog in one pass and can
+     * finish it on the spot, while a v2 run arrives one bounded batch at a time and only its last batch knows the run
+     * is over. Both share every line of the import itself.
+     */
+    private DiscoveryRunCounts importGroups(DiscoveryRunContext runContext, List<DiscoveryContentGroup> groups,
+            EventHistory eventHistoryDiscovery, EventHistory eventHistoryPlatform) {
         DiscoveryRunAccumulator accumulator = new DiscoveryRunAccumulator();
         Map<PublicKey, List<UUID>> keyToCertificates = new LinkedHashMap<>();
         Map<PublicKey, List<UUID>> altKeyToCertificates = new LinkedHashMap<>();
@@ -334,9 +398,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                             runContext.discoveryUuid(), e.getMessage(), e);
             accumulator.recordValidationNotQueued();
         }
-        DiscoveryResult result = decideFinalStatus(accumulator.counts(), originalMessage);
-        emitDiscoveryFinished(runContext.discoveryUuid(), runContext.eventContext(), result.getDiscoveryStatus(),
-                result.getMessage());
+        return accumulator.counts();
     }
 
     /**
@@ -348,30 +410,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         if (counts.allClear()) {
             return new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage);
         }
-        List<String> sentences = new ArrayList<>();
-        if (counts.inventoryGaps() > 0) {
-            sentences
-                    .add("%d certificate(s) could not be imported into the inventory."
-                            .formatted(counts.inventoryGaps()));
-        }
-        if (counts.keyGaps() > 0) {
-            sentences
-                    .add("%d certificate(s) were imported without all of their public keys associated."
-                            .formatted(counts.keyGaps()));
-        }
-        if (counts.notAttempted() > 0) {
-            sentences.add("%d certificate(s) could not be processed to a result.".formatted(counts.notAttempted()));
-        }
-        if (counts.bookkeepingFailures() > 0) {
-            sentences.add("Some per-certificate detail could not be recorded.");
-        }
-        if (counts.validationNotQueued()) {
-            sentences.add("Validation of the discovered certificates could not be requested.");
-        }
-        // Only when some row actually carries a reason to read. A bookkeeping failure means the detail did not get
-        // written, and validation never being requested says nothing about any individual row -- pointing at the
-        // list for either contradicts the sentence before it.
-        if (counts.inventoryGaps() + counts.keyGaps() + counts.notAttempted() > 0) {
+        List<String> sentences = new ArrayList<>(counts.renderGaps());
+        if (counts.hasPerCertificateDetail()) {
             sentences.add("See the discovery certificate list for per-certificate detail.");
         }
         return new DiscoveryResult(DiscoveryStatus.WARNING, String.join(" ", sentences));
@@ -554,6 +594,11 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
      * failed progress write escape the loop would abandon both for the whole run.
      */
     void reportProgressSafely(DiscoveryRunContext context, DiscoveryRunAccumulator accumulator, int completedGroups) {
+        if (context.totalGroups() == null) {
+            // A caller that sees one batch rather than the whole run reports its own progress: a percentage of
+            // the batch would read as a percentage of the run and reach 100% once per batch.
+            return;
+        }
         try {
             reportProgress(context, completedGroups);
         } catch (Exception e) {

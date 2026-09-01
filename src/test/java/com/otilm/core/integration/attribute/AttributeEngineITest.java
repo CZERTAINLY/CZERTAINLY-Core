@@ -67,6 +67,7 @@ import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.connector.ConnectorStatus;
+import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
@@ -2584,6 +2585,72 @@ class AttributeEngineITest extends BaseSpringBootTest {
             f.setFieldType(FieldType.EXTENSION);
             f.setExtensionOid(extensionOid);
             return f;
+        }
+    }
+
+    @Test
+    void jsonExtensionValueIsShapeCheckedThroughTheRealValidationPath() throws Exception {
+        // The unit-level layering tests drive the per-definition worker directly. This one goes through
+        // validateUpdateDataAttributes, because validateAttributesContent drains the definition mapping as it
+        // matches attributes - running the JSON layers after it silently sees no definitions at all.
+        Map<String, OidRecord> savedCache = OidHandler.getOidCache(OidCategory.CERTIFICATE_EXTENSION);
+        try {
+            OidHandler.cacheOidCategory(OidCategory.CERTIFICATE_EXTENSION, new HashMap<>());
+            OidHandler
+                    .cacheOid(OidCategory.CERTIFICATE_EXTENSION, "1.3.6.1.4.1.99999.5.5",
+                            OidRecord
+                                    .builder()
+                                    .displayName("Shape Checked Extension")
+                                    .valueEncoding(ExtensionValueEncoding.DER)
+                                    .valueSchema("{\"type\":\"object\",\"properties\":{\"sequence\":"
+                                            + "{\"type\":\"array\",\"minItems\":2}},\"required\":[\"sequence\"]}")
+                                    .build());
+
+            ExtensionMappedField field = new ExtensionMappedField();
+            field.setFieldType(FieldType.EXTENSION);
+            field.setExtensionOid("1.3.6.1.4.1.99999.5.5");
+            FieldMapping mapping = new FieldMapping();
+            mapping.setObjectType(ObjectType.X509_CERTIFICATE);
+            mapping.setFields(List.of(field));
+
+            DataAttributeV3 definition = new DataAttributeV3();
+            definition.setUuid(UUID.randomUUID().toString());
+            definition.setName("shapeCheckedExtension");
+            definition.setContentType(AttributeContentType.STRING);
+            DataAttributeProperties properties = new DataAttributeProperties();
+            properties.setLabel("Shape Checked Extension");
+            definition.setProperties(properties);
+            definition.setFieldMapping(mapping);
+
+            RequestAttributeV3 tooShort = new RequestAttributeV3(UUID.fromString(definition.getUuid()),
+                    definition.getName(), AttributeContentType.STRING,
+                    List.of(new StringAttributeContentV3("{\"sequence\":[{\"integer\":1}]}")));
+
+            List<BaseAttribute> definitions = List.of(definition);
+            List<RequestAttribute> values = List.of(tooShort);
+            ValidationException thrown = Assertions
+                    .assertThrows(ValidationException.class,
+                            () -> attributeEngine.validateUpdateDataAttributes(null, null, definitions, values));
+            Assertions
+                    .assertTrue(
+                            thrown
+                                    .getErrors()
+                                    .stream()
+                                    .anyMatch(e -> e
+                                            .getErrorDescription()
+                                            .contains("registered schema for extension 1.3.6.1.4.1.99999.5.5")),
+                            "expected the registry-shape layer to reject, got: " + thrown.getErrors());
+
+            RequestAttributeV3 valid = new RequestAttributeV3(UUID.fromString(definition.getUuid()),
+                    definition.getName(), AttributeContentType.STRING,
+                    List.of(new StringAttributeContentV3("{\"sequence\":[{\"integer\":1},{\"integer\":2}]}")));
+            Assertions
+                    .assertDoesNotThrow(() -> attributeEngine
+                            .validateUpdateDataAttributes(null, null, List.of(definition), List.of(valid)));
+        } finally {
+            OidHandler
+                    .cacheOidCategory(OidCategory.CERTIFICATE_EXTENSION,
+                            savedCache != null ? new HashMap<>(savedCache) : new HashMap<>());
         }
     }
 }

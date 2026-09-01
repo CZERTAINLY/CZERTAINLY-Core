@@ -1,5 +1,6 @@
 package com.otilm.core.messaging.jms.listeners.discovery;
 
+import com.otilm.api.model.core.discovery.DiscoveryMessageSeverity;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.core.cluster.ClusterOperationSynchronizer;
 import com.otilm.core.dao.entity.Discovery;
@@ -8,12 +9,14 @@ import com.otilm.core.dao.repository.DiscoveryWorkRepository;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapter;
 import com.otilm.core.service.handler.discovery.DiscoveryProviderAdapterFactory;
+import com.otilm.core.service.handler.discovery.DiscoveryRunTerminator;
+import com.otilm.core.service.writer.discovery.DiscoveryMessageWriter;
 import com.otilm.core.service.writer.discovery.DiscoveryWorkWriter;
+import com.otilm.core.util.DiscoveryRunMetaFixture;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -54,6 +57,8 @@ class DiscoveryRunReaperUnitTest {
     @Mock
     private DiscoveryWorkWriter workWriter;
     @Mock
+    private DiscoveryMessageWriter messageWriter;
+    @Mock
     private DiscoveryProviderAdapterFactory adapterFactory;
     @Mock
     private DiscoveryProviderAdapter adapter;
@@ -67,8 +72,12 @@ class DiscoveryRunReaperUnitTest {
     @SuppressWarnings({"unchecked", "rawtypes"})
     @BeforeEach
     void setUp() {
+        // A real terminator, not a mock: the reaper delegates the terminal mutation to it, and that mutation
+        // is what these tests assert on. Its collaborators are unused by applyTerminalState.
         reaper = new DiscoveryRunReaper(discoveryRepository, workRepository, workWriter, adapterFactory,
-                transactionHandler, clusterSynchronizer, Duration.ofMinutes(5), Duration.ofDays(7));
+                transactionHandler, clusterSynchronizer,
+                new DiscoveryRunTerminator(discoveryRepository, workWriter, messageWriter, transactionHandler),
+                Duration.ofMinutes(5), Duration.ofDays(7));
         // Execute the transactional lambdas inline so the real selection/reap logic runs under the test.
         lenient()
                 .when(transactionHandler.runInNewTransaction(any(Supplier.class)))
@@ -117,12 +126,16 @@ class DiscoveryRunReaperUnitTest {
         assertThatCode(() -> reaper.reap()).doesNotThrowAnyException();
 
         assertThat(healthy.getStatus()).isEqualTo(DiscoveryStatus.FAILED);
+        // A reaped run must record the same ending in its log as one a worker ended.
+        verify(messageWriter)
+                .appendRunEnded(healthy.getUuid(), DiscoveryMessageSeverity.ERROR,
+                        "Discovery work lost; the run can no longer be driven");
     }
 
     @Test
     void workLost_cancelsOnTheConnectorOnlyWhenRunContextExists() {
         Discovery withContext = run(DiscoveryStatus.IN_PROGRESS);
-        withContext.setRunMeta(Map.of("cursor", "abc"));
+        withContext.setRunMeta(DiscoveryRunMetaFixture.runMeta("cursor", "abc"));
         Discovery withoutContext = run(DiscoveryStatus.IN_PROGRESS);
         selections(List.of(withContext.getUuid(), withoutContext.getUuid()), List.of());
         when(discoveryRepository.findWithLockByUuid(withContext.getUuid())).thenReturn(Optional.of(withContext));
@@ -199,7 +212,7 @@ class DiscoveryRunReaperUnitTest {
     private static Discovery expiredStoppedRun() {
         Discovery run = run(DiscoveryStatus.STOPPED);
         run.setStoppedAt(OffsetDateTime.now(ZoneOffset.UTC).minusDays(8));
-        run.setRunMeta(Map.of("cursor", "abc"));
+        run.setRunMeta(DiscoveryRunMetaFixture.runMeta("cursor", "abc"));
         return run;
     }
 }

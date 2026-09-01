@@ -18,6 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
  * A live run's agenda must never be observably empty: the reaper treats a non-terminal run with no agenda rows past its
  * creation grace as lost work. A caller replacing a run's last row therefore deletes and schedules in the same
  * transaction.
+ *
+ * <p>
+ * <b>A backstop row is due in the future, never due-now.</b> A worker that publishes its own continuation tick also
+ * writes a row here as a backstop for a publish that never lands. Due-now, that row races the sweep, which would claim
+ * and publish it too, putting two workers onto the same unclaimed work — so callers using {@link #schedule} or
+ * {@link #reschedule} this way pass a due time comfortably in the future.
  * </p>
  */
 @Component
@@ -30,13 +36,20 @@ public class DiscoveryWorkWriter {
     }
 
     /**
-     * Schedules the run's pending row for {@code workType}, due at {@code nextDueAt} — or re-arms the existing one (due
-     * time moved, backoff counter reset). Scheduling is a fresh start; in-flight backoff belongs to
-     * {@link #reschedule}.
+     * Schedules the run's pending row for {@code workType}, due at {@code nextDueAt}, or re-arms an existing one — a
+     * fresh start, counter included.
      */
     @Transactional
     public void schedule(UUID discoveryUuid, DiscoveryWorkType workType, OffsetDateTime nextDueAt) {
         workRepository.schedule(UUID.randomUUID(), discoveryUuid, workType.name(), nextDueAt);
+    }
+
+    /**
+     * Brings the run's {@code workType} work forward to {@code nextDueAt} without refreshing what it has already spent.
+     */
+    @Transactional
+    public void expedite(UUID discoveryUuid, DiscoveryWorkType workType, OffsetDateTime nextDueAt) {
+        workRepository.expedite(UUID.randomUUID(), discoveryUuid, workType.name(), nextDueAt);
     }
 
     /**
@@ -63,5 +76,19 @@ public class DiscoveryWorkWriter {
     @Transactional
     public void deleteForRun(UUID discoveryUuid) {
         workRepository.deleteByDiscoveryUuid(discoveryUuid);
+    }
+
+    /**
+     * Drops only the run's pending row for {@code workType}.
+     *
+     * <p>
+     * Distinct from {@link #deleteForRun} because the two mean opposite things. A worker that finds its own kind of
+     * work obsolete — a drain tick arriving after the run already handed over to processing — must not take the rest of
+     * the agenda with it: deleting the {@code PROCESS} row there would strand the run's import and leave the reaper
+     * reading a live run as work-lost.
+     */
+    @Transactional
+    public void deleteForRun(UUID discoveryUuid, DiscoveryWorkType workType) {
+        workRepository.deleteByDiscoveryUuidAndWorkType(discoveryUuid, workType);
     }
 }

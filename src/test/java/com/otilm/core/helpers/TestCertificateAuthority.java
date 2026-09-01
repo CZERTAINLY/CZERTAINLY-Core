@@ -57,6 +57,18 @@ public class TestCertificateAuthority {
         }
 
         /**
+         * Issues a general-purpose signing leaf for {@code leafKeyPair}: digitalSignature key usage and no extended key
+         * usage, so it is acceptable for content and raw signing.
+         */
+        public Certificate issueSigningCertificate(KeyPair leafKeyPair, String subjectDn) throws Exception {
+            X509Certificate leafX509 = CertificateGeneratorHelper
+                    .generateEndEntityCertificate(keyPair, x509, leafKeyPair, subjectDn, null);
+            Certificate leafEntity = certificateUploader.upload(leafX509);
+            certificateUploader.validate(leafEntity);
+            return leafEntity;
+        }
+
+        /**
          * Issues an RFC 3161 timestamping leaf for {@code leafKeyPair}, uploads it and runs validation. The leaf is
          * built from the caller's key pair so the upload associates it (by public-key fingerprint) with the key the
          * caller already holds — e.g. a token-backed key.

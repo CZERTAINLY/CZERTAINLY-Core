@@ -16,23 +16,13 @@ import org.springframework.stereotype.Repository;
 public interface DiscoveryWorkRepository extends JpaRepository<DiscoveryWork, UUID> {
 
     /**
-     * Returns rows due for a tick ({@code next_due_at} reached), soonest-due first. No row locking: cross-node mutual
-     * exclusion is provided by the cluster-wide advisory lock held by the discovery sweep, so a plain ordered read is
-     * enough.
+     * Rows due for a tick, soonest first. No row locking: the sweep's cluster-wide advisory lock already serializes
+     * access.
      */
     List<DiscoveryWork> findByNextDueAtLessThanEqualOrderByNextDueAt(OffsetDateTime cutoff, Pageable pageable);
 
     /**
-     * Inserts the pending row for a run and work type, or re-arms the existing one: due time moved, backoff counter
-     * reset. Scheduling is a fresh start; in-flight backoff belongs to {@link #reschedule}.
-     *
-     * <p>
-     * <b>Concurrency:</b> atomic on the unique {@code (discovery_uuid, work_type)} — a concurrent loser is a clean
-     * re-arm, not a constraint violation.
-     *
-     * <p>
-     * <b>Identity:</b> on conflict the passed {@code uuid} is discarded with the rest of the losing insert; rows are
-     * addressed by run and work type, never by that uuid.
+     * Inserts the pending row for a run and work type, or re-arms an existing one.
      */
     @Modifying
     @Query(value = """
@@ -43,8 +33,18 @@ public interface DiscoveryWorkRepository extends JpaRepository<DiscoveryWork, UU
     void schedule(@Param("uuid") UUID uuid, @Param("discoveryUuid") UUID discoveryUuid,
             @Param("workType") String workType, @Param("nextDueAt") OffsetDateTime nextDueAt);
 
-    // Addressed by the natural key, not the row uuid: schedule() discards the passed uuid on conflict, so a
-    // caller-retained row uuid can silently address nothing — (run, work type) always addresses the live row.
+    /**
+     * Brings a row forward to {@code nextDueAt} without resetting its attempt counter.
+     */
+    @Modifying
+    @Query(value = """
+            INSERT INTO {h-schema}discovery_work (uuid, discovery_uuid, work_type, attempt, next_due_at)
+            VALUES (:uuid, :discoveryUuid, :workType, 0, :nextDueAt)
+            ON CONFLICT (discovery_uuid, work_type) DO UPDATE SET next_due_at = EXCLUDED.next_due_at
+            """, nativeQuery = true)
+    void expedite(@Param("uuid") UUID uuid, @Param("discoveryUuid") UUID discoveryUuid,
+            @Param("workType") String workType, @Param("nextDueAt") OffsetDateTime nextDueAt);
+
     @Modifying
     @Query("UPDATE DiscoveryWork w SET w.attempt = :attempt, w.nextDueAt = :nextDueAt "
             + "WHERE w.discoveryUuid = :discoveryUuid AND w.workType = :workType")
@@ -65,4 +65,12 @@ public interface DiscoveryWorkRepository extends JpaRepository<DiscoveryWork, UU
     @Modifying
     @Query("DELETE FROM DiscoveryWork w WHERE w.discoveryUuid = :discoveryUuid")
     void deleteByDiscoveryUuid(@Param("discoveryUuid") UUID discoveryUuid);
+
+    /**
+     * Drops one kind of pending work, leaving the run's other rows alone.
+     */
+    @Modifying
+    @Query("DELETE FROM DiscoveryWork w WHERE w.discoveryUuid = :discoveryUuid AND w.workType = :workType")
+    void deleteByDiscoveryUuidAndWorkType(@Param("discoveryUuid") UUID discoveryUuid,
+            @Param("workType") DiscoveryWorkType workType);
 }

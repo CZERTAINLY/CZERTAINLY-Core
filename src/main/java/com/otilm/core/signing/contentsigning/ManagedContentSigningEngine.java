@@ -1,6 +1,7 @@
 package com.otilm.core.signing.contentsigning;
 
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
+import com.otilm.api.model.common.enums.cryptography.SignatureAlgorithm;
 import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.connector.signatures.contentsigning.common.ComputeDtbsRequestDto;
 import com.otilm.api.model.connector.signatures.contentsigning.common.ComputeDtbsResponseDto;
@@ -92,15 +93,18 @@ public class ManagedContentSigningEngine {
         requireReachableLevel(request.targetLevel(), profile);
         requireAcceptableSigningCertificate(profile);
         Instant signingTime = clockSource.wallTimeInstant();
+        SignatureAlgorithm signatureAlgorithm = acquisitions.signatureAlgorithm(profile);
+        SignatureDigestCoherence.requireCoherent(signatureAlgorithm, request.authorizedDigest(), request.document());
 
-        ComputeDtbsResponseDto dtbs = requireCompleteDtbs(computeDtbs(request, profile, signingTime));
+        ComputeDtbsResponseDto dtbs = requireCompleteDtbs(
+                computeDtbs(request, profile, signingTime, signatureAlgorithm));
         // The key is released only once the connector has committed to the authorized document.
         DtbsBindingVerifier.verify(request.authorizedDigest(), dtbs);
         byte[] signatureValue = acquisitions.signatureValue(profile, dtbs.getDtbs());
         ContentSigningCursor cursor = advance(ContentSigningCursor.DTBS_COMPUTED,
                 ContentSigningCursor.SIGNATURE_ACQUIRED);
 
-        byte[] signedDocument = embedSignatureValue(profile, dtbs, signatureValue);
+        byte[] signedDocument = embedSignatureValue(profile, dtbs, signatureValue, signatureAlgorithm);
         cursor = advance(cursor, ContentSigningCursor.SIGNED);
 
         SignatureLevel reached = SignatureLevel.SIGNED;
@@ -177,7 +181,7 @@ public class ManagedContentSigningEngine {
         ResolvedManagedScheme signingScheme = profile.resolvedScheme();
         ValidationResult result = signingCertificateValidatorFactory
                 .getValidator(signingScheme)
-                .validate(signingScheme, SigningWorkflowType.CONTENT_SIGNING, false);
+                .validate(signingScheme, SigningWorkflowType.CONTENT_SIGNING, false, profile.certificatePurpose());
         if (result instanceof ValidationResult.Nok nok) {
             throw new SigningEngineException(nok.failure(),
                     "signing certificate of Signing Profile '%s' is not acceptable: %s"
@@ -187,12 +191,14 @@ public class ManagedContentSigningEngine {
     }
 
     private ComputeDtbsResponseDto computeDtbs(ContentSigningRequest request,
-            ResolvedManagedContentSigningProfile profile, Instant signingTime) throws SigningEngineException {
+            ResolvedManagedContentSigningProfile profile, Instant signingTime, SignatureAlgorithm signatureAlgorithm)
+            throws SigningEngineException {
         ComputeDtbsRequestDto dtbsRequest = ComputeDtbsRequests.forFamily(profile.family());
         dtbsRequest.setFormattingAttributes(profile.signatureFormattingConnectorAttributes());
         dtbsRequest.setDocument(request.document());
         dtbsRequest.setSignerCertificateChain(encodedChain(profile));
         dtbsRequest.setSigningTime(signingTime.atOffset(ZoneOffset.UTC));
+        dtbsRequest.setSignatureAlgorithm(signatureAlgorithm);
         return formattingClient.computeDtbs(profile.signatureFormattingConnector(), dtbsRequest);
     }
 
@@ -236,12 +242,16 @@ public class ManagedContentSigningEngine {
         return encoded;
     }
 
+    /**
+     * Replays the algorithm {@code computeDtbs} was given rather than resolving it again, so the pair cannot disagree.
+     */
     private byte[] embedSignatureValue(ResolvedManagedContentSigningProfile profile, ComputeDtbsResponseDto dtbs,
-            byte[] signatureValue) throws SigningEngineException {
+            byte[] signatureValue, SignatureAlgorithm signatureAlgorithm) throws SigningEngineException {
         EmbedSignatureValueRequestDto embed = new EmbedSignatureValueRequestDto();
         embed.setFamily(profile.family());
         embed.setFormattingAttributes(profile.signatureFormattingConnectorAttributes());
         embed.setSignatureValue(signatureValue);
+        embed.setSignatureAlgorithm(signatureAlgorithm);
         embed.setFormattingContext(dtbs.getFormattingContext());
         return requireSignedDocument(
                 formattingClient.embedSignatureValue(profile.signatureFormattingConnector(), embed),

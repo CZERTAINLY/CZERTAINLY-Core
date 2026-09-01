@@ -30,6 +30,13 @@ public interface ExtendedAttributeService {
     List<BaseAttribute> listIdentifyCertificateAttributes(RaProfile raProfile)
             throws ConnectorException, NotFoundException;
 
+    /**
+     * The connector's certificate-request schema (subject RDNs, SANs, extensions the CA asks for) — not to be confused
+     * with {@link #listIssueCertificateAttributes}, which is the issue <em>operation</em> schema.
+     */
+    List<BaseAttribute> listCertificateRequestAttributes(RaProfile raProfile)
+            throws ConnectorException, NotFoundException;
+
     void validateRevokeCertificateAttributes(RaProfile raProfile, List<RequestAttribute> attributes)
             throws ConnectorException, ValidationException, NotFoundException;
 

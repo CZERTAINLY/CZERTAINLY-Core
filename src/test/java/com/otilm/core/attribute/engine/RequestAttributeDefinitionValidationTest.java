@@ -1,16 +1,21 @@
 package com.otilm.core.attribute.engine;
 
+import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
+import com.otilm.api.model.common.attribute.common.constraint.JsonSchemaAttributeConstraint;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
 import com.otilm.api.model.common.attribute.v3.DataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.IntegerAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.otilm.api.model.common.attribute.v3.mapping.ExtendedKeyUsageMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.ExtensionMappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.FieldMapping;
 import com.otilm.api.model.common.attribute.v3.mapping.FieldType;
+import com.otilm.api.model.common.attribute.v3.mapping.KeyUsageMappedField;
+import com.otilm.api.model.common.attribute.v3.mapping.MappedField;
 import com.otilm.api.model.common.attribute.v3.mapping.ObjectType;
 import com.otilm.api.model.common.attribute.v3.mapping.RdnMappedField;
 import com.otilm.api.model.core.oid.OidCategory;
@@ -62,6 +67,36 @@ class RequestAttributeDefinitionValidationTest {
         OidHandler
                 .cacheOidCategory(OidCategory.RDN_ATTRIBUTE_TYPE,
                         savedRdnRegistry == null ? new HashMap<>() : savedRdnRegistry);
+    }
+
+    @Test
+    void jsonSchemaConstraintWithABrokenSchemaDocumentRejected() {
+        DataAttributeV3 definition = validDefinition();
+        JsonSchemaAttributeConstraint constraint = new JsonSchemaAttributeConstraint();
+        constraint.setData("this is not json");
+        definition.setConstraints(List.of(constraint));
+        assertRejected(definition, "valid JSON Schema document");
+    }
+
+    @Test
+    void jsonSchemaConstraintCheckedEvenWithoutAFieldMapping() {
+        DataAttributeV3 definition = validDefinition();
+        definition.setFieldMapping(null);
+        JsonSchemaAttributeConstraint constraint = new JsonSchemaAttributeConstraint();
+        constraint.setData("this is not json");
+        definition.setConstraints(List.of(constraint));
+        Assertions
+                .assertThrows(AttributeException.class,
+                        () -> AttributeEngine.validateJsonSchemaDeclarations(definition, null));
+    }
+
+    @Test
+    void jsonSchemaConstraintWithAValidSchemaAccepted() {
+        DataAttributeV3 definition = validDefinition();
+        JsonSchemaAttributeConstraint constraint = new JsonSchemaAttributeConstraint();
+        constraint.setData("{\"type\":\"object\"}");
+        definition.setConstraints(List.of(constraint));
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(List.of(definition)));
     }
 
     private static DataAttributeV3 validDefinition() {
@@ -192,8 +227,9 @@ class RequestAttributeDefinitionValidationTest {
     @Test
     void extensionMappingOnRequesterOwnedSystemExtensionPasses() {
         // given — a requester-owned system extension is a legitimate mapping target and must pass
-        // the registry check
-        List<BaseAttribute> definitions = List.of(extensionDefinition("2.5.29.37"));
+        // the registry check. Basic Constraints, not extended key usage: the latter now has a structured
+        // target, so the opaque route to it is closed.
+        List<BaseAttribute> definitions = List.of(extensionDefinition("2.5.29.19"));
 
         // when / then
         Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(definitions));
@@ -238,5 +274,121 @@ class RequestAttributeDefinitionValidationTest {
         DataAttributeV3 definition = CsrAttributes.commonNameAttribute();
         definition.setContent(List.of(new StringAttributeContentV3("x".repeat(65))));
         assertRejected(definition, "violates constraints");
+    }
+
+    // ── Structured mapping targets ──────────────────────────────────────────
+
+    @Test
+    void structuredTargetOnANonListAttributeRejected() {
+        // A structured target's value is a set of items, so the attribute has to be a list.
+        DataAttributeV3 definition = structuredDefinition(keyUsageField(), false, "digitalSignature");
+        definition.getProperties().setList(false);
+        assertRejected(definition, "requires a list attribute");
+    }
+
+    @Test
+    void structuredTargetWithNoPermittedItemsRejected() {
+        // With no declared content, AttributeEngine's predefined-list check would refuse every CSR bit
+        // at request time. Fail at authoring instead.
+        DataAttributeV3 definition = structuredDefinition(keyUsageField(), false);
+        assertRejected(definition, "extensibleList");
+    }
+
+    @Test
+    void structuredTargetCannotBePinnedToAnExactSet() {
+        // readOnly would mean "exactly these items", but a read-only attribute cannot be a list and a
+        // set-valued target must be one. A structured selection is therefore always a permitted set.
+        DataAttributeV3 definition = structuredDefinition(keyUsageField(), false, "digitalSignature");
+        definition.getProperties().setReadOnly(true);
+        assertRejected(definition, "Read only attribute cannot be list");
+    }
+
+    @Test
+    void unknownKeyUsageItemRejected() {
+        DataAttributeV3 definition = structuredDefinition(keyUsageField(), false, "digitalSignature", "notABit");
+        assertRejected(definition, "'notABit', which is not a key usage");
+    }
+
+    @Test
+    void unregisteredExtendedKeyUsagePurposeRejected() {
+        DataAttributeV3 definition = structuredDefinition(extendedKeyUsageField(), false, "1.3.6.1.4.1.99999.42");
+        // Naming the registry is the actionable part: the operator has to register the purpose, not guess.
+        assertRejected(definition, "register it under the Extended Key Usage OID category");
+    }
+
+    @Test
+    void extendedKeyUsagePurposeGivenAsACodeRejected() {
+        // A plausible mistake: authoring "serverAuth" where the purpose OID belongs.
+        DataAttributeV3 definition = structuredDefinition(extendedKeyUsageField(), false, "serverAuth");
+        assertRejected(definition, "not a dotted-decimal OID");
+    }
+
+    @Test
+    void systemExtendedKeyUsagePurposeAccepted() {
+        // serverAuth ships in SystemOid under EXTENDED_KEY_USAGE, so it resolves without a registry row
+        DataAttributeV3 definition = structuredDefinition(extendedKeyUsageField(), false, "1.3.6.1.5.5.7.3.1");
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(List.of(definition)));
+    }
+
+    @Test
+    void extensibleStructuredTargetNeedsNoDeclaredItems() {
+        DataAttributeV3 definition = structuredDefinition(keyUsageField(), true);
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestAttributeDefinitions(List.of(definition)));
+    }
+
+    @Test
+    void sameStructuredTargetDeclaredTwiceRejected() {
+        // Without this, the definition saves cleanly and then fails every projection as a duplicate OID.
+        DataAttributeV3 definition = structuredDefinition(keyUsageField(), false, "digitalSignature");
+        definition.getFieldMapping().setFields(List.of(keyUsageField(), keyUsageField()));
+        assertRejected(definition, "more than once");
+    }
+
+    @Test
+    void opaqueExtensionMappingOnAStructuredOidRejected() {
+        // The base64-DER route to key usage is what this feature exists to replace, so it is closed for
+        // authoring - the same treatment subjectAltName already gets.
+        DataAttributeV3 definition = validDefinition();
+        ExtensionMappedField field = new ExtensionMappedField();
+        field.setFieldType(FieldType.EXTENSION);
+        field.setExtensionOid("2.5.29.15");
+        definition.getFieldMapping().setFields(List.of(field));
+        assertRejected(definition, "Key Usage mapping target");
+    }
+
+    @Test
+    void opaqueExtensionMappingOnExtendedKeyUsageRejected() {
+        DataAttributeV3 definition = validDefinition();
+        ExtensionMappedField field = new ExtensionMappedField();
+        field.setFieldType(FieldType.EXTENSION);
+        field.setExtensionOid("2.5.29.37");
+        definition.getFieldMapping().setFields(List.of(field));
+        assertRejected(definition, "Extended Key Usage mapping target");
+    }
+
+    private static KeyUsageMappedField keyUsageField() {
+        KeyUsageMappedField field = new KeyUsageMappedField();
+        field.setFieldType(FieldType.KEY_USAGE);
+        return field;
+    }
+
+    private static ExtendedKeyUsageMappedField extendedKeyUsageField() {
+        ExtendedKeyUsageMappedField field = new ExtendedKeyUsageMappedField();
+        field.setFieldType(FieldType.EXTENDED_KEY_USAGE);
+        return field;
+    }
+
+    private static DataAttributeV3 structuredDefinition(MappedField field, boolean extensibleList, String... items) {
+        DataAttributeV3 definition = validDefinition();
+        definition.getProperties().setRequired(false);
+        definition.getProperties().setList(true);
+        definition.getProperties().setExtensibleList(extensibleList);
+        definition.getFieldMapping().setFields(List.of(field));
+        List<com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3<?>> content = new ArrayList<>();
+        for (String item : items) {
+            content.add(new StringAttributeContentV3(item));
+        }
+        definition.setContent(content.isEmpty() ? null : content);
+        return definition;
     }
 }

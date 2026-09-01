@@ -4,6 +4,7 @@ import com.otilm.api.model.connector.v3.certificate.GeneralNameEntry;
 import com.otilm.api.model.connector.v3.certificate.RdnEntry;
 import com.otilm.api.model.connector.v3.certificate.RequestedExtension;
 import com.otilm.api.model.connector.v3.certificate.X509RequestContent;
+import com.otilm.api.model.core.certificate.CertificateKeyUsage;
 import com.otilm.api.model.core.certificate.GeneralNameType;
 import com.otilm.api.model.core.oid.ExtensionValueEncoding;
 import com.otilm.api.model.core.oid.OidCategory;
@@ -23,10 +24,13 @@ import org.bouncycastle.asn1.ASN1String;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.DERUTF8String;
+import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.KeyPurposeId;
+import org.bouncycastle.asn1.x509.KeyUsage;
 import org.bouncycastle.asn1.x509.OtherName;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -563,6 +567,34 @@ class X509RequestContentRendererTest {
         private static final String EXT_OID = "2.5.29.37";
 
         @Test
+        void encodesAJsonTree_whenDerValueStartsWithABrace() throws Exception {
+            byte[] extnValue = extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER,
+                    "{\"sequence\":[{\"boolean\":true},{\"integer\":0}]}"));
+
+            // then — the Basic Constraints golden vector
+            assertThat(extnValue).isEqualTo(new byte[]{0x30, 0x06, 0x01, 0x01, (byte) 0xFF, 0x02, 0x01, 0x00});
+        }
+
+        @Test
+        void encodesAJsonTree_whenTheValueIsIndentedOrNewlinePrefixed() throws Exception {
+            // A pasted value often carries leading whitespace; without trimming it takes the base64 path and
+            // fails with a misleading "invalid base64" message.
+            byte[] extnValue = extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER,
+                    "\n  {\"sequence\":[{\"boolean\":true},{\"integer\":0}]}"));
+
+            assertThat(extnValue).isEqualTo(new byte[]{0x30, 0x06, 0x01, 0x01, (byte) 0xFF, 0x02, 0x01, 0x00});
+        }
+
+        @Test
+        void namesBothAcceptedForms_whenADerValueIsNeither() {
+            // The leading '{' routes it to the JSON path, so it can no longer be read as base64.
+            assertThatThrownBy(() -> extnValueOf(extension(EXT_OID, ExtensionValueEncoding.DER, "{broken")))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("JSON")
+                    .hasMessageContaining("base64");
+        }
+
+        @Test
         void treatsValueAsBase64Der_whenEncodingIsDer() throws Exception {
             // given — value is a base64-encoded DER blob
             var derBlob = new DERUTF8String("hello").getEncoded(ASN1Encoding.DER);
@@ -668,6 +700,106 @@ class X509RequestContentRendererTest {
         X509RequestContent x509 = new X509RequestContent();
         x509.setSubjectAltNames(List.of(sans));
         return x509;
+    }
+
+    // ── Structured extensions ───────────────────────────────────────────────
+
+    @Nested
+    class StructuredExtensions {
+
+        @Test
+        void rendersKeyUsageCriticalWithTheRightBits() throws Exception {
+            // given
+            var x509 = new X509RequestContent();
+            x509.setKeyUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT));
+
+            // when
+            Extensions extensions = X509RequestContentRenderer.toExtensions(x509);
+
+            // then — RFC 5280 4.2.1.3 requires keyUsage critical, and CRITICALITY_FORCED_OIDS enforces it.
+            // BouncyCastle's own KeyUsage reader is an independent check on the bit layout.
+            Extension keyUsage = extensions.getExtension(Extension.keyUsage);
+            assertThat(keyUsage).isNotNull();
+            assertThat(keyUsage.isCritical()).isTrue();
+            KeyUsage parsed = KeyUsage.getInstance(keyUsage.getParsedValue());
+            assertThat(parsed.hasUsages(KeyUsage.digitalSignature)).isTrue();
+            assertThat(parsed.hasUsages(KeyUsage.keyEncipherment)).isTrue();
+            assertThat(parsed.hasUsages(KeyUsage.keyCertSign)).isFalse();
+        }
+
+        @Test
+        void rendersDecipherOnly_whichLivesInTheSecondOctet() throws Exception {
+            // given — bit 8, the only key usage outside the first octet
+            var x509 = new X509RequestContent();
+            x509.setKeyUsage(List.of(CertificateKeyUsage.DECIPHER_ONLY));
+
+            // when
+            Extensions extensions = X509RequestContentRenderer.toExtensions(x509);
+
+            // then
+            KeyUsage parsed = KeyUsage.getInstance(extensions.getExtension(Extension.keyUsage).getParsedValue());
+            assertThat(parsed.hasUsages(KeyUsage.decipherOnly)).isTrue();
+            assertThat(parsed.hasUsages(KeyUsage.digitalSignature)).isFalse();
+        }
+
+        @Test
+        void rendersExtendedKeyUsagePurposes() throws Exception {
+            // given
+            var x509 = new X509RequestContent();
+            x509.setExtendedKeyUsage(List.of("1.3.6.1.5.5.7.3.1"));
+
+            // when
+            Extensions extensions = X509RequestContentRenderer.toExtensions(x509);
+
+            // then
+            ExtendedKeyUsage eku = ExtendedKeyUsage
+                    .getInstance(extensions.getExtension(Extension.extendedKeyUsage).getParsedValue());
+            assertThat(eku.getUsages()).containsExactly(KeyPurposeId.id_kp_serverAuth);
+        }
+
+        @Test
+        void rendersExtendedKeyUsageNonCritical_perTheRegistryDefault() throws Exception {
+            // given
+            var x509 = new X509RequestContent();
+            x509.setExtendedKeyUsage(List.of("1.3.6.1.5.5.7.3.1"));
+
+            // when
+            Extensions extensions = X509RequestContentRenderer.toExtensions(x509);
+
+            // then — 2.5.29.37 is not in the forced set and the registry default is non-critical
+            assertThat(extensions.getExtension(Extension.extendedKeyUsage).isCritical()).isFalse();
+        }
+
+        @Test
+        void rendersNoExtension_whenATypedListIsEmpty() throws Exception {
+            // given — an empty list, not null
+            var x509 = new X509RequestContent();
+            x509.setKeyUsage(List.of());
+
+            // when
+            Extensions extensions = X509RequestContentRenderer.toExtensions(x509);
+
+            // then — RFC 5280 forbids an empty key usage bit string
+            assertThat(extensions).isNull();
+        }
+
+        @Test
+        void rejectsATypedFieldColliding_withAnExplicitExtensionOnTheSameOid() {
+            // given — the renderer is a public kernel, so it enforces one-extension-once itself
+            var x509 = new X509RequestContent();
+            x509.setKeyUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE));
+            RequestedExtension opaque = new RequestedExtension();
+            opaque.setOid("2.5.29.15");
+            opaque.setCritical(true);
+            opaque.setEncoding(ExtensionValueEncoding.DER);
+            opaque.setValue("AwIFoA==");
+            x509.setExtensions(List.of(opaque));
+
+            // when / then
+            assertThatThrownBy(() -> X509RequestContentRenderer.toExtensions(x509))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("2.5.29.15");
+        }
     }
 
     private static GeneralName[] sanNamesOf(Extensions ext) {
