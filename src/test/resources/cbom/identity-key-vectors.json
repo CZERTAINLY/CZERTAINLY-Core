@@ -9174,7 +9174,7 @@
   },
   {
    "id": "crt-dn-public-key-target-17",
-   "why": "R16 material branch through the 1.7 spelling: the public key is named by `relatedCryptographicAssets[type=public-key].ref`, not by 1.6's `subjectPublicKeyRef`, and the entry type is matched separator-dropped and case-folded. Certificate, target and value are those of `crt-dn-public-key-target`, so the two spellings MUST land on one key -- a 1.6 producer and a 1.7 producer describing one certificate must not fork it. A reader that compares the entry type raw, or reads the entry's `bom-ref` instead of its `ref`, resolves nothing and keys this certificate on an EMPTY `K:` slot",
+   "why": "R16 material branch through the 1.7 spelling: the public key is named by `relatedCryptographicAssets[type=public-key].ref`, not by 1.6's `subjectPublicKeyRef`, and the entry type is matched separator-dropped and case-folded. Certificate, target and value are those of `crt-dn-public-key-target`, so the two spellings MUST land on one key -- a 1.6 producer and a 1.7 producer describing one certificate must not fork it. The entry type is spelled `PublicKey`, a real producer spelling, so that the fold is load-bearing: spelled canonically, a reader comparing the type raw reproduces this key and the vector proves nothing. A reader that compares the entry type raw, or reads the entry's `bom-ref` instead of its `ref`, resolves nothing and keys this certificate on an EMPTY `K:` slot",
    "component": {
     "type": "cryptographic-asset",
     "name": "server",
@@ -9187,7 +9187,7 @@
       "notValidAfter": "2027-01-01T00:00:00Z",
       "relatedCryptographicAssets": [
        {
-        "type": "public-key",
+        "type": "PublicKey",
         "ref": "vector-public-key-17"
        }
       ]

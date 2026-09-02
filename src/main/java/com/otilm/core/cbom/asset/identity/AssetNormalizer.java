@@ -224,10 +224,11 @@ public record AssetNormalizer(IdentityTables tables) {
         JsonNode name = component.get("name");
         String componentName = name != null && name.isTextual() ? name.textValue() : null;
         requireNormalizableName(componentName);
-        NormalizedAsset norm = new NormalizedAsset(normalizeAssetType(boundedText(properties.get("assetType"))),
-                componentName);
+        JsonNode assetType = properties.get("assetType");
+        NormalizedAsset norm = new NormalizedAsset(normalizeAssetType(boundedText(assetType)), componentName);
+        noteIfDropped(norm, assetType, "assetType");
 
-        recordOid(norm, boundedText(properties.get("oid")));
+        recordOid(norm, boundedText(norm, properties, "oid"));
         if (CbomNames.ASSET_TYPE_ALGORITHM.equals(norm.assetType())) {
             deriveAlgorithmSlots(norm, objectOrEmpty(properties.get("algorithmProperties")));
         }
@@ -605,7 +606,7 @@ public record AssetNormalizer(IdentityTables tables) {
             return null;
         }
 
-        String declared = boundedText(algorithm.get("algorithmFamily"));
+        String declared = boundedText(norm, algorithm, "algorithmFamily");
         String fromOid = entry == null ? null : entry.family();
         String fromName = familyFromName(norm.name());
         norm.setOidDerivedFamily(fromOid);
@@ -777,6 +778,9 @@ public record AssetNormalizer(IdentityTables tables) {
         }
         String spelled = boundedText(parameterSetIdentifier);
         if (spelled == null) {
+            if (parameterSetIdentifier != null && parameterSetIdentifier.isTextual()) {
+                notes.add(droppedFieldNote(CbomNames.PARAMETER_SET_IDENTIFIER));
+            }
             return null;
         }
         String text = AsciiText.strip(spelled);
@@ -891,10 +895,10 @@ public record AssetNormalizer(IdentityTables tables) {
      * rather than observed.
      */
     private void deriveCurve(NormalizedAsset norm, JsonNode algorithm, IdentityTables.OidEntry enrichment) {
-        String parameterSetIdentifier = boundedText(algorithm.get(CbomNames.PARAMETER_SET_IDENTIFIER));
+        String parameterSetIdentifier = boundedText(norm, algorithm, CbomNames.PARAMETER_SET_IDENTIFIER);
         List<String[]> channels = new ArrayList<>();
-        channels.add(new String[]{boundedText(algorithm.get(CbomNames.ELLIPTIC_CURVE)), CbomNames.ELLIPTIC_CURVE});
-        channels.add(new String[]{boundedText(algorithm.get("curve")), "curve (inferred by producer)"});
+        channels.add(new String[]{boundedText(norm, algorithm, CbomNames.ELLIPTIC_CURVE), CbomNames.ELLIPTIC_CURVE});
+        channels.add(new String[]{boundedText(norm, algorithm, "curve"), "curve (inferred by producer)"});
         channels.add(new String[]{parameterSetIdentifier, CbomNames.PARAMETER_SET_IDENTIFIER});
         channels.add(new String[]{enrichment == null ? null : enrichment.curve(), "oid"});
         // Only an EC-bearing family may take a curve from free text, or any incidental word that happens to be a
@@ -910,8 +914,8 @@ public record AssetNormalizer(IdentityTables tables) {
             }
         }
         for (String raw : List
-                .of(nullToEmpty(boundedText(algorithm.get(CbomNames.ELLIPTIC_CURVE))),
-                        nullToEmpty(boundedText(algorithm.get("curve"))))) {
+                .of(nullToEmpty(boundedText(norm, algorithm, CbomNames.ELLIPTIC_CURVE)),
+                        nullToEmpty(boundedText(norm, algorithm, "curve")))) {
             if (!AsciiText.isBlank(raw) && !tables.isSentinel(raw)) {
                 norm.note("curve " + raw + " is not a registry token");
             }
@@ -1007,8 +1011,8 @@ public record AssetNormalizer(IdentityTables tables) {
 
     private void deriveMode(NormalizedAsset norm, JsonNode algorithm, IdentityTables.OidEntry enrichment) {
         norm
-                .setMode(normalizeMode(boundedText(algorithm.get("mode")),
-                        boundedText(algorithm.get(CbomNames.PARAMETER_SET_IDENTIFIER)), norm.name()));
+                .setMode(normalizeMode(boundedText(norm, algorithm, "mode"),
+                        boundedText(norm, algorithm, CbomNames.PARAMETER_SET_IDENTIFIER), norm.name()));
         if (norm.mode() == null && enrichment != null && enrichment.mode() != null) {
             norm.setMode(enrichment.mode());
         }
@@ -1053,7 +1057,7 @@ public record AssetNormalizer(IdentityTables tables) {
      * merged {@code AES-128-CBC-PKCS7} with {@code AES-128-CBC-RAW}, which are different constructions.
      */
     private void derivePadding(NormalizedAsset norm, JsonNode algorithm) {
-        String declared = boundedText(algorithm.get("padding"));
+        String declared = boundedText(norm, algorithm, "padding");
         if (declared != null && !AsciiText.isBlank(declared) && !tables.isSentinel(declared)) {
             String token = AsciiText.upper(AsciiText.strip(declared));
             // L7: the slot was an unbounded passthrough and has stored arbitrary producer text verbatim. Only a value
@@ -1095,7 +1099,7 @@ public record AssetNormalizer(IdentityTables tables) {
      * splits an omitting producer from a declaring one.
      */
     private void derivePrimitive(NormalizedAsset norm, JsonNode algorithm) {
-        String declared = boundedText(algorithm.get("primitive"));
+        String declared = boundedText(norm, algorithm, "primitive");
         if (declared != null && !AsciiText.isBlank(declared) && !tables.isSentinel(declared)) {
             String stripped = AsciiText.strip(declared);
             // Every other typed slot is registry-bounded; this one is producer text straight through, and it lands in
@@ -1120,7 +1124,7 @@ public record AssetNormalizer(IdentityTables tables) {
                 return;
             }
         }
-        String fromFunctions = primitiveFromFunctions(algorithm.get("cryptoFunctions"));
+        String fromFunctions = primitiveFromFunctions(norm, algorithm.get("cryptoFunctions"));
         if (fromFunctions != null) {
             norm.setPrimitive(fromFunctions);
             return;
@@ -1128,13 +1132,14 @@ public record AssetNormalizer(IdentityTables tables) {
         norm.setPrimitive(norm.family() == null ? null : tables.primitiveDefaults().get(norm.family()));
     }
 
-    private String primitiveFromFunctions(JsonNode functions) {
+    private String primitiveFromFunctions(NormalizedAsset norm, JsonNode functions) {
         if (functions == null || !functions.isArray()) {
             return null;
         }
         Set<String> tokens = new LinkedHashSet<>();
         functions.forEach(function -> {
             String spelled = boundedText(function);
+            noteIfDropped(norm, function, "cryptoFunctions");
             if (!AsciiText.isBlank(spelled)) {
                 tokens.add(AsciiText.strip(spelled).toLowerCase(Locale.ROOT));
             }
@@ -1349,6 +1354,35 @@ public record AssetNormalizer(IdentityTables tables) {
     private static String boundedText(JsonNode node) {
         String value = node != null && node.isTextual() ? node.textValue() : null;
         return exceedsNormalizableLength(value) ? null : value;
+    }
+
+    /**
+     * {@link #boundedText} for a named field of {@code parent}, recording the drop on the row when the bound fires.
+     *
+     * <p>
+     * Reading as absent is the ruled behaviour, but absent is the MERGE direction: two {@code RSA} rows whose over-long
+     * {@code parameterSetIdentifier}s differ both key {@code ALG|RSA|||||}, where the readable spellings kept them
+     * apart. The over-long primitive already leaves a note; without one here the merge left no trace at all. Several
+     * fields are read more than once along the derivation, so the note is recorded once per field.
+     */
+    private static String boundedText(NormalizedAsset norm, JsonNode parent, String field) {
+        JsonNode node = parent.get(field);
+        noteIfDropped(norm, node, field);
+        return boundedText(node);
+    }
+
+    private static void noteIfDropped(NormalizedAsset norm, JsonNode node, String field) {
+        if (node != null && node.isTextual() && exceedsNormalizableLength(node.textValue())) {
+            String note = droppedFieldNote(field);
+            if (!norm.notes().contains(note)) {
+                norm.note(note);
+            }
+        }
+    }
+
+    private static String droppedFieldNote(String field) {
+        return "the declared " + field + " exceeds " + MAX_NORMALIZABLE_LENGTH
+                + " characters and was dropped rather than normalized";
     }
 
     private static String nullToEmpty(String value) {

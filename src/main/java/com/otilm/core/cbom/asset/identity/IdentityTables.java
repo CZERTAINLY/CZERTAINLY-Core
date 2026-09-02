@@ -112,12 +112,7 @@ public final class IdentityTables {
                 .stream()
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> textSet(entry.getValue())));
         this.curveCanonical = textMap(root.field("curveCanonical"));
-        Map<String, String> aliases = new HashMap<>();
-        root
-                .field("curveAliases")
-                .entries()
-                .forEach(entry -> aliases.put(AsciiText.lookupKey(entry.getKey()), entry.getValue().text()));
-        this.curveAliases = Map.copyOf(aliases);
+        this.curveAliases = curveAliases(root.field("curveAliases"));
         this.oidToFamily = oidEntries(root.field("oidToFamily"));
         this.extraCurveSpellings = textList(root.field("extraCurveSpellings"));
         this.oidBlockedPrefixes = textSet(root.field("oidBlockedPrefixes"));
@@ -375,6 +370,34 @@ public final class IdentityTables {
         return Map.copyOf(tokens);
     }
 
+    /**
+     * The fold-insensitive alias lookup, refusing two spellings that fold onto one key with different targets.
+     *
+     * <p>
+     * The ruling {@link #familyTokens} follows, applied to the second folded table: a later-wins {@code put} let one
+     * alias edit re-target a curve with the loader silent, while the generator had already learnt to refuse the same
+     * pair -- the two ends of the artifact now agree. Two spellings of ONE target that fold together
+     * ({@code nist/P-256} and {@code nistp256}) are not a collision: the lookup has a single answer either way, and the
+     * shipped table carries nine such pairs.
+     */
+    private static Map<String, String> curveAliases(Node node) {
+        Map<String, String> aliases = new HashMap<>();
+        Map<String, String> spellings = new HashMap<>();
+        for (Map.Entry<String, Node> entry : node.entries()) {
+            String key = AsciiText.lookupKey(entry.getKey());
+            String target = entry.getValue().text();
+            String previous = aliases.putIfAbsent(key, target);
+            if (previous == null) {
+                spellings.put(key, entry.getKey());
+            } else if (!previous.equals(target)) {
+                throw new IllegalStateException(RESOURCE + ": curve aliases `" + spellings.get(key) + "` -> `"
+                        + previous + "` and `" + entry.getKey() + "` -> `" + target + "` fold to the same lookup key `"
+                        + key + "` with different targets");
+            }
+        }
+        return Map.copyOf(aliases);
+    }
+
     private List<String> curveStripTokens() {
         Set<String> tokens = new HashSet<>(extraCurveSpellings);
         curveCanonical.keySet().forEach(token -> tokens.add(token.substring(token.indexOf('/') + 1)));
@@ -428,9 +451,10 @@ public final class IdentityTables {
     private static List<SecondaryMarker> markers(Node node) {
         List<SecondaryMarker> markers = new ArrayList<>();
         for (Node marker : node.elements()) {
+            List<Node> pair = marker.elements(2);
             markers
-                    .add(new SecondaryMarker(marker.element(0).text(),
-                            Pattern.compile(marker.element(1).text(), Pattern.CASE_INSENSITIVE)));
+                    .add(new SecondaryMarker(pair.get(0).text(),
+                            Pattern.compile(pair.get(1).text(), Pattern.CASE_INSENSITIVE)));
         }
         return List.copyOf(markers);
     }
@@ -505,13 +529,18 @@ public final class IdentityTables {
             return elements;
         }
 
-        Node element(int index) {
-            JsonNode child = array().get(index);
-            if (child == null) {
-                throw new IllegalStateException(RESOURCE + ": table `" + path + "` has no element " + index
-                        + ", expected at least " + (index + 1));
+        /**
+         * The elements of an array that must hold exactly {@code size} of them. A short tuple failed already; a long
+         * one loaded with its tail ignored, and a marker written as {@code [label, pattern, pattern]} is a typo the
+         * table cannot mean.
+         */
+        List<Node> elements(int size) {
+            List<Node> elements = elements();
+            if (elements.size() != size) {
+                throw new IllegalStateException(RESOURCE + ": table `" + path + "` must hold exactly " + size
+                        + " elements, not " + elements.size());
             }
-            return new Node(child, path + "[" + index + "]");
+            return elements;
         }
 
         String text() {

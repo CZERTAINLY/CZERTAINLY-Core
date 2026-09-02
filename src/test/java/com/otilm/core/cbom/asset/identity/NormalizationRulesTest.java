@@ -393,7 +393,8 @@ class NormalizationRulesTest {
                 .isNotEqualTo("mat:fingerprint");
         assertThat(IDENTITY.of(materialWithFingerprint("sha-256", " ")).preImage()).doesNotContain("%20");
         assertThat(keyOf(materialWithFingerprint("sha-256", " ")))
-                .describedAs("and the tier that does answer still discriminates rather than merging them")
+                .describedAs(
+                        "the tier that answers instead keys on the payload, which differs between the two spellings")
                 .isNotEqualTo(keyOf(materialWithFingerprint("sha-256", "")));
     }
 

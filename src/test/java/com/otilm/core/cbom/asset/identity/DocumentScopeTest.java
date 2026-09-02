@@ -71,6 +71,56 @@ class DocumentScopeTest {
     }
 
     /**
+     * A contradiction on serial or validity refutes as surely as one on subject.
+     *
+     * <p>
+     * The renewal shape: one subject, one issuer, one claimed fingerprint stamped by the producer on both, and two
+     * different certificates underneath. Every other fixture in this class differs in the <em>subject</em>, so
+     * shortening {@code refute}'s field list to subject and issuer alone left them all green while this pair would have
+     * merged on {@code CRT|H}.
+     */
+    @Test
+    void aContradictionOnSerialOrValidityRefutesToo() {
+        JsonNode first = certificate("renewed-2026", "CN=alpha.example",
+                ",\"serialNumber\":\"0A\",\"notValidAfter\":\"2027-01-01T00:00:00Z\"");
+        JsonNode second = certificate("renewed-2027", "CN=alpha.example",
+                ",\"serialNumber\":\"0B\",\"notValidAfter\":\"2028-01-01T00:00:00Z\"");
+        DocumentScope scope = DocumentScope.of(document(first, second), NORMALIZER);
+
+        assertThat(scope.refutedCertificateDigests()).containsExactly(CLAIM);
+        assertThat(IDENTITY.of(first, scope, Set.of()).key())
+                .describedAs("so the renewal and the certificate it replaced do not merge on the shared claim")
+                .isNotEqualTo(IDENTITY.of(second, scope, Set.of()).key());
+    }
+
+    /**
+     * Only a protocol contributes a suite code, and the type is read folded.
+     *
+     * <p>
+     * Every other fixture here spells {@code protocol} and {@code certificate} canonically and lowercase, so a reader
+     * comparing the routed type raw -- or skipping the non-protocol check altogether -- passed them all. This document
+     * states the types the way a producer does.
+     */
+    @Test
+    void theContributingTypesAreReadFoldedAndOnlyAProtocolOffersASuite() {
+        JsonNode camelCased = read(protocol("camel", "TLS_AES_128_GCM_SHA256", "\"0x1301\"")
+                .toString()
+                .replace("\"assetType\":\"protocol\"", "\"assetType\":\"Protocol\""));
+        JsonNode otherName = read(protocol("other", "TLS_AKE_WITH_AES_128_GCM_SHA256", "\"0x1301\"")
+                .toString()
+                .replace("\"assetType\":\"protocol\"", "\"assetType\":\"PROTOCOL\""));
+
+        assertThat(DocumentScope.of(document(camelCased, otherName), NORMALIZER).refutedSuiteCodes())
+                .describedAs("a camel-cased and an upper-cased protocol still contradict each other")
+                .containsExactly("1301");
+        assertThat(DocumentScope
+                .of(document(camelCased, algorithmCarryingAStaleSuiteBlock()), NORMALIZER)
+                .refutedSuiteCodes())
+                .describedAs("while an algorithm carrying a stale suites block contributes no second name")
+                .isEmpty();
+    }
+
+    /**
      * The refutation reaches the key: the digest tier is skipped, the composite answers instead, and the row records
      * why it stayed separate -- which is what the alias-repair refusal reads.
      */
@@ -166,6 +216,13 @@ class DocumentScopeTest {
                 + "\"content\":\"" + DIGEST + "\"}],\"cryptoProperties\":{\"assetType\":\"certificate\","
                 + "\"certificateProperties\":{\"subjectName\":\"" + subject + "\",\"issuerName\":\"CN=vector ca\""
                 + furtherFacts + "}}}");
+    }
+
+    /** An algorithm carrying a protocol's suites block, which is the shape the non-protocol check exists to ignore. */
+    private static JsonNode algorithmCarryingAStaleSuiteBlock() {
+        return read("{\"type\":\"cryptographic-asset\",\"name\":\"stale\",\"cryptoProperties\":"
+                + "{\"assetType\":\"algorithm\",\"protocolProperties\":{\"cipherSuites\":[{\"name\":"
+                + "\"SOMETHING_ELSE\",\"identifiers\":[\"0x1301\"]}]}}}");
     }
 
     /** A TLS 1.3 protocol offering one suite, so its key differs from a sibling's only through that suite's token. */

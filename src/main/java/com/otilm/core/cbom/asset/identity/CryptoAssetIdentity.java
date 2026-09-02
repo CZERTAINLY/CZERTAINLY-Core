@@ -138,12 +138,15 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * One chain step's answer: the pre-image, the step that built it, and the inner strings it hashed on the way.
      *
      * <p>
-     * {@code hashedInputs} are the strings whose digest alone reaches the pre-image -- the distinguished-name composite
-     * and the occurrence triples. They travel with the pre-image so the case-risk detector examines exactly what the
-     * key consumed, at the site that consumed it, rather than re-deriving it from the component and reading a raw
-     * {@code location} the key path had already sanitized. Deliberately absent: the material value behind
-     * {@code MAT|..|V|} and the canonical JSON behind a projection digest. The first is the secret the redaction layer
-     * exists to keep out of every carrier; the second is a whole payload, not a spelling an operator could fold.
+     * {@code hashedInputs} are the strings whose digest alone reaches the pre-image -- the distinguished-name
+     * composite, the occurrence triples and the cipher-suite token string, whose {@code n:<NAME>} fallback carries a
+     * producer's own spelling of a suite. They travel with the pre-image so the case-risk detector examines exactly
+     * what the key consumed, at the site that consumed it, rather than re-deriving it from the component and reading a
+     * raw {@code location} the key path had already sanitized. Deliberately absent: the material value behind
+     * {@code MAT|..|V|}, the canonical JSON behind a projection digest, and the target algorithm's pre-image behind the
+     * {@code A:} discriminator inside the distinguished-name composite. The first is the secret the redaction layer
+     * exists to keep out of every carrier; the second is a whole payload, not a spelling an operator could fold; the
+     * third is keyed on the target's own row, where its case risk is recorded.
      *
      * <p>
      * {@code digestRefuted} is set only by the certificate tier, so the refutation stays visible outside the method
@@ -511,15 +514,18 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         String rawKind = text(protocol, "type");
         String kind = rawKind == null || AsciiText.isBlank(rawKind) ? null : AsciiText.fold(AsciiText.strip(rawKind));
         String version = normalizeProtocolVersion(text(protocol, "version"));
-        String suites = CipherSuites.digest(properties, scope.refutedSuiteCodes());
+        String suiteTokens = CipherSuites.tokens(properties, scope.refutedSuiteCodes());
         String configuration = protocolConfiguration(text(component, "name"));
         // Appended only when it carries something. An empty slot that still contributes a separator would re-key
         // every protocol row in the estate for no change in meaning -- 120 of 145 corpus rows.
         String suffix = configuration == null ? "" : "|" + PreImageSlot.of(configuration);
 
-        if (kind != null && version != null && suites != null) {
-            return new Tier("PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + "|" + suites + suffix,
-                    "prt:type+version+suites");
+        if (kind != null && version != null && suiteTokens != null) {
+            return Tier
+                    .hashing(
+                            "PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + "|"
+                                    + IdentityDigests.sha256Hex(suiteTokens) + suffix,
+                            "prt:type+version+suites", false, suiteTokens);
         }
         // Tier 2 is for a row that offered NO suites. A row that declared suites which could not be resolved falls to
         // the name tier instead, so "we know it has suites and cannot read them" never merges with "nothing was said".

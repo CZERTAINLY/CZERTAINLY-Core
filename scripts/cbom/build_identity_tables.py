@@ -861,11 +861,15 @@ def alias_fold_collisions(aliases: dict[str, str], canonical: dict[str, str]) ->
 # is one engine's own -- `(?P<n>`, `(?P=n)`, `(?#`, `(?(1)` and the `a`/`L`/`u` flags on the
 # Python side -- and Java is the engine that compiles the shipped table. `\Z` is refused because
 # Python's end anchor is Java's `\z` and Java's `\Z` admits a trailing terminator; `\A` goes with
-# it, the tables anchoring with `^`/`$` throughout, so neither spelling is carried. `{,n}` is
-# refused because Python reads it as `{0,n}` and Java rejects it. `\s`, `\d` and `$` are NOT
-# refused here: both engines accept them, and where their meanings differ that is a key-moving
-# decision the tables already carry.
-NON_PORTABLE_REGEX = re.compile(r"\\(?P<escape>.)|(?P<opener>\(\?(?!:|=|!|<=|<!))|(?P<bound>\{,)")
+# it, the tables anchoring with `^`/`$` throughout, so neither spelling is carried. An unescaped
+# `{` is refused unless it opens a well-formed `{n}`, `{n,}` or `{n,m}`: Python reads `AES{`,
+# `x{a}` and `a{1,2` as literals and `{,n}` as `{0,n}`, and Java rejects all four with "Illegal
+# repetition" -- the one error class the `re.compile` pass below cannot see. A literal brace is
+# spelled `\{` (both engines), and a brace inside a character class is refused with the rest,
+# fail-closed. `\s`, `\d` and `$` are NOT refused here: both engines accept them, and where their
+# meanings differ that is a key-moving decision the tables already carry.
+NON_PORTABLE_REGEX = re.compile(
+    r"\\(?P<escape>.)|(?P<opener>\(\?(?!:|=|!|<=|<!))|(?P<brace>\{(?!\d+(?:,\d*)?\}))")
 
 
 def non_portable_constructs(pattern: str) -> list[str]:
@@ -873,7 +877,7 @@ def non_portable_constructs(pattern: str) -> list[str]:
     for token in NON_PORTABLE_REGEX.finditer(pattern):
         if token.group("escape") in ("A", "Z"):
             found.append("\\" + token.group("escape"))
-        elif token.group("opener") or token.group("bound"):
+        elif token.group("opener") or token.group("brace"):
             found.append(pattern[token.start():token.start() + 3])
     return found
 
