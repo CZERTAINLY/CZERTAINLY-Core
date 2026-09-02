@@ -174,7 +174,18 @@ public record AssetNormalizer(IdentityTables tables) {
 
     private static final Pattern ADJACENT_SIZE_RUN = Pattern.compile("[-_/]?(\\d{2,5})");
 
-    private static final Pattern CURVE_ALTERNATIVES = Pattern.compile("\\s*(?:/|,|\\+|\\bor\\b|\\band\\b)\\s*");
+    /**
+     * The separators producers use for "either of these", and nothing around them.
+     *
+     * <p>
+     * The surrounding {@code \s*} this carried made the split <b>quadratic</b> on producer-supplied text: every start
+     * position scanned the whole remaining whitespace run before failing on the alternation, so 16 000 spaces in an
+     * {@code ellipticCurve} field took 6.8s and a megabyte took hours. Only the component NAME is length-capped
+     * ({@code MAX_NORMALIZABLE_NAME_LENGTH}); the curve channels are not, so the field was an uncapped stall in ingest.
+     * Matching the separator alone is linear -- a megabyte now costs 31ms -- and costs nothing, because
+     * {@code canonicalCurve} strips each part before it looks anything up.
+     */
+    private static final Pattern CURVE_ALTERNATIVES = Pattern.compile("[/,+]|\\bor\\b|\\band\\b");
 
     /** The ratified tables this pipeline reads. Exposed so the identity chain resolves names through the same data. */
     @Override
@@ -1141,6 +1152,15 @@ public record AssetNormalizer(IdentityTables tables) {
         if (name == null || AsciiText.isBlank(name)) {
             return null;
         }
+        String stripped = strippedOfConsumedTokens(name, mode, paddingFromName);
+        Set<String> kept = sizeRunsWorthKeeping(stripped, name, family, parameterSet);
+        String letters = residualLetters(stripped, paddingFromName, dropped);
+        String residue = withSynonymFolded(letters) + (kept.isEmpty() ? "" : "|" + String.join(",", kept));
+        return residue.isEmpty() ? null : residue;
+    }
+
+    /** The name with every grammar rule, the mode and padding tokens this name yielded, and any curve removed. */
+    private String strippedOfConsumedTokens(String name, String mode, String paddingFromName) {
         String stripped = name;
         for (IdentityTables.GrammarRule rule : tables.nameGrammar()) {
             stripped = rule.strict().matcher(stripped).replaceAll(" ");
@@ -1153,8 +1173,11 @@ public record AssetNormalizer(IdentityTables tables) {
                         .replaceAll(" ");
             }
         }
-        stripped = tables.curveStrip().matcher(stripped).replaceAll(" ");
+        return tables.curveStrip().matcher(stripped).replaceAll(" ");
+    }
 
+    /** Every digit run the size slot did not already account for, plus the truncation and level markers. */
+    private Set<String> sizeRunsWorthKeeping(String stripped, String name, String family, Integer parameterSet) {
         // Compared as BigInteger, kept as text. A component name is an unrestricted string, so a legitimate name
         // carrying a long decimal identifier threw here and cost the asset its row; the run itself still enters the
         // residue verbatim, leading zeros and all.
@@ -1163,16 +1186,22 @@ public record AssetNormalizer(IdentityTables tables) {
         Matcher runs = DIGITS.matcher(stripped);
         while (runs.find()) {
             BigInteger value = new BigInteger(runs.group());
-            if (value.compareTo(floor) < 0
-                    || (parameterSet != null && value.equals(BigInteger.valueOf(parameterSet)))) {
-                continue;
+            if (value.compareTo(floor) >= 0
+                    && (parameterSet == null || !value.equals(BigInteger.valueOf(parameterSet)))) {
+                kept.add(runs.group());
             }
-            kept.add(runs.group());
         }
+        addTruncationMarker(kept, name, family, floor);
+        addLevelMarkers(kept, stripped, parameterSet);
+        return kept;
+    }
 
-        // A trailing separator-delimited digest length is a TRUNCATION marker, but only when the name carries a base
-        // length too -- otherwise `SHA-256` would read its own only digit run as a truncation of itself. Both
-        // spellings must produce the same marker: NIST writes `SHA-512/224` and producers write `SHA-512-224`.
+    /**
+     * A trailing separator-delimited digest length is a TRUNCATION marker, but only when the name carries a base length
+     * too -- otherwise {@code SHA-256} would read its own only digit run as a truncation of itself. Both spellings must
+     * produce the same marker: NIST writes {@code SHA-512/224} and producers write {@code SHA-512-224}.
+     */
+    private void addTruncationMarker(Set<String> kept, String name, String family, BigInteger floor) {
         int runsAtOrAboveFloor = 0;
         Matcher nameRuns = DIGITS.matcher(name);
         while (nameRuns.find()) {
@@ -1185,62 +1214,78 @@ public record AssetNormalizer(IdentityTables tables) {
                 && runsAtOrAboveFloor >= 2 && Integer.parseInt(truncation.group(1)) >= tables.sizeMin()) {
             kept.add("t" + truncation.group(1));
         }
+    }
 
-        // A digit attached to a letter is a LEVEL marker, not a size, and it survives the size floor: `BIKE-L1`, `-L3`
-        // and `-L5` are three different parameter sets and all three merged because 1, 3 and 5 fall below the minimum.
-        // A level marker must not be a slice of the parameter set: `RSA-4096` and `RSA4096` produced residues `|096`
-        // versus nothing and split 23 corpus rows.
+    /**
+     * A digit attached to a letter is a LEVEL marker, not a size, and it survives the size floor: {@code BIKE-L1},
+     * {@code -L3} and {@code -L5} are three different parameter sets and all three merged because 1, 3 and 5 fall below
+     * the minimum. A level marker must not be a slice of the parameter set: {@code RSA-4096} and {@code RSA4096}
+     * produced residues {@code |096} versus nothing and split 23 corpus rows.
+     */
+    private void addLevelMarkers(Set<String> kept, String stripped, Integer parameterSet) {
         Matcher levels = LEVEL_MARKER.matcher(stripped);
         while (levels.find()) {
             String digits = NON_DIGITS.matcher(levels.group(1)).replaceAll("");
-            if (parameterSet != null && String.valueOf(parameterSet).endsWith(digits)) {
-                continue;
+            if (parameterSet == null || !String.valueOf(parameterSet).endsWith(digits)) {
+                kept.add(AsciiText.fold(levels.group(1)));
             }
-            kept.add(AsciiText.fold(levels.group(1)));
         }
+    }
 
+    /**
+     * The flattened letters left in the name, with the padding token removed only when this name is where it was read.
+     *
+     * <p>
+     * L7, half-fixed and deliberately so. Filtering this residue against a closed construction vocabulary was tried and
+     * REVERTED: it removed 72 spurious rows but introduced over-merges in the severe direction, because free text in a
+     * name is sometimes noise and sometimes a construction. {@code KEM Combiner (SHA-256)} merged with plain
+     * {@code SHA-256}, which is wrong: a KEM combiner using SHA-256 is not SHA-256. Over-splitting is visible and
+     * repairable; over-merging is silent corruption.
+     */
+    private String residualLetters(String stripped, String paddingFromName, List<String> dropped) {
         String letters = AsciiText.fold(NON_LETTERS.matcher(stripped).replaceAll(""));
-        // L7, half-fixed and deliberately so. Filtering this residue against a closed construction vocabulary was
-        // tried and REVERTED: it removed 72 spurious rows but introduced over-merges in the severe direction, because
-        // free text in a name is sometimes noise and sometimes a construction. `KEM Combiner (SHA-256)` merged with
-        // plain `SHA-256`, which is wrong: a KEM combiner using SHA-256 is not SHA-256. Over-splitting is visible and
-        // repairable; over-merging is silent corruption.
         if (!letters.isEmpty() && !tables.variantVocabulary().contains(letters)) {
             dropped.add(letters);
         }
-        // The padding token is removed from the flattened letters ONLY when it was actually read out of this name.
         // Stripping every padding spelling unconditionally ate a meaningful token: `AES-128-CBC-OpenPKCS11` collapsed
         // onto `AES-128-CBC-Open` because `pkcs` is a substring of `openpkcs`.
-        if (paddingFromName != null) {
-            String flattened = NON_LETTERS.matcher(paddingFromName).replaceAll("").toLowerCase(Locale.ROOT);
-            if (!flattened.isEmpty() && letters.endsWith(flattened)) {
-                letters = letters.substring(0, letters.length() - flattened.length());
-            } else if (!flattened.isEmpty() && letters.startsWith(flattened)) {
-                letters = letters.substring(flattened.length());
-            }
+        if (paddingFromName == null) {
+            return letters;
         }
-        // Synonyms fold at a PREFIX or SUFFIX only, longest key first. Free substring replacement corrupted unrelated
-        // words -- `kw` inside "backward" turned `SHAKE256-BackwardSecure` into `bacwrapardsecure` -- while
-        // whole-residue matching missed compound residues such as `kwrfc`.
+        String flattened = NON_LETTERS.matcher(paddingFromName).replaceAll("").toLowerCase(Locale.ROOT);
+        if (!flattened.isEmpty() && letters.endsWith(flattened)) {
+            return letters.substring(0, letters.length() - flattened.length());
+        }
+        if (!flattened.isEmpty() && letters.startsWith(flattened)) {
+            return letters.substring(flattened.length());
+        }
+        return letters;
+    }
+
+    /**
+     * Synonyms fold at a PREFIX or SUFFIX only, longest key first.
+     *
+     * <p>
+     * Free substring replacement corrupted unrelated words -- {@code kw} inside "backward" turned
+     * {@code SHAKE256-BackwardSecure} into {@code bacwrapardsecure} -- while whole-residue matching missed compound
+     * residues such as {@code kwrfc}. The first spelling that matches wins and the rest are not considered.
+     */
+    private String withSynonymFolded(String letters) {
         List<String> spellings = new ArrayList<>(tables.variantSynonyms().keySet());
         spellings.sort((left, right) -> Integer.compare(right.length(), left.length()));
         for (String spelling : spellings) {
             String replacement = tables.variantSynonyms().get(spelling);
             if (letters.equals(spelling)) {
-                letters = replacement;
-                break;
+                return replacement;
             }
             if (letters.startsWith(spelling)) {
-                letters = replacement + letters.substring(spelling.length());
-                break;
+                return replacement + letters.substring(spelling.length());
             }
             if (letters.endsWith(spelling)) {
-                letters = letters.substring(0, letters.length() - spelling.length()) + replacement;
-                break;
+                return letters.substring(0, letters.length() - spelling.length()) + replacement;
             }
         }
-        String residue = letters + (kept.isEmpty() ? "" : "|" + String.join(",", kept));
-        return residue.isEmpty() ? null : residue;
+        return letters;
     }
 
     private static final Pattern NON_DIGITS = Pattern.compile("\\D");

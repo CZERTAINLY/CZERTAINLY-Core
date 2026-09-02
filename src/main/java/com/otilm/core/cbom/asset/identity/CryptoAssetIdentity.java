@@ -347,9 +347,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * carries two self-signed certificates with identical subject, issuer and validity whose only difference is that
      * one points at an RSA-2048 algorithm and the other at an ECDSA-P256 one. Returning nothing for both collapsed two
      * genuinely different certificates into one row.
-     */
-    /**
-     * The reference naming this certificate's public key, preferring a 1.7 related-asset entry over the 1.6 field.
+     *
+     * <p>
+     * <b>What this method contributes to that.</b> It resolves the reference naming this certificate's public key,
+     * preferring a 1.7 related-asset entry over the 1.6 field.
      *
      * <p>
      * The entry's type is separator-dropped and ASCII-folded, the same reduction the asset-type router applies to

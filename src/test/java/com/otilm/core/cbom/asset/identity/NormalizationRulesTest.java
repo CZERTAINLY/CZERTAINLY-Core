@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.TextNode;
+import java.time.Duration;
 import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -11,6 +12,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 /**
  * The normalization rules whose <em>reasons</em> outlive the corpus that found them.
@@ -82,6 +84,34 @@ class NormalizationRulesTest {
      * Without the curve half of the stoplist, {@code ECDSA-P-256} reads size 256 out of its own curve name and collides
      * with {@code ECDSA-SHA256}.
      */
+    /**
+     * An uncapped curve field cannot stall ingest, and the alternatives it names still separate.
+     *
+     * <p>
+     * Only the component NAME is length-capped, so a producer's {@code ellipticCurve} is unbounded text. The separator
+     * pattern used to carry {@code \s*} on both sides, which made the split quadratic: 16 000 spaces took 6.8s and a
+     * megabyte took hours, in a field reached on every EC-bearing component. The bound is generous because it is
+     * guarding against a quadratic blow-up, not measuring throughput.
+     */
+    @Test
+    void anUncappedCurveFieldIsSplitInLinearTime() {
+        String pathological = " ".repeat(1_000_000);
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> NORMALIZER.canonicalCurves(pathological));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "X25519/X448,other/Curve25519+other/Curve448",
+            "'P-256, P-384',secg/secp256r1+secg/secp384r1",
+            "P-256 or P-384,secg/secp256r1+secg/secp384r1",
+            "'  P-256 ,  P-384  ',secg/secp256r1+secg/secp384r1"})
+    void theSeparatorAloneNamesTheAlternatives(String raw, String expected) {
+        assertThat(NORMALIZER.canonicalCurves(raw))
+                .describedAs("whitespace around the separator is the part that never mattered")
+                .isEqualTo(expected);
+    }
+
     @Test
     void aCurveNameIsNotReadAsAKeySize() {
         assertThat(keyOfAlgorithm("ECDSA-P-256")).isNotEqualTo(keyOfAlgorithm("ECDSA-SHA256"));

@@ -237,39 +237,56 @@ public final class DocumentScope {
             AssetNormalizer normalizer) {
         Map<String, List<Map<String, String>>> claims = new LinkedHashMap<>();
         for (JsonNode component : walk(document)) {
-            JsonNode properties = component.get("cryptoProperties");
-            if (properties == null || !properties.isObject()) {
-                continue;
-            }
-            // Normalized, not raw. The router normalizes the spelling, so a raw comparison meant an assetType of
-            // "Certificate" was ROUTED as a certificate while staying invisible to refutation -- a safety control
-            // evadable by capitalization.
-            JsonNode assetType = properties.get("assetType");
-            if (!CbomNames.ASSET_TYPE_CERTIFICATE
-                    .equals(normalizer
-                            .normalizeAssetType(
-                                    assetType != null && assetType.isTextual() ? assetType.textValue() : null))) {
-                continue;
-            }
-            JsonNode certificate = properties.get(CbomNames.CERTIFICATE_PROPERTIES);
-            JsonNode certificateProperties = certificate != null && certificate.isObject() ? certificate : null;
-            Map<String, String> facts = new LinkedHashMap<>();
-            put(facts, "subject", DistinguishedNames
-                    .normalize(text(certificateProperties, CbomNames.SUBJECT_NAME), normalizer.tables()));
-            put(facts, "issuer", DistinguishedNames
-                    .normalize(text(certificateProperties, CbomNames.ISSUER_NAME), normalizer.tables()));
-            String serial = text(certificateProperties, "serialNumber");
-            put(facts, "serial", AsciiText.fold(AsciiText.strip(serial == null ? "" : serial)));
-            put(facts, "notBefore", ValidityTimestamps.normalize(text(certificateProperties, "notValidBefore")));
-            put(facts, "notAfter", ValidityTimestamps.normalize(text(certificateProperties, "notValidAfter")));
-            if (facts.isEmpty()) {
-                continue;
-            }
-            for (String digest : CertificateDigests.claimed(component, certificateProperties)) {
-                claims.computeIfAbsent(digest, key -> new ArrayList<>()).add(facts);
-            }
+            recordDigestClaims(component, normalizer, claims);
         }
         return claims;
+    }
+
+    /** Files this component's claimed facts under every content digest it claims, when it is a certificate. */
+    private static void recordDigestClaims(JsonNode component, AssetNormalizer normalizer,
+            Map<String, List<Map<String, String>>> claims) {
+        JsonNode properties = component.get("cryptoProperties");
+        if (!statesACertificateType(properties, normalizer)) {
+            return;
+        }
+        JsonNode certificate = properties.get(CbomNames.CERTIFICATE_PROPERTIES);
+        JsonNode certificateProperties = certificate != null && certificate.isObject() ? certificate : null;
+        Map<String, String> facts = claimedFacts(certificateProperties, normalizer);
+        if (facts.isEmpty()) {
+            return;
+        }
+        for (String digest : CertificateDigests.claimed(component, certificateProperties)) {
+            claims.computeIfAbsent(digest, key -> new ArrayList<>()).add(facts);
+        }
+    }
+
+    /**
+     * Normalized, not raw. The router normalizes the spelling, so a raw comparison meant an {@code assetType} of
+     * {@code "Certificate"} was ROUTED as a certificate while staying invisible to refutation -- a safety control
+     * evadable by capitalization.
+     */
+    private static boolean statesACertificateType(JsonNode properties, AssetNormalizer normalizer) {
+        if (properties == null || !properties.isObject()) {
+            return false;
+        }
+        JsonNode assetType = properties.get("assetType");
+        return CbomNames.ASSET_TYPE_CERTIFICATE
+                .equals(normalizer
+                        .normalizeAssetType(assetType != null && assetType.isTextual() ? assetType.textValue() : null));
+    }
+
+    /** The identifying facts a certificate component states about itself, absent entries left out. */
+    private static Map<String, String> claimedFacts(JsonNode certificateProperties, AssetNormalizer normalizer) {
+        Map<String, String> facts = new LinkedHashMap<>();
+        put(facts, "subject",
+                DistinguishedNames.normalize(text(certificateProperties, CbomNames.SUBJECT_NAME), normalizer.tables()));
+        put(facts, "issuer",
+                DistinguishedNames.normalize(text(certificateProperties, CbomNames.ISSUER_NAME), normalizer.tables()));
+        String serial = text(certificateProperties, "serialNumber");
+        put(facts, "serial", AsciiText.fold(AsciiText.strip(serial == null ? "" : serial)));
+        put(facts, "notBefore", ValidityTimestamps.normalize(text(certificateProperties, "notValidBefore")));
+        put(facts, "notAfter", ValidityTimestamps.normalize(text(certificateProperties, "notValidAfter")));
+        return facts;
     }
 
     /**
