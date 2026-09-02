@@ -3,6 +3,8 @@ package com.otilm.core.dao.entity.acme;
 import com.otilm.api.model.core.acme.Challenge;
 import com.otilm.api.model.core.acme.ChallengeStatus;
 import com.otilm.api.model.core.acme.ChallengeType;
+import com.otilm.api.model.core.acme.Problem;
+import com.otilm.api.model.core.acme.ProblemDocument;
 import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.otilm.core.service.acme.AcmeConstants;
 import com.otilm.core.util.AcmeCommonHelper;
@@ -51,6 +53,13 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
     @Column(name = "validated")
     private Date validated;
 
+    @Column(name = "error_problem")
+    @Enumerated(EnumType.STRING)
+    private Problem errorProblem;
+
+    @Column(name = "error_detail", length = Integer.MAX_VALUE)
+    private String errorDetail;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authorization_uuid", nullable = false, insertable = false, updatable = false)
     @ToString.Exclude
@@ -67,7 +76,24 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
         challenge.setType(type);
         challenge.setUrl(getUrl());
         challenge.setValidated(AcmeCommonHelper.getStringFromDate(validated));
+        challenge.setError(mapErrorToDto());
         return challenge;
+    }
+
+    /**
+     * Reason of a failed validation, as the problem document the client reads back.
+     *
+     * <p>
+     * The {@link Problem} constants are shared and carry a mutable detail, so the recorded detail is set on the
+     * document rather than on the constant.
+     */
+    private ProblemDocument mapErrorToDto() {
+        if (errorProblem == null) {
+            return null;
+        }
+        ProblemDocument error = new ProblemDocument(errorProblem);
+        error.setDetail(errorDetail);
+        return error;
     }
 
     public void setAuthorization(AcmeAuthorization authorization) {
