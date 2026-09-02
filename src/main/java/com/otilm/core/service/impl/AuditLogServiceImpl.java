@@ -83,7 +83,7 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
     @Override
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.LIST)
     public AuditLogResponseDto listAuditLogs(final SearchRequestDto request) {
-        RequestValidatorHelper.revalidateSearchRequestDto(request);
+        RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.AUDIT_LOG);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery<?>, jakarta.persistence.criteria.Predicate> additionalWhereClause = (

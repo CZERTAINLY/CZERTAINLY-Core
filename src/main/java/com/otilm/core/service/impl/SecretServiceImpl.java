@@ -45,6 +45,7 @@ import com.otilm.api.model.core.secret.SecretVersionDto;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.ConnectorRequestAttributesBuilder;
+import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.comparator.SearchFieldDataComparator;
@@ -63,6 +64,7 @@ import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.dao.repository.Secret2SyncVaultProfileRepository;
 import com.otilm.core.dao.repository.SecretRepository;
 import com.otilm.core.dao.repository.SecretVersionRepository;
+import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.dao.repository.VaultInstanceRepository;
 import com.otilm.core.dao.repository.VaultProfileRepository;
 import com.otilm.core.enums.FilterField;
@@ -153,6 +155,8 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
 
     private AttributeColumnProjector attributeColumnProjector;
 
+    private ListingSortResolver listingSortResolver;
+
     @Autowired
     public void setActionProducer(ActionProducer actionProducer) {
         this.actionProducer = actionProducer;
@@ -161,6 +165,11 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
     @Autowired
     public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
         this.attributeColumnProjector = attributeColumnProjector;
+    }
+
+    @Autowired
+    public void setListingSortResolver(ListingSortResolver listingSortResolver) {
+        this.listingSortResolver = listingSortResolver;
     }
 
     private CommentInternalService commentService;
@@ -300,7 +309,8 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
         TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb,
                 cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, searchRequest.getFilters());
         Pageable p = PageRequest.of(searchRequest.getPageNumber() - 1, searchRequest.getItemsPerPage());
-        List<Secret> secrets = getSecrets(securityFilter, p, additionalWhereClause);
+        List<Secret> secrets = getSecrets(securityFilter, p, additionalWhereClause,
+                listingSortResolver.resolve(Resource.SECRET, searchRequest.getSort()));
         List<SecretDto> secretDtos = secrets.stream().map(Secret::mapToDto).toList();
 
         attributeColumnProjector
@@ -317,11 +327,12 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
     }
 
     private List<Secret> getSecrets(SecurityFilter securityFilter, Pageable p,
-            TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+            TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,
+            SortSpecification sort) {
         securityFilter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
         return secretRepository
                 .findUsingSecurityFilter(securityFilter, List.of(), additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
+                        (root, cb) -> cb.desc(root.get(Audited_.CREATED)), sort)
                 .stream()
                 .toList();
     }

@@ -126,7 +126,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceExternalService,
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
     public EntityInstanceResponseDto listEntityInstances(final SecurityFilter filter, final SearchRequestDto request) {
-        RequestValidatorHelper.revalidateSearchRequestDto(request);
+        RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.ENTITY);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
