@@ -110,7 +110,7 @@ class IdentityVectorTest {
         }
         JsonNode component = vector.node().get("component");
         DocumentScope scope = DocumentScope.of(documentAround(vector.node()), normalizer);
-        JsonNode properties = MaterialRedaction.of(component.get("cryptoProperties")).payload();
+        JsonNode properties = MaterialRedaction.of(component.get("cryptoProperties")).keyedPayload();
 
         if (inner.hasNonNull("dnComposite")) {
             assertThat(identity.dnPreImage(properties, scope))

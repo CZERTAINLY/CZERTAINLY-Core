@@ -106,7 +106,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
     public Identity of(JsonNode component, DocumentScope scope, Set<String> batchRefutedDigests) {
         AssetNormalizer.Result normalized = normalizer.normalize(component);
         NormalizedAsset asset = normalized.asset();
-        JsonNode properties = normalized.redaction().payload();
+        JsonNode properties = normalized.redaction().keyedPayload();
 
         String preImage;
         String step;
@@ -469,7 +469,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             try {
                 AssetNormalizer.Result targetNormalized = normalizer.normalize(target);
                 return "A:" + IdentityDigests
-                        .sha256Hex(algorithm(targetNormalized.asset(), targetNormalized.redaction().payload())[0]);
+                        .sha256Hex(algorithm(targetNormalized.asset(), targetNormalized.redaction().keyedPayload())[0]);
             } catch (IllegalArgumentException e) {
                 // Same containment as the value tier above: a malformed target must cost the target its row, never
                 // the certificates pointing at it.

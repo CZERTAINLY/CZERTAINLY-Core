@@ -175,7 +175,7 @@ public record AssetNormalizer(IdentityTables tables) {
      */
     public Result normalize(JsonNode component) {
         MaterialRedaction redaction = MaterialRedaction.of(component.get("cryptoProperties"));
-        JsonNode properties = redaction.payload();
+        JsonNode properties = redaction.keyedPayload();
         JsonNode algorithm = objectOrEmpty(properties.get("algorithmProperties"));
 
         // Routed on cryptoProperties.assetType alone, never on the component's own type and never on which

@@ -164,7 +164,7 @@ public final class CbomAssetExtractor {
                 List<Map<String, Object>> reported = sanitizedOccurrences(component);
                 assets
                         .add(new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(), nameOf(component),
-                                extracted.redaction().payload(), OccurrenceEvidenceCapper.cap(reported),
+                                extracted.redaction().storedPayload(), OccurrenceEvidenceCapper.cap(reported),
                                 reported == null ? 0 : reported.size(), extracted.guard()));
             } catch (RuntimeException e) {
                 // Deliberately broad, and deliberately not logged with the throwable. Producer input reaches every
