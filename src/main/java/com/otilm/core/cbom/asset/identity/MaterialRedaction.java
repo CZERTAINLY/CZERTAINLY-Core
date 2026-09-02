@@ -146,13 +146,27 @@ public final class MaterialRedaction {
     }
 
     /**
-     * The members of {@code relatedCryptoMaterialProperties} this pipeline contracts for.
+     * The members of {@code relatedCryptoMaterialProperties} this pipeline keeps.
      *
      * <p>
      * Everything else is a producer extension. For low-entropy material the extensions are dropped rather than
      * enumerated, because {@code value} is not the only member that can carry the plaintext's digest and the set of
      * names that can is open: a secret scanner fingerprints what it found so it can dedupe findings across runs, and
      * that digest is exactly as reversible as the one {@link #digestPublishable} refuses to publish.
+     *
+     * <p>
+     * <b>One entry is not contracted, and is kept anyway.</b> {@code relatedCryptoMaterialType} appears in neither the
+     * CycloneDX 1.6 nor the 1.7 {@code relatedCryptoMaterialProperties} schema, and no code here reads it -- the
+     * material type is read from {@code type}. It is an extension by every available definition, so the paragraph above
+     * does not describe it.
+     *
+     * <p>
+     * It is listed because dropping it moved a ratified identity key. The backstop pre-image ends in a projection
+     * digest over this payload, so removing any member re-keys the row, and vector {@code gen-068-mat-backstop} expects
+     * the member present. That makes this entry a stopgap for a layer error rather than a statement about the contract:
+     * the drop should never have reached the hashed projection at all, since the specification enumerates exactly which
+     * fields are stripped before a hash and this is not among them. Until the payload that is keyed is separated from
+     * the payload that is stored, the enumeration has to carry it.
      */
     private static final Set<String> CONTRACTED_MEMBERS = Set
             .of("type", "relatedCryptoMaterialType", "id", "state", "algorithmRef", "creationDate", "activationDate",
