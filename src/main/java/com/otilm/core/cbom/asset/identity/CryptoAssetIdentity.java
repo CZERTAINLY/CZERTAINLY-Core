@@ -421,7 +421,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * of the same class already gates on {@code isTextual()}.
      */
     private static boolean hasContent(JsonNode node) {
-        return node != null && node.isTextual() && !node.textValue().isEmpty();
+        return node != null && node.isTextual() && !AsciiText.isBlank(node.textValue());
     }
 
     /**
@@ -651,9 +651,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // UUID stable across documents and hand-written labels like `server-key-2024`, and nothing distinguishes the
         // two. Two different keys can share an id, so it must never outrank a fingerprint or a value digest.
         JsonNode fingerprint = material == null ? null : material.get("fingerprint");
-        // Emptiness, not nullness: an empty content string made every such component key as
-        // `MAT|<kind>|F|unknown:`, so two different secret keys collapsed onto one row and the value-hash tier one
-        // branch below -- which would have kept them apart -- was never reached.
+        // Blankness, not nullness: a content string of `""` -- or of a space, which folds to the same nothing and
+        // which `isEmpty` admitted -- made every such component key as `MAT|<kind>|F|unknown:%20`, so two different
+        // secret keys collapsed onto one row and the value-hash tier one branch below, which would have kept them
+        // apart, was never reached. Blank is the reference whitespace set, as it is in every other slot.
         if (fingerprint != null && fingerprint.isObject() && hasContent(fingerprint.get(CbomNames.CONTENT))) {
             return new Tier(
                     "MAT|" + PreImageSlot.of(kind) + "|F|"

@@ -377,6 +377,27 @@ class NormalizationRulesTest {
     }
 
     /**
+     * A whitespace-only fingerprint content is an absent one, so the tier below it still discriminates.
+     *
+     * <p>
+     * The content gate tested emptiness with {@code isEmpty}, so {@code content: " "} passed it and every such
+     * component keyed {@code MAT|<kind>|F|unknown:%20}: one row for every material of that type whose producer wrote a
+     * space, with the tier below never reached. Falling through, the two spellings key apart on the payload rather than
+     * together on a claim that says nothing. Costs nothing: no ratified vector and no corpus row carries a blank
+     * content.
+     */
+    @Test
+    void aBlankFingerprintContentIsAnAbsentOne() {
+        assertThat(IDENTITY.of(materialWithFingerprint("sha-256", " ")).step())
+                .describedAs("a claim of one space is no claim, so the fingerprint tier does not answer")
+                .isNotEqualTo("mat:fingerprint");
+        assertThat(IDENTITY.of(materialWithFingerprint("sha-256", " ")).preImage()).doesNotContain("%20");
+        assertThat(keyOf(materialWithFingerprint("sha-256", " ")))
+                .describedAs("and the tier that does answer still discriminates rather than merging them")
+                .isNotEqualTo(keyOf(materialWithFingerprint("sha-256", "")));
+    }
+
+    /**
      * Neither half of a material fingerprint can forge the {@code :} between them.
      *
      * <p>
