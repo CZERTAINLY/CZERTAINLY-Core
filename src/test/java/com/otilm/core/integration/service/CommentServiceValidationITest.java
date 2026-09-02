@@ -14,6 +14,8 @@ import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.service.CommentExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,8 +56,85 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
 
     private CommentResponseDto list(UUID objectUuid) throws NotFoundException {
         return commentService
-                .listComments(SecuredResource.fromResource(Resource.RA_PROFILE), SecuredUUID.fromUUID(objectUuid),
+                .listComments(SecuredResource.fromResource(Resource.RA_PROFILE), SecuredUUID.fromUUID(objectUuid), null,
                         new PaginationRequestDto());
+    }
+
+    private CommentResponseDto listAnchoredAt(UUID objectUuid, UUID anchorUuid, int pageSize) throws NotFoundException {
+        PaginationRequestDto pagination = new PaginationRequestDto();
+        pagination.setItemsPerPage(pageSize);
+        return commentService
+                .listComments(SecuredResource.fromResource(Resource.RA_PROFILE), SecuredUUID.fromUUID(objectUuid),
+                        anchorUuid, pagination);
+    }
+
+    @Test
+    void anchoringOnAThreadReturnsThePageHoldingIt() throws NotFoundException {
+        List<CommentDto> roots = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            roots.add(post(raProfileUuid, "root " + i, null));
+        }
+        CommentDto onThirdPage = roots.get(5);
+
+        CommentResponseDto anchored = listAnchoredAt(raProfileUuid, onThirdPage.getUuid(), 2);
+
+        assertThat(anchored.getPageNumber()).isEqualTo(3);
+        assertThat(anchored.getComments()).extracting(CommentDto::getUuid).contains(onThirdPage.getUuid());
+    }
+
+    @Test
+    void anchoringOnAReplyReturnsThePageHoldingItsThread() throws NotFoundException {
+        List<CommentDto> roots = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            roots.add(post(raProfileUuid, "root " + i, null));
+        }
+        CommentDto thread = roots.get(4);
+        CommentDto reply = post(raProfileUuid, "the reply the notification is about", thread.getUuid());
+
+        CommentResponseDto anchored = listAnchoredAt(raProfileUuid, reply.getUuid(), 2);
+
+        assertThat(anchored.getPageNumber()).isEqualTo(3);
+        assertThat(anchored.getComments()).extracting(CommentDto::getUuid).contains(thread.getUuid());
+    }
+
+    @Test
+    void aStaleAnchorLeavesTheListingOnTheRequestedPage() throws NotFoundException {
+        post(raProfileUuid, "still here", null);
+
+        CommentResponseDto anchored = listAnchoredAt(raProfileUuid, UUID.randomUUID(), 10);
+
+        assertThat(anchored.getPageNumber()).isEqualTo(1);
+        assertThat(anchored.getComments()).hasSize(1);
+    }
+
+    @Test
+    void anAnchorFromAnotherObjectIsIgnored() throws NotFoundException {
+        RaProfile other = new RaProfile();
+        other.setName("tst-ra-profile-other");
+        UUID otherUuid = raProfileRepository.save(other).getUuid();
+        CommentDto foreign = post(otherUuid, "somewhere else", null);
+        post(raProfileUuid, "here", null);
+
+        CommentResponseDto anchored = listAnchoredAt(raProfileUuid, foreign.getUuid(), 10);
+
+        assertThat(anchored.getComments()).hasSize(1);
+    }
+
+    @Test
+    void anchoringOnAReplyReturnsThePageOfRepliesHoldingIt() throws NotFoundException {
+        CommentDto root = post(raProfileUuid, "root", null);
+        List<CommentDto> replies = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            replies.add(post(raProfileUuid, "reply " + i, root.getUuid()));
+        }
+        CommentDto target = replies.get(4);
+
+        PaginationRequestDto pagination = new PaginationRequestDto();
+        pagination.setItemsPerPage(2);
+        CommentResponseDto anchored = commentService.listReplies(root.getUuid(), target.getUuid(), pagination);
+
+        assertThat(anchored.getPageNumber()).isEqualTo(3);
+        assertThat(anchored.getComments()).extracting(CommentDto::getUuid).contains(target.getUuid());
     }
 
     @Test
@@ -66,7 +145,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         PaginationRequestDto pagination = new PaginationRequestDto();
         assertThatThrownBy(() -> commentService.createComment(userResource, objectUuid, createRequest))
                 .isInstanceOf(ValidationException.class);
-        assertThatThrownBy(() -> commentService.listComments(userResource, objectUuid, pagination))
+        assertThatThrownBy(() -> commentService.listComments(userResource, objectUuid, null, pagination))
                 .isInstanceOf(ValidationException.class);
     }
 
@@ -89,7 +168,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         CommentResponseDto threads = list(raProfileUuid);
         assertThat(threads.getComments()).hasSize(1);
         assertThat(threads.getComments().getFirst().getReplyCount()).isEqualTo(1L);
-        assertThat(commentService.listReplies(root.getUuid(), new PaginationRequestDto()).getComments())
+        assertThat(commentService.listReplies(root.getUuid(), null, new PaginationRequestDto()).getComments())
                 .extracting(CommentDto::getUuid)
                 .containsExactly(reply.getUuid());
     }
@@ -123,7 +202,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
 
         UUID replyUuid = reply.getUuid();
         PaginationRequestDto pagination = new PaginationRequestDto();
-        assertThatThrownBy(() -> commentService.listReplies(replyUuid, pagination))
+        assertThatThrownBy(() -> commentService.listReplies(replyUuid, null, pagination))
                 .isInstanceOf(ValidationException.class);
     }
 

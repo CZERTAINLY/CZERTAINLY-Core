@@ -11,10 +11,11 @@ import java.util.UUID;
 
 public interface CommentExternalService {
 
-    CommentResponseDto listComments(SecuredResource resource, SecuredUUID objectUuid, PaginationRequestDto pagination)
-            throws NotFoundException;
+    CommentResponseDto listComments(SecuredResource resource, SecuredUUID objectUuid, UUID anchorUuid,
+            PaginationRequestDto pagination) throws NotFoundException;
 
-    CommentResponseDto listReplies(UUID uuid, PaginationRequestDto pagination) throws NotFoundException;
+    CommentResponseDto listReplies(UUID uuid, UUID anchorUuid, PaginationRequestDto pagination)
+            throws NotFoundException;
 
     CommentDto createComment(SecuredResource resource, SecuredUUID objectUuid, CommentCreateRequestDto request)
             throws NotFoundException;

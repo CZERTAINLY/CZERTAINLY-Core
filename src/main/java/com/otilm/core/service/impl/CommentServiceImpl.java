@@ -109,15 +109,22 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     @Override
     @ExternalAuthorizationDynamic(action = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public CommentResponseDto listComments(SecuredResource resource, SecuredUUID objectUuid,
+    public CommentResponseDto listComments(SecuredResource resource, SecuredUUID objectUuid, UUID anchorUuid,
             PaginationRequestDto pagination) throws NotFoundException {
         Resource hostResource = validateCommentable(resource);
         resourceService.getResourceObject(hostResource, objectUuid.getValue());
         RequestValidatorHelper.revalidatePaginationRequestDto(pagination);
 
+        Comment anchoredThread = anchoredThread(hostResource, objectUuid.getValue(), anchorUuid);
+        int pageIndex = anchoredThread == null
+                ? pagination.getPageNumber() - 1
+                : (int) (commentRepository
+                        .countByResourceAndObjectUuidAndParentUuidIsNullAndCreatedAtLessThan(hostResource,
+                                objectUuid.getValue(), anchoredThread.getCreatedAt())
+                        / pagination.getItemsPerPage());
         Page<Comment> roots = commentRepository
                 .findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAsc(hostResource, objectUuid.getValue(),
-                        PageRequest.of(pagination.getPageNumber() - 1, pagination.getItemsPerPage()));
+                        PageRequest.of(pageIndex, pagination.getItemsPerPage()));
         List<UUID> rootUuids = roots.getContent().stream().map(Comment::getUuid).toList();
         Map<UUID, Long> replyCountsByRoot = rootUuids.isEmpty()
                 ? Map.of()
@@ -133,10 +140,29 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         return CommentMapper.toResponseDto(roots, threads);
     }
 
+    /**
+     * The thread an anchor belongs to, or null when no anchor was asked for, or when it no longer exists or never
+     * belonged to this object. A stale anchor leaves the caller on the page they requested rather than failing the
+     * listing, which can still serve the object's other comments.
+     */
+    private Comment anchoredThread(Resource hostResource, UUID objectUuid, UUID anchorUuid) {
+        if (anchorUuid == null) {
+            return null;
+        }
+        Comment anchor = commentRepository.findByUuid(SecuredUUID.fromUUID(anchorUuid)).orElse(null);
+        if (anchor == null || anchor.getResource() != hostResource || !anchor.getObjectUuid().equals(objectUuid)) {
+            return null;
+        }
+        return anchor.getParentUuid() == null
+                ? anchor
+                : commentRepository.findByUuid(SecuredUUID.fromUUID(anchor.getParentUuid())).orElse(null);
+    }
+
     @Override
     @AnyPrincipalEndpoint
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public CommentResponseDto listReplies(UUID uuid, PaginationRequestDto pagination) throws NotFoundException {
+    public CommentResponseDto listReplies(UUID uuid, UUID anchorUuid, PaginationRequestDto pagination)
+            throws NotFoundException {
         Comment root = getComment(uuid);
         // Authorization comes before shape validation, so an unauthorized caller cannot tell roots from replies
         // by the status code
@@ -147,15 +173,28 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         }
         RequestValidatorHelper.revalidatePaginationRequestDto(pagination);
 
+        Comment anchor = anchoredReply(uuid, anchorUuid);
+        int pageIndex = anchor == null
+                ? pagination.getPageNumber() - 1
+                : (int) (commentRepository.countByParentUuidAndCreatedAtLessThan(uuid, anchor.getCreatedAt())
+                        / pagination.getItemsPerPage());
         Page<Comment> replies = commentRepository
-                .findByParentUuidOrderByCreatedAtAsc(uuid,
-                        PageRequest.of(pagination.getPageNumber() - 1, pagination.getItemsPerPage()));
+                .findByParentUuidOrderByCreatedAtAsc(uuid, PageRequest.of(pageIndex, pagination.getItemsPerPage()));
         List<CommentDto> replyDtos = replies
                 .getContent()
                 .stream()
                 .map(reply -> CommentMapper.toDto(reply, null))
                 .toList();
         return CommentMapper.toResponseDto(replies, replyDtos);
+    }
+
+    /** The anchored reply when it still exists and still belongs to this thread; null leaves the requested page. */
+    private Comment anchoredReply(UUID rootUuid, UUID anchorUuid) {
+        if (anchorUuid == null) {
+            return null;
+        }
+        Comment anchor = commentRepository.findByUuid(SecuredUUID.fromUUID(anchorUuid)).orElse(null);
+        return anchor != null && rootUuid.equals(anchor.getParentUuid()) ? anchor : null;
     }
 
     @Override

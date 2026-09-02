@@ -24,6 +24,12 @@ public interface CommentRepository extends SecurityFilterRepository<Comment, UUI
 
     Page<Comment> findByParentUuidOrderByCreatedAtAsc(UUID parentUuid, Pageable pageable);
 
+    // Position of a comment within its listing, so a caller anchored at one can be given the page holding it.
+    long countByResourceAndObjectUuidAndParentUuidIsNullAndCreatedAtLessThan(Resource resource, UUID objectUuid,
+            OffsetDateTime createdAt);
+
+    long countByParentUuidAndCreatedAtLessThan(UUID parentUuid, OffsetDateTime createdAt);
+
     @Query("SELECT c.parentUuid, COUNT(c) FROM Comment c WHERE c.parentUuid IN :rootUuids GROUP BY c.parentUuid")
     List<Object[]> countRepliesByRoots(@Param("rootUuids") Collection<UUID> rootUuids);
 
