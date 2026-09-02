@@ -51,7 +51,10 @@ class CorpusKeySnapshotTest {
     @Test
     void snapshot() throws IOException {
         Path corpora = Path.of(System.getProperty("corpus.dir"));
-        Path out = Path.of(System.getProperty("corpus.out"));
+        // Defaulted, because only corpus.dir gates the run: reading a second required property would meet anyone who
+        // followed the skip condition alone with an NPE from Path.of(null) instead of a snapshot.
+        Path out = Path.of(System.getProperty("corpus.out", "target/corpus-keys.tsv"));
+        Files.createDirectories(out.toAbsolutePath().getParent());
         AssetNormalizer normalizer = new AssetNormalizer(IdentityTables.load());
         CryptoAssetIdentity identity = new CryptoAssetIdentity(normalizer);
         List<String> rows = new ArrayList<>();

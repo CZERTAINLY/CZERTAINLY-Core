@@ -179,8 +179,35 @@ public final class Occurrences {
         return text.substring(0, capBoundary(text));
     }
 
+    /**
+     * Strips user-info until nothing changes, which is not the same as stripping it once or twice.
+     *
+     * <p>
+     * The replacement can <em>create</em> the shape it matches. {@code //u1:p1@/u2:p2@/u3:p3@host} has three
+     * {@code @}-terminated authorities sharing their slashes: consuming {@code //u1:p1@} leaves {@code ///u2:p2@…},
+     * where scanning resumes past the {@code /} and finds only one slash before the next credential. Each pass
+     * therefore peels exactly one layer, so two passes left the third password in the key and in the served
+     * {@code evidence} column. Found by an exhaustive sweep to length 8 over <code>{/ : @ ? # a p}</code> -- 27 of 6
+     * 725 600 inputs, all of this one family -- after a hand-built case set missed it, which is the difference between
+     * covering the cases you thought of and covering the input space.
+     *
+     * <p>
+     * The loop terminates because every replacement removes at least the {@code @}, so the string strictly shortens.
+     *
+     * <p>
+     * Two residuals stay, both pre-existing and both measured: a user-info containing a {@code /} survives whole
+     * ({@code //u:pa/ss@host/x}), because {@code [^/]*} cannot cross the slash and widening it further would eat whole
+     * paths; and a credential with no {@code //} at all ({@code smtp:user:pass@host}, an scp-style
+     * {@code user:pass@host:/path}) is not an authority and is out of this pattern's scope.
+     */
     private static String withoutUserInfo(String text) {
-        return USERINFO.matcher(text).replaceAll("//");
+        String stripped = text;
+        String previous = null;
+        while (!stripped.equals(previous)) {
+            previous = stripped;
+            stripped = USERINFO.matcher(stripped).replaceAll("//");
+        }
+        return stripped;
     }
 
     /**

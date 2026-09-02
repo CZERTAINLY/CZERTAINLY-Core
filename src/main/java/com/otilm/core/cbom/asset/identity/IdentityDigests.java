@@ -43,11 +43,11 @@ public final class IdentityDigests {
             char character = text.charAt(index);
             if (Character.isHighSurrogate(character)) {
                 if (index + 1 == text.length() || !Character.isLowSurrogate(text.charAt(index + 1))) {
-                    throw new IllegalArgumentException("An identity pre-image carries an unpaired surrogate");
+                    throw new IllegalArgumentException("An identity input carries an unpaired surrogate");
                 }
                 index += 2;
             } else if (Character.isLowSurrogate(character)) {
-                throw new IllegalArgumentException("An identity pre-image carries an unpaired surrogate");
+                throw new IllegalArgumentException("An identity input carries an unpaired surrogate");
             } else {
                 index++;
             }

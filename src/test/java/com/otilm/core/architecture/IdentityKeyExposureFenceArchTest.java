@@ -79,8 +79,8 @@ class IdentityKeyExposureFenceArchTest {
      */
     @Test
     void everyAllowlistedSourceExists() {
-        assertThat(IdentityKeyExposureFence.SOURCE_ALLOWLIST)
-                .describedAs("each allowlisted persistence source must still be where the allowlist says it is")
+        assertThat(IdentityKeyExposureFence.SOURCE_ALLOWLIST.keySet())
+                .describedAs("each allowlisted source must still be where the allowlist says it is")
                 .allSatisfy(path -> assertThat(Path.of(path)).exists());
     }
 

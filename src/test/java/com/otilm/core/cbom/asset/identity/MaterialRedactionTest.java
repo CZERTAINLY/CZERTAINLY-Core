@@ -345,6 +345,26 @@ class MaterialRedactionTest {
                 .noneSatisfy(finding -> assertThat(finding).contains("uncontracted members dropped"));
     }
 
+    /**
+     * The exfiltration finding names the member, so the severe case is not reported as the generic one.
+     *
+     * <p>
+     * It used to fire only for the exact member {@code value}, so a private key inlined under {@code pem} -- the worse
+     * of the two -- raised only the generic uncontracted-members line, and a consumer filtering on the specific text
+     * would have missed it.
+     */
+    @Test
+    void theExfiltrationFindingNamesTheMemberThatCarriedTheKey() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read(
+                        "{\"relatedCryptoMaterialProperties\":{\"type\":\"private-key\",\"pem\":\"" + SECRET + "\"}}"));
+
+        assertThat(redaction.findings())
+                .anySatisfy(finding -> assertThat(finding)
+                        .contains("producer inlined a value on material type private-key")
+                        .contains("under member pem"));
+    }
+
     private static MaterialRedaction redact(String type, String value) {
         return MaterialRedaction
                 .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"" + type + "\",\"value\":" + quote(value)

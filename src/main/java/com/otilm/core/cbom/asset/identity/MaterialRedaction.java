@@ -128,19 +128,35 @@ public final class MaterialRedaction {
                 redacted.put("redacted", true);
                 redacted.put("length", valueLength);
                 materialNode.set(CbomNames.VALUE, redacted);
-                if (materialType != null && SECRET_TYPES.contains(AsciiText.fold(AsciiText.strip(materialType)))) {
-                    findings.add("producer inlined a value on material type " + materialType);
-                }
+                inlinedSecretFinding(materialType, CbomNames.VALUE, findings);
             }
         }
 
         // The stored payload forks from the keyed one HERE, once the value carries an envelope rather than a
         // plaintext. Everything above is common to both; the member allowlist below is storage's alone.
         ObjectNode stored = payload.deepCopy();
-        dropUncontractedMembers((ObjectNode) stored.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES), materialType,
-                findings);
+        List<String> dropped = dropUncontractedMembers(
+                (ObjectNode) stored.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES), materialType, findings);
+        // The severe finding fires under every member name, not only under `value`. A consumer filtering on the
+        // exfiltration text would otherwise get the generic uncontracted-members line for `private-key/pem` -- the
+        // worse of the two -- and the specific one only for the spelling the schema contracts.
+        dropped.forEach(member -> inlinedSecretFinding(materialType, member, findings));
         return new MaterialRedaction(payload, stored, materialType, identityDigest, publishedDigest, valueLength,
                 findings);
+    }
+
+    /**
+     * Raises the exfiltration finding when a type that should never carry an inlined value carried one.
+     *
+     * <p>
+     * Separate from the generic uncontracted-members finding and deliberately louder: this one names the type, so a
+     * consumer can tell "a producer put a private key in a document" from "a producer sent a field we do not contract
+     * for".
+     */
+    private static void inlinedSecretFinding(String materialType, String member, List<String> findings) {
+        if (materialType != null && SECRET_TYPES.contains(AsciiText.fold(AsciiText.strip(materialType)))) {
+            findings.add("producer inlined a value on material type " + materialType + " under member " + member);
+        }
     }
 
     /**
@@ -192,8 +208,16 @@ public final class MaterialRedaction {
      * <p>
      * A producer fingerprint of high-entropy material is not reversible and is the discriminator the
      * {@code mat:fingerprint} tier keys on, so storage keeps it. On low-entropy material the same member is an unsalted
-     * digest of a password, which is the thing {@link #digestPublishable} exists to withhold -- so there it goes, and
-     * its absence is why the {@code mat:fingerprint} tier is unreachable for a low-entropy asset.
+     * digest of a password, which is the thing {@link #digestPublishable} exists to withhold -- so storage drops it
+     * there.
+     *
+     * <p>
+     * <b>Dropping it no longer changes the tier.</b> While one payload served both purposes, a low-entropy asset's
+     * fingerprint was gone before {@code material()} could read it, so the row reached {@code mat:backstop}; now the
+     * keyed payload keeps it and the row keys on {@code mat:fingerprint} instead. That is a key move for that class,
+     * and it is toward the reference: the specification's {@code MAT|<type>|F|...} carries no low-entropy exception and
+     * the kernel keys the tier whatever the type. 0 corpus rows and 0 vectors -- all 453 corpus fingerprints sit on
+     * publishable types.
      */
     private static final Set<String> PUBLISHABLE_ONLY_MEMBERS = Set.of("fingerprint");
 
@@ -220,17 +244,22 @@ public final class MaterialRedaction {
      *
      * <p>
      * The drops are storage's alone: {@link #keyedPayload()} keeps every member, so nothing here can move an identity
-     * key. What that buys is a plaintext under an uncontracted member reaching the identity pre-image -- never a stored
-     * column, never a wire response, and never a log, since the pre-image has no production caller and the architecture
-     * fence guards the accessor. It is the same exposure the value tier already accepts by hashing the plaintext, and
-     * R2/R15 leave no room to strip more before a hash.
+     * key. What that buys is a retained plaintext reaching the identity pre-image, and how far it reaches is worth
+     * being exact about. A plaintext under an <em>uncontracted</em> member enters only
+     * {@code CanonicalJson.projectionDigest}, so it sits inside a SHA-256 and is never spelled into a slot. The
+     * cleartext case is {@code fingerprint.content}, which the {@code mat:fingerprint} claim spells literally -- a tier
+     * this split newly makes reachable for low-entropy material. Either way it reaches no stored column, no wire
+     * response and no log: the pre-image has no production caller, {@link #keyedPayload()} is package-private, and the
+     * architecture fence covers both spellings. It is the same exposure the value tier already accepts by hashing the
+     * plaintext, and R2/R15 leave no room to strip more before a hash.
      *
      * <p>
      * The finding names every member removed, so nothing disappears without a record.
      */
-    private static void dropUncontractedMembers(ObjectNode materialNode, String materialType, List<String> findings) {
+    private static List<String> dropUncontractedMembers(ObjectNode materialNode, String materialType,
+            List<String> findings) {
         if (materialNode == null) {
-            return;
+            return List.of();
         }
         boolean publishable = digestPublishable(materialType);
         List<String> dropped = new ArrayList<>();
@@ -242,13 +271,14 @@ public final class MaterialRedaction {
             }
         });
         if (dropped.isEmpty()) {
-            return;
+            return List.of();
         }
         dropped.sort(AsciiText.BY_CODE_POINT);
         dropped.forEach(materialNode::remove);
         findings
                 .add("uncontracted members dropped from the stored payload, any of which may carry the plaintext or "
                         + "a reversible digest of it: " + String.join(", ", dropped));
+        return List.copyOf(dropped);
     }
 
     /**
@@ -260,7 +290,7 @@ public final class MaterialRedaction {
      * storage allowlist removes -- and the architecture fence keeps the identity pre-image built from it off every
      * client-facing surface.
      */
-    public ObjectNode keyedPayload() {
+    ObjectNode keyedPayload() {
         return keyedPayload;
     }
 

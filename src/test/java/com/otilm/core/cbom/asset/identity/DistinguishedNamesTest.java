@@ -164,4 +164,20 @@ class DistinguishedNamesTest {
         assertThat(DistinguishedNames.normalize("CN=b+O=a", TABLES))
                 .isEqualTo(DistinguishedNames.normalize("O=a+CN=b", TABLES));
     }
+
+    /**
+     * A DER value that is not UTF-8 keys apart from one that spells its escape.
+     *
+     * <p>
+     * Escaping only the malformed path moved item 17's merge rather than closing it: {@code #FF} is not UTF-8 and
+     * renders {@code %FF}, while {@code #254646} decodes cleanly to the three ASCII characters {@code %FF}. Two
+     * distinct DER attribute values, one AVA -- the same "two issuers on one row" failure, different inputs.
+     */
+    @org.junit.jupiter.api.Test
+    void aMalformedDerValueDoesNotKeyAsItsOwnEscape() {
+        assertThat(DistinguishedNames.normalize("CN=#FF", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=#254646", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=#1401E9", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=#1401EA", TABLES));
+    }
 }

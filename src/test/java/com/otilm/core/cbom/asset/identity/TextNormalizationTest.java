@@ -515,6 +515,23 @@ class TextNormalizationTest {
     }
 
     /**
+     * Stripping user-info once, or twice, is not stripping it.
+     *
+     * <p>
+     * The replacement can create the shape it matches: consuming {@code //u1:p1@} from
+     * {@code //u1:p1@/u2:p2@/u3:p3@host} leaves {@code ///u2:p2@…}, where the scan resumes past the slash and finds
+     * only one before the next credential. Each pass peels one layer, so the two-pass version left the third password
+     * in the key and in the served evidence column. Found by an exhaustive sweep the hand-built cases missed.
+     */
+    @Test
+    void userInfoIsStrippedToAFixpointRatherThanOnce() {
+        assertThat(sanitize("//u1:p1@/u2:p2@/u3:p3@host")).isEqualTo("////host");
+        assertThat(sanitize("#//u1:p1@/u2:p2@/u3:p3@host")).doesNotContain("p3").doesNotContain("@");
+        assertThat(sanitize("file://user@/mnt@/root:toor@nas/x")).doesNotContain("toor").doesNotContain("@");
+        assertThat(sanitize("//@/@/@")).isEqualTo("////");
+    }
+
+    /**
      * Keeping a pointer's text does not uncover a credential the anchored pattern could no longer see.
      *
      * <p>

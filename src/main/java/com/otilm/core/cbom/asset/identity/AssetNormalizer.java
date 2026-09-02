@@ -457,15 +457,32 @@ public record AssetNormalizer(IdentityTables tables) {
      * Whether a secondary token's own family is already spelled inside the winning family's token.
      *
      * <p>
-     * <b>The family, not the token's first hyphen-part.</b> The predecessor asked
-     * {@code foldedWinner.contains(token.split("-")[0])}, and a token carries its size -- {@link #sizedFamilyToken}
-     * renders {@code SHA-2} at 256 bits as {@code sha-2-256} -- so splitting on the first hyphen truncated the family
-     * to {@code sha}, which {@code sha-3} contains. {@code SHA-256 with SHA3} and {@code SHA3-256 with} therefore both
-     * produced {@code ALG|SHA-3|256||||with}: the weak-crypto erasure this filter exists to prevent, performed by the
-     * filter. Comparing the family the rule actually named keeps {@code sha-2} beside a SHA-3 winner and still folds
-     * away the {@code dsa} that {@code ecdsa} spells, which vector {@code alg-curve-fold} pins.
+     * <b>The family, not the token's first hyphen-part.</b> A token carries its size -- {@link #sizedFamilyToken}
+     * renders {@code SHA-2} at 256 bits as {@code sha-2-256} -- so the predecessor's
+     * {@code foldedWinner.contains(token.split("-")[0])} truncated the family to {@code sha}, which {@code sha-3}
+     * contains. {@code SHA-256 with SHA3} and {@code SHA3-256 with} therefore both produced
+     * {@code ALG|SHA-3|256||||with}: the weak-crypto erasure this filter exists to prevent, performed by the filter.
+     * Comparing the family the rule actually named keeps {@code sha-2} beside a SHA-3 winner and still folds away the
+     * {@code dsa} that {@code ecdsa} spells, the {@code rsa} that {@code rsaes-oaep} spells and the {@code chacha20}
+     * that {@code chacha20-poly1305} spells.
+     *
+     * <p>
+     * <b>The containment stays a plain substring test, and that is ratified rather than sloppy.</b> Of the table's 130
+     * families, 22 folded pairs contain one another, and four look accidental: {@code aes} inside {@code rsaes-oaep}
+     * and {@code rsaes-pkcs1}, {@code ec} inside {@code classic mceliece}, {@code scrypt} inside {@code yescrypt}.
+     * Tightening the rule to require alignment with a hyphen-part -- begins-with, or ends-with leaving a registry token
+     * -- was implemented and reverted: it re-keyed vectors {@code gen-218} and {@code gen-219}, whose components are
+     * named literally {@code RSAES-OAEP} and whose ratified pre-image {@code ALG|RSAES-OAEP||||OAEP|} carries an
+     * <em>empty</em> variant slot. For that name there is no second construction to preserve, only a spelling artefact,
+     * and the ratified answer is to erase it.
+     *
+     * <p>
+     * What no artefact settles is a name stating both -- {@code RSAES-OAEP-AES256} -- where the same rule erases an AES
+     * the producer really did state. Separating the two needs the match position, which is what the reverted attempt
+     * used; no corpus row and no vector carries such a name, so it is an open adjudication on core#2165 rather than a
+     * defect to patch under a ratified vector.
      */
-    private static boolean restatesWinner(String foldedWinner, String family) {
+    private boolean restatesWinner(String foldedWinner, String family) {
         String folded = AsciiText.fold(family);
         return folded != null && foldedWinner.contains(folded) && !folded.equals(foldedWinner);
     }

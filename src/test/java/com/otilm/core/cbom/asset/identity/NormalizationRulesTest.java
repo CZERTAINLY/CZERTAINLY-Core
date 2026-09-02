@@ -373,6 +373,27 @@ class NormalizationRulesTest {
     }
 
     /**
+     * A low-entropy asset's fingerprint now keys the fingerprint tier, which is a key move worth pinning.
+     *
+     * <p>
+     * While one payload served identity and storage, such an asset's {@code fingerprint} was dropped before
+     * {@code material()} could read it, so the row fell to {@code mat:backstop}. The keyed payload keeps it, so the row
+     * keys on {@code mat:fingerprint} instead. That is toward the reference -- the specification's
+     * {@code MAT|<type>|F|...} carries no low-entropy exception -- and it costs 0 corpus rows, because all 453 corpus
+     * fingerprints sit on publishable types. No corpus row means the snapshot instrument is silent here by luck of the
+     * corpus rather than by construction, which is why it is pinned by hand.
+     */
+    @Test
+    void aLowEntropyFingerprintKeysTheFingerprintTier() {
+        JsonNode component = read("{\"type\":\"cryptographic-asset\",\"cryptoProperties\":{\"assetType\":"
+                + "\"relatedCryptoMaterial\",\"relatedCryptoMaterialProperties\":{\"type\":\"password\","
+                + "\"fingerprint\":{\"alg\":\"sha-256\",\"content\":\"aabbcc\"}}}}");
+
+        assertThat(IDENTITY.of(component).step()).isEqualTo("mat:fingerprint");
+        assertThat(IDENTITY.of(component).preImage()).isEqualTo("MAT|password|F|sha-256:aabbcc");
+    }
+
+    /**
      * A duplicated {@code bom-ref} resolves to nothing, so document order cannot decide a key.
      *
      * <p>
@@ -396,18 +417,27 @@ class NormalizationRulesTest {
     // ---------------------------------------------------------------- grammar and token rules (core#2165)
 
     /**
-     * A secondary construction is not erased because its spelling sits inside the winning family's token.
+     * A digest is not erased because its family's spelling is truncated into the winning family's token.
      *
      * <p>
-     * The filter asked whether the winner's token <em>contains</em> the secondary token's first hyphen-part, which
-     * erased a real second construction twice over: {@code rsaes-oaep} contains {@code aes}, and {@code sha-3} contains
-     * the {@code sha} that {@code sha-2-256} is truncated to. So {@code SHA-256 with SHA3} and {@code SHA3-256 with}
-     * both keyed as one -- the weak-crypto erasure the filter exists to prevent, performed by the filter.
+     * The filter asked whether the winner's token <em>contains</em> the secondary token's first hyphen-part. A token
+     * carries its size, so that truncated {@code sha-2-256}'s family to {@code sha}, which {@code sha-3} contains:
+     * {@code SHA-256 with SHA3} and {@code SHA3-256 with} both keyed as one, which is the weak-crypto erasure the
+     * filter exists to prevent, performed by the filter.
+     *
+     * <p>
+     * Only the truncation is repaired. The containment stays a substring test because vectors {@code gen-218} and
+     * {@code gen-219} ratify it -- a component named {@code RSAES-OAEP} keys with an empty variant slot, so the
+     * {@code aes} read out of its own spelling is meant to be erased. A name stating both, {@code RSAES-OAEP-AES256},
+     * is the undecided case: an adjudication on core#2165 rather than a defect under a ratified vector.
      */
     @Test
-    void aSecondaryConstructionSurvivesASpellingInsideTheWinningToken() {
+    void aDigestIsNotErasedByTruncatingItsFamilyIntoTheWinner() {
         assertThat(NORMALIZER.secondaryTokens("SHA-256 with SHA3", "SHA-3")).contains("sha-2");
         assertThat(keyOfAlgorithm("SHA-256 with SHA3")).isNotEqualTo(keyOfAlgorithm("SHA3-256 with"));
+        assertThat(NORMALIZER.secondaryTokens("RSAES-OAEP", "RSAES-OAEP"))
+                .describedAs("gen-218 and gen-219 ratify the empty variant slot for this name")
+                .doesNotContain("aes");
     }
 
     /**

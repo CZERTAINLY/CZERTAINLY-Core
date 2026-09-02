@@ -31,12 +31,87 @@ class IdentityKeyExposureFenceSelfTest {
         assertThat(IdentityKeyExposureFence.mentionsIdentityKey("uq_crypto_asset_identity_key")).isTrue();
     }
 
+    /**
+     * The pre-image vocabulary, which is fenced ahead of the key because the pre-image is the material itself.
+     *
+     * <p>
+     * {@code keyedPayload} is in it for the same reason: it is the node the material pre-image is built from and it
+     * keeps a producer's uncontracted members, which can be an inlined plaintext.
+     */
+    @Test
+    void everySpellingOfThePreImageIsRecognised() {
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("preImage")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("pre_image")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("PRE_IMAGE")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("pre-image")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("getPreImage")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("dnPreImage")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("keyedPayload")).isTrue();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("keyed_payload")).isTrue();
+    }
+
     @Test
     void unrelatedNamesAreNotRecognised() {
         assertThat(IdentityKeyExposureFence.mentionsIdentityKey("keyIdentity")).isFalse();
         assertThat(IdentityKeyExposureFence.mentionsIdentityKey("identity")).isFalse();
         assertThat(IdentityKeyExposureFence.mentionsIdentityKey("publicKey")).isFalse();
         assertThat(IdentityKeyExposureFence.mentionsIdentityKey(null)).isFalse();
+    }
+
+    /**
+     * The two spellings the fence must <em>not</em> match, and the reason each exclusion is load-bearing.
+     *
+     * <p>
+     * {@code PreImageSlot} is the type that renders a slot, named at roughly forty call sites: without the
+     * {@code (?!slot)} lookahead the fence flags every one of them and gets turned off. {@code storedPayload} is the
+     * payload that drops uncontracted members, so naming it is the correct choice — fencing the safe spelling would
+     * train a reader to reach for the unsafe one.
+     */
+    @Test
+    void theTypeNameAndTheSafePayloadAreNotTheValue() {
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("PreImageSlot")).isFalse();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("PreImageSlot.of(kind)")).isFalse();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("storedPayload")).isFalse();
+        assertThat(IdentityKeyExposureFence.mentionsIdentityKey("redaction.storedPayload()")).isFalse();
+    }
+
+    /**
+     * An allowlist entry exempts one vocabulary, not one file.
+     *
+     * <p>
+     * This is the hole the first attempt at core#2165 item 20 opened: allowlisting the identity calculator so it may
+     * name the pre-image it builds also exempted the {@code identity_key} it produces, in the one file best placed to
+     * leak that value. A persistence source naming a pre-image fails the same way in the other direction.
+     */
+    @Test
+    void anAllowlistedFileMayNameOnlyItsOwnVocabulary() {
+        Path calculator = Path.of("src/main/java/com/otilm/core/cbom/asset/identity/CryptoAssetIdentity.java");
+        Path entity = Path.of("src/main/java/com/otilm/core/dao/entity/cbom/CryptoAsset.java");
+
+        assertThat(IdentityKeyExposureFence.sourceFileViolations(calculator, List.of("String preImage = built[0];")))
+                .describedAs("the identity layer builds the pre-image")
+                .isEmpty();
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(calculator, List.of("String identityKey = digest(preImage);")))
+                .describedAs("and must not name the key it produces")
+                .hasSize(1);
+        assertThat(IdentityKeyExposureFence.sourceFileViolations(entity, List.of("private String identityKey;")))
+                .describedAs("persistence holds the stored value")
+                .isEmpty();
+        assertThat(IdentityKeyExposureFence.sourceFileViolations(entity, List.of("private String preImage;")))
+                .describedAs("and has no business holding the material")
+                .hasSize(1);
+    }
+
+    /** The logging rule carries no allowlist, so an allowlisted file cannot log what it may legitimately name. */
+    @Test
+    void anAllowlistedFileStillMayNotLogItsOwnVocabulary() {
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(
+                        Path.of("src/main/java/com/otilm/core/cbom/asset/identity/MaterialRedaction.java"),
+                        List.of("log.debug(\"keyed payload {}\", keyedPayload);")))
+                .describedAs("naming it is allowed here; logging it is allowed nowhere")
+                .hasSize(1);
     }
 
     @Test

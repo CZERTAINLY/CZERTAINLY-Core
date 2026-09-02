@@ -7,7 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -29,31 +29,54 @@ import java.util.stream.Stream;
 final class IdentityKeyExposureFence {
 
     /**
-     * Matches an identity-key value under every spelling the code base can produce: {@code identity_key} (SQL),
-     * {@code identityKey} (Java member), {@code IDENTITY_KEY} (constant), {@code getIdentityKey} (accessor),
-     * {@code identity-key} (a JSON or header name). ASCII-only case folding, so the verdict cannot depend on the
-     * platform locale.
+     * The stored-value vocabulary: every spelling the code base can produce for a value that lives in a column.
      *
      * <p>
-     * The alias vocabulary is fenced too. {@code crypto_asset_alias.absorbed_key} and {@code canonical_key} <em>hold
-     * identity-key values</em> — {@code canonical_key} is a foreign key onto {@code crypto_asset.identity_key} — so a
-     * DTO exposing {@code canonicalKey}, a {@code FilterField} over {@code absorbedKey}, or a log line binding either
-     * would ship exactly the hash whose low-entropy preimage falls to a dictionary attack, while passing a fence that
-     * only knew the word "identity".
+     * {@code identity_key} (SQL), {@code identityKey} (Java member), {@code IDENTITY_KEY} (constant),
+     * {@code getIdentityKey} (accessor), {@code identity-key} (a JSON or header name). ASCII-only case folding, so the
+     * verdict cannot depend on the platform locale.
      *
      * <p>
-     * <b>The pre-image is fenced ahead of the key it hashes to.</b> The key is one dictionary attack away from the
-     * material; the pre-image <em>is</em> the material, spelled out — and since core#2165 the material pre-image can
-     * carry a producer's inlined plaintext under an uncontracted member, which the stored payload drops and the keyed
-     * payload must keep to stay R2/R15-conformant. {@code Identity.preImage()} exists for the conformance vectors and
-     * has no production caller, so the value is short-lived; what the fence adds is that no DTO, search field or log
-     * line can name it. The residual is stated rather than closed: a member called {@code key} or {@code value} alone
-     * still carries the same content past a lexical rule, and fencing those spellings would flag every public key in
-     * the code base.
+     * The alias vocabulary is fenced with it. {@code crypto_asset_alias.absorbed_key} and {@code canonical_key}
+     * <em>hold identity-key values</em> — {@code canonical_key} is a foreign key onto {@code crypto_asset.identity_key}
+     * — so a DTO exposing {@code canonicalKey}, a {@code FilterField} over {@code absorbedKey}, or a log line binding
+     * either would ship exactly the hash whose low-entropy preimage falls to a dictionary attack, while passing a fence
+     * that only knew the word "identity".
+     */
+    private static final String STORED_VALUE_VOCABULARY = "identity[_\\-\\s]?key|absorbed[_\\-\\s]?key"
+            + "|canonical[_\\-\\s]?key";
+
+    /**
+     * The pre-image vocabulary: the spellings for the material itself, ahead of the key it hashes to.
+     *
+     * <p>
+     * The key is one dictionary attack away from the material; the pre-image <em>is</em> the material, spelled out.
+     * {@code keyedPayload} is here for the same reason: since core#2165 it is the node the material pre-image is built
+     * from, and it deliberately keeps a producer's uncontracted members — which can be an inlined plaintext — because
+     * R2 and R15 name the five reference fields as the whole of what may be stripped before a hash. The stored payload
+     * is the one that drops them, so {@code storedPayload} is <b>not</b> fenced: naming it is the correct choice, and
+     * fencing the safe spelling would train readers to reach for the unsafe one.
+     *
+     * <p>
+     * {@code (?!slot)} excludes {@code PreImageSlot}, the type that renders a slot, from roughly forty call sites
+     * across this package. The type name is not the value, and without the lookahead the fence would flag every one of
+     * them and be turned off.
+     *
+     * <p>
+     * The residual is stated rather than closed: a member called {@code key} or {@code value} alone still carries the
+     * same content past a lexical rule, and fencing those spellings would flag every public key in the code base.
+     */
+    private static final String PRE_IMAGE_VOCABULARY = "pre[_\\-\\s]?image(?!slot)|keyed[_\\-\\s]?payload";
+
+    /**
+     * Every fenced spelling, composed from the two vocabularies so they cannot drift apart.
+     *
+     * <p>
+     * A file's allowlist entry names the vocabulary it may use, and this pattern is what decides whether anything
+     * <em>else</em> is left on the line after that vocabulary is discounted — see {@link #sourceFileViolations}.
      */
     private static final Pattern IDENTITY_KEY = Pattern
-            .compile("identity[_\\-\\s]?key|absorbed[_\\-\\s]?key|canonical[_\\-\\s]?key"
-                    + "|pre[_\\-\\s]?image(?!slot)", Pattern.CASE_INSENSITIVE);
+            .compile(STORED_VALUE_VOCABULARY + "|" + PRE_IMAGE_VOCABULARY, Pattern.CASE_INSENSITIVE);
 
     /**
      * Any method call named after a log level. Deliberately loose — it matches {@code log.debug(}, {@code logger.warn(}
@@ -85,30 +108,44 @@ final class IdentityKeyExposureFence {
             .of("com.otilm.core.model", "com.otilm.core.api", "com.otilm.api.model");
 
     /**
-     * The only production sources allowed to name the identity key. Persistence has to: the column, its query, its
-     * writer and the translator that recognises its unique constraint by name. Everything else naming it is a leak.
+     * The production sources allowed to name a fenced value, each mapped to the <em>one vocabulary</em> it may name.
      *
      * <p>
-     * The calculator that produces the value is deliberately <em>not</em> here. It names the key only in documentation,
-     * which the rule exempts anyway, so the entry granted an exemption nothing used -- and it would have covered a
-     * future code-level mention in the one file best placed to leak the value it computes. Re-adding it later is a
-     * reviewed one-liner; leaving it in is a hole nobody would notice opening.
+     * <b>Scoped, not per file.</b> A bare path exemption is broader than any reason for granting it: allowlisting the
+     * identity calculator so it may name the pre-image it builds would also let it name the {@code identity_key} it
+     * produces, which is the single worst place in the code base to open that hole. This class said so before the entry
+     * existed -- "it would have covered a future code-level mention in the one file best placed to leak the value it
+     * computes" -- and the first attempt at core#2165 item 20 granted exactly that exemption anyway. A mention is
+     * exempt only when the line names nothing outside its file's own vocabulary.
+     *
+     * <p>
+     * Persistence has to name the stored value: the column, its query, its writer and the translator that recognises
+     * its unique constraint by name. The identity layer has to name the pre-image: the record that carries it, and the
+     * two classes that build and hash the keyed payload. Everything else naming either is a leak.
+     *
+     * <p>
+     * The exemption covers <em>naming</em> only. The logging rule carries no allowlist, so none of these files may put
+     * a fenced value in a log line.
      */
-    static final Set<String> SOURCE_ALLOWLIST = Set
-            .of("src/main/java/com/otilm/core/dao/entity/cbom/CryptoAsset.java",
-                    "src/main/java/com/otilm/core/dao/entity/cbom/CryptoAssetAlias.java",
-                    "src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetRepository.java",
-                    "src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetAliasRepository.java",
-                    "src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java",
-                    "src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetAliasWriter.java",
-                    "src/main/java/com/otilm/core/dao/CryptoAssetConstraintTranslator.java",
-                    // The two identity sources that name the pre-image in code rather than in prose: the record that
-                    // carries it, and the digest guard whose refusal message says what was refused. Allowlisted
-                    // rather than exempted from the pattern, because the logging rule carries no allowlist -- neither
-                    // file may put a pre-image in a log line. `PreImageSlot` and its callers are excluded by the
-                    // pattern itself: the type name is not the value.
-                    "src/main/java/com/otilm/core/cbom/asset/identity/CryptoAssetIdentity.java",
-                    "src/main/java/com/otilm/core/cbom/asset/identity/IdentityDigests.java");
+    static final Map<String, Pattern> SOURCE_ALLOWLIST = Map
+            .ofEntries(storedValue("src/main/java/com/otilm/core/dao/entity/cbom/CryptoAsset.java"),
+                    storedValue("src/main/java/com/otilm/core/dao/entity/cbom/CryptoAssetAlias.java"),
+                    storedValue("src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetRepository.java"),
+                    storedValue("src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetAliasRepository.java"),
+                    storedValue("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java"),
+                    storedValue("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetAliasWriter.java"),
+                    storedValue("src/main/java/com/otilm/core/dao/CryptoAssetConstraintTranslator.java"),
+                    preImage("src/main/java/com/otilm/core/cbom/asset/identity/CryptoAssetIdentity.java"),
+                    preImage("src/main/java/com/otilm/core/cbom/asset/identity/MaterialRedaction.java"),
+                    preImage("src/main/java/com/otilm/core/cbom/asset/identity/AssetNormalizer.java"));
+
+    private static Map.Entry<String, Pattern> storedValue(String path) {
+        return Map.entry(path, Pattern.compile(STORED_VALUE_VOCABULARY, Pattern.CASE_INSENSITIVE));
+    }
+
+    private static Map.Entry<String, Pattern> preImage(String path) {
+        return Map.entry(path, Pattern.compile(PRE_IMAGE_VOCABULARY, Pattern.CASE_INSENSITIVE));
+    }
 
     private IdentityKeyExposureFence() {
     }
@@ -124,6 +161,18 @@ final class IdentityKeyExposureFence {
 
     static boolean mentionsIdentityKey(String text) {
         return text != null && IDENTITY_KEY.matcher(text).find();
+    }
+
+    /**
+     * Whether an allowlisted file's line names only the vocabulary that file is entitled to.
+     *
+     * <p>
+     * The file's own vocabulary is discounted and the line re-tested, so a persistence source may say
+     * {@code identityKey} and an identity source may say {@code preImage}, while either saying the other's is a
+     * violation on the spot. That is what makes the entry an exemption for a reason rather than for a file.
+     */
+    private static boolean namesNothingBeyondItsVocabulary(Pattern exempt, String line) {
+        return exempt != null && !mentionsIdentityKey(exempt.matcher(line).replaceAll(""));
     }
 
     static boolean isFencedPackage(String packageName) {
@@ -164,7 +213,7 @@ final class IdentityKeyExposureFence {
      */
     static List<String> sourceFileViolations(Path repoRelativePath, List<String> lines) {
         String path = repoRelativePath.toString().replace('\\', '/');
-        boolean allowlisted = SOURCE_ALLOWLIST.contains(path);
+        Pattern exempt = SOURCE_ALLOWLIST.get(path);
         List<String> violations = new ArrayList<>();
         int openLoggingParens = 0;
         boolean inTextBlock = false;
@@ -197,7 +246,7 @@ final class IdentityKeyExposureFence {
             if (mentionsIdentityKey(line)) {
                 if (insideLoggingCall) {
                     violations.add(path + ":" + (i + 1) + " logs the crypto-asset identity key: " + line.strip());
-                } else if (!allowlisted) {
+                } else if (!namesNothingBeyondItsVocabulary(exempt, line)) {
                     violations
                             .add(path + ":" + (i + 1) + " names the crypto-asset identity key outside persistence: "
                                     + line.strip());

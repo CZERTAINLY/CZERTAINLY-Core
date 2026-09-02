@@ -128,9 +128,9 @@ public final class DistinguishedNames {
         return FOLDABLE_ATTRIBUTE_OIDS.contains(oid) ? AsciiText.fold(value) : value;
     }
 
-    /** Decodes the {@code #hexDER} form one producer emits for every attribute type it does not know. */
     /**
-     * Decodes a {@code #}-marked hex DER attribute value, refusing to collapse bytes that are not UTF-8.
+     * Decodes the {@code #hexDER} form one producer emits for every attribute type it does not know, refusing to
+     * collapse bytes that are not UTF-8.
      *
      * <p>
      * <b>{@code new String(bytes, UTF_8)} was lossy in the identity-bearing direction.</b> It maps every malformed
@@ -140,11 +140,18 @@ public final class DistinguishedNames {
      * the unpaired-surrogate hole closed on the encoding side.
      *
      * <p>
-     * A sequence that is not UTF-8 renders as its bytes, percent-escaped -- {@code %14%01%E9} -- which is injective,
-     * ASCII, and reproducible in the reference kernel, whose {@code decode("utf-8", "replace")} carries the same defect
-     * and moves with this. Escaping the whole value rather than the offending run keeps the two implementations from
-     * having to agree on where a malformed run begins. 0 corpus rows carry a hex DER attribute at all, so nothing moves
-     * today; what changes is that a forged one no longer merges.
+     * A sequence that is not UTF-8 renders as its bytes, percent-escaped -- {@code %14%01%E9} -- which is ASCII and
+     * reproducible in the reference kernel, whose {@code decode("utf-8", "replace")} carries the same defect and moves
+     * with this. Escaping the whole value rather than the offending run keeps the two implementations from having to
+     * agree on where a malformed run begins.
+     *
+     * <p>
+     * <b>Both paths escape the {@code %}, or the escape is not injective.</b> Escaping only the fallback moved the
+     * merge rather than closing it: {@code #FF} is not UTF-8 and renders {@code %FF}, while {@code #254646} decodes
+     * cleanly to the three ASCII characters {@code %FF} -- two distinct DER values, one AVA, which is this item's own
+     * failure with different inputs. So a decoded {@code %} becomes {@code %25}, leaving the fallback's escapes as the
+     * only bare ones. 0 corpus rows carry a hex DER attribute at all, so nothing moves today; what changes is that a
+     * forged one no longer merges.
      */
     private static String decodeHexDer(String value) {
         try {
@@ -167,8 +174,14 @@ public final class DistinguishedNames {
                     .onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT)
                     .decode(ByteBuffer.wrap(bytes))
-                    .toString();
+                    .toString()
+                    // Escaped here and not by the caller: the fallback below must keep its escapes bare, or a
+                    // malformed byte and a decoded value spelling that byte's escape render alike -- which is item
+                    // 17's own merge, moved rather than closed.
+                    .replace("%", "%25");
         } catch (CharacterCodingException e) {
+            // Bare, and the only bare escapes in the result: the caller escapes the decode path's percents first, so
+            // `%FF` from here and a decoded literal `%FF` cannot render alike.
             StringBuilder escaped = new StringBuilder(bytes.length * 3);
             for (byte value : bytes) {
                 escaped.append('%').append(HexFormat.of().withUpperCase().toHexDigits(value));
