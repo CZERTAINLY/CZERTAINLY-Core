@@ -32,24 +32,33 @@ public final class Occurrences {
      *
      * <p>
      * Replaced <b>globally</b>, not once. One location can hold more than one URI: an archive scanner writes
-     * {@code jar:file://u:p@h/a.jar!/https://u2:p2@h2/b} and a Kafka bootstrap list is comma-separated. Because
-     * {@code [^/?#]*} cannot cross a {@code /}, a single replacement leaves every credential after the first standing
-     * -- and this is the one method in this package on the live path to the served {@code evidence} column, so what
-     * survives here is a stored, queryable secret.
+     * {@code jar:file://u:p@h/a.jar!/https://u2:p2@h2/b} and a Kafka bootstrap list is comma-separated. A single
+     * replacement leaves every credential after the first standing -- and this is the one method in this package on the
+     * live path to the served {@code evidence} column, so what survives here is a stored, queryable secret.
      *
      * <p>
-     * <b>The authority, not the scheme delimiter.</b> Anchoring on a literal {@code ://} missed a network-path
-     * reference: {@code //user:secret@host/x} is a well-formed URI reference that {@link java.net.URI} parses with
-     * {@code userInfo=user:secret}, and it is what a scanner emits for a protocol-relative URL. The captured group is
-     * the scheme's colon or nothing at all, so both spellings survive the replacement with their prefix intact.
+     * <b>{@code [^/]*}, not {@code [^/?#]*}.</b> Excluding the two delimiters from the user-info class made the pattern
+     * blind to a credential that contains one: {@code //user:sec?ret@host/x} has its {@code @} beyond a {@code ?}, so
+     * {@code [^/?#]*@} matched nothing and {@link #withoutQueryOrFragment} then kept {@code //user:sec} -- a stored
+     * password prefix, whole when the password itself ends in {@code ?}. No step order can repair that: the class
+     * cannot span a delimiter it excludes, so the class is what had to widen. The cost is an authority that carries a
+     * genuine query: {@code //host?to=a@b} loses the host along with the credential shape, which is fidelity spent to
+     * close a credential leak.
      *
      * <p>
-     * {@code [^/?#]*} stays <b>greedy</b> on purpose. A comma-separated multi-host authority --
+     * <b>Unanchored.</b> The pattern used to require the {@code //} at the string start or after a colon, which the
+     * leading-fragment retention in {@link #withoutQueryOrFragment} silently defeated: cutting the {@code #} off
+     * {@code #/api/v1//admin:hunter2@db.internal/x} moves the {@code //} into the middle of a path, where an anchored
+     * pattern cannot see it, and the credential reached both the key and the evidence column. A path-internal
+     * {@code //u:p@h} is not a URI authority, but it is a credential either way, and this class strips credentials.
+     *
+     * <p>
+     * {@code [^/]*} stays <b>greedy</b> on purpose. A comma-separated multi-host authority --
      * {@code mongodb://u1:p1@h1,u2:p2@h2/db} -- carries two credentials under one {@code //}, and a lazy quantifier
      * stops at the first {@code @} and leaves the second standing. Greedy costs the first host, which is fidelity; lazy
      * costs a credential, which is the thing this pattern exists for.
      */
-    private static final Pattern USERINFO = Pattern.compile("(^|:)//[^/?#]*@");
+    private static final Pattern USERINFO = Pattern.compile("//[^/]*@");
 
     /**
      * An unpaired surrogate, which is well-formed to Java and has no encoding at all in UTF-8.
@@ -62,6 +71,19 @@ public final class Occurrences {
      */
     private static final Pattern UNPAIRED_SURROGATE = Pattern
             .compile("(?:[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF]))" + "|(?:(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF])");
+
+    /**
+     * The triple's other separator, which the location slot cannot escape.
+     *
+     * <p>
+     * {@link #triples} joins triples with a newline and the location is the one slot {@link PreImageSlot} does not
+     * escape, so a location carrying CR or LF is the only value in the chain that can render as more than one line. A
+     * forged line cannot pass for a triple -- every real one carries two {@code #} and no sanitized location can carry
+     * any -- but the value also reaches the served {@code evidence} column, and a line break names no place. Removed
+     * rather than escaped, for the same reason the {@code #} is cut rather than added to the escape set: the set is
+     * shared, and opening it re-keys every row that contains one of its members.
+     */
+    private static final Pattern LINE_BREAK = Pattern.compile("[\r\n]");
 
     private static final int MAX_LOCATION_LENGTH = 1024;
 
@@ -136,6 +158,13 @@ public final class Occurrences {
      * the strip yields {@code x://user:pass@host} -- a well-formed, hashable location with the credential intact.
      * Scrubbing first cannot have the mirror effect, because deleting a surrogate introduces no {@code ?}, {@code #},
      * {@code @} or {@code :} for a later step to miss.
+     *
+     * <p>
+     * <b>The user-info strip runs on both sides of the cut, and that is not belt-and-braces.</b> Before the cut it sees
+     * a credential whose {@code @} lies beyond a {@code ?} or {@code #}, which the cut would otherwise truncate into a
+     * stored password prefix. After the cut it sees the authority that the leading-fragment retention uncovers, which
+     * was not an authority before the {@code #} came off. Each pass closes a case the other cannot, and the second is a
+     * no-op for every location that carried no delimiter.
      */
     public static String sanitizeLocation(String location) {
         if (AsciiText.isBlank(location)) {
@@ -143,9 +172,15 @@ public final class Occurrences {
         }
         String text = AsciiText.strip(location);
         text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
+        text = LINE_BREAK.matcher(text).replaceAll("");
+        text = withoutUserInfo(text);
         text = withoutQueryOrFragment(text);
-        text = USERINFO.matcher(text).replaceAll("$1//");
+        text = withoutUserInfo(text);
         return text.substring(0, capBoundary(text));
+    }
+
+    private static String withoutUserInfo(String text) {
+        return USERINFO.matcher(text).replaceAll("//");
     }
 
     /**
@@ -177,16 +212,47 @@ public final class Occurrences {
      * rule was written for -- so keeping it verbatim would store exactly the session token the rule drops. It renders
      * as the empty location. A sentinel distinguishable from absence would be better, as it is for a refused position,
      * but this slot is unescaped: any sentinel a location could carry, a producer can also spell.
+     *
+     * <p>
+     * <b>The whole leading run comes off, not one character.</b> Removing exactly one {@code #} left {@code ##a}
+     * cutting at position zero again, so it rendered as the empty location -- the defect this retention exists to
+     * close, reappearing one character further along. What the run rule does <em>not</em> restore is the count:
+     * {@code #a} and {@code ##a} both render {@code a}, because the delimiter cannot come back into an unescaped slot.
+     * That is the same residual as a pointer keying alike to the bare path it spells, and it is recorded as an open
+     * adjudication on core#2165 rather than papered over with a sentinel a producer could also spell.
+     *
+     * <p>
+     * <b>An empty string reaches this method.</b> {@link #UNPAIRED_SURROGATE} runs first and {@link AsciiText#isBlank}
+     * does not treat a lone surrogate as whitespace, so a location made only of surrogates passes the entry guard and
+     * arrives here empty -- where reading its first character threw {@code StringIndexOutOfBoundsException} out of the
+     * ingest path, taking the whole source upsert down with it. On {@code main} that same input reached
+     * {@link IdentityDigests#sha256Hex} and became a reported skip, so the step order turned a diagnosable skip into an
+     * index error.
      */
     private static String withoutQueryOrFragment(String text) {
+        if (text.isEmpty()) {
+            return "";
+        }
         String[] halves = QUERY_OR_FRAGMENT.split(text, 2);
         if (!halves[0].isEmpty()) {
             return halves[0];
         }
-        if (text.charAt(0) != '#') {
+        int retained = leadingDelimiterRun(text);
+        if (text.charAt(0) != '#' || text.lastIndexOf('?', retained - 1) >= 0) {
+            // A bare query string, or a fragment whose own text begins with one. Either way the first thing the
+            // location states is a token, not a place.
             return "";
         }
-        return QUERY_OR_FRAGMENT.split(text.substring(1), 2)[0];
+        return QUERY_OR_FRAGMENT.split(text.substring(retained), 2)[0];
+    }
+
+    /** The length of the {@code [?#]} run the location opens with. */
+    private static int leadingDelimiterRun(String text) {
+        int index = 0;
+        while (index < text.length() && (text.charAt(index) == '#' || text.charAt(index) == '?')) {
+            index++;
+        }
+        return index;
     }
 
     /**

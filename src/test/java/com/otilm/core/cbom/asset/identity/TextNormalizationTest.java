@@ -464,6 +464,72 @@ class TextNormalizationTest {
     }
 
     /**
+     * A location made only of lone surrogates is refused, not fatal.
+     *
+     * <p>
+     * {@link AsciiText#isBlank} does not treat a surrogate as whitespace, so such a location passed the entry guard;
+     * the scrub then emptied it and the fragment rule read its first character, throwing
+     * {@code StringIndexOutOfBoundsException} out of the ingest path with no {@code catch} between it and the source
+     * upsert. On {@code main} the same input reached the digest guard and became a reported skip, so the step order
+     * turned a diagnosable skip into an index error.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"\uD800", "\uDFFF", "\uD800\uD800", " \uD800 ", "\uDFFF\uD800"})
+    void anAllSurrogateLocationIsRefusedRatherThanFatal(String location) {
+        assertThat(sanitize(location)).isEmpty();
+    }
+
+    /**
+     * The whole leading delimiter run comes off, so a doubled marker is not absence.
+     *
+     * <p>
+     * Removing exactly one {@code #} left {@code ##a} cutting at position zero again and rendering as the empty
+     * location -- the defect the retention exists to close, one character further along. What the rule does not restore
+     * is the count: {@code #a} and {@code ##a} both render {@code a}, because the delimiter cannot come back into an
+     * unescaped slot.
+     */
+    @Test
+    void aLeadingDelimiterRunComesOffWhole() {
+        assertThat(sanitize("##a")).isEqualTo("a");
+        assertThat(sanitize("###/x")).isEqualTo("/x");
+        assertThat(sanitize("##a")).isNotEqualTo(sanitize(""));
+        assertThat(sanitize("#")).isEmpty();
+        assertThat(sanitize("##")).isEmpty();
+    }
+
+    /**
+     * A delimiter inside the authority does not hide the credential behind it.
+     *
+     * <p>
+     * The user-info class excluded {@code ?} and {@code #}, so a password containing one put the {@code @} beyond the
+     * pattern's reach and the cut then kept everything before the delimiter -- {@code //user:sec?ret@host/x} stored
+     * {@code //user:sec}, and a password ending in {@code ?} stored whole. No step order repairs that: the class cannot
+     * span a character it excludes.
+     */
+    @Test
+    void aDelimiterInsideTheAuthorityDoesNotHideTheCredential() {
+        assertThat(sanitize("//user:sec?ret@host/x")).isEqualTo("//host/x");
+        assertThat(sanitize("https://user:sec?ret@host/x")).isEqualTo("https://host/x");
+        assertThat(sanitize("//u:secret?@h")).isEqualTo("//h");
+        assertThat(sanitize("//user:sec#ret@host/x")).isEqualTo("//host/x");
+    }
+
+    /**
+     * Keeping a pointer's text does not uncover a credential the anchored pattern could no longer see.
+     *
+     * <p>
+     * Cutting the {@code #} off {@code #/api/v1//admin:hunter2@db.internal/x} moves the {@code //} into the middle of a
+     * path, where a pattern anchored at the string start or after a colon does not match -- so the retention re-exposed
+     * a credential {@code main} dropped, in the key and in the served evidence column alike.
+     */
+    @Test
+    void aKeptPointerDoesNotUncoverACredential() {
+        assertThat(sanitize("#/api/v1//admin:hunter2@db.internal:5432/x")).doesNotContain("hunter2");
+        assertThat(sanitize("#x//user:secret@host")).isEqualTo("x//host");
+        assertThat(sanitize("#//user:secret@host")).isEqualTo("//host");
+    }
+
+    /**
      * No sanitized location carries the triple's own separator.
      *
      * <p>
@@ -473,7 +539,8 @@ class TextNormalizationTest {
      */
     @Test
     void noSanitizedLocationCarriesTheTripleSeparator() {
-        assertThat(sanitize("##\na")).doesNotContain("#");
+        assertThat(sanitize("##\na")).doesNotContain("#").doesNotContain("\n");
+        assertThat(sanitize("a\nb")).describedAs("the joiner is a newline and this slot is unescaped").isEqualTo("ab");
         assertThat(sanitize("#a##\nb#1#2")).doesNotContain("#");
         assertThat(Occurrences.triples(occurrences("[{\"location\": \"##\\na\"}]")))
                 .describedAs("one occurrence cannot render as two triples")
