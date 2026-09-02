@@ -104,6 +104,9 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
@@ -116,6 +119,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -623,6 +627,53 @@ class ClientOperationServiceV2ITest extends BaseSpringBootTest {
         Assertions
                 .assertDoesNotThrow(() -> clientOperationInternalService
                         .revokeCertificateAction(certificate.getUuid(), request, true));
+    }
+
+    @Test
+    void rekeyFromKeyCarriesThePredecessorSanIntoTheRegeneratedCsr() throws Exception {
+        stubAuthorityProviderAttributesEndpoints();
+
+        CryptographicKey key = createCryptographicKey(null);
+        CertificateContent content = new CertificateContent();
+        X509Certificate predecessor = CertificateTestUtil
+                .createCertificateWithSubjectAndSans("CN=rekey.example.com",
+                        new GeneralName(GeneralName.dNSName, "rekey.example.com"),
+                        new GeneralName(GeneralName.iPAddress, "10.0.0.1"));
+        content.setContent(Base64.getEncoder().encodeToString(predecessor.getEncoded()));
+        certificateContentRepository.save(content);
+        certificate.setCertificateContent(content);
+        certificate.setHybridCertificate(false);
+        certificate.setAltKeyUuid(null);
+        certificateRepository.save(certificate);
+
+        ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
+        request.setFormat(CertificateRequestFormat.PKCS10);
+        request.setKeyUuid(key.getUuid());
+        request.setTokenProfileUuid(key.getTokenProfileUuid());
+        request.setSignatureAttributes(List.of());
+        when(cryptographicOperationService
+                .generateCsr(eq(key.getUuid()), eq(key.getTokenProfileUuid()), any(), any(), anyList(), any(), any(),
+                        any()))
+                .thenReturn(Base64.getEncoder().encodeToString(predecessor.getEncoded()));
+
+        try {
+            clientOperationService
+                    .rekeyCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(),
+                            String.valueOf(certificate.getUuid()), request);
+        } catch (Exception e) {
+            // The stubbed CSR is a certificate, so the submission after it may fail; the captured argument is
+            // recorded before that and is all this test asserts.
+        }
+
+        ArgumentCaptor<Extensions> extensions = ArgumentCaptor.forClass(Extensions.class);
+        verify(cryptographicOperationService)
+                .generateCsr(eq(key.getUuid()), eq(key.getTokenProfileUuid()), any(), extensions.capture(), anyList(),
+                        any(), any(), any());
+        GeneralNames sans = GeneralNames.fromExtensions(extensions.getValue(), Extension.subjectAlternativeName);
+        Assertions
+                .assertNotNull(sans,
+                        "the regenerated rekey CSR must carry the predecessor's SAN, not a null extension block");
+        Assertions.assertEquals(2, sans.getNames().length);
     }
 
     @Test

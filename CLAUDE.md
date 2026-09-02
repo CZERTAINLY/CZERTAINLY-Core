@@ -183,3 +183,17 @@ boot, ~15s of CI time. Reusing an existing combination is free; introducing a ne
 - Avoid per-class `@SpringBootTest(webEnvironment = ...)` / nested `@TestConfiguration` / `@AutoConfigure*`
   unless the context genuinely must differ — each forks a new cached context, and the guard now counts them
   as distinct signatures.
+
+## The tested PostgreSQL version is the minimum supported version
+
+The Testcontainers image pinned in `src/test/resources/application.yml` is the single source of truth for
+the minimum supported PostgreSQL server. Nothing else in the repo declares one — the parent pom pins the
+JDBC *driver*, not the server.
+
+To support an older server, pin the older image and let the integration suite prove it. An untested version
+is not a supported version, and raising the pin raises the floor deliberately rather than by accident.
+
+Do not restate the version anywhere else — not here, not in a README, not in a comment. A second copy
+goes stale the moment the pin moves, and then the floor can only be inferred again: the oldest server the
+migrations happen to parse on, the newest feature the native queries happen to use, and the image the
+tests happen to run give three different answers. The pin is the answer.

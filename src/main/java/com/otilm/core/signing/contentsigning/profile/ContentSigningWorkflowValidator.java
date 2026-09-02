@@ -22,8 +22,8 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
- * Validates a managed content-signing workflow at profile save, so a profile can never advertise a family, level or
- * timestamp source that signing would later refuse.
+ * Validates a managed content-signing workflow, so a profile can never advertise a family, level or timestamp source
+ * that signing would later refuse.
  */
 @Component
 public class ContentSigningWorkflowValidator {
@@ -41,27 +41,46 @@ public class ContentSigningWorkflowValidator {
             @Nullable UUID targetProfileUuid) {
         SignatureFamily family = requireFamily(workflow);
         SignatureLevel maxLevel = requireMaxLevel(workflow);
+
+        requireConnectorServes(connector, family, maxLevel);
+        validateTimestampSource(workflow, maxLevel, targetProfileUuid);
+    }
+
+    /**
+     * Checks the connector alone: it must advertise the family and reach the ceiling. Discovery applies this same
+     * check, so a form built from a discovery answer cannot fail save on the connector's account.
+     */
+    public static void requireConnectorServes(Connector connector, SignatureFamily family, SignatureLevel maxLevel) {
+        requireFamily(family);
+        requireMaxLevel(maxLevel);
         ConnectorInterface familyInterface = SignatureFamilyInterfaces.of(family);
 
         requireFlag(connector, familyInterface, FeatureFlag.CONTENT_SIGNING, family.getLabel());
         rungFlagFor(maxLevel)
                 .ifPresent(flag -> requireRung(connector, familyInterface, flag, maxLevel, family.getLabel()));
         requireExecutableMaxLevel(maxLevel);
-        validateTimestampSource(workflow, maxLevel, targetProfileUuid);
     }
 
     private static SignatureFamily requireFamily(ContentSigningWorkflowRequestDto workflow) {
-        if (workflow.getFamily() == null) {
+        return requireFamily(workflow.getFamily());
+    }
+
+    private static SignatureFamily requireFamily(SignatureFamily family) {
+        if (family == null) {
             throw new ValidationException("Signature family is required for a managed content signing workflow");
         }
-        return workflow.getFamily();
+        return family;
     }
 
     private static SignatureLevel requireMaxLevel(ContentSigningWorkflowRequestDto workflow) {
-        if (workflow.getMaxLevel() == null) {
+        return requireMaxLevel(workflow.getMaxLevel());
+    }
+
+    private static SignatureLevel requireMaxLevel(SignatureLevel maxLevel) {
+        if (maxLevel == null) {
             throw new ValidationException("maxLevel is required for a managed content signing workflow");
         }
-        return workflow.getMaxLevel();
+        return maxLevel;
     }
 
     /**

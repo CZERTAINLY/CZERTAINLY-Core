@@ -23,6 +23,10 @@ public class ConnectorMockFactory {
         return new CryptographyProviderConnectorMock(functionGroupSeeder);
     }
 
+    public CryptographyProviderV2ConnectorMock startCryptographyProviderV2() {
+        return new CryptographyProviderV2ConnectorMock();
+    }
+
     public ContentSigningFormattingMock startContentSigningFormatting() {
         return new ContentSigningFormattingMock();
     }
