@@ -7,21 +7,20 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Replaces inlined key material with a digest and a length, in one pass, before anything else reads the payload.
+ * Replaces inlined key material with the contracted redaction envelope, in one pass, before anything else reads the
+ * payload.
  *
  * <p>
  * <b>Ordering is the whole security property.</b> The digest is computed and the plaintext dropped before identity,
  * persistence, logging or metrics can observe the payload. The identity digest is carried out-of-band on the result so
- * the material identity chain can use it without any caller ever holding the plaintext, and the caller's input is never
- * mutated.
+ * the material identity chain can use it without any caller ever holding the plaintext. The stored payload carries no
+ * digest, and the caller's input is never mutated.
  *
  * <p>
  * The value is hashed verbatim -- no base64 decode, no trim. Normalizing first would make identity depend on the
  * normalizer.
  */
 public final class MaterialRedaction {
-
-    public static final String REDACTED_MARKER = "urn:otilm:redacted";
 
     /**
      * Material types whose plaintext is low-entropy enough that publishing {@code sha256(value)} would itself be an
@@ -88,7 +87,7 @@ public final class MaterialRedaction {
         // Before the value branch, and independent of it. A scanner that fingerprints a detected secret to dedupe its
         // findings emits the same unsalted digest the withhold rule below refuses to publish -- and it does so in a
         // sibling member that the value redaction never touches, on a block that may carry no inlined value at all.
-        withholdFingerprint(materialNode, materialType, findings);
+        dropUncontractedMembers(materialNode, materialType, findings);
 
         if (!materialNode.has(CbomNames.VALUE)) {
             return new MaterialRedaction(payload, materialType, null, null, null, List.copyOf(findings));
@@ -113,17 +112,14 @@ public final class MaterialRedaction {
         String identityDigest = IdentityDigests.sha256Hex(value);
 
         ObjectNode redacted = materialNode.objectNode();
-        redacted.put("$redacted", REDACTED_MARKER);
-        String publishedDigest = null;
-        if (digestPublishable(materialType)) {
-            publishedDigest = identityDigest;
-            redacted.put("sha256", publishedDigest);
-            redacted.put("length", length);
-        } else {
-            // No digest at all. An unsalted SHA-256 of a password or a token is rainbow-table reversible, so
-            // publishing it is the same leak one step removed -- and producers really do emit generic-password and
-            // jwt-token material. Identity falls through to the occurrence tier, which the chain already has.
-            redacted.put("length", length);
+        redacted.put("redacted", true);
+        redacted.put("length", length);
+        String publishedDigest = digestPublishable(materialType) ? identityDigest : null;
+        if (publishedDigest == null) {
+            // The envelope carries no digest for any type, so this gate no longer decides what is stored -- it decides
+            // what publishedDigest() may hand an internal caller. An unsalted SHA-256 of a password or a token is
+            // rainbow-table reversible, so a caller that put one on an API would leak it one step removed, and
+            // producers really do emit generic-password and jwt-token material.
             findings.add("digest withheld: " + materialType + " is low-entropy material");
         }
         materialNode.set(CbomNames.VALUE, redacted);
@@ -150,18 +146,52 @@ public final class MaterialRedaction {
     }
 
     /**
-     * Removes a fingerprint digest of low-entropy material. {@code value} is not the only member that can carry the
-     * plaintext's digest: a secret scanner fingerprints what it found so it can dedupe findings across runs, and that
-     * digest is exactly as reversible as the one {@link #digestPublishable} refuses to publish.
+     * The members of {@code relatedCryptoMaterialProperties} this pipeline contracts for.
+     *
+     * <p>
+     * Everything else is a producer extension. For low-entropy material the extensions are dropped rather than
+     * enumerated, because {@code value} is not the only member that can carry the plaintext's digest and the set of
+     * names that can is open: a secret scanner fingerprints what it found so it can dedupe findings across runs, and
+     * that digest is exactly as reversible as the one {@link #digestPublishable} refuses to publish.
      */
-    private static void withholdFingerprint(ObjectNode materialNode, String materialType, List<String> findings) {
-        JsonNode fingerprint = materialNode.get("fingerprint");
-        if (fingerprint == null || !fingerprint.isObject() || !fingerprint.has("content")
-                || digestPublishable(materialType)) {
+    private static final Set<String> CONTRACTED_MEMBERS = Set
+            .of("type", "id", "state", "algorithmRef", "creationDate", "activationDate", "updateDate", "expirationDate",
+                    "value", "size", "format", "securedBy");
+
+    /**
+     * Drops every uncontracted member of low-entropy material, and says which.
+     *
+     * <p>
+     * <b>An allowlist, because the hazard is open-ended.</b> The predecessor named {@code fingerprint} and
+     * {@code digest} and withheld those two: {@code hash}, {@code hashes}, {@code sha256}, {@code checksum},
+     * {@code thumbprint}, {@code md5}, {@code fingerprints} and even {@code Fingerprint} -- the match was
+     * case-sensitive -- each carried an unsalted SHA-256 of a password into the served payload with no finding raised.
+     * None of those is a CycloneDX field, which is what makes enumeration the wrong shape of defence: the next scanner
+     * invents the eleventh name and it fails open again, silently, exactly as five of six spellings did before.
+     *
+     * <p>
+     * Inverting it costs a producer's harmless extensions on low-entropy material only, and costs them loudly -- the
+     * finding names every member removed, so nothing disappears without a record. This is the same instinct as dropping
+     * an unrecognised value <em>shape</em> rather than trusting it, applied to the member name.
+     */
+    private static void dropUncontractedMembers(ObjectNode materialNode, String materialType, List<String> findings) {
+        if (digestPublishable(materialType)) {
             return;
         }
-        ((ObjectNode) fingerprint).remove("content");
-        findings.add("fingerprint digest withheld: " + materialType + " is low-entropy material");
+        List<String> dropped = new ArrayList<>();
+        materialNode.fieldNames().forEachRemaining(name -> {
+            if (!CONTRACTED_MEMBERS.contains(name)) {
+                dropped.add(name);
+            }
+        });
+        if (dropped.isEmpty()) {
+            return;
+        }
+        dropped.sort(AsciiText.BY_CODE_POINT);
+        dropped.forEach(materialNode::remove);
+        findings
+                .add("uncontracted members dropped for low-entropy material, any of which may carry a reversible "
+                        + "digest of the plaintext: " + String.join(", ", dropped));
     }
 
     /** The redacted properties. This is what may be stored, keyed, logged or served. */
@@ -181,7 +211,7 @@ public final class MaterialRedaction {
         return identityDigest;
     }
 
-    /** The digest that may appear in the stored payload, or {@code null} for low-entropy material. */
+    /** The digest that may be used by internal callers, or {@code null} for low-entropy material. */
     public String publishedDigest() {
         return publishedDigest;
     }
