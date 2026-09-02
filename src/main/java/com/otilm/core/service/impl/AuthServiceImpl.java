@@ -101,6 +101,15 @@ public class AuthServiceImpl implements AuthExternalService {
                         certificateFingerprint);
     }
 
+    /** Shared by both permission-derived fields, so a change to how a grant is looked up reaches each of them. */
+    private static Map<Resource, ResourcePermissionsDto> mapPermissionsByResource(UserProfileDto userProfileDto) {
+        return userProfileDto
+                .getPermissions()
+                .getResources()
+                .stream()
+                .collect(Collectors.toMap(resource -> Resource.findByCode(resource.getName()), resource -> resource));
+    }
+
     private List<Resource> getAllowedResourceListings(UserProfileDto userProfileDto) {
         List<Resource> allowedListings;
         List<Resource> allListings = contextRefreshListener
@@ -115,11 +124,7 @@ public class AuthServiceImpl implements AuthExternalService {
             return withDefaultListings(allListings);
         }
 
-        Map<Resource, ResourcePermissionsDto> mappedUserPermissions = userProfileDto
-                .getPermissions()
-                .getResources()
-                .stream()
-                .collect(Collectors.toMap(resource -> Resource.findByCode(resource.getName()), resource -> resource));
+        Map<Resource, ResourcePermissionsDto> mappedUserPermissions = mapPermissionsByResource(userProfileDto);
         ResourcePermissionsDto groupPermissions = mappedUserPermissions.get(Resource.GROUP);
         boolean hasGroupMembersPermissions = groupPermissions != null
                 && (groupPermissions.getAllowAllActions() || groupPermissions
@@ -147,24 +152,12 @@ public class AuthServiceImpl implements AuthExternalService {
         return withDefaultListings(allowedListings);
     }
 
-    /**
-     * The actions the caller holds on each resource as a whole, so a client can gate a control on the action that
-     * actually guards the endpoint instead of inferring it from listing access.
-     * <p>
-     * Object-scoped grants are deliberately left out - see {@link UserProfilePermissionsDto#getAllowedActions()} - so
-     * this is not the union {@link #getAllowedResourceListings} computes for {@code LIST}, and the two fields are not
-     * derivable from each other.
-     */
+    /** See {@link UserProfilePermissionsDto#getAllowedActions()} for the contract this computes. */
     private List<ResourceActionsDto> getAllowedResourceActions(UserProfileDto userProfileDto) {
         boolean allowAllResources = Boolean.TRUE.equals(userProfileDto.getPermissions().getAllowAllResources());
         Map<Resource, ResourcePermissionsDto> mappedUserPermissions = allowAllResources
                 ? Map.of()
-                : userProfileDto
-                        .getPermissions()
-                        .getResources()
-                        .stream()
-                        .collect(Collectors
-                                .toMap(resource -> Resource.findByCode(resource.getName()), resource -> resource));
+                : mapPermissionsByResource(userProfileDto);
 
         List<ResourceActionsDto> allowedActions = new ArrayList<>();
         for (ResourceSyncRequestDto syncResource : contextRefreshListener.getResources()) {
@@ -178,8 +171,10 @@ public class AuthServiceImpl implements AuthExternalService {
                     .stream()
                     .filter(actionCode -> isActionGranted(actionCode, allowAllResources, resourcePermissions))
                     .map(ResourceAction::findByCode)
-                    // NONE and ANY are sentinels the auth service rejects as unknown actions, so reporting them would
-                    // name a grant that cannot exist.
+                    // ANY reaches the catalogue from the annotations but is skipped by the auth service at sync, so a
+                    // grant on it cannot exist. NONE is not skipped and would be stored as a real action; it only
+                    // stays out of the catalogue because every annotated endpoint passes an explicit action rather
+                    // than leaving the NONE default in place.
                     .filter(action -> action.getAccessType() != ResourceAction.AccessType.NOT_GRANTABLE)
                     .sorted(Comparator.comparing(ResourceAction::getCode))
                     .toList();
