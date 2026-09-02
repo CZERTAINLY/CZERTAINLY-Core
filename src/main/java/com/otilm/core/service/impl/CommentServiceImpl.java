@@ -283,7 +283,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     private static PageRequest pageByCreationTime(SortedPaginationRequestDto pagination) {
         // The converter maps a blank sortDirection to null, which overwrites the request object's own default
         SortDirection requested = Objects.requireNonNullElse(pagination.getSortDirection(), SortDirection.ASC);
-        Sort.Direction direction = Sort.Direction.fromString(requested.getCode());
+        Sort.Direction direction = requested == SortDirection.DESC ? Sort.Direction.DESC : Sort.Direction.ASC;
         // createdAt is stamped per request and can tie, so the primary key follows it to make the order total.
         // It takes the requested direction too, or descending would not be the reverse of ascending within a tie.
         return PageRequest

@@ -108,7 +108,7 @@ public class WebAppConfig implements WebMvcConfigurer {
                         source -> StringUtils.isBlank(source) ? null : OidCategory.fromCode(source));
         registry
                 .addConverter(String.class, SortDirection.class,
-                        source -> StringUtils.isBlank(source) ? null : SortDirection.fromCode(source));
+                        source -> StringUtils.isBlank(source) ? SortDirection.ASC : SortDirection.fromCode(source));
     }
 
     /**
