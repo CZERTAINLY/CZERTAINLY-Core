@@ -44,6 +44,7 @@ import com.otilm.core.service.VaultProfileExternalService;
 import com.otilm.core.service.VaultProfileInternalService;
 import com.otilm.core.service.v2.ConnectorExternalService;
 import com.otilm.core.util.FilterPredicatesBuilder;
+import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -120,6 +121,7 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
             parentResource = Resource.VAULT, parentAction = ResourceAction.LIST)
     public PaginationResponseDto<VaultProfileDto> listVaultProfiles(SearchRequestDto request,
             SecurityFilter securityFilter) {
+        RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.VAULT_PROFILE);
         securityFilter.setParentRefProperty(VaultProfile_.VAULT_INSTANCE_UUID);
 
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());

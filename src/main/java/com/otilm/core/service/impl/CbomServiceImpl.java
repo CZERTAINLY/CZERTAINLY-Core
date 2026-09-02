@@ -26,6 +26,7 @@ import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.cbom.client.CbomRepositoryClient;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.dao.CryptoAssetConstraintTranslator;
@@ -96,6 +97,8 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
 
     private AttributeColumnProjector attributeColumnProjector;
 
+    private ListingSortResolver listingSortResolver;
+
     @Autowired
     public void setCbomRepository(CbomRepository cbomRepository) {
         this.cbomRepository = cbomRepository;
@@ -104,6 +107,11 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
     @Autowired
     public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
         this.attributeColumnProjector = attributeColumnProjector;
+    }
+
+    @Autowired
+    public void setListingSortResolver(ListingSortResolver listingSortResolver) {
+        this.listingSortResolver = listingSortResolver;
     }
 
     @Autowired
@@ -137,7 +145,8 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
                 cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<CbomDto> cbomDtos = cbomRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("createdAt")))
+                        (root, cb) -> cb.desc(root.get("createdAt")),
+                        listingSortResolver.resolve(Resource.CBOM, request.getSort()))
                 .stream()
                 .map(Cbom::mapToDto)
                 .toList();

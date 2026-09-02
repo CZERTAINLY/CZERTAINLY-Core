@@ -400,7 +400,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryExternalService 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.LIST)
     public CustomOidEntryListResponseDto listCustomOidEntries(SearchRequestDto request) {
-        RequestValidatorHelper.revalidateSearchRequestDto(request);
+        RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.OID);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<CustomOidEntry>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
