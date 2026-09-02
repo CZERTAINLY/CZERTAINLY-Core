@@ -11,6 +11,7 @@ import com.otilm.core.dao.entity.notifications.Notification;
 import com.otilm.core.dao.entity.notifications.NotificationRecipient;
 import com.otilm.core.dao.repository.notifications.NotificationRecipientRepository;
 import com.otilm.core.dao.repository.notifications.NotificationRepository;
+import com.otilm.core.model.notification.NotificationSubject;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -71,8 +72,20 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
     }
 
     @Override
+    public NotificationDto createNotificationForUser(String message, String detail, String userUuid, Resource target,
+            String targetUuids, NotificationSubject subject) throws ValidationException {
+        return createNotificationForUsers(message, detail, List.of(userUuid), target, targetUuids, subject);
+    }
+
+    @Override
     public NotificationDto createNotificationForUsers(String message, String detail, List<String> userUuids,
             Resource target, String targetUuids) throws ValidationException {
+        return createNotificationForUsers(message, detail, userUuids, target, targetUuids, null);
+    }
+
+    @Override
+    public NotificationDto createNotificationForUsers(String message, String detail, List<String> userUuids,
+            Resource target, String targetUuids, NotificationSubject subject) throws ValidationException {
         if (userUuids == null || userUuids.isEmpty()) {
             logger.debug("Internal notification for {} {} resolved no users; nothing to create.", target, targetUuids);
             return null;
@@ -84,6 +97,7 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
         notification.setDetail(detail);
         notification.setTargetObjectType(target);
         notification.setTargetObjectIdentification(targetUuids);
+        notification.setSubject(subject);
 
         Set<NotificationRecipient> notificationRecipients = new HashSet<>();
         for (String userUuid : userUuids) {
@@ -101,15 +115,13 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
     @Override
     public NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target,
             String targetUuids) throws ValidationException {
-        return createNotificationForUsers(message, detail,
-                userManagementApiClient
-                        .getUsers()
-                        .getData()
-                        .stream()
-                        .filter(u -> u.getGroups().stream().anyMatch(g -> g.getUuid().equals(groupUuid)))
-                        .map(UserDto::getUuid)
-                        .toList(),
-                target, targetUuids);
+        return createNotificationForUsers(message, detail, groupMemberUuids(groupUuid), target, targetUuids);
+    }
+
+    @Override
+    public NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target,
+            String targetUuids, NotificationSubject subject) throws ValidationException {
+        return createNotificationForUsers(message, detail, groupMemberUuids(groupUuid), target, targetUuids, subject);
     }
 
     @Override
@@ -118,6 +130,24 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
         return createNotificationForUsers(message, detail,
                 roleManagementApiClient.getRoleUsers(roleUuid).stream().map(UserDto::getUuid).toList(), target,
                 targetUuids);
+    }
+
+    @Override
+    public NotificationDto createNotificationForRole(String message, String detail, String roleUuid, Resource target,
+            String targetUuids, NotificationSubject subject) throws ValidationException {
+        return createNotificationForUsers(message, detail,
+                roleManagementApiClient.getRoleUsers(roleUuid).stream().map(UserDto::getUuid).toList(), target,
+                targetUuids, subject);
+    }
+
+    private List<String> groupMemberUuids(String groupUuid) {
+        return userManagementApiClient
+                .getUsers()
+                .getData()
+                .stream()
+                .filter(u -> u.getGroups().stream().anyMatch(g -> g.getUuid().equals(groupUuid)))
+                .map(UserDto::getUuid)
+                .toList();
     }
 
     @Override
