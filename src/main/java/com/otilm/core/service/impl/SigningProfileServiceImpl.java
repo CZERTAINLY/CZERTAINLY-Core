@@ -38,6 +38,8 @@ import com.otilm.api.model.common.PaginationResponseDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.otilm.api.model.common.signature.SignatureFamily;
+import com.otilm.api.model.common.signature.SignatureLevel;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.CertificateDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
@@ -277,10 +279,24 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
 
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.ANY)
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<BaseAttribute> listSignatureFormattingConnectorAttributes(UUID connectorUuid,
             SecuredUUID signingProfileUuid) throws NotFoundException, ConnectorException, AttributeException {
         return fetchFormattingAttributeDefinitions(connectorUuid);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SIGNING_PROFILE, action = ResourceAction.ANY)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public List<BaseAttribute> listContentSigningFormattingConnectorAttributes(UUID connectorUuid,
+            SignatureFamily family, SignatureLevel maxLevel, SecuredUUID signingProfileUuid)
+            throws NotFoundException, ConnectorException, AttributeException {
+        ContentSigningWorkflowValidator
+                .requireConnectorServes(
+                        connectorService.getConnectorEntityWithInterfaces(SecuredUUID.fromUUID(connectorUuid)), family,
+                        maxLevel);
+        return contentSigningFormattingAttributes
+                .aggregate(connectorService.getConnectorForApiClient(connectorUuid), maxLevel);
     }
 
     @Override

@@ -64,6 +64,9 @@ import com.otilm.core.dao.repository.notifications.NotificationInstanceReference
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.events.transaction.TransactionHandler;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.model.connector.ImmutableConnectorBasicModel;
+import com.otilm.core.model.connector.ImmutableConnectorFullModel;
+import com.otilm.core.model.connector.ImmutableConnectorInfo;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -269,6 +272,18 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         ConnectorDetailDto dto = connector.mapToDetailDto();
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CONNECTOR, uuid.getValue()));
         return dto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
+    public ImmutableConnectorFullModel getConnectorFullModel(SecuredUUID uuid) throws NotFoundException {
+        return loadConnectorFullModel(uuid.getValue());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
+    public ImmutableConnectorBasicModel getConnectorBasicModel(SecuredUUID uuid) throws NotFoundException {
+        return loadConnectorBasicModel(uuid.getValue());
     }
 
     @Override
@@ -537,6 +552,20 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         return ImmutableConnectorInfo.of(connector);
     }
 
+    private ImmutableConnectorFullModel loadConnectorFullModel(UUID connectorUuid) throws NotFoundException {
+        Connector connector = connectorRepository
+                .findWithInterfacesAndFunctionGroupsByUuid(connectorUuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
+        return ImmutableConnectorFullModel.from(connector);
+    }
+
+    private ImmutableConnectorBasicModel loadConnectorBasicModel(UUID connectorUuid) throws NotFoundException {
+        Connector connector = connectorRepository
+                .findByUuid(connectorUuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
+        return ImmutableConnectorBasicModel.from(connector);
+    }
+
     @Override
     public NameAndUuidDto getResourceObjectInternal(UUID objectUuid) throws NotFoundException {
         return connectorRepository.findResourceObject(objectUuid, Connector_.name);
@@ -660,6 +689,7 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
             for (TokenInstanceReference ref : connector.getTokenInstanceReferences()) {
                 ref.setConnector(null);
                 ref.setConnectorUuid(null);
+                ref.setConnectorInterface(null);
                 tokenInstanceReferenceRepository.save(ref);
             }
             connector.getTokenInstanceReferences().removeAll(connector.getTokenInstanceReferences());
