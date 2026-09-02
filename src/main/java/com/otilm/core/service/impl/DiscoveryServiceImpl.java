@@ -9,6 +9,7 @@ import com.otilm.api.exception.NotSupportedException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.client.v1.DiscoverySyncApiClient;
+import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.certificate.DiscoveryResponseDto;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
@@ -353,18 +354,26 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
      * transaction — {@link DiscoveryRunWriter} then commits the definitions and their content together.
      */
     private Map<Resource, List<BaseAttribute>> fetchResourceDefinitions(DiscoveryDto request, Connector connector)
-            throws ConnectorException, NotFoundException {
-        if (request.getResourceAttributes() == null || request.getResourceAttributes().isEmpty()) {
+            throws ConnectorException, NotFoundException, AttributeException {
+        if (request.getResources() == null || request.getResources().isEmpty()) {
             return Map.of();
         }
         ApiClientConnectorInfo connectorInfo = connectorService.getConnectorForApiClient(connector.getUuid());
+        Map<Resource, List<RequestAttribute>> submitted = request.getResourceAttributes() == null
+                ? Map.of()
+                : request.getResourceAttributes();
         Map<Resource, List<BaseAttribute>> definitions = new LinkedHashMap<>();
-        for (Resource resource : request.getResourceAttributes().keySet()) {
-            definitions
-                    .put(resource,
-                            connectorApiFactory
-                                    .getDiscoveryApiClientV2(connectorInfo)
-                                    .listResourceAttributes(connectorInfo, resource));
+        // Every targeted resource, not only those the request filed content against: a resource whose schema
+        // declares a required attribute is refused for omitting it, and the submitted keys alone cannot show that.
+        // Validated through the same engine call the run-level attributes go through.
+        for (Resource resource : request.getResources()) {
+            List<BaseAttribute> declared = connectorApiFactory
+                    .getDiscoveryApiClientV2(connectorInfo)
+                    .listResourceAttributes(connectorInfo, resource);
+            attributeEngine
+                    .validateUpdateDataAttributes(connector.getUuid(), resource.getCode(), declared,
+                            submitted.getOrDefault(resource, List.of()));
+            definitions.put(resource, declared);
         }
         return definitions;
     }

@@ -65,6 +65,11 @@ public class DiscoveryDtoMapper {
         // progress at all, are meant to publish.
         dto.setProgress(discovery.getProgress());
         dto.setConnectorInterface(connectorInterfaceOf(discovery));
+        // The drain cursor is the count: sequences are dense per run, so the highest one applied is how many items
+        // Core holds -- and it is what the items listing returns, which a larger connector-side total would not be.
+        dto
+                .setItemsDiscovered(
+                        discovery.getConnectorInterfaceUuid() == null ? null : discovery.getLastAppliedSequence());
         return dto;
     }
 

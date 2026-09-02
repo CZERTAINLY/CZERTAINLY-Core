@@ -41,8 +41,8 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
         DiscoveryResourceProgressDto keyProgress = new DiscoveryResourceProgressDto();
         keyProgress.setProcessed(3L);
         DiscoveryProgressDto progress = new DiscoveryProgressDto();
-        progress.setProcessed(11L);
-        progress.setTotalEstimate(40L);
+        progress.setTargetsProcessed(11L);
+        progress.setTargetsTotal(40L);
         progress.setPhase("scanning");
         progress.setByResource(Map.of(Resource.CRYPTOGRAPHIC_KEY, keyProgress));
 
@@ -75,8 +75,8 @@ class DiscoveryRepositoryITest extends BaseSpringBootTest {
                 .satisfies(handle -> assertThat(handle.getName()).isEqualTo("connectorRunId"));
         assertThat(back.getResources()).containsExactly(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY);
         assertThat(back.getLastAppliedSequence()).isEqualTo(17L);
-        assertThat(back.getProgress().getProcessed()).isEqualTo(11L);
-        assertThat(back.getProgress().getTotalEstimate()).isEqualTo(40L);
+        assertThat(back.getProgress().getTargetsProcessed()).isEqualTo(11L);
+        assertThat(back.getProgress().getTargetsTotal()).isEqualTo(40L);
         assertThat(back.getProgress().getPhase()).isEqualTo("scanning");
         assertThat(back.getProgress().getByResource()).containsOnlyKeys(Resource.CRYPTOGRAPHIC_KEY);
         assertThat(back.getProgress().getByResource().get(Resource.CRYPTOGRAPHIC_KEY).getProcessed()).isEqualTo(3L);

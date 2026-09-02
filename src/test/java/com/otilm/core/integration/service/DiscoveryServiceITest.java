@@ -238,11 +238,20 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
     @Test
     void theDetailPublishesWhatAV2RunRecorded() throws NotFoundException {
         DiscoveryProgressDto progress = new DiscoveryProgressDto();
-        progress.setProcessed(11L);
-        progress.setTotalEstimate(40L);
+        progress.setTargetsProcessed(11L);
+        progress.setTargetsTotal(40L);
+        // A real interface row, not a bare uuid: the detail resolves the association, and a reference to nothing
+        // throws. Production cannot reach that state -- the column is a foreign key -- but the schema these tests
+        // build from the entities carries no constraint, so the fixture has to be honest about it.
+        ConnectorInterfaceEntity iface = new ConnectorInterfaceEntity();
+        iface.setConnectorUuid(connector.getUuid());
+        iface.setInterfaceCode(ConnectorInterface.DISCOVERY);
+        iface.setVersion("v2");
+        discovery.setConnectorInterfaceUuid(connectorInterfaceRepository.save(iface).getUuid());
         discovery.setResources(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY));
         discovery.setStoppable(true);
         discovery.setProgress(progress);
+        discovery.setLastAppliedSequence(7L);
         discoveryRepository.save(discovery);
 
         DiscoveryDetailDto detail = discoveryService.getDiscovery(discovery.getSecuredUuid());
@@ -250,8 +259,12 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         Assertions.assertEquals(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY), detail.getResources());
         Assertions.assertEquals(Boolean.TRUE, detail.getStoppable());
         Assertions.assertNotNull(detail.getProgress(), "a client polling a live run reads its counters from here");
-        Assertions.assertEquals(11L, detail.getProgress().getProcessed());
-        Assertions.assertEquals(40L, detail.getProgress().getTotalEstimate());
+        Assertions.assertEquals(11L, detail.getProgress().getTargetsProcessed());
+        Assertions.assertEquals(40L, detail.getProgress().getTargetsTotal());
+        Assertions
+                .assertEquals(7L, detail.getItemsDiscovered(),
+                        "work and yield are separate: the completion ratio is in targets, the item total is this, "
+                                + "and it counts what the items listing can actually return");
     }
 
     @Test
@@ -1041,6 +1054,33 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
                         WireMock.getRequestedFor(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes")));
     }
 
+    /**
+     * A per-resource schema is a contract like the run-level one, and a request that ignores it is refused rather than
+     * stored.
+     */
+    @Test
+    void aRequiredResourceAttributeTheRequestOmits_refusesTheRun() {
+        giveConnectorAV2DiscoveryInterface();
+        stubSupportedResources("""
+                [{"resource":"certificates"}]""");
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathEqualTo("/v2/discoveryProvider/certificates/attributes"))
+                        .willReturn(WireMock.okJson("""
+                                [{"uuid":"7f7f0000-0000-4000-8000-000000000009","name":"scanDepth",
+                                  "type":"data","version":3,"contentType":"integer",
+                                  "properties":{"label":"Scan depth","required":true}}]""")));
+
+        DiscoveryDto request = v2Request(List.of(Resource.CERTIFICATE));
+
+        Assertions
+                .assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, true),
+                        "a run targeting a resource whose schema requires an attribute must not be created without it");
+        Assertions
+                .assertTrue(discoveryRepository.findByName(request.getName()).isEmpty(),
+                        "the refusal happens before anything is written");
+    }
+
     @Test
     void aLifecycleOperationOnAnUnknownRunIsNotFound() {
         SecuredUUID missing = SecuredUUID.fromUUID(UUID.randomUUID());
@@ -1389,6 +1429,11 @@ class DiscoveryServiceITest extends BaseSpringBootTest {
         WireMock
                 .stubFor(WireMock
                         .get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        // Create reads a per-resource schema for every resource a run targets, so every v2 create reaches this.
+        WireMock
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v2/discoveryProvider/[^/]+/attributes"))
                         .willReturn(WireMock.okJson("[]")));
         WireMock
                 .stubFor(WireMock

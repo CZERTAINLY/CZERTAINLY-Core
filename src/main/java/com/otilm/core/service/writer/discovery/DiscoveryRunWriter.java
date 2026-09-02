@@ -2,6 +2,7 @@ package com.otilm.core.service.writer.discovery;
 
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
+import com.otilm.api.model.client.attribute.RequestAttribute;
 import com.otilm.api.model.client.discovery.DiscoveryDetailDto;
 import com.otilm.api.model.client.discovery.DiscoveryDto;
 import com.otilm.api.model.common.attribute.common.BaseAttribute;
@@ -52,8 +53,8 @@ public class DiscoveryRunWriter {
      * Persists a prepared run with its attributes and trigger associations, and returns its detail.
      *
      * @param discovery the populated, unsaved run
-     * @param resourceDefinitions per-resource attribute definitions already read from the connector, keyed by the
-     * resource whose submitted content they describe; empty when the request carried no per-resource attributes
+     * @param resourceDefinitions attribute definitions read from the connector and already validated against the
+     * request, one entry per resource the run targets; empty for a v1 run, which targets none
      */
     // rollbackFor, against the platform's usual default: the writes below are checked-exception paths --
     // AttributeException from the engine, NotFoundException from the trigger associations -- and Spring rolls back
@@ -84,12 +85,16 @@ public class DiscoveryRunWriter {
             // them back by operation too.
             String operation = perResource.getKey().getCode();
             attributeEngine.updateDataAttributeDefinitions(connectorUuid, operation, perResource.getValue());
+            // A resource the request filed no content against still has an entry; the engine takes the empty list.
+            List<RequestAttribute> content = request.getResourceAttributes() == null
+                    ? List.of()
+                    : request.getResourceAttributes().getOrDefault(perResource.getKey(), List.of());
             attributeEngine
                     .updateObjectDataAttributesContent(ObjectAttributeContentInfo
                             .builder(Resource.DISCOVERY, saved.getUuid())
                             .connector(connectorUuid)
                             .operation(operation)
-                            .build(), request.getResourceAttributes().get(perResource.getKey()));
+                            .build(), content);
         }
 
         if (request.getTriggers() != null) {

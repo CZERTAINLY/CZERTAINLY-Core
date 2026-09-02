@@ -17,7 +17,8 @@ public final class DiscoveryProgressSnapshot {
      * the polled status and the pushed progress event arrive through it.
      */
     public static boolean reportsSomething(DiscoveryProgressDto progress) {
-        return progress != null && (progress.getProcessed() != null || progress.getTotalEstimate() != null
-                || progress.getFailed() != null || progress.getPhase() != null || progress.getByResource() != null);
+        return progress != null && (progress.getTargetsProcessed() != null || progress.getTargetsTotal() != null
+                || progress.getTargetsFailed() != null || progress.getPhase() != null
+                || progress.getByResource() != null);
     }
 }

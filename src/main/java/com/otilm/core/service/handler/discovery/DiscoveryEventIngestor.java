@@ -371,10 +371,10 @@ public class DiscoveryEventIngestor {
      */
     private static DiscoveryProgressDto snapshotOf(DiscoveryProgressEvent event) {
         DiscoveryProgressDto snapshot = new DiscoveryProgressDto();
-        snapshot.setProcessed(event.getProcessed());
-        snapshot.setTotalEstimate(event.getTotalEstimate());
+        snapshot.setTargetsProcessed(event.getTargetsProcessed());
+        snapshot.setTargetsTotal(event.getTargetsTotal());
         snapshot.setPhase(event.getPhase());
-        snapshot.setFailed(event.getFailed());
+        snapshot.setTargetsFailed(event.getTargetsFailed());
         snapshot.setByResource(event.getByResource());
         return snapshot;
     }

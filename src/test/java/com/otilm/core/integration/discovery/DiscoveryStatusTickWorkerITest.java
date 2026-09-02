@@ -87,7 +87,7 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
         armStatusRow(run, 0);
         DiscoveryStatusResponseDto response = statusResponse(DiscoveryRunState.RUNNING);
         DiscoveryProgressDto progress = new DiscoveryProgressDto();
-        progress.setProcessed(31L);
+        progress.setTargetsProcessed(31L);
         progress.setPhase("scanning");
         response.setProgress(progress);
         answers(response);
@@ -95,7 +95,7 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
         worker.tick(run.getUuid(), 0);
 
         Discovery reloaded = reload(run);
-        assertThat(reloaded.getProgress().getProcessed()).isEqualTo(31L);
+        assertThat(reloaded.getProgress().getTargetsProcessed()).isEqualTo(31L);
         assertThat(reloaded.getProgress().getPhase()).isEqualTo("scanning");
     }
 
@@ -109,8 +109,8 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
         armStatusRow(run, 0);
         DiscoveryStatusResponseDto reporting = statusResponse(DiscoveryRunState.RUNNING);
         DiscoveryProgressDto progress = new DiscoveryProgressDto();
-        progress.setProcessed(31L);
-        progress.setFailed(12L);
+        progress.setTargetsProcessed(31L);
+        progress.setTargetsFailed(12L);
         reporting.setProgress(progress);
         answers(reporting);
         worker.tick(run.getUuid(), 0);
@@ -124,10 +124,10 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
 
         Discovery reloaded = reload(run);
         assertThat(reloaded.getProgress()).isNotNull();
-        assertThat(reloaded.getProgress().getProcessed())
+        assertThat(reloaded.getProgress().getTargetsProcessed())
                 .as("an empty report must not blank out what the run already knows")
                 .isEqualTo(31L);
-        assertThat(reloaded.getProgress().getFailed()).isEqualTo(12L);
+        assertThat(reloaded.getProgress().getTargetsFailed()).isEqualTo(12L);
     }
 
     @Test
@@ -136,8 +136,8 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
         armStatusRow(run, 0);
         DiscoveryStatusResponseDto response = statusResponse(DiscoveryRunState.RUNNING);
         DiscoveryProgressDto progress = new DiscoveryProgressDto();
-        progress.setProcessed(42L);
-        progress.setFailed(65_492L);
+        progress.setTargetsProcessed(42L);
+        progress.setTargetsFailed(65_492L);
         response.setProgress(progress);
         answers(response);
 
@@ -145,7 +145,7 @@ class DiscoveryStatusTickWorkerITest extends BaseSpringBootTest {
 
         // A sweep of address space fails most of what it attempts; without this the run detail cannot tell
         // "examined 42 of 65534" from "found 42, nothing else to look at".
-        assertThat(reload(run).getProgress().getFailed()).isEqualTo(65_492L);
+        assertThat(reload(run).getProgress().getTargetsFailed()).isEqualTo(65_492L);
     }
 
     @Test
