@@ -1,9 +1,10 @@
 package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 /**
@@ -17,13 +18,54 @@ import java.util.regex.Pattern;
  */
 public final class Occurrences {
 
-    /** Everything from the first {@code ?} or {@code #} onward: query strings and fragments carry session tokens. */
+    /**
+     * Everything from the first {@code ?} or {@code #} onward: query strings and fragments carry session tokens.
+     *
+     * <p>
+     * A match at position zero is the one case where the text before the delimiter is not the answer -- see
+     * {@link #withoutQueryOrFragment}, which keeps a leading fragment's <em>text</em> without keeping its delimiter.
+     */
     private static final Pattern QUERY_OR_FRAGMENT = Pattern.compile("[?#]");
 
-    /** {@code scheme://user:pass@host} -- a real shape, and the reason a raw location must never be hashed. */
-    private static final Pattern USERINFO = Pattern.compile("://[^/?#]*@");
+    /**
+     * {@code scheme://user:pass@host} -- a real shape, and the reason a raw location must never be hashed.
+     *
+     * <p>
+     * Replaced <b>globally</b>, not once. One location can hold more than one URI: an archive scanner writes
+     * {@code jar:file://u:p@h/a.jar!/https://u2:p2@h2/b} and a Kafka bootstrap list is comma-separated. Because
+     * {@code [^/?#]*} cannot cross a {@code /}, a single replacement leaves every credential after the first standing
+     * -- and this is the one method in this package on the live path to the served {@code evidence} column, so what
+     * survives here is a stored, queryable secret.
+     *
+     * <p>
+     * <b>The authority, not the scheme delimiter.</b> Anchoring on a literal {@code ://} missed a network-path
+     * reference: {@code //user:secret@host/x} is a well-formed URI reference that {@link java.net.URI} parses with
+     * {@code userInfo=user:secret}, and it is what a scanner emits for a protocol-relative URL. The captured group is
+     * the scheme's colon or nothing at all, so both spellings survive the replacement with their prefix intact.
+     *
+     * <p>
+     * {@code [^/?#]*} stays <b>greedy</b> on purpose. A comma-separated multi-host authority --
+     * {@code mongodb://u1:p1@h1,u2:p2@h2/db} -- carries two credentials under one {@code //}, and a lazy quantifier
+     * stops at the first {@code @} and leaves the second standing. Greedy costs the first host, which is fidelity; lazy
+     * costs a credential, which is the thing this pattern exists for.
+     */
+    private static final Pattern USERINFO = Pattern.compile("(^|:)//[^/?#]*@");
+
+    /**
+     * An unpaired surrogate, which is well-formed to Java and has no encoding at all in UTF-8.
+     *
+     * <p>
+     * {@link IdentityDigests#sha256Hex} refuses one, so a component carrying it becomes a reported skip and vanishes
+     * from the inventory; the same string also has no valid encoding for the {@code jsonb} evidence column. Scrubbing
+     * is unconditional rather than a cap-boundary repair, because a producer can put one anywhere in the string and
+     * only the cut position was ever guarded.
+     */
+    private static final Pattern UNPAIRED_SURROGATE = Pattern
+            .compile("(?:[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF]))" + "|(?:(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF])");
 
     private static final int MAX_LOCATION_LENGTH = 1024;
+
+    private static final Comparator<String> CODE_POINT_ORDER = AsciiText.BY_CODE_POINT;
 
     private Occurrences() {
     }
@@ -52,7 +94,6 @@ public final class Occurrences {
         if (occurrences == null || !occurrences.isArray()) {
             return null;
         }
-        TreeSet<String> sorted = new TreeSet<>();
         List<String> triples = new ArrayList<>();
         for (JsonNode occurrence : occurrences) {
             if (!occurrence.isObject()) {
@@ -65,8 +106,8 @@ public final class Occurrences {
         if (triples.isEmpty()) {
             return null;
         }
-        sorted.addAll(triples);
-        return String.join("\n", sorted);
+        triples.sort(CODE_POINT_ORDER);
+        return String.join("\n", triples);
     }
 
     /**
@@ -75,7 +116,9 @@ public final class Occurrences {
      * <p>
      * {@code tcp://user:pass@host:443} is a real shape, and the location feeds the identity key for version-less
      * protocols and identity-less material -- so unsanitized, a password would be hashed into the key and stored in the
-     * evidence payload. The query and fragment go too: they carry session tokens and do not identify a location.
+     * evidence payload. A query string goes too, wherever it sits: it carries session tokens and identifies no
+     * location. A fragment goes with it, except when the location <em>is</em> the fragment -- a JSON pointer states a
+     * place, and {@link #withoutQueryOrFragment} keeps its text without its delimiter.
      */
     public static String sanitizeLocation(JsonNode location) {
         if (location == null || !location.isTextual() || AsciiText.isBlank(location.textValue())) {
@@ -84,46 +127,164 @@ public final class Occurrences {
         return sanitizeLocation(location.textValue());
     }
 
+    /**
+     * Sanitizes in an order the steps cannot undo for each other.
+     *
+     * <p>
+     * <b>The surrogate scrub goes first.</b> Removing a lone surrogate can <em>create</em> the {@code ://...@} shape
+     * that {@link #USERINFO} strips: {@code x:\uD800//user:pass@host} does not match the pattern, and scrubbing after
+     * the strip yields {@code x://user:pass@host} -- a well-formed, hashable location with the credential intact.
+     * Scrubbing first cannot have the mirror effect, because deleting a surrogate introduces no {@code ?}, {@code #},
+     * {@code @} or {@code :} for a later step to miss.
+     */
     public static String sanitizeLocation(String location) {
         if (AsciiText.isBlank(location)) {
             return "";
         }
         String text = AsciiText.strip(location);
-        text = QUERY_OR_FRAGMENT.split(text, 2)[0];
-        text = USERINFO.matcher(text).replaceFirst("://");
+        text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
+        text = withoutQueryOrFragment(text);
+        text = USERINFO.matcher(text).replaceAll("$1//");
         return text.substring(0, capBoundary(text));
     }
 
     /**
-     * Where the length cap may cut, which is never between the halves of a surrogate pair.
+     * The location up to its first {@code ?} or {@code #}, unless the delimiter is the first character.
      *
      * <p>
-     * The cap counts UTF-16 units, so a location of 1023 basic-plane characters followed by any astral character -- an
-     * emoji or a CJK extension character in a scanned path is enough -- left a lone high surrogate as the last char.
-     * That is well-formed input made malformed by the cap, and {@link IdentityDigests#sha256Hex} refuses it, so the
-     * component became a reported skip and vanished from the inventory with nothing an operator could act on. The same
-     * truncated string is written to stored evidence, where a lone surrogate has no valid UTF-8 encoding for a jsonb
-     * column.
+     * A location that <em>begins</em> with the delimiter is all fragment, and cutting at position zero rendered it as
+     * the empty string -- which is what an absent location renders as. A CycloneDX occurrence inside an OpenAPI or JSON
+     * document carries a JSON pointer, so {@code #/components/schemas/PrivateKey} and
+     * {@code #/components/schemas/PublicKey} both became the empty location and then shared one discriminator with each
+     * other and with every component that stated no location at all.
+     *
+     * <p>
+     * Such a location keeps its own <em>text</em> instead, without its delimiter. It states something, and the
+     * query-and-fragment rule exists to drop a <em>trailing</em> session token from a real path, not to erase a pointer
+     * that is the whole reference.
+     *
+     * <p>
+     * <b>The delimiter itself does not come back.</b> {@code #} is the separator of the occurrence triple and the
+     * location slot is the one slot {@link PreImageSlot} does not escape, so a location that carries a {@code #} can
+     * forge a triple: with a newline in the same string, one occurrence renders as two triple lines. Returning the text
+     * whole re-opened that -- 234 colliding one-occurrence-against-two pairs over <code>{#, ?, \n, a, b, 1, 2}</code>,
+     * none before. Cutting after the delimiter keeps the pointer distinct and restores the invariant that made a
+     * newline harmless, without opening the escape set and re-keying every row.
+     *
+     * <p>
+     * <b>Only a leading {@code #} earns retention at all.</b> A pointer states a place; a location beginning with
+     * {@code ?} is a bare query string -- {@code ?X-Amz-Signature=}, {@code ?sig=}, {@code ?token=} are the shapes this
+     * rule was written for -- so keeping it verbatim would store exactly the session token the rule drops. It renders
+     * as the empty location. A sentinel distinguishable from absence would be better, as it is for a refused position,
+     * but this slot is unescaped: any sentinel a location could carry, a producer can also spell.
+     */
+    private static String withoutQueryOrFragment(String text) {
+        String[] halves = QUERY_OR_FRAGMENT.split(text, 2);
+        if (!halves[0].isEmpty()) {
+            return halves[0];
+        }
+        if (text.charAt(0) != '#') {
+            return "";
+        }
+        return QUERY_OR_FRAGMENT.split(text.substring(1), 2)[0];
+    }
+
+    /**
+     * Where the length cap may cut, counting code points rather than UTF-16 code units.
+     *
+     * <p>
+     * The specification and the reference count characters; Java's {@code length()} counts UTF-16 storage units. The
+     * two disagree from the first astral character onward, so a location of 1024 emoji was capped at 512 here and at
+     * 1024 by the reference -- one location, two keys.
+     *
+     * <p>
+     * Cutting on a code-point boundary means the cap can no longer <em>create</em> a lone surrogate, which is the case
+     * the old positional guard was written for. It says nothing about one already present in the producer's text, which
+     * the cap can now carry through where the old boundary sometimes happened to trim it -- so
+     * {@link #UNPAIRED_SURROGATE} scrubs those explicitly rather than relying on where the cut lands.
+     *
+     * <p>
+     * The cap is the last step of {@link #sanitizeLocation}, after the query, fragment and user-info have already gone,
+     * so it can neither expose nor preserve a credential -- only shorten a location that no longer carries one.
      */
     private static int capBoundary(String text) {
-        int end = Math.min(text.length(), MAX_LOCATION_LENGTH);
-        return end > 0 && end < text.length() && Character.isHighSurrogate(text.charAt(end - 1)) ? end - 1 : end;
+        return text.codePointCount(0, text.length()) <= MAX_LOCATION_LENGTH
+                ? text.length()
+                : text.offsetByCodePoints(0, MAX_LOCATION_LENGTH);
     }
+
+    /**
+     * A numeric position that names no line or offset, kept distinct from the empty slot.
+     *
+     * <p>
+     * {@code %3F} cannot arise from a producer value: {@link PreImageSlot} emits only {@code %25}, {@code %7C},
+     * {@code %20}, {@code %09}, {@code %0D} and {@code %0A}, and escapes any literal {@code %} to {@code %25} first.
+     * Rendering a refusal as the empty string instead would key {@code line: 1.5} identically to a stated-nothing
+     * occurrence, and the empty slot means absent everywhere else in the chain.
+     */
+    private static final String REFUSED_POSITION = "%3F";
 
     /**
      * Renders a line or offset into its position of the triple.
      *
      * <p>
-     * Escaped like any other slot value, because a producer controls it and a crafted string could otherwise forge a
-     * triple boundary.
+     * Escaped like any other slot value, because a producer controls it. Note what that does and does not buy:
+     * {@link PreImageSlot} escapes {@code %}, {@code |}, space, tab, CR and LF, but <b>not</b> {@code #}, which is this
+     * triple's own delimiter. So a textual position can still move the boundary between the line and offset fields --
+     * {@code line="1#2", offset="3"} and {@code line="1", offset="2#3"} both render {@code a#1#2#3}. The producer
+     * states all three fields either way, and the schema types line and offset as integers so a textual value is
+     * schema-invalid, but the escaping is not what prevents it.
+     *
+     * <p>
+     * A number is rendered through its value rather than its spelling, so {@code 1.0} and {@code 2.0} stay apart and
+     * {@code 1e3} renders as the line {@code 1000} it names. {@code isIntegralNumber} was the wrong test: it asks
+     * Jackson's node type, not the value, so every double-serialized line collapsed onto one refusal -- and a producer
+     * whose JSON writer emits {@code 1.0} for an integer had its discriminator degraded to location-only.
+     *
+     * <p>
+     * Only a genuinely fractional position has no line to name, and that renders as {@link #REFUSED_POSITION} rather
+     * than as the empty slot, because refusal is not absence.
      */
     private static String slot(JsonNode value) {
         if (value == null || value.isNull() || value.isMissingNode()) {
             return "";
         }
         if (value.isNumber()) {
-            return PreImageSlot.of(value.isIntegralNumber() ? value.bigIntegerValue().toString() : value.asText());
+            // The sentinel bypasses PreImageSlot deliberately. Escaping it would render it %253F, which is exactly
+            // what a producer spelling "%3F" renders as -- restoring the collision the sentinel exists to avoid.
+            String exact = exactPosition(value);
+            return exact == null ? REFUSED_POSITION : PreImageSlot.of(exact);
         }
         return PreImageSlot.of(value.asText());
+    }
+
+    /**
+     * A numeric position as an exact integer, or {@code null} when it names no integer at all.
+     *
+     * <p>
+     * <b>What the rendered string is.</b> {@code decimalValue()} on a double node is {@code BigDecimal.valueOf}, whose
+     * contract is {@code new BigDecimal(Double.toString(d))} -- so the keyed string is the shortest decimal that round
+     * trips, zero-expanded, not the value's exact binary expansion: {@code 1e23} keys as
+     * {@code 100000000000000000000000} while the double it names is {@code 99999999999999991611392}. That is a narrower
+     * dependency than {@code asText()}'s, which yielded exponent notation for a large integral node and keyed one line
+     * two ways on the producer's serializer, but it is not none: {@code Double.toString}'s algorithm was rewritten in
+     * JDK 19 (JDK-4511638). Using {@code new BigDecimal(double)} would remove it entirely at the cost of diverging from
+     * the reference kernel's rendering, so the dependency is recorded rather than closed.
+     *
+     * <p>
+     * A position that underflows to zero -- {@code 1e-1000} -- keys as the line {@code 0}, because it parses to the
+     * double {@code 0.0} before this method sees it and nothing downstream can tell the two apart.
+     */
+    private static String exactPosition(JsonNode value) {
+        if (value.isIntegralNumber()) {
+            return value.bigIntegerValue().toString();
+        }
+        if (value.isFloatingPointNumber() && !Double.isFinite(value.doubleValue())) {
+            // A JSON 1e999 parses to Infinity, and BigDecimal.valueOf(Infinity) throws. The sentinel exists so an
+            // unusable position is refused rather than fatal, so the overflow spelling has to reach it, not bypass it.
+            return null;
+        }
+        BigDecimal exact = value.decimalValue().stripTrailingZeros();
+        return exact.scale() <= 0 ? exact.toPlainString() : null;
     }
 }

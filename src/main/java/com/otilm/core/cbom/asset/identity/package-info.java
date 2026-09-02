@@ -38,8 +38,7 @@
  *
  * <p>
  * The package stays flat on purpose. Splitting it by layer would force
- * {@link com.otilm.core.cbom.asset.identity.CbomNames} and {@code CertificateDigests.isPresent} to widen from
- * package-private, and that encapsulation is what keeps the pipeline's vocabulary out of reach of the rest of the
- * platform.
+ * {@link com.otilm.core.cbom.asset.identity.CbomNames} and the digest-claim helpers to widen from package-private, and
+ * that encapsulation is what keeps the pipeline's vocabulary out of reach of the rest of the platform.
  */
 package com.otilm.core.cbom.asset.identity;
