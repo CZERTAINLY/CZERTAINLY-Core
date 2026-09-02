@@ -28,8 +28,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * The certificate listing is the other two-phase fetch: a page of uuids in the requested order, then the DTOs by
- * {@code uuid IN (...)}. The second query used to carry {@code ORDER BY c.created DESC}, which replaced the ordering
- * the first had established, so these cases are what catches a sort that is accepted and then discarded.
+ * {@code uuid IN (...)}. An ordering carried by the second query would replace the one the first established, so these
+ * cases are what catches a sort that is accepted and then discarded.
  */
 class CertificateListingSortITest extends BaseSpringBootTest {
 

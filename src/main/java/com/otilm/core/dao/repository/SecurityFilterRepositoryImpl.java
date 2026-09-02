@@ -146,10 +146,17 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     /**
-     * The uuids of a page ordered by a field of a joined entity. The join gives a root as many rows as it has matches,
-     * so a window cut over those rows would underfill the page and let the same root reappear on the next one. The
-     * query therefore groups by the root's uuid and orders by the aggregate the ordering resolves - one row per root,
-     * which is what the window is allowed to cut.
+     * The uuids of a page in the order the request asked for, for the two sorts the entity query cannot carry itself.
+     *
+     * <p>
+     * A sort through a join gives a root as many rows as the join has matches, so a window cut over those rows would
+     * underfill the page and let the same root reappear on the next one. A sort by an attribute resolves to a
+     * correlated scalar subquery, and the entity query selects DISTINCT, which the database will not order by an
+     * expression that is absent from the select list.
+     *
+     * <p>
+     * This query answers both: it selects the sort key alongside the uuid, groups by the uuid and orders by the
+     * aggregate the ordering resolves - one row per root, carrying its key, which is what the window is allowed to cut.
      */
     private List<UUID> findUuidsOrderedBySortKey(final SecurityFilter filter,
             final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause,

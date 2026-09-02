@@ -32,8 +32,8 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
 
     /**
      * The key items named by the uuid list. Deliberately carries no ordering: the ordering the listing asked for lives
-     * in the rank of that list, and the {@code OrderByCreatedAtDesc} this method used to name would replace it. Callers
-     * rank the result with {@code SortOrderBuilder.rankBy}.
+     * in the rank of that list, and an ORDER BY here would replace it. Callers rank the result with
+     * {@code SortOrderBuilder.rankBy}.
      */
     @EntityGraph(attributePaths = {"key", "key.tokenProfile", "key.groups", "key.owner"})
     List<CryptographicKeyItem> findFullByUuidIn(List<UUID> uuids);

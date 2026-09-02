@@ -575,11 +575,14 @@ public interface CertificateRepository
             @Param("oldCode") String oldCode);
 
     /**
-     * Populates almost all of the {@link CertificateDto} properties.
+     * Populates almost all of the {@link CertificateDto} properties for the page of certificates the uuid list names.
      *
      * <p>
      * Groups need to be retrieved separately and set to the DTO.
-     * </p>
+     *
+     * <p>
+     * Carries no ORDER BY: the ordering the listing asked for lives in the rank of that list, and an ORDER BY here
+     * would replace it. Callers rank the result with {@code SortOrderBuilder.rankBy}.
      */
     @Query("""
             SELECT new com.otilm.api.model.core.certificate.CertificateDto(
@@ -603,10 +606,5 @@ public interface CertificateRepository
             LEFT JOIN RaProfile ra ON ra.uuid = c.raProfileUuid
             WHERE c.uuid IN ?1
             """)
-    /**
-     * The page of certificates named by the uuid list. Carries no ORDER BY: the ordering the listing asked for lives in
-     * the rank of that list, and an ORDER BY here would replace it. Callers rank the result with
-     * {@code SortOrderBuilder.rankBy}.
-     */
     List<CertificateDto> findCertificateDtosByUuidsIn(List<UUID> uuids);
 }
