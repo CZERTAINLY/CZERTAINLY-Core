@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  * <p>
  * The tables are <em>data, never code</em>: they load from {@code cbom/identity-tables.json}, the same artifact the
  * reference implementation reads, so a vocabulary change is a reviewed data change rather than a code change in two
- * languages. The shipped file's SHA-256 is {@code 920a4aa515e9...}. Every published cross-implementation agreement
+ * languages. The shipped file's SHA-256 is {@code 2ce6a302a1a1...}. Every published cross-implementation agreement
  * figure predates it and was measured against {@code 1331969bb507...} -- quote an agreement number only with the
  * artifact hash it was taken against, because a number measured before a table change is a historical number, not a
  * current one.
@@ -37,19 +37,17 @@ public final class IdentityTables {
 
     private static final String RESOURCE = "cbom/identity-tables.json";
 
-    /**
-     * Curve spellings the registry does not list in bare form but producers write anyway. Carried here rather than in
-     * the JSON because the reference carries them in code too, and a divergence in this set silently changes which
-     * digit runs the parameter-set parser is allowed to read.
-     */
-    private static final List<String> EXTRA_CURVE_SPELLINGS = List
-            .of("P-224", "P-256", "P-384", "P-521", "P-192", "nistp256", "nistp384", "nistp521", "x25519", "x448",
-                    "ed25519", "ed448", "curve25519", "curve448", "prime256v1");
-
     private final Set<String> families;
     private final Map<String, Set<String>> pseudoFamilies;
     private final Map<String, String> curveCanonical;
     private final Map<String, String> curveAliases;
+    /**
+     * Curve spellings the registry does not list in bare form but producers write anyway. Read from the artifact rather
+     * than held here: this set decides which digit runs the parameter-set parser is allowed to read, so an edit to it
+     * re-keys -- and in code it re-keyed without moving the file that the byte-diff and the two pinned hashes watch, so
+     * neither guard could see it.
+     */
+    private final List<String> extraCurveSpellings;
     private final Map<String, OidEntry> oidToFamily;
     private final Set<String> oidBlockedPrefixes;
     private final List<GrammarRule> nameGrammar;
@@ -118,6 +116,7 @@ public final class IdentityTables {
                 .forEach(entry -> aliases.put(AsciiText.lookupKey(entry.getKey()), entry.getValue().asText()));
         this.curveAliases = Map.copyOf(aliases);
         this.oidToFamily = oidEntries(raw.get("oidToFamily"));
+        this.extraCurveSpellings = textList(raw.get("extraCurveSpellings"));
         this.oidBlockedPrefixes = textSet(raw.get("oidBlockedPrefixes"));
         this.nameGrammar = grammar(raw.get("nameGrammar"));
         this.sizeStoplist = textList(raw.get("sizeStoplist"));
@@ -353,7 +352,7 @@ public final class IdentityTables {
     }
 
     private List<String> curveStripTokens() {
-        Set<String> tokens = new HashSet<>(EXTRA_CURVE_SPELLINGS);
+        Set<String> tokens = new HashSet<>(extraCurveSpellings);
         curveCanonical.keySet().forEach(token -> tokens.add(token.substring(token.indexOf('/') + 1)));
         return longestFirst(tokens);
     }
@@ -362,7 +361,7 @@ public final class IdentityTables {
         Set<String> spellings = new LinkedHashSet<>();
         curveCanonical.keySet().stream().filter(token -> !token.contains("/")).forEach(spellings::add);
         curveCanonical.keySet().forEach(token -> spellings.add(token.substring(token.indexOf('/') + 1)));
-        spellings.addAll(EXTRA_CURVE_SPELLINGS);
+        spellings.addAll(extraCurveSpellings);
         return longestFirst(spellings);
     }
 
