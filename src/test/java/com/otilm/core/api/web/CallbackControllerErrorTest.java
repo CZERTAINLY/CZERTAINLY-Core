@@ -5,10 +5,10 @@ import com.otilm.api.model.common.attribute.common.callback.RequestAttributeCall
 import com.otilm.api.model.common.error.ErrorCode;
 import com.otilm.api.model.common.error.ProblemDetailExtended;
 import com.otilm.core.api.ExceptionHandlingAdvice;
+import com.otilm.core.service.CallbackExternalService;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -16,6 +16,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -39,10 +41,8 @@ class CallbackControllerErrorTest {
         problemDetail.setErrorCode(ErrorCode.CREDENTIAL_INVALID);
         problemDetail.setRetryable(false);
 
-        com.otilm.core.service.CallbackExternalService callbackService = Mockito
-                .mock(com.otilm.core.service.CallbackExternalService.class);
-        Mockito
-                .when(callbackService.callback(eq(CONNECTOR_UUID), any(RequestAttributeCallback.class)))
+        CallbackExternalService callbackService = mock(CallbackExternalService.class);
+        when(callbackService.callback(eq(CONNECTOR_UUID), any(RequestAttributeCallback.class)))
                 .thenThrow(new ConnectorProblemException(problemDetail));
 
         CallbackControllerImpl controller = new CallbackControllerImpl();
