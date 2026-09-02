@@ -657,6 +657,18 @@ def load_registry() -> dict:
         return json.load(handle)
 
 
+# Curve spellings the registry does not list in bare form but producers write anyway.
+# Emitted rather than held in Java: this set decides which digit runs the parameter-set
+# parser may read, so a change to it is key-affecting. Held in code it moved keys without
+# moving the artifact, which left both guards -- the CI byte-diff and the two pinned
+# hashes -- unable to see it. The order is ratified and is deliberately not sorted.
+EXTRA_CURVE_SPELLINGS = [
+    "P-224", "P-256", "P-384", "P-521", "P-192",
+    "nistp256", "nistp384", "nistp521",
+    "x25519", "x448", "ed25519", "ed448",
+    "curve25519", "curve448", "prime256v1",
+]
+
 def curve_equivalence(registry: dict) -> tuple[dict[str, str], dict[str, list[str]]]:
     """Fold the 246 registry curve tokens onto one representative per real curve.
 
@@ -820,6 +832,7 @@ def main() -> None:
         "curveCanonical": canonical,
         "curveClasses": multi,
         "curveAliases": aliases,
+        "extraCurveSpellings": EXTRA_CURVE_SPELLINGS,
         "oidToFamily": oid_strand["oidToFamily"],
         "oidBlockedPrefixes": [b["prefix"] for b in oid_strand["blockedPrefixes"]],
         "nameGrammar": NAME_GRAMMAR,

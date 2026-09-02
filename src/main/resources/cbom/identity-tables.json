@@ -1296,6 +1296,23 @@
   "brainpoolP384r1tls13": "brainpool/brainpoolP384r1",
   "brainpoolP512r1tls13": "brainpool/brainpoolP512r1"
  },
+ "extraCurveSpellings": [
+  "P-224",
+  "P-256",
+  "P-384",
+  "P-521",
+  "P-192",
+  "nistp256",
+  "nistp384",
+  "nistp521",
+  "x25519",
+  "x448",
+  "ed25519",
+  "ed448",
+  "curve25519",
+  "curve448",
+  "prime256v1"
+ ],
  "oidToFamily": {
   "1.2.840.113549.1.1": {
    "family": "RSA",
