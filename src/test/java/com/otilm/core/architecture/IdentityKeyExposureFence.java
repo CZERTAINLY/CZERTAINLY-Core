@@ -135,6 +135,11 @@ final class IdentityKeyExposureFence {
                     storedValue("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java"),
                     storedValue("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetAliasWriter.java"),
                     storedValue("src/main/java/com/otilm/core/dao/CryptoAssetConstraintTranslator.java"),
+                    // The extractor hands the keyed asset to the persistence path, so it names the stored value
+                    // for the same reason the entity does. Allowlisted rather than dodged: the record component was
+                    // once called `key` purely so this regex would not see it, which is invisible to a reader where
+                    // an entry is a reviewed record. Scoped, so a pre-image spelling here still fails.
+                    storedValue("src/main/java/com/otilm/core/cbom/asset/identity/CbomAssetExtractor.java"),
                     preImage("src/main/java/com/otilm/core/cbom/asset/identity/CryptoAssetIdentity.java"),
                     preImage("src/main/java/com/otilm/core/cbom/asset/identity/MaterialRedaction.java"),
                     preImage("src/main/java/com/otilm/core/cbom/asset/identity/AssetNormalizer.java"));

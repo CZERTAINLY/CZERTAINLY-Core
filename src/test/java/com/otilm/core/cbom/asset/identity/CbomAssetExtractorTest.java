@@ -138,7 +138,7 @@ class CbomAssetExtractorTest {
 
         assertThat(extraction.skips()).isEmpty();
         assertThat(extraction.assets()).hasSize(1);
-        assertThat(extraction.assets().get(0).key()).hasSize(64);
+        assertThat(extraction.assets().get(0).identityKey()).hasSize(64);
     }
 
     @ParameterizedTest
@@ -325,7 +325,7 @@ class CbomAssetExtractorTest {
     }
 
     private static List<String> keysOf(CbomAssetExtractor.Extraction extraction) {
-        return extraction.assets().stream().map(CbomAssetExtractor.ExtractedAsset::key).sorted().toList();
+        return extraction.assets().stream().map(CbomAssetExtractor.ExtractedAsset::identityKey).sorted().toList();
     }
 
     /** A component tree {@code depth} levels deep with one algorithm asset at the bottom. */

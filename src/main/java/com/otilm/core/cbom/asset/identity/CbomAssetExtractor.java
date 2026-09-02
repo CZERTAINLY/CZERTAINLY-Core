@@ -78,20 +78,23 @@ public final class CbomAssetExtractor {
      * two of the three signals are visible only inside the tier that produced the key.
      *
      * <p>
-     * The first component is {@code key} rather than a more descriptive name on purpose: the exposure fence refuses a
-     * production source outside persistence that <em>names</em> the identity key, and a record component is a
-     * declaration -- it generates an accessor. Naming it plainly here would have put the phrase on a public member of a
-     * class that has no business advertising it.
+     * <b>{@code identityKey}, and this file is allowlisted for that vocabulary.</b> The component was called
+     * {@code key} so the exposure fence's regex would not see it -- which worked, and was the wrong shape: a production
+     * source routing <em>around</em> a fence is invisible to the next reader, where an allowlist entry is a reviewed
+     * record that this file carries the value on purpose. It does carry it: this record is how the keyed asset reaches
+     * the persistence path. The entry exempts only the stored-value vocabulary, so a pre-image spelling here still
+     * fails, and the logging rule carries no allowlist at all -- which is why the {@code toString} override below is
+     * still the thing that keeps the value out of a log line.
      */
-    public record ExtractedAsset(String key, String chainStep, NormalizedAsset normalized, String componentName,
+    public record ExtractedAsset(String identityKey, String chainStep, NormalizedAsset normalized, String componentName,
             JsonNode retainedProperties, List<Map<String, Object>> evidence, int reportedOccurrences,
             CryptoAssetIdentityGuard guard) {
 
         /**
          * Omits the identity key. The generated {@code toString} would print it, and a record is printed by anything
          * that logs the value or a collection holding it -- including {@link Extraction}, whose own generated
-         * {@code toString} recurses into this one. Naming the component {@code key} keeps it away from the exposure
-         * fence's regex; it does not keep it out of a log line, and only this override does.
+         * {@code toString} recurses into this one. The fence's logging rule has no allowlist, so this file may name the
+         * value and may not log it: this override is what makes that true rather than merely stated.
          */
         @Override
         public String toString() {
