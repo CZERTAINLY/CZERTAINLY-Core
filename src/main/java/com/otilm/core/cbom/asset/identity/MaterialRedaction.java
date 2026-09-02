@@ -214,11 +214,16 @@ public final class MaterialRedaction {
      *
      * <p>
      * {@code relatedCryptoMaterialType} is <b>not</b> a schema member in either version and nothing in this pipeline
-     * reads it: {@link #of} takes the type from {@code type} alone. It is kept because a producer spelling the material
-     * type under the long name has stated a contracted fact rather than an extension, and dropping it lost that
-     * statement from storage. It no longer has any effect on identity -- the keyed payload stopped depending on this
-     * set -- so it is a storage-fidelity decision, and the set as a whole still has no ratified source. Both of those
-     * are open questions on core#2165 item 9.
+     * reads it: {@link #of} takes the type from {@code type} alone. It is an extension by every available definition,
+     * so the paragraph above does not describe it.
+     *
+     * <p>
+     * It arrived here as a stopgap for a layer error, not as a statement about the contract. Dropping it re-keyed a
+     * ratified row -- the backstop pre-image ends in a projection digest over this payload, and vector
+     * {@code gen-068-mat-backstop} expects the member present -- so the enumeration had to carry it while one payload
+     * served both identity and storage. Splitting them retired that reason: the keyed payload no longer depends on this
+     * set, so the entry is now a storage-fidelity decision alone. What it still lacks is a ratified source, for this
+     * entry and for the set as a whole, which is open on core#2165 item 9.
      */
     private static final Set<String> CONTRACTED_MEMBERS = Set
             .of("type", "relatedCryptoMaterialType", "id", "state", "algorithmRef", "relatedCryptographicAssets",
