@@ -84,6 +84,12 @@ class NormalizationRulesTest {
      * Without the curve half of the stoplist, {@code ECDSA-P-256} reads size 256 out of its own curve name and collides
      * with {@code ECDSA-SHA256}.
      */
+    @Test
+    void aCurveNameIsNotReadAsAKeySize() {
+        assertThat(keyOfAlgorithm("ECDSA-P-256")).isNotEqualTo(keyOfAlgorithm("ECDSA-SHA256"));
+        assertThat(normalize("ECDSA-P-256").parameterSet()).isNull();
+    }
+
     /**
      * An uncapped curve field cannot stall ingest, and the alternatives it names still separate.
      *
@@ -110,12 +116,6 @@ class NormalizationRulesTest {
         assertThat(NORMALIZER.canonicalCurves(raw))
                 .describedAs("whitespace around the separator is the part that never mattered")
                 .isEqualTo(expected);
-    }
-
-    @Test
-    void aCurveNameIsNotReadAsAKeySize() {
-        assertThat(keyOfAlgorithm("ECDSA-P-256")).isNotEqualTo(keyOfAlgorithm("ECDSA-SHA256"));
-        assertThat(normalize("ECDSA-P-256").parameterSet()).isNull();
     }
 
     /**
