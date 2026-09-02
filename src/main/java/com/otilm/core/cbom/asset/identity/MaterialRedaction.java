@@ -155,8 +155,8 @@ public final class MaterialRedaction {
      * that digest is exactly as reversible as the one {@link #digestPublishable} refuses to publish.
      */
     private static final Set<String> CONTRACTED_MEMBERS = Set
-            .of("type", "id", "state", "algorithmRef", "creationDate", "activationDate", "updateDate", "expirationDate",
-                    "value", "size", "format", "securedBy");
+            .of("type", "relatedCryptoMaterialType", "id", "state", "algorithmRef", "creationDate", "activationDate",
+                    "updateDate", "expirationDate", "value", "size", "format", "securedBy");
 
     /**
      * Drops every uncontracted member of low-entropy material, and says which.
