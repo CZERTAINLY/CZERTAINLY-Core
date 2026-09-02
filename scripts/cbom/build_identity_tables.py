@@ -841,12 +841,6 @@ def main() -> None:
         "dnShortNames": DN_SHORT_NAMES,
     }
 
-    out = args.output
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with out.open("w", encoding="utf-8") as handle:
-        json.dump(tables, handle, indent=1, sort_keys=False, ensure_ascii=False)
-
-    print(f"wrote {out}")
     print(f"  families legal        : {len(legal)} "
           f"(enum {len(enum_families)}, data {len(data_families)}, pseudo {len(PSEUDO_FAMILIES)})")
     print(f"  data-only families    : {tables['registrySnapshot']['familiesDataOnly']}")
@@ -883,14 +877,36 @@ def main() -> None:
     reachable = ({r["family"] for r in NAME_GRAMMAR}
                  | {e["family"] for e in tables["oidToFamily"].values() if e.get("family")})
     missing_defaults = sorted(reachable - set(PRIMITIVE_DEFAULTS))
-    for label, bad in (("grammar", bad_grammar), ("primitiveDefaults", bad_defaults),
-                       ("oidToFamily", bad_oid), ("primitiveValues", bad_primitives),
-                       ("reachable-without-default", missing_defaults)):
+    # Every one of these fails the run, not just the last. Printing four of them and
+    # exiting on the fifth meant an illegal grammar family, an illegal primitive default,
+    # an illegal OID family or a primitive outside the 1.6 set all reported themselves
+    # and then landed in the committed table anyway -- the self-check announced the
+    # defect it was letting through.
+    invalid = {
+        "grammar": bad_grammar,
+        "primitiveDefaults": bad_defaults,
+        "oidToFamily": bad_oid,
+        "primitiveValues": bad_primitives,
+        "reachable-without-default": missing_defaults,
+    }
+    for label, bad in invalid.items():
         print(f"  ILLEGAL in {label:26}: {bad if bad else 'none'}")
-    if missing_defaults:
+    offenders = {label: bad for label, bad in invalid.items() if bad}
+    if offenders:
         raise SystemExit(
-            "primitiveDefaults must be TOTAL over every family the grammar or the OID "
-            f"table can yield; missing: {missing_defaults}")
+            "every family the grammar or the OID table can yield must be legal, spelled "
+            "the way the family lookup spells it, and carry a primitive default in the "
+            f"1.6 set; offenders: {offenders}")
+
+    # Written only now. Opening the output before these checks truncated the committed
+    # table on the way in, so a run that then exited non-zero had already replaced a good
+    # artifact with a bad one -- and the documented guarantee is that it checks before it
+    # writes.
+    out = args.output
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8") as handle:
+        json.dump(tables, handle, indent=1, sort_keys=False, ensure_ascii=False)
+    print(f"wrote {out}")
 
 
 if __name__ == "__main__":
