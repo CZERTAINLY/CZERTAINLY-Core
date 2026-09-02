@@ -346,6 +346,27 @@ class MaterialRedactionTest {
     }
 
     /**
+     * Benign metadata on a secret type is dropped without being called exfiltration.
+     *
+     * <p>
+     * The severe finding used to fire for every dropped member name, so a producer's flag, count or nested object was
+     * reported as confirmed key material -- a false positive on the loudest finding this class emits. It now reads the
+     * value: a non-blank textual scalar could be inlined material, and a number could not.
+     */
+    @Test
+    void benignMetadataOnASecretTypeIsNotCalledExfiltration() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"private-key\",\"rotationCount\":3,"
+                        + "\"managed\":true,\"labels\":{\"team\":\"pki\"},\"note\":\"  \"}}"));
+
+        assertThat(redaction.findings())
+                .anySatisfy(finding -> assertThat(finding).contains("uncontracted members dropped"))
+                .noneSatisfy(finding -> assertThat(finding).contains("producer inlined a value"));
+        assertThat(redaction.storedPayload().at("/relatedCryptoMaterialProperties/rotationCount").isMissingNode())
+                .isTrue();
+    }
+
+    /**
      * The exfiltration finding names the member, so the severe case is not reported as the generic one.
      *
      * <p>

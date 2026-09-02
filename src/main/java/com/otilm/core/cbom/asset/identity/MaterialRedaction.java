@@ -135,14 +135,37 @@ public final class MaterialRedaction {
         // The stored payload forks from the keyed one HERE, once the value carries an envelope rather than a
         // plaintext. Everything above is common to both; the member allowlist below is storage's alone.
         ObjectNode stored = payload.deepCopy();
-        List<String> dropped = dropUncontractedMembers(
-                (ObjectNode) stored.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES), materialType, findings);
-        // The severe finding fires under every member name, not only under `value`. A consumer filtering on the
-        // exfiltration text would otherwise get the generic uncontracted-members line for `private-key/pem` -- the
-        // worse of the two -- and the specific one only for the spelling the schema contracts.
-        dropped.forEach(member -> inlinedSecretFinding(materialType, member, findings));
+        ObjectNode storedMaterial = (ObjectNode) stored.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES);
+        // Read before the drop, because the severe finding needs the VALUE and not the member name. Raising it for
+        // every dropped member reported a producer's benign metadata -- a number, a null, an object -- as confirmed
+        // key-material exfiltration, which is a false positive on the loudest finding this class emits.
+        List<String> inlined = storedMaterial == null ? List.of() : inlinedMemberNames(storedMaterial);
+        dropUncontractedMembers(storedMaterial, materialType, findings);
+        inlined.forEach(member -> inlinedSecretFinding(materialType, member, findings));
         return new MaterialRedaction(payload, stored, materialType, identityDigest, publishedDigest, valueLength,
                 findings);
+    }
+
+    /**
+     * The uncontracted members carrying something that could be inlined material: a non-blank textual scalar.
+     *
+     * <p>
+     * A predicate over the value rather than over the name, and deliberately a shape test rather than an entropy or
+     * PEM-header test: the point is to separate "a producer put a string here" from "a producer put a flag, a count or
+     * a nested object here", not to guess whether the string is a key. A digest of a secret is a string too, and is
+     * exactly as worth reporting.
+     */
+    private static List<String> inlinedMemberNames(ObjectNode materialNode) {
+        List<String> carrying = new ArrayList<>();
+        materialNode.properties().forEach(member -> {
+            JsonNode value = member.getValue();
+            if (!CONTRACTED_MEMBERS.contains(member.getKey()) && value.isTextual()
+                    && !AsciiText.isBlank(value.textValue())) {
+                carrying.add(member.getKey());
+            }
+        });
+        carrying.sort(AsciiText.BY_CODE_POINT);
+        return carrying;
     }
 
     /**

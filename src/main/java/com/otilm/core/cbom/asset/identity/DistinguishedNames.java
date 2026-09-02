@@ -117,10 +117,11 @@ public final class DistinguishedNames {
     }
 
     private static String normalizeValue(String raw, String oid) {
-        String value = raw;
-        if (value.startsWith("#")) {
-            value = decodeHexDer(value);
-        }
+        // One escape rule, three paths, and they must not overlap. A bare `%XX` in the output means "a byte no
+        // decoder could read"; every other percent is escaped to `%25` -- here for an ordinary textual value, and
+        // inside decodeHexDer for a hex value that decodes. Escaping only inside the hex paths left `CN=#FF` and
+        // `CN=%FF` rendering one AVA, because a literal value never enters that method.
+        String value = raw.startsWith("#") ? decodeHexDer(raw) : raw.replace("%", "%25");
         value = Normalizer.normalize(value, Normalizer.Form.NFKC);
         value = AsciiText.strip(AsciiText.collapseWhitespace(value));
         // ASCII-only (R12). A value differing only in non-ASCII case keys separately; the case-fold twin detector
@@ -146,12 +147,15 @@ public final class DistinguishedNames {
      * agree on where a malformed run begins.
      *
      * <p>
-     * <b>Both paths escape the {@code %}, or the escape is not injective.</b> Escaping only the fallback moved the
-     * merge rather than closing it: {@code #FF} is not UTF-8 and renders {@code %FF}, while {@code #254646} decodes
-     * cleanly to the three ASCII characters {@code %FF} -- two distinct DER values, one AVA, which is this item's own
-     * failure with different inputs. So a decoded {@code %} becomes {@code %25}, leaving the fallback's escapes as the
-     * only bare ones. 0 corpus rows carry a hex DER attribute at all, so nothing moves today; what changes is that a
-     * forged one no longer merges.
+     * <b>The escape namespace is reserved across every path, or the escape is not injective.</b> Two attempts got this
+     * wrong before it was right. Escaping only the fallback moved the merge rather than closing it: {@code #FF} is not
+     * UTF-8 and renders {@code %FF}, while {@code #254646} decodes cleanly to the three ASCII characters {@code %FF}.
+     * Escaping both hex paths closed that pair and left a third: an ordinary textual AVA of {@code %FF} never enters
+     * this method at all, so {@code CN=#FF} and {@code CN=%FF} still rendered one value. The rule that holds is that
+     * <em>any</em> {@code %} in a normalized attribute value came from an escape here -- so {@link #normalizeValue}
+     * escapes the literal path instead of this method escaping it twice, and a bare {@code %XX} can only mean a byte no
+     * decoder could read. 0 of 1 595 corpus DN values carry a {@code %} or a {@code #} at all, so nothing moves today;
+     * what changes is that a forged value no longer merges.
      */
     private static String decodeHexDer(String value) {
         try {

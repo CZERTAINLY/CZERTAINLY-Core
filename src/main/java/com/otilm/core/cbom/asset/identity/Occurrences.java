@@ -87,6 +87,15 @@ public final class Occurrences {
 
     private static final int MAX_LOCATION_LENGTH = 1024;
 
+    /**
+     * How many user-info passes a location may need before it is refused instead.
+     *
+     * <p>
+     * Sixteen is far past real data -- one authority needs one pass, the deepest construction any review pass built was
+     * eight -- and small enough that the work stays linear in the location's length times a constant.
+     */
+    private static final int MAX_USERINFO_PASSES = 16;
+
     private static final Comparator<String> CODE_POINT_ORDER = AsciiText.BY_CODE_POINT;
 
     private Occurrences() {
@@ -192,7 +201,20 @@ public final class Occurrences {
      * covering the cases you thought of and covering the input space.
      *
      * <p>
-     * The loop terminates because every replacement removes at least the {@code @}, so the string strictly shortens.
+     * <b>Bounded, because terminating is not the same as cheap.</b> Every replacement removes at least the {@code @},
+     * so the loop always ends -- but each pass rescans the whole string, and the cap is deliberately the last step of
+     * {@link #sanitizeLocation}, so a location is unbounded in length while this runs. A producer emitting {@code n}
+     * nested authorities costs {@code n} full passes: 2 048 layers is 2 049 scans of a string that has not been
+     * shortened to 1 024 characters yet, which is a CPU stall on the ingest path of exactly the kind the name-length
+     * bound in {@code AssetNormalizer} exists to stop. Capping first is not the answer -- that is the defect core#2165
+     * item 3 closed, where truncation left {@code //user:passwo} standing.
+     *
+     * <p>
+     * So the passes are capped and a location that still matches afterwards is <b>refused</b>, rendering as the empty
+     * location rather than as a partly-stripped one. Refusing costs a pathological location its discriminator; keeping
+     * it would either store a credential or spend unbounded CPU deciding not to. Real data needs one pass and the
+     * corpus needs zero: no corpus location carries a user-info shape at all, and the deepest construction either
+     * review pass could build was eight.
      *
      * <p>
      * Two residuals stay, both pre-existing and both measured: a user-info containing a {@code /} survives whole
@@ -202,12 +224,16 @@ public final class Occurrences {
      */
     private static String withoutUserInfo(String text) {
         String stripped = text;
-        String previous = null;
-        while (!stripped.equals(previous)) {
-            previous = stripped;
-            stripped = USERINFO.matcher(stripped).replaceAll("//");
+        for (int pass = 0; pass < MAX_USERINFO_PASSES; pass++) {
+            String next = USERINFO.matcher(stripped).replaceAll("//");
+            if (next.equals(stripped)) {
+                return stripped;
+            }
+            stripped = next;
         }
-        return stripped;
+        // Still matching after the bound: the location is nested past anything a producer emits, and what is left
+        // holds a credential. Neither storing it nor scanning further is acceptable, so it names nothing.
+        return USERINFO.matcher(stripped).find() ? "" : stripped;
     }
 
     /**

@@ -179,5 +179,11 @@ class DistinguishedNamesTest {
                 .isNotEqualTo(DistinguishedNames.normalize("CN=#254646", TABLES));
         assertThat(DistinguishedNames.normalize("CN=#1401E9", TABLES))
                 .isNotEqualTo(DistinguishedNames.normalize("CN=#1401EA", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=#FF", TABLES))
+                .describedAs("a refused byte and a producer spelling its escape are different values")
+                .isNotEqualTo(DistinguishedNames.normalize("CN=%FF", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=%25FF", TABLES))
+                .describedAs("and the escape of the escape is a third")
+                .isNotEqualTo(DistinguishedNames.normalize("CN=%FF", TABLES));
     }
 }

@@ -523,6 +523,25 @@ class TextNormalizationTest {
      * only one before the next credential. Each pass peels one layer, so the two-pass version left the third password
      * in the key and in the served evidence column. Found by an exhaustive sweep the hand-built cases missed.
      */
+    /**
+     * A location nested past the pass bound names nothing, rather than costing unbounded CPU or keeping a credential.
+     *
+     * <p>
+     * Each pass rescans the whole string and the cap is the last step, so {@code n} nested authorities cost {@code n}
+     * passes over an uncapped location. Capping first is not available -- that is the truncation defect core#2165 item
+     * 3 closed -- so the passes are bounded and what still matches afterwards is refused.
+     */
+    @Test
+    void aLocationNestedPastTheBoundIsRefused() {
+        String pathological = "//" + "u:p@/".repeat(64) + "host";
+
+        assertThat(sanitize(pathological)).describedAs("refused, not partly stripped").isEmpty();
+        assertThat(sanitize("//" + "u:p@/".repeat(8) + "host"))
+                .describedAs("real depth still sanitizes")
+                .doesNotContain("@")
+                .endsWith("host");
+    }
+
     @Test
     void userInfoIsStrippedToAFixpointRatherThanOnce() {
         assertThat(sanitize("//u1:p1@/u2:p2@/u3:p3@host")).isEqualTo("////host");
