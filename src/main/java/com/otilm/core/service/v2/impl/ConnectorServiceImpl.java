@@ -35,6 +35,7 @@ import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.config.cache.CacheConfig;
 import com.otilm.core.config.cache.CacheEvictor;
@@ -132,6 +133,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
 
     private AttributeColumnProjector attributeColumnProjector;
 
+    private ListingSortResolver listingSortResolver;
+
     @Autowired
     public void setCommentService(CommentInternalService commentService) {
         this.commentService = commentService;
@@ -140,6 +143,11 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
     @Autowired
     public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
         this.attributeColumnProjector = attributeColumnProjector;
+    }
+
+    @Autowired
+    public void setListingSortResolver(ListingSortResolver listingSortResolver) {
+        this.listingSortResolver = listingSortResolver;
     }
 
     @Autowired
@@ -236,7 +244,8 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
                 cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<ConnectorDto> connectorDtos = connectorRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("created")))
+                        (root, cb) -> cb.desc(root.get("created")),
+                        listingSortResolver.resolve(Resource.CONNECTOR, request.getSort()))
                 .stream()
                 .map(Connector::mapToListDto)
                 .toList();

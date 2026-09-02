@@ -168,7 +168,8 @@ public class AttributeEngine {
                                     .toList());
             if (!settableAttributes.isEmpty()) {
                 searchFieldDataByGroupDtos
-                        .add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(settableAttributes),
+                        .add(new SearchFieldDataByGroupDto(
+                                SearchHelper.prepareSearchForJSON(settableAttributes, resource),
                                 FilterFieldSource.CUSTOM));
             }
         } else {
@@ -181,7 +182,8 @@ public class AttributeEngine {
                     .toList();
             if (!customAttributes.isEmpty()) {
                 searchFieldDataByGroupDtos
-                        .add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttributes),
+                        .add(new SearchFieldDataByGroupDto(
+                                SearchHelper.prepareSearchForJSON(customAttributes, resource),
                                 FilterFieldSource.CUSTOM));
             }
 
@@ -191,7 +193,7 @@ public class AttributeEngine {
                     .toList();
             if (!dataAttributes.isEmpty()) {
                 searchFieldDataByGroupDtos
-                        .add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttributes),
+                        .add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttributes, resource),
                                 FilterFieldSource.DATA));
             }
 
@@ -201,7 +203,8 @@ public class AttributeEngine {
                     .toList();
             if (!metadataAttributes.isEmpty()) {
                 searchFieldDataByGroupDtos
-                        .add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataAttributes),
+                        .add(new SearchFieldDataByGroupDto(
+                                SearchHelper.prepareSearchForJSON(metadataAttributes, resource),
                                 FilterFieldSource.META));
             }
         }

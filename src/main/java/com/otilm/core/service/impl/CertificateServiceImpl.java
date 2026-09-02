@@ -75,6 +75,7 @@ import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeContentPurpose;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.AttributeOperation;
+import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.certificate.request.IssuanceDefinitionResolver;
 import com.otilm.core.comparator.SearchFieldDataComparator;
@@ -174,6 +175,7 @@ import com.otilm.core.util.KeySizeUtil;
 import com.otilm.core.util.MetaDefinitions;
 import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
+import com.otilm.core.util.SortOrderBuilder;
 import com.otilm.core.util.X509ObjectToString;
 import com.otilm.core.validation.certificate.ICertificateValidator;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -301,6 +303,8 @@ public class CertificateServiceImpl
 
     private AttributeEngine attributeEngine;
     private AttributeColumnProjector attributeColumnProjector;
+
+    private ListingSortResolver listingSortResolver;
     private ExtendedAttributeService extendedAttributeService;
     private ResourceObjectAssociationService objectAssociationService;
     private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
@@ -541,6 +545,11 @@ public class CertificateServiceImpl
     }
 
     @Autowired
+    public void setListingSortResolver(ListingSortResolver listingSortResolver) {
+        this.listingSortResolver = listingSortResolver;
+    }
+
+    @Autowired
     public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
         this.extendedAttributeService = extendedAttributeService;
     }
@@ -581,14 +590,17 @@ public class CertificateServiceImpl
                 request.getFilters(), request.isIncludeArchived());
         List<UUID> certificateUuids = certificateRepository
                 .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("created")));
+                        (root, cb) -> cb.desc(root.get("created")),
+                        listingSortResolver.resolve(Resource.CERTIFICATE, request.getSort()));
 
         // We use DTO projection instead of Hibernate entities for performance reasons.
         List<CertificateDto> certificates;
         if (certificateUuids.isEmpty()) {
             certificates = Collections.emptyList();
         } else {
-            certificates = certificateRepository.findCertificateDtosByUuidsIn(certificateUuids);
+            certificates = SortOrderBuilder
+                    .rankBy(certificateUuids, certificateRepository.findCertificateDtosByUuidsIn(certificateUuids),
+                            certificate -> UUID.fromString(certificate.getUuid()));
             List<GroupAssociation> groupAssociations = groupAssociationRepository
                     .findWithAssociationsByResourceAndObjectUuidIn(Resource.CERTIFICATE, certificateUuids);
             Map<String, List<GroupDto>> groupsByCert = groupAssociations

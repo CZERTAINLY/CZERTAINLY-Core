@@ -47,6 +47,7 @@ import com.otilm.core.service.TspProfileInternalService;
 import com.otilm.core.service.VaultProfileInternalService;
 import com.otilm.core.service.model.SecuredList;
 import com.otilm.core.util.FilterPredicatesBuilder;
+import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -107,6 +108,7 @@ public class TspProfileServiceImpl implements TspProfileExternalService, TspProf
     @Transactional(readOnly = true)
     public PaginationResponseDto<TspProfileListDto> listTspProfiles(SearchRequestDto request, SecurityFilter filter,
             String baseUrl) {
+        RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.TSP_PROFILE);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<TspProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
                 cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());

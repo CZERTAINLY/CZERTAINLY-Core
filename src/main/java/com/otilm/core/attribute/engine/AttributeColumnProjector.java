@@ -12,6 +12,7 @@ import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.core.attribute.engine.AttributeEngine.CustomAttributeContentFilter;
 import com.otilm.core.attribute.engine.records.ProjectedAttributeContent;
 import com.otilm.core.dao.repository.AttributeContent2ObjectRepository;
+import com.otilm.core.model.AttributeFieldIdentifier;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -40,8 +41,6 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class AttributeColumnProjector {
-
-    private static final String FIELD_IDENTIFIER_SEPARATOR = "|";
 
     /**
      * Content that is never projected, whatever a request asks for. The catalogue already marks these fields
@@ -189,28 +188,19 @@ public class AttributeColumnProjector {
             if (source == null || source.getAttributeType() == null || column.getFieldIdentifier() == null) {
                 continue;
             }
-            int separator = column.getFieldIdentifier().lastIndexOf(FIELD_IDENTIFIER_SEPARATOR);
-            if (separator <= 0) {
+            AttributeFieldIdentifier identifier = AttributeFieldIdentifier.parse(column.getFieldIdentifier());
+            if (identifier == null) {
                 continue;
             }
-            AttributeContentType contentType = contentTypeOf(column.getFieldIdentifier().substring(separator + 1));
+            AttributeContentType contentType = identifier.contentType();
             if (contentType == null || WITHHELD_CONTENT_TYPES.contains(contentType)) {
                 continue;
             }
             requested
-                    .add(new RequestedColumn(source, source.getAttributeType(),
-                            column.getFieldIdentifier().substring(0, separator), contentType,
+                    .add(new RequestedColumn(source, source.getAttributeType(), identifier.attributeName(), contentType,
                             column.getFieldIdentifier()));
         }
         return requested;
-    }
-
-    private static AttributeContentType contentTypeOf(String name) {
-        try {
-            return AttributeContentType.valueOf(name);
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
     }
 
     /**
