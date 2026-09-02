@@ -14,14 +14,22 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 /**
  * Keys every component of an external corpus and writes the result, so two revisions can be diffed row by row.
  *
  * <p>
- * An instrument rather than an assertion: it pins nothing and cannot fail on its own. What it answers is the question
- * the vector suite structurally cannot -- whether a rule change moves a key on real producer output, and whether the
- * partition merges or splits -- because the vectors wrap each component in a document of its own and so see neither
- * cross-component reference resolution nor document-scoped refutation.
+ * An instrument rather than a pin: it ratifies no key, and a moved row is a result to read rather than a failure. What
+ * it answers is the question the vector suite structurally cannot -- whether a rule change moves a key on real producer
+ * output, and whether the partition merges or splits -- because the vectors wrap each component in a document of its
+ * own and so see neither cross-component reference resolution nor document-scoped refutation.
+ *
+ * <p>
+ * It does assert, on the run itself rather than on any key: a corpus that yielded no rows, or an output file that did
+ * not receive them, is a misconfigured run and not a corpus with nothing in it. Without that, pointing
+ * {@code corpus.dir} at the wrong directory wrote an empty file and passed, and the empty diff that followed read as
+ * "no keys moved".
  *
  * <p>
  * It is committed because the alternative is a number nobody can reproduce. core#2165's costing rests on runs of this
@@ -91,5 +99,10 @@ class CorpusKeySnapshotTest {
         }
         rows.sort(Comparator.naturalOrder());
         Files.write(out, rows, StandardCharsets.UTF_8);
+
+        assertThat(rows).describedAs("corpus at %s yielded no keyed components", corpora).isNotEmpty();
+        assertThat(Files.readAllLines(out, StandardCharsets.UTF_8))
+                .describedAs("every keyed row reached %s", out)
+                .hasSameSizeAs(rows);
     }
 }

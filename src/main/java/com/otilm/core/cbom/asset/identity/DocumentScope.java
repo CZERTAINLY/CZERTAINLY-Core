@@ -273,15 +273,13 @@ public final class DocumentScope {
     }
 
     /**
-     * Cipher-suite codes that one document stamps on differently-named suites.
+     * Cipher-suite codes that one document stamps on differently-named suites, read only from components that are
+     * protocols.
      *
      * <p>
      * One producer stamps the identical placeholder {@code ["0xC0","0x30"]} on TLS_AES_128_GCM_SHA256,
      * TLS_AES_256_GCM_SHA384 and TLS_CHACHA20_POLY1305_SHA256 alike, collapsing five distinct suites onto one identity.
      * So the code is corroborated against the suite name, and loses when it contradicts it.
-     */
-    /**
-     * Suite codes the document stamps on differently-named suites, read only from components that are protocols.
      *
      * <p>
      * <b>Gated like the certificate pass, and for the same reason.</b> This walked every component and read any
@@ -302,27 +300,7 @@ public final class DocumentScope {
     private static Set<String> refutedSuiteCodes(JsonNode document, AssetNormalizer normalizer) {
         Map<String, Set<String>> names = new LinkedHashMap<>();
         for (JsonNode component : walk(document)) {
-            JsonNode properties = component.get("cryptoProperties");
-            if (statesANonProtocolType(properties, normalizer)) {
-                continue;
-            }
-            JsonNode protocol = properties == null ? null : properties.get("protocolProperties");
-            JsonNode suites = protocol == null ? null : protocol.get("cipherSuites");
-            if (suites == null || !suites.isArray()) {
-                continue;
-            }
-            for (JsonNode suite : suites) {
-                if (!suite.isObject()) {
-                    continue;
-                }
-                String code = CipherSuites.code(suite.get("identifiers"));
-                JsonNode name = suite.get("name");
-                if (code != null && name != null && name.isTextual() && !AsciiText.isBlank(name.textValue())) {
-                    names
-                            .computeIfAbsent(code, key -> new HashSet<>())
-                            .add(AsciiText.upper(AsciiText.strip(name.textValue())));
-                }
-            }
+            recordSuiteNames(contributedCipherSuites(component, normalizer), names);
         }
         Set<String> refuted = new LinkedHashSet<>();
         names.forEach((code, seen) -> {
@@ -331,6 +309,41 @@ public final class DocumentScope {
             }
         });
         return Set.copyOf(refuted);
+    }
+
+    /**
+     * The {@code cipherSuites} array a component is allowed to refute with, or null when it has none or is barred.
+     */
+    private static JsonNode contributedCipherSuites(JsonNode component, AssetNormalizer normalizer) {
+        JsonNode properties = component.get("cryptoProperties");
+        if (statesANonProtocolType(properties, normalizer)) {
+            return null;
+        }
+        JsonNode protocol = properties == null ? null : properties.get("protocolProperties");
+        JsonNode suites = protocol == null ? null : protocol.get("cipherSuites");
+        return suites != null && suites.isArray() ? suites : null;
+    }
+
+    /**
+     * Files every named suite under its code. A code seen under two names is refuted; one name repeated is not, so the
+     * value is a set rather than a count.
+     */
+    private static void recordSuiteNames(JsonNode suites, Map<String, Set<String>> names) {
+        if (suites == null) {
+            return;
+        }
+        for (JsonNode suite : suites) {
+            if (!suite.isObject()) {
+                continue;
+            }
+            String code = CipherSuites.code(suite.get("identifiers"));
+            JsonNode name = suite.get("name");
+            if (code != null && name != null && name.isTextual() && !AsciiText.isBlank(name.textValue())) {
+                names
+                        .computeIfAbsent(code, key -> new HashSet<>())
+                        .add(AsciiText.upper(AsciiText.strip(name.textValue())));
+            }
+        }
     }
 
     private static void put(Map<String, String> facts, String field, String value) {

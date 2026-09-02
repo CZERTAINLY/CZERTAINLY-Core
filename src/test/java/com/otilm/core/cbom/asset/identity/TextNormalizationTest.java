@@ -515,16 +515,14 @@ class TextNormalizationTest {
     }
 
     /**
-     * Stripping user-info once, or twice, is not stripping it.
+     * A location nested past the pass bound names nothing, rather than costing unbounded CPU or keeping a credential.
      *
      * <p>
-     * The replacement can create the shape it matches: consuming {@code //u1:p1@} from
-     * {@code //u1:p1@/u2:p2@/u3:p3@host} leaves {@code ///u2:p2@…}, where the scan resumes past the slash and finds
-     * only one before the next credential. Each pass peels one layer, so the two-pass version left the third password
-     * in the key and in the served evidence column. Found by an exhaustive sweep the hand-built cases missed.
-     */
-    /**
-     * A location nested past the pass bound names nothing, rather than costing unbounded CPU or keeping a credential.
+     * Stripping user-info once, or twice, is not stripping it. The replacement can create the shape it matches:
+     * consuming {@code //u1:p1@} from {@code //u1:p1@/u2:p2@/u3:p3@host} leaves {@code ///u2:p2@…}, where the scan
+     * resumes past the slash and finds only one before the next credential. Each pass peels one layer, so the two-pass
+     * version left the third password in the key and in the served evidence column. Found by an exhaustive sweep the
+     * hand-built cases missed.
      *
      * <p>
      * Each pass rescans the whole string and the cap is the last step, so {@code n} nested authorities cost {@code n}

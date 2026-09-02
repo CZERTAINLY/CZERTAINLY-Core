@@ -503,41 +503,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                     "prt:type+version"};
         }
         if (kind != null) {
-            // Below the suite digest the NAME carries the discriminating information. Three different TLS suites
-            // modelled as protocol assets collapsed onto ONE identity because they share a type, carry no version and
-            // no cipherSuites array, and sit at the same occurrence.
-            String token = ComponentNames.stableToken(text(component, "name"));
-            String discriminator = Occurrences.discriminator(component);
-            if (version != null && !token.isEmpty()) {
-                return new String[]{
-                        "PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + "|N:"
-                                + PreImageSlot.of(token),
-                        "prt:type+version+name"};
-            }
-            if (discriminator != null) {
-                // The version slot is carried here for the same reason the terminal branch below carries it: this
-                // tier is reached with a version in hand whenever the name token is empty, and emitting the slot
-                // empty gave an SSL 3.0 endpoint and a TLS 1.3 endpoint at one location a single identity -- the
-                // hazard tier 2 exists to separate, live one tier down. 0 corpus rows carry a version, no name and
-                // an occurrence together, so nothing moves today.
-                return new String[]{
-                        "PRT|" + PreImageSlot.of(kind) + "|" + (version == null ? "" : PreImageSlot.of(version)) + "|"
-                                + PreImageSlot.of(token) + "|" + discriminator,
-                        "prt:type+occurrence"};
-            }
-            if (!token.isEmpty()) {
-                return new String[]{"PRT|" + PreImageSlot.of(kind) + "||" + PreImageSlot.of(token), "prt:type+name"};
-            }
-            // Terminal fall-through. The version slot is carried and emitted even when empty, which makes the shape
-            // regular against tier 1 -- it used to be dropped, so TLS 1.2, TLS 1.3 and a version-less row all shared
-            // one identity in the nameless case. It also carries the suites-declared marker, without which the
-            // version-less case still merged the two states tier 2 exists to separate. `declared` is a closed token
-            // and cannot collide with the digest this slot otherwise holds, because a digest is hex.
-            String declared = CipherSuites.declared(properties) ? "declared" : "";
-            return new String[]{
-                    "PRT|" + PreImageSlot.of(kind) + "|" + (version == null ? "" : PreImageSlot.of(version)) + "|"
-                            + declared + suffix,
-                    "prt:type-only"};
+            return protocolBelowSuiteDigest(component, properties, kind, version, suffix);
         }
         // The name is in the key, mirroring the unknown-type backstop. Two type-less protocol components with
         // byte-identical properties and different names used to merge. Stated precisely: the same name at different
@@ -547,6 +513,49 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                 "RAW|protocol|" + CanonicalJson.projectionDigest(properties) + "|"
                         + PreImageSlot.of(AsciiText.fold(collapse(AsciiText.strip(rawName == null ? "" : rawName)))),
                 "prt:backstop"};
+    }
+
+    /**
+     * The tiers a protocol row reaches once no suite digest resolved, in descending order of what discriminates it.
+     *
+     * <p>
+     * Below the suite digest the NAME carries the discriminating information. Three different TLS suites modelled as
+     * protocol assets collapsed onto ONE identity because they share a type, carry no version and no
+     * {@code cipherSuites} array, and sit at the same occurrence.
+     */
+    private String[] protocolBelowSuiteDigest(JsonNode component, JsonNode properties, String kind, String version,
+            String suffix) {
+        String token = ComponentNames.stableToken(text(component, "name"));
+        String discriminator = Occurrences.discriminator(component);
+        if (version != null && !token.isEmpty()) {
+            return new String[]{
+                    "PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + "|N:" + PreImageSlot.of(token),
+                    "prt:type+version+name"};
+        }
+        if (discriminator != null) {
+            // The version slot is carried here for the same reason the terminal branch below carries it: this tier is
+            // reached with a version in hand whenever the name token is empty, and emitting the slot empty gave an
+            // SSL 3.0 endpoint and a TLS 1.3 endpoint at one location a single identity -- the hazard tier 2 exists
+            // to separate, live one tier down. 0 corpus rows carry a version, no name and an occurrence together, so
+            // nothing moves today.
+            return new String[]{
+                    "PRT|" + PreImageSlot.of(kind) + "|" + (version == null ? "" : PreImageSlot.of(version)) + "|"
+                            + PreImageSlot.of(token) + "|" + discriminator,
+                    "prt:type+occurrence"};
+        }
+        if (!token.isEmpty()) {
+            return new String[]{"PRT|" + PreImageSlot.of(kind) + "||" + PreImageSlot.of(token), "prt:type+name"};
+        }
+        // Terminal fall-through. The version slot is carried and emitted even when empty, which makes the shape
+        // regular against tier 1 -- it used to be dropped, so TLS 1.2, TLS 1.3 and a version-less row all shared one
+        // identity in the nameless case. It also carries the suites-declared marker, without which the version-less
+        // case still merged the two states tier 2 exists to separate. `declared` is a closed token and cannot collide
+        // with the digest this slot otherwise holds, because a digest is hex.
+        String declared = CipherSuites.declared(properties) ? "declared" : "";
+        return new String[]{
+                "PRT|" + PreImageSlot.of(kind) + "|" + (version == null ? "" : PreImageSlot.of(version)) + "|"
+                        + declared + suffix,
+                "prt:type-only"};
     }
 
     /**
