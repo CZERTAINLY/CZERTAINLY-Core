@@ -98,6 +98,7 @@ import com.otilm.core.signing.contentsigning.profile.ContentSigningWorkflowValid
 import com.otilm.core.signing.contentsigning.profile.TimestampSourceRequests;
 import com.otilm.core.util.CertificateEligibilityUtil;
 import com.otilm.core.util.FilterPredicatesBuilder;
+import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
 import jakarta.annotation.Nullable;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -194,6 +195,7 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
     @Transactional(readOnly = true)
     public PaginationResponseDto<SigningProfileListDto> listSigningProfiles(SearchRequestDto request,
             SecurityFilter filter) {
+        RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.SIGNING_PROFILE);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<SigningProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
                 cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());

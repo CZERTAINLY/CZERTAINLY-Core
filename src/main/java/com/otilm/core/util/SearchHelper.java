@@ -2,6 +2,7 @@ package com.otilm.core.util;
 
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.content.data.ProtectionLevel;
+import com.otilm.api.model.common.enums.BitMaskEnum;
 import com.otilm.api.model.common.enums.IPlatformEnum;
 import com.otilm.api.model.common.enums.PlatformEnum;
 import com.otilm.api.model.core.auth.Resource;
@@ -138,7 +139,7 @@ public class SearchHelper {
     }
 
     public static SearchFieldDataDto prepareSearchForJSON(final SearchFieldObject attributeSearchInfo,
-            final boolean hasDuplicateInList) {
+            final boolean hasDuplicateInList, final Resource resource) {
         final SearchFieldTypeEnum searchFieldTypeEnum = retrieveSearchFieldTypeEnumByContentType(
                 attributeSearchInfo.getAttributeContentType(), attributeSearchInfo.isList());
         final SearchFieldDataDto fieldDataDto = new SearchFieldDataDto();
@@ -162,9 +163,7 @@ public class SearchHelper {
         fieldDataDto.setValue(attributeSearchInfo.getContentItems());
         fieldDataDto.setAttributeContentType(attributeSearchInfo.getAttributeContentType());
         fieldDataDto.setDisplayable(isDisplayable(attributeSearchInfo));
-        // Left false here and decided per resource by applyAttributeSortability: this method is handed one attribute
-        // definition and not the resource whose catalogue it is being built for, and ordering is wired per listing.
-        fieldDataDto.setSortable(false);
+        fieldDataDto.setSortable(isSortable(attributeSearchInfo, resource));
         return fieldDataDto;
     }
 
@@ -172,18 +171,32 @@ public class SearchHelper {
      * The resources whose listing passes the sort a request carries to the repository.
      *
      * <p>
-     * The flag is published per field while the ordering is wired per listing, and seven of the sixteen listings that
-     * accept a search request are wired. A field of any other resource is reported not sortable however orderable its
-     * path is, because a catalogue reporting {@code true} there would advertise an ordering that listing discards: the
-     * client sorts, receives the default order, and is told nothing.
+     * The flag is published per field while the ordering is wired per listing, and only the listings named here are
+     * wired. A field of any other resource is reported not sortable however orderable its path is, because a catalogue
+     * reporting {@code true} there would advertise an ordering that listing discards: the client sorts, receives the
+     * default order, and is told nothing.
      *
      * <p>
      * Explicit rather than derived: the wiring lives in each listing service and nothing on a {@link FilterField} knows
-     * whether its listing was wired. A listing that gains ordering adds itself here.
+     * whether its listing was wired. A listing that gains ordering adds itself here, and
+     * {@code RequestValidatorHelper.revalidateSearchRequestDto} refuses a sort on every listing that has not.
      */
     private static final Set<Resource> SORT_WIRED_RESOURCES = Set
             .of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, Resource.DISCOVERY, Resource.CONNECTOR,
                     Resource.SECRET, Resource.CBOM, Resource.SIGNING_RECORD);
+
+    /**
+     * Content whose column renders a composite identity rather than the value a sort key would read.
+     *
+     * <p>
+     * A sort key extracts the stored {@code reference} for content that is not filtered by data. For most such types
+     * that is exactly what the cell shows - {@code AttributeColumnProjector} reduces CREDENTIAL and OBJECT values to
+     * their reference and nothing else. FILE and RESOURCE are the exceptions: the projector keeps a reduced identity
+     * beside the reference, and the cell labels itself from that - a file by its name and media type, a resource link
+     * by the referenced object's name - so ordering by the reference would order the page by something no cell shows.
+     */
+    private static final Set<AttributeContentType> COMPOSITE_CELL_CONTENT_TYPES = Set
+            .of(AttributeContentType.FILE, AttributeContentType.RESOURCE);
 
     /**
      * Whether the listing of this resource applies the sort a request carries.
@@ -193,20 +206,16 @@ public class SearchHelper {
     }
 
     /**
-     * Marks the attribute fields of one resource's catalogue sortable where that resource's listing applies a sort.
+     * What the catalogue advertises as sortable for an attribute field: a field the catalogue offers as a column at
+     * all, whose value is what its cell shows, on a listing that applies the ordering.
      *
      * <p>
-     * Ordering an attribute resolves to a correlated scalar subquery over the stored json, which works on any resource;
-     * what varies is whether the listing passes the sort on. A field the catalogue withholds as a column is withheld
-     * from ordering too - there is nothing to order a column by when the column cannot be shown.
+     * Decided here rather than by a pass over the assembled catalogue, so it is answered wherever {@code displayable}
+     * is and no caller can assemble a catalogue that forgets to answer it.
      */
-    public static List<SearchFieldDataDto> applyAttributeSortability(final List<SearchFieldDataDto> fields,
-            final Resource resource) {
-        if (!listingAppliesSort(resource)) {
-            return fields;
-        }
-        fields.forEach(field -> field.setSortable(Boolean.TRUE.equals(field.getDisplayable())));
-        return fields;
+    private static boolean isSortable(final SearchFieldObject attributeSearchInfo, final Resource resource) {
+        return listingAppliesSort(resource) && isDisplayable(attributeSearchInfo)
+                && !COMPOSITE_CELL_CONTENT_TYPES.contains(attributeSearchInfo.getAttributeContentType());
     }
 
     /**
@@ -231,11 +240,21 @@ public class SearchHelper {
      * itself - {@code PRIVATE_KEY} shows whether a joined key type is one particular type - and the certificate
      * validation-check fields each name one check inside a single serialized validation result, so ordering by the
      * attribute would order them all by the whole document.
+     *
+     * <p>
+     * A bitmask-backed field is the same case once more: {@code KEY_USAGE} and {@code CKI_USAGE} persist a set of flags
+     * as one integer, and the column renders the decoded set, so ordering by the column would order the page by a
+     * number whose value bears no relation to the list in the cell.
      */
     public static boolean isOrderableField(final FilterField filterField) {
         return filterField.getFieldAttribute() != null && !filterField.isNativeArrayField()
                 && filterField.getJsonPath() == null && filterField.getExpectedValue() == null
-                && !SharedAttributeFields.VALUES.contains(filterField);
+                && !isBitMaskField(filterField) && !SharedAttributeFields.VALUES.contains(filterField);
+    }
+
+    /** Whether the field's column is one integer holding a set of flags rather than the value the cell renders. */
+    private static boolean isBitMaskField(final FilterField filterField) {
+        return filterField.getEnumClass() != null && BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass());
     }
 
     /**
@@ -271,13 +290,18 @@ public class SearchHelper {
         return searchFieldTypeEnum;
     }
 
-    public static List<SearchFieldDataDto> prepareSearchForJSON(final List<SearchFieldObject> searchFieldObjectList) {
+    /**
+     * The catalogue entries for one resource's attribute fields. The resource is what decides {@code sortable}, since
+     * ordering is wired per listing while the flag is published per field.
+     */
+    public static List<SearchFieldDataDto> prepareSearchForJSON(final List<SearchFieldObject> searchFieldObjectList,
+            final Resource resource) {
         final List<SearchFieldObject> mergedFields = mergeFieldsWithSameIdentifier(searchFieldObjectList);
         final Set<String> duplicatesOfNames = filterDuplicity(mergedFields);
         return mergedFields
                 .stream()
                 .map(attribute -> prepareSearchForJSON(attribute,
-                        duplicatesOfNames.contains(attribute.getAttributeName())))
+                        duplicatesOfNames.contains(attribute.getAttributeName()), resource))
                 .sorted(new SearchFieldDataComparator())
                 .toList();
     }

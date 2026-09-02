@@ -45,6 +45,7 @@ import com.otilm.core.service.VaultInstanceInternalService;
 import com.otilm.core.service.v2.ConnectorExternalService;
 import com.otilm.core.service.v2.ConnectorInternalService;
 import com.otilm.core.util.FilterPredicatesBuilder;
+import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -191,6 +192,7 @@ public class VaultInstanceServiceImpl implements VaultInstanceExternalService, V
     @ExternalAuthorization(resource = Resource.VAULT, action = ResourceAction.LIST)
     public PaginationResponseDto<VaultInstanceDto> listVaultInstances(SearchRequestDto request,
             SecurityFilter securityFilter) {
+        RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.VAULT);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultInstance>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
                 cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());

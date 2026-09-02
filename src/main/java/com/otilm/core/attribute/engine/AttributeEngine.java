@@ -169,9 +169,7 @@ public class AttributeEngine {
             if (!settableAttributes.isEmpty()) {
                 searchFieldDataByGroupDtos
                         .add(new SearchFieldDataByGroupDto(
-                                SearchHelper
-                                        .applyAttributeSortability(
-                                                SearchHelper.prepareSearchForJSON(settableAttributes), resource),
+                                SearchHelper.prepareSearchForJSON(settableAttributes, resource),
                                 FilterFieldSource.CUSTOM));
             }
         } else {
@@ -184,9 +182,8 @@ public class AttributeEngine {
                     .toList();
             if (!customAttributes.isEmpty()) {
                 searchFieldDataByGroupDtos
-                        .add(new SearchFieldDataByGroupDto(SearchHelper
-                                .applyAttributeSortability(SearchHelper.prepareSearchForJSON(customAttributes),
-                                        resource),
+                        .add(new SearchFieldDataByGroupDto(
+                                SearchHelper.prepareSearchForJSON(customAttributes, resource),
                                 FilterFieldSource.CUSTOM));
             }
 
@@ -196,8 +193,7 @@ public class AttributeEngine {
                     .toList();
             if (!dataAttributes.isEmpty()) {
                 searchFieldDataByGroupDtos
-                        .add(new SearchFieldDataByGroupDto(SearchHelper
-                                .applyAttributeSortability(SearchHelper.prepareSearchForJSON(dataAttributes), resource),
+                        .add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttributes, resource),
                                 FilterFieldSource.DATA));
             }
 
@@ -208,9 +204,7 @@ public class AttributeEngine {
             if (!metadataAttributes.isEmpty()) {
                 searchFieldDataByGroupDtos
                         .add(new SearchFieldDataByGroupDto(
-                                SearchHelper
-                                        .applyAttributeSortability(
-                                                SearchHelper.prepareSearchForJSON(metadataAttributes), resource),
+                                SearchHelper.prepareSearchForJSON(metadataAttributes, resource),
                                 FilterFieldSource.META));
             }
         }
