@@ -63,8 +63,10 @@ final class IdentityKeyExposureFence {
      * them and be turned off.
      *
      * <p>
-     * The residual is stated rather than closed: a member called {@code key} or {@code value} alone still carries the
-     * same content past a lexical rule, and fencing those spellings would flag every public key in the code base.
+     * A member called {@code key} or {@code value} alone still carries the same content past a lexical rule, and
+     * fencing those spellings would flag every public key in the code base. That residual is closed for the carriers
+     * this code base has by {@link #KEY_CARRIER_ACCESSORS}, which judges a call by what the accessor returns rather
+     * than by the words on the line. A carrier not registered there is still outside every rule.
      */
     private static final String PRE_IMAGE_VOCABULARY = "pre[_\\-\\s]?image(?!slot)|keyed[_\\-\\s]?payload";
 
@@ -152,6 +154,34 @@ final class IdentityKeyExposureFence {
         return Map.entry(path, Pattern.compile(PRE_IMAGE_VOCABULARY, Pattern.CASE_INSENSITIVE));
     }
 
+    /**
+     * The accessors that hand out a fenced value, each mapped to the vocabulary that value belongs to.
+     *
+     * <p>
+     * Both lexical rules judge a line by the words on it, so a record component the identity chain calls {@code key}
+     * carries the identity key past both: {@code extracted.key()} in a service, or bound into a log line, discloses the
+     * value with nothing on the line for a regex to see. A call to one of these is therefore judged by what the
+     * accessor <em>returns</em>. The caller needs the same allowlist entry it would need to write the word out -- the
+     * extractor may read {@code Identity.key()} because its file is allowlisted for the stored value, and may not read
+     * {@code Identity.preImage()} because it is not allowlisted for the material. {@code preImage} and
+     * {@code identityKey} are lexically fenced already; they are registered so the two rules cannot disagree about
+     * which members are carriers.
+     *
+     * <p>
+     * Not the records' whole surface. {@code step()}, {@code guard()} and {@code asset()} carry nothing fenced, and
+     * fencing them would flag every reader of a chain step. A new component holding either value belongs here whatever
+     * it is called, and the self-test proves the map is consulted by the class and method names the byte code reports,
+     * never by the caller's spelling.
+     */
+    static final Map<String, String> KEY_CARRIER_ACCESSORS = Map
+            .of("com.otilm.core.cbom.asset.identity.CryptoAssetIdentity$Identity.key", STORED_VALUE_VOCABULARY,
+                    "com.otilm.core.cbom.asset.identity.CryptoAssetIdentity$Identity.preImage", PRE_IMAGE_VOCABULARY,
+                    "com.otilm.core.cbom.asset.identity.CbomAssetExtractor$ExtractedAsset.identityKey",
+                    STORED_VALUE_VOCABULARY,
+                    // Registered because the detector's input list now begins with the pre-image itself, so this
+                    // accessor returns the dictionary-attackable string under a name no regex would read as one.
+                    "com.otilm.core.cbom.asset.identity.NormalizedAsset.keyedCaseValues", PRE_IMAGE_VOCABULARY);
+
     private IdentityKeyExposureFence() {
     }
 
@@ -161,6 +191,17 @@ final class IdentityKeyExposureFence {
         @Override
         public String toString() {
             return declaringClass + "." + name + " (" + kind + ")";
+        }
+    }
+
+    /**
+     * One method call, reduced to what the fence needs to judge it. Class names are binary names -- {@code Outer$Inner}
+     * -- which is how the byte code reports them.
+     */
+    record AccessorCall(String callerClass, String targetClass, String methodName) {
+
+        String target() {
+            return targetClass + "." + methodName;
         }
     }
 
@@ -200,6 +241,41 @@ final class IdentityKeyExposureFence {
                 .filter(member -> mentionsIdentityKey(member.name()))
                 .map(member -> member + " declares the crypto-asset identity key in a client-facing package")
                 .toList();
+    }
+
+    /**
+     * Calls to a {@link #KEY_CARRIER_ACCESSORS key carrier} from a class whose source file is not allowlisted for the
+     * vocabulary the accessor returns.
+     *
+     * <p>
+     * The caller is judged by its source file rather than by its class so that this rule and the lexical one share a
+     * single allowlist: one reviewed record says which files may hold the value, however they come to hold it.
+     */
+    static List<String> keyCarrierCallViolations(Collection<AccessorCall> calls) {
+        return calls
+                .stream()
+                .filter(call -> KEY_CARRIER_ACCESSORS.containsKey(call.target()))
+                .filter(call -> !mayReadCarrier(call))
+                .map(call -> call.callerClass() + " reads " + call.target()
+                        + "(), which hands out the crypto-asset identity key or its pre-image, from a source not "
+                        + "allowlisted for that value")
+                .toList();
+    }
+
+    private static boolean mayReadCarrier(AccessorCall call) {
+        Pattern exempt = SOURCE_ALLOWLIST.get(sourcePathOf(call.callerClass()));
+        return exempt != null && exempt.pattern().equals(KEY_CARRIER_ACCESSORS.get(call.target()));
+    }
+
+    /**
+     * The repository-relative source file a class was compiled from. The outermost class decides: a nested class, an
+     * anonymous class and a lambda's synthetic host all live in the file of the class enclosing them, and the allowlist
+     * is written in files.
+     */
+    static String sourcePathOf(String className) {
+        int nested = className.indexOf('$');
+        String outer = nested < 0 ? className : className.substring(0, nested);
+        return "src/main/java/" + outer.replace('.', '/') + ".java";
     }
 
     /**

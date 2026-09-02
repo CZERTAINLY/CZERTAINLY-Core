@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * The ratified identity and normalization decision tables. Data only, no behaviour.
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
  * <p>
  * The tables are <em>data, never code</em>: they load from {@code cbom/identity-tables.json}, the same artifact the
  * reference implementation reads, so a vocabulary change is a reviewed data change rather than a code change in two
- * languages. The shipped file's SHA-256 is {@code 2ce6a302a1a1...}. Every published cross-implementation agreement
+ * languages. The shipped file's SHA-256 is {@code faa522edb480...}. Every published cross-implementation agreement
  * figure predates it and was measured against {@code 1331969bb507...} -- quote an agreement number only with the
  * artifact hash it was taken against, because a number measured before a table change is a historical number, not a
  * current one.
@@ -102,62 +103,62 @@ public final class IdentityTables {
     }
 
     private IdentityTables(JsonNode raw) {
-        this.families = textSet(raw.get("algorithmFamilies"));
-        this.pseudoFamilies = raw
-                .get("pseudoFamilies")
-                .properties()
+        Node root = new Node(raw, "");
+        List<String> familyList = textList(root.field("algorithmFamilies"));
+        this.families = Set.copyOf(familyList);
+        Node pseudo = root.field("pseudoFamilies");
+        this.pseudoFamilies = pseudo
+                .entries()
                 .stream()
                 .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> textSet(entry.getValue())));
-        this.curveCanonical = textMap(raw.get("curveCanonical"));
+        this.curveCanonical = textMap(root.field("curveCanonical"));
         Map<String, String> aliases = new HashMap<>();
-        raw
-                .get("curveAliases")
-                .properties()
-                .forEach(entry -> aliases.put(AsciiText.lookupKey(entry.getKey()), entry.getValue().asText()));
+        root
+                .field("curveAliases")
+                .entries()
+                .forEach(entry -> aliases.put(AsciiText.lookupKey(entry.getKey()), entry.getValue().text()));
         this.curveAliases = Map.copyOf(aliases);
-        this.oidToFamily = oidEntries(raw.get("oidToFamily"));
-        this.extraCurveSpellings = textList(raw.get("extraCurveSpellings"));
-        this.oidBlockedPrefixes = textSet(raw.get("oidBlockedPrefixes"));
-        this.nameGrammar = grammar(raw.get("nameGrammar"));
-        this.sizeStoplist = textList(raw.get("sizeStoplist"));
-        this.modeTokens = textList(raw.get("modeTokens"));
-        this.cipherSuitePatterns = textList(raw.get("cipherSuiteNamePatterns"))
+        this.oidToFamily = oidEntries(root.field("oidToFamily"));
+        this.extraCurveSpellings = textList(root.field("extraCurveSpellings"));
+        this.oidBlockedPrefixes = textSet(root.field("oidBlockedPrefixes"));
+        this.nameGrammar = grammar(root.field("nameGrammar"));
+        this.sizeStoplist = textList(root.field("sizeStoplist"));
+        this.modeTokens = textList(root.field("modeTokens"));
+        this.cipherSuitePatterns = textList(root.field("cipherSuiteNamePatterns"))
                 .stream()
                 .map(pattern -> Pattern.compile(pattern, Pattern.CASE_INSENSITIVE))
                 .toList();
-        this.secondaryMarkers = markers(raw.get("secondaryMarkers"));
-        this.paddingTokens = textList(raw.get("paddingTokens"));
-        this.paddingAliases = textMap(raw.get("paddingAliases"));
-        this.variantVocabulary = textSet(raw.get("variantVocabulary"));
-        this.variantSynonyms = textMap(raw.get("variantSynonyms"));
-        this.truncatableFamilies = textSet(raw.get("truncatableFamilies"));
-        this.sentinels = textList(raw.get("sentinels"))
+        this.secondaryMarkers = markers(root.field("secondaryMarkers"));
+        this.paddingTokens = textList(root.field("paddingTokens"));
+        this.paddingAliases = textMap(root.field("paddingAliases"));
+        this.variantVocabulary = textSet(root.field("variantVocabulary"));
+        this.variantSynonyms = textMap(root.field("variantSynonyms"));
+        this.truncatableFamilies = textSet(root.field("truncatableFamilies"));
+        this.sentinels = textList(root.field("sentinels"))
                 .stream()
                 .map(AsciiText::fold)
                 .collect(Collectors.toUnmodifiableSet());
-        this.expressiblePrimitives = textList(raw.get("primitivesExpressibleIn16"))
+        this.expressiblePrimitives = textList(root.field("primitivesExpressibleIn16"))
                 .stream()
                 .map(AsciiText::fold)
                 .collect(Collectors.toUnmodifiableSet());
-        this.primitiveDefaults = textMap(raw.get("primitiveDefaults"));
-        this.dnAttributeOids = textMap(raw.get("dnShortNames"));
+        this.primitiveDefaults = textMap(root.field("primitiveDefaults"));
+        this.dnAttributeOids = textMap(root.field("dnShortNames"));
         Map<String, Integer> intrinsics = new LinkedHashMap<>();
-        raw
-                .get("nameIntrinsicSizes")
-                .properties()
-                .forEach(entry -> intrinsics.put(AsciiText.fold(entry.getKey()), entry.getValue().asInt()));
+        root
+                .field("nameIntrinsicSizes")
+                .entries()
+                .forEach(entry -> intrinsics.put(AsciiText.fold(entry.getKey()), entry.getValue().integer()));
         // Insertion order is load-bearing, and Map.copyOf does not keep it. The intrinsic lookup is first-match-wins
         // over this map, and one name can carry two of its tokens: `X25519/X448` must take 256 from the x25519 it
         // mentions first, and `Ed25519/Ed448` likewise, rather than the 448 or 456 the second token would give. An
         // unordered map turned that into whichever bucket the hash happened to fill first.
         this.nameIntrinsicSizes = Collections.unmodifiableMap(intrinsics);
-        this.sizeMin = raw.get("sizeWhitelist").get("min").asInt();
-        this.sizeMax = raw.get("sizeWhitelist").get("max").asInt();
+        Node sizeWhitelist = root.field("sizeWhitelist");
+        this.sizeMin = sizeWhitelist.field("min").integer();
+        this.sizeMax = sizeWhitelist.field("max").integer();
 
-        Map<String, String> tokens = new HashMap<>();
-        pseudoFamilies.keySet().forEach(token -> tokens.put(AsciiText.lookupKey(token), token));
-        families.forEach(token -> tokens.put(AsciiText.lookupKey(token), token));
-        this.familyTokens = Map.copyOf(tokens);
+        this.familyTokens = familyTokens(pseudo.keys(), familyList);
 
         this.curveSpellingsByLength = curveSpellings();
         this.curveSpellingPatterns = curveSpellingsByLength
@@ -351,6 +352,29 @@ public final class IdentityTables {
         return sizeMax;
     }
 
+    /**
+     * The fold-insensitive lookup from a declared family spelling to the table's own, built in table order.
+     *
+     * <p>
+     * Built from the artifact's ordered arrays, not from the {@code Set} copies. {@code Set.copyOf} iterates in an
+     * order that differs from one JVM to the next, so with a later-wins {@code put} two tokens folding to one lookup
+     * key would have resolved differently across restarts -- deterministic today only because no two tokens fold
+     * together. Order alone would make such a pair stable, not right: a declaration naming two table spellings has no
+     * single "table's spelling" to enter the key with, so the pair is refused and the table fails to load.
+     */
+    private static Map<String, String> familyTokens(List<String> pseudoTokens, List<String> familyTokens) {
+        Map<String, String> tokens = new LinkedHashMap<>();
+        Stream.concat(pseudoTokens.stream(), familyTokens.stream()).forEach(token -> {
+            String key = AsciiText.lookupKey(token);
+            String previous = tokens.putIfAbsent(key, token);
+            if (previous != null && !previous.equals(token)) {
+                throw new IllegalStateException(RESOURCE + ": family tokens `" + previous + "` and `" + token
+                        + "` fold to the same lookup key `" + key + "`");
+            }
+        });
+        return Map.copyOf(tokens);
+    }
+
     private List<String> curveStripTokens() {
         Set<String> tokens = new HashSet<>(extraCurveSpellings);
         curveCanonical.keySet().forEach(token -> tokens.add(token.substring(token.indexOf('/') + 1)));
@@ -382,10 +406,10 @@ public final class IdentityTables {
     /** The trailing negative-lookahead a grammar spelling ends with, stripped to read the halves out of a hybrid. */
     private static final Pattern TRAILING_GUARD = Pattern.compile("\\(\\?![^)]*\\)$");
 
-    private static List<GrammarRule> grammar(JsonNode node) {
+    private static List<GrammarRule> grammar(Node node) {
         List<GrammarRule> rules = new ArrayList<>();
-        for (JsonNode rule : node) {
-            String pattern = rule.get("pattern").asText();
+        for (Node rule : node.elements()) {
+            String pattern = rule.field("pattern").text();
             // The loose form drops the LEFT word guard. The guard is right for deciding the winning family -- it stops
             // `design` matching DES -- but wrong for asking "does this name also mention a digest", because the real
             // spellings run the words together: `HMACMD5` merged with bare `HMAC` for exactly this reason.
@@ -396,60 +420,145 @@ public final class IdentityTables {
             rules
                     .add(new GrammarRule(Pattern.compile(pattern, Pattern.CASE_INSENSITIVE),
                             Pattern.compile(loose, Pattern.CASE_INSENSITIVE),
-                            Pattern.compile(unguarded, Pattern.CASE_INSENSITIVE), rule.get("family").asText()));
+                            Pattern.compile(unguarded, Pattern.CASE_INSENSITIVE), rule.field("family").text()));
         }
         return List.copyOf(rules);
     }
 
-    private static List<SecondaryMarker> markers(JsonNode node) {
+    private static List<SecondaryMarker> markers(Node node) {
         List<SecondaryMarker> markers = new ArrayList<>();
-        for (JsonNode marker : node) {
+        for (Node marker : node.elements()) {
             markers
-                    .add(new SecondaryMarker(marker.get(0).asText(),
-                            Pattern.compile(marker.get(1).asText(), Pattern.CASE_INSENSITIVE)));
+                    .add(new SecondaryMarker(marker.element(0).text(),
+                            Pattern.compile(marker.element(1).text(), Pattern.CASE_INSENSITIVE)));
         }
         return List.copyOf(markers);
     }
 
-    private static Map<String, OidEntry> oidEntries(JsonNode node) {
+    private static Map<String, OidEntry> oidEntries(Node node) {
         Map<String, OidEntry> entries = new HashMap<>();
-        node.properties().forEach(entry -> {
-            JsonNode value = entry.getValue();
+        for (Map.Entry<String, Node> entry : node.entries()) {
+            Node value = entry.getValue();
             entries
-                    .put(entry.getKey(), new OidEntry(text(value, "family"), integer(value, "parameterSet"),
-                            text(value, "mode"), text(value, "curve"), text(value, "primitive"), null, List.of()));
-        });
+                    .put(entry.getKey(),
+                            new OidEntry(value.optionalText("family"), value.optionalInteger("parameterSet"),
+                                    value.optionalText("mode"), value.optionalText("curve"),
+                                    value.optionalText("primitive"), null, List.of()));
+        }
         return Map.copyOf(entries);
     }
 
-    private static String text(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : value.asText();
+    private static Set<String> textSet(Node node) {
+        return Set.copyOf(textList(node));
     }
 
-    private static Integer integer(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        return value == null || value.isNull() ? null : value.asInt();
+    private static List<String> textList(Node node) {
+        return node.elements().stream().map(Node::text).toList();
     }
 
-    private static Set<String> textSet(JsonNode node) {
-        Set<String> values = new LinkedHashSet<>();
-        node.forEach(element -> values.add(element.asText()));
-        return Set.copyOf(values);
-    }
-
-    private static List<String> textList(JsonNode node) {
-        List<String> values = new ArrayList<>();
-        node.forEach(element -> values.add(element.asText()));
-        return List.copyOf(values);
-    }
-
-    private static Map<String, String> textMap(JsonNode node) {
+    private static Map<String, String> textMap(Node node) {
         Map<String, String> values = new LinkedHashMap<>();
-        node
-                .properties()
-                .forEach(entry -> values
-                        .put(entry.getKey(), entry.getValue().isNull() ? null : entry.getValue().asText()));
+        node.entries().forEach(entry -> values.put(entry.getKey(), entry.getValue().text()));
         return Collections.unmodifiableMap(values);
+    }
+
+    /**
+     * One node of the artifact and the path that reached it, so a refusal names the table and the shape it wanted.
+     *
+     * <p>
+     * Jackson's own traversal is fail-open: {@code forEach} over a scalar visits nothing, {@code properties()} of an
+     * array is empty, and {@code asInt()} of text is 0. Read that way, a mis-typed table loaded as an <em>empty</em>
+     * one -- replacing {@code oidBlockedPrefixes} with a string left all 537 vector executions green and only the
+     * artifact hash red -- and a missing key surfaced as a bare {@code NullPointerException}. Every read goes through
+     * here instead, so a malformed artifact is a startup failure that says which table is wrong and how.
+     */
+    private record Node(JsonNode json, String path) {
+
+        Node field(String key) {
+            JsonNode child = object().get(key);
+            String childPath = at(key);
+            if (child == null || child.isNull()) {
+                throw new IllegalStateException(RESOURCE + ": table `" + childPath + "` is missing");
+            }
+            return new Node(child, childPath);
+        }
+
+        /** The keys of an object, in the artifact's order. */
+        List<String> keys() {
+            return object().properties().stream().map(Map.Entry::getKey).toList();
+        }
+
+        List<Map.Entry<String, Node>> entries() {
+            return object()
+                    .properties()
+                    .stream()
+                    .map(entry -> Map.entry(entry.getKey(), new Node(entry.getValue(), at(entry.getKey()))))
+                    .toList();
+        }
+
+        List<Node> elements() {
+            JsonNode array = array();
+            List<Node> elements = new ArrayList<>(array.size());
+            for (int index = 0; index < array.size(); index++) {
+                elements.add(new Node(array.get(index), path + "[" + index + "]"));
+            }
+            return elements;
+        }
+
+        Node element(int index) {
+            JsonNode child = array().get(index);
+            if (child == null) {
+                throw new IllegalStateException(RESOURCE + ": table `" + path + "` has no element " + index
+                        + ", expected at least " + (index + 1));
+            }
+            return new Node(child, path + "[" + index + "]");
+        }
+
+        String text() {
+            if (!json.isTextual()) {
+                throw shape("a string");
+            }
+            return json.textValue();
+        }
+
+        int integer() {
+            if (!json.isIntegralNumber() || !json.canConvertToInt()) {
+                throw shape("an integer");
+            }
+            return json.intValue();
+        }
+
+        String optionalText(String key) {
+            JsonNode child = object().get(key);
+            return child == null || child.isNull() ? null : new Node(child, at(key)).text();
+        }
+
+        Integer optionalInteger(String key) {
+            JsonNode child = object().get(key);
+            return child == null || child.isNull() ? null : new Node(child, at(key)).integer();
+        }
+
+        private JsonNode object() {
+            if (!json.isObject()) {
+                throw shape("an object");
+            }
+            return json;
+        }
+
+        private JsonNode array() {
+            if (!json.isArray()) {
+                throw shape("an array");
+            }
+            return json;
+        }
+
+        private String at(String key) {
+            return path.isEmpty() ? key : path + "." + key;
+        }
+
+        private IllegalStateException shape(String expected) {
+            return new IllegalStateException(
+                    RESOURCE + ": table `" + path + "` must be " + expected + ", not " + json.getNodeType());
+        }
     }
 }

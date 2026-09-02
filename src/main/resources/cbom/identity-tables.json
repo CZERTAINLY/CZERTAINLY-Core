@@ -3238,19 +3238,14 @@
    "why": "cbom-lens familyExact"
   },
   {
-   "pattern": "(?<![A-Za-z0-9])RIPEMD",
-   "family": "RIPEMD",
-   "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` family-less, and the guard still admits the -160 and -128 spellings"
-  },
-  {
    "pattern": "(?<![A-Za-z0-9])HSS-LMS",
    "family": "LMS",
-   "why": "cbom-lens familyExact, widened like RIPEMD: the anchored form matched only the bare name, so every real parameter-set spelling (HSS-LMS-SHA256-M32-H5) fell through to the SHA-2 rule and keyed as a digest family"
+   "why": "cbom-lens familyExact, widened: the anchored form matched only the bare name, so every real parameter-set spelling (HSS-LMS-SHA256-M32-H5) fell through to the SHA-2 rule and keyed as a digest family"
   },
   {
    "pattern": "(?<![A-Za-z0-9])XMSS",
    "family": "XMSS",
-   "why": "cbom-lens familyExact, widened like RIPEMD: XMSS-SHA2_10_256 and XMSS-MT spellings fell through to the SHA-2 rule; the left guard keeps the token from matching inside another word"
+   "why": "cbom-lens familyExact, widened: XMSS-SHA2_10_256 and XMSS-MT spellings fell through to the SHA-2 rule; the left guard keeps the token from matching inside another word"
   },
   {
    "pattern": "^ssh-ed25519$",
@@ -3268,7 +3263,7 @@
    "why": "cbom-lens familyExact"
   },
   {
-   "pattern": "(?<![A-Za-z0-9])Ed(25519|448)(ph|ctx)?(?![A-Za-z0-9])",
+   "pattern": "(?<![A-Za-z0-9])Ed(25519|448)(?=(?:ph|ctx)?(?![A-Za-z0-9]))",
    "family": "EdDSA",
    "why": "registry has no Ed25519 family token; EdDSA is the family, Ed25519 the curve"
   },
@@ -3713,6 +3708,11 @@
    "why": "the bare family spelling `SHA2`, as in SLH-DSA-SHA2-128s. Unrecognised it survived into the variant residue as `shas`/`shaf`, which the closed vocabulary then rejected — losing the s/f parameter-set distinction"
   },
   {
+   "pattern": "(?<![A-Za-z0-9])RIPEMD",
+   "family": "RIPEMD",
+   "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` family-less, and the guard still admits the -160 and -128 spellings"
+  },
+  {
    "pattern": "(?<![A-Za-z0-9])BLAKE2",
    "family": "BLAKE2",
    "why": "cbom-lens familyPrefix"
@@ -3853,9 +3853,9 @@
    "why": "registry token"
   },
   {
-   "pattern": "(?<![A-Za-z0-9])GOST",
+   "pattern": "(?<![A-Za-z0-9])GOST(?![A-Za-z0-9])(?![-_ ]*R?[-_ ]*[0-9])",
    "family": "GOST",
-   "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` and `GOST R 34.10/34.11 (legacy)` resolved to nothing. Cipher suites naming GOST are classified as suites before family derivation runs, so they cannot reach this"
+   "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to nothing. Guarded against a following standard number, because the single registry token cannot carry which standard is meant. Cipher suites naming GOST are classified as suites before family derivation runs, so they cannot reach this"
   },
   {
    "pattern": "(?<![A-Za-z0-9])Skipjack",

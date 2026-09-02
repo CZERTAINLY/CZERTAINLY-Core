@@ -25,6 +25,8 @@ import argparse
 import collections
 import json
 import pathlib
+import re
+import warnings
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
@@ -100,15 +102,12 @@ NAME_GRAMMAR = [
             "one construction with two families decided by an underscore)"},
     {"pattern": r"^3DES-EDE-CBC$", "family": "3DES", "why": "cbom-lens familyExact"},
     {"pattern": r"^RC4-128$", "family": "RC4", "why": "cbom-lens familyExact"},
-    {"pattern": r"(?<![A-Za-z0-9])RIPEMD", "family": "RIPEMD",
-     "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` "
-            "family-less, and the guard still admits the -160 and -128 spellings"},
     {"pattern": r"(?<![A-Za-z0-9])HSS-LMS", "family": "LMS",
-     "why": "cbom-lens familyExact, widened like RIPEMD: the anchored form matched only the bare name, so every "
+     "why": "cbom-lens familyExact, widened: the anchored form matched only the bare name, so every "
             "real parameter-set spelling (HSS-LMS-SHA256-M32-H5) fell through to the SHA-2 rule and keyed as a "
             "digest family"},
     {"pattern": r"(?<![A-Za-z0-9])XMSS", "family": "XMSS",
-     "why": "cbom-lens familyExact, widened like RIPEMD: XMSS-SHA2_10_256 and XMSS-MT spellings fell through to "
+     "why": "cbom-lens familyExact, widened: XMSS-SHA2_10_256 and XMSS-MT spellings fell through to "
             "the SHA-2 rule; the left guard keeps the token from matching inside another word"},
     {"pattern": r"^ssh-ed25519$", "family": "EdDSA", "why": "cbom-lens familyExact"},
     {"pattern": r"^ssh-rsa$", "family": "RSASSA-PKCS1", "why": "cbom-lens familyExact"},
@@ -121,7 +120,12 @@ NAME_GRAMMAR = [
     # leaving those family-less made the AC5 `algorithmFamily` filter blind to the most common
     # Edwards spelling in the corpus. The guard keeps it from matching inside a longer token,
     # so `X25519` and `Curve25519` are untouched.
-    {"pattern": r"(?<![A-Za-z0-9])Ed(25519|448)(ph|ctx)?(?![A-Za-z0-9])", "family": "EdDSA",
+    #
+    # The RFC 8032 `ph`/`ctx` suffix is admitted through a lookahead and never consumed: every
+    # rule's match is also what the variant residue strips, so consuming the suffix left
+    # `Ed25519ph`, `Ed25519ctx` and bare `EdDSA` on one key, and the `ph`/`ctx` tokens in the
+    # variant vocabulary had no way to fire.
+    {"pattern": r"(?<![A-Za-z0-9])Ed(25519|448)(?=(?:ph|ctx)?(?![A-Za-z0-9]))", "family": "EdDSA",
      "why": "registry has no Ed25519 family token; EdDSA is the family, Ed25519 the curve"},
 
     # --- KDFs and password-based constructions FIRST ----------------------------
@@ -284,6 +288,12 @@ NAME_GRAMMAR = [
      "why": "the bare family spelling `SHA2`, as in SLH-DSA-SHA2-128s. Unrecognised it "
             "survived into the variant residue as `shas`/`shaf`, which the closed "
             "vocabulary then rejected — losing the s/f parameter-set distinction"},
+    # A digest, so it ranks with the digests: placed in the exact-string block it outranked
+    # HMAC and every signature rule, and `HMAC-RIPEMD160`, `RIPEMD160withRSA` and
+    # `PBKDF2-HMAC-RIPEMD160` all keyed as the inner hash instead of the outer construction.
+    {"pattern": r"(?<![A-Za-z0-9])RIPEMD", "family": "RIPEMD",
+     "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` "
+            "family-less, and the guard still admits the -160 and -128 spellings"},
     {"pattern": r"(?<![A-Za-z0-9])BLAKE2", "family": "BLAKE2", "why": "cbom-lens familyPrefix"},
     {"pattern": r"(?<![A-Za-z0-9])BLAKE3", "family": "BLAKE3", "why": "no OID anchor exists"},
     {"pattern": r"(?<![A-Za-z0-9])MD-?5(?![0-9])", "family": "MD5", "why": "cbomkit MD5"},
@@ -329,10 +339,16 @@ NAME_GRAMMAR = [
     {"pattern": r"(?<![A-Za-z0-9])RC6(?![A-Za-z0-9])", "family": "RC6", "why": "registry token"},
 
     # --- KDFs -------------------------------------------------------------------
-    {"pattern": r"(?<![A-Za-z0-9])GOST", "family": "GOST",
-     "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` and "
-            "`GOST R 34.10/34.11 (legacy)` resolved to nothing. Cipher suites naming GOST are "
-            "classified as suites before family derivation runs, so they cannot reach this"},
+    # The registry has one GOST token for what are several algorithms -- 34.10 signs, 34.11
+    # hashes, 34.12 and 28147 encrypt -- so a name that cites the standard must stay on the
+    # name tier, where the number keeps it distinct. Under the bare family the sub-64 standard
+    # digits vanished from the residue and the year was read as the key size, so
+    # `GOST R 34.10-2012` and `GOST R 34.11-2012` shared `ALG|GOST|2012`.
+    {"pattern": r"(?<![A-Za-z0-9])GOST(?![A-Za-z0-9])(?![-_ ]*R?[-_ ]*[0-9])", "family": "GOST",
+     "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to "
+            "nothing. Guarded against a following standard number, because the single registry "
+            "token cannot carry which standard is meant. Cipher suites naming GOST are classified "
+            "as suites before family derivation runs, so they cannot reach this"},
     {"pattern": r"(?<![A-Za-z0-9])Skipjack", "family": "Skipjack",
      "why": "registry token with no rule; `Skipjack (broken cipher)` resolved to nothing, and a "
             "broken cipher going unnamed is the opposite of what the inventory is for"},
@@ -657,9 +673,25 @@ _WITHDRAWN_OID_VARIANT_LABELS = {
 }
 
 
+def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
+    """``json.load`` keeps the last of two equal keys and says nothing. In these inputs a
+    repeated OID or alias silently replaces a ratified row, and the diff of the emitted table
+    then shows an addition where a family was actually swapped."""
+    mapping: dict = {}
+    for key, value in pairs:
+        if key in mapping:
+            raise SystemExit(f"duplicate key {key!r} in a JSON input; every key is a ratified row")
+        mapping[key] = value
+    return mapping
+
+
+def load_json(path: pathlib.Path) -> dict:
+    with path.open(encoding="utf-8") as handle:
+        return json.load(handle, object_pairs_hook=reject_duplicate_keys)
+
+
 def load_registry() -> dict:
-    with REGISTRY.open(encoding="utf-8") as handle:
-        return json.load(handle)
+    return load_json(REGISTRY)
 
 
 # Curve spellings the registry does not list in bare form but producers write anyway.
@@ -790,6 +822,199 @@ def curve_aliases(registry: dict, canonical: dict[str, str]) -> dict[str, str]:
     return aliases
 
 
+# ``AsciiText.PYTHON_WHITESPACE`` and ``LOOKUP_SEPARATORS``, character for character. The alias
+# table is folded through Java's ``lookupKey`` into a ``HashMap`` where the last writer wins,
+# while ``offer`` above keeps the first spelling -- so two spellings the fold makes equal can
+# disagree here without disagreeing in Python, and only a fold-faithful check can see it.
+JAVA_LOOKUP_SEPARATORS = re.compile(
+    "[ \t\n\u000B\f\r\u001C\u001D\u001E\u001F\u0085\u00A0"
+    "\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u2028\u2029"
+    "\u202F\u205F\u3000_\\-/]+")
+
+
+def java_lookup_key(text: str) -> str:
+    """``AsciiText.lookupKey``: drop separators, then lower-case ASCII letters only."""
+    stripped = JAVA_LOOKUP_SEPARATORS.sub("", text)
+    return "".join(chr(ord(c) + 32) if "A" <= c <= "Z" else c for c in stripped)
+
+
+def alias_fold_collisions(aliases: dict[str, str], canonical: dict[str, str]) -> list[str]:
+    """Alias spellings Java would fold onto one key with two different targets, plus any alias
+    whose fold equals another class's representative -- either re-targets a curve with exit 0."""
+    targets: dict[str, set[str]] = collections.defaultdict(set)
+    for spelling, token in aliases.items():
+        targets[java_lookup_key(spelling)].add(token)
+    collisions = [f"{key} -> {sorted(tokens)}" for key, tokens in sorted(targets.items()) if len(tokens) > 1]
+
+    representatives: dict[str, str] = {}
+    for representative in set(canonical.values()):
+        for spelling in (representative, representative.split("/", 1)[1]):
+            representatives[java_lookup_key(spelling)] = representative
+    for spelling, token in sorted(aliases.items()):
+        owner = representatives.get(java_lookup_key(spelling))
+        if owner is not None and owner != token:
+            collisions.append(f"alias {spelling!r} -> {token} folds onto representative {owner}")
+    return collisions
+
+
+# The `(?` openers that Python `re` and `java.util.regex` define identically. Every other opener
+# is one engine's own -- `(?P<n>`, `(?P=n)`, `(?#`, `(?(1)` and the `a`/`L`/`u` flags on the
+# Python side -- and Java is the engine that compiles the shipped table. `\Z` is refused because
+# Python's end anchor is Java's `\z` and Java's `\Z` admits a trailing terminator; `\A` goes with
+# it, the tables anchoring with `^`/`$` throughout, so neither spelling is carried. `{,n}` is
+# refused because Python reads it as `{0,n}` and Java rejects it. `\s`, `\d` and `$` are NOT
+# refused here: both engines accept them, and where their meanings differ that is a key-moving
+# decision the tables already carry.
+NON_PORTABLE_REGEX = re.compile(r"\\(?P<escape>.)|(?P<opener>\(\?(?!:|=|!|<=|<!))|(?P<bound>\{,)")
+
+
+def non_portable_constructs(pattern: str) -> list[str]:
+    found = []
+    for token in NON_PORTABLE_REGEX.finditer(pattern):
+        if token.group("escape") in ("A", "Z"):
+            found.append("\\" + token.group("escape"))
+        elif token.group("opener") or token.group("bound"):
+            found.append(pattern[token.start():token.start() + 3])
+    return found
+
+
+def unloadable_patterns(labelled: list[tuple[str, str]]) -> list[str]:
+    """Patterns Java could not compile, or would compile to a different automaton.
+
+    Java compiles every one of these in ``IdentityTables.load()``, so an unbalanced group written
+    here reached the committed table with exit 0 and surfaced as a ``PatternSyntaxException`` in
+    every identity test. Python's nested-set ``FutureWarning`` (``[[``, ``&&``, ``--`` inside a
+    class) is promoted to an error: Java reads those as set operations and Python as literals.
+    """
+    problems = []
+    for label, pattern in labelled:
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                re.compile(pattern, re.IGNORECASE)
+        except (re.error, Warning) as failure:
+            problems.append(f"{label}: {pattern!r} does not compile: {failure}")
+            continue
+        foreign = non_portable_constructs(pattern)
+        if foreign:
+            problems.append(f"{label}: {pattern!r} uses {foreign}, which java.util.regex reads differently")
+    return problems
+
+
+def emitted_patterns() -> list[tuple[str, str]]:
+    labelled = [(f"nameGrammar[{i}] {rule['family']}", rule["pattern"]) for i, rule in enumerate(NAME_GRAMMAR)]
+    labelled += [(f"cipherSuiteNamePatterns[{i}]", p) for i, p in enumerate(CIPHER_SUITE_NAME_PATTERNS)]
+    labelled += [(f"secondaryMarkers[{label}]", p) for label, p in SECONDARY_MARKERS]
+    return labelled
+
+
+def blank_oid_families(oid_to_family: dict[str, dict]) -> list[str]:
+    """A family of ``""`` or whitespace is not "no family": Java's ``text()`` hands it to
+    ``setFamily`` unguarded and the row keys ``ALG||size||||`` instead of taking the name tier.
+    ``null`` and an absent key are the ratified spellings of "the arc says nothing"."""
+    return sorted(
+        f"{oid}: {entry['family']!r}" for oid, entry in oid_to_family.items()
+        if isinstance(entry.get("family"), str) and not entry["family"].strip())
+
+
+# The shape of every top-level table, in the terms the Java loader reads it: ``str``,
+# ``int``, ``str?``/``int?`` for a nullable value, ``[shape]`` for an array whose every
+# element has that shape, and a dict for an object with named fields (``...`` allows other
+# fields, each of which must still be ``str``).
+#
+# Declared per table rather than inferred from the emitted values, and a table with no
+# declaration fails the check. Two weaker attempts came first and each missed something a
+# reader would have to know to notice: a list of the tables to check omitted four tables and
+# named one the loader never reads, and a leaf walk could not see a wrong-typed *container* at
+# all -- neither ``{"paddingAliases": {"PKCS5": {}}}`` nor ``{"modeTokens": [[]]}`` -- because
+# an empty list is a legitimate value here (31 ``pseudoFamilies`` entries are one).
+TABLE_SHAPES = {
+    "$comment": "str",
+    "$patched": "str",
+    "specId": "str",
+    "registrySnapshot": {"familiesInData": "int", "familiesInShippedEnum": "int",
+                         "curveTokens": "int", "curveClasses": "int",
+                         "familiesDataOnly": ["str"], "...": True},
+    "algorithmFamilies": ["str"],
+    "pseudoFamilies": {"*": ["str"]},
+    "ellipticCurves": ["str"],
+    "curveCanonical": {"*": "str"},
+    "curveClasses": {"*": ["str"]},
+    "curveAliases": {"*": "str"},
+    "extraCurveSpellings": ["str"],
+    "oidToFamily": {"*": {"family": "str?", "curve": "str?", "mode": "str?",
+                          "primitive": "str?", "parameterSet": "int?", "...": True}},
+    "oidBlockedPrefixes": ["str"],
+    "nameGrammar": [{"...": True}],
+    "sizeStoplist": ["str"],
+    "modeTokens": ["str"],
+    "cipherSuiteNamePatterns": ["str"],
+    "secondaryMarkers": [["str"]],
+    "paddingTokens": ["str"],
+    "paddingAliases": {"*": "str"},
+    "variantVocabulary": ["str"],
+    "variantSynonyms": {"*": "str"},
+    "truncatableFamilies": ["str"],
+    "sizeWhitelist": {"min": "int", "max": "int"},
+    "sentinels": ["str"],
+    "primitiveDefaults": {"*": "str"},
+    "primitivesExpressibleIn16": ["str"],
+    "nameIntrinsicSizes": {"*": "int"},
+    "dnShortNames": {"*": "str"},
+}
+
+_SCALARS = {"str": str, "int": int}
+
+
+def _shape_offenders(value: object, shape: object, path: str) -> list[str]:
+    """Where ``value`` departs from ``shape``, named by the path that reached it."""
+    if isinstance(shape, str):
+        wanted = _SCALARS[shape.rstrip("?")]
+        if shape.endswith("?") and value is None:
+            return []
+        # bool before int: Python's bool subclasses int, so `true` would pass an int slot here
+        # while Jackson's `canConvertToInt` refuses it.
+        if isinstance(value, bool) or not isinstance(value, wanted):
+            return [f"{path}: {value!r} is {type(value).__name__}, wanted {shape}"]
+        return []
+    if isinstance(shape, list):
+        if not isinstance(value, (list, tuple)):
+            return [f"{path}: {type(value).__name__}, wanted an array"]
+        return [o for i, v in enumerate(value)
+                for o in _shape_offenders(v, shape[0], f"{path}[{i}]")]
+    if not isinstance(value, dict):
+        return [f"{path}: {type(value).__name__}, wanted an object"]
+    offenders = []
+    for key, member in value.items():
+        member_shape = shape.get(key, shape.get("*", "str" if shape.get("...") else None))
+        if member_shape is None:
+            offenders.append(f"{path}.{key}: not a declared member")
+        else:
+            offenders.extend(_shape_offenders(member, member_shape, f"{path}.{key}"))
+    return offenders
+
+
+def non_string_table_values(tables: dict) -> list[str]:
+    """Every table's shape, checked against what the loader will read, before anything is written.
+
+    Java refuses a wrong node type, but a JSON ``null`` used to pass as a Java ``null``: a
+    ``"paddingAliases": {"PKCS5": null}`` loaded, and the padding spelling it names then keyed
+    with no canonical form instead of failing the load. The loader is strict now, so emitting
+    such a table breaks every asset at startup -- a worse way to learn it than this line.
+
+    Checked over the JSON round trip, not the Python objects, so what is judged is what lands
+    on disk: a tuple and a list are one shape there, and only there."""
+    artifact = json.loads(json.dumps(tables))
+    offenders = [f"{name}: emitted but undeclared, so its shape is unchecked"
+                 for name in artifact if name not in TABLE_SHAPES]
+    offenders.extend(f"{name}: declared but not emitted" for name in TABLE_SHAPES
+                     if name not in artifact)
+    for name, shape in TABLE_SHAPES.items():
+        if name in artifact:
+            offenders.extend(_shape_offenders(artifact[name], shape, name))
+    return sorted(offenders)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=pathlib.Path, default=DEFAULT_OUTPUT,
@@ -803,20 +1028,18 @@ def main() -> None:
     canonical, multi = curve_equivalence(registry)
     aliases = curve_aliases(registry, canonical)
 
-    with DEFS_SCHEMA.open(encoding="utf-8") as handle:
-        schema = json.load(handle)
+    schema = load_json(DEFS_SCHEMA)
     enum_families = schema["definitions"]["algorithmFamiliesEnum"]["enum"]
     data_families = [entry["family"] for entry in registry["algorithms"]]
 
-    with OID_STRAND.open(encoding="utf-8") as handle:
-        oid_strand = json.load(handle)
+    oid_strand = load_json(OID_STRAND)
 
     legal = set(enum_families) | set(data_families) | set(PSEUDO_FAMILIES)
     bad_grammar = sorted({r["family"] for r in NAME_GRAMMAR} - legal)
     bad_defaults = sorted(set(PRIMITIVE_DEFAULTS) - legal)
     bad_primitives = sorted(set(PRIMITIVE_DEFAULTS.values()) - set(PRIMITIVES_1_6))
     bad_oid = sorted({
-        e["family"] for e in oid_strand["oidToFamily"].values() if e.get("family")
+        e["family"] for e in oid_strand["oidToFamily"].values() if e.get("family") is not None
     } - legal)
 
     tables = {
@@ -893,7 +1116,7 @@ def main() -> None:
             f"no Unicode-dependent case operation; offenders: {non_ascii}")
 
     reachable = ({r["family"] for r in NAME_GRAMMAR}
-                 | {e["family"] for e in tables["oidToFamily"].values() if e.get("family")})
+                 | {e["family"] for e in tables["oidToFamily"].values() if e.get("family") is not None})
     missing_defaults = sorted(reachable - set(PRIMITIVE_DEFAULTS))
     # Every one of these fails the run, not just the last. Printing four of them and
     # exiting on the fifth meant an illegal grammar family, an illegal primitive default,
@@ -904,8 +1127,12 @@ def main() -> None:
         "grammar": bad_grammar,
         "primitiveDefaults": bad_defaults,
         "oidToFamily": bad_oid,
+        "oidToFamily-blank": blank_oid_families(tables["oidToFamily"]),
         "primitiveValues": bad_primitives,
         "reachable-without-default": missing_defaults,
+        "patterns": unloadable_patterns(emitted_patterns()),
+        "curveAliases-fold": alias_fold_collisions(aliases, canonical),
+        "value-shape": non_string_table_values(tables),
     }
     for label, bad in invalid.items():
         print(f"  ILLEGAL in {label:26}: {bad if bad else 'none'}")
@@ -914,7 +1141,9 @@ def main() -> None:
         raise SystemExit(
             "every family the grammar or the OID table can yield must be legal, spelled "
             "the way the family lookup spells it, and carry a primitive default in the "
-            f"1.6 set; offenders: {offenders}")
+            "1.6 set; every emitted pattern must compile the same way under java.util.regex; "
+            "no two curve aliases may fold onto one lookup key; and every table the loader reads "
+            f"as text must hold text; offenders: {offenders}")
 
     # Written only now. Opening the output before these checks truncated the committed
     # table on the way in, so a run that then exited non-zero had already replaced a good
@@ -922,7 +1151,9 @@ def main() -> None:
     # writes.
     out = args.output
     out.parent.mkdir(parents=True, exist_ok=True)
-    with out.open("w", encoding="utf-8") as handle:
+    # newline="\n": the byte-diff and the two pinned hashes are over LF bytes, and the default
+    # would write CRLF on Windows.
+    with out.open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(tables, handle, indent=1, sort_keys=False, ensure_ascii=False)
     print(f"wrote {out}")
 

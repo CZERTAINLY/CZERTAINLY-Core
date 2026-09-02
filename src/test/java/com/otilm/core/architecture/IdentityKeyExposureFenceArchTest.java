@@ -1,10 +1,15 @@
 package com.otilm.core.architecture;
 
+import com.otilm.core.architecture.IdentityKeyExposureFence.AccessorCall;
 import com.otilm.core.architecture.IdentityKeyExposureFence.MemberRef;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
+import com.tngtech.archunit.core.domain.JavaMethodReference;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import java.io.IOException;
@@ -23,14 +28,16 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * The key is a hash over a low-entropy preimage — algorithm family, parameter set, curve. Handed the key, an attacker
  * recovers the material by dictionary attack, which is why the redaction ruling in core#2070 rests on the value never
- * leaving the database and on nothing else. Three rules, one kernel:
+ * leaving the database and on nothing else. Four rules, one kernel:
  *
  * <ol>
  * <li>no member naming the key may be declared in a client-facing package, the imported contract artifact
  * included;</li>
  * <li>{@code FilterField} — the search allowlist — must not name it;</li>
  * <li>no production source may name it outside persistence, and none may log it, not even the persistence sources that
- * legitimately hold it.</li>
+ * legitimately hold it;</li>
+ * <li>no production class may read an accessor that returns the key or its pre-image unless its source is allowlisted
+ * for that value — the rule that sees {@code extracted.key()}, which names nothing the three text rules can match.</li>
  * </ol>
  *
  * <p>
@@ -82,6 +89,59 @@ class IdentityKeyExposureFenceArchTest {
         assertThat(IdentityKeyExposureFence.SOURCE_ALLOWLIST.keySet())
                 .describedAs("each allowlisted source must still be where the allowlist says it is")
                 .allSatisfy(path -> assertThat(Path.of(path)).exists());
+    }
+
+    /**
+     * The text rules see words; this one sees calls. {@code Identity.key()} is named so that no regex matches it, and a
+     * service reading it puts the value on a line that says nothing a text rule can catch. A method reference is a call
+     * the byte code records differently -- {@code .map(ExtractedAsset::identityKey)} is how a stream would forward the
+     * value -- so both are fed. Test classes are left out -- the conformance suite has to read the key to compare it --
+     * through ArchUnit's own classification, the one every sibling arch test uses, so this fence and its siblings
+     * cannot disagree about what is production.
+     */
+    @ArchTest
+    static void noProductionClassReadsAKeyCarrierOutsideItsVocabulary(JavaClasses classes) {
+        List<AccessorCall> calls = new ArrayList<>();
+        for (JavaClass clazz : classes) {
+            if (!isProductionClass(clazz)) {
+                continue;
+            }
+            for (JavaMethodCall call : clazz.getMethodCallsFromSelf()) {
+                calls.add(new AccessorCall(clazz.getName(), call.getTargetOwner().getName(), call.getName()));
+            }
+            for (JavaMethodReference reference : clazz.getMethodReferencesFromSelf()) {
+                calls.add(new AccessorCall(clazz.getName(), reference.getTargetOwner().getName(), reference.getName()));
+            }
+        }
+
+        assertThat(IdentityKeyExposureFence.keyCarrierCallViolations(calls))
+                .describedAs("An accessor returning the identity key or its pre-image may be read only from the "
+                        + "sources allowlisted for that value: the record component is named so that no text rule "
+                        + "sees it, and a call site is the same disclosure whatever the line says.")
+                .isEmpty();
+    }
+
+    /** A class with no known source is judged as production: the fence fails toward reporting, never toward silence. */
+    private static boolean isProductionClass(JavaClass clazz) {
+        return clazz
+                .getSource()
+                .map(source -> ImportOption.Predefined.DO_NOT_INCLUDE_TESTS.includes(Location.of(source.getUri())))
+                .orElse(true);
+    }
+
+    /**
+     * A carrier entry naming an accessor that no longer exists is the same hole as a stale allowlist path: it fences
+     * nothing, reports nothing, and hides that the member it covered was renamed out from under it.
+     */
+    @Test
+    void everyKeyCarrierAccessorExists() {
+        assertThat(IdentityKeyExposureFence.KEY_CARRIER_ACCESSORS.keySet())
+                .describedAs("each fenced accessor must still be declared where the carrier map says it is")
+                .allSatisfy(accessor -> {
+                    int dot = accessor.lastIndexOf('.');
+                    Class<?> owner = Class.forName(accessor.substring(0, dot));
+                    assertThat(owner.getMethod(accessor.substring(dot + 1))).isNotNull();
+                });
     }
 
     @Test

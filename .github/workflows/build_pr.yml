@@ -225,6 +225,21 @@ jobs:
   build:
     name: Build
     needs: [package, formatting, generated]
+    # Runs when an upstream job failed or was skipped, not only when all of them succeeded. With
+    # the default condition this job is skipped whenever a dependency fails, and GitHub counts a
+    # skipped required check as passing -- so a red `generated` or `formatting` job blocked the
+    # merge only through the Sonar workflow declining to report. `!cancelled()` rather than
+    # `always()`: a run superseded through cancel-in-progress should stay cancelled, not turn red.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Build complete"
+      - name: Fail unless every upstream job succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          not_ok=$(jq -r 'to_entries[] | select(.value.result != "success") | "\(.key): \(.value.result)"' <<< "$NEEDS")
+          if [ -n "$not_ok" ]; then
+            echo "::error::Upstream jobs did not succeed: $(echo "$not_ok" | paste -sd ',' -)"
+            exit 1
+          fi
+          echo "Build complete"

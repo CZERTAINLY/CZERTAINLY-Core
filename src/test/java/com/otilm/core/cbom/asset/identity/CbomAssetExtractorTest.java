@@ -9,7 +9,9 @@ import com.otilm.core.cbom.asset.OccurrenceEvidenceCapper;
 import com.otilm.core.serialization.ObjectMapperFactory;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -99,26 +101,64 @@ class CbomAssetExtractorTest {
     // ---------------------------------------------------------------- determinism
 
     /**
-     * An asset's identity is a function of the asset, so permuting the document cannot change what results.
+     * An asset's identity is a function of the asset and of what its document says about it, never of where in the
+     * document it sits, so permuting the document cannot change what results.
      *
      * <p>
      * This is the property the whole inventory rests on: two nodes, two releases and two re-ingests of one document
      * must agree, and the merge must not depend on which producer synced first.
+     *
+     * <p>
+     * Five flat, self-contained components cannot test it: with no reference, no duplicated {@code bom-ref}, no shared
+     * digest and no shared suite code there is no document-scoped state for order to reach, and first-in-document-order
+     * reference resolution passed such a fixture. The document here carries every kind of that state -- a reference
+     * from a certificate into a nested library, a duplicated ref that a certificate points at, two certificates
+     * contradicting one another about one digest, two protocols disagreeing about one suite code -- and each is proven
+     * live before the permutation is asserted, because a refutation that never fired would leave this test green
+     * whatever the walker did with order.
      */
     @Test
     void permutingTheDocumentChangesNothingButOrder() {
         List<String> components = new ArrayList<>(List
                 .of(algorithm("AES-256"), algorithm("RSA-2048"), algorithm("SHA-256"), certificate("a"),
-                        certificate("b")));
-        List<String> forward = keysOf(components);
+                        certificate("b"), material("dup-first", "k", "AQID"), material("dup-second", "k", "BAUG"),
+                        certificateReferencing("ambiguous", "k"), certificateReferencing("dangling", "nowhere"),
+                        library("outer", algorithm("ChaCha20"), material("nested-key", "u", "AAAA")),
+                        certificateReferencing("resolving", "u"), certificateWithDigest("digest-one", "one"),
+                        certificateWithDigest("digest-two", "two"),
+                        protocolWithSuite("tls-one", "TLS_AES_128_GCM_SHA256"),
+                        protocolWithSuite("tls-two", "TLS_AKE_WITH_AES_128_GCM_SHA256")));
+        Map<String, Row> forward = rowsByName(components);
+        assertThatEveryDocumentScopedEffectIsLive(forward);
 
         Collections.reverse(components);
-        List<String> reversed = keysOf(components);
+        Map<String, Row> reversed = rowsByName(components);
         Collections.shuffle(components, new java.util.Random(20260827));
-        List<String> shuffled = keysOf(components);
+        Map<String, Row> shuffled = rowsByName(components);
 
-        assertThat(reversed).containsExactlyInAnyOrderElementsOf(forward);
-        assertThat(shuffled).containsExactlyInAnyOrderElementsOf(forward);
+        assertThat(reversed).isEqualTo(forward);
+        assertThat(shuffled).isEqualTo(forward);
+    }
+
+    /**
+     * A permutation test proves nothing about state that never fired, so each document-scoped effect is asserted live
+     * first. The three referencing certificates share one subject, issuer and validity, so their keys can differ only
+     * through what the reference resolved to.
+     */
+    private static void assertThatEveryDocumentScopedEffectIsLive(Map<String, Row> rows) {
+        assertThat(rows).hasSize(16);
+        assertThat(rows.get("resolving").identityKey())
+                .describedAs("the reference into the nested library resolved and filled the composite's key slot")
+                .isNotEqualTo(rows.get("dangling").identityKey());
+        assertThat(rows.get("ambiguous").identityKey())
+                .describedAs("a duplicated ref resolves to nothing, exactly as a dangling one does")
+                .isEqualTo(rows.get("dangling").identityKey());
+        assertThat(List.of(rows.get("digest-one").chainStep(), rows.get("digest-two").chainStep()))
+                .describedAs("the contradicted digest was refused and both certificates fell to the composite")
+                .containsOnly("crt:dn-composite");
+        assertThat(rows.get("tls-one").identityKey())
+                .describedAs("the refuted suite code fell back to two different suite names")
+                .isNotEqualTo(rows.get("tls-two").identityKey());
     }
 
     @Test
@@ -342,6 +382,23 @@ class CbomAssetExtractorTest {
         return extraction.assets().stream().map(CbomAssetExtractor.ExtractedAsset::identityKey).sorted().toList();
     }
 
+    /** What a permutation may not move: which step keyed a component, and what it was keyed as. */
+    private record Row(String chainStep, String identityKey) {
+    }
+
+    private static Map<String, Row> rowsByName(List<String> components) {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[" + String.join(",", components) + "]}"));
+        assertThat(extraction.skips()).isEmpty();
+        Map<String, Row> rows = new HashMap<>();
+        for (CbomAssetExtractor.ExtractedAsset asset : extraction.assets()) {
+            assertThat(rows.put(asset.componentName(), new Row(asset.chainStep(), asset.identityKey())))
+                    .describedAs("component names in the fixture are unique")
+                    .isNull();
+        }
+        return rows;
+    }
+
     /** A component tree {@code depth} levels deep with one algorithm asset at the bottom. */
     private static String nestedDocument(int depth) {
         StringBuilder nested = new StringBuilder("{\"components\":[");
@@ -361,6 +418,37 @@ class CbomAssetExtractorTest {
         return "{\"type\":\"cryptographic-asset\",\"name\":\"cert-" + subject + "\",\"cryptoProperties\":"
                 + "{\"assetType\":\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=" + subject
                 + "\",\"issuerName\":\"CN=ca\"}}}";
+    }
+
+    /** A certificate whose composite can differ from its siblings' only through what its key reference resolves to. */
+    private static String certificateReferencing(String name, String ref) {
+        return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"cryptoProperties\":"
+                + "{\"assetType\":\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=referrer\","
+                + "\"issuerName\":\"CN=ca\",\"subjectPublicKeyRef\":\"" + ref + "\"}}}";
+    }
+
+    /** A certificate claiming one shared digest through {@code component.hashes[]}. */
+    private static String certificateWithDigest(String name, String subject) {
+        return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"hashes\":[{\"alg\":\"SHA-256\","
+                + "\"content\":\"" + "cd".repeat(32) + "\"}],\"cryptoProperties\":{\"assetType\":\"certificate\","
+                + "\"certificateProperties\":{\"subjectName\":\"CN=" + subject + "\",\"issuerName\":\"CN=ca\"}}}";
+    }
+
+    private static String material(String name, String ref, String value) {
+        return "{\"type\":\"cryptographic-asset\",\"bom-ref\":\"" + ref + "\",\"name\":\"" + name + "\","
+                + "\"cryptoProperties\":{\"assetType\":\"related-crypto-material\","
+                + "\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\",\"value\":\"" + value + "\"}}}";
+    }
+
+    /** A TLS 1.3 protocol offering one suite under code {@code 0x1301}, named as the caller says. */
+    private static String protocolWithSuite(String name, String suiteName) {
+        return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"cryptoProperties\":"
+                + "{\"assetType\":\"protocol\",\"protocolProperties\":{\"type\":\"tls\",\"version\":\"1.3\","
+                + "\"cipherSuites\":[{\"name\":\"" + suiteName + "\",\"identifiers\":[\"0x13\",\"0x01\"]}]}}}";
+    }
+
+    private static String library(String name, String... children) {
+        return "{\"type\":\"library\",\"name\":\"" + name + "\",\"components\":[" + String.join(",", children) + "]}";
     }
 
     private static JsonNode read(String json) {

@@ -69,10 +69,11 @@ public record AssetNormalizer(IdentityTables tables) {
     private static final int MAX_PRIMITIVE_LENGTH = 64;
 
     /**
-     * The longest component name this normalizer will process, matching {@code ck_crypto_asset_name_length} and the
-     * writer's own pre-check. Held as a constant here because normalization runs long before the write.
+     * The longest producer string this normalizer will read, matching {@code ck_crypto_asset_name_length} and the
+     * writer's own pre-check on the name. Held as a constant here because normalization runs long before the write.
+     * Every other producer field is held to the same bound -- {@link #boundedText} says why one bound is enough.
      */
-    private static final int MAX_NORMALIZABLE_NAME_LENGTH = 1024;
+    private static final int MAX_NORMALIZABLE_LENGTH = 1024;
 
     /**
      * Post-quantum families, standardized and pre-standard alike, folded for comparison. Used <em>only</em> to
@@ -180,10 +181,11 @@ public record AssetNormalizer(IdentityTables tables) {
      * <p>
      * The surrounding {@code \s*} this carried made the split <b>quadratic</b> on producer-supplied text: every start
      * position scanned the whole remaining whitespace run before failing on the alternation, so 16 000 spaces in an
-     * {@code ellipticCurve} field took 6.8s and a megabyte took hours. Only the component NAME is length-capped
-     * ({@code MAX_NORMALIZABLE_NAME_LENGTH}); the curve channels are not, so the field was an uncapped stall in ingest.
-     * Matching the separator alone is linear -- a megabyte now costs 31ms -- and costs nothing, because
-     * {@code canonicalCurve} strips each part before it looks anything up.
+     * {@code ellipticCurve} field took 6.8s and a megabyte took hours. At the time only the component NAME was
+     * length-capped and the curve channels were not, so the field was an uncapped stall in ingest. Matching the
+     * separator alone is linear -- a megabyte now costs 31ms -- and costs nothing, because {@code canonicalCurve}
+     * strips each part before it looks anything up. {@link #boundedText} has since closed the other half: the pattern
+     * bounds the work per character, the cap bounds the characters.
      */
     private static final Pattern CURVE_ALTERNATIVES = Pattern.compile("[/,+]|\\bor\\b|\\band\\b");
 
@@ -199,22 +201,49 @@ public record AssetNormalizer(IdentityTables tables) {
      *
      * <p>
      * Redaction runs first and unconditionally, so no later step -- and no caller -- ever observes key material.
+     *
+     * <p>
+     * The algorithm slots are derived only for a component routed as an algorithm. Every one of them is read out of the
+     * name and {@code algorithmProperties}, so without the gate a certificate named {@code server-rsa-2048.pem} carried
+     * RSA, 2048 and a signature primitive, and a password named for the DES vault it opens carried DES and a block
+     * cipher -- into columns that are stored, indexed and offered as filters. The strand's protocol arcs state the
+     * rule: family derivation runs only on {@code assetType == algorithm}. The OID is not one of those slots. It is the
+     * asset's own identifier, protocol assets carry one in real documents, and it is recorded for every type.
      */
     public Result normalize(JsonNode component) {
         MaterialRedaction redaction = MaterialRedaction.of(component.get("cryptoProperties"));
         JsonNode properties = redaction.keyedPayload();
-        JsonNode algorithm = objectOrEmpty(properties.get("algorithmProperties"));
 
         // Routed on cryptoProperties.assetType alone, never on the component's own type and never on which
         // properties block happens to be present. A producer bug once stamped relatedCryptoMaterialProperties onto
         // algorithms and certificates; a presence-based router would have pulled those into the wrong chain and
         // minted phantom material rows from the empty blocks it left behind.
-        String componentName = text(component.get("name"));
+        //
+        // The name is the one field read raw: past the bound it refuses the component, where every other field
+        // reads as absent, and the bounded reader would have turned the refusal into a nameless row.
+        JsonNode name = component.get("name");
+        String componentName = name != null && name.isTextual() ? name.textValue() : null;
         requireNormalizableName(componentName);
-        NormalizedAsset norm = new NormalizedAsset(normalizeAssetType(text(properties.get("assetType"))),
+        NormalizedAsset norm = new NormalizedAsset(normalizeAssetType(boundedText(properties.get("assetType"))),
                 componentName);
 
-        IdentityTables.OidEntry enrichment = deriveFamily(norm, properties, algorithm);
+        recordOid(norm, boundedText(properties.get("oid")));
+        if (CbomNames.ASSET_TYPE_ALGORITHM.equals(norm.assetType())) {
+            deriveAlgorithmSlots(norm, objectOrEmpty(properties.get("algorithmProperties")));
+        }
+        return new Result(norm, redaction);
+    }
+
+    /** The normalized asset and the redaction whose payload every later step must read. */
+    public record Result(NormalizedAsset asset, MaterialRedaction redaction) {
+    }
+
+    /**
+     * Family, size, curve, mode, padding, primitive and variant, in the order the class documentation fixes: each
+     * step's answer decides what the next may still read out of the name.
+     */
+    private void deriveAlgorithmSlots(NormalizedAsset norm, JsonNode algorithm) {
+        IdentityTables.OidEntry enrichment = deriveFamily(norm, algorithm);
         deriveParameterSet(norm, algorithm, enrichment);
         deriveCurve(norm, algorithm, enrichment);
         deriveMode(norm, algorithm, enrichment);
@@ -241,11 +270,6 @@ public record AssetNormalizer(IdentityTables tables) {
                             + "); the stored family " + norm.family()
                             + " is one half of it, because the registry has no " + "hybrid token");
         }
-        return new Result(norm, redaction);
-    }
-
-    /** The normalized asset and the redaction whose payload every later step must read. */
-    public record Result(NormalizedAsset asset, MaterialRedaction redaction) {
     }
 
     /**
@@ -263,8 +287,21 @@ public record AssetNormalizer(IdentityTables tables) {
      * the name that caused it.
      */
     private static void requireNormalizableName(String name) {
-        if (name != null && name.codePointCount(0, name.length()) > MAX_NORMALIZABLE_NAME_LENGTH) {
+        if (exceedsNormalizableLength(name)) {
             throw new IllegalArgumentException("A component name exceeds the storable length");
+        }
+    }
+
+    private static boolean exceedsNormalizableLength(String value) {
+        return value != null && value.codePointCount(0, value.length()) > MAX_NORMALIZABLE_LENGTH;
+    }
+
+    /** The producer's arc as written and as reduced, with a note when the two differ by more than spelling. */
+    private void recordOid(NormalizedAsset norm, String rawOid) {
+        norm.setRawOid(rawOid);
+        norm.setOid(normalizeOid(rawOid));
+        if (rawOid != null && norm.oid() == null) {
+            norm.note("oid " + rawOid + " is not a usable dotted arc");
         }
     }
 
@@ -559,14 +596,7 @@ public record AssetNormalizer(IdentityTables tables) {
      * discard the curve and break 1.6/1.7 parity, since 1.6 has no curve field at all. Only a genuine cross-group
      * contradiction refutes, and there the name wins.
      */
-    private IdentityTables.OidEntry deriveFamily(NormalizedAsset norm, JsonNode properties, JsonNode algorithm) {
-        String rawOid = text(properties.get("oid"));
-        norm.setRawOid(rawOid);
-        norm.setOid(normalizeOid(rawOid));
-        if (rawOid != null && norm.oid() == null) {
-            norm.note("oid " + rawOid + " is not a usable dotted arc");
-        }
-
+    private IdentityTables.OidEntry deriveFamily(NormalizedAsset norm, JsonNode algorithm) {
         IdentityTables.OidEntry entry = oidLookup(norm.oid());
         if (isCipherSuiteName(norm.name())) {
             norm.setFamily(null);
@@ -575,7 +605,7 @@ public record AssetNormalizer(IdentityTables tables) {
             return null;
         }
 
-        String declared = text(algorithm.get("algorithmFamily"));
+        String declared = boundedText(algorithm.get("algorithmFamily"));
         String fromOid = entry == null ? null : entry.family();
         String fromName = familyFromName(norm.name());
         norm.setOidDerivedFamily(fromOid);
@@ -745,10 +775,11 @@ public record AssetNormalizer(IdentityTables tables) {
                     ? accept(exact.toBigIntegerExact(), CbomNames.PARAMETER_SET_IDENTIFIER, notes)
                     : null;
         }
-        if (!parameterSetIdentifier.isTextual()) {
+        String spelled = boundedText(parameterSetIdentifier);
+        if (spelled == null) {
             return null;
         }
-        String text = AsciiText.strip(parameterSetIdentifier.textValue());
+        String text = AsciiText.strip(spelled);
         if (DIGITS.matcher(text).matches()) {
             return accept(new BigInteger(text), CbomNames.PARAMETER_SET_IDENTIFIER, notes);
         }
@@ -860,10 +891,10 @@ public record AssetNormalizer(IdentityTables tables) {
      * rather than observed.
      */
     private void deriveCurve(NormalizedAsset norm, JsonNode algorithm, IdentityTables.OidEntry enrichment) {
-        String parameterSetIdentifier = text(algorithm.get(CbomNames.PARAMETER_SET_IDENTIFIER));
+        String parameterSetIdentifier = boundedText(algorithm.get(CbomNames.PARAMETER_SET_IDENTIFIER));
         List<String[]> channels = new ArrayList<>();
-        channels.add(new String[]{text(algorithm.get(CbomNames.ELLIPTIC_CURVE)), CbomNames.ELLIPTIC_CURVE});
-        channels.add(new String[]{text(algorithm.get("curve")), "curve (inferred by producer)"});
+        channels.add(new String[]{boundedText(algorithm.get(CbomNames.ELLIPTIC_CURVE)), CbomNames.ELLIPTIC_CURVE});
+        channels.add(new String[]{boundedText(algorithm.get("curve")), "curve (inferred by producer)"});
         channels.add(new String[]{parameterSetIdentifier, CbomNames.PARAMETER_SET_IDENTIFIER});
         channels.add(new String[]{enrichment == null ? null : enrichment.curve(), "oid"});
         // Only an EC-bearing family may take a curve from free text, or any incidental word that happens to be a
@@ -879,8 +910,8 @@ public record AssetNormalizer(IdentityTables tables) {
             }
         }
         for (String raw : List
-                .of(nullToEmpty(text(algorithm.get(CbomNames.ELLIPTIC_CURVE))),
-                        nullToEmpty(text(algorithm.get("curve"))))) {
+                .of(nullToEmpty(boundedText(algorithm.get(CbomNames.ELLIPTIC_CURVE))),
+                        nullToEmpty(boundedText(algorithm.get("curve"))))) {
             if (!AsciiText.isBlank(raw) && !tables.isSentinel(raw)) {
                 norm.note("curve " + raw + " is not a registry token");
             }
@@ -976,8 +1007,8 @@ public record AssetNormalizer(IdentityTables tables) {
 
     private void deriveMode(NormalizedAsset norm, JsonNode algorithm, IdentityTables.OidEntry enrichment) {
         norm
-                .setMode(normalizeMode(text(algorithm.get("mode")),
-                        text(algorithm.get(CbomNames.PARAMETER_SET_IDENTIFIER)), norm.name()));
+                .setMode(normalizeMode(boundedText(algorithm.get("mode")),
+                        boundedText(algorithm.get(CbomNames.PARAMETER_SET_IDENTIFIER)), norm.name()));
         if (norm.mode() == null && enrichment != null && enrichment.mode() != null) {
             norm.setMode(enrichment.mode());
         }
@@ -1022,7 +1053,7 @@ public record AssetNormalizer(IdentityTables tables) {
      * merged {@code AES-128-CBC-PKCS7} with {@code AES-128-CBC-RAW}, which are different constructions.
      */
     private void derivePadding(NormalizedAsset norm, JsonNode algorithm) {
-        String declared = text(algorithm.get("padding"));
+        String declared = boundedText(algorithm.get("padding"));
         if (declared != null && !AsciiText.isBlank(declared) && !tables.isSentinel(declared)) {
             String token = AsciiText.upper(AsciiText.strip(declared));
             // L7: the slot was an unbounded passthrough and has stored arbitrary producer text verbatim. Only a value
@@ -1064,7 +1095,7 @@ public record AssetNormalizer(IdentityTables tables) {
      * splits an omitting producer from a declaring one.
      */
     private void derivePrimitive(NormalizedAsset norm, JsonNode algorithm) {
-        String declared = text(algorithm.get("primitive"));
+        String declared = boundedText(algorithm.get("primitive"));
         if (declared != null && !AsciiText.isBlank(declared) && !tables.isSentinel(declared)) {
             String stripped = AsciiText.strip(declared);
             // Every other typed slot is registry-bounded; this one is producer text straight through, and it lands in
@@ -1103,8 +1134,9 @@ public record AssetNormalizer(IdentityTables tables) {
         }
         Set<String> tokens = new LinkedHashSet<>();
         functions.forEach(function -> {
-            if (function.isTextual() && !AsciiText.isBlank(function.textValue())) {
-                tokens.add(AsciiText.strip(function.textValue()).toLowerCase(Locale.ROOT));
+            String spelled = boundedText(function);
+            if (!AsciiText.isBlank(spelled)) {
+                tokens.add(AsciiText.strip(spelled).toLowerCase(Locale.ROOT));
             }
         });
         if (tokens.stream().anyMatch(CONFLICTING_FUNCTIONS::contains)) {
@@ -1126,7 +1158,8 @@ public record AssetNormalizer(IdentityTables tables) {
      */
     private void foldAuthenticatedEncryption(NormalizedAsset norm) {
         // The null check on the primitive is not defensive noise: Set.of refuses a null argument outright, where the
-        // reference's membership test simply answers false. A protocol asset carrying no primitive reaches here.
+        // reference's membership test simply answers false. An algorithm with no family and no declared primitive
+        // reaches here with none.
         if (norm.mode() != null && norm.primitive() != null && AE_MODES.contains(AsciiText.upper(norm.mode()))
                 && AE_FOLDABLE.contains(norm.primitive())) {
             norm.setPrimitive("ae");
@@ -1296,8 +1329,26 @@ public record AssetNormalizer(IdentityTables tables) {
                 : com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
     }
 
-    private static String text(JsonNode node) {
-        return node != null && node.isTextual() ? node.textValue() : null;
+    /**
+     * A producer field's text, or {@code null} when the node is not textual or the value exceeds
+     * {@code MAX_NORMALIZABLE_LENGTH}.
+     *
+     * <p>
+     * This is the one gate every producer string passes before a grammar, a table or an arc walk sees it. The name
+     * carried the bound and nothing else did, so a producer's {@code ellipticCurve}, {@code parameterSetIdentifier} or
+     * {@code oid} reached the alternatives split, a {@code BigInteger} parse and the per-arc OID walk at whatever
+     * length the JSON reader allowed -- 20 million characters by default, with no body cap on the upload -- and the
+     * last two are quadratic. No registry spelling, mode, padding or arc comes near the bound, so nothing real reads as
+     * absent.
+     *
+     * <p>
+     * Absent rather than refused: an over-long side field costs its own slot, not the row -- the ruling the over-long
+     * primitive already follows. The name alone is refused, by {@link #requireNormalizableName}, because there the
+     * bound is the storage bound and a refused name could never have been written; none of these fields is stored raw.
+     */
+    private static String boundedText(JsonNode node) {
+        String value = node != null && node.isTextual() ? node.textValue() : null;
+        return exceedsNormalizableLength(value) ? null : value;
     }
 
     private static String nullToEmpty(String value) {

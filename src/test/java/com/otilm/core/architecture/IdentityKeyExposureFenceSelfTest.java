@@ -1,5 +1,6 @@
 package com.otilm.core.architecture;
 
+import com.otilm.core.architecture.IdentityKeyExposureFence.AccessorCall;
 import com.otilm.core.architecture.IdentityKeyExposureFence.MemberRef;
 import java.nio.file.Path;
 import java.util.List;
@@ -389,5 +390,88 @@ class IdentityKeyExposureFenceSelfTest {
                 .sourceFileViolations(allowlisted, List.of("  auditLog.logEvent(\"keyed\", identityKey);")))
                 .describedAs("the platform audit sink")
                 .hasSize(1);
+    }
+
+    // ---------------------------------------------------------------- key carriers
+
+    private static final String IDENTITY = "com.otilm.core.cbom.asset.identity.CryptoAssetIdentity$Identity";
+
+    private static final String EXTRACTED = "com.otilm.core.cbom.asset.identity.CbomAssetExtractor$ExtractedAsset";
+
+    private static final String EXTRACTOR = "com.otilm.core.cbom.asset.identity.CbomAssetExtractor";
+
+    private static final String CALCULATOR = "com.otilm.core.cbom.asset.identity.CryptoAssetIdentity";
+
+    private static final String WRITER = "com.otilm.core.service.writer.cbom.CryptoAssetWriter";
+
+    private static final String SERVICE = "com.otilm.core.service.impl.CryptoAssetServiceImpl";
+
+    /**
+     * The leak the text rules cannot see: {@code Identity.key()} is named so that no regex matches it, and a service
+     * reading it puts the value on a line that says nothing a text rule can catch.
+     */
+    @Test
+    void aServiceReadingAKeyCarrierIsReported() {
+        assertThat(carrierViolations(SERVICE, IDENTITY, "key"))
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetServiceImpl")
+                .contains("CryptoAssetIdentity$Identity.key");
+        assertThat(carrierViolations(SERVICE, IDENTITY, "preImage"))
+                .describedAs("the pre-image is the worse of the two")
+                .hasSize(1);
+        assertThat(carrierViolations(SERVICE, EXTRACTED, "identityKey"))
+                .describedAs("the extracted record carries the same value on toward persistence")
+                .hasSize(1);
+    }
+
+    /**
+     * A call is exempt for the reason a mention is: the caller's file is allowlisted for what the accessor returns. The
+     * same scoping as {@link #anAllowlistedFileMayNameOnlyItsOwnVocabulary}, applied to calls -- the extractor may take
+     * the key it hands to persistence and not the material; the identity layer may read the pre-image it builds and not
+     * the key it produces.
+     */
+    @Test
+    void aCallerMayReadOnlyTheVocabularyItsFileIsAllowlistedFor() {
+        assertThat(carrierViolations(EXTRACTOR, IDENTITY, "key"))
+                .describedAs("the extractor hands the key to persistence")
+                .isEmpty();
+        assertThat(carrierViolations(EXTRACTOR, IDENTITY, "preImage"))
+                .describedAs("and has no business reading the material")
+                .hasSize(1);
+        assertThat(carrierViolations(CALCULATOR, IDENTITY, "preImage"))
+                .describedAs("the identity layer builds the pre-image")
+                .isEmpty();
+        assertThat(carrierViolations(CALCULATOR, IDENTITY, "key"))
+                .describedAs("and must not read back the key it produces")
+                .hasSize(1);
+        assertThat(carrierViolations(WRITER, EXTRACTED, "identityKey"))
+                .describedAs("persistence stores the value")
+                .isEmpty();
+        assertThat(carrierViolations(WRITER, IDENTITY, "preImage")).hasSize(1);
+    }
+
+    /** A nested or anonymous class lives in its enclosing class's file, and the allowlist is written in files. */
+    @Test
+    void aNestedClassIsJudgedByTheFileThatEnclosesIt() {
+        assertThat(carrierViolations(EXTRACTOR + "$Walk", IDENTITY, "key")).isEmpty();
+        assertThat(carrierViolations(SERVICE + "$1", IDENTITY, "key")).hasSize(1);
+        assertThat(IdentityKeyExposureFence.sourcePathOf(EXTRACTOR + "$ExtractedAsset"))
+                .isEqualTo("src/main/java/com/otilm/core/cbom/asset/identity/CbomAssetExtractor.java");
+    }
+
+    /**
+     * The rule is about the carrier, not about the word. An unrelated accessor called {@code key} is nobody's business,
+     * and the carriers' harmless components -- the chain step, the guard -- are readable from anywhere.
+     */
+    @Test
+    void anAccessorMerelyNamedKeyOnAnotherTypeIsNotACarrier() {
+        assertThat(carrierViolations(SERVICE, "com.otilm.core.model.cbom.CipherSuiteDto", "key")).isEmpty();
+        assertThat(carrierViolations(SERVICE, IDENTITY, "step")).isEmpty();
+        assertThat(carrierViolations(SERVICE, EXTRACTED, "guard")).isEmpty();
+    }
+
+    private static List<String> carrierViolations(String caller, String target, String method) {
+        return IdentityKeyExposureFence.keyCarrierCallViolations(List.of(new AccessorCall(caller, target, method)));
     }
 }

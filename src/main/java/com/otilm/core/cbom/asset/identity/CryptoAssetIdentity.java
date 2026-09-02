@@ -20,8 +20,9 @@ import java.util.regex.Pattern;
  *
  * <p>
  * The identity value is SHA-256 over the pre-image encoded UTF-8, rendered lowercase hex. Slots join with {@code |} and
- * are percent-escaped; field order within a tier is fixed. <b>Escaping applies to outer slots only</b> -- a value that
- * goes into a string which is then hashed, with only the digest reaching a slot, is left literal.
+ * are percent-escaped; field order within a tier is fixed. <b>The outer escape set applies to outer slots only</b> -- a
+ * value that goes into a string which is then hashed, with only the digest reaching a slot, keeps its spaces and is
+ * escaped against that inner string's own delimiter alone, as {@link #dnPreImage} does.
  *
  * <p>
  * This exists as bytes rather than as groupings because a partition-based suite cannot check a hash. One
@@ -108,36 +109,15 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         NormalizedAsset asset = normalized.asset();
         JsonNode properties = normalized.redaction().keyedPayload();
 
-        String preImage;
-        String step;
-        boolean digestRefuted = false;
-        switch (asset.assetType() == null ? "" : asset.assetType()) {
-            case CbomNames.ASSET_TYPE_ALGORITHM -> {
-                String[] built = algorithm(asset, properties);
-                preImage = built[0];
-                step = built[1];
-            }
-            case CbomNames.ASSET_TYPE_CERTIFICATE -> {
-                String[] built = certificate(component, properties, scope, batchRefutedDigests);
-                preImage = built[0];
-                step = built[1];
-                digestRefuted = built.length > 2;
-            }
-            case CbomNames.ASSET_TYPE_PROTOCOL -> {
-                String[] built = protocol(component, properties, scope);
-                preImage = built[0];
-                step = built[1];
-            }
-            case CbomNames.ASSET_TYPE_RELATED_CRYPTO_MATERIAL -> {
-                String[] built = material(component, properties, normalized.redaction());
-                preImage = built[0];
-                step = built[1];
-            }
-            default -> {
-                preImage = backstop(asset, properties);
-                step = "backstop:unknown-type";
-            }
-        }
+        Tier tier = switch (asset.assetType() == null ? "" : asset.assetType()) {
+            case CbomNames.ASSET_TYPE_ALGORITHM -> algorithm(asset, properties);
+            case CbomNames.ASSET_TYPE_CERTIFICATE -> certificate(component, properties, scope, batchRefutedDigests);
+            case CbomNames.ASSET_TYPE_PROTOCOL -> protocol(component, properties, scope);
+            case CbomNames.ASSET_TYPE_RELATED_CRYPTO_MATERIAL ->
+                material(component, properties, normalized.redaction());
+            default -> new Tier(backstop(asset, properties), "backstop:unknown-type");
+        };
+        String preImage = tier.preImage();
 
         // Applied uniformly to every tier rather than added to each tuple: whether an asset is a claim or an
         // observation is orthogonal to which chain step answered, and one place is one place to review. Appended only
@@ -149,18 +129,36 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                             + "a scan of the same algorithm");
         }
 
-        recordCaseRisk(component, properties, asset, step);
-        return new Identity(IdentityDigests.sha256Hex(preImage), preImage, step, asset, normalized.redaction(),
-                guardFor(digestRefuted, step, asset));
+        recordCaseRisk(preImage, tier.hashedInputs(), asset);
+        return new Identity(IdentityDigests.sha256Hex(preImage), preImage, tier.step(), asset, normalized.redaction(),
+                guardFor(tier.digestRefuted(), tier.step(), asset));
     }
 
     /**
-     * A certificate tier's pre-image and step, plus a third slot present only when a claimed digest was refuted. The
-     * caller reads the slot's presence, never its content -- it exists so the refutation stays visible outside the
-     * method that saw it.
+     * One chain step's answer: the pre-image, the step that built it, and the inner strings it hashed on the way.
+     *
+     * <p>
+     * {@code hashedInputs} are the strings whose digest alone reaches the pre-image -- the distinguished-name composite
+     * and the occurrence triples. They travel with the pre-image so the case-risk detector examines exactly what the
+     * key consumed, at the site that consumed it, rather than re-deriving it from the component and reading a raw
+     * {@code location} the key path had already sanitized. Deliberately absent: the material value behind
+     * {@code MAT|..|V|} and the canonical JSON behind a projection digest. The first is the secret the redaction layer
+     * exists to keep out of every carrier; the second is a whole payload, not a spelling an operator could fold.
+     *
+     * <p>
+     * {@code digestRefuted} is set only by the certificate tier, so the refutation stays visible outside the method
+     * that saw it.
      */
-    private static String[] tier(String preImage, String step, boolean digestRefuted) {
-        return digestRefuted ? new String[]{preImage, step, "refuted"} : new String[]{preImage, step};
+    private record Tier(String preImage, String step, boolean digestRefuted, List<String> hashedInputs) {
+
+        Tier(String preImage, String step) {
+            this(preImage, step, false, List.of());
+        }
+
+        /** A tier whose pre-image carries the digest of {@code hashed}, or nothing more when {@code hashed} is null. */
+        static Tier hashing(String preImage, String step, boolean digestRefuted, String hashed) {
+            return new Tier(preImage, step, digestRefuted, hashed == null ? List.of() : List.of(hashed));
+        }
     }
 
     /**
@@ -197,15 +195,13 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                 + PreImageSlot.of(AsciiText.fold(collapse(asset.name())));
     }
 
-    private String[] algorithm(NormalizedAsset asset, JsonNode properties) {
+    private Tier algorithm(NormalizedAsset asset, JsonNode properties) {
         if (asset.family() != null) {
             // `primitive` is NOT in the key. Carrying it produced 434 keys where 399 are correct, and 426 assets sat
             // in groups that disagreed with themselves about it: producers describing one RSA-2048 emit
             // {signature, pke, kem}. It stays a stored, indexed, filterable column.
-            return new String[]{
-                    "ALG|" + join(asset.family(), text(asset.parameterSet()), asset.curve(), asset.mode(),
-                            asset.padding(), asset.variant()),
-                    "alg:family"};
+            return new Tier("ALG|" + join(asset.family(), text(asset.parameterSet()), asset.curve(), asset.mode(),
+                    asset.padding(), asset.variant()), "alg:family");
         }
         if (asset.name() != null && !AsciiText.isBlank(asset.name())) {
             // No family derivable, so the normalized name becomes the discriminator. Without it one producer's
@@ -215,12 +211,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             // `private%2520key` -- a percent sign escaped twice. No implementer reading the specification would
             // reproduce that.
             String token = AsciiText.fold(collapse(AsciiText.strip(asset.name())));
-            return new String[]{
-                    "ALG||" + join(token, text(asset.parameterSet()), asset.curve(), asset.mode(), asset.padding(),
-                            asset.variant()),
-                    "alg:name"};
+            return new Tier("ALG||" + join(token, text(asset.parameterSet()), asset.curve(), asset.mode(),
+                    asset.padding(), asset.variant()), "alg:name");
         }
-        return new String[]{"RAW|algorithm|" + CanonicalJson.projectionDigest(properties), "alg:backstop"};
+        return new Tier("RAW|algorithm|" + CanonicalJson.projectionDigest(properties), "alg:backstop");
     }
 
     /**
@@ -232,7 +226,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * 1.7-only {@code fingerprint} on 0 of 6, so the content hash is the primary path. Promoting a collision-prone,
      * normalization-dependent key over a content hash present in 100% of the data would be a strict downgrade.
      */
-    private String[] certificate(JsonNode component, JsonNode properties, DocumentScope scope,
+    private Tier certificate(JsonNode component, JsonNode properties, DocumentScope scope,
             Set<String> batchRefutedDigests) {
         JsonNode certificate = objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES));
         Set<String> refuted = new TreeSet<>(scope.refutedCertificateDigests());
@@ -252,21 +246,23 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                 continue;
             }
             boolean fromFingerprint = digest.equals(CertificateDigests.fingerprintDigest(certificate));
-            return tier("CRT|H|" + SPEC_ID + "|" + PreImageSlot.of(digest),
-                    fromFingerprint ? "crt:fingerprint" : "crt:component-hash", digestRefuted);
+            return new Tier("CRT|H|" + SPEC_ID + "|" + PreImageSlot.of(digest),
+                    fromFingerprint ? "crt:fingerprint" : "crt:component-hash", digestRefuted, List.of());
         }
 
         String serial = text(certificate, "serialNumber");
         String issuer = DistinguishedNames.normalize(text(certificate, CbomNames.ISSUER_NAME), normalizer.tables());
         if (serial != null && !AsciiText.isBlank(serial) && issuer != null) {
-            return tier("CRT|S|" + SPEC_ID + "|" + PreImageSlot.of(AsciiText.fold(AsciiText.strip(serial))) + "|"
-                    + PreImageSlot.of(issuer), "crt:serial+issuer", digestRefuted);
+            return new Tier("CRT|S|" + SPEC_ID + "|" + PreImageSlot.of(AsciiText.fold(AsciiText.strip(serial))) + "|"
+                    + PreImageSlot.of(issuer), "crt:serial+issuer", digestRefuted, List.of());
         }
 
         String subject = DistinguishedNames.normalize(text(certificate, CbomNames.SUBJECT_NAME), normalizer.tables());
         if (subject != null && issuer != null) {
-            return tier("CRT|D|" + SPEC_ID + "|" + IdentityDigests.sha256Hex(dnPreImage(properties, scope)),
-                    "crt:dn-composite", digestRefuted);
+            String composite = dnPreImage(properties, scope);
+            return Tier
+                    .hashing("CRT|D|" + SPEC_ID + "|" + IdentityDigests.sha256Hex(composite), "crt:dn-composite",
+                            digestRefuted, composite);
         }
 
         String token = ComponentNames.stableToken(text(component, "name"));
@@ -274,19 +270,20 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             // Reached when the composite is not constructible -- typically a CN-only subject with no issuer. It gets
             // its own row and is never merged into a full-DN row: two internal CAs both issue CN=localhost, and
             // merging them would make "where is weak crypto deployed" answer CLEAN for a vulnerable host.
-            String discriminator = Occurrences.discriminator(component);
+            String triples = Occurrences.triples(component);
             // The occurrence discriminator is appended ONLY when the component has occurrences. Emitting a trailing
             // empty slot re-keys every degenerate certificate.
-            String suffix = discriminator == null ? "" : "|" + discriminator;
+            String suffix = triples == null ? "" : "|" + IdentityDigests.sha256Hex(triples);
             String validity = validitySlots(certificate);
             String step = DistinguishedNames.isCommonNameOnly(subject) ? CRT_CN_ONLY : "crt:subject-only";
-            return tier("CRT|C|" + SPEC_ID + "|" + PreImageSlot.of(subject) + "|" + validity + "|"
-                    + PreImageSlot.of(token) + suffix, step, digestRefuted);
+            return Tier
+                    .hashing("CRT|C|" + SPEC_ID + "|" + PreImageSlot.of(subject) + "|" + validity + "|"
+                            + PreImageSlot.of(token) + suffix, step, digestRefuted, triples);
         }
         // The backstop needs the name too: two certificates with no digest, no issuer and no subject --
         // `server-rsa-2048.pem` and `server-ecdsa-p256.pem` in a real document -- merged on a payload hash alone.
-        return tier("RAW|certificate|" + PreImageSlot.of(token) + "|" + CanonicalJson.projectionDigest(properties),
-                "crt:backstop", digestRefuted);
+        return new Tier("RAW|certificate|" + PreImageSlot.of(token) + "|" + CanonicalJson.projectionDigest(properties),
+                "crt:backstop", digestRefuted, List.of());
     }
 
     /**
@@ -299,9 +296,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * {@code ("a|b","c")} and {@code ("a","b|c")} both built {@code CRT|C|v1|<subject>|a|b|c|<token>}.
      *
      * <p>
-     * These are outer slots, unlike the same two values inside {@link #dnPreImage}, which stay literal because only
-     * their digest reaches a slot -- R15 §873, and getting it backwards re-keys every certificate. 0 of 8 {@code CRT|C}
-     * vectors move, because every validity slot they carry is epoch digits or empty.
+     * These are outer slots, unlike the same two values inside {@link #dnPreImage}, which keep their spaces because
+     * only their digest reaches a slot -- R15 §873, and getting it backwards re-keys every certificate -- and are
+     * escaped there against the composite's own delimiter instead. 0 of 8 {@code CRT|C} vectors move, because every
+     * validity slot they carry is epoch digits or empty.
      */
     private static String validitySlots(JsonNode certificate) {
         return PreImageSlot.of(ValidityTimestamps.normalize(text(certificate, "notValidBefore"))) + "|"
@@ -317,21 +315,49 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * hashed slot must publish its input or it is not testable.
      *
      * <p>
-     * Note the values here are <b>not</b> slot-escaped: only the SHA-256 of this string reaches a slot, so the inner
-     * pre-image carries a space intact where an outer slot would carry {@code %20}. Getting that backwards re-keys
-     * every certificate.
+     * The values here are <b>not</b> outer-slot-escaped: only the SHA-256 of this string reaches a slot, so the inner
+     * pre-image carries a space intact where an outer slot would carry {@code %20} -- R15 §873, and 11 of the 14
+     * ratified composites carry a space, so applying the outer set here would re-key them all. What each value
+     * <em>is</em> escaped against is this string's own delimiter, through {@link #compositeField}: the five fields were
+     * joined raw, and {@link ValidityTimestamps#normalize} hands back an unparseable producer value verbatim, so
+     * {@code (notBefore="a|b", notAfter="c")} and {@code (notBefore="a", notAfter="b|c")} built one composite and one
+     * key. The same raw join let an observation {@code (notAfter="2|t", name="claimed")} render as a claimed
+     * certificate {@code (notAfter="2", name="t")}, forging the D0 marker. Every field goes through the escape, not
+     * only the validity pair: the distinguished-name halves happen to backslash their own {@code |} today, but a
+     * composition is injective on its own terms or not at all.
      */
     public String dnPreImage(JsonNode properties, DocumentScope scope) {
         JsonNode certificate = objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES));
         return String
                 .join("|",
-                        nullToEmpty(DistinguishedNames
+                        compositeField(DistinguishedNames
                                 .normalize(text(certificate, CbomNames.SUBJECT_NAME), normalizer.tables())),
-                        nullToEmpty(DistinguishedNames
+                        compositeField(DistinguishedNames
                                 .normalize(text(certificate, CbomNames.ISSUER_NAME), normalizer.tables())),
-                        ValidityTimestamps.normalize(text(certificate, "notValidBefore")),
-                        ValidityTimestamps.normalize(text(certificate, "notValidAfter")),
-                        PreImageSlot.of(publicKeyDigest(properties, scope)));
+                        compositeField(ValidityTimestamps.normalize(text(certificate, "notValidBefore"))),
+                        compositeField(ValidityTimestamps.normalize(text(certificate, "notValidAfter"))),
+                        compositeField(publicKeyDigest(properties, scope)));
+    }
+
+    /**
+     * One field of the distinguished-name composite, escaped against the composite's own {@code |} and nothing else.
+     *
+     * <p>
+     * The escape set is this string's, not {@link PreImageSlot}'s, for the same reason {@link #fingerprintClaim} owns
+     * its {@code :}: the outer set would also escape the spaces the ratified composites carry intact. {@code %} is in
+     * the set because an escape that leaves its own escape character alone is not injective -- {@code a%7Cb} and
+     * {@code a|b} would render one field.
+     */
+    private static String compositeField(String value) {
+        return value == null ? "" : PreImageSlot.escape(value, CryptoAssetIdentity::compositeEscapeFor);
+    }
+
+    private static String compositeEscapeFor(char character) {
+        return switch (character) {
+            case '%' -> "%25";
+            case '|' -> "%7C";
+            default -> null;
+        };
     }
 
     /**
@@ -470,7 +496,8 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             try {
                 AssetNormalizer.Result targetNormalized = normalizer.normalize(target);
                 return "A:" + IdentityDigests
-                        .sha256Hex(algorithm(targetNormalized.asset(), targetNormalized.redaction().keyedPayload())[0]);
+                        .sha256Hex(algorithm(targetNormalized.asset(), targetNormalized.redaction().keyedPayload())
+                                .preImage());
             } catch (IllegalArgumentException e) {
                 // Same containment as the value tier above: a malformed target must cost the target its row, never
                 // the certificates pointing at it.
@@ -479,7 +506,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         return null;
     }
 
-    private String[] protocol(JsonNode component, JsonNode properties, DocumentScope scope) {
+    private Tier protocol(JsonNode component, JsonNode properties, DocumentScope scope) {
         JsonNode protocol = objectOrNull(properties.get("protocolProperties"));
         String rawKind = text(protocol, "type");
         String kind = rawKind == null || AsciiText.isBlank(rawKind) ? null : AsciiText.fold(AsciiText.strip(rawKind));
@@ -491,17 +518,15 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         String suffix = configuration == null ? "" : "|" + PreImageSlot.of(configuration);
 
         if (kind != null && version != null && suites != null) {
-            return new String[]{
-                    "PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + "|" + suites + suffix,
-                    "prt:type+version+suites"};
+            return new Tier("PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + "|" + suites + suffix,
+                    "prt:type+version+suites");
         }
         // Tier 2 is for a row that offered NO suites. A row that declared suites which could not be resolved falls to
         // the name tier instead, so "we know it has suites and cannot read them" never merges with "nothing was said".
         // Without the guard, tier 2 fired for every versioned row and the name tier below was unreachable.
         if (kind != null && version != null && !CipherSuites.declared(properties)) {
-            return new String[]{
-                    "PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + suffix,
-                    "prt:type+version"};
+            return new Tier("PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + suffix,
+                    "prt:type+version");
         }
         if (kind != null) {
             return protocolBelowSuiteDigest(component, properties, kind, version, suffix);
@@ -510,10 +535,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // byte-identical properties and different names used to merge. Stated precisely: the same name at different
         // occurrence locations still merges here, exactly as it does on the tier this mirrors.
         String rawName = text(component, "name");
-        return new String[]{
+        return new Tier(
                 "RAW|protocol|" + CanonicalJson.projectionDigest(properties) + "|"
                         + PreImageSlot.of(AsciiText.fold(collapse(AsciiText.strip(rawName == null ? "" : rawName)))),
-                "prt:backstop"};
+                "prt:backstop");
     }
 
     /**
@@ -524,28 +549,29 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * protocol assets collapsed onto ONE identity because they share a type, carry no version and no
      * {@code cipherSuites} array, and sit at the same occurrence.
      */
-    private String[] protocolBelowSuiteDigest(JsonNode component, JsonNode properties, String kind, String version,
+    private Tier protocolBelowSuiteDigest(JsonNode component, JsonNode properties, String kind, String version,
             String suffix) {
         String token = ComponentNames.stableToken(text(component, "name"));
-        String discriminator = Occurrences.discriminator(component);
+        String triples = Occurrences.triples(component);
         if (version != null && !token.isEmpty()) {
-            return new String[]{
+            return new Tier(
                     "PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + "|N:" + PreImageSlot.of(token),
-                    "prt:type+version+name"};
+                    "prt:type+version+name");
         }
-        if (discriminator != null) {
+        if (triples != null) {
             // The version slot is carried here for the same reason the terminal branch below carries it: this tier is
             // reached with a version in hand whenever the name token is empty, and emitting the slot empty gave an
             // SSL 3.0 endpoint and a TLS 1.3 endpoint at one location a single identity -- the hazard tier 2 exists
             // to separate, live one tier down. 0 corpus rows carry a version, no name and an occurrence together, so
             // nothing moves today.
-            return new String[]{
-                    "PRT|" + PreImageSlot.of(kind) + "|" + (version == null ? "" : PreImageSlot.of(version)) + "|"
-                            + PreImageSlot.of(token) + "|" + discriminator,
-                    "prt:type+occurrence"};
+            return Tier
+                    .hashing(
+                            "PRT|" + PreImageSlot.of(kind) + "|" + (version == null ? "" : PreImageSlot.of(version))
+                                    + "|" + PreImageSlot.of(token) + "|" + IdentityDigests.sha256Hex(triples),
+                            "prt:type+occurrence", false, triples);
         }
         if (!token.isEmpty()) {
-            return new String[]{"PRT|" + PreImageSlot.of(kind) + "||" + PreImageSlot.of(token), "prt:type+name"};
+            return new Tier("PRT|" + PreImageSlot.of(kind) + "||" + PreImageSlot.of(token), "prt:type+name");
         }
         // Terminal fall-through. The version slot is carried and emitted even when empty, which makes the shape
         // regular against tier 1 -- it used to be dropped, so TLS 1.2, TLS 1.3 and a version-less row all shared one
@@ -553,10 +579,8 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // case still merged the two states tier 2 exists to separate. `declared` is a closed token and cannot collide
         // with the digest this slot otherwise holds, because a digest is hex.
         String declared = CipherSuites.declared(properties) ? "declared" : "";
-        return new String[]{
-                "PRT|" + PreImageSlot.of(kind) + "|" + (version == null ? "" : PreImageSlot.of(version)) + "|"
-                        + declared + suffix,
-                "prt:type-only"};
+        return new Tier("PRT|" + PreImageSlot.of(kind) + "|" + (version == null ? "" : PreImageSlot.of(version)) + "|"
+                + declared + suffix, "prt:type-only");
     }
 
     /**
@@ -618,7 +642,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * producer emits {@code {"type": "secret-key"}} and nothing else for all 37 of its assets, so 84% reach the
      * occurrence tier.
      */
-    private String[] material(JsonNode component, JsonNode properties, MaterialRedaction redaction) {
+    private Tier material(JsonNode component, JsonNode properties, MaterialRedaction redaction) {
         JsonNode material = objectOrNull(properties.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES));
         String rawKind = text(material, "type");
         String kind = AsciiText.fold(AsciiText.strip(rawKind == null ? "" : rawKind));
@@ -631,34 +655,31 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // `MAT|<kind>|F|unknown:`, so two different secret keys collapsed onto one row and the value-hash tier one
         // branch below -- which would have kept them apart -- was never reached.
         if (fingerprint != null && fingerprint.isObject() && hasContent(fingerprint.get(CbomNames.CONTENT))) {
-            return new String[]{
+            return new Tier(
                     "MAT|" + PreImageSlot.of(kind) + "|F|"
                             + fingerprintClaim(fingerprint.get("alg"), fingerprint.get(CbomNames.CONTENT)),
-                    "mat:fingerprint"};
+                    "mat:fingerprint");
         }
         if (redaction.identityDigest() != null) {
-            return new String[]{"MAT|" + PreImageSlot.of(kind) + "|V|" + redaction.identityDigest(), "mat:value-hash"};
+            return new Tier("MAT|" + PreImageSlot.of(kind) + "|V|" + redaction.identityDigest(), "mat:value-hash");
         }
         String identifier = text(material, "id");
         if (identifier != null && !AsciiText.isBlank(identifier)) {
-            return new String[]{
-                    "MAT|" + PreImageSlot.of(kind) + "|I|" + PreImageSlot.of(AsciiText.strip(identifier)),
-                    "mat:id"};
+            return new Tier("MAT|" + PreImageSlot.of(kind) + "|I|" + PreImageSlot.of(AsciiText.strip(identifier)),
+                    "mat:id");
         }
 
         // Below the content-derived tiers the type slot may carry nothing at all -- `other` is a catch-all -- so the
         // stable part of the name joins the discriminator. That is what keeps a CRL and a CSR apart.
         String token = ComponentNames.stableToken(text(component, "name"));
-        String discriminator = Occurrences.discriminator(component);
-        if (discriminator != null) {
-            return new String[]{
-                    "MAT|" + PreImageSlot.of(kind) + "|O|" + PreImageSlot.of(token) + "|" + discriminator,
-                    "mat:occurrence"};
+        String triples = Occurrences.triples(component);
+        if (triples != null) {
+            return Tier
+                    .hashing("MAT|" + PreImageSlot.of(kind) + "|O|" + PreImageSlot.of(token) + "|"
+                            + IdentityDigests.sha256Hex(triples), "mat:occurrence", false, triples);
         }
-        return new String[]{
-                "MAT|" + PreImageSlot.of(kind) + "|P|" + PreImageSlot.of(token) + "|"
-                        + CanonicalJson.projectionDigest(properties),
-                "mat:backstop"};
+        return new Tier("MAT|" + PreImageSlot.of(kind) + "|P|" + PreImageSlot.of(token) + "|"
+                + CanonicalJson.projectionDigest(properties), "mat:backstop");
     }
 
     /**
@@ -690,43 +711,27 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
     }
 
     /**
-     * Records that this row carries a value the ASCII fold left unfolded, but only where such a value actually reaches
-     * the key for the tier that fired.
+     * Records that this row carries a value the ASCII fold left unfolded, over exactly the bytes the key consumed.
+     *
+     * <p>
+     * The detector reads the pre-image and the inner strings it hashed, never a per-step re-derivation from the
+     * component. The re-derivation read {@code evidence.occurrences[].location} raw, so a credential the key path had
+     * stripped through {@code Occurrences.sanitizeLocation} landed in {@link NormalizedAsset#keyedCaseValues} and its
+     * accented letters in a served note -- while the key and the stored evidence carried neither; and it flagged a
+     * {@code CRT|H} certificate for a distinguished name that tier never hashes. Reading what was hashed makes both
+     * impossible by construction rather than by keeping a step table in sync with the tiers. The escapes change no
+     * non-ASCII character, so the detector sees the same cased letters the hash did.
      *
      * <p>
      * This is provenance, not a claim that a duplicate exists: whether one does is a question about the estate, which
      * only a batch-scoped detector can answer.
      */
-    private void recordCaseRisk(JsonNode component, JsonNode properties, NormalizedAsset asset, String step) {
-        List<String> keyed = new ArrayList<>();
-        if (step.startsWith("crt:")) {
-            JsonNode certificate = objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES));
-            keyed.add(text(certificate, CbomNames.SUBJECT_NAME));
-            keyed.add(text(certificate, CbomNames.ISSUER_NAME));
-        }
-        if ("mat:id".equals(step)) {
-            keyed.add(text(objectOrNull(properties.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES)), "id"));
-        }
-        if (Set
-                .of("alg:name", CRT_CN_ONLY, "crt:subject-only", "crt:backstop", "mat:occurrence", "mat:backstop",
-                        "prt:type+name", "prt:type+occurrence", "prt:type+version+name")
-                .contains(step)) {
-            keyed.add(text(component, "name"));
-        }
-        if (step.contains("occurrence")) {
-            JsonNode evidence = component.get("evidence");
-            JsonNode occurrences = evidence == null ? null : evidence.get("occurrences");
-            if (occurrences != null && occurrences.isArray()) {
-                occurrences.forEach(occurrence -> {
-                    if (occurrence.isObject()) {
-                        keyed.add(text(occurrence, "location"));
-                    }
-                });
-            }
-        }
-        List<String> present = keyed.stream().filter(java.util.Objects::nonNull).toList();
-        asset.setKeyedCaseValues(present);
-        asset.setAsciiCaseRisk(unfoldedCaseRisk(present));
+    private static void recordCaseRisk(String preImage, List<String> hashedInputs, NormalizedAsset asset) {
+        List<String> keyed = new ArrayList<>(hashedInputs.size() + 1);
+        keyed.add(preImage);
+        keyed.addAll(hashedInputs);
+        asset.setKeyedCaseValues(keyed);
+        asset.setAsciiCaseRisk(unfoldedCaseRisk(keyed));
         if (!asset.asciiCaseRisk().isEmpty()) {
             // Worded to avoid naming the key: this note is stored in the row's provenance block and can be served,
             // and the exposure fence refuses a production source outside persistence that names the key at all.
@@ -788,9 +793,5 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
 
     private static JsonNode objectOrNull(JsonNode node) {
         return node != null && node.isObject() ? node : null;
-    }
-
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value;
     }
 }

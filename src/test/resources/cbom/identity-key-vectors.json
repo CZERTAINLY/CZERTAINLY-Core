@@ -2,7 +2,7 @@
  "$comment": "Frozen byte-level conformance vectors for core#2070 (R15/D19). The identity value is SHA-256 over the pre-image encoded UTF-8, lowercase hex. A mismatch on preImage names the slot; a mismatch on identityKey alone means the hashing or encoding differs.",
  "specId": "v1",
  "hash": "sha256(preImage.encode('utf-8')).hexdigest()",
- "vectorCount": 267,
+ "vectorCount": 268,
  "vectors": [
   {
    "id": "crt-dn-public-key-target",
@@ -5667,9 +5667,9 @@
     ]
    },
    "expected": {
-    "chainStep": "alg:family",
-    "preImage": "ALG|GOST|||||rlegacy",
-    "identityKey": "cb5a7cab70ed453d762a28b3889566ffcad6fbee41a774bf0a7df72e5d540d39"
+    "chainStep": "alg:name",
+    "preImage": "ALG||gost%20r%2034.10/34.11%20(legacy)|||||gostrlegacy",
+    "identityKey": "d1d06c9d8ec503d2ccfb57bb2bc0cff6c0658743e57fe2ff3d6bd042f57758a4"
    }
   },
   {
@@ -9171,6 +9171,51 @@
     "preImage": "MAT|public-key|F|sha-256:abababababababababababababababababababababababababababababababab|claimed",
     "identityKey": "98c2e23d33eb86bc60806b2e96b6b7db31796ac598d646b4b22035b3c6737644"
    }
+  },
+  {
+   "id": "crt-dn-public-key-target-17",
+   "why": "R16 material branch through the 1.7 spelling: the public key is named by `relatedCryptographicAssets[type=public-key].ref`, not by 1.6's `subjectPublicKeyRef`, and the entry type is matched separator-dropped and case-folded. Certificate, target and value are those of `crt-dn-public-key-target`, so the two spellings MUST land on one key -- a 1.6 producer and a 1.7 producer describing one certificate must not fork it. A reader that compares the entry type raw, or reads the entry's `bom-ref` instead of its `ref`, resolves nothing and keys this certificate on an EMPTY `K:` slot",
+   "component": {
+    "type": "cryptographic-asset",
+    "name": "server",
+    "cryptoProperties": {
+     "assetType": "certificate",
+     "certificateProperties": {
+      "subjectName": "CN=vector.example",
+      "issuerName": "CN=vector ca",
+      "notValidBefore": "2026-01-01T00:00:00Z",
+      "notValidAfter": "2027-01-01T00:00:00Z",
+      "relatedCryptographicAssets": [
+       {
+        "type": "public-key",
+        "ref": "vector-public-key-17"
+       }
+      ]
+     }
+    }
+   },
+   "expected": {
+    "chainStep": "crt:dn-composite",
+    "preImage": "CRT|D|v1|1cfcd84b375f8e288114a954599b0ac64eed1a01231419d711893aa92b60026b",
+    "identityKey": "51b9ab1537a92b63c3eee95d1d0aaa420ee4d1795917997efc4966afb58e2e6c",
+    "innerPreImages": {
+     "dnComposite": "2.5.4.3=vector.example|2.5.4.3=vector ca|1767225600|1798761600|K:91b4d142823f7d20c5f08df69122de43f35f057a988d9619f6d3138485c9a203"
+    }
+   },
+   "refTargets": [
+    {
+     "type": "cryptographic-asset",
+     "bom-ref": "vector-public-key-17",
+     "name": "server public key",
+     "cryptoProperties": {
+      "assetType": "related-crypto-material",
+      "relatedCryptoMaterialProperties": {
+       "type": "public-key",
+       "value": "AAAA"
+      }
+     }
+    }
+   ]
   }
  ]
 }

@@ -327,6 +327,56 @@ class NormalizationRulesTest {
     }
 
     /**
+     * A credential in an occurrence location reaches neither the detector's input nor a served note.
+     *
+     * <p>
+     * The key path and the stored evidence both strip user-info through {@code Occurrences.sanitizeLocation}; the
+     * case-risk detector re-read the component's raw {@code location} instead, so the password sat in
+     * {@link NormalizedAsset#keyedCaseValues} and the R12 note named characters that only the query string carried. The
+     * detector now sees the strings the tier actually hashed, which is the same fix as reporting only what was keyed.
+     */
+    @Test
+    void anOccurrenceCredentialReachesNeitherTheDetectorNorANote() {
+        NormalizedAsset asset = IDENTITY.of(protocolAt("tcp://user:p\u00E4ssword@host:443/p?token=\u00C4")).asset();
+
+        assertThat(asset.keyedCaseValues())
+                .describedAs("asserted positively first, so the exclusion below cannot pass on an empty list")
+                .anyMatch(value -> value.contains("tcp://host:443/p"))
+                .noneMatch(value -> value.contains("ssword"));
+        assertThat(asset.notes()).noneMatch(note -> note.startsWith("R12:"));
+    }
+
+    /**
+     * The detector still fires on what survives sanitization, which is what says the fix narrowed rather than blinded.
+     *
+     * <p>
+     * A path is kept where user-info and the query are not, so a non-ASCII cased path is genuinely keyed unfolded and
+     * R12 is genuinely owed. Feeding the detector the sanitized string must not cost that.
+     */
+    @Test
+    void aCaseRiskInTheKeyedPathStillSurfaces() {
+        NormalizedAsset asset = IDENTITY.of(protocolAt("tcp://host:443/p\u00F6th")).asset();
+
+        assertThat(asset.asciiCaseRisk()).containsExactly("\u00F6");
+        assertThat(asset.notes()).anyMatch(note -> note.startsWith("R12:"));
+    }
+
+    /**
+     * Neither validity value can forge the boundary between them inside the composite either.
+     *
+     * <p>
+     * The second site of the class {@code aValidityCannotForgeTheSlotBoundaryBesideIt} closed on {@code CRT|C}: the
+     * {@code CRT|D} composite joined subject, issuer, both validities and the public-key slot with a raw {@code |}
+     * before hashing, so the {@code |claimed} marker an observation appends was forgeable from a validity. The
+     * composite escapes {@code %} as well as {@code |}, because escaping one side alone preserves the collision.
+     */
+    @Test
+    void aValidityCannotForgeTheBoundaryInsideTheDnComposite() {
+        assertThat(keyOf(dnCompositeComponent("a|b", "c"))).isNotEqualTo(keyOf(dnCompositeComponent("a", "b|c")));
+        assertThat(keyOf(dnCompositeComponent("a%7Cb", "c"))).isNotEqualTo(keyOf(dnCompositeComponent("a|b", "c")));
+    }
+
+    /**
      * Neither half of a material fingerprint can forge the {@code :} between them.
      *
      * <p>
@@ -571,6 +621,21 @@ class NormalizationRulesTest {
         return read("{\"type\":\"cryptographic-asset\",\"name\":\"cert\",\"cryptoProperties\":{\"assetType\":"
                 + "\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=one\",\"notValidBefore\":"
                 + quote(notValidBefore) + ",\"notValidAfter\":" + quote(notValidAfter) + "}}}");
+    }
+
+    /** A protocol row with no version and unreadable suites, which is what the occurrence tier answers. */
+    private static JsonNode protocolAt(String location) {
+        return read("{\"type\":\"cryptographic-asset\",\"evidence\":{\"occurrences\":[{\"location\":" + quote(location)
+                + "}]},\"cryptoProperties\":{\"assetType\":\"protocol\","
+                + "\"protocolProperties\":{\"type\":\"tls\",\"cipherSuites\":[{}]}}}");
+    }
+
+    /** A certificate carrying both names and both validities, which is what reaches the composite tier. */
+    private static JsonNode dnCompositeComponent(String notValidBefore, String notValidAfter) {
+        return read("{\"type\":\"cryptographic-asset\",\"name\":\"cert\",\"cryptoProperties\":{\"assetType\":"
+                + "\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=one\",\"issuerName\":"
+                + "\"CN=ca\",\"notValidBefore\":" + quote(notValidBefore) + ",\"notValidAfter\":" + quote(notValidAfter)
+                + "}}}");
     }
 
     private static JsonNode materialWithFingerprint(String algorithm, String content) {
