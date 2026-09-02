@@ -278,8 +278,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             // The occurrence discriminator is appended ONLY when the component has occurrences. Emitting a trailing
             // empty slot re-keys every degenerate certificate.
             String suffix = discriminator == null ? "" : "|" + discriminator;
-            String validity = ValidityTimestamps.normalize(text(certificate, "notValidBefore")) + "|"
-                    + ValidityTimestamps.normalize(text(certificate, "notValidAfter"));
+            String validity = validitySlots(certificate);
             String step = DistinguishedNames.isCommonNameOnly(subject) ? CRT_CN_ONLY : "crt:subject-only";
             return tier("CRT|C|" + SPEC_ID + "|" + PreImageSlot.of(subject) + "|" + validity + "|"
                     + PreImageSlot.of(token) + suffix, step, digestRefuted);
@@ -288,6 +287,25 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // `server-rsa-2048.pem` and `server-ecdsa-p256.pem` in a real document -- merged on a payload hash alone.
         return tier("RAW|certificate|" + PreImageSlot.of(token) + "|" + CanonicalJson.projectionDigest(properties),
                 "crt:backstop", digestRefuted);
+    }
+
+    /**
+     * The two {@code CRT|C} validity slots, each escaped as an outer slot.
+     *
+     * <p>
+     * R15 escapes {@code |} inside a slot value and these two were joined raw, which is reachable on schema-valid
+     * input: {@link ValidityTimestamps#normalize} returns the stripped producer string when it parses as no timestamp
+     * at all, so a producer controls the bytes. Demonstrated, identically in Java and in the reference kernel:
+     * {@code ("a|b","c")} and {@code ("a","b|c")} both built {@code CRT|C|v1|<subject>|a|b|c|<token>}.
+     *
+     * <p>
+     * These are outer slots, unlike the same two values inside {@link #dnPreImage}, which stay literal because only
+     * their digest reaches a slot -- R15 §873, and getting it backwards re-keys every certificate. 0 of 8 {@code CRT|C}
+     * vectors move, because every validity slot they carry is epoch digits or empty.
+     */
+    private static String validitySlots(JsonNode certificate) {
+        return PreImageSlot.of(ValidityTimestamps.normalize(text(certificate, "notValidBefore"))) + "|"
+                + PreImageSlot.of(ValidityTimestamps.normalize(text(certificate, "notValidAfter")));
     }
 
     /**
@@ -367,9 +385,54 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * <p>
      * Kept here rather than borrowed from the digest helpers: it guards this tier's fingerprint branch and nothing
      * else, and a package-private helper on another class is one deletion away from taking this branch with it.
+     *
+     * <p>
+     * <b>Textual, not merely non-empty.</b> {@code asText()} renders a boolean and a number, so {@code content: 10}
+     * keyed identically to {@code content: "10"} and {@code content: true} keyed as the string {@code true} -- two
+     * producers stating different things onto one row. Both schema versions type the member as a string, so this is
+     * schema-invalid input rather than a live shape, which is why it is a gate and not a finding; the certificate side
+     * of the same class already gates on {@code isTextual()}.
      */
     private static boolean hasContent(JsonNode node) {
-        return node != null && !node.isNull() && !node.asText().isEmpty();
+        return node != null && node.isTextual() && !node.textValue().isEmpty();
+    }
+
+    /**
+     * Joins a fingerprint's algorithm to its content so neither half can forge the boundary between them.
+     *
+     * <p>
+     * The second site of one class. {@code CertificateDigests.claim} closed it for {@code hashes[]} and
+     * {@code fingerprint} on the certificate side; this pre-image kept the bare {@code :}, so
+     * {@code {"alg":"sha-256:a","content":"b"}} and {@code {"alg":"sha-256","content":"a:b"}} rendered one string and
+     * two different keys became one. Relocating the ticket item with the certificate file moved the item and left the
+     * class behind.
+     *
+     * <p>
+     * The escape set is this layer's, not {@link PreImageSlot}'s: the joined claim then enters a {@code |}-delimited
+     * outer slot, and teaching {@code PreImageSlot} the {@code :} would escape it there too and erase the boundary it
+     * exists to draw. So the pre-image carries the doubly-escaped {@code %253A}, exactly as the certificate claim does.
+     *
+     * <p>
+     * <b>A blank algorithm is an absent one.</b> {@code "alg": ""} folded to the empty label and keyed
+     * {@code F|:content} where an absent {@code alg} keys {@code F|unknown:content}; a producer emitting the member
+     * empty has stated no algorithm, which is what {@code unknown} already means. Emptiness rather than nullness is the
+     * same rule the content gate above uses.
+     */
+    private static String fingerprintClaim(JsonNode algorithm, JsonNode content) {
+        String label = algorithm == null || !algorithm.isTextual() || AsciiText.isBlank(algorithm.textValue())
+                ? "unknown"
+                : AsciiText.fold(algorithm.textValue());
+        return PreImageSlot
+                .of(PreImageSlot.escape(label, CryptoAssetIdentity::claimEscapeFor) + ":" + PreImageSlot
+                        .escape(AsciiText.fold(content.textValue()), CryptoAssetIdentity::claimEscapeFor));
+    }
+
+    private static String claimEscapeFor(char character) {
+        return switch (character) {
+            case '%' -> "%25";
+            case ':' -> "%3A";
+            default -> null;
+        };
     }
 
     private String publicKeyDigest(JsonNode properties, DocumentScope scope) {
@@ -452,8 +515,14 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                         "prt:type+version+name"};
             }
             if (discriminator != null) {
+                // The version slot is carried here for the same reason the terminal branch below carries it: this
+                // tier is reached with a version in hand whenever the name token is empty, and emitting the slot
+                // empty gave an SSL 3.0 endpoint and a TLS 1.3 endpoint at one location a single identity -- the
+                // hazard tier 2 exists to separate, live one tier down. 0 corpus rows carry a version, no name and
+                // an occurrence together, so nothing moves today.
                 return new String[]{
-                        "PRT|" + PreImageSlot.of(kind) + "||" + PreImageSlot.of(token) + "|" + discriminator,
+                        "PRT|" + PreImageSlot.of(kind) + "|" + (version == null ? "" : PreImageSlot.of(version)) + "|"
+                                + PreImageSlot.of(token) + "|" + discriminator,
                         "prt:type+occurrence"};
             }
             if (!token.isEmpty()) {
@@ -552,11 +621,9 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // `MAT|<kind>|F|unknown:`, so two different secret keys collapsed onto one row and the value-hash tier one
         // branch below -- which would have kept them apart -- was never reached.
         if (fingerprint != null && fingerprint.isObject() && hasContent(fingerprint.get(CbomNames.CONTENT))) {
-            JsonNode algorithm = fingerprint.get("alg");
-            String label = AsciiText.fold(algorithm == null || algorithm.isNull() ? "unknown" : algorithm.asText());
             return new String[]{
-                    "MAT|" + PreImageSlot.of(kind) + "|F|" + PreImageSlot.of(label) + ":"
-                            + PreImageSlot.of(AsciiText.fold(fingerprint.get(CbomNames.CONTENT).asText())),
+                    "MAT|" + PreImageSlot.of(kind) + "|F|"
+                            + fingerprintClaim(fingerprint.get("alg"), fingerprint.get(CbomNames.CONTENT)),
                     "mat:fingerprint"};
         }
         if (redaction.identityDigest() != null) {

@@ -47,32 +47,60 @@ public final class DocumentScope {
     private final Set<String> refutedCertificateDigests;
     private final Set<String> refutedSuiteCodes;
     private final Map<String, JsonNode> componentsByRef;
+    private final Set<String> ambiguousRefs;
 
     private DocumentScope(Set<String> refutedCertificateDigests, Set<String> refutedSuiteCodes,
-            Map<String, JsonNode> componentsByRef) {
+            Map<String, JsonNode> componentsByRef, Set<String> ambiguousRefs) {
         this.refutedCertificateDigests = refutedCertificateDigests;
         this.refutedSuiteCodes = refutedSuiteCodes;
         this.componentsByRef = componentsByRef;
+        this.ambiguousRefs = ambiguousRefs;
     }
 
     /** An empty scope, for keying a component with no document around it. Every refutation set is empty. */
     public static DocumentScope none() {
-        return new DocumentScope(Set.of(), Set.of(), Map.of());
+        return new DocumentScope(Set.of(), Set.of(), Map.of(), Set.of());
     }
 
+    /**
+     * Indexes the document's components by {@code bom-ref}, treating a duplicated ref as naming nothing.
+     *
+     * <p>
+     * <b>Ambiguity is unresolved, not first-one-wins.</b> {@code bom-ref} is producer-assigned and nothing in either
+     * schema version makes it unique, and real producer output duplicates it: 6 corpus documents carry 27 duplicated
+     * ref instances, one of them emitting {@code crypto/protocol/tls@TLSv1.3} three times in five documents.
+     * First-in-document-order made a certificate's key depend on which serialization of one document the platform
+     * happened to ingest -- permuting the components moved a real key from {@code 06b755a7…} to {@code eeba7e15…} --
+     * and permutation-invariance is a property the extractor states, so document order cannot be allowed to decide
+     * identity. An ambiguous ref therefore joins the absent, dangling and wrong-kind cases the resolution rule already
+     * treats as unresolved.
+     *
+     * <p>
+     * The counter-argument from the clean-room pass -- that an unresolved ref yields an empty slot, and empty-slot
+     * certificates merge -- does not separate the two arms: both certificates carry the <em>same</em> duplicated ref
+     * string, so first-one-wins hands them the same target and merges them too. What differs between the arms is only
+     * whether document order can move a key. 0 corpus rows move either way, because no duplicated ref is currently
+     * pointed at.
+     *
+     * <p>
+     * Both arms owe the producer an ingest finding, and neither can raise one yet: {@link #ambiguousRefs()} carries
+     * what a finding would name, and core#2073 owns the channel that reports it.
+     */
     public static DocumentScope of(JsonNode document, AssetNormalizer normalizer) {
         if (document == null) {
             return none();
         }
         Map<String, JsonNode> byRef = new LinkedHashMap<>();
+        Set<String> duplicated = new LinkedHashSet<>();
         for (JsonNode component : walk(document)) {
             JsonNode ref = component.get("bom-ref");
-            if (ref != null && ref.isTextual()) {
-                byRef.putIfAbsent(ref.textValue(), component);
+            if (ref != null && ref.isTextual() && byRef.putIfAbsent(ref.textValue(), component) != null) {
+                duplicated.add(ref.textValue());
             }
         }
+        duplicated.forEach(byRef::remove);
         return new DocumentScope(refute(certificateDigestClaims(document, normalizer)), refutedSuiteCodes(document),
-                byRef);
+                byRef, Set.copyOf(duplicated));
     }
 
     /**
@@ -124,9 +152,21 @@ public final class DocumentScope {
         return refutedSuiteCodes;
     }
 
-    /** Resolves a document-internal bom-ref to its component, or {@code null}. */
+    /** Resolves a document-internal bom-ref to its component, or {@code null} when it names none or more than one. */
     public JsonNode resolve(JsonNode ref) {
         return ref != null && ref.isTextual() ? componentsByRef.get(ref.textValue()) : null;
+    }
+
+    /**
+     * Refs this document defines more than once, which resolve to nothing.
+     *
+     * <p>
+     * Exposed for the ingest finding that both arms of the ambiguity rule require and that no channel in
+     * {@code src/main} can yet report -- see {@link #of}. A caller that resolves nothing cannot otherwise tell an
+     * ambiguous ref from an absent one, and the producer needs to hear which of the two it emitted.
+     */
+    public Set<String> ambiguousRefs() {
+        return ambiguousRefs;
     }
 
     /**

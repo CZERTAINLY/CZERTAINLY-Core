@@ -1,5 +1,9 @@
 package com.otilm.core.cbom.asset.identity;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.HexFormat;
@@ -125,10 +129,27 @@ public final class DistinguishedNames {
     }
 
     /** Decodes the {@code #hexDER} form one producer emits for every attribute type it does not know. */
+    /**
+     * Decodes a {@code #}-marked hex DER attribute value, refusing to collapse bytes that are not UTF-8.
+     *
+     * <p>
+     * <b>{@code new String(bytes, UTF_8)} was lossy in the identity-bearing direction.</b> It maps every malformed
+     * sequence to U+FFFD, so {@code #1401E9}, {@code #1401EA} and {@code #1401FF} produced one byte-identical AVA and
+     * two different issuers merged onto one row -- and {@code DocumentScope.certificateDigestClaims} normalizes the
+     * same values, so the refutation index could not see the contradiction either. This is the decoding-side twin of
+     * the unpaired-surrogate hole closed on the encoding side.
+     *
+     * <p>
+     * A sequence that is not UTF-8 renders as its bytes, percent-escaped -- {@code %14%01%E9} -- which is injective,
+     * ASCII, and reproducible in the reference kernel, whose {@code decode("utf-8", "replace")} carries the same defect
+     * and moves with this. Escaping the whole value rather than the offending run keeps the two implementations from
+     * having to agree on where a malformed run begins. 0 corpus rows carry a hex DER attribute at all, so nothing moves
+     * today; what changes is that a forged one no longer merges.
+     */
     private static String decodeHexDer(String value) {
         try {
             byte[] decoded = HexFormat.of().parseHex(value.substring(1));
-            String text = new String(decoded, java.nio.charset.StandardCharsets.UTF_8);
+            String text = strictUtf8(decoded);
             StringBuilder printable = new StringBuilder(text.length());
             text.codePoints().filter(DistinguishedNames::isPrintable).forEach(printable::appendCodePoint);
             return AsciiText.strip(printable.toString());
@@ -136,6 +157,23 @@ public final class DistinguishedNames {
             // Not hex after all. The leading marker is dropped and the rest compared verbatim, which is what the
             // reference does -- refusing the value outright would lose a real attribute.
             return value.substring(1);
+        }
+    }
+
+    private static String strictUtf8(byte[] bytes) {
+        try {
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+        } catch (CharacterCodingException e) {
+            StringBuilder escaped = new StringBuilder(bytes.length * 3);
+            for (byte value : bytes) {
+                escaped.append('%').append(HexFormat.of().withUpperCase().toHexDigits(value));
+            }
+            return escaped.toString();
         }
     }
 
