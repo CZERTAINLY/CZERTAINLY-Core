@@ -72,7 +72,8 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
         seedTyped(CryptographicAssetType.PROTOCOL, "TLS-1.3");
         applyVerdict(a1, PqcVerdict.NOT_READY);
 
-        CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
+        CryptographicAssetStatisticsDto dto = cryptographicAssetService
+                .getCryptographicAssetStatistics(SecurityFilter.create());
 
         assertEquals(4L, dto.getTotalAssets());
         assertEquals(2L, dto.getStatByType().get("algorithm"));
@@ -130,7 +131,8 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
                 .upsertSource(contributor, c.getUuid(), Map.of("name", "contributor"),
                         List.of(Map.of("location", "a.c")), OffsetDateTime.now());
 
-        CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
+        CryptographicAssetStatisticsDto dto = cryptographicAssetService
+                .getCryptographicAssetStatistics(SecurityFilter.create());
 
         Map<String, Long> bySyncState = dto.getSyncCompleteness().getCbomStatBySyncState();
         assertThat(bySyncState.get("pending")).isEqualTo(1L);
@@ -144,7 +146,8 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
 
         OffsetDateTime t2later = t1.plusSeconds(30);
         syncStateWriter.markSynced(d.getUuid(), t2later);
-        CryptographicAssetStatisticsDto after = cryptographicAssetService.getCryptographicAssetStatistics();
+        CryptographicAssetStatisticsDto after = cryptographicAssetService
+                .getCryptographicAssetStatistics(SecurityFilter.create());
         assertThat(after.getSyncCompleteness().getLastCompletedSyncAt()).isEqualTo(t2later);
     }
 
@@ -161,7 +164,8 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
                 .upsertSource(assetB, contributing.getUuid(), Map.of("name", "source-count-b"),
                         List.of(Map.of("location", "b.c")), OffsetDateTime.now());
 
-        CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
+        CryptographicAssetStatisticsDto dto = cryptographicAssetService
+                .getCryptographicAssetStatistics(SecurityFilter.create());
 
         assertThat(dto.getSourceCbomCount())
                 .describedAs("one cbom sourcing two assets counts once; the untouched cbom counts zero")
@@ -170,7 +174,8 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
 
     @Test
     void emptyInventoryServesZeroesNotNulls() {
-        CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
+        CryptographicAssetStatisticsDto dto = cryptographicAssetService
+                .getCryptographicAssetStatistics(SecurityFilter.create());
 
         assertThat(dto.getTotalAssets()).isZero();
         assertThat(dto.getStatByType()).hasSize(5);
@@ -192,7 +197,8 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
             seedTypedWithFamily(CryptographicAssetType.ALGORITHM, "family-top-n-" + i, "family-" + i);
         }
 
-        CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
+        CryptographicAssetStatisticsDto dto = cryptographicAssetService
+                .getCryptographicAssetStatistics(SecurityFilter.create());
 
         assertThat(dto.getStatByAlgorithmFamily()).hasSize(10);
         assertThat(dto.getDistinctAlgorithmFamilyCount()).isEqualTo(12L);
@@ -216,7 +222,8 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
 
         denyObjectAccess(Resource.CBOM, ResourceAction.LIST);
 
-        CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
+        CryptographicAssetStatisticsDto dto = cryptographicAssetService
+                .getCryptographicAssetStatistics(SecurityFilter.create());
 
         assertThat(dto.getSourceCbomCount())
                 .describedAs("a permission-shaped zero would read as a never-synced estate; omit instead")
@@ -245,7 +252,8 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
 
         forbidCbomObjects(List.of(hidden.getUuid()));
 
-        CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
+        CryptographicAssetStatisticsDto dto = cryptographicAssetService
+                .getCryptographicAssetStatistics(SecurityFilter.create());
 
         assertThat(dto.getSourceCbomCount())
                 .describedAs("only the visible cbom is counted; a partial restriction is not deniesEverything")
@@ -260,7 +268,8 @@ class CryptographicAssetStatisticsITest extends BaseSpringBootTest {
     // ---- helpers ----
 
     private void assertStatisticsReconcileWithTheList(long expectedTotalAssets) {
-        CryptographicAssetStatisticsDto dto = cryptographicAssetService.getCryptographicAssetStatistics();
+        CryptographicAssetStatisticsDto dto = cryptographicAssetService
+                .getCryptographicAssetStatistics(SecurityFilter.create());
         PaginationResponseDto<CryptographicAssetDto> page = cryptographicAssetService
                 .listCryptographicAssets(SecurityFilter.create(), new SearchRequestDto());
 

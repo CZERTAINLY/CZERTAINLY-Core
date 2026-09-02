@@ -55,7 +55,9 @@ public interface CryptographicAssetExternalService {
      * Count badges, distribution maps and the sync-completeness block for the inventory dashboard. Shares the list
      * permission with {@link #listCryptographicAssets} rather than carrying a gate of its own.
      *
+     * @param filter security filter narrowing the asset-side counts to the caller's permitted objects; the
+     * document-level completeness block is scoped separately, by CBOM object access
      * @return the dashboard statistics
      */
-    CryptographicAssetStatisticsDto getCryptographicAssetStatistics();
+    CryptographicAssetStatisticsDto getCryptographicAssetStatistics(SecurityFilter filter);
 }

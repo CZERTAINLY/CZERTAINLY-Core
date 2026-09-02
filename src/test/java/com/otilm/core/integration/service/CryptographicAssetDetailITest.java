@@ -219,7 +219,8 @@ class CryptographicAssetDetailITest extends BaseSpringBootTest {
 
     /**
      * F5: producers occasionally emit a numeric evidence field as a string, or a textual one as a number; the DTO must
-     * still serve the value rather than let a type mismatch drop it silently.
+     * still serve the value rather than let a type mismatch drop it silently. location is additionally
+     * contract-REQUIRED, so an occurrence that lacks it entirely must still serve {@code ""}, never {@code null}.
      *
      * <p>
      * Seeded by saving the source row directly rather than through {@link CryptoAssetSourceWriter}:
@@ -236,23 +237,29 @@ class CryptographicAssetDetailITest extends BaseSpringBootTest {
         occurrence.put("location", 123);
         occurrence.put("line", "42");
         occurrence.put("offset", 7);
+        Map<String, Object> occurrenceWithoutLocation = new HashMap<>();
+        occurrenceWithoutLocation.put("line", 1);
         CryptoAssetSource source = new CryptoAssetSource();
         source.setAssetUuid(assetUuid);
         source.setCbomUuid(cbom.getUuid());
-        source.setOccurrenceCount(1);
+        source.setOccurrenceCount(2);
         source.setPropertiesLeafCount(0);
         source.setFirstSeenAt(NOW);
         source.setLastSeenAt(NOW);
-        source.setEvidence(List.of(occurrence));
+        source.setEvidence(List.of(occurrence, occurrenceWithoutLocation));
         cryptoAssetSourceRepository.save(source);
 
         CryptographicAssetDetailDto detail = cryptographicAssetService
                 .getCryptographicAsset(SecuredUUID.fromUUID(assetUuid));
 
-        CryptographicAssetEvidenceDto evidence = detail.getSources().get(0).getEvidence().get(0);
+        List<CryptographicAssetEvidenceDto> servedEvidence = detail.getSources().get(0).getEvidence();
+        CryptographicAssetEvidenceDto evidence = servedEvidence.get(0);
         assertThat(evidence.getLocation()).isEqualTo("123");
         assertThat(evidence.getLine()).isEqualTo(42);
         assertThat(evidence.getOffset()).isEqualTo(7);
+        assertThat(servedEvidence.get(1).getLocation())
+                .describedAs("location is REQUIRED; an occurrence with no location key must not serve null")
+                .isEqualTo("");
     }
 
     /**

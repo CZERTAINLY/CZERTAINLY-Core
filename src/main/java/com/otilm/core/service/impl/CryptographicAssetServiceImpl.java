@@ -240,29 +240,28 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTO_ASSET, action = ResourceAction.LIST)
-    public CryptographicAssetStatisticsDto getCryptographicAssetStatistics() {
-        // No SecurityFilter parameter reaches this method (the contract takes none), so both scopes are built
-        // by hand: assets under the caller's CRYPTO_ASSET LIST scope -- which is what makes these numbers
-        // reconcile with the list -- and the document-level completeness block under the CBOM LIST scope.
-        SecurityFilter assetFilter = SecurityFilter.create();
-        objectFilterAspect.populateSecurityFilter(Resource.CRYPTO_ASSET, ResourceAction.LIST, null, null, assetFilter);
+    public CryptographicAssetStatisticsDto getCryptographicAssetStatistics(SecurityFilter filter) {
+        // The annotation aspect populates `filter` under the caller's CRYPTO_ASSET LIST scope before this method
+        // runs -- the same mechanism listCryptographicAssets uses -- which is what makes these numbers reconcile
+        // with the list. The document-level completeness block is a second, cross-resource scope the aspect
+        // cannot populate from one annotation, so only that half is still built by hand, same as
+        // cbomSerialNumbersScopedToCaller and the detail endpoint's visibleCbomUuids.
         SecurityFilter cbomFilter = SecurityFilter.create();
         objectFilterAspect.populateSecurityFilter(Resource.CBOM, ResourceAction.LIST, null, null, cbomFilter);
         long start = System.nanoTime();
         try (ExecutorService executor = new DelegatingSecurityContextExecutorService(
                 Executors.newVirtualThreadPerTaskExecutor())) {
             Future<Long> totalAssets = executor
-                    .submit(() -> cryptoAssetRepository.countRowsUsingSecurityFilter(assetFilter, null));
+                    .submit(() -> cryptoAssetRepository.countRowsUsingSecurityFilter(filter, null));
             Future<Map<String, Long>> byType = executor
                     .submit(() -> cryptoAssetRepository
-                            .countGroupedUsingSecurityFilter(assetFilter, null, CryptoAsset_.assetType, null, null));
+                            .countGroupedUsingSecurityFilter(filter, null, CryptoAsset_.assetType, null, null));
             Future<Map<String, Long>> byVerdict = executor
                     .submit(() -> cryptoAssetRepository
-                            .countGroupedUsingSecurityFilter(assetFilter, null, CryptoAsset_.pqcVerdict, null, null));
+                            .countGroupedUsingSecurityFilter(filter, null, CryptoAsset_.pqcVerdict, null, null));
             Future<Map<String, Long>> byFamily = executor
                     .submit(() -> cryptoAssetRepository
-                            .countGroupedUsingSecurityFilter(assetFilter, null, CryptoAsset_.algorithmFamily, null,
-                                    null));
+                            .countGroupedUsingSecurityFilter(filter, null, CryptoAsset_.algorithmFamily, null, null));
             Future<Long> sourceCbomCount = executor
                     .submit(() -> cbomRepository
                             .countUsingSecurityFilter(cbomFilter, CryptographicAssetServiceImpl::hasContributedAssets));
@@ -605,7 +604,9 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
     /** Stored evidence is the capped producer occurrence array; the keys are CycloneDX occurrence field names. */
     private static CryptographicAssetEvidenceDto toEvidenceDto(Map<String, Object> occurrence) {
         CryptographicAssetEvidenceDto dto = new CryptographicAssetEvidenceDto();
-        dto.setLocation(asServedText(occurrence.get("location")));
+        // location is contract-REQUIRED; the write side (OccurrenceEvidenceCapper#sanitizeLocation) already
+        // established "" as the absent-location representation, so the read side must not serve null here either.
+        dto.setLocation(Objects.requireNonNullElse(asServedText(occurrence.get("location")), ""));
         dto.setLine(asServedInteger(occurrence.get("line")));
         dto.setOffset(asServedInteger(occurrence.get("offset")));
         dto.setSymbol(asServedText(occurrence.get("symbol")));
