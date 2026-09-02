@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  * <p>
  * The tables are <em>data, never code</em>: they load from {@code cbom/identity-tables.json}, the same artifact the
  * reference implementation reads, so a vocabulary change is a reviewed data change rather than a code change in two
- * languages. The shipped file's SHA-256 is {@code 3b3fefa535b8...}. Every published cross-implementation agreement
+ * languages. The shipped file's SHA-256 is {@code 920a4aa515e9...}. Every published cross-implementation agreement
  * figure predates it and was measured against {@code 1331969bb507...} -- quote an agreement number only with the
  * artifact hash it was taken against, because a number measured before a table change is a historical number, not a
  * current one.
@@ -196,8 +196,15 @@ public final class IdentityTables {
     }
 
     /** True when the value is one of the ratified "producer said nothing" spellings, which are treated as absent. */
+    /**
+     * {@link AsciiText#strip}, not {@code String.strip}. The JDK consults {@code Character.isWhitespace}, which does
+     * not treat U+0085, U+00A0, U+2007 or U+202F as whitespace, so {@code "0.0.0.0\u00A0"} pasted out of a document
+     * escaped the sentinel guard and grew a permanent bogus version bucket beside the real one. The specification's
+     * whitespace set is the one this class already uses for every lookup key, and the disagreement between the two is
+     * one-directional -- the reference set is strictly wider -- so substituting it can only widen what is recognised.
+     */
     public boolean isSentinel(String value) {
-        return value != null && sentinels.contains(AsciiText.fold(value.strip()));
+        return value != null && sentinels.contains(AsciiText.fold(AsciiText.strip(value)));
     }
 
     /** True when {@code pseudo} is a pseudo-family that {@code concrete} belongs to. */
@@ -214,7 +221,9 @@ public final class IdentityTables {
      * split because the declaration used to be taken verbatim.
      */
     public String familyToken(String declared) {
-        return declared == null ? null : familyTokens.get(AsciiText.lookupKey(declared.strip()));
+        // AsciiText.strip for the reason isSentinel gives: a declared family carrying a no-break space missed the
+        // legal-token map and was reported as outside the vocabulary, which drops it from the key entirely.
+        return declared == null ? null : familyTokens.get(AsciiText.lookupKey(AsciiText.strip(declared)));
     }
 
     public Set<String> families() {

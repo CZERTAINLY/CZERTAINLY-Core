@@ -3,6 +3,7 @@ package com.otilm.core.cbom.asset.identity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.TextNode;
 import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -280,6 +281,201 @@ class NormalizationRulesTest {
     }
 
     // ---------------------------------------------------------------- helpers
+
+    // ---------------------------------------------------------------- sub-delimiters and dropped slots (core#2165)
+
+    /**
+     * Neither validity value can forge the boundary between them.
+     *
+     * <p>
+     * R15 escapes {@code |} inside a slot and the two {@code CRT|C} validity slots were joined raw. Reachable on
+     * schema-valid input, because an unparseable validity is keyed on the producer's own string.
+     */
+    @Test
+    void aValidityCannotForgeTheSlotBoundaryBesideIt() {
+        assertThat(keyOf(certificateComponent("a|b", "c"))).isNotEqualTo(keyOf(certificateComponent("a", "b|c")));
+    }
+
+    /**
+     * Neither half of a material fingerprint can forge the {@code :} between them.
+     *
+     * <p>
+     * The second site of the class {@code CertificateDigests.claim} closed on the certificate side: the material
+     * fingerprint kept a bare join, so an algorithm carrying a colon spelled the same claim as a content carrying one.
+     */
+    @Test
+    void aFingerprintAlgorithmCannotForgeItsOwnSeparator() {
+        assertThat(keyOf(materialWithFingerprint("sha-256:aabbcc", "dd")))
+                .isNotEqualTo(keyOf(materialWithFingerprint("sha-256", "aabbcc:dd")));
+    }
+
+    /**
+     * A blank algorithm states no algorithm, which is what an absent one already means.
+     */
+    @Test
+    void aBlankFingerprintAlgorithmIsAnAbsentOne() {
+        assertThat(keyOf(materialWithFingerprint("", "aabbcc")))
+                .isEqualTo(keyOf(read("{\"type\":\"cryptographic-asset\",\"cryptoProperties\":{\"assetType\":"
+                        + "\"relatedCryptoMaterial\",\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\","
+                        + "\"fingerprint\":{\"content\":\"aabbcc\"}}}}")));
+    }
+
+    /**
+     * A fingerprint's content is text or it is nothing.
+     *
+     * <p>
+     * {@code asText()} renders a number and a boolean, so {@code content: 10} keyed identically to {@code "10"} and two
+     * producers stating different things landed on one row. The certificate side of the same class already gates on the
+     * node type.
+     */
+    @Test
+    void aNonTextualFingerprintContentDoesNotKeyAsItsRendering() {
+        assertThat(keyOf(read("{\"type\":\"cryptographic-asset\",\"cryptoProperties\":{\"assetType\":"
+                + "\"relatedCryptoMaterial\",\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\","
+                + "\"fingerprint\":{\"alg\":\"sha-256\",\"content\":10}}}}")))
+                .isNotEqualTo(keyOf(materialWithFingerprint("sha-256", "10")));
+    }
+
+    /**
+     * The protocol occurrence tier carries the version it holds.
+     *
+     * <p>
+     * The tier is reached with a version in hand whenever the name token is empty, and the slot was emitted empty -- so
+     * an SSL 3.0 endpoint and a TLS 1.3 endpoint at one location shared an identity, which is the hazard the version
+     * tier exists to prevent, one tier down.
+     */
+    @Test
+    void aVersionedNamelessProtocolDoesNotMergeAcrossVersions() {
+        assertThat(IDENTITY.of(protocolAtOneLocation("1.3")).step()).isEqualTo("prt:type+occurrence");
+        assertThat(keyOf(protocolAtOneLocation("1.3"))).isNotEqualTo(keyOf(protocolAtOneLocation("3.0")));
+    }
+
+    /**
+     * The bytes of the three pre-image shapes this change moved, pinned where no ratified vector covers them.
+     *
+     * <p>
+     * The 537 generated vectors are unmoved -- measured, and the suite proves it -- because none of them carries a
+     * validity needing an escape, a fingerprint claim containing a colon, or a versioned nameless protocol at a
+     * location. A third implementation cannot reproduce a byte it has never been shown, so the pre-images are pinned
+     * here until {@code make_key_vectors.py} regenerates the vector set from a corpus that exercises them.
+     */
+    @Test
+    void theMovedPreImagesArePinnedByBytes() {
+        assertThat(IDENTITY.of(certificateComponent("a|b", "c")).preImage())
+                .describedAs("R15 escapes the pipe inside each validity slot")
+                .isEqualTo("CRT|C|v1|2.5.4.3=one|a%7Cb|c|cert");
+        assertThat(IDENTITY.of(materialWithFingerprint("sha-256:a", "b")).preImage())
+                .describedAs("the claim's own colon escapes to %3A and the outer slot escapes that percent again")
+                .isEqualTo("MAT|public-key|F|sha-256%253Aa:b");
+        assertThat(IDENTITY.of(protocolAtOneLocation("1.3")).preImage())
+                .describedAs("the version slot is filled, the name slot empty, the occurrence digest last")
+                .isEqualTo("PRT|tls|1.3||" + IdentityDigests.sha256Hex("host:443##"));
+    }
+
+    /**
+     * A duplicated {@code bom-ref} resolves to nothing, so document order cannot decide a key.
+     *
+     * <p>
+     * Nothing in either schema version makes {@code bom-ref} unique and real producer output duplicates it.
+     * First-in-document-order made a certificate's key depend on which serialization of one document was ingested,
+     * against the permutation guarantee the extractor states.
+     */
+    @Test
+    void aDuplicatedRefResolvesToNothingRatherThanToTheFirstDefinition() {
+        JsonNode document = read("{\"components\":[{\"type\":\"cryptographic-asset\",\"bom-ref\":\"dup\","
+                + "\"name\":\"first\"},{\"type\":\"cryptographic-asset\",\"bom-ref\":\"dup\","
+                + "\"name\":\"second\"},{\"type\":\"cryptographic-asset\",\"bom-ref\":\"unique\","
+                + "\"name\":\"third\"}]}");
+        DocumentScope scope = DocumentScope.of(document, NORMALIZER);
+
+        assertThat(scope.resolve(new TextNode("dup"))).isNull();
+        assertThat(scope.resolve(new TextNode("unique"))).isNotNull();
+        assertThat(scope.ambiguousRefs()).containsExactly("dup");
+    }
+
+    // ---------------------------------------------------------------- grammar and token rules (core#2165)
+
+    /**
+     * A secondary construction is not erased because its spelling sits inside the winning family's token.
+     *
+     * <p>
+     * The filter asked whether the winner's token <em>contains</em> the secondary token's first hyphen-part, which
+     * erased a real second construction twice over: {@code rsaes-oaep} contains {@code aes}, and {@code sha-3} contains
+     * the {@code sha} that {@code sha-2-256} is truncated to. So {@code SHA-256 with SHA3} and {@code SHA3-256 with}
+     * both keyed as one -- the weak-crypto erasure the filter exists to prevent, performed by the filter.
+     */
+    @Test
+    void aSecondaryConstructionSurvivesASpellingInsideTheWinningToken() {
+        assertThat(NORMALIZER.secondaryTokens("SHA-256 with SHA3", "SHA-3")).contains("sha-2");
+        assertThat(keyOfAlgorithm("SHA-256 with SHA3")).isNotEqualTo(keyOfAlgorithm("SHA3-256 with"));
+    }
+
+    /**
+     * A grammar token whose own family the winner already spells still folds away.
+     *
+     * <p>
+     * {@code ECDSA} spells {@code DSA}, which says nothing the family slot has not said, and vector
+     * {@code alg-curve-fold} pins that pre-image. A secondary <em>marker</em> is a different rule and is deliberately
+     * kept: {@code poly1305} beside a ChaCha20-Poly1305 winner separates the AEAD from the bare stream cipher.
+     */
+    @Test
+    void aTokenTheWinnerAlreadySpellsStillFoldsAway() {
+        assertThat(NORMALIZER.secondaryTokens("ECDSA", "ECDSA")).doesNotContain("dsa");
+        assertThat(NORMALIZER.secondaryTokens("ChaCha20-Poly1305", "ChaCha20-Poly1305"))
+                .describedAs("a marker is not a grammar token")
+                .isEqualTo("poly1305");
+    }
+
+    /**
+     * A stateful hash-based signature keeps its own family instead of keying as a digest.
+     *
+     * <p>
+     * Both rules were fully anchored, so every real parameter-set spelling fell through the grammar to the SHA-2 rule
+     * and an XMSS or LMS asset was inventoried as a digest family.
+     */
+    @ParameterizedTest
+    @CsvSource({"XMSS-SHA2_10_256,XMSS", "XMSS-MT,XMSS", "XMSS,XMSS", "HSS-LMS-SHA256-M32-H5,LMS", "HSS-LMS,LMS"})
+    void aParameterSetSpellingKeepsItsSignatureFamily(String name, String expected) {
+        assertThat(normalize(name).family()).isEqualTo(expected);
+    }
+
+    /**
+     * The whitespace the reference set adds is stripped before a sentinel or a family token is looked up.
+     *
+     * <p>
+     * {@code String.strip} consults {@code Character.isWhitespace}, which does not treat U+00A0 as whitespace, so a
+     * value pasted out of a document escaped the sentinel guard and grew a permanent bogus bucket beside the real one.
+     */
+    @Test
+    void aNoBreakSpaceDoesNotEscapeTheSentinelOrTokenLookup() {
+        String noBreakSpace = Character.toString(0x00A0);
+
+        assertThat(TABLES.isSentinel("0.0.0.0" + noBreakSpace)).isTrue();
+        assertThat(TABLES.isSentinel("unknown" + noBreakSpace)).isTrue();
+        assertThat(TABLES.familyToken("RSA" + noBreakSpace)).isEqualTo("RSA");
+    }
+
+    private static JsonNode certificateComponent(String notValidBefore, String notValidAfter) {
+        return read("{\"type\":\"cryptographic-asset\",\"name\":\"cert\",\"cryptoProperties\":{\"assetType\":"
+                + "\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=one\",\"notValidBefore\":"
+                + quote(notValidBefore) + ",\"notValidAfter\":" + quote(notValidAfter) + "}}}");
+    }
+
+    private static JsonNode materialWithFingerprint(String algorithm, String content) {
+        return read("{\"type\":\"cryptographic-asset\",\"cryptoProperties\":{\"assetType\":"
+                + "\"relatedCryptoMaterial\",\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\","
+                + "\"fingerprint\":{\"alg\":" + quote(algorithm) + ",\"content\":" + quote(content) + "}}}}");
+    }
+
+    /**
+     * A versioned, nameless protocol row whose declared suites cannot be read, which is what reaches the occurrence
+     * tier: the version tier above it fires only for a row that offered no suites at all.
+     */
+    private static JsonNode protocolAtOneLocation(String version) {
+        return read("{\"type\":\"cryptographic-asset\",\"evidence\":{\"occurrences\":[{\"location\":"
+                + "\"host:443\"}]},\"cryptoProperties\":{\"assetType\":\"protocol\",\"protocolProperties\":"
+                + "{\"type\":\"tls\",\"version\":" + quote(version) + ",\"cipherSuites\":[{}]}}}");
+    }
 
     private static NormalizedAsset normalize(String name) {
         return normalize(algorithmComponent(name, "{}"));

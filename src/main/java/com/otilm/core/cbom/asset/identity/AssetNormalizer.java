@@ -3,6 +3,7 @@ package com.otilm.core.cbom.asset.identity;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -409,6 +410,7 @@ public record AssetNormalizer(IdentityTables tables) {
             return "";
         }
         Set<String> found = new LinkedHashSet<>();
+        Map<String, String> familyOf = new HashMap<>();
         boolean hybrid = winner != null && HYBRID_FAMILIES.contains(winner);
         // No text is stripped before the scan. Stripping the winner's matched text was tried and REVERTED: it removed
         // the spurious `dsa` read out of `ECDSA`, and it also removed the digest from `curve25519-sha256`, merging an
@@ -420,7 +422,11 @@ public record AssetNormalizer(IdentityTables tables) {
             }
             Matcher matcher = (hybrid ? rule.unguarded() : rule.loose()).matcher(haystack);
             if (matcher.find()) {
-                found.add(sizedFamilyToken(rule.family(), matcher.group(), haystack.substring(matcher.end())));
+                String token = sizedFamilyToken(rule.family(), matcher.group(), haystack.substring(matcher.end()));
+                found.add(token);
+                // The token alone cannot answer which family produced it, and the fold below has to know: the token
+                // carries a size, so reading its family back out of the string is what truncated `sha-2` to `sha`.
+                familyOf.putIfAbsent(token, rule.family());
             }
         }
         if (winner != null) {
@@ -429,10 +435,7 @@ public record AssetNormalizer(IdentityTables tables) {
             // `poly1305` inside `ChaCha20-Poly1305` and `sha-2-256` inside `curve25519-sha256`, both of which name a
             // second construction rather than re-spelling the first.
             String foldedWinner = AsciiText.fold(winner);
-            found.removeIf(token -> {
-                String head = token.split("-")[0];
-                return foldedWinner.contains(head) && !head.equals(foldedWinner);
-            });
+            found.removeIf(token -> restatesWinner(foldedWinner, familyOf.get(token)));
         }
         // Markers scan the ORIGINAL name, not the winner-stripped haystack: a marker is often part of the winning
         // token and still identity-bearing. `ChaCha20-Poly1305` is matched whole by its own rule, so scanning a
@@ -448,6 +451,23 @@ public record AssetNormalizer(IdentityTables tables) {
             }
         }
         return String.join(",", new TreeSet<>(found));
+    }
+
+    /**
+     * Whether a secondary token's own family is already spelled inside the winning family's token.
+     *
+     * <p>
+     * <b>The family, not the token's first hyphen-part.</b> The predecessor asked
+     * {@code foldedWinner.contains(token.split("-")[0])}, and a token carries its size -- {@link #sizedFamilyToken}
+     * renders {@code SHA-2} at 256 bits as {@code sha-2-256} -- so splitting on the first hyphen truncated the family
+     * to {@code sha}, which {@code sha-3} contains. {@code SHA-256 with SHA3} and {@code SHA3-256 with} therefore both
+     * produced {@code ALG|SHA-3|256||||with}: the weak-crypto erasure this filter exists to prevent, performed by the
+     * filter. Comparing the family the rule actually named keeps {@code sha-2} beside a SHA-3 winner and still folds
+     * away the {@code dsa} that {@code ecdsa} spells, which vector {@code alg-curve-fold} pins.
+     */
+    private static boolean restatesWinner(String foldedWinner, String family) {
+        String folded = AsciiText.fold(family);
+        return folded != null && foldedWinner.contains(folded) && !folded.equals(foldedWinner);
     }
 
     /**

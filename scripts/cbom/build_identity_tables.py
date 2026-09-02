@@ -103,8 +103,13 @@ NAME_GRAMMAR = [
     {"pattern": r"(?<![A-Za-z0-9])RIPEMD", "family": "RIPEMD",
      "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` "
             "family-less, and the guard still admits the -160 and -128 spellings"},
-    {"pattern": r"^HSS-LMS$", "family": "LMS", "why": "cbom-lens familyExact"},
-    {"pattern": r"^XMSS(-MT)?$", "family": "XMSS", "why": "cbom-lens familyExact"},
+    {"pattern": r"(?<![A-Za-z0-9])HSS-LMS", "family": "LMS",
+     "why": "cbom-lens familyExact, widened like RIPEMD: the anchored form matched only the bare name, so every "
+            "real parameter-set spelling (HSS-LMS-SHA256-M32-H5) fell through to the SHA-2 rule and keyed as a "
+            "digest family"},
+    {"pattern": r"(?<![A-Za-z0-9])XMSS", "family": "XMSS",
+     "why": "cbom-lens familyExact, widened like RIPEMD: XMSS-SHA2_10_256 and XMSS-MT spellings fell through to "
+            "the SHA-2 rule; the left guard keeps the token from matching inside another word"},
     {"pattern": r"^ssh-ed25519$", "family": "EdDSA", "why": "cbom-lens familyExact"},
     {"pattern": r"^ssh-rsa$", "family": "RSASSA-PKCS1", "why": "cbom-lens familyExact"},
     {"pattern": r"^ssh-dss$", "family": "DSA", "why": "cbom-lens familyExact"},
