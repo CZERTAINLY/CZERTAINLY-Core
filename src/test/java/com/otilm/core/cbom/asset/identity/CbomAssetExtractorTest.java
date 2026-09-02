@@ -34,6 +34,20 @@ class CbomAssetExtractorTest {
 
     // ---------------------------------------------------------------- extraction
 
+    /** A redaction finding survives to the extraction boundary, where core#2073 can wire it to a report. */
+    @Test
+    void anIngestFindingReachesTheExtractionBoundary() {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"k\","
+                        + "\"cryptoProperties\":{\"assetType\":\"relatedCryptoMaterial\","
+                        + "\"relatedCryptoMaterialProperties\":{\"type\":\"private-key\","
+                        + "\"value\":\"-----BEGIN PRIVATE KEY-----AAAA-----END PRIVATE KEY-----\"}}}]}"));
+
+        assertThat(extraction.assets()).hasSize(1);
+        assertThat(extraction.assets().get(0).findings())
+                .anySatisfy(finding -> assertThat(finding).contains("producer inlined a value"));
+    }
+
     @Test
     void nestedComponentTreesAreWalkedToTheirLeaves() {
         JsonNode document = read("{\"components\":[{\"type\":\"library\",\"name\":\"outer\",\"components\":["

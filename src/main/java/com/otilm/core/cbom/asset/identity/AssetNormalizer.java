@@ -1,6 +1,7 @@
 package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -124,6 +125,21 @@ public record AssetNormalizer(IdentityTables tables) {
 
     private static final Pattern DIGEST_IN_NAME = Pattern.compile("(?<![A-Za-z0-9])(?i:SHA|MD)-?(\\d{3,4})(?!\\d)");
 
+    /**
+     * The separators a producer's {@code assetType} spelling may carry, over the reference whitespace set.
+     *
+     * <p>
+     * {@code [\s_]+} was Java's {@code \s}, which does not treat U+0085, U+00A0, U+2007 or U+202F as whitespace -- so
+     * {@code related crypto material} written with a no-break space missed this key, missed the plain
+     * {@code toLowerCase} fallback beside it, and routed to the unroutable tier, where a material asset keys as a raw
+     * backstop instead of through the material chain. A fifth site for core#2165 item 18, found by review after the
+     * item's own list was closed.
+     *
+     * <p>
+     * {@link AsciiText#collapseWhitespace} rather than {@link AsciiText#lookupKey}: the lookup key also folds {@code -}
+     * and {@code /}, which would widen routing past whitespace and could move a key on a spelling {@code ASSET_TYPES}
+     * does not carry. Widening exactly one thing is what makes this a repair.
+     */
     private static final Pattern ASSET_TYPE_SEPARATORS = Pattern.compile("[\\s_]+");
 
     /** The {@code -<digits>} parameter-set size {@link #sizedFamilyToken} appends to a family token. */
@@ -246,7 +262,7 @@ public record AssetNormalizer(IdentityTables tables) {
         if (raw == null || AsciiText.isBlank(raw)) {
             return null;
         }
-        String stripped = AsciiText.strip(raw);
+        String stripped = AsciiText.collapseWhitespace(AsciiText.strip(raw));
         String key = ASSET_TYPE_SEPARATORS.matcher(stripped).replaceAll("").toLowerCase(Locale.ROOT);
         String routed = ASSET_TYPES.get(key);
         return routed != null ? routed : ASSET_TYPES.get(stripped.toLowerCase(Locale.ROOT));
@@ -705,8 +721,18 @@ public record AssetNormalizer(IdentityTables tables) {
             return null;
         }
         if (parameterSetIdentifier.isNumber() && !parameterSetIdentifier.isBoolean()) {
-            double value = parameterSetIdentifier.doubleValue();
-            return value == Math.rint(value) ? accept((int) value, CbomNames.PARAMETER_SET_IDENTIFIER, notes) : null;
+            // The exact value reaches `accept`, so a refusal names what the producer wrote. Through `(int)` a
+            // saturating cast made `9007199254740993` refused as `size 2147483647 outside whitelist` -- a number
+            // nobody sent. What this does NOT do is reject `64.0000000000000000001`: measured on this project's
+            // mapper, that literal arrives as `DoubleNode(64.0)` because `USE_BIG_DECIMAL_FOR_FLOATS` is off, so its
+            // precision is gone before this method sees it and `decimalValue()` returns 64.0 too. Rejecting it would
+            // be a mapper-level change, and no value inside the 64..16384 whitelist keys differently either way --
+            // doubles are exact on every integer below 2^53. Recorded because a review pass asked for the exact
+            // check as a fix for that example, and it is not one.
+            BigDecimal exact = parameterSetIdentifier.decimalValue().stripTrailingZeros();
+            return exact.scale() <= 0
+                    ? accept(exact.toBigIntegerExact(), CbomNames.PARAMETER_SET_IDENTIFIER, notes)
+                    : null;
         }
         if (!parameterSetIdentifier.isTextual()) {
             return null;

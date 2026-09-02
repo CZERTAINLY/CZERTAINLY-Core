@@ -78,6 +78,14 @@ public final class CbomAssetExtractor {
      * two of the three signals are visible only inside the tier that produced the key.
      *
      * <p>
+     * {@code findings} carries what the redaction pass has to tell the producer -- a dropped value, a withheld digest,
+     * an inlined secret, a dropped extension. It is published because {@code MaterialRedaction.findings()} had no
+     * reader anywhere: the values were computed, and then died at this boundary, so a promise the redaction class makes
+     * in its own Javadoc was unreachable the moment extraction returned. Carrying them here does not report them --
+     * core#2073 owns the per-CBOM reporting path -- but it turns that work into wiring an existing value rather than
+     * re-deriving it, and it makes the gap visible to anyone reading this record.
+     *
+     * <p>
      * <b>{@code identityKey}, and this file is allowlisted for that vocabulary.</b> The component was called
      * {@code key} so the exposure fence's regex would not see it -- which worked, and was the wrong shape: a production
      * source routing <em>around</em> a fence is invisible to the next reader, where an allowlist entry is a reviewed
@@ -88,7 +96,7 @@ public final class CbomAssetExtractor {
      */
     public record ExtractedAsset(String identityKey, String chainStep, NormalizedAsset normalized, String componentName,
             JsonNode retainedProperties, List<Map<String, Object>> evidence, int reportedOccurrences,
-            CryptoAssetIdentityGuard guard) {
+            CryptoAssetIdentityGuard guard, List<String> findings) {
 
         /**
          * Omits the identity key. The generated {@code toString} would print it, and a record is printed by anything
@@ -168,7 +176,8 @@ public final class CbomAssetExtractor {
                 assets
                         .add(new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(), nameOf(component),
                                 extracted.redaction().storedPayload(), OccurrenceEvidenceCapper.cap(reported),
-                                reported == null ? 0 : reported.size(), extracted.guard()));
+                                reported == null ? 0 : reported.size(), extracted.guard(),
+                                extracted.redaction().findings()));
             } catch (RuntimeException e) {
                 // Deliberately broad, and deliberately not logged with the throwable. Producer input reaches every
                 // derivation below this line; the failure classes are open-ended, and one of them must not be fatal.

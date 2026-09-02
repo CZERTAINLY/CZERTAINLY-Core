@@ -367,6 +367,32 @@ class MaterialRedactionTest {
     }
 
     /**
+     * The long type spelling is an unrestricted extension, so it survives only where a digest may be published.
+     *
+     * <p>
+     * Retaining it for every type defeated the withhold rule through the exemption meant to preserve fidelity: a
+     * {@code password} component carrying the password's digest under {@code relatedCryptoMaterialType} was stored and
+     * served.
+     */
+    @Test
+    void theLongTypeSpellingIsWithheldForLowEntropyMaterial() {
+        MaterialRedaction lowEntropy = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\","
+                        + "\"relatedCryptoMaterialType\":\"5e884898da280471\"}}"));
+        MaterialRedaction publishable = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\","
+                        + "\"relatedCryptoMaterialType\":\"publicKey\"}}"));
+
+        assertThat(lowEntropy.storedPayload().toString()).doesNotContain("5e884898da280471");
+        assertThat(lowEntropy.keyedPayload().toString())
+                .describedAs("the keyed projection keeps every member R2 does not strip")
+                .contains("5e884898da280471");
+        assertThat(
+                publishable.storedPayload().at("/relatedCryptoMaterialProperties/relatedCryptoMaterialType").asText())
+                .isEqualTo("publicKey");
+    }
+
+    /**
      * The exfiltration finding names the member, so the severe case is not reported as the generic one.
      *
      * <p>

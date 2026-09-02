@@ -208,30 +208,34 @@ public final class MaterialRedaction {
      * reversible as the one {@link #digestPublishable} refuses to publish.
      *
      * <p>
-     * The first twelve are the 1.6 schema's members exactly, plus 1.7's {@code relatedCryptographicAssets} -- the
-     * rename of {@code algorithmRef}, whose omission dropped the 1.7 reference array from storage while its 1.6
-     * spelling survived. That is the parity hazard R2 exists to prevent, inverted onto storage.
+     * These are the 1.6 schema's members exactly, plus 1.7's {@code relatedCryptographicAssets} -- the rename of
+     * {@code algorithmRef}, whose omission dropped the 1.7 reference array from storage while its 1.6 spelling
+     * survived. That is the parity hazard R2 exists to prevent, inverted onto storage.
      *
      * <p>
-     * {@code relatedCryptoMaterialType} is <b>not</b> a schema member in either version and nothing in this pipeline
-     * reads it: {@link #of} takes the type from {@code type} alone. It is an extension by every available definition,
-     * so the paragraph above does not describe it.
-     *
-     * <p>
-     * It arrived here as a stopgap for a layer error, not as a statement about the contract. Dropping it re-keyed a
-     * ratified row -- the backstop pre-image ends in a projection digest over this payload, and vector
-     * {@code gen-068-mat-backstop} expects the member present -- so the enumeration had to carry it while one payload
-     * served both identity and storage. Splitting them retired that reason: the keyed payload no longer depends on this
-     * set, so the entry is now a storage-fidelity decision alone. What it still lacks is a ratified source, for this
-     * entry and for the set as a whole, which is open on core#2165 item 9.
+     * {@code relatedCryptoMaterialType} was in this set and is not any more -- {@link #PUBLISHABLE_ONLY_MEMBERS} says
+     * why. It was added as a stopgap for a layer error rather than as a statement about the contract: dropping it
+     * re-keyed a ratified row, because the backstop pre-image ends in a projection digest over this payload and vector
+     * {@code gen-068-mat-backstop} expects the member present. Splitting the payloads retired that reason, and a review
+     * pass then showed the exemption was not merely unjustified but unsafe. What this set as a whole still lacks is a
+     * ratified source, which is open on core#2165 item 9.
      */
     private static final Set<String> CONTRACTED_MEMBERS = Set
-            .of("type", "relatedCryptoMaterialType", "id", "state", "algorithmRef", "relatedCryptographicAssets",
-                    "creationDate", "activationDate", "updateDate", "expirationDate", "value", "size", "format",
-                    "securedBy");
+            .of("type", "id", "state", "algorithmRef", "relatedCryptographicAssets", "creationDate", "activationDate",
+                    "updateDate", "expirationDate", "value", "size", "format", "securedBy");
 
     /**
-     * The one member kept only while the material's digest may be published.
+     * The members kept only while the material's own digest may be published.
+     *
+     * <p>
+     * {@code relatedCryptoMaterialType} is here rather than in {@link #CONTRACTED_MEMBERS} because it is an
+     * <em>unrestricted</em> extension -- absent from both schemas, read by nothing, and able to hold whatever a
+     * producer puts there, including a digest of the very value the withhold rule protects. Retaining it for every type
+     * defeated that rule through the exemption meant to preserve fidelity: {@code type: "password"} carrying the
+     * password's digest under the long spelling was stored and served. Here it survives where publishing such a digest
+     * would already be safe and is dropped where it would not. The single corpus component carrying the member states
+     * no type at all, which fails closed to low-entropy, so that one row is exactly the hazard case: 1 stored payload
+     * changes, 0 keys.
      *
      * <p>
      * A producer fingerprint of high-entropy material is not reversible and is the discriminator the
@@ -247,7 +251,7 @@ public final class MaterialRedaction {
      * the kernel keys the tier whatever the type. 0 corpus rows and 0 vectors -- all 453 corpus fingerprints sit on
      * publishable types.
      */
-    private static final Set<String> PUBLISHABLE_ONLY_MEMBERS = Set.of("fingerprint");
+    private static final Set<String> PUBLISHABLE_ONLY_MEMBERS = Set.of("fingerprint", "relatedCryptoMaterialType");
 
     /**
      * Drops every uncontracted member from the stored payload, and says which.

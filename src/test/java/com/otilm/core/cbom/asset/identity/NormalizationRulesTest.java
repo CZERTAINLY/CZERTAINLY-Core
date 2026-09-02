@@ -394,6 +394,58 @@ class NormalizationRulesTest {
     }
 
     /**
+     * A suite code is refuted only by the protocols that claim it, not by any component carrying a stale block.
+     *
+     * <p>
+     * The refutation walked every component, while the certificate pass beside it gates on the normalized type -- so an
+     * algorithm carrying a spurious {@code protocolProperties.cipherSuites} could add a second name for a real code and
+     * move the identity of every genuine protocol row claiming it. A component stating <em>no</em> type still
+     * contributes, because for a block carrying suites that is more likely a protocol than not, and losing a refutation
+     * over-merges.
+     */
+    @Test
+    void onlyAProtocolCanRefuteASuiteCode() {
+        String suite = "{\"name\":\"%s\",\"identifiers\":[\"0x1301\"]}";
+        JsonNode withStaleBlock = read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"tls\","
+                + "\"cryptoProperties\":{\"assetType\":\"protocol\",\"protocolProperties\":{\"type\":\"tls\","
+                + "\"version\":\"1.3\",\"cipherSuites\":[" + suite.formatted("TLS_AES_128_GCM_SHA256")
+                + "]}}},{\"type\":\"cryptographic-asset\",\"name\":\"rsa\",\"cryptoProperties\":"
+                + "{\"assetType\":\"algorithm\",\"protocolProperties\":{\"cipherSuites\":["
+                + suite.formatted("SOMETHING_ELSE") + "]}}}]}");
+
+        assertThat(DocumentScope.of(withStaleBlock, NORMALIZER).refutedSuiteCodes())
+                .describedAs("the algorithm's stale block does not refute a real protocol's code")
+                .isEmpty();
+    }
+
+    /** A producer's spelling routes on the reference whitespace set, not on the narrower JDK one. */
+    @Test
+    void anAssetTypeSpelledWithANoBreakSpaceStillRoutes() {
+        String noBreakSpace = Character.toString(0x00A0);
+
+        assertThat(NORMALIZER.normalizeAssetType("related" + noBreakSpace + "crypto" + noBreakSpace + "material"))
+                .isEqualTo(NORMALIZER.normalizeAssetType("related crypto material"))
+                .isNotNull();
+    }
+
+    /**
+     * A refused parameter set is reported as the value the producer wrote.
+     *
+     * <p>
+     * Through a saturating {@code (int)} cast the note read {@code size 2147483647 ... outside whitelist}, naming a
+     * number nobody sent. It does <b>not</b> reject {@code 64.0000000000000000001}: measured on this project's mapper
+     * that literal arrives as {@code DoubleNode(64.0)}, so its precision is gone before the parse sees it.
+     */
+    @Test
+    void aRefusedParameterSetNamesWhatTheProducerWrote() {
+        NormalizedAsset asset = normalize(algorithmComponent("RSA", "{\"parameterSetIdentifier\": 9007199254740993}"));
+
+        assertThat(asset.parameterSet()).isNull();
+        assertThat(asset.notes())
+                .anySatisfy(note -> assertThat(note).contains("9007199254740993").doesNotContain("2147483647"));
+    }
+
+    /**
      * A duplicated {@code bom-ref} resolves to nothing, so document order cannot decide a key.
      *
      * <p>

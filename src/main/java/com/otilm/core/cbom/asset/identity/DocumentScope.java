@@ -99,8 +99,18 @@ public final class DocumentScope {
             }
         }
         duplicated.forEach(byRef::remove);
-        return new DocumentScope(refute(certificateDigestClaims(document, normalizer)), refutedSuiteCodes(document),
-                byRef, Set.copyOf(duplicated));
+        return new DocumentScope(refute(certificateDigestClaims(document, normalizer)),
+                refutedSuiteCodes(document, normalizer), byRef, Set.copyOf(duplicated));
+    }
+
+    /** True when the component states an {@code assetType} that is not the protocol type. */
+    private static boolean statesANonProtocolType(JsonNode properties, AssetNormalizer normalizer) {
+        JsonNode declared = properties == null ? null : properties.get("assetType");
+        if (declared == null || !declared.isTextual()) {
+            return false;
+        }
+        String routed = normalizer.normalizeAssetType(declared.textValue());
+        return routed != null && !CbomNames.ASSET_TYPE_PROTOCOL.equals(routed);
     }
 
     /**
@@ -270,10 +280,32 @@ public final class DocumentScope {
      * TLS_AES_256_GCM_SHA384 and TLS_CHACHA20_POLY1305_SHA256 alike, collapsing five distinct suites onto one identity.
      * So the code is corroborated against the suite name, and loses when it contradicts it.
      */
-    private static Set<String> refutedSuiteCodes(JsonNode document) {
+    /**
+     * Suite codes the document stamps on differently-named suites, read only from components that are protocols.
+     *
+     * <p>
+     * <b>Gated like the certificate pass, and for the same reason.</b> This walked every component and read any
+     * {@code protocolProperties.cipherSuites} it found, while {@code certificateDigestClaims} two methods up gates on
+     * the <em>normalized</em> {@code assetType} because a raw comparison made that control evadable by capitalization.
+     * The asymmetry was reachable: an {@code algorithm} component carrying a stale protocol block could contribute a
+     * second name for a real suite code and refute it document-wide, moving the identity of every genuine protocol row
+     * that claims it. 0 of 107 corpus {@code cipherSuites} blocks sit on a non-protocol component, so nothing moves
+     * today.
+     *
+     * <p>
+     * <b>An absent {@code assetType} still contributes.</b> Skipping everything that does not normalize to
+     * {@code protocol} would also skip a component that states no type at all -- which, for a block carrying
+     * {@code cipherSuites}, is far more likely a protocol than not, and losing its refutation <em>over</em>-merges.
+     * That is the opposite direction from the certificate pass, where losing a refutation under-merges, so the safe
+     * gate here is "a type is stated and it is not protocol" rather than "the type is not protocol".
+     */
+    private static Set<String> refutedSuiteCodes(JsonNode document, AssetNormalizer normalizer) {
         Map<String, Set<String>> names = new LinkedHashMap<>();
         for (JsonNode component : walk(document)) {
             JsonNode properties = component.get("cryptoProperties");
+            if (statesANonProtocolType(properties, normalizer)) {
+                continue;
+            }
             JsonNode protocol = properties == null ? null : properties.get("protocolProperties");
             JsonNode suites = protocol == null ? null : protocol.get("cipherSuites");
             if (suites == null || !suites.isArray()) {
