@@ -40,9 +40,20 @@ final class IdentityKeyExposureFence {
      * DTO exposing {@code canonicalKey}, a {@code FilterField} over {@code absorbedKey}, or a log line binding either
      * would ship exactly the hash whose low-entropy preimage falls to a dictionary attack, while passing a fence that
      * only knew the word "identity".
+     *
+     * <p>
+     * <b>The pre-image is fenced ahead of the key it hashes to.</b> The key is one dictionary attack away from the
+     * material; the pre-image <em>is</em> the material, spelled out — and since core#2165 the material pre-image can
+     * carry a producer's inlined plaintext under an uncontracted member, which the stored payload drops and the keyed
+     * payload must keep to stay R2/R15-conformant. {@code Identity.preImage()} exists for the conformance vectors and
+     * has no production caller, so the value is short-lived; what the fence adds is that no DTO, search field or log
+     * line can name it. The residual is stated rather than closed: a member called {@code key} or {@code value} alone
+     * still carries the same content past a lexical rule, and fencing those spellings would flag every public key in
+     * the code base.
      */
     private static final Pattern IDENTITY_KEY = Pattern
-            .compile("identity[_\\-\\s]?key|absorbed[_\\-\\s]?key|canonical[_\\-\\s]?key", Pattern.CASE_INSENSITIVE);
+            .compile("identity[_\\-\\s]?key|absorbed[_\\-\\s]?key|canonical[_\\-\\s]?key"
+                    + "|pre[_\\-\\s]?image(?!slot)", Pattern.CASE_INSENSITIVE);
 
     /**
      * Any method call named after a log level. Deliberately loose — it matches {@code log.debug(}, {@code logger.warn(}
@@ -90,7 +101,14 @@ final class IdentityKeyExposureFence {
                     "src/main/java/com/otilm/core/dao/repository/cbom/CryptoAssetAliasRepository.java",
                     "src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java",
                     "src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetAliasWriter.java",
-                    "src/main/java/com/otilm/core/dao/CryptoAssetConstraintTranslator.java");
+                    "src/main/java/com/otilm/core/dao/CryptoAssetConstraintTranslator.java",
+                    // The two identity sources that name the pre-image in code rather than in prose: the record that
+                    // carries it, and the digest guard whose refusal message says what was refused. Allowlisted
+                    // rather than exempted from the pattern, because the logging rule carries no allowlist -- neither
+                    // file may put a pre-image in a log line. `PreImageSlot` and its callers are excluded by the
+                    // pattern itself: the type name is not the value.
+                    "src/main/java/com/otilm/core/cbom/asset/identity/CryptoAssetIdentity.java",
+                    "src/main/java/com/otilm/core/cbom/asset/identity/IdentityDigests.java");
 
     private IdentityKeyExposureFence() {
     }
