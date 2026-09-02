@@ -59,8 +59,9 @@ class MaterialRedactionTest {
 
         assertThat(redaction.publishedDigest()).isNull();
         assertThat(redaction.identityDigest()).isNotNull().hasSize(64);
-        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/sha256").isMissingNode()).isTrue();
         assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/length").asInt()).isEqualTo(7);
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/redacted").asBoolean()).isTrue();
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/sha256").isMissingNode()).isTrue();
         assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest withheld"));
     }
 
@@ -70,14 +71,14 @@ class MaterialRedactionTest {
     }
 
     @Test
-    void publishableMaterialCarriesItsDigestAndLength() {
+    void publishableMaterialCarriesTheContractedRedactionEnvelope() {
         MaterialRedaction redaction = redact("public-key", "QUJDRA==");
 
         assertThat(redaction.publishedDigest()).isEqualTo(redaction.identityDigest());
-        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/sha256").asText())
-                .isEqualTo(redaction.publishedDigest());
-        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/$redacted").asText())
-                .isEqualTo(MaterialRedaction.REDACTED_MARKER);
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/redacted").asBoolean()).isTrue();
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/length").asInt()).isEqualTo(8);
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/sha256").isMissingNode()).isTrue();
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/value/$redacted").isMissingNode()).isTrue();
     }
 
     /** Fails closed: guessing wrong on an unknown type would publish a reversible digest. */
@@ -145,6 +146,125 @@ class MaterialRedactionTest {
 
         assertThat(CanonicalJson.canonicalize(redaction.payload())).isEqualTo("{}");
         assertThat(redaction.identityDigest()).isNull();
+    }
+
+    /**
+     * Every shape of a digest-bearing member goes for low-entropy material, not only the one covered shape.
+     *
+     * <p>
+     * A secret scanner fingerprints what it found so it can dedupe findings across runs, and that digest is exactly as
+     * reversible as the one the envelope withholds. Testing {@code isObject() && has("content")} and returning
+     * otherwise let a string, an array, an object keyed {@code sha256} and a nested object each carry an unsalted
+     * SHA-256 of a password into the served payload with no finding raised.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "\"sha256:5e884898da280471\"",
+            "[\"sha256:5e884898da280471\"]",
+            "{\"sha256\":\"5e884898da280471\"}",
+            "{\"x\":{\"content\":\"5e884898da280471\"}}",
+            "{\"content\":\"5e884898da280471\"}"})
+    void everyFingerprintShapeIsWithheldForLowEntropyMaterial(String fingerprint) {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\",\"fingerprint\":" + fingerprint
+                        + "}}"));
+
+        assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471");
+        assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("fingerprint"));
+    }
+
+    /**
+     * The member name is not enumerable, so the rule is an allowlist.
+     *
+     * <p>
+     * None of these is a CycloneDX field -- they are all producer extensions, and a two-name withhold list let eight of
+     * ten carry an unsalted SHA-256 of a password into the served payload with no finding at all.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "hash",
+            "hashes",
+            "sha256",
+            "checksum",
+            "thumbprint",
+            "md5",
+            "fingerprints",
+            "Fingerprint",
+            "fingerprint",
+            "digest"})
+    void anyUncontractedMemberIsDroppedForLowEntropyMaterial(String member) {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\",\"" + member
+                        + "\":\"5e884898da280471\"}}"));
+
+        assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471");
+        assertThat(redaction.findings())
+                .anySatisfy(finding -> assertThat(finding).contains("uncontracted members dropped").contains(member));
+    }
+
+    /** A contracted member is not an extension: the allowlist must not eat the pipeline's own fields. */
+    @Test
+    void everyContractedMemberSurvivesLowEntropyMaterial() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\",\"id\":\"k1\","
+                        + "\"state\":\"active\",\"format\":\"raw\",\"size\":256,\"securedBy\":{\"mechanism\":\"HSM\"},"
+                        + "\"algorithmRef\":\"a1\",\"creationDate\":\"2026-01-01T00:00:00Z\"}}"));
+
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/id").asText()).isEqualTo("k1");
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/size").asInt()).isEqualTo(256);
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/securedBy/mechanism").asText())
+                .isEqualTo("HSM");
+        assertThat(redaction.findings())
+                .noneSatisfy(finding -> assertThat(finding).contains("uncontracted members dropped"));
+    }
+
+    /**
+     * The withheld member goes whole, so a sibling cannot carry the digest through.
+     *
+     * <p>
+     * Removing only the recognised {@code content} trusted whatever sat beside it: the decoy went and the nested digest
+     * was stored.
+     */
+    @Test
+    void aSiblingCannotCarryTheWithheldDigestThrough() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\",\"fingerprint\":"
+                        + "{\"alg\":\"sha-256\",\"content\":\"decoy\",\"x\":{\"content\":\"5e884898da280471\"}}}}"));
+
+        assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471").doesNotContain("decoy");
+        assertThat(redaction.payload().at("/relatedCryptoMaterialProperties/fingerprint").isMissingNode()).isTrue();
+    }
+
+    /** The sibling {@code digest} member carries the same hazard and the same rule. */
+    @Test
+    void aBareDigestMemberIsWithheldToo() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\","
+                        + "\"digest\":\"5e884898da280471\"}}"));
+
+        assertThat(redaction.payload().toString()).doesNotContain("5e884898da280471");
+        assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest"));
+    }
+
+    /** Publishable material keeps its fingerprint: the withhold rule is about low-entropy types only. */
+    @Test
+    void aPublishableTypeKeepsItsFingerprint() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\","
+                        + "\"fingerprint\":{\"content\":\"aabb\"}}}"));
+
+        assertThat(redaction.payload().toString()).contains("aabb");
+    }
+
+    /**
+     * A block carrying only contracted members raises nothing, so the finding list stays a signal rather than noise.
+     */
+    @Test
+    void anAbsentFingerprintRaisesNoFinding() {
+        MaterialRedaction redaction = redact("password", "hunter2");
+
+        assertThat(redaction.findings())
+                .noneSatisfy(finding -> assertThat(finding).contains("uncontracted members dropped"));
     }
 
     private static MaterialRedaction redact(String type, String value) {

@@ -33,4 +33,5 @@ public interface ConnectorInternalService extends ResourceExtensionService {
      * Returns cached connector data shaped for API client routing.
      */
     ApiClientConnectorInfo getConnectorForApiClient(UUID connectorUuid) throws NotFoundException;
+
 }

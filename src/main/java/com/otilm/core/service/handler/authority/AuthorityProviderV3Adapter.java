@@ -39,6 +39,7 @@ import com.otilm.core.attribute.engine.AttributeOperation;
 import com.otilm.core.attribute.engine.OutboundSecretContainment;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.certificate.request.RegisterWireBuilder;
+import com.otilm.core.certificate.request.RenewContentSeeder;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Certificate;
@@ -131,6 +132,9 @@ public class AuthorityProviderV3Adapter extends AbstractAuthorityProviderAdapter
             wire.setFormat(newCert.getCertificateRequest().getCertificateRequestFormat());
         }
         wire.setExistingCertificate(oldCert.getCertificateContent().getContent());
+        if (capabilityService.supports(authority, FeatureFlag.CERTIFICATE_REQUEST_STRUCTURED)) {
+            RenewContentSeeder.seed(oldCert, newCert, req).ifPresent(wire::setRequestContent);
+        }
         wire.setMeta(loadMeta(oldCert, authority));
         wire.setAttributes(renewAttributesFor(newCert, authority));
         wire.setAuthorityAttributes(authorityAttributesFor(authority));

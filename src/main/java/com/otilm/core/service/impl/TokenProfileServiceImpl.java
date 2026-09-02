@@ -1,6 +1,5 @@
 package com.otilm.core.service.impl;
 
-import com.otilm.api.clients.ApiClientConnectorInfo;
 import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.ConnectorException;
@@ -12,7 +11,6 @@ import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.otilm.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
-import com.otilm.api.model.common.attribute.common.BaseAttribute;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.cryptography.key.KeyUsage;
 import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
@@ -20,7 +18,6 @@ import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.dao.entity.TokenProfile_;
@@ -35,9 +32,9 @@ import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CommentInternalService;
+import com.otilm.core.service.TokenInstanceInternalService;
 import com.otilm.core.service.TokenProfileExternalService;
 import com.otilm.core.service.TokenProfileInternalService;
-import com.otilm.core.service.v2.ConnectorInternalService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -61,8 +58,7 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     // Services & API Clients
     // --------------------------------------------------------------------------------
     private AuthorizationEnforcer authorizationEnforcer;
-    private ConnectorApiFactory connectorApiFactory;
-    private ConnectorInternalService connectorService;
+    private TokenInstanceInternalService tokenInstanceService;
     private AttributeEngine attributeEngine;
     // --------------------------------------------------------------------------------
     // Repositories
@@ -105,13 +101,8 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     }
 
     @Autowired
-    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
-        this.connectorApiFactory = connectorApiFactory;
-    }
-
-    @Autowired
-    public void setConnectorService(ConnectorInternalService connectorService) {
-        this.connectorService = connectorService;
+    public void setTokenInstanceService(TokenInstanceInternalService tokenInstanceService) {
+        this.tokenInstanceService = tokenInstanceService;
     }
 
     @Autowired
@@ -376,30 +367,12 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     }
 
     private void mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttribute> attributes)
-            throws ConnectorException, AttributeException, NotFoundException {
+            throws ConnectorException, AttributeException, NotFoundException, ValidationException {
         logger
                 .debug("Merging and validating attributes for token instance: {}. Request Attributes: {}",
                         tokenInstanceRef, attributes);
-        if (tokenInstanceRef.getConnector() == null) {
-            throw new ValidationException(ValidationError.create("Connector of the Entity is not available / deleted"));
-        }
 
-        ApiClientConnectorInfo connectorDto = connectorService
-                .getConnectorForApiClient(tokenInstanceRef.getConnectorUuid());
-
-        // validate first by connector
-        connectorApiFactory
-                .getTokenInstanceApiClient(connectorDto)
-                .validateTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
-
-        // list definitions
-        List<BaseAttribute> definitions = connectorApiFactory
-                .getTokenInstanceApiClient(connectorDto)
-                .listTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
-
-        // validate and update definitions with attribute engine
-        attributeEngine
-                .validateUpdateDataAttributes(tokenInstanceRef.getConnectorUuid(), null, definitions, attributes);
+        tokenInstanceService.validateTokenProfileAttributes(tokenInstanceRef.getSecuredUuid(), attributes);
     }
 
     private TokenProfile createTokenProfile(AddTokenProfileRequestDto request,

@@ -33,6 +33,9 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
 
     List<T> findUsingSecurityFilter(SecurityFilter filter);
 
+    <R> List<R> findUsingSecurityFilter(SecurityFilter filter, Class<R> resultType,
+            SecurityFilterProjection<T, R> projection);
+
     List<T> findUsingSecurityFilter(SecurityFilter filter, boolean enabled);
 
     List<T> findUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations,
