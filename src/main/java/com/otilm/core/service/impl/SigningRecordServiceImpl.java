@@ -16,6 +16,7 @@ import com.otilm.api.model.core.signing.signingrecord.SigningRecordDto;
 import com.otilm.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.dao.entity.Audited_;
 import com.otilm.core.dao.entity.signing.SigningProfileVersion;
@@ -23,7 +24,6 @@ import com.otilm.core.dao.entity.signing.SigningProfileVersion_;
 import com.otilm.core.dao.entity.signing.SigningProfile_;
 import com.otilm.core.dao.entity.signing.SigningRecord;
 import com.otilm.core.dao.entity.signing.SigningRecord_;
-import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.dao.repository.signing.SigningProfileRepository;
 import com.otilm.core.dao.repository.signing.SigningRecordRepository;
 import com.otilm.core.enums.FilterField;
@@ -73,17 +73,19 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
     private final SigningProfileRepository signingProfileRepository;
     private final AttributeEngine attributeEngine;
     private final AttributeColumnProjector attributeColumnProjector;
+    private final ListingSortResolver listingSortResolver;
     private final AuthorizationEnforcer authorizationEnforcer;
 
     public SigningRecordServiceImpl(SigningRecordRepository signingRecordRepository,
             SigningRecordWriter signingRecordWriter, SigningProfileRepository signingProfileRepository,
             AttributeEngine attributeEngine, AttributeColumnProjector attributeColumnProjector,
-            AuthorizationEnforcer authorizationEnforcer) {
+            ListingSortResolver listingSortResolver, AuthorizationEnforcer authorizationEnforcer) {
         this.signingRecordRepository = signingRecordRepository;
         this.signingRecordWriter = signingRecordWriter;
         this.signingProfileRepository = signingProfileRepository;
         this.attributeEngine = attributeEngine;
         this.attributeColumnProjector = attributeColumnProjector;
+        this.listingSortResolver = listingSortResolver;
         this.authorizationEnforcer = authorizationEnforcer;
     }
 
@@ -304,7 +306,8 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
         };
         List<SigningRecordListDto> dtos = signingRecordRepository
                 .findUsingSecurityFilter(filter, List.of(), predicate, p,
-                        (root, cb) -> cb.desc(root.get(Audited_.CREATED)), SortSpecification.from(request.getSort()))
+                        (root, cb) -> cb.desc(root.get(Audited_.CREATED)),
+                        listingSortResolver.resolve(Resource.SIGNING_RECORD, request.getSort()))
                 .stream()
                 .map(SigningRecordMapper::toListDto)
                 .toList();

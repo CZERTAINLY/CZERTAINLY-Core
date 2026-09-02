@@ -81,7 +81,7 @@ public final class SortOrderBuilder {
             // Property-only by construction: needsRankedUuidQuery sends every attribute sort to resolveGrouped, and
             // resolveField refuses a non-property source rather than letting one build an unorderable query here.
             FilterField field = resolveField(root, sort);
-            orders.add(direct(criteriaBuilder, resolveExpression(root, field), sort.direction()));
+            orders.add(primary(criteriaBuilder, resolveExpression(root, field), sort.direction()));
         } else if (defaultOrder != null) {
             orders.add(defaultOrder);
         }
@@ -108,20 +108,15 @@ public final class SortOrderBuilder {
             sortKey = aggregate(criteriaBuilder, resolveExpression(root, field), sort.direction());
         } else {
             fieldName = sort.fieldIdentifier();
-            sortKey = aggregate(criteriaBuilder, FilterPredicatesBuilder
-                    .getAttributeSortKey(criteriaBuilder, query, root, sort.fieldSource(), sort.fieldIdentifier()),
-                    sort.direction());
+            sortKey = aggregate(criteriaBuilder,
+                    FilterPredicatesBuilder.getAttributeSortKey(criteriaBuilder, query, root, sort), sort.direction());
         }
 
         Order tieBreak = tieBreak(root, criteriaBuilder)
                 .orElseThrow(() -> new ValidationException(
                         ValidationError.create("Field %s cannot be sorted on this resource.".formatted(fieldName))));
 
-        // An object holding no value for the field aggregates to null. Pinned last in both directions, so the rows a
-        // column has nothing to show for never lead the page, and reversing the sort does not put them first.
-        Order primary = ((JpaOrder) direct(criteriaBuilder, sortKey, sort.direction()))
-                .nullPrecedence(NullPrecedence.LAST);
-        return new GroupedOrdering(sortKey, List.of(primary, tieBreak));
+        return new GroupedOrdering(sortKey, List.of(primary(criteriaBuilder, sortKey, sort.direction()), tieBreak));
     }
 
     /**
@@ -151,8 +146,20 @@ public final class SortOrderBuilder {
                 .toList();
     }
 
-    private static Order direct(CriteriaBuilder criteriaBuilder, Expression<?> expression, SortDirection direction) {
-        return direction == SortDirection.DESC ? criteriaBuilder.desc(expression) : criteriaBuilder.asc(expression);
+    /**
+     * The requested ordering of one sort expression, with the rows that have no value for it pinned last.
+     *
+     * <p>
+     * A column the row has nothing to show for must never lead the page, and reversing the sort must not put those rows
+     * first either - which is what PostgreSQL's own default would do, since it orders nulls last ascending and first
+     * descending. Shared by both sort paths so a nullable column cannot place its blanks differently depending on
+     * whether the ordering happened to be reached through a join or a subquery.
+     */
+    private static Order primary(CriteriaBuilder criteriaBuilder, Expression<?> expression, SortDirection direction) {
+        Order order = direction == SortDirection.DESC
+                ? criteriaBuilder.desc(expression)
+                : criteriaBuilder.asc(expression);
+        return ((JpaOrder) order).nullPrecedence(NullPrecedence.LAST);
     }
 
     /**
@@ -212,7 +219,9 @@ public final class SortOrderBuilder {
      */
     private static FilterField resolveField(Root<?> root, SortSpecification sort) {
         FilterField field = resolveField(sort);
-        Resource resource = resourceOf(root);
+        // The resource the listing selects when the caller named one, which is authoritative: an entity outside
+        // ResourceToClass maps to no resource, and deriving it from the root alone silently skips this check there.
+        Resource resource = sort.resource() == null ? resourceOf(root) : sort.resource();
         if (resource != null && field.getRootResource() != resource) {
             throw new ValidationException(ValidationError
                     .create("Field %s does not belong to resource %s.".formatted(field.name(), resource.getLabel())));

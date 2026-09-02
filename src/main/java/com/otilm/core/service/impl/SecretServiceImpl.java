@@ -45,6 +45,7 @@ import com.otilm.api.model.core.secret.SecretVersionDto;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.ConnectorRequestAttributesBuilder;
+import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.comparator.SearchFieldDataComparator;
@@ -154,6 +155,8 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
 
     private AttributeColumnProjector attributeColumnProjector;
 
+    private ListingSortResolver listingSortResolver;
+
     @Autowired
     public void setActionProducer(ActionProducer actionProducer) {
         this.actionProducer = actionProducer;
@@ -162,6 +165,11 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
     @Autowired
     public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
         this.attributeColumnProjector = attributeColumnProjector;
+    }
+
+    @Autowired
+    public void setListingSortResolver(ListingSortResolver listingSortResolver) {
+        this.listingSortResolver = listingSortResolver;
     }
 
     private CommentInternalService commentService;
@@ -302,7 +310,7 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
                 cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, searchRequest.getFilters());
         Pageable p = PageRequest.of(searchRequest.getPageNumber() - 1, searchRequest.getItemsPerPage());
         List<Secret> secrets = getSecrets(securityFilter, p, additionalWhereClause,
-                SortSpecification.from(searchRequest.getSort()));
+                listingSortResolver.resolve(Resource.SECRET, searchRequest.getSort()));
         List<SecretDto> secretDtos = secrets.stream().map(Secret::mapToDto).toList();
 
         attributeColumnProjector

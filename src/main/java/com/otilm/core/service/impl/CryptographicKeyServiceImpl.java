@@ -51,6 +51,7 @@ import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.comparator.SearchFieldDataComparator;
@@ -68,7 +69,6 @@ import com.otilm.core.dao.entity.UniquelyIdentified;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
 import com.otilm.core.dao.repository.CryptographicKeyRepository;
 import com.otilm.core.dao.repository.GroupRepository;
-import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
 import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.enums.FilterField;
@@ -172,6 +172,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     // --------------------------------------------------------------------------------
     private AttributeEngine attributeEngine;
     private AttributeColumnProjector attributeColumnProjector;
+
+    private ListingSortResolver listingSortResolver;
     private ConnectorApiFactory connectorApiFactory;
     private ConnectorInternalService connectorService;
     private TokenInstanceInternalService tokenInstanceService;
@@ -222,6 +224,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
     @Autowired
     public void setAttributeColumnProjector(AttributeColumnProjector attributeColumnProjector) {
         this.attributeColumnProjector = attributeColumnProjector;
+    }
+
+    @Autowired
+    public void setListingSortResolver(ListingSortResolver listingSortResolver) {
+        this.listingSortResolver = listingSortResolver;
     }
 
     @Autowired
@@ -311,7 +318,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
 
         List<UUID> filteredKeyUuids = cryptographicKeyItemRepository
                 .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("createdAt")), SortSpecification.from(request.getSort()));
+                        (root, cb) -> cb.desc(root.get("createdAt")),
+                        listingSortResolver.resolve(Resource.CRYPTOGRAPHIC_KEY, request.getSort()));
 
         List<CryptographicKeyItem> filteredKeys = SortOrderBuilder
                 .rankBy(filteredKeyUuids, cryptographicKeyItemRepository.findFullByUuidIn(filteredKeyUuids),

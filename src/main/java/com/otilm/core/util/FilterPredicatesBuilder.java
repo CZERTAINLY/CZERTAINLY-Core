@@ -10,6 +10,7 @@ import com.otilm.api.model.common.enums.IPlatformEnum;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
+import com.otilm.core.attribute.engine.AttributeEngine.CustomAttributeContentFilter;
 import com.otilm.core.dao.entity.AttributeContent2Object;
 import com.otilm.core.dao.entity.AttributeContent2Object_;
 import com.otilm.core.dao.entity.AttributeContentItem_;
@@ -25,9 +26,11 @@ import com.otilm.core.dao.entity.UniquelyIdentified_;
 import com.otilm.core.dao.entity.cbom.CryptoAssetSource;
 import com.otilm.core.dao.entity.cbom.CryptoAssetSource_;
 import com.otilm.core.dao.entity.cbom.CryptoAsset_;
+import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.enums.ResourceToClass;
 import com.otilm.core.enums.SearchFieldTypeEnum;
+import com.otilm.core.model.AttributeFieldIdentifier;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
@@ -135,25 +138,20 @@ public class FilterPredicatesBuilder {
 
         final AttributeType attributeType = filterDto.getFieldSource().getAttributeType();
         final String identifier = filterDto.getFieldIdentifier();
-        final String[] fieldIdentifier = identifier.split("\\|");
-        final AttributeContentType contentType = AttributeContentType.valueOf(fieldIdentifier[1]);
-        final String attributeName = fieldIdentifier[0];
+        final AttributeFieldIdentifier fieldIdentifier = AttributeFieldIdentifier.parse(identifier);
+        if (fieldIdentifier == null || fieldIdentifier.contentType() == null) {
+            throw new ValidationException(ValidationError
+                    .create("Filter field identifier %s does not name an attribute.".formatted(identifier)));
+        }
+        final AttributeContentType contentType = fieldIdentifier.contentType();
+        final String attributeName = fieldIdentifier.attributeName();
         final boolean isNotExistCondition = List
                 .of(FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS,
                         FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_MATCHES)
                 .contains(filterDto.getCondition());
 
-        // attributes content for cryptographic key items are stored under resource CRYPTOGRAPHIC_KEY, but for meta
-        // attributes, object uuid is uuid of cryptographic key item and for custom and data attribute it is uuid of
-        // cryptographic key
-        // place for improvement is to consolidate resource for attributes content
-        final Resource resource = root.getJavaType().equals(CryptographicKeyItem.class)
-                ? Resource.CRYPTOGRAPHIC_KEY
-                : ResourceToClass.getResourceByClass(root.getJavaType());
-        final String objectUuidPath = resource == Resource.CRYPTOGRAPHIC_KEY
-                && (attributeType == AttributeType.CUSTOM || attributeType == AttributeType.DATA)
-                        ? CryptographicKeyItem_.keyUuid.getName()
-                        : UniquelyIdentified_.uuid.getName();
+        final Resource resource = attributeResourceOf(root);
+        final String objectUuidPath = attributeObjectUuidPath(root, attributeType);
 
         List<Predicate> predicates = new ArrayList<>(attributeCorrelationPredicates(criteriaBuilder, root, subqueryRoot,
                 joinDefinition, attributeType, contentType, attributeName, resource, objectUuidPath));
@@ -1147,6 +1145,10 @@ public class FilterPredicatesBuilder {
     /**
      * The resource an object's attribute content is stored under. Key items carry the key's attributes, so a key item
      * root resolves to {@code CRYPTOGRAPHIC_KEY} rather than to a resource of its own.
+     *
+     * <p>
+     * A place for improvement is to consolidate the resource attribute content is stored under, so this mapping is not
+     * needed at all.
      */
     private static <T> Resource attributeResourceOf(final Root<T> root) {
         return root.getJavaType().equals(CryptographicKeyItem.class)
@@ -1157,9 +1159,13 @@ public class FilterPredicatesBuilder {
     /**
      * Which uuid of the root the content is keyed by. For a key item, meta attributes are attached to the item while
      * custom and data attributes are attached to the key it belongs to.
+     *
+     * <p>
+     * Decided from the root rather than from the resource, because the key uuid is a column of the key item and of
+     * nothing else: a root that is not one has no such path to read, whatever resource its content is filed under.
      */
-    private static String attributeObjectUuidPath(final Resource resource, final AttributeType attributeType) {
-        return resource == Resource.CRYPTOGRAPHIC_KEY
+    private static <T> String attributeObjectUuidPath(final Root<T> root, final AttributeType attributeType) {
+        return root.getJavaType().equals(CryptographicKeyItem.class)
                 && (attributeType == AttributeType.CUSTOM || attributeType == AttributeType.DATA)
                         ? CryptographicKeyItem_.keyUuid.getName()
                         : UniquelyIdentified_.uuid.getName();
@@ -1176,31 +1182,53 @@ public class FilterPredicatesBuilder {
      *
      * <p>
      * An attribute may hold several values for one object, which leaves the key ambiguous. The subquery therefore
-     * orders by {@code item_order} and takes the first row, so a multi-valued attribute sorts on its lowest-ordered
-     * value - the one the cell shows first. A row with no value for the field yields no row and so a null key, which is
-     * ordered last in both directions by the caller rather than being dropped.
+     * orders by definition and then by {@code item_order} and takes the first row - the same order the projection query
+     * reads a page of values in - so a multi-valued attribute sorts on the value the cell shows first, and two
+     * identical requests cannot pick differently among the definitions one attribute name may map to. A row with no
+     * value for the field yields no row and so a null key, which is ordered last in both directions by the caller
+     * rather than being dropped.
+     *
+     * <p>
+     * Ordering reads a value, so it is gated like the projection that renders one: encrypted content is skipped, a
+     * disabled custom definition is skipped, and the caller's custom-attribute permissions narrow which definitions are
+     * readable at all. Whether the field may be ordered on - visible, not secret, not a code block - is settled before
+     * this by {@code ListingSortResolver} against the resource's published catalogue.
      */
     public static <T> Expression<?> getAttributeSortKey(final CriteriaBuilder criteriaBuilder,
-            final CommonAbstractCriteria query, final Root<T> root, final FilterFieldSource fieldSource,
-            final String fieldIdentifier) {
-        final String[] identifierParts = fieldIdentifier.split("\\|");
-        if (identifierParts.length < 2) {
+            final CommonAbstractCriteria query, final Root<T> root, final SortSpecification sort) {
+        final FilterFieldSource fieldSource = sort.fieldSource();
+        final String fieldIdentifier = sort.fieldIdentifier();
+        final AttributeType attributeType = fieldSource == null ? null : fieldSource.getAttributeType();
+        if (attributeType == null) {
+            throw new ValidationException(
+                    ValidationError.create("Sort field source %s names no attribute type.".formatted(fieldSource)));
+        }
+        // The caller's attribute permissions are what keeps ordering from reading further than projection does, so a
+        // specification that was never resolved against them is refused rather than run unrestricted.
+        final CustomAttributeContentFilter contentFilter = sort.attributeContentFilter();
+        if (contentFilter == null) {
+            throw new ValidationException(ValidationError
+                    .create("Ordering by %s was not resolved against the caller's attribute permissions."
+                            .formatted(fieldIdentifier)));
+        }
+
+        final AttributeFieldIdentifier identifier = AttributeFieldIdentifier.parse(fieldIdentifier);
+        if (identifier == null) {
             throw new ValidationException(ValidationError
                     .create("Sort field identifier %s does not name an attribute.".formatted(fieldIdentifier)));
         }
-        final AttributeType attributeType = fieldSource.getAttributeType();
-        final String attributeName = identifierParts[0];
-        final AttributeContentType contentType;
-        try {
-            contentType = AttributeContentType.valueOf(identifierParts[1]);
-        } catch (IllegalArgumentException e) {
+        final String attributeName = identifier.attributeName();
+        final AttributeContentType contentType = identifier.contentType();
+        if (contentType == null) {
             throw new ValidationException(ValidationError
                     .create("Unknown attribute content type %s in sort field identifier %s."
-                            .formatted(identifierParts[1], fieldIdentifier)));
+                            .formatted(identifier.contentTypeName(), fieldIdentifier)));
         }
 
-        final Resource resource = attributeResourceOf(root);
-        final String objectUuidPath = attributeObjectUuidPath(resource, attributeType);
+        // The resource the listing selects, which the catalogue was read from; the root is only a fallback for a
+        // caller that built a specification without one, and maps to nothing for an entity outside ResourceToClass.
+        final Resource resource = sort.resource() == null ? attributeResourceOf(root) : sort.resource();
+        final String objectUuidPath = attributeObjectUuidPath(root, attributeType);
 
         // Typed to the value's own class rather than to Object: the aggregate the grouped ordering wraps this in
         // takes a comparable, and an Object-typed subquery is not one.
@@ -1220,15 +1248,50 @@ public class FilterPredicatesBuilder {
                 ? ((JpaExpression<String>) extracted).cast(contentType.getContentDataClass())
                 : extracted;
 
-        subquery
-                .select(value)
-                .where(attributeCorrelationPredicates(criteriaBuilder, root, subqueryRoot, joinDefinition,
-                        attributeType, contentType, attributeName, resource, objectUuidPath)
-                        .toArray(new Predicate[]{}));
+        final List<Predicate> predicates = new ArrayList<>(attributeCorrelationPredicates(criteriaBuilder, root,
+                subqueryRoot, joinDefinition, attributeType, contentType, attributeName, resource, objectUuidPath));
+        predicates
+                .addAll(attributeReadabilityPredicates(criteriaBuilder, joinContentItem, joinDefinition, attributeType,
+                        contentFilter));
+
+        subquery.select(value).where(predicates.toArray(new Predicate[]{}));
         ((JpaSubQuery) subquery)
-                .orderBy(criteriaBuilder.asc(subqueryRoot.get(AttributeContent2Object_.order)))
+                .orderBy(criteriaBuilder.asc(joinContentItem.get(AttributeContentItem_.attributeDefinitionUuid)),
+                        criteriaBuilder.asc(subqueryRoot.get(AttributeContent2Object_.order)))
                 .fetch(1);
 
         return subquery;
+    }
+
+    /**
+     * The predicates that keep a sort from reading content the same response would withhold, mirroring
+     * {@code AttributeContent2ObjectRepository.getProjectedAttributesContent} and the row-level checks
+     * {@code AttributeColumnProjector} applies on top of it.
+     *
+     * <p>
+     * Encrypted content is ciphertext only its own decryption path can read, and neither a column nor an ordering takes
+     * that path. The remaining two guard custom content only, exactly as the projection query does: {@code enabled} is
+     * set on custom definitions alone - data and metadata definitions leave the nullable column alone, so applying it
+     * to them would match nothing - and the definition-uuid lists are the caller's attribute permissions, without which
+     * resource LIST access would be enough to compare the values of a restricted attribute by ordering on it.
+     */
+    private static List<Predicate> attributeReadabilityPredicates(final CriteriaBuilder criteriaBuilder,
+            final Join joinContentItem, final Join joinDefinition, final AttributeType attributeType,
+            final CustomAttributeContentFilter contentFilter) {
+        final List<Predicate> predicates = new ArrayList<>();
+        predicates.add(criteriaBuilder.isNull(joinContentItem.get(AttributeContentItem_.encryptedData)));
+        if (attributeType != AttributeType.CUSTOM) {
+            return predicates;
+        }
+
+        predicates.add(criteriaBuilder.isTrue(joinDefinition.get(AttributeDefinition_.enabled)));
+        final Path<UUID> definitionUuid = joinContentItem.get(AttributeContentItem_.attributeDefinitionUuid);
+        if (contentFilter.allowedDefinitionUuids() != null) {
+            predicates.add(definitionUuid.in(contentFilter.allowedDefinitionUuids()));
+        }
+        if (contentFilter.forbiddenDefinitionUuids() != null) {
+            predicates.add(criteriaBuilder.not(definitionUuid.in(contentFilter.forbiddenDefinitionUuids())));
+        }
+        return predicates;
     }
 }

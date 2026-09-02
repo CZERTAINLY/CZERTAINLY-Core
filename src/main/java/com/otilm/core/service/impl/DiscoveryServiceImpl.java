@@ -27,6 +27,7 @@ import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.client.ConnectorApiFactory;
 import com.otilm.core.comparator.SearchFieldDataComparator;
@@ -38,7 +39,6 @@ import com.otilm.core.dao.repository.CertificateContentRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryCertificateRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
-import com.otilm.core.dao.repository.SortSpecification;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.events.data.DiscoveryResult;
 import com.otilm.core.events.handlers.DiscoveryFinishedEventHandler;
@@ -94,6 +94,8 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
 
     private AttributeEngine attributeEngine;
     private AttributeColumnProjector attributeColumnProjector;
+
+    private ListingSortResolver listingSortResolver;
 
     private TriggerInternalService triggerInternalService;
     private DiscoveryRepository discoveryRepository;
@@ -162,6 +164,11 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
     }
 
     @Autowired
+    public void setListingSortResolver(ListingSortResolver listingSortResolver) {
+        this.listingSortResolver = listingSortResolver;
+    }
+
+    @Autowired
     public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
         this.discoveryRepository = discoveryRepository;
     }
@@ -197,7 +204,8 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
                 cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<DiscoveryListDto> listedDiscoveriesDTOs = discoveryRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
-                        (root, cb) -> cb.desc(root.get("created")), SortSpecification.from(request.getSort()))
+                        (root, cb) -> cb.desc(root.get("created")),
+                        listingSortResolver.resolve(Resource.DISCOVERY, request.getSort()))
                 .stream()
                 .map(Discovery::mapToListDto)
                 .toList();
