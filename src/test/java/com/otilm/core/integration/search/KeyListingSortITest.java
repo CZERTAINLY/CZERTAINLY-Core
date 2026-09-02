@@ -5,15 +5,21 @@ import com.otilm.api.model.client.certificate.SearchSortRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
+import com.otilm.api.model.core.certificate.CertificateState;
+import com.otilm.api.model.core.certificate.CertificateValidationStatus;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.key.KeyItemDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SortDirection;
+import com.otilm.core.dao.entity.Certificate;
+import com.otilm.core.dao.entity.CertificateContent;
 import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
 import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
+import com.otilm.core.dao.repository.CertificateContentRepository;
+import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
@@ -25,7 +31,10 @@ import com.otilm.core.util.seeders.CryptographicKeySeeder;
 import com.otilm.core.util.seeders.CryptographicKeySeeder.KeyItemSpec;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,8 +42,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * The key listing fetches in two phases - a page of uuids in the requested order, then the items by {@code uuid IN
- * (...)}. The second query used to name its own ordering, which replaced the first's, so these cases are what catches a
- * sort that is accepted and then thrown away.
+ * (...)}. An ordering named by the second query would replace the one the first established, so these cases are what
+ * catches a sort that is accepted and then thrown away.
  */
 class KeyListingSortITest extends BaseSpringBootTest {
 
@@ -57,6 +66,14 @@ class KeyListingSortITest extends BaseSpringBootTest {
 
     @Autowired
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+
+    @Autowired
+    private CertificateRepository certificateRepository;
+
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
+
+    private final Map<String, UUID> seededKeyUuids = new LinkedHashMap<>();
 
     @BeforeEach
     void loadData() {
@@ -96,6 +113,38 @@ class KeyListingSortITest extends BaseSpringBootTest {
         CryptographicKeyItem item = key.getItems().iterator().next();
         item.setName(name);
         cryptographicKeyItemRepository.saveAndFlush(item);
+        seededKeyUuids.put(name, key.getUuid());
+    }
+
+    private void seedCertificateUsing(UUID keyUuid, String commonName) {
+        CertificateContent content = new CertificateContent();
+        content.setContent("1234567890-" + UUID.randomUUID());
+        content = certificateContentRepository.saveAndFlush(content);
+
+        Certificate certificate = new Certificate();
+        certificate.setCommonName(commonName);
+        certificate.setSubjectDn("CN=" + commonName);
+        certificate.setIssuerDn("CN=" + commonName + "Issuer");
+        certificate.setSerialNumber(UUID.randomUUID().toString());
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
+        certificate.setCertificateContentId(content.getId());
+        certificate.setKeyUuid(keyUuid);
+        certificateRepository.saveAndFlush(certificate);
+    }
+
+    private List<Integer> listAssociations(SearchSortRequestDto sort) {
+        SearchRequestDto request = new SearchRequestDto();
+        request.setPageNumber(1);
+        request.setItemsPerPage(10);
+        request.setSort(sort);
+
+        return cryptographicKeyService
+                .listCryptographicKeys(SecurityFilter.create(), request)
+                .getCryptographicKeys()
+                .stream()
+                .map(KeyItemDto::getAssociations)
+                .toList();
     }
 
     private List<String> listNames(SearchSortRequestDto sort, int pageNumber, int itemsPerPage) {
@@ -164,5 +213,31 @@ class KeyListingSortITest extends BaseSpringBootTest {
                 .stream()
                 .filter(item -> SEEDED_NAMES.contains(item.getName()))
                 .toList();
+    }
+
+    /**
+     * The association counts are loaded by a second query and have to land on the key item each belongs to.
+     *
+     * <p>
+     * Two queries lined up by position agree only while both order the same way and neither has ties, and once the
+     * listing orders by a field the request names they do not line up at all - so the counts are keyed by uuid. Each
+     * seeded key carries a different number of certificates, and the sort reverses the order the counts are read in, so
+     * a count rendered against the wrong key shows up as a mismatch rather than as a coincidence.
+     */
+    @Test
+    void eachListedKeyCarriesItsOwnAssociationCount() {
+        seedCertificateUsing(seededKeyUuids.get("alpha"), "alpha-cert-one");
+        seedCertificateUsing(seededKeyUuids.get("alpha"), "alpha-cert-two");
+        seedCertificateUsing(seededKeyUuids.get("charlie"), "charlie-cert");
+
+        Assertions.assertEquals(SEEDED_NAMES, listNames(sortByName(SortDirection.ASC), 1, 10));
+        Assertions.assertEquals(List.of(2, 0, 1, 0), listAssociations(sortByName(SortDirection.ASC)));
+        Assertions.assertEquals(List.of(0, 1, 0, 2), listAssociations(sortByName(SortDirection.DESC)));
+    }
+
+    /** A key no certificate uses reports zero rather than being left unset. */
+    @Test
+    void aKeyWithoutCertificatesReportsNoAssociations() {
+        Assertions.assertEquals(List.of(0, 0, 0, 0), listAssociations(sortByName(SortDirection.ASC)));
     }
 }

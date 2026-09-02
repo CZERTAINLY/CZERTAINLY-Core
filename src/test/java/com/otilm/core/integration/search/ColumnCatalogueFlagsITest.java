@@ -1,5 +1,8 @@
 package com.otilm.core.integration.search;
 
+import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.certificate.SearchRequestDto;
+import com.otilm.api.model.client.certificate.SearchSortRequestDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.CustomAttributeProperties;
@@ -8,8 +11,10 @@ import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
+import com.otilm.api.model.core.search.SortDirection;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.enums.FilterField;
+import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CbomExternalService;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.service.SigningRecordExternalService;
@@ -131,6 +136,16 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
         Assertions.assertFalse(SearchHelper.isOrderableField(FilterField.TIME_QUALITY_CONFIGURATION_NTP_SERVERS));
     }
 
+    /**
+     * A usage field persists a set of flags as one integer and renders the decoded set, so ordering the page by the
+     * column would order it by a number that bears no relation to the list in the cell.
+     */
+    @ParameterizedTest
+    @EnumSource(value = FilterField.class, names = {"KEY_USAGE", "CKI_USAGE", "CERT_REQUEST_KEY_USAGE"})
+    void aBitmaskBackedPropertyFieldWouldNotBeOrderable(FilterField filterField) {
+        Assertions.assertFalse(SearchHelper.isOrderableField(filterField));
+    }
+
     @ParameterizedTest
     @EnumSource(value = FilterField.class,
             names = {"OCSP_VALIDATION", "CRL_VALIDATION", "SIGNATURE_VALIDATION", "PRIVATE_KEY"})
@@ -166,6 +181,40 @@ class ColumnCatalogueFlagsITest extends BaseSpringBootTest {
                 "catalogue-secret-probe|" + AttributeContentType.SECRET.name()).orElseThrow();
         Assertions.assertEquals(false, attribute.getDisplayable());
         Assertions.assertEquals(false, attribute.getSortable());
+    }
+
+    /**
+     * A file cell renders the file's name and media type, and a resource cell the referenced object's name; a sort key
+     * reads the stored reference instead, so these stay displayable columns that cannot be ordered on.
+     */
+    @ParameterizedTest
+    @EnumSource(value = AttributeContentType.class, names = {"FILE", "RESOURCE"})
+    void anAttributeWhoseCellIsNotItsSortKeyIsDisplayableButNotSortable(AttributeContentType contentType)
+            throws Exception {
+        registerCustomAttribute("catalogue-composite-probe", contentType);
+
+        SearchFieldDataDto attribute = field(discoveryService.getSearchableFieldInformationByGroup(),
+                "catalogue-composite-probe|" + contentType.name()).orElseThrow();
+        Assertions.assertEquals(true, attribute.getDisplayable());
+        Assertions.assertEquals(false, attribute.getSortable());
+    }
+
+    /**
+     * The flag is a hint on a response the caller is free to ignore, so a listing that would discard the ordering
+     * refuses the request rather than answering it with the default order and no explanation.
+     */
+    @Test
+    void anUnwiredListingRefusesASortRatherThanDiscardingIt() {
+        SearchRequestDto request = new SearchRequestDto();
+        request.setPageNumber(1);
+        request.setItemsPerPage(10);
+        request
+                .setSort(new SearchSortRequestDto(FilterFieldSource.PROPERTY,
+                        FilterField.TIME_QUALITY_CONFIGURATION_NAME.name(), SortDirection.ASC));
+
+        Assertions
+                .assertThrows(ValidationException.class, () -> timeQualityConfigurationService
+                        .listTimeQualityConfigurations(request, SecurityFilter.create()));
     }
 
     @Test
