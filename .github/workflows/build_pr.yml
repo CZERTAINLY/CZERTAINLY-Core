@@ -211,10 +211,13 @@ jobs:
           # writes an untracked file that `git diff` does not see, and the guard would pass on a
           # tree whose committed bytes are gone.
           if [ -n "$(git status --porcelain -- src/main/resources/cbom/identity-tables.json)" ]; then
+            git status --short -- src/main/resources/cbom/identity-tables.json
             git diff -- src/main/resources/cbom/identity-tables.json
             echo
             echo "::error file=src/main/resources/cbom/identity-tables.json::The committed identity tables are not reproducible from the inputs in src/main/cbom/identity."
-            echo "The diff above is what regeneration produced minus what is committed."
+            echo "The status line above names what moved, and the diff - present only when the artifact is"
+            echo "tracked and modified - is what regeneration produced minus what is committed. A deleted or"
+            echo "untracked artifact shows in the status line with no diff, which is the case git diff missed."
             echo
             echo "To fix, run this and commit the result:"
             echo "  python3 scripts/cbom/build_identity_tables.py --output src/main/resources/cbom/identity-tables.json"
