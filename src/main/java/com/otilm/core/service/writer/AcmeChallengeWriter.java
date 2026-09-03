@@ -132,10 +132,16 @@ public class AcmeChallengeWriter {
      * {@code DEACTIVATED} and their challenges {@code INVALID}, under the same lock as every other status write to the
      * order.
      *
-     * @return whether the order was still open, for the caller to count it against the account
+     * <p>
+     * The account is deliberately not written here. A caller deactivating an account walks its orders one by one, and
+     * writing the account between two order locks would let a challenge failing concurrently hold the next order while
+     * waiting for the account this call had already written, which deadlocks both. The caller counts the orders it
+     * closed once it has no further lock to take.
+     *
+     * @return whether the order was still open, for the caller to count against the account
      */
     @Transactional
-    public void deactivateOrder(UUID orderUuid) {
+    public boolean deactivateOrder(UUID orderUuid) {
         AcmeOrder order = lockOrder(orderUuid);
         OrderStatus statusBefore = order.getStatus();
         order.setStatus(OrderStatus.INVALID);
@@ -146,7 +152,7 @@ public class AcmeChallengeWriter {
         }
         acmeAuthorizationRepository.saveAll(order.getAuthorizations());
         acmeOrderRepository.save(order);
-        countOrderOutcome(order, statusBefore);
+        return statusBefore != OrderStatus.INVALID;
     }
 
     /**
@@ -184,6 +190,16 @@ public class AcmeChallengeWriter {
     @Transactional
     public void countFailedOrder(UUID accountUuid) {
         acmeAccountRepository.incrementFailedOrders(accountUuid, OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    /**
+     * Counts a batch of failed orders against an account in one statement.
+     */
+    @Transactional
+    public void countFailedOrders(UUID accountUuid, int count) {
+        if (count > 0) {
+            acmeAccountRepository.incrementFailedOrdersBy(accountUuid, count, OffsetDateTime.now(ZoneOffset.UTC));
+        }
     }
 
     /**

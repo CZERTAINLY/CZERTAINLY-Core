@@ -36,6 +36,14 @@ public interface AcmeAccountRepository extends SecurityFilterRepository<AcmeAcco
     @Query("UPDATE AcmeAccount a SET a.validOrders = a.validOrders + 1, a.updated = :now WHERE a.uuid = :uuid")
     int incrementValidOrders(@Param("uuid") UUID uuid, @Param("now") OffsetDateTime now);
 
+    /**
+     * Counts several failed orders against the account in one statement, so a caller that settles a batch of orders
+     * writes the account once, after it holds every row lock it needs.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE AcmeAccount a SET a.failedOrders = a.failedOrders + :count, a.updated = :now WHERE a.uuid = :uuid")
+    int incrementFailedOrdersBy(@Param("uuid") UUID uuid, @Param("count") int count, @Param("now") OffsetDateTime now);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE AcmeAccount a SET a.raProfileUuid = :newRaProfileUuid WHERE a.acmeProfileUuid = :acmeProfileUuid AND a.isDefaultRaProfile = true")
     void updateRaProfileForDefaultAccounts(@Param("acmeProfileUuid") UUID acmeProfileUuid,

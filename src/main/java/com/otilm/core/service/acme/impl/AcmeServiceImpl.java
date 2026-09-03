@@ -1036,11 +1036,16 @@ public class AcmeServiceImpl implements AcmeExternalService {
     }
 
     private void deactivateOrders(AcmeAccount acmeAccount) {
+        int closed = 0;
         for (AcmeOrder order : acmeAccount.getOrders()) {
-            acmeChallengeWriter.deactivateOrder(order.getUuid());
+            if (acmeChallengeWriter.deactivateOrder(order.getUuid())) {
+                closed++;
+            }
         }
-        // Each order counted itself in the database. The account is re-read so that writing it back afterwards
-        // carries those counts rather than the ones this request loaded before the orders were locked.
+        // The account is written once, in the database, after the calls above have taken and released every
+        // order lock, and then re-read so that writing it back afterwards carries that count rather than the
+        // one this request loaded.
+        acmeChallengeWriter.countFailedOrders(acmeAccount.getUuid(), closed);
         entityManager.refresh(acmeAccount);
     }
 
