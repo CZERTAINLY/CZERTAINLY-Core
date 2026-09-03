@@ -15,6 +15,9 @@
 
     <properties>
         <archunit.version>1.4.2</archunit.version>
+        <!-- CVE-2026-65182, CVE-2026-65905, CVE-2026-68525 (auth/constraint bypasses in embedded Tomcat).
+             Remove when the parent BOM manages at least this version. -->
+        <tomcat.version>10.1.58</tomcat.version>
         <log-schema.version>1.1</log-schema.version>
         <hsqldb.version>2.7.3</hsqldb.version>
         <nimbus-jose-jwt.version>10.8</nimbus-jose-jwt.version>
