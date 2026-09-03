@@ -261,6 +261,24 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
     }
 
     @Test
+    void authorWhoOwnsTheHostCascadesOverAnotherUsersReply() throws NotFoundException {
+        UUID objectUuid = hostObjects.create(Resource.RA_PROFILE);
+        UUID authorUuid = authenticateAs("tst-author");
+        grantOwnership(Resource.RA_PROFILE, objectUuid, authorUuid);
+        CommentDto root = post(Resource.RA_PROFILE, objectUuid, null);
+        authenticateAs("tst-replier");
+        post(Resource.RA_PROFILE, objectUuid, root.getUuid());
+
+        authenticateAs("tst-author", authorUuid);
+        restrictObjectAccess(Resource.RA_PROFILE, ResourceAction.UPDATE);
+        denyResourceAccess(Resource.RA_PROFILE, ResourceAction.UPDATE);
+
+        commentService.deleteComment(root.getUuid());
+
+        assertThat(list(Resource.RA_PROFILE, objectUuid).getComments()).isEmpty();
+    }
+
+    @Test
     void ownerDeletesRootWithRepliesCascading() throws NotFoundException {
         UUID objectUuid = hostObjects.create(Resource.RA_PROFILE);
         authenticateAs("tst-author");

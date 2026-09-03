@@ -224,11 +224,12 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         // A root author must not be able to erase other users' words: once another user has replied, only the host
         // object's owner or an update holder may delete the root (the delete cascades to the replies). Replies the
         // author wrote themselves stand in nobody's way. The writer re-checks under a row lock, so a reply racing
-        // in between this check and the delete still blocks a deletion that relies on sole authorship.
+        // in between this check and the delete still blocks a deletion that relies on sole authorship - which is
+        // why the cascade privilege is decided on its own: an author who also holds it must not be held to sole
+        // authorship by a reply that lands in between.
         boolean authorDeletesOwnThread = isAuthor
                 && !commentRepository.existsByParentUuidAndAuthorUuidNot(uuid, comment.getAuthorUuid());
-        boolean mayCascade = !authorDeletesOwnThread
-                && (isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment));
+        boolean mayCascade = isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment);
         if (!(authorDeletesOwnThread || mayCascade)) {
             throw deletionDenied(uuid, comment);
         }
