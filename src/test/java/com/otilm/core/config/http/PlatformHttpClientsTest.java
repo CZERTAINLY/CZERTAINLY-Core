@@ -18,7 +18,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.http.client.ClientHttpRequestFactorySettings;
+import org.springframework.boot.http.client.HttpClientSettings;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -56,7 +56,7 @@ class PlatformHttpClientsTest {
         return client(null);
     }
 
-    private RestClient client(ClientHttpRequestFactorySettings settings) {
+    private RestClient client(HttpClientSettings settings) {
         return RestClient.builder().requestFactory(PlatformHttpClients.requestFactoryBuilder().build(settings)).build();
     }
 
@@ -156,7 +156,7 @@ class PlatformHttpClientsTest {
         });
         server.start();
 
-        RestClient client = client(ClientHttpRequestFactorySettings
+        RestClient client = client(HttpClientSettings
                 .defaults()
                 .withConnectTimeout(Duration.ofSeconds(5))
                 .withReadTimeout(Duration.ofMillis(300)));
