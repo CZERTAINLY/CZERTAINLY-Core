@@ -83,18 +83,18 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
     }
 
     @Test
-    void anchoringOnAReplyReturnsThePageHoldingItsThread() throws NotFoundException {
+    void aReplyAnchorOnTheThreadListingIsIgnored() throws NotFoundException {
         List<CommentDto> roots = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             roots.add(post(raProfileUuid, "root " + i, null));
         }
-        CommentDto thread = roots.get(4);
-        CommentDto reply = post(raProfileUuid, "the reply the notification is about", thread.getUuid());
+        CommentDto reply = post(raProfileUuid, "belongs to the replies listing", roots.get(4).getUuid());
 
         CommentResponseDto anchored = listAnchoredAt(raProfileUuid, reply.getUuid(), 2);
 
-        assertThat(anchored.getPageNumber()).isEqualTo(3);
-        assertThat(anchored.getComments()).extracting(CommentDto::getUuid).contains(thread.getUuid());
+        // A reply is never on a page of roots, so honouring it would defeat the absent-anchor stale signal
+        assertThat(anchored.getPageNumber()).isEqualTo(1);
+        assertThat(anchored.getComments()).extracting(CommentDto::getUuid).doesNotContain(reply.getUuid());
     }
 
     @Test

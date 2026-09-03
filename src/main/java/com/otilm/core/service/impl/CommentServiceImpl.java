@@ -141,21 +141,19 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     }
 
     /**
-     * The thread an anchor belongs to, or null when no anchor was asked for, or when it no longer exists or never
-     * belonged to this object. A stale anchor leaves the caller on the page they requested rather than failing the
-     * listing, which can still serve the object's other comments.
+     * The anchored thread root, or null when no anchor was asked for, or when it no longer exists, is not a root, or
+     * never belonged to this object. Only roots are accepted because the caller tells a stale anchor by its absence
+     * from the returned page, and a reply is never on a page of roots. A stale anchor leaves the caller on the page
+     * they requested rather than failing the listing, which can still serve the object's other comments.
      */
     private Comment anchoredThread(Resource hostResource, UUID objectUuid, UUID anchorUuid) {
         if (anchorUuid == null) {
             return null;
         }
         Comment anchor = commentRepository.findByUuid(SecuredUUID.fromUUID(anchorUuid)).orElse(null);
-        if (anchor == null || anchor.getResource() != hostResource || !anchor.getObjectUuid().equals(objectUuid)) {
-            return null;
-        }
-        return anchor.getParentUuid() == null
-                ? anchor
-                : commentRepository.findByUuid(SecuredUUID.fromUUID(anchor.getParentUuid())).orElse(null);
+        boolean rootOfThisObject = anchor != null && anchor.getParentUuid() == null
+                && anchor.getResource() == hostResource && anchor.getObjectUuid().equals(objectUuid);
+        return rootOfThisObject ? anchor : null;
     }
 
     @Override
