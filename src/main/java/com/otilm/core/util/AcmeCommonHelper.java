@@ -11,6 +11,7 @@ import java.security.PublicKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
@@ -62,6 +63,20 @@ public class AcmeCommonHelper {
                 .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
                 .withZone(ZoneId.of("UTC"));
         return formatter.format(date.toInstant());
+    }
+
+    /**
+     * The same wire format as {@link #getStringFromDate(Date)}, for a value already held as a {@code java.time}
+     * instant.
+     */
+    public static String getStringFromDate(OffsetDateTime dateTime) {
+        if (dateTime == null) {
+            return null;
+        }
+        DateTimeFormatter formatter = DateTimeFormatter
+                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
+                .withZone(ZoneId.of("UTC"));
+        return formatter.format(dateTime.toInstant());
     }
 
     public static Date getDateFromString(String date) {

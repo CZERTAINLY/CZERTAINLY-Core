@@ -18,7 +18,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.io.Serializable;
-import java.util.Date;
+import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.Getter;
@@ -51,7 +51,7 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
     private ChallengeStatus status;
 
     @Column(name = "validated")
-    private Date validated;
+    private OffsetDateTime validated;
 
     @Column(name = "error_problem")
     @Enumerated(EnumType.STRING)

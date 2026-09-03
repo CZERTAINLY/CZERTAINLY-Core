@@ -7,9 +7,9 @@ import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.core.dao.entity.acme.AcmeAuthorization;
 import com.otilm.core.dao.entity.acme.AcmeChallenge;
 import com.otilm.core.dao.entity.acme.AcmeOrder;
-import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -42,7 +42,7 @@ public final class AcmeChallengeStateMachine {
         AcmeOrder order = authorization.getOrder();
 
         if (result.valid()) {
-            challenge.setValidated(Date.from(Instant.now()));
+            challenge.setValidated(OffsetDateTime.now(ZoneOffset.UTC));
             challenge.setStatus(ChallengeStatus.VALID);
             authorization.setStatus(AuthorizationStatus.VALID);
             // An order carries an authorization per identifier and is ready to finalize only once all of them
