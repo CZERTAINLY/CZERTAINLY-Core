@@ -101,6 +101,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.function.SelfRenderingSqmFunction;
+import org.hibernate.query.sqm.tree.expression.SqmLiteral;
 import org.hibernate.query.sqm.tree.predicate.SqmComparisonPredicate;
 import org.hibernate.query.sqm.tree.predicate.SqmExistsPredicate;
 import org.hibernate.query.sqm.tree.predicate.SqmJunctionPredicate;
@@ -275,7 +276,7 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
         Assertions.assertEquals(ComparisonOperator.EQUAL, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
         Assertions
                 .assertEquals(testValue,
-                        ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+                        unquoted(((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString()));
     }
 
     @Test
@@ -297,7 +298,7 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
                                 ((SqmComparisonPredicate) predicate).getSqmOperator());
                 Assertions
                         .assertEquals(testValue,
-                                ((SqmComparisonPredicate) predicate).getRightHandExpression().toHqlString());
+                                unquoted(((SqmComparisonPredicate) predicate).getRightHandExpression().toHqlString()));
             } else {
                 Assertions.assertFalse(predicate.isNull().isNegated());
             }
@@ -313,14 +314,15 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
         Assertions.assertInstanceOf(SqmComparisonPredicate.class, predicateTest);
         SqmComparisonPredicate comparisonPredicateTest = (SqmComparisonPredicate) predicateTest;
         Assertions.assertEquals(ComparisonOperator.EQUAL, comparisonPredicateTest.getSqmOperator());
-        Assertions.assertEquals("true", comparisonPredicateTest.getRightHandExpression().toHqlString());
+        Assertions.assertEquals("true", unquoted(comparisonPredicateTest.getRightHandExpression().toHqlString()));
         Assertions.assertInstanceOf(SelfRenderingSqmFunction.class, comparisonPredicateTest.getLeftHandExpression());
         SelfRenderingSqmFunction<?> leftHandExpressionHandExpression = (SelfRenderingSqmFunction<?>) comparisonPredicateTest
                 .getLeftHandExpression();
         Assertions.assertEquals("textregexeq", leftHandExpressionHandExpression.getFunctionName());
+        Assertions.assertInstanceOf(SqmLiteral.class, leftHandExpressionHandExpression.getArguments().getLast());
         Assertions
-                .assertEquals("'" + testValue + "'",
-                        leftHandExpressionHandExpression.getArguments().getLast().toHqlString());
+                .assertEquals(testValue,
+                        unquoted(leftHandExpressionHandExpression.getArguments().getLast().toHqlString()));
     }
 
     @Test
@@ -346,7 +348,8 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
             if (predicate instanceof SqmLikePredicate) {
                 Assertions.assertTrue(predicate.isNegated());
                 Assertions
-                        .assertEquals("%" + testValue + "%", ((SqmLikePredicate) predicate).getPattern().toHqlString());
+                        .assertEquals("%" + testValue + "%",
+                                unquoted(((SqmLikePredicate) predicate).getPattern().toHqlString()));
             } else {
                 Assertions.assertFalse(predicate.isNull().isNegated());
             }
@@ -402,7 +405,7 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
                         ((SqmComparisonPredicate) predicateTest).getSqmOperator());
         Assertions
                 .assertEquals(getFormattedDate(),
-                        ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+                        unquoted(((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString()));
     }
 
     @Test
@@ -415,7 +418,7 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
                 .assertEquals(ComparisonOperator.LESS_THAN, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
         Assertions
                 .assertEquals(getFormattedDate(),
-                        ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+                        unquoted(((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString()));
     }
 
     @NotNull
@@ -2156,9 +2159,18 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * Strips the quoting Hibernate applies inconsistently across versions.
+     */
+    private static String unquoted(final String hqlString) {
+        return hqlString.length() > 1 && hqlString.startsWith("'") && hqlString.endsWith("'")
+                ? hqlString.substring(1, hqlString.length() - 1)
+                : hqlString;
+    }
+
     private void testLikePredicate(final Predicate predicate, final String value) {
         Assertions.assertInstanceOf(SqmLikePredicate.class, predicate);
-        Assertions.assertEquals(value, ((SqmLikePredicate) predicate).getPattern().toHqlString());
+        Assertions.assertEquals(value, unquoted(((SqmLikePredicate) predicate).getPattern().toHqlString()));
     }
 
     private SearchFilterRequestDto prepareDummyFilterRequest(final FilterConditionOperator condition) {
