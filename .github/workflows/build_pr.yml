@@ -225,7 +225,9 @@ jobs:
             echo "If the change is intended, it re-keys the cryptographic asset inventory: update the"
             echo "SHA-256 pinned by IdentityTablesTest in the same commit, and re-run the identity"
             echo "vector suite, ratifying every expectation that moves. IdentityRuleset.VERSION is a"
-            echo "separate decision and is not bumped for a table edit alone."
+            echo "separate decision: a table edit that moves no key does not bump it, and one that does"
+            echo "may skip the bump only while no environment holds a keyed row. See that class's"
+            echo "Javadoc for the exemption and IdentityRulesetStampArchTest for what ends it."
             exit 1
           fi
 
