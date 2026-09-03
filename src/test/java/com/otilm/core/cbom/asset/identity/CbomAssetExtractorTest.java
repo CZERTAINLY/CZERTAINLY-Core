@@ -161,6 +161,51 @@ class CbomAssetExtractorTest {
                 .isNotEqualTo(rows.get("tls-two").identityKey());
     }
 
+    /**
+     * The object-shaped {@code value} arm of the composite's key slot, which no ratified vector reaches.
+     *
+     * <p>
+     * {@code asText()} on a container yields the empty string rather than null, so every certificate pointing at a
+     * target whose {@code sha256} was an object or an array used to render the bare discriminator {@code K:} -- and a
+     * JSON null rendered {@code K:null}, a boolean {@code K:true}. Read as the absent claim it is instead, which is the
+     * same reading a blank fingerprint content already gets. Note what that does and does not buy: it stops a malformed
+     * digest impersonating a real one, but two certificates pointing at two different KEYLESS material targets still
+     * share an empty slot, because the fallback below discriminates an algorithm target only. That over-merge is the
+     * first of the open findings on core#2165, not something this closes.
+     */
+    @Test
+    void aMalformedKeyDigestReadsAsTheAbsentClaimItIs() {
+        Map<String, Row> rows = rowsByName(List
+                .of(certificateReferencing("cert-upper", "k-upper"), certificateReferencing("cert-lower", "k-lower"),
+                        certificateReferencing("cert-other", "k-other"),
+                        certificateReferencing("cert-container", "k-container"),
+                        certificateReferencing("cert-json-null", "k-json-null"),
+                        certificateReferencing("cert-keyless", "k-keyless"),
+                        publicKeyWithValue("k-upper", "{\"sha256\":\"" + "AB".repeat(32) + "\"}"),
+                        publicKeyWithValue("k-lower", "{\"sha256\":\"" + "ab".repeat(32) + "\"}"),
+                        publicKeyWithValue("k-other", "{\"sha256\":\"" + "cd".repeat(32) + "\"}"),
+                        publicKeyWithValue("k-container", "{\"sha256\":{}}"),
+                        publicKeyWithValue("k-json-null", "{\"sha256\":null}"), publicKeyWithValue("k-keyless", null)));
+
+        assertThat(rows.get("cert-upper").identityKey())
+                .describedAs("one digest spelled two ways is one key: the textual arm renders lowercase hex, so an "
+                        + "uppercase spelling keyed apart from it until the fold")
+                .isEqualTo(rows.get("cert-lower").identityKey());
+        assertThat(rows.get("cert-other").identityKey())
+                .describedAs("two different digests still discriminate, so the fold above is not vacuous")
+                .isNotEqualTo(rows.get("cert-lower").identityKey());
+        assertThat(rows.get("cert-container").identityKey())
+                .describedAs("a container sha256 is no digest, so it must not render a discriminator a real digest "
+                        + "could never produce")
+                .isEqualTo(rows.get("cert-keyless").identityKey());
+        assertThat(rows.get("cert-json-null").identityKey())
+                .describedAs("a JSON null keyed as the literal text `null` before this")
+                .isEqualTo(rows.get("cert-keyless").identityKey());
+        assertThat(rows.get("cert-container").identityKey())
+                .describedAs("a malformed digest must not impersonate a real one")
+                .isNotEqualTo(rows.get("cert-lower").identityKey());
+    }
+
     @Test
     void reExtractingTheSameDocumentYieldsTheSameKeys() {
         JsonNode document = read("{\"components\":[" + algorithm("AES-256-GCM") + "," + certificate("x") + "]}");
@@ -428,6 +473,18 @@ class CbomAssetExtractorTest {
         return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"hashes\":[{\"alg\":\"SHA-256\","
                 + "\"content\":\"" + "cd".repeat(32) + "\"}],\"cryptoProperties\":{\"assetType\":\"certificate\","
                 + "\"certificateProperties\":{\"subjectName\":\"CN=" + subject + "\",\"issuerName\":\"CN=ca\"}}}";
+    }
+
+    /**
+     * A public-key material whose {@code value} is a raw JSON fragment rather than a PEM string, or absent when
+     * {@code value} is null. The certificate tier reads this node directly, so the shape reaches it even though
+     * {@link MaterialRedaction} drops a non-string value from the material's own row.
+     */
+    private static String publicKeyWithValue(String ref, String value) {
+        return "{\"type\":\"cryptographic-asset\",\"bom-ref\":\"" + ref + "\",\"name\":\"" + ref + "\","
+                + "\"cryptoProperties\":{\"assetType\":\"related-crypto-material\","
+                + "\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\""
+                + (value == null ? "" : ",\"value\":" + value) + "}}}";
     }
 
     private static String material(String name, String ref, String value) {

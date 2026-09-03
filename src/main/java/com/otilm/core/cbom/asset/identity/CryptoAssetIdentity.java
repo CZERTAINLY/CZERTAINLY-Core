@@ -476,8 +476,21 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                 ? null
                 : objectOrNull(targetProperties.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES));
         JsonNode value = material == null ? null : material.get("value");
-        if (value != null && value.isObject() && value.get("sha256") != null) {
-            return "K:" + value.get("sha256").asText();
+        // Textual and blank-checked, the same guard CertificateDigests carries for the same reason: asText() on an
+        // object or an array yields the empty string rather than null, so a target carrying `{"sha256": {}}` used to
+        // contribute the discriminator `K:` -- and two certificates with equal DN and validity pointing at two
+        // DIFFERENT such targets then merged. Worse than an empty slot, because returning here also skipped the
+        // target-identity fallback below, which does discriminate. A boolean or numeric sha256 keyed on "true" or "5"
+        // by the same route.
+        JsonNode keyDigest = value != null && value.isObject() ? value.get("sha256") : null;
+        if (keyDigest != null && keyDigest.isTextual()) {
+            // Folded and stripped before the blank check, the way CertificateDigests reads a content digest. The
+            // textual branch below renders lowercase hex through MaterialValueDigest, so an uppercase spelling of the
+            // same digest keyed apart from it until this fold.
+            String digest = AsciiText.fold(AsciiText.strip(keyDigest.textValue()));
+            if (!digest.isEmpty()) {
+                return "K:" + digest;
+            }
         }
         if (value != null && value.isTextual() && !AsciiText.isBlank(value.textValue())) {
             try {

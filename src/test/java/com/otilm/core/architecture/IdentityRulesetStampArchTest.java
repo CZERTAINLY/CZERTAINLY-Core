@@ -33,10 +33,16 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 @AnalyzeClasses(packages = "com.otilm.core", importOptions = IdentityRulesetStampArchTest.OnlyThisModule.class)
 class IdentityRulesetStampArchTest {
 
+    /**
+     * Exempts the class, not its package. A package exemption would have covered the four sibling writers that already
+     * coordinate with each other, so an ingest orchestrator placed beside them -- the natural home, given that
+     * coordination -- would wire the writer into production with this tripwire still green, at the one moment the
+     * exemption depends on it firing.
+     */
     @ArchTest
     static final ArchRule theAssetWriterIsStillUnreachableFromProduction = noClasses()
             .that()
-            .resideOutsideOfPackage("com.otilm.core.service.writer.cbom..")
+            .doNotHaveFullyQualifiedName(CryptoAssetWriter.class.getName())
             .should()
             .dependOnClassesThat()
             .haveFullyQualifiedName(CryptoAssetWriter.class.getName())
