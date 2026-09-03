@@ -60,14 +60,16 @@ public class CommentWriter {
     /**
      * Locking the root serializes the deletion against concurrent replies: the row lock ({@code FOR UPDATE}) conflicts
      * with the key-share lock a reply insert takes on its parent, so the reply check below cannot be invalidated before
-     * the delete commits — a root author must not erase words the thread gained meanwhile.
+     * the delete commits — a root author must not erase words the thread gained meanwhile. {@code soleAuthor} is the
+     * caller when they may delete only because every comment in the thread is theirs; null when they hold the cascade
+     * privilege and other users' replies go with the root.
      */
     @Transactional
-    public void deleteRoot(UUID uuid, boolean mayCascade) throws NotFoundException {
+    public void deleteRoot(UUID uuid, UUID soleAuthor) throws NotFoundException {
         commentRepository.findWithLockByUuid(uuid).orElseThrow(() -> new NotFoundException(Comment.class, uuid));
-        if (!mayCascade && commentRepository.existsByParentUuid(uuid)) {
-            throw new ValidationException(
-                    "The thread gained replies; only the host object's owner or an update holder may delete it");
+        if (soleAuthor != null && commentRepository.existsByParentUuidAndAuthorUuidNot(uuid, soleAuthor)) {
+            throw new ValidationException("The thread gained replies from other users; only the host object's owner"
+                    + " or an update holder may delete it");
         }
         commentRepository.deleteCommentByUuid(uuid);
     }

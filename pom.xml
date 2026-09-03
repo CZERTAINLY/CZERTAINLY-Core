@@ -15,6 +15,10 @@
 
     <properties>
         <archunit.version>1.4.2</archunit.version>
+        <!-- CVE-2026-65182, CVE-2026-65905, CVE-2026-68525 (auth/constraint bypasses in embedded Tomcat).
+             The announced fix version 10.1.58 was never published; 10.1.59 is its released successor.
+             Remove when the parent BOM manages at least this version. -->
+        <tomcat.version>10.1.59</tomcat.version>
         <log-schema.version>1.1</log-schema.version>
         <hsqldb.version>2.7.3</hsqldb.version>
         <nimbus-jose-jwt.version>10.8</nimbus-jose-jwt.version>
@@ -29,7 +33,7 @@
         <sonar.projectKey>ilm_core</sonar.projectKey>
         <sonar.sources>src/main/java</sonar.sources>
         <sonar.cpd.exclusions>src/main/java/com/otilm/core/dao/entity/**</sonar.cpd.exclusions>
-        <sonar.coverage.exclusions>src/main/java/com/otilm/core/dao/entity/**,src/main/java/com/otilm/core/api/**,src/main/java/com/otilm/core/util/converter/**,src/main/java/db/migration/V202607031200__CreateAttributeContentResolverUserAndPermissions.java</sonar.coverage.exclusions>
+        <sonar.coverage.exclusions>src/main/java/com/otilm/core/dao/entity/**,src/main/java/com/otilm/core/api/**,src/main/java/com/otilm/core/util/converter/**,src/main/java/db/migration/V202607031200__CreateAttributeContentResolverUserAndPermissions.java,src/main/java/db/migration/V202608311000__GrantRaProfileMembersToAttributeContentResolver.java</sonar.coverage.exclusions>
     </properties>
 
     <dependencyManagement>

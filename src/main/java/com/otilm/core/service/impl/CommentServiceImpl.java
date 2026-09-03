@@ -6,11 +6,12 @@ import com.otilm.api.model.client.comment.CommentCreateRequestDto;
 import com.otilm.api.model.client.comment.CommentDto;
 import com.otilm.api.model.client.comment.CommentResponseDto;
 import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.common.SortedPaginationRequestDto;
 import com.otilm.api.model.common.events.data.CommentEventData;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.other.ResourceEvent;
 import com.otilm.api.model.core.other.ResourceObjectDto;
-import com.otilm.api.model.core.scheduler.PaginationRequestDto;
+import com.otilm.api.model.core.search.SortDirection;
 import com.otilm.core.aop.AuditAffiliationOverride;
 import com.otilm.core.aop.AuditOperationDataOverride;
 import com.otilm.core.dao.entity.Comment;
@@ -35,6 +36,7 @@ import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -43,6 +45,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -110,14 +113,14 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     @ExternalAuthorizationDynamic(action = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CommentResponseDto listComments(SecuredResource resource, SecuredUUID objectUuid,
-            PaginationRequestDto pagination) throws NotFoundException {
+            SortedPaginationRequestDto pagination) throws NotFoundException {
         Resource hostResource = validateCommentable(resource);
         resourceService.getResourceObject(hostResource, objectUuid.getValue());
         RequestValidatorHelper.revalidatePaginationRequestDto(pagination);
 
         Page<Comment> roots = commentRepository
-                .findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAsc(hostResource, objectUuid.getValue(),
-                        PageRequest.of(pagination.getPageNumber() - 1, pagination.getItemsPerPage()));
+                .findByResourceAndObjectUuidAndParentUuidIsNull(hostResource, objectUuid.getValue(),
+                        pageByCreationTime(pagination));
         List<UUID> rootUuids = roots.getContent().stream().map(Comment::getUuid).toList();
         Map<UUID, Long> replyCountsByRoot = rootUuids.isEmpty()
                 ? Map.of()
@@ -136,7 +139,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     @Override
     @AnyPrincipalEndpoint
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public CommentResponseDto listReplies(UUID uuid, PaginationRequestDto pagination) throws NotFoundException {
+    public CommentResponseDto listReplies(UUID uuid, SortedPaginationRequestDto pagination) throws NotFoundException {
         Comment root = getComment(uuid);
         // Authorization comes before shape validation, so an unauthorized caller cannot tell roots from replies
         // by the status code
@@ -147,9 +150,7 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         }
         RequestValidatorHelper.revalidatePaginationRequestDto(pagination);
 
-        Page<Comment> replies = commentRepository
-                .findByParentUuidOrderByCreatedAtAsc(uuid,
-                        PageRequest.of(pagination.getPageNumber() - 1, pagination.getItemsPerPage()));
+        Page<Comment> replies = commentRepository.findByParentUuid(uuid, pageByCreationTime(pagination));
         List<CommentDto> replyDtos = replies
                 .getContent()
                 .stream()
@@ -221,18 +222,20 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
             return;
         }
 
-        // A root author must not be able to erase other users' words: once a root has replies, only the host
-        // object's owner or an update holder may delete it (the delete cascades to the replies). The writer
-        // re-checks for replies under a row lock, so ones racing in between this check and the delete still
-        // block a non-cascading deletion.
-        boolean authorDeletesOwnReplylessRoot = isAuthor && !commentRepository.existsByParentUuid(uuid);
-        boolean mayCascade = !authorDeletesOwnReplylessRoot
-                && (isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment));
-        if (!(authorDeletesOwnReplylessRoot || mayCascade)) {
+        // A root author must not be able to erase other users' words: once another user has replied, only the host
+        // object's owner or an update holder may delete the root (the delete cascades to the replies). Replies the
+        // author wrote themselves stand in nobody's way. The writer re-checks under a row lock, so a reply racing
+        // in between this check and the delete still blocks a deletion that relies on sole authorship - which is
+        // why the cascade privilege is decided on its own: an author who also holds it must not be held to sole
+        // authorship by a reply that lands in between.
+        boolean authorDeletesOwnThread = isAuthor
+                && !commentRepository.existsByParentUuidAndAuthorUuidNot(uuid, comment.getAuthorUuid());
+        boolean mayCascade = isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment);
+        if (!(authorDeletesOwnThread || mayCascade)) {
             throw deletionDenied(uuid, comment);
         }
         recordAuditData(baseEventData(comment, hostObject.getName()));
-        commentWriter.deleteRoot(uuid, mayCascade);
+        commentWriter.deleteRoot(uuid, mayCascade ? null : comment.getAuthorUuid());
     }
 
     private AccessDeniedException deletionDenied(UUID uuid, Comment comment) {
@@ -277,6 +280,17 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         recordAuditData(eventData);
         publishAfterCommit(new EventMessage(ResourceEvent.COMMENT_RESOLVED, Resource.COMMENT, uuid, null, null,
                 eventData, UUID.fromString(actor.getUuid()), null));
+    }
+
+    private static PageRequest pageByCreationTime(SortedPaginationRequestDto pagination) {
+        // The converter maps a blank sortDirection to null, which overwrites the request object's own default
+        SortDirection requested = Objects.requireNonNullElse(pagination.getSortDirection(), SortDirection.ASC);
+        Sort.Direction direction = requested == SortDirection.DESC ? Sort.Direction.DESC : Sort.Direction.ASC;
+        // createdAt is stamped per request and can tie, so the primary key follows it to make the order total.
+        // It takes the requested direction too, or descending would not be the reverse of ascending within a tie.
+        return PageRequest
+                .of(pagination.getPageNumber() - 1, pagination.getItemsPerPage(),
+                        Sort.by(direction, "createdAt", "uuid"));
     }
 
     private Resource validateCommentable(SecuredResource resource) {

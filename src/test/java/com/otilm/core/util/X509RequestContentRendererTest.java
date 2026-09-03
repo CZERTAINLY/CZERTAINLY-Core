@@ -23,6 +23,7 @@ import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1String;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.DERPrintableString;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.x509.ExtendedKeyUsage;
 import org.bouncycastle.asn1.x509.Extension;
@@ -466,15 +467,28 @@ class X509RequestContentRendererTest {
 
         @Test
         void encodesAsUtf8String_whenEncodingHasNoDedicatedBranch() throws Exception {
-            // given — PRINTABLE_STRING falls through to the default UTF8String branch
-            var x509 = sansOf(otherName("printable", ExtensionValueEncoding.PRINTABLE_STRING));
+            // given — BIT_STRING falls through to the default UTF8String branch
+            var x509 = sansOf(otherName("bits", ExtensionValueEncoding.BIT_STRING));
 
             // when
             ASN1Encodable value = otherNameValueOf(x509);
 
             // then
             assertThat(value).isInstanceOf(DERUTF8String.class);
-            assertThat(((ASN1String) value).getString()).isEqualTo("printable");
+            assertThat(((ASN1String) value).getString()).isEqualTo("bits");
+        }
+
+        @Test
+        void encodesAsPrintableString_whenTheEncodingSaysSo() throws Exception {
+            // given — a parsed otherName keeps its PrintableString type, so rendering has to honour it
+            var x509 = sansOf(otherName("PRINTABLE", ExtensionValueEncoding.PRINTABLE_STRING));
+
+            // when
+            ASN1Encodable value = otherNameValueOf(x509);
+
+            // then
+            assertThat(value).isInstanceOf(DERPrintableString.class);
+            assertThat(((ASN1String) value).getString()).isEqualTo("PRINTABLE");
         }
 
         private static GeneralNameEntry otherName(String value, ExtensionValueEncoding encoding) {
