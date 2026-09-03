@@ -173,11 +173,9 @@ class ExceptionHandlingAdviceConnectorTest {
         ListAppender<ILoggingEvent> logged = captureLogsOfAdvice();
         advice.handleConnectorProblemException(problem(500, "boom"));
         advice.handleConnectorProblemException(problem(401, "denied"));
-        assertTrue(logged.list.stream().anyMatch(event -> event.getLevel() == Level.ERROR),
-                "a connector 500 must log at ERROR");
-        assertTrue(logged.list.stream().anyMatch(event -> event.getLevel() == Level.WARN),
-                "a connector 401 must log at WARN, not ERROR");
         assertEquals(2, logged.list.size(), "each handled problem logs exactly once");
+        assertEquals(Level.ERROR, logged.list.get(0).getLevel(), "a connector 500 must log at ERROR");
+        assertEquals(Level.WARN, logged.list.get(1).getLevel(), "a connector 401 must log at WARN");
     }
 
     @Test
@@ -185,10 +183,9 @@ class ExceptionHandlingAdviceConnectorTest {
         ListAppender<ILoggingEvent> logged = captureLogsOfAdvice();
         advice.handleConnectorClientException(new ConnectorClientException("denied", HttpStatus.UNAUTHORIZED));
         advice.handleConnectorClientException(new ConnectorClientException("dup", HttpStatus.CONFLICT));
-        assertTrue(logged.list.stream().anyMatch(event -> event.getLevel() == Level.WARN),
-                "a translated legacy 401 must log at WARN");
-        assertTrue(logged.list.stream().anyMatch(event -> event.getLevel() == Level.INFO),
-                "an untranslated legacy row must stay at INFO");
+        assertEquals(2, logged.list.size(), "each handled failure logs exactly once");
+        assertEquals(Level.WARN, logged.list.get(0).getLevel(), "a translated legacy 401 must log at WARN");
+        assertEquals(Level.INFO, logged.list.get(1).getLevel(), "an untranslated legacy 409 must stay at INFO");
     }
 
     private static ListAppender<ILoggingEvent> captureLogsOfAdvice() {
