@@ -5,8 +5,8 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.comment.CommentCreateRequestDto;
 import com.otilm.api.model.client.comment.CommentDto;
 import com.otilm.api.model.client.comment.CommentResponseDto;
+import com.otilm.api.model.common.SortedPaginationRequestDto;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.security.authz.SecuredResource;
@@ -55,7 +55,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
     private CommentResponseDto list(UUID objectUuid) throws NotFoundException {
         return commentService
                 .listComments(SecuredResource.fromResource(Resource.RA_PROFILE), SecuredUUID.fromUUID(objectUuid),
-                        new PaginationRequestDto());
+                        new SortedPaginationRequestDto());
     }
 
     @Test
@@ -63,7 +63,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         SecuredResource userResource = SecuredResource.fromResource(Resource.USER);
         SecuredUUID objectUuid = SecuredUUID.fromUUID(UUID.randomUUID());
         CommentCreateRequestDto createRequest = request("hello", null);
-        PaginationRequestDto pagination = new PaginationRequestDto();
+        SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
         assertThatThrownBy(() -> commentService.createComment(userResource, objectUuid, createRequest))
                 .isInstanceOf(ValidationException.class);
         assertThatThrownBy(() -> commentService.listComments(userResource, objectUuid, pagination))
@@ -89,7 +89,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         CommentResponseDto threads = list(raProfileUuid);
         assertThat(threads.getComments()).hasSize(1);
         assertThat(threads.getComments().getFirst().getReplyCount()).isEqualTo(1L);
-        assertThat(commentService.listReplies(root.getUuid(), new PaginationRequestDto()).getComments())
+        assertThat(commentService.listReplies(root.getUuid(), new SortedPaginationRequestDto()).getComments())
                 .extracting(CommentDto::getUuid)
                 .containsExactly(reply.getUuid());
     }
@@ -122,7 +122,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         CommentDto reply = post(raProfileUuid, "reply", root.getUuid());
 
         UUID replyUuid = reply.getUuid();
-        PaginationRequestDto pagination = new PaginationRequestDto();
+        SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
         assertThatThrownBy(() -> commentService.listReplies(replyUuid, pagination))
                 .isInstanceOf(ValidationException.class);
     }
