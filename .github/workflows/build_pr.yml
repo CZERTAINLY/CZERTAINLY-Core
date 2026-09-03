@@ -178,9 +178,53 @@ jobs:
           name: coverage-reports
           path: target/site/jacoco/jacoco.xml
 
+  generated:
+    name: Generated artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      # The generator is deterministic on any CPython 3.7+, so this pin is not a requirement
+      # of the script - it pins the interpreter the proof is carried out on, so a runner image
+      # bump can never quietly become the reason the bytes changed.
+      - name: Set up Python 3.13
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      # cbom/identity-tables.json is committed so that builds stay offline and need no Python:
+      # every developer and every release build reads the bytes straight from the repository.
+      # That is only safe while the committed bytes are provably the generator's output, which
+      # is what this step establishes. It regenerates the artifact in place from the inputs
+      # under src/main/cbom/identity and fails if a single byte moved.
+      #
+      # It catches a hand-edit to the artifact that no input justifies. The complementary
+      # failure - a legitimate input change that silently re-keys the inventory - is caught by
+      # the SHA-256 pin in IdentityTablesTest, which forces the new hash to be ratified in the
+      # same commit. Neither guard subsumes the other.
+      - name: Regenerate the CBOM identity tables
+        run: python3 scripts/cbom/build_identity_tables.py --output src/main/resources/cbom/identity-tables.json
+
+      - name: Fail if the committed tables are not the generator's output
+        run: |
+          if ! git diff --exit-code -- src/main/resources/cbom/identity-tables.json; then
+            echo
+            echo "::error file=src/main/resources/cbom/identity-tables.json::The committed identity tables are not reproducible from the inputs in src/main/cbom/identity."
+            echo "The diff above is what regeneration produced minus what is committed."
+            echo
+            echo "To fix, run this and commit the result:"
+            echo "  python3 scripts/cbom/build_identity_tables.py --output src/main/resources/cbom/identity-tables.json"
+            echo
+            echo "If the change is intended, it re-keys the cryptographic asset inventory: update the"
+            echo "SHA-256 pinned by IdentityTablesTest in the same commit, and re-run the identity"
+            echo "vector suite, ratifying every expectation that moves. IdentityRuleset.VERSION is a"
+            echo "separate decision and is not bumped for a table edit alone."
+            exit 1
+          fi
+
   build:
     name: Build
-    needs: [package, formatting]
+    needs: [package, formatting, generated]
     runs-on: ubuntu-latest
     steps:
       - run: echo "Build complete"

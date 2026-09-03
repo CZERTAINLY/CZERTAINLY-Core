@@ -211,7 +211,7 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
     public LocationsResponseDto listLocations(SecurityFilter filter, SearchRequestDto request) {
 
-        RequestValidatorHelper.revalidateSearchRequestDto(request);
+        RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.LOCATION);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<Location>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root,

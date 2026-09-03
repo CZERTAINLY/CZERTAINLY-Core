@@ -42,6 +42,7 @@ import com.otilm.core.service.TimeQualityConfigurationExternalService;
 import com.otilm.core.service.TimeQualityConfigurationInternalService;
 import com.otilm.core.service.model.SecuredList;
 import com.otilm.core.util.FilterPredicatesBuilder;
+import com.otilm.core.util.RequestValidatorHelper;
 import com.otilm.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -105,6 +106,7 @@ public class TimeQualityConfigurationServiceImpl
     @Transactional(readOnly = true)
     public PaginationResponseDto<TimeQualityConfigurationListDto> listTimeQualityConfigurations(
             SearchRequestDto request, SecurityFilter filter) {
+        RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.TIME_QUALITY_CONFIGURATION);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<TimeQualityConfiguration>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
                 cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
