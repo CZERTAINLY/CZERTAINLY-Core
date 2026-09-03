@@ -27,6 +27,11 @@ public class AcmeCommonHelper {
 
     private static final Integer COMMON_EXPIRES_IN_SECONDS = 10 * 60 * 60;
 
+    /** The timestamp format the ACME wire objects carry, in UTC. */
+    private static final DateTimeFormatter WIRE_TIMESTAMP_FORMAT = DateTimeFormatter
+            .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
+            .withZone(ZoneId.of("UTC"));
+
     public static Date getDefaultExpires() {
         return new Date(new Date().getTime() + COMMON_EXPIRES_IN_SECONDS);
     }
@@ -59,10 +64,7 @@ public class AcmeCommonHelper {
         if (date == null) {
             return null;
         }
-        DateTimeFormatter formatter = DateTimeFormatter
-                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
-                .withZone(ZoneId.of("UTC"));
-        return formatter.format(date.toInstant());
+        return WIRE_TIMESTAMP_FORMAT.format(date.toInstant());
     }
 
     /**
@@ -73,20 +75,14 @@ public class AcmeCommonHelper {
         if (dateTime == null) {
             return null;
         }
-        DateTimeFormatter formatter = DateTimeFormatter
-                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
-                .withZone(ZoneId.of("UTC"));
-        return formatter.format(dateTime.toInstant());
+        return WIRE_TIMESTAMP_FORMAT.format(dateTime.toInstant());
     }
 
     public static Date getDateFromString(String date) {
         if (date == null || date.isEmpty()) {
             return null;
         }
-        DateTimeFormatter formatter = DateTimeFormatter
-                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
-                .withZone(ZoneId.of("UTC"));
-        return new Date(Instant.from(formatter.parse(date)).getEpochSecond());
+        return new Date(Instant.from(WIRE_TIMESTAMP_FORMAT.parse(date)).getEpochSecond());
     }
 
     public static Date addSeconds(Date date, int seconds) {
