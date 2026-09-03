@@ -5,10 +5,10 @@ import com.otilm.api.interfaces.core.web.CommentController;
 import com.otilm.api.model.client.comment.CommentCreateRequestDto;
 import com.otilm.api.model.client.comment.CommentDto;
 import com.otilm.api.model.client.comment.CommentResponseDto;
+import com.otilm.api.model.common.SortedPaginationRequestDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
-import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredResource;
@@ -39,7 +39,7 @@ public class CommentControllerImpl implements CommentController {
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.COMMENT, operation = Operation.LIST)
     public CommentResponseDto listComments(@LogResource(resource = true, affiliated = true) Resource resource,
-            @LogResource(uuid = true, affiliated = true) UUID objectUuid, PaginationRequestDto pagination)
+            @LogResource(uuid = true, affiliated = true) UUID objectUuid, SortedPaginationRequestDto pagination)
             throws NotFoundException {
         return commentService
                 .listComments(SecuredResource.fromResource(resource), SecuredUUID.fromUUID(objectUuid), pagination);
@@ -47,7 +47,7 @@ public class CommentControllerImpl implements CommentController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.COMMENT, operation = Operation.LIST)
-    public CommentResponseDto listReplies(@LogResource(uuid = true) UUID uuid, PaginationRequestDto pagination)
+    public CommentResponseDto listReplies(@LogResource(uuid = true) UUID uuid, SortedPaginationRequestDto pagination)
             throws NotFoundException {
         return commentService.listReplies(uuid, pagination);
     }

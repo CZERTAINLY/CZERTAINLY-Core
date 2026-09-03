@@ -5,11 +5,11 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.model.client.comment.CommentCreateRequestDto;
 import com.otilm.api.model.client.comment.CommentDto;
 import com.otilm.api.model.client.comment.CommentResponseDto;
+import com.otilm.api.model.common.SortedPaginationRequestDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.api.model.core.auth.UserProfileDto;
 import com.otilm.api.model.core.logging.enums.AuthMethod;
-import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.dao.entity.OwnerAssociation;
 import com.otilm.core.dao.repository.OwnerAssociationRepository;
 import com.otilm.core.model.auth.ResourceAction;
@@ -103,7 +103,7 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
     private CommentResponseDto list(Resource resource, UUID objectUuid) throws NotFoundException {
         return commentService
                 .listComments(SecuredResource.fromResource(resource), SecuredUUID.fromUUID(objectUuid),
-                        new PaginationRequestDto());
+                        new SortedPaginationRequestDto());
     }
 
     private void grantOwnership(Resource resource, UUID objectUuid, UUID ownerUuid) {
@@ -203,7 +203,7 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
         denyResourceAccess(Resource.RA_PROFILE, ResourceAction.DETAIL);
 
         UUID replyUuid = reply.getUuid();
-        PaginationRequestDto pagination = new PaginationRequestDto();
+        SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
         assertThatThrownBy(() -> commentService.listReplies(replyUuid, pagination))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> commentService.resolveComment(replyUuid)).isInstanceOf(AccessDeniedException.class);
