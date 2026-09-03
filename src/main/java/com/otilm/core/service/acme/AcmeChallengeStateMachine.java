@@ -3,6 +3,7 @@ package com.otilm.core.service.acme;
 import com.otilm.api.model.core.acme.AuthorizationStatus;
 import com.otilm.api.model.core.acme.ChallengeStatus;
 import com.otilm.api.model.core.acme.OrderStatus;
+import com.otilm.api.model.core.certificate.CertificateState;
 import com.otilm.core.dao.entity.acme.AcmeAuthorization;
 import com.otilm.core.dao.entity.acme.AcmeChallenge;
 import com.otilm.core.dao.entity.acme.AcmeOrder;
@@ -136,6 +137,20 @@ public final class AcmeChallengeStateMachine {
         }
         order.setStatus(OrderStatus.INVALID);
         return true;
+    }
+
+    /**
+     * The status an order takes from the certificate requested for it.
+     */
+    public static OrderStatus statusFromCertificate(CertificateState certificateState) {
+        if (certificateState == CertificateState.ISSUED) {
+            return OrderStatus.VALID;
+        }
+        if (certificateState == CertificateState.REQUESTED || certificateState == CertificateState.PENDING_APPROVAL
+                || certificateState == CertificateState.PENDING_ISSUE) {
+            return OrderStatus.PROCESSING;
+        }
+        return OrderStatus.INVALID;
     }
 
     /**

@@ -81,6 +81,8 @@ import com.otilm.core.util.CertificateRequestUtils;
 import com.otilm.core.util.CertificateUtil;
 import com.otilm.core.util.SerializationUtil;
 import com.otilm.core.util.X509ObjectToString;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -147,6 +149,9 @@ public class AcmeServiceImpl implements AcmeExternalService {
     private ClientOperationInternalService clientOperationService;
     private CertificateInternalService certificateService;
     private AcmeChallengeWriter acmeChallengeWriter;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private AttributeEngine attributeEngine;
     private ProtocolRequestAttributeValidator protocolRequestAttributeValidator;
@@ -759,9 +764,11 @@ public class AcmeServiceImpl implements AcmeExternalService {
                             order.getAcmeAccount().getUuid().toString(), order.getAcmeAccount().getAccountId());
         }
 
+        // An invalid order is a state the protocol defines, not a server fault: it is returned with that status
+        // (RFC 8555 section 7.1.3). Why validation failed is reported per identifier, on the challenges of the
+        // order's authorizations.
         if (order.getStatus().equals(OrderStatus.INVALID)) {
-            logger.error("Order status is invalid: {}", order);
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
+            logger.debug("Order {} is invalid", order.getOrderId());
         }
 
         return ResponseEntity
@@ -1029,14 +1036,12 @@ public class AcmeServiceImpl implements AcmeExternalService {
     }
 
     private void deactivateOrders(AcmeAccount acmeAccount) {
-        int failedOrdersCount = 0;
         for (AcmeOrder order : acmeAccount.getOrders()) {
-            // An order that was already invalid has been counted; only a change of status counts
-            if (acmeChallengeWriter.deactivateOrder(order.getUuid())) {
-                failedOrdersCount++;
-            }
+            acmeChallengeWriter.deactivateOrder(order.getUuid());
         }
-        acmeAccount.setFailedOrders(acmeAccount.getFailedOrders() + failedOrdersCount);
+        // Each order counted itself in the database. The account is re-read so that writing it back afterwards
+        // carries those counts rather than the ones this request loaded before the orders were locked.
+        entityManager.refresh(acmeAccount);
     }
 
     private void validateKey(JWSObject jwsRequestObject, JWSObject jwsInnerObject) throws AcmeProblemDocumentException {
@@ -1399,16 +1404,7 @@ public class AcmeServiceImpl implements AcmeExternalService {
     }
 
     private OrderStatus checkOrderStatusByCertificate(Certificate certificate) {
-        if (certificate.getState().equals(CertificateState.ISSUED)) {
-            return OrderStatus.VALID;
-        }
-        if (certificate.getState().equals(CertificateState.REQUESTED)
-                || certificate.getState().equals(CertificateState.PENDING_APPROVAL)
-                || certificate.getState().equals(CertificateState.PENDING_ISSUE)) {
-            return OrderStatus.PROCESSING;
-        }
-
-        return OrderStatus.INVALID;
+        return AcmeChallengeStateMachine.statusFromCertificate(certificate.getState());
     }
 
     protected ByteArrayResource getCertificateResource(String certificateId)
@@ -1606,16 +1602,9 @@ public class AcmeServiceImpl implements AcmeExternalService {
                 .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL,
                         "Requested order is not found"));
 
-        // check for status if certificate reference is set
-        if (order.getCertificateReference() != null) {
-            OrderStatus newStatus = checkOrderStatusByCertificate(order.getCertificateReference());
-            if (!newStatus.equals(order.getStatus())) {
-                logger.info("ACME Order status changed from {} to {}.", order.getStatus(), newStatus);
-                order.setStatus(newStatus);
-                incrementOrderCounts(newStatus, order);
-                acmeOrderRepository.save(order);
-            }
-        }
+        // An order that has requested or received a certificate takes its status from the certificate, decided
+        // under the order lock, before a status left open behind it could be settled as a failure.
+        order = acmeChallengeWriter.reconcileCertificateStatus(order.getUuid());
         settleStaleStatuses(order);
 
         if (order.getExpires() != null && order.getExpires().before(new Date())) {
@@ -1633,8 +1622,7 @@ public class AcmeServiceImpl implements AcmeExternalService {
             incrementFailedOrdersCount(order);
         }
         if (newStatus == OrderStatus.VALID) {
-            order.getAcmeAccount().setValidOrders(order.getAcmeAccount().getValidOrders() + 1);
-            acmeAccountRepository.save(order.getAcmeAccount());
+            acmeChallengeWriter.countValidOrder(order.getAcmeAccountUuid());
         }
     }
 

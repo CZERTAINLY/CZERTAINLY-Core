@@ -28,6 +28,14 @@ public interface AcmeAccountRepository extends SecurityFilterRepository<AcmeAcco
     @Query("UPDATE AcmeAccount a SET a.failedOrders = a.failedOrders + 1, a.updated = :now WHERE a.uuid = :uuid")
     int incrementFailedOrders(@Param("uuid") UUID uuid, @Param("now") OffsetDateTime now);
 
+    /**
+     * Counts one more valid order against the account in the database itself, for the same reason as
+     * {@link #incrementFailedOrders(UUID, OffsetDateTime)}.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE AcmeAccount a SET a.validOrders = a.validOrders + 1, a.updated = :now WHERE a.uuid = :uuid")
+    int incrementValidOrders(@Param("uuid") UUID uuid, @Param("now") OffsetDateTime now);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE AcmeAccount a SET a.raProfileUuid = :newRaProfileUuid WHERE a.acmeProfileUuid = :acmeProfileUuid AND a.isDefaultRaProfile = true")
     void updateRaProfileForDefaultAccounts(@Param("acmeProfileUuid") UUID acmeProfileUuid,

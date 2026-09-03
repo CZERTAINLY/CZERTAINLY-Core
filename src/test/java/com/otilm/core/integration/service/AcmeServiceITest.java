@@ -1342,10 +1342,9 @@ class AcmeServiceITest extends BaseSpringBootTest {
         int failedOrdersBefore = failedOrders(order);
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/order/orderStaleGet");
 
-        Assertions
-                .assertThrows(AcmeProblemDocumentException.class,
-                        () -> acmeService.getOrder(ACME_PROFILE_NAME, "orderStaleGet", requestUri, false));
+        ResponseEntity<Order> response = acmeService.getOrder(ACME_PROFILE_NAME, "orderStaleGet", requestUri, false);
 
+        Assertions.assertEquals(OrderStatus.INVALID, Objects.requireNonNull(response.getBody()).getStatus());
         Assertions
                 .assertEquals(OrderStatus.INVALID,
                         acmeOrderRepository.findByOrderId("orderStaleGet").orElseThrow().getStatus());
@@ -1382,10 +1381,9 @@ class AcmeServiceITest extends BaseSpringBootTest {
         failedChallengeLeftUnpropagated("orderStaleChall2", "authStaleChall2", "challengeStaleChall2");
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/order/orderStaleChall2");
 
-        Assertions
-                .assertThrows(AcmeProblemDocumentException.class,
-                        () -> acmeService.getOrder(ACME_PROFILE_NAME, "orderStaleChall2", requestUri, false));
+        ResponseEntity<Order> response = acmeService.getOrder(ACME_PROFILE_NAME, "orderStaleChall2", requestUri, false);
 
+        Assertions.assertEquals(OrderStatus.INVALID, Objects.requireNonNull(response.getBody()).getStatus());
         Assertions
                 .assertEquals(AuthorizationStatus.INVALID,
                         acmeAuthorizationRepository.findByAuthorizationId("authStaleChall2").orElseThrow().getStatus());
@@ -1744,6 +1742,82 @@ class AcmeServiceITest extends BaseSpringBootTest {
                 .assertEquals(OrderStatus.READY,
                         acmeOrderRepository.findByOrderId("orderIssuedStale").orElseThrow().getStatus());
         Assertions.assertEquals(failedOrdersBefore, failedOrders(order));
+    }
+
+    /**
+     * An invalid order is a protocol state, so it is reported with that status rather than as a server fault.
+     */
+    @Test
+    void testGetOrder_reportsAnInvalidOrderWithItsStatus() throws Exception {
+        AcmeOrder order = pendingOrder("orderInvalidReport");
+        order.setStatus(OrderStatus.INVALID);
+        acmeOrderRepository.save(order);
+        URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/order/orderInvalidReport");
+
+        ResponseEntity<Order> response = acmeService
+                .getOrder(ACME_PROFILE_NAME, "orderInvalidReport", requestUri, false);
+
+        Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
+        Assertions.assertEquals(OrderStatus.INVALID, Objects.requireNonNull(response.getBody()).getStatus());
+    }
+
+    /**
+     * The status an order takes from its certificate is decided under the order lock and counted once, so two requests
+     * polling the same order between them record one transition rather than one each.
+     */
+    @Test
+    void testWriter_countsACertificateDerivedTransitionOnce() {
+        UUID accountUuid = order1.getAcmeAccountUuid();
+        order1.setStatus(OrderStatus.PROCESSING);
+        acmeOrderRepository.save(order1);
+        int validBefore = acmeAccountRepository.findByUuid(accountUuid).orElseThrow().getValidOrders();
+
+        AcmeOrder first = acmeChallengeWriter.reconcileCertificateStatus(order1.getUuid());
+        AcmeOrder second = acmeChallengeWriter.reconcileCertificateStatus(order1.getUuid());
+
+        Assertions.assertEquals(OrderStatus.VALID, first.getStatus());
+        Assertions.assertEquals(OrderStatus.VALID, second.getStatus());
+        Assertions
+                .assertEquals(validBefore + 1,
+                        acmeAccountRepository.findByUuid(accountUuid).orElseThrow().getValidOrders());
+    }
+
+    /**
+     * Deactivating an account counts each order it closes in the database, so a count recorded while the orders were
+     * being locked survives the account being written back.
+     */
+    @Test
+    void testUpdateAccount_deactivationKeepsACountRecordedWhileItRan() throws Exception {
+        AcmeOrder open = pendingOrder("orderDeactCount");
+        UUID accountUuid = open.getAcmeAccountUuid();
+        int failedBefore = acmeAccountRepository.findByUuid(accountUuid).orElseThrow().getFailedOrders();
+        // stands in for a challenge that failed while the deactivation was acquiring its order locks
+        acmeChallengeWriter.countFailedOrder(accountUuid);
+        String baseUri = BASE_URI + ACME_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID);
+
+        acmeService
+                .updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID,
+                        buildDeactivateAccountRequestJSON(requestUri, baseUri), requestUri, false);
+
+        AcmeAccount reloaded = acmeAccountRepository.findByUuid(accountUuid).orElseThrow();
+        Assertions.assertEquals(AccountStatus.DEACTIVATED, reloaded.getStatus());
+        Assertions
+                .assertEquals(OrderStatus.INVALID,
+                        acmeOrderRepository.findByOrderId("orderDeactCount").orElseThrow().getStatus());
+        // the concurrent count, plus every order this deactivation closed
+        Assertions.assertTrue(reloaded.getFailedOrders() >= failedBefore + 2);
+    }
+
+    private String buildDeactivateAccountRequestJSON(URI requestUri, String baseUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"status\":\"deactivated\"}"));
+        jwsObjectJSON
+                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(), rsa2048Signer);
+        return jwsObjectJSON.serializeFlattened();
     }
 
     /**

@@ -135,9 +135,9 @@ public class AcmeChallengeWriter {
      * @return whether the order was still open, for the caller to count it against the account
      */
     @Transactional
-    public boolean deactivateOrder(UUID orderUuid) {
+    public void deactivateOrder(UUID orderUuid) {
         AcmeOrder order = lockOrder(orderUuid);
-        boolean wasOpen = order.getStatus() != OrderStatus.INVALID;
+        OrderStatus statusBefore = order.getStatus();
         order.setStatus(OrderStatus.INVALID);
         for (AcmeAuthorization authorization : order.getAuthorizations()) {
             authorization.setStatus(AuthorizationStatus.DEACTIVATED);
@@ -146,7 +146,36 @@ public class AcmeChallengeWriter {
         }
         acmeAuthorizationRepository.saveAll(order.getAuthorizations());
         acmeOrderRepository.save(order);
-        return wasOpen;
+        countOrderOutcome(order, statusBefore);
+    }
+
+    /**
+     * Brings the order's status in line with the certificate requested for it and counts the transition against its
+     * account. Both happen under the order lock, so two requests polling the same order record one transition between
+     * them rather than each counting the one it observed.
+     *
+     * @param orderUuid the order to reconcile
+     * @return the order as it stands after this call
+     */
+    @Transactional
+    public AcmeOrder reconcileCertificateStatus(UUID orderUuid) {
+        AcmeOrder order = lockOrder(orderUuid);
+        if (order.getCertificateReferenceUuid() == null) {
+            return order;
+        }
+        OrderStatus statusBefore = order.getStatus();
+        OrderStatus statusFromCertificate = AcmeChallengeStateMachine
+                .statusFromCertificate(order.getCertificateReference().getState());
+        if (statusFromCertificate == statusBefore) {
+            return order;
+        }
+        logger
+                .info("ACME order {} status changed from {} to {}", order.getOrderId(), statusBefore,
+                        statusFromCertificate);
+        order.setStatus(statusFromCertificate);
+        acmeOrderRepository.save(order);
+        countOrderOutcome(order, statusBefore);
+        return order;
     }
 
     /**
@@ -155,6 +184,14 @@ public class AcmeChallengeWriter {
     @Transactional
     public void countFailedOrder(UUID accountUuid) {
         acmeAccountRepository.incrementFailedOrders(accountUuid, OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    /**
+     * Counts a valid order against its account.
+     */
+    @Transactional
+    public void countValidOrder(UUID accountUuid) {
+        acmeAccountRepository.incrementValidOrders(accountUuid, OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     /**
@@ -189,8 +226,20 @@ public class AcmeChallengeWriter {
             return;
         }
         acmeOrderRepository.save(order);
+        countOrderOutcome(order, statusBefore);
+    }
+
+    /**
+     * Counts a settled order against its account, in the database, when this call is the one that settled it.
+     */
+    private void countOrderOutcome(AcmeOrder order, OrderStatus statusBefore) {
+        if (order.getStatus() == statusBefore) {
+            return;
+        }
         if (order.getStatus() == OrderStatus.INVALID) {
             acmeAccountRepository.incrementFailedOrders(order.getAcmeAccountUuid(), OffsetDateTime.now(ZoneOffset.UTC));
+        } else if (order.getStatus() == OrderStatus.VALID) {
+            acmeAccountRepository.incrementValidOrders(order.getAcmeAccountUuid(), OffsetDateTime.now(ZoneOffset.UTC));
         }
     }
 

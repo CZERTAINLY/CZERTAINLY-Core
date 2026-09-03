@@ -35,9 +35,6 @@ class AcmeDnsChallengeValidatorTest {
         Assertions.assertEquals(List.of(), AcmeDnsChallengeValidator.extractTxtValues(new BasicAttributes(true)));
     }
 
-    /**
-     * The reported failure: the expected record is published alongside stale ones and must still be accepted.
-     */
     @Test
     void acceptsTheExpectedRecordPublishedAlongsideStaleRecords() throws NamingException {
         List<String> values = AcmeDnsChallengeValidator
