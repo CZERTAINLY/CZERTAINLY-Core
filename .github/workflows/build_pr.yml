@@ -239,6 +239,13 @@ jobs:
     # skipped required check as passing -- so a red `generated` or `formatting` job blocked the
     # merge only through the Sonar workflow declining to report. `!cancelled()` rather than
     # `always()`: a run superseded through cancel-in-progress should stay cancelled, not turn red.
+    #
+    # The converse constraint, because it is not obvious and it bites in the opposite direction:
+    # `Build` is the only required Actions context on `main`, and the scan below counts a skipped
+    # dependency as a failure. So adding `paths:` or an `if:` to `generated`, `formatting`,
+    # `compile`, `test` or `package` would turn `Build` red on every PR that does not touch those
+    # paths. Wanting a path filter therefore means teaching the scan to separate `skipped` (pass)
+    # from `failure` and `cancelled` (fail), and changing the ruleset, in the same PR.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:

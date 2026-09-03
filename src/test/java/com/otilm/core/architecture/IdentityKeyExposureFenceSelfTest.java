@@ -404,6 +404,8 @@ class IdentityKeyExposureFenceSelfTest {
 
     private static final String WRITER = "com.otilm.core.service.writer.cbom.CryptoAssetWriter";
 
+    private static final String REDACTION = "com.otilm.core.cbom.asset.identity.MaterialRedaction";
+
     private static final String SERVICE = "com.otilm.core.service.impl.CryptoAssetServiceImpl";
 
     /**
@@ -449,6 +451,33 @@ class IdentityKeyExposureFenceSelfTest {
                 .describedAs("persistence stores the value")
                 .isEmpty();
         assertThat(carrierViolations(WRITER, IDENTITY, "preImage")).hasSize(1);
+    }
+
+    /**
+     * The material's identity digest is a carrier under a name neither vocabulary matches.
+     *
+     * <p>
+     * It is the unsalted SHA-256 of a possibly low-entropy secret, so a service reading it into a response has exposed
+     * the material to a dictionary attack -- and {@code identityDigest} contains no fenced spelling, so before it was
+     * registered nothing looked at the line at all. Its sibling {@code publishedDigest} is the safe one and stays
+     * unfenced.
+     */
+    @Test
+    void aServiceReadingTheMaterialIdentityDigestIsReported() {
+        assertThat(carrierViolations(SERVICE, REDACTION, "identityDigest"))
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetServiceImpl")
+                .contains("MaterialRedaction.identityDigest");
+        assertThat(carrierViolations(CALCULATOR, REDACTION, "identityDigest"))
+                .describedAs("the identity layer consumes it to build the material tier")
+                .isEmpty();
+        assertThat(carrierViolations(EXTRACTOR, REDACTION, "identityDigest"))
+                .describedAs("the extractor is allowlisted for the stored value, not the material")
+                .hasSize(1);
+        assertThat(carrierViolations(SERVICE, REDACTION, "publishedDigest"))
+                .describedAs("the withheld-or-published sibling is the one that may be served")
+                .isEmpty();
     }
 
     /** A nested or anonymous class lives in its enclosing class's file, and the allowlist is written in files. */

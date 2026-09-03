@@ -763,6 +763,15 @@ public record AssetNormalizer(IdentityTables tables) {
             return null;
         }
         if (parameterSetIdentifier.isNumber() && !parameterSetIdentifier.isBoolean()) {
+            // Refused before `decimalValue()`, which throws NumberFormatException on a non-finite double: Jackson
+            // parses `1e400` into DoubleNode(Infinity), and the throw escaped as a RuntimeException that the extractor
+            // catches as a whole-component skip. An unreadable side field costs its own slot, never the row -- the
+            // same ruling `boundedText` applies to an over-long one.
+            if ((parameterSetIdentifier.isDouble() || parameterSetIdentifier.isFloat())
+                    && !Double.isFinite(parameterSetIdentifier.doubleValue())) {
+                notes.add(droppedFieldNote(CbomNames.PARAMETER_SET_IDENTIFIER));
+                return null;
+            }
             // The exact value reaches `accept`, so a refusal names what the producer wrote. Through `(int)` a
             // saturating cast made `9007199254740993` refused as `size 2147483647 outside whitelist` -- a number
             // nobody sent. What this does NOT do is reject `64.0000000000000000001`: measured on this project's

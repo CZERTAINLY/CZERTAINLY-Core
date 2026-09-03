@@ -104,6 +104,13 @@ public final class Occurrences {
     /**
      * SHA-256 over the sorted {@code location#line#offset} triples, or {@code null} when there are none.
      *
+     * <p>
+     * No production caller: every keying site takes {@link #triples} and hashes it inline, so the pre-image can enter a
+     * tier record. This stays as the named reference operation the specification defines and the Python kernel mirrors
+     * -- deleting it would leave the two implementations with no common entry point to compare, which is the same
+     * reason {@code triples} is exposed at all. Its two assertions in {@code TextNormalizationTest} are conformance
+     * checks on that operation, not coverage of a live path.
+     *
      * @see #triples for why the hashed string is exposed separately
      */
     public static String discriminator(JsonNode component) {

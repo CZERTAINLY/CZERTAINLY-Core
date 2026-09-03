@@ -770,7 +770,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * rather than discover as an unexplained near-duplicate.
      */
     public static List<String> unfoldedCaseRisk(List<String> values) {
-        TreeSet<String> found = new TreeSet<>();
+        // Code-point order, like every other ordered sequence in this package. Natural String order puts an astral
+        // cased character below a BMP one at or above U+E000, so the R12 provenance note listed them in an order the
+        // reference does not use. No key moves -- the note is not keyed.
+        TreeSet<String> found = new TreeSet<>(AsciiText.BY_CODE_POINT);
         for (String value : values) {
             if (value == null) {
                 continue;

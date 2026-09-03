@@ -180,7 +180,13 @@ final class IdentityKeyExposureFence {
                     STORED_VALUE_VOCABULARY,
                     // Registered because the detector's input list now begins with the pre-image itself, so this
                     // accessor returns the dictionary-attackable string under a name no regex would read as one.
-                    "com.otilm.core.cbom.asset.identity.NormalizedAsset.keyedCaseValues", PRE_IMAGE_VOCABULARY);
+                    "com.otilm.core.cbom.asset.identity.NormalizedAsset.keyedCaseValues", PRE_IMAGE_VOCABULARY,
+                    // The unsalted digest of a possibly low-entropy secret, whose own Javadoc says it must never
+                    // reach a stored payload or a wire response -- and `identityDigest` matches neither vocabulary,
+                    // so until it was registered any production class could read it into a DTO or a log line with
+                    // nothing for either rule to see. Its sibling `publishedDigest` stays unfenced deliberately: it
+                    // is the one that is safe to serve, the same split as `storedPayload` against `keyedPayload`.
+                    "com.otilm.core.cbom.asset.identity.MaterialRedaction.identityDigest", PRE_IMAGE_VOCABULARY);
 
     private IdentityKeyExposureFence() {
     }

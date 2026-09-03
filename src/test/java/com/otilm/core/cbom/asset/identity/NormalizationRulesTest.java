@@ -590,7 +590,8 @@ class NormalizationRulesTest {
         assertThat(NORMALIZER.secondaryTokens("SHA-256 with SHA3", "SHA-3")).contains("sha-2");
         assertThat(keyOfAlgorithm("SHA-256 with SHA3")).isNotEqualTo(keyOfAlgorithm("SHA3-256 with"));
         assertThat(NORMALIZER.secondaryTokens("RSAES-OAEP", "RSAES-OAEP"))
-                .describedAs("gen-218 and gen-219 ratify the empty variant slot for this name")
+                .describedAs(
+                        "RSAES-OAEP keys with an empty variant slot; the trailing AES read out of its own name must not survive")
                 .doesNotContain("aes");
     }
 
