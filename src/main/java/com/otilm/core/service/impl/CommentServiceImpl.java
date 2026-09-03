@@ -221,18 +221,19 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
             return;
         }
 
-        // A root author must not be able to erase other users' words: once a root has replies, only the host
-        // object's owner or an update holder may delete it (the delete cascades to the replies). The writer
-        // re-checks for replies under a row lock, so ones racing in between this check and the delete still
-        // block a non-cascading deletion.
-        boolean authorDeletesOwnReplylessRoot = isAuthor && !commentRepository.existsByParentUuid(uuid);
-        boolean mayCascade = !authorDeletesOwnReplylessRoot
+        // A root author must not be able to erase other users' words: once another user has replied, only the host
+        // object's owner or an update holder may delete the root (the delete cascades to the replies). Replies the
+        // author wrote themselves stand in nobody's way. The writer re-checks under a row lock, so a reply racing
+        // in between this check and the delete still blocks a deletion that relies on sole authorship.
+        boolean authorDeletesOwnThread = isAuthor
+                && !commentRepository.existsByParentUuidAndAuthorUuidNot(uuid, comment.getAuthorUuid());
+        boolean mayCascade = !authorDeletesOwnThread
                 && (isHostObjectOwner(comment, actor) || holdsHostObjectUpdate(comment));
-        if (!(authorDeletesOwnReplylessRoot || mayCascade)) {
+        if (!(authorDeletesOwnThread || mayCascade)) {
             throw deletionDenied(uuid, comment);
         }
         recordAuditData(baseEventData(comment, hostObject.getName()));
-        commentWriter.deleteRoot(uuid, mayCascade);
+        commentWriter.deleteRoot(uuid, mayCascade ? null : comment.getAuthorUuid());
     }
 
     private AccessDeniedException deletionDenied(UUID uuid, Comment comment) {

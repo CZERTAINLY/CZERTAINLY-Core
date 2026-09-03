@@ -71,7 +71,10 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
     }
 
     private UUID authenticateAs(String username) {
-        UUID userUuid = UUID.randomUUID();
+        return authenticateAs(username, UUID.randomUUID());
+    }
+
+    private UUID authenticateAs(String username, UUID userUuid) {
         UserProfileDto userProfileDto = new UserProfileDto();
         UserDto userDto = new UserDto();
         userDto.setUuid(userUuid.toString());
@@ -226,17 +229,35 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
     }
 
     @Test
-    void rootAuthorCannotDeleteOwnRootOnceReplied() throws NotFoundException {
+    void rootAuthorDeletesOwnThreadWhenEveryReplyIsTheirs() throws NotFoundException {
         UUID objectUuid = hostObjects.create(Resource.RA_PROFILE);
         authenticateAs("tst-author");
         CommentDto root = post(Resource.RA_PROFILE, objectUuid, null);
         post(Resource.RA_PROFILE, objectUuid, root.getUuid());
+        restrictObjectAccess(Resource.RA_PROFILE, ResourceAction.UPDATE);
+        denyResourceAccess(Resource.RA_PROFILE, ResourceAction.UPDATE);
 
+        commentService.deleteComment(root.getUuid());
+
+        assertThat(list(Resource.RA_PROFILE, objectUuid).getComments()).isEmpty();
+    }
+
+    @Test
+    void rootAuthorCannotDeleteOwnRootOnceAnotherUserReplied() throws NotFoundException {
+        UUID objectUuid = hostObjects.create(Resource.RA_PROFILE);
+        UUID authorUuid = authenticateAs("tst-author");
+        CommentDto root = post(Resource.RA_PROFILE, objectUuid, null);
+        post(Resource.RA_PROFILE, objectUuid, root.getUuid());
+        authenticateAs("tst-replier");
+        post(Resource.RA_PROFILE, objectUuid, root.getUuid());
+
+        authenticateAs("tst-author", authorUuid);
         restrictObjectAccess(Resource.RA_PROFILE, ResourceAction.UPDATE);
         denyResourceAccess(Resource.RA_PROFILE, ResourceAction.UPDATE);
 
         UUID rootUuid = root.getUuid();
         assertThatThrownBy(() -> commentService.deleteComment(rootUuid)).isInstanceOf(AccessDeniedException.class);
+        assertThat(list(Resource.RA_PROFILE, objectUuid).getComments().getFirst().getReplyCount()).isEqualTo(2);
     }
 
     @Test

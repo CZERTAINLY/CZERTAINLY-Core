@@ -27,7 +27,7 @@ public interface CommentRepository extends SecurityFilterRepository<Comment, UUI
     @Query("SELECT c.parentUuid, COUNT(c) FROM Comment c WHERE c.parentUuid IN :rootUuids GROUP BY c.parentUuid")
     List<Object[]> countRepliesByRoots(@Param("rootUuids") Collection<UUID> rootUuids);
 
-    boolean existsByParentUuid(UUID parentUuid);
+    boolean existsByParentUuidAndAuthorUuidNot(UUID parentUuid, UUID authorUuid);
 
     boolean existsByResourceAndObjectUuid(Resource resource, UUID objectUuid);
 
