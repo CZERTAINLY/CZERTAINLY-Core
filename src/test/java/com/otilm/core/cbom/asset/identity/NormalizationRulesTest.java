@@ -423,6 +423,22 @@ class NormalizationRulesTest {
     }
 
     /**
+     * Surrounding whitespace on either half is nothing, which is what the gate above the claim already says.
+     *
+     * <p>
+     * {@code hasContent} refuses a whitespace-only content as absent while the claim kept the padding, so the gate and
+     * the keyed value disagreed about what a space means and {@code content: " abc "} split from {@code "abc"}. Every
+     * other slot in the chain strips before it folds.
+     */
+    @Test
+    void aPaddedFingerprintHalfDoesNotSplitARow() {
+        assertThat(keyOf(materialWithFingerprint("sha-256", " aabbcc ")))
+                .isEqualTo(keyOf(materialWithFingerprint("sha-256", "aabbcc")));
+        assertThat(keyOf(materialWithFingerprint(" sha-256 ", "aabbcc")))
+                .isEqualTo(keyOf(materialWithFingerprint("sha-256", "aabbcc")));
+    }
+
+    /**
      * A fingerprint's content is text or it is nothing.
      *
      * <p>
@@ -569,6 +585,25 @@ class NormalizationRulesTest {
     }
 
     // ---------------------------------------------------------------- grammar and token rules (core#2165)
+
+    /**
+     * The guard against a following standard number holds when the producer's spaces are no-break ones.
+     *
+     * <p>
+     * {@code familyFromName} matches the raw component name, with no whitespace collapse in front of it, so a guard
+     * spelling its separator class with an ASCII space alone was defeated by U+00A0 -- the character this package
+     * documents as arriving from text pasted out of a document. {@code GOST\u00A0R\u00A034.10-2012} elected the bare
+     * GOST family again, and the signature standard merged with the 34.11 digest the guard exists to keep apart.
+     */
+    @Test
+    void theStandardNumberGuardSurvivesANoBreakSpace() {
+        String noBreakSpace = "\u00A0";
+        assertThat(keyOfAlgorithm("GOST" + noBreakSpace + "R" + noBreakSpace + "34.10-2012"))
+                .isNotEqualTo(keyOfAlgorithm("GOST" + noBreakSpace + "R" + noBreakSpace + "34.11-2012"));
+        assertThat(keyOfAlgorithm("GOST R 34.10-2012"))
+                .describedAs("and the plain-space pair the guard was added for still keys apart")
+                .isNotEqualTo(keyOfAlgorithm("GOST R 34.11-2012"));
+    }
 
     /**
      * A digest is not erased because its family's spelling is truncated into the winning family's token.

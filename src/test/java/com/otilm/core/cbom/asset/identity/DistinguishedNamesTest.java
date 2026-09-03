@@ -186,4 +186,28 @@ class DistinguishedNamesTest {
                 .describedAs("and the escape of the escape is a third")
                 .isNotEqualTo(DistinguishedNames.normalize("CN=%FF", TABLES));
     }
+
+    /**
+     * A compatibility spelling of the escape character cannot forge a refused byte.
+     *
+     * <p>
+     * NFKC maps U+FF05 FULLWIDTH PERCENT SIGN onto {@code %}, so escaping before normalizing left {@code CN=\uFF05FF}
+     * rendering the bare {@code %FF} that the malformed-bytes fallback reserves for {@code CN=#FF} -- the same
+     * two-issuers-on-one-row merge the escape namespace exists to prevent, reached through the normalizer rather than
+     * through a hex path. Its mirror, U+FF03 onto {@code #}, split rather than merged and closes with the same
+     * reordering.
+     */
+    @Test
+    void aFullwidthEscapeCharacterCannotForgeARefusedByte() {
+        assertThat(DistinguishedNames.normalize("CN=\uFF05FF", TABLES))
+                .describedAs("the normalizer's percent is a producer's percent, so it is escaped like one")
+                .isEqualTo(DistinguishedNames.normalize("CN=%FF", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=#FF", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=\uFF03414243", TABLES))
+                .describedAs("and a fullwidth marker names the hex-DER form it normalizes to")
+                .isEqualTo(DistinguishedNames.normalize("CN=#414243", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=#%FF", TABLES))
+                .describedAs("an unreadable hex spelling is text, and text has its percents escaped")
+                .isNotEqualTo(DistinguishedNames.normalize("CN=#FF", TABLES));
+    }
 }

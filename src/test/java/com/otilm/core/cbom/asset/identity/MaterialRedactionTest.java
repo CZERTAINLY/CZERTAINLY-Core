@@ -367,6 +367,65 @@ class MaterialRedactionTest {
     }
 
     /**
+     * A member storage keeps is not also reported as exfiltration.
+     *
+     * <p>
+     * The report and the drop asked two different questions -- the report against {@code CONTRACTED_MEMBERS} alone, the
+     * drop against its union with the publishable-only members. So on a secret type that is not low-entropy
+     * ({@code private-key}, {@code secret-key}, {@code shared-secret}, {@code seed}, {@code key}) a textual
+     * {@code relatedCryptoMaterialType} survived storage and still raised the loudest finding this class emits, on the
+     * producer's own spelling of the type it had already stated.
+     */
+    @Test
+    void aMemberStorageKeepsIsNotReportedAsExfiltration() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"private-key\","
+                        + "\"relatedCryptoMaterialType\":\"private-key\"}}"));
+
+        assertThat(redaction.storedPayload().at("/relatedCryptoMaterialProperties/relatedCryptoMaterialType").asText())
+                .describedAs("the drop keeps it, because a private key's digest is publishable")
+                .isEqualTo("private-key");
+        assertThat(redaction.findings())
+                .noneSatisfy(finding -> assertThat(finding).contains("producer inlined a value"));
+    }
+
+    /**
+     * A nested member of the reference array cannot carry a digest into storage.
+     *
+     * <p>
+     * The array is allowlisted by its top-level name and the drop iterates top-level names, so each entry was kept
+     * whole and {@code [{"ref":"a1","digest":"…"}]} carried that digest into the stored payload. The argument for an
+     * allowlist does not stop at depth one, so the entries are projected onto their contracted shape.
+     */
+    @Test
+    void aNestedMemberOfTheReferenceArrayCannotCarryADigest() {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"password\","
+                        + "\"relatedCryptographicAssets\":[{\"ref\":\"a1\",\"type\":\"public-key\","
+                        + "\"digest\":\"5e884898da280471\"},\"not-an-object\"]}}"));
+
+        assertThat(redaction.storedPayload().toString()).doesNotContain("5e884898da280471");
+        assertThat(redaction.storedPayload().at("/relatedCryptoMaterialProperties/relatedCryptographicAssets").size())
+                .describedAs("an entry that is no object states no reference and is not projected")
+                .isEqualTo(1);
+        assertThat(redaction
+                .storedPayload()
+                .at("/relatedCryptoMaterialProperties/relatedCryptographicAssets/0/ref")
+                .asText()).isEqualTo("a1");
+        assertThat(redaction
+                .storedPayload()
+                .at("/relatedCryptoMaterialProperties/relatedCryptographicAssets/0/type")
+                .asText()).isEqualTo("public-key");
+        assertThat(redaction.keyedPayload().toString())
+                .describedAs("the keyed projection keeps every member R2 does not strip")
+                .contains("5e884898da280471");
+        assertThat(redaction.findings())
+                .anySatisfy(finding -> assertThat(finding)
+                        .contains("uncontracted members dropped from relatedCryptographicAssets entries")
+                        .contains("digest"));
+    }
+
+    /**
      * The long type spelling is an unrestricted extension, so it survives only where a digest may be published.
      *
      * <p>

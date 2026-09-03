@@ -63,7 +63,7 @@ public final class DistinguishedNames {
         String trimmed = AsciiText.strip(dn);
         if (trimmed.indexOf('=') < 0) {
             String collapsed = AsciiText.collapseWhitespace(Normalizer.normalize(trimmed, Normalizer.Form.NFKC));
-            return COMMON_NAME_OID + "=" + escape(AsciiText.fold(collapsed));
+            return COMMON_NAME_OID + "=" + escape(escapePercent(AsciiText.fold(collapsed)));
         }
 
         List<String> rdns = new ArrayList<>();
@@ -121,8 +121,15 @@ public final class DistinguishedNames {
         // decoder could read"; every other percent is escaped to `%25` -- here for an ordinary textual value, and
         // inside decodeHexDer for a hex value that decodes. Escaping only inside the hex paths left `CN=#FF` and
         // `CN=%FF` rendering one AVA, because a literal value never enters that method.
-        String value = raw.startsWith("#") ? decodeHexDer(raw) : raw.replace("%", "%25");
-        value = Normalizer.normalize(value, Normalizer.Form.NFKC);
+        //
+        // NFKC runs FIRST, on every path, because the escape is injective only over normalized text. U+FF05 FULLWIDTH
+        // PERCENT SIGN is not a `%` when the escape looks at it and is one afterwards, so `CN=\uFF05FF` normalized to
+        // a bare `%FF` -- byte-identical to what the malformed-bytes fallback renders for `CN=#FF`, and two issuers
+        // merged onto one row. The `#` test moves with it: U+FF03 and U+FE5F fold to `#`, so testing the raw value
+        // sent a hex-DER spelling down the literal path. Ordering it this way is what makes the class's own rule --
+        // that any `%` in a normalized value came from an escape here -- true rather than nearly true.
+        String normalized = Normalizer.normalize(raw, Normalizer.Form.NFKC);
+        String value = normalized.startsWith("#") ? decodeHexDer(normalized) : escapePercent(normalized);
         value = AsciiText.strip(AsciiText.collapseWhitespace(value));
         // ASCII-only (R12). A value differing only in non-ASCII case keys separately; the case-fold twin detector
         // reports the pair rather than merging it, which is what makes the under-merge visible instead of silent.
@@ -166,23 +173,27 @@ public final class DistinguishedNames {
             return AsciiText.strip(printable.toString());
         } catch (IllegalArgumentException e) {
             // Not hex after all. The leading marker is dropped and the rest compared verbatim, which is what the
-            // reference does -- refusing the value outright would lose a real attribute.
-            return value.substring(1);
+            // reference does -- refusing the value outright would lose a real attribute. Escaped like any other
+            // readable text: returning it raw let `CN=#%FF` render the bare `%FF` the malformed-bytes fallback
+            // reserves for `CN=#FF`.
+            return escapePercent(value.substring(1));
         }
     }
 
     private static String strictUtf8(byte[] bytes) {
         try {
-            return StandardCharsets.UTF_8
+            String text = StandardCharsets.UTF_8
                     .newDecoder()
                     .onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT)
                     .decode(ByteBuffer.wrap(bytes))
-                    .toString()
-                    // Escaped here and not by the caller: the fallback below must keep its escapes bare, or a
-                    // malformed byte and a decoded value spelling that byte's escape render alike -- which is item
-                    // 17's own merge, moved rather than closed.
-                    .replace("%", "%25");
+                    .toString();
+            // Normalized before it is escaped, and escaped here rather than by the caller: the caller normalized the
+            // hex spelling, not the bytes it decodes to, so a value whose bytes spell U+FF05 would otherwise fold to
+            // a bare `%` after this method had already decided there was none. The fallback below must keep its
+            // escapes bare, or a malformed byte and a decoded value spelling that byte's escape render alike --
+            // which is item 17's own merge, moved rather than closed.
+            return escapePercent(Normalizer.normalize(text, Normalizer.Form.NFKC));
         } catch (CharacterCodingException e) {
             // Bare, and the only bare escapes in the result: the caller escapes the decode path's percents first, so
             // `%FF` from here and a decoded literal `%FF` cannot render alike.
@@ -263,6 +274,14 @@ public final class DistinguishedNames {
      * The pipe is in the set on purpose: the identity pre-image is pipe-delimited, so an unescaped {@code |} inside a
      * crafted common name could shift every later field boundary and forge a collision.
      */
+    /**
+     * Reserves the escape namespace, and is applied only after NFKC on whichever path produced the text -- the
+     * normalizer maps four code points onto `%` and `#`, so escaping first leaves an unescaped percent behind.
+     */
+    private static String escapePercent(String value) {
+        return value.replace("%", "%25");
+    }
+
     private static String escape(String text) {
         StringBuilder out = new StringBuilder(text.length() + 8);
         for (int index = 0; index < text.length(); index++) {

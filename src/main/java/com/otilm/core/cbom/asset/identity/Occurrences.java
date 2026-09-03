@@ -88,6 +88,13 @@ public final class Occurrences {
     private static final int MAX_LOCATION_LENGTH = 1024;
 
     /**
+     * The longest input {@link #sanitizeLocation} will read. A generous multiple of {@link #MAX_LOCATION_LENGTH} rather
+     * than the bound itself: what is refused here is a denial-of-service shape, not a long-but-real path, and anything
+     * under this is still capped to the bound after stripping.
+     */
+    private static final int MAX_LOCATION_INPUT = 64 * MAX_LOCATION_LENGTH;
+
+    /**
      * How many user-info passes a location may need before it is refused instead.
      *
      * <p>
@@ -186,6 +193,15 @@ public final class Occurrences {
         if (AsciiText.isBlank(location)) {
             return "";
         }
+        if (location.length() > MAX_LOCATION_INPUT) {
+            // Refused before any pass runs, for the reason `withoutUserInfo` refuses a location nested past its pass
+            // cap: the cap on the *result* is deliberately the last step, so every regex below scans the input at its
+            // stated length, and the location is the one producer string that never passes `boundedText`. At
+            // Jackson's 20-million-character ceiling that is seconds of CPU per occurrence, multiplied by every
+            // occurrence of every component. Refusing rather than capping first keeps core#2165 item 3 closed, where
+            // truncating first left `//user:passwo` standing. The longest corpus location is 194 characters.
+            return "";
+        }
         String text = AsciiText.strip(location);
         text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
         text = LINE_BREAK.matcher(text).replaceAll("");
@@ -209,12 +225,13 @@ public final class Occurrences {
      *
      * <p>
      * <b>Bounded, because terminating is not the same as cheap.</b> Every replacement removes at least the {@code @},
-     * so the loop always ends -- but each pass rescans the whole string, and the cap is deliberately the last step of
-     * {@link #sanitizeLocation}, so a location is unbounded in length while this runs. A producer emitting {@code n}
-     * nested authorities costs {@code n} full passes: 2 048 layers is 2 049 scans of a string that has not been
-     * shortened to 1 024 characters yet, which is a CPU stall on the ingest path of exactly the kind the name-length
-     * bound in {@code AssetNormalizer} exists to stop. Capping first is not the answer -- that is the defect core#2165
-     * item 3 closed, where truncation left {@code //user:passwo} standing.
+     * so the loop always ends -- but each pass rescans the whole string, and the cap on the result is deliberately the
+     * last step of {@link #sanitizeLocation}, so the length this runs against is the producer's, bounded only by
+     * {@link #MAX_LOCATION_INPUT}. A producer emitting {@code n} nested authorities costs {@code n} full passes: 2 048
+     * layers is 2 049 scans of a string that has not been shortened to 1 024 characters yet, which is a CPU stall on
+     * the ingest path of exactly the kind the name-length bound in {@code AssetNormalizer} exists to stop. Capping
+     * first is not the answer -- that is the defect core#2165 item 3 closed, where truncation left
+     * {@code //user:passwo} standing.
      *
      * <p>
      * So the passes are capped and a location that still matches afterwards is <b>refused</b>, rendering as the empty

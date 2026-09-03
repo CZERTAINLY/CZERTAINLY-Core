@@ -447,14 +447,25 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * {@code F|:content} where an absent {@code alg} keys {@code F|unknown:content}; a producer emitting the member
      * empty has stated no algorithm, which is what {@code unknown} already means. Emptiness rather than nullness is the
      * same rule the content gate above uses.
+     *
+     * <p>
+     * <b>Both halves strip before they fold</b>, because the gate above already does. {@link #hasContent} calls
+     * surrounding whitespace nothing -- {@code content: "   "} is absent -- while the keyed value kept it, so
+     * {@code content: " abc "} keyed {@code %20abc%20} and split from {@code "abc"}, and the gate and the key disagreed
+     * about what a space means. Stripping matches {@code mat:id} one tier below and the serial in
+     * {@code crt:serial+issuer}. 0 of 753 corpus fingerprints and 0 vectors carry a padded half, so nothing moves. What
+     * is <em>not</em> closed here is alias canonicalization: {@code SHA256} and {@code SHA-256} are still two labels,
+     * which needs the ratified alias source {@code CertificateDigests.canonicalLabel} reads and is open on core#2165.
      */
     private static String fingerprintClaim(JsonNode algorithm, JsonNode content) {
         String label = algorithm == null || !algorithm.isTextual() || AsciiText.isBlank(algorithm.textValue())
                 ? "unknown"
-                : AsciiText.fold(algorithm.textValue());
+                : AsciiText.fold(AsciiText.strip(algorithm.textValue()));
         return PreImageSlot
-                .of(PreImageSlot.escape(label, CryptoAssetIdentity::claimEscapeFor) + ":" + PreImageSlot
-                        .escape(AsciiText.fold(content.textValue()), CryptoAssetIdentity::claimEscapeFor));
+                .of(PreImageSlot.escape(label, CryptoAssetIdentity::claimEscapeFor) + ":"
+                        + PreImageSlot
+                                .escape(AsciiText.fold(AsciiText.strip(content.textValue())),
+                                        CryptoAssetIdentity::claimEscapeFor));
     }
 
     private static String claimEscapeFor(char character) {

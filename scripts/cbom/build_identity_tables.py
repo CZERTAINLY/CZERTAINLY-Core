@@ -94,6 +94,17 @@ PSEUDO_FAMILIES["Fernet"] = []
 # Guards are on [A-Za-z0-9] adjacency rather than on separators, because the real
 # hazards are unseparated: RSAES-OAEP contains AES, HMACSHA2 contains SHA,
 # "design" contains DES.
+# ``AsciiText.PYTHON_WHITESPACE`` again, spelled for a character class inside an emitted
+# pattern. A guard written with an ASCII space only is defeated by the one character this
+# codebase repeatedly documents as arriving from producer text pasted out of a document:
+# ``familyFromName`` matches the raw component name, with no whitespace collapse in front of it.
+# Spelled as escape sequences, not as the characters themselves: both engines read `\t`, `\xhh`
+# and `\uhhhh` the same way, and the artifact stays ASCII, where a literal no-break space would be
+# invisible in every diff of the file whose whole purpose is to be diffed.
+GUARD_SEPARATORS = (r"-_ \t\n\x0B\f\r\x1C\x1D\x1E\x1F\x85\xA0"
+                    r"\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A"
+                    r"\u2028\u2029\u202F\u205F\u3000")
+
 NAME_GRAMMAR = [
     # --- exact producer strings, highest precedence -----------------------------
     {"pattern": r"(?<![A-Za-z0-9])ChaCha20[-_]?Poly1305", "family": "ChaCha20",
@@ -293,7 +304,11 @@ NAME_GRAMMAR = [
     # `PBKDF2-HMAC-RIPEMD160` all keyed as the inner hash instead of the outer construction.
     {"pattern": r"(?<![A-Za-z0-9])RIPEMD", "family": "RIPEMD",
      "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` "
-            "family-less, and the guard still admits the -160 and -128 spellings"},
+            "family-less, and the guard still admits the -160 and -128 spellings. Ranked with the "
+            "digests rather than in the exact-string block: first rule wins, so from there it "
+            "outranked HMAC and every signature rule and `HMAC-RIPEMD160`, `RIPEMD160withRSA` and "
+            "`PBKDF2-HMAC-RIPEMD160` elected the inner hash instead of the outer construction. The "
+            "rank is part of the rule, so it is stated in the field the artifact carries"},
     {"pattern": r"(?<![A-Za-z0-9])BLAKE2", "family": "BLAKE2", "why": "cbom-lens familyPrefix"},
     {"pattern": r"(?<![A-Za-z0-9])BLAKE3", "family": "BLAKE3", "why": "no OID anchor exists"},
     {"pattern": r"(?<![A-Za-z0-9])MD-?5(?![0-9])", "family": "MD5", "why": "cbomkit MD5"},
@@ -344,11 +359,15 @@ NAME_GRAMMAR = [
     # name tier, where the number keeps it distinct. Under the bare family the sub-64 standard
     # digits vanished from the residue and the year was read as the key size, so
     # `GOST R 34.10-2012` and `GOST R 34.11-2012` shared `ALG|GOST|2012`.
-    {"pattern": r"(?<![A-Za-z0-9])GOST(?![A-Za-z0-9])(?![-_ ]*R?[-_ ]*[0-9])", "family": "GOST",
+    {"pattern": r"(?<![A-Za-z0-9])GOST(?![A-Za-z0-9])(?![" + GUARD_SEPARATORS + r"]*R?["
+                + GUARD_SEPARATORS + r"]*[0-9])", "family": "GOST",
      "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to "
             "nothing. Guarded against a following standard number, because the single registry "
-            "token cannot carry which standard is meant. Cipher suites naming GOST are classified "
-            "as suites before family derivation runs, so they cannot reach this"},
+            "token cannot carry which standard is meant, and the guard spells the reference "
+            "whitespace set rather than an ASCII space: `GOST R 34.10` written with U+00A0 for "
+            "either space defeated the narrow spelling and merged 34.10 with 34.11 again. Cipher "
+            "suites naming GOST are "
+            "classified as suites before family derivation runs, so they cannot reach this"},
     {"pattern": r"(?<![A-Za-z0-9])Skipjack", "family": "Skipjack",
      "why": "registry token with no rule; `Skipjack (broken cipher)` resolved to nothing, and a "
             "broken cipher going unnamed is the opposite of what the inventory is for"},
@@ -889,13 +908,24 @@ def unloadable_patterns(labelled: list[tuple[str, str]]) -> list[str]:
     here reached the committed table with exit 0 and surfaced as a ``PatternSyntaxException`` in
     every identity test. Python's nested-set ``FutureWarning`` (``[[``, ``&&``, ``--`` inside a
     class) is promoted to an error: Java reads those as set operations and Python as literals.
+
+    Compiled under ``re.ASCII`` as well as ``re.IGNORECASE``, because the flags have to match the
+    engine that runs the table: Java's ``CASE_INSENSITIVE`` folds ASCII only unless
+    ``UNICODE_CASE`` is set with it, and its ``\\s`` and ``\\d`` are ASCII, while Python's defaults
+    are Unicode-aware for both. Compiling under Python's wider semantics would accept a pattern on
+    terms Java never applies.
+
+    What this establishes is that both engines *accept* the construct, not that they *match* the
+    same strings -- the shorthands this deliberately permits still differ at the edges. A claim
+    about matching needs behavioural vectors run under both engines, which the identity vectors
+    give for the chain and nothing yet gives for the table's own patterns.
     """
     problems = []
     for label, pattern in labelled:
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("error")
-                re.compile(pattern, re.IGNORECASE)
+                re.compile(pattern, re.ASCII | re.IGNORECASE)
         except (re.error, Warning) as failure:
             problems.append(f"{label}: {pattern!r} does not compile: {failure}")
             continue

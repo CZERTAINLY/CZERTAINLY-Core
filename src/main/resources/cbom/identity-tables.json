@@ -3710,7 +3710,7 @@
   {
    "pattern": "(?<![A-Za-z0-9])RIPEMD",
    "family": "RIPEMD",
-   "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` family-less, and the guard still admits the -160 and -128 spellings"
+   "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` family-less, and the guard still admits the -160 and -128 spellings. Ranked with the digests rather than in the exact-string block: first rule wins, so from there it outranked HMAC and every signature rule and `HMAC-RIPEMD160`, `RIPEMD160withRSA` and `PBKDF2-HMAC-RIPEMD160` elected the inner hash instead of the outer construction. The rank is part of the rule, so it is stated in the field the artifact carries"
   },
   {
    "pattern": "(?<![A-Za-z0-9])BLAKE2",
@@ -3853,9 +3853,9 @@
    "why": "registry token"
   },
   {
-   "pattern": "(?<![A-Za-z0-9])GOST(?![A-Za-z0-9])(?![-_ ]*R?[-_ ]*[0-9])",
+   "pattern": "(?<![A-Za-z0-9])GOST(?![A-Za-z0-9])(?![-_ \\t\\n\\x0B\\f\\r\\x1C\\x1D\\x1E\\x1F\\x85\\xA0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*R?[-_ \\t\\n\\x0B\\f\\r\\x1C\\x1D\\x1E\\x1F\\x85\\xA0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*[0-9])",
    "family": "GOST",
-   "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to nothing. Guarded against a following standard number, because the single registry token cannot carry which standard is meant. Cipher suites naming GOST are classified as suites before family derivation runs, so they cannot reach this"
+   "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to nothing. Guarded against a following standard number, because the single registry token cannot carry which standard is meant, and the guard spells the reference whitespace set rather than an ASCII space: `GOST R 34.10` written with U+00A0 for either space defeated the narrow spelling and merged 34.10 with 34.11 again. Cipher suites naming GOST are classified as suites before family derivation runs, so they cannot reach this"
   },
   {
    "pattern": "(?<![A-Za-z0-9])Skipjack",

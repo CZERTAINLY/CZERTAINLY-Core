@@ -773,6 +773,23 @@ class TextNormalizationTest {
                 .isNull();
     }
 
+    /**
+     * A location past the input bound is refused rather than sanitized.
+     *
+     * <p>
+     * The cap on the result is deliberately the last step, so every pass above it scans the producer's string at the
+     * producer's length -- and the location is the one producer string that never passes {@code boundedText}. Refusing
+     * bounds that work without capping first, which is the defect core#2165 item 3 closed by leaving
+     * {@code //user:passwo} standing. The longest corpus location is 194 characters.
+     */
+    @Test
+    void aLocationPastTheInputBoundIsRefused() {
+        assertThat(sanitize("a".repeat(64 * 1024)))
+                .describedAs("at the bound it is still sanitized, and capped to the result length")
+                .hasSize(1024);
+        assertThat(sanitize("a".repeat(64 * 1024 + 1))).isEmpty();
+    }
+
     private static String sanitize(String location) {
         return Occurrences.sanitizeLocation(new TextNode(location));
     }

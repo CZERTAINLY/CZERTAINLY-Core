@@ -1,6 +1,7 @@
 package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
 import java.util.List;
@@ -139,8 +140,11 @@ public final class MaterialRedaction {
         // Read before the drop, because the severe finding needs the VALUE and not the member name. Raising it for
         // every dropped member reported a producer's benign metadata -- a number, a null, an object -- as confirmed
         // key-material exfiltration, which is a false positive on the loudest finding this class emits.
-        List<String> inlined = storedMaterial == null ? List.of() : inlinedMemberNames(storedMaterial);
+        List<String> inlined = storedMaterial == null
+                ? List.of()
+                : inlinedMemberNames(storedMaterial, digestPublishable(materialType));
         dropUncontractedMembers(storedMaterial, materialType, findings);
+        projectRelatedAssets(storedMaterial, findings);
         inlined.forEach(member -> inlinedSecretFinding(materialType, member, findings));
         return new MaterialRedaction(payload, stored, materialType, identityDigest, publishedDigest, valueLength,
                 findings);
@@ -154,13 +158,22 @@ public final class MaterialRedaction {
      * PEM-header test: the point is to separate "a producer put a string here" from "a producer put a flag, a count or
      * a nested object here", not to guess whether the string is a key. A digest of a secret is a string too, and is
      * exactly as worth reporting.
+     *
+     * <p>
+     * <b>Uncontracted here means uncontracted for {@link #dropUncontractedMembers} too</b>, which is why the
+     * publishability the drop computes is passed in rather than recomputed against {@link #CONTRACTED_MEMBERS} alone.
+     * The two sets disagreeing reported a member the drop had <em>kept</em>: on the secret types that are not
+     * low-entropy -- {@code private-key}, {@code secret-key}, {@code shared-secret}, {@code seed}, {@code key} -- a
+     * textual {@code relatedCryptoMaterialType} survived storage and still raised the exfiltration finding, which is
+     * the loudest thing this class emits, on a producer's benign metadata.
      */
-    private static List<String> inlinedMemberNames(ObjectNode materialNode) {
+    private static List<String> inlinedMemberNames(ObjectNode materialNode, boolean publishable) {
         List<String> carrying = new ArrayList<>();
         materialNode.properties().forEach(member -> {
             JsonNode value = member.getValue();
-            if (!CONTRACTED_MEMBERS.contains(member.getKey()) && value.isTextual()
-                    && !AsciiText.isBlank(value.textValue())) {
+            boolean contracted = CONTRACTED_MEMBERS.contains(member.getKey())
+                    || (publishable && PUBLISHABLE_ONLY_MEMBERS.contains(member.getKey()));
+            if (!contracted && value.isTextual() && !AsciiText.isBlank(value.textValue())) {
                 carrying.add(member.getKey());
             }
         });
@@ -220,9 +233,30 @@ public final class MaterialRedaction {
      * pass then showed the exemption was not merely unjustified but unsafe. What this set as a whole still lacks is a
      * ratified source, which is open on core#2165 item 9.
      */
+    private static final String RELATED_CRYPTOGRAPHIC_ASSETS = "relatedCryptographicAssets";
+
     private static final Set<String> CONTRACTED_MEMBERS = Set
-            .of("type", "id", "state", "algorithmRef", "relatedCryptographicAssets", "creationDate", "activationDate",
+            .of("type", "id", "state", "algorithmRef", RELATED_CRYPTOGRAPHIC_ASSETS, "creationDate", "activationDate",
                     "updateDate", "expirationDate", "value", "size", "format", "securedBy");
+
+    /**
+     * The members each {@code relatedCryptographicAssets} entry keeps.
+     *
+     * <p>
+     * {@link #CONTRACTED_MEMBERS} admits the array by its top-level name and {@link #dropUncontractedMembers} iterates
+     * top-level names only, so every entry was preserved whole: a producer emitting
+     * {@code [{"ref":"a1","digest":"<hash of the secret>"}]} kept that digest in the stored payload. The argument for
+     * an allowlist rather than a denylist does not stop at depth one -- the set of member names able to carry a
+     * secret's digest is open at every depth -- so the entries are projected onto this shape instead of being filtered
+     * against a list of names to fear.
+     *
+     * <p>
+     * 724 corpus entries carry {@code ref} (724 of them) and {@code type} (144) and nothing else, so the projection
+     * costs 0 stored payloads today. Whether 1.7 contracts a third member here is open on core#2165 item 9 with the
+     * rest of this set's ratified source; until it is answered a new member fails closed and is reported, which is the
+     * direction this class takes everywhere else.
+     */
+    private static final Set<String> CONTRACTED_RELATED_ASSET_MEMBERS = Set.of("ref", "type");
 
     /**
      * The members kept only while the material's own digest may be published.
@@ -311,6 +345,50 @@ public final class MaterialRedaction {
                 .add("uncontracted members dropped from the stored payload, any of which may carry the plaintext or "
                         + "a reversible digest of it: " + String.join(", ", dropped));
         return List.copyOf(dropped);
+    }
+
+    /**
+     * Projects each {@code relatedCryptographicAssets} entry onto {@link #CONTRACTED_RELATED_ASSET_MEMBERS}.
+     *
+     * <p>
+     * Storage's alone, like the drop above -- {@link #keyedPayload()} keeps the array whole, so nothing here can move
+     * an identity key. An entry that is not an object states no reference and is removed rather than projected; an
+     * entry whose contracted members are all absent stays as an empty object, because how many related assets the
+     * producer stated is itself part of what the row records.
+     */
+    private static void projectRelatedAssets(ObjectNode materialNode, List<String> findings) {
+        if (materialNode == null || !materialNode.has(RELATED_CRYPTOGRAPHIC_ASSETS)) {
+            return;
+        }
+        JsonNode assets = materialNode.get(RELATED_CRYPTOGRAPHIC_ASSETS);
+        if (!assets.isArray()) {
+            materialNode.remove(RELATED_CRYPTOGRAPHIC_ASSETS);
+            findings.add("non-array relatedCryptographicAssets dropped from the stored payload");
+            return;
+        }
+        List<String> removed = new ArrayList<>();
+        ArrayNode projected = materialNode.arrayNode();
+        assets.forEach(entry -> {
+            if (!entry.isObject()) {
+                removed.add("<non-object entry>");
+                return;
+            }
+            ObjectNode kept = projected.addObject();
+            entry.properties().forEach(member -> {
+                if (CONTRACTED_RELATED_ASSET_MEMBERS.contains(member.getKey()) && member.getValue().isTextual()) {
+                    kept.set(member.getKey(), member.getValue());
+                } else {
+                    removed.add(member.getKey());
+                }
+            });
+        });
+        materialNode.set(RELATED_CRYPTOGRAPHIC_ASSETS, projected);
+        if (!removed.isEmpty()) {
+            removed.sort(AsciiText.BY_CODE_POINT);
+            findings
+                    .add("uncontracted members dropped from relatedCryptographicAssets entries, any of which may "
+                            + "carry a reversible digest of the plaintext: " + String.join(", ", removed));
+        }
     }
 
     /**
