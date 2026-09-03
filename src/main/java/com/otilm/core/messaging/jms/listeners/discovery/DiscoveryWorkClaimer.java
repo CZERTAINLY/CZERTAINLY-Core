@@ -94,9 +94,14 @@ public class DiscoveryWorkClaimer {
      * withholding items.
      *
      * <p>
-     * A floor, not a replacement: every ceiling rung is longer than it, so no steady-state cadence changes, and what it
-     * slows is retrying a tick the connector never answered. It does not cover a tick outliving the floor itself — a
-     * lease the worker releases would, and core#1962's agenda has no such column.
+     * It is a floor, so it does change the cadence of any ladder whose ceiling is shorter than it: {@code STATUS} keeps
+     * its five minutes, while {@code DRAIN} and {@code PROCESS} idle here rather than on the thirty seconds their own
+     * rungs end at. That reaches only a tick with nothing to do — one with more to fetch direct-publishes its
+     * continuation instead of waiting on a rung at all.
+     *
+     * <p>
+     * It does not cover a tick outliving the floor itself — a lease the worker releases would, and core#1962's agenda
+     * has no such column.
      */
     private Duration parkFor(DiscoveryWorkType workType, int nextAttempt) {
         Duration rung = workProperties.scheduleFor(workType).delayFor(nextAttempt);

@@ -146,6 +146,32 @@ class DiscoveryWorkClaimerTest {
                 .isAfterOrEqualTo(before.plusMinutes(5).minusSeconds(1));
     }
 
+    /**
+     * The floor outlives DRAIN's own ceiling, so it — not the ladder — sets what an idle drain settles at. Pinned
+     * because it is a surprise: a reader of the ladder would expect thirty seconds, and the config said so once.
+     */
+    @Test
+    void aCeilingShorterThanTheFloor_isOverriddenByIt() {
+        when(clusterSynchronizer.tryLock(any())).thenReturn(true);
+        UUID runUuid = UUID.randomUUID();
+        // DRAIN's real ladder: its last rung is 30s, under the 35s floor.
+        when(workProperties.scheduleFor(any()))
+                .thenReturn(new StatusPollProperties.PollSchedule(
+                        List.of(Duration.ofSeconds(1), Duration.ofSeconds(5), Duration.ofSeconds(30)), 100));
+        when(workRepository
+                .findByNextDueAtLessThanEqualOrderByNextDueAt(any(OffsetDateTime.class), any(Pageable.class)))
+                .thenReturn(List.of(workRow(runUuid, DiscoveryWorkType.DRAIN, 3)));
+
+        OffsetDateTime before = OffsetDateTime.now();
+        claimer.claimDueBatch(BATCH_SIZE, CUTOFF);
+
+        ArgumentCaptor<OffsetDateTime> parkedAt = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(workWriter).reschedule(eq(runUuid), eq(DiscoveryWorkType.DRAIN), eq(4), parkedAt.capture());
+        assertThat(parkedAt.getValue())
+                .as("an idle drain settles at the floor, not at the ladder's own ceiling")
+                .isAfterOrEqualTo(before.plus(CLAIM_FLOOR));
+    }
+
     private DiscoveryWork workRow(UUID runUuid, DiscoveryWorkType type, int attempt) {
         DiscoveryWork work = new DiscoveryWork();
         work.setDiscoveryUuid(runUuid);
