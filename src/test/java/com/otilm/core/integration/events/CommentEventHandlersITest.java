@@ -287,7 +287,6 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
                 .anySatisfy(message -> assertThat(message.getNotificationProfileUuids()).contains(profileUuid));
 
         notificationListener.processMessage(profileMessages.getFirst());
-        // The persisted notification targets the host object and names the thread; a root has no parent
         assertThat(notificationRepository.findAll()).isNotEmpty().allSatisfy(notification -> {
             assertThat(notification.getTargetObjectType()).isEqualTo(Resource.RA_PROFILE);
             assertThat(notification.getTargetObjectIdentification()).isEqualTo(hostUuid.toString());
@@ -325,7 +324,6 @@ class CommentEventHandlersITest extends BaseSpringBootTest {
                 .containsExactlyInAnyOrder(rootAuthor, earlierReplier);
 
         notificationListener.processMessage(followUps.getFirst());
-        // The notification names the reply and the thread it sits in, so the reader can be taken straight to it
         assertThat(notificationRepository.findAll()).hasSize(2).allSatisfy(notification -> {
             assertThat(notification.getTargetObjectIdentification()).isEqualTo(hostUuid.toString());
             assertThat(notification.getSubject())

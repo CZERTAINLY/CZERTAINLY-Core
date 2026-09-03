@@ -79,8 +79,14 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
     }
 
     private CommentResponseDto listAnchoredAt(UUID objectUuid, UUID anchorUuid, int pageSize) throws NotFoundException {
+        return listAnchoredAt(objectUuid, anchorUuid, pageSize, 1);
+    }
+
+    private CommentResponseDto listAnchoredAt(UUID objectUuid, UUID anchorUuid, int pageSize, int pageNumber)
+            throws NotFoundException {
         PaginationRequestDto pagination = new PaginationRequestDto();
         pagination.setItemsPerPage(pageSize);
+        pagination.setPageNumber(pageNumber);
         return commentService
                 .listComments(SecuredResource.fromResource(Resource.RA_PROFILE), SecuredUUID.fromUUID(objectUuid),
                         anchorUuid, pagination);
@@ -150,12 +156,17 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
 
     @Test
     void aStaleAnchorLeavesTheListingOnTheRequestedPage() throws NotFoundException {
-        post(raProfileUuid, "still here", null);
+        List<CommentDto> roots = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            roots.add(post(raProfileUuid, "root " + i, null));
+        }
 
-        CommentResponseDto anchored = listAnchoredAt(raProfileUuid, UUID.randomUUID(), 10);
+        CommentResponseDto anchored = listAnchoredAt(raProfileUuid, UUID.randomUUID(), 2, 2);
 
-        assertThat(anchored.getPageNumber()).isEqualTo(1);
-        assertThat(anchored.getComments()).hasSize(1);
+        assertThat(anchored.getPageNumber()).isEqualTo(2);
+        assertThat(anchored.getComments())
+                .extracting(CommentDto::getUuid)
+                .containsExactly(roots.get(2).getUuid(), roots.get(3).getUuid());
     }
 
     @Test
@@ -164,11 +175,17 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         other.setName("tst-ra-profile-other");
         UUID otherUuid = raProfileRepository.save(other).getUuid();
         CommentDto foreign = post(otherUuid, "somewhere else", null);
-        post(raProfileUuid, "here", null);
+        List<CommentDto> roots = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            roots.add(post(raProfileUuid, "root " + i, null));
+        }
 
-        CommentResponseDto anchored = listAnchoredAt(raProfileUuid, foreign.getUuid(), 10);
+        CommentResponseDto anchored = listAnchoredAt(raProfileUuid, foreign.getUuid(), 2, 2);
 
-        assertThat(anchored.getComments()).hasSize(1);
+        assertThat(anchored.getPageNumber()).isEqualTo(2);
+        assertThat(anchored.getComments())
+                .extracting(CommentDto::getUuid)
+                .containsExactly(roots.get(2).getUuid(), roots.get(3).getUuid());
     }
 
     @Test

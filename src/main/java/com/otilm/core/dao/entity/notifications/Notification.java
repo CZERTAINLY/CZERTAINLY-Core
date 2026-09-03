@@ -3,6 +3,7 @@ package com.otilm.core.dao.entity.notifications;
 import com.otilm.api.model.client.notification.NotificationDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.UniquelyIdentified;
+import com.otilm.core.mapper.notifications.NotificationMapper;
 import com.otilm.core.model.notification.NotificationSubject;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -67,11 +68,7 @@ public class Notification extends UniquelyIdentified {
         dto.setDetail(this.detail);
         dto.setSentAt(this.sentAt);
         dto.setTargetObjectType(this.targetObjectType);
-        if (this.subject != null) {
-            dto.setSubjectObjectType(this.subject.type());
-            dto.setSubjectObjectIdentification(this.subject.identification());
-            dto.setSubjectParentIdentification(this.subject.parentIdentification());
-        }
+        NotificationMapper.applySubject(dto, this.subject);
         if (this.targetObjectIdentification != null) {
             dto.setTargetObjectIdentification(List.of(this.targetObjectIdentification.split(",")));
         }

@@ -123,9 +123,12 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
                                 .countRootsBefore(hostResource, objectUuid.getValue(), anchoredThread.getCreatedAt(),
                                         anchoredThread.getUuid())
                                 / pagination.getItemsPerPage());
-        Page<Comment> roots = commentRepository
-                .findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAscUuidAsc(hostResource,
-                        objectUuid.getValue(), PageRequest.of(pageIndex, pagination.getItemsPerPage()));
+        Page<Comment> roots = pageOfRoots(hostResource, objectUuid.getValue(), pageIndex, pagination);
+        if (anchoredThread != null && !contains(roots, anchoredThread)) {
+            // The position was counted in a separate read: a root added or removed ahead of the anchor in between
+            // moved it to another page, and the requested page is the documented answer when the anchor cannot be shown
+            roots = pageOfRoots(hostResource, objectUuid.getValue(), pagination.getPageNumber() - 1, pagination);
+        }
         List<UUID> rootUuids = roots.getContent().stream().map(Comment::getUuid).toList();
         Map<UUID, Long> replyCountsByRoot = rootUuids.isEmpty()
                 ? Map.of()
@@ -139,6 +142,17 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
                 .map(root -> CommentMapper.toDto(root, replyCountsByRoot.getOrDefault(root.getUuid(), 0L)))
                 .toList();
         return CommentMapper.toResponseDto(roots, threads);
+    }
+
+    private Page<Comment> pageOfRoots(Resource hostResource, UUID objectUuid, int pageIndex,
+            PaginationRequestDto pagination) {
+        return commentRepository
+                .findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAscUuidAsc(hostResource, objectUuid,
+                        PageRequest.of(pageIndex, pagination.getItemsPerPage()));
+    }
+
+    private static boolean contains(Page<Comment> page, Comment comment) {
+        return page.getContent().stream().anyMatch(candidate -> candidate.getUuid().equals(comment.getUuid()));
     }
 
     /**
@@ -178,9 +192,10 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
                 : Math
                         .toIntExact(commentRepository.countRepliesBefore(uuid, anchor.getCreatedAt(), anchor.getUuid())
                                 / pagination.getItemsPerPage());
-        Page<Comment> replies = commentRepository
-                .findByParentUuidOrderByCreatedAtAscUuidAsc(uuid,
-                        PageRequest.of(pageIndex, pagination.getItemsPerPage()));
+        Page<Comment> replies = pageOfReplies(uuid, pageIndex, pagination);
+        if (anchor != null && !contains(replies, anchor)) {
+            replies = pageOfReplies(uuid, pagination.getPageNumber() - 1, pagination);
+        }
         List<CommentDto> replyDtos = replies
                 .getContent()
                 .stream()
@@ -189,7 +204,12 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         return CommentMapper.toResponseDto(replies, replyDtos);
     }
 
-    /** The anchored reply when it still exists and still belongs to this thread; null leaves the requested page. */
+    private Page<Comment> pageOfReplies(UUID rootUuid, int pageIndex, PaginationRequestDto pagination) {
+        return commentRepository
+                .findByParentUuidOrderByCreatedAtAscUuidAsc(rootUuid,
+                        PageRequest.of(pageIndex, pagination.getItemsPerPage()));
+    }
+
     private Comment anchoredReply(UUID rootUuid, UUID anchorUuid) {
         if (anchorUuid == null) {
             return null;

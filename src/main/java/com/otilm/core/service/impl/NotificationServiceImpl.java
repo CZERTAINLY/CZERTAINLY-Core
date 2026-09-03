@@ -11,6 +11,8 @@ import com.otilm.core.dao.entity.notifications.Notification;
 import com.otilm.core.dao.entity.notifications.NotificationRecipient;
 import com.otilm.core.dao.repository.notifications.NotificationRecipientRepository;
 import com.otilm.core.dao.repository.notifications.NotificationRepository;
+import com.otilm.core.mapper.notifications.NotificationMapper;
+import com.otilm.core.model.notification.NotificationListItem;
 import com.otilm.core.model.notification.NotificationSubject;
 import com.otilm.core.security.authn.client.RoleManagementApiClient;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
@@ -157,12 +159,12 @@ public class NotificationServiceImpl implements NotificationExternalService, Not
         final Pageable pageable = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         final UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid());
 
-        final Page<NotificationDto> pagedNotifications = request.isUnread()
+        final Page<NotificationListItem> pagedNotifications = request.isUnread()
                 ? notificationRecipientRepository.findUnreadByUserUuid(loggedUserUuid, pageable)
                 : notificationRecipientRepository.findByUserUuid(loggedUserUuid, pageable);
 
         final NotificationResponseDto responseDto = new NotificationResponseDto();
-        responseDto.setItems(pagedNotifications.getContent());
+        responseDto.setItems(pagedNotifications.map(NotificationMapper::toDto).getContent());
         responseDto.setItemsPerPage(request.getItemsPerPage());
         responseDto.setPageNumber(request.getPageNumber());
         responseDto.setTotalItems(pagedNotifications.getTotalElements());
