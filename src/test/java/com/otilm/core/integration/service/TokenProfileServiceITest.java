@@ -14,6 +14,7 @@ import com.otilm.api.model.client.cryptography.tokenprofile.EditTokenProfileRequ
 import com.otilm.api.model.client.signing.profile.scheme.SigningScheme;
 import com.otilm.api.model.client.signing.profile.workflow.SigningWorkflowType;
 import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDto;
@@ -42,14 +43,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
-@Transactional
-@Rollback
 class TokenProfileServiceITest extends BaseSpringBootTest {
 
     private static final String TOKEN_PROFILE_NAME = "testTokenProfile1";
@@ -93,6 +91,7 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         tokenInstanceReference = new TokenInstanceReference();
         tokenInstanceReference.setTokenInstanceUuid("1l");
         tokenInstanceReference.setConnector(connector);
+        tokenInstanceReference.setStatus(TokenInstanceStatus.UNKNOWN);
         tokenInstanceReference = tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
         tokenProfile = new TokenProfile();
@@ -118,6 +117,30 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
+    void listTokenProfiles_excludesProfileWhoseTokenHasNoConnector() {
+        // given
+        var disconnectedToken = new TokenInstanceReference();
+        disconnectedToken.setTokenInstanceUuid("disconnected-token");
+        disconnectedToken.setStatus(TokenInstanceStatus.UNKNOWN);
+        disconnectedToken = tokenInstanceReferenceRepository.save(disconnectedToken);
+        var disconnectedProfile = new TokenProfile();
+        disconnectedProfile.setName("profile-without-connector");
+        disconnectedProfile.setEnabled(true);
+        disconnectedProfile.setTokenInstanceReference(disconnectedToken);
+        disconnectedProfile = tokenProfileRepository.save(disconnectedProfile);
+        var disconnectedProfileUuid = disconnectedProfile.getUuid().toString();
+
+        // when
+        List<TokenProfileDto> tokenProfiles = tokenProfileService
+                .listTokenProfiles(Optional.of(true), SecurityFilter.create());
+
+        // then
+        Assertions
+                .assertFalse(
+                        tokenProfiles.stream().anyMatch(profile -> disconnectedProfileUuid.equals(profile.getUuid())));
+    }
+
+    @Test
     void testGetTokenProfileByUuid() throws NotFoundException {
         TokenProfileDetailDto dto = tokenProfileService
                 .getTokenProfile(tokenInstanceReference.getSecuredParentUuid(), tokenProfile.getSecuredUuid());
@@ -132,6 +155,20 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
                         () -> tokenProfileService
                                 .getTokenProfile(tokenInstanceReference.getSecuredParentUuid(),
                                         SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+    }
+
+    @Test
+    void scopedEdit_throwsNotFoundException_forProfileOwnedByAnotherToken() {
+        // given
+        var anotherTokenUuid = SecuredParentUUID.fromUUID(java.util.UUID.randomUUID());
+        var request = new EditTokenProfileRequestDto();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+
+        // when
+        Executable edit = () -> tokenProfileService.editTokenProfile(anotherTokenUuid, tokenProfileUuid, request);
+
+        // then
+        Assertions.assertThrows(NotFoundException.class, edit);
     }
 
     @Test
@@ -308,8 +345,15 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEnableTokenProfile() throws NotFoundException {
-        tokenProfileService.enableTokenProfile(tokenProfile.getSecuredParentUuid(), tokenProfile.getSecuredUuid());
-        Assertions.assertEquals(true, tokenProfile.getEnabled());
+        // given
+        var tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+
+        // when
+        tokenProfileService.enableTokenProfile(tokenInstanceUuid, tokenProfileUuid);
+
+        // then
+        Assertions.assertTrue(tokenProfileRepository.findByUuid(tokenProfileUuid).orElseThrow().getEnabled());
     }
 
     @Test
@@ -317,14 +361,21 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         Assertions
                 .assertThrows(NotFoundException.class,
                         () -> tokenProfileService
-                                .enableTokenProfile(tokenProfile.getSecuredParentUuid(),
+                                .enableTokenProfile(tokenInstanceReference.getSecuredParentUuid(),
                                         SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     void testDisableTokenProfile() throws NotFoundException {
-        tokenProfileService.disableTokenProfile(tokenProfile.getSecuredParentUuid(), tokenProfile.getSecuredUuid());
-        Assertions.assertEquals(false, tokenProfile.getEnabled());
+        // given
+        var tokenInstanceUuid = tokenInstanceReference.getSecuredParentUuid();
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+
+        // when
+        tokenProfileService.disableTokenProfile(tokenInstanceUuid, tokenProfileUuid);
+
+        // then
+        Assertions.assertFalse(tokenProfileRepository.findByUuid(tokenProfileUuid).orElseThrow().getEnabled());
     }
 
     @Test
@@ -332,7 +383,7 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         Assertions
                 .assertThrows(NotFoundException.class,
                         () -> tokenProfileService
-                                .disableTokenProfile(tokenProfile.getSecuredParentUuid(),
+                                .disableTokenProfile(tokenInstanceReference.getSecuredParentUuid(),
                                         SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
@@ -385,14 +436,26 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testBulkEnable() {
-        tokenProfileService.enableTokenProfile(List.of(tokenProfile.getSecuredUuid()));
-        Assertions.assertTrue(tokenProfile.getEnabled());
+        // given
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+
+        // when
+        tokenProfileService.enableTokenProfile(List.of(tokenProfileUuid));
+
+        // then
+        Assertions.assertTrue(tokenProfileRepository.findByUuid(tokenProfileUuid).orElseThrow().getEnabled());
     }
 
     @Test
     void testBulkDisable() {
-        tokenProfileService.disableTokenProfile(List.of(tokenProfile.getSecuredUuid()));
-        Assertions.assertFalse(tokenProfile.getEnabled());
+        // given
+        var tokenProfileUuid = tokenProfile.getSecuredUuid();
+
+        // when
+        tokenProfileService.disableTokenProfile(List.of(tokenProfileUuid));
+
+        // then
+        Assertions.assertFalse(tokenProfileRepository.findByUuid(tokenProfileUuid).orElseThrow().getEnabled());
     }
 
     @Test

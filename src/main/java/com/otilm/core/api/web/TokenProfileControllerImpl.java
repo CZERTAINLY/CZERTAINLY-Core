@@ -23,6 +23,7 @@ import com.otilm.core.logging.LogResource;
 import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.service.TokenInstanceExternalService;
 import com.otilm.core.service.TokenProfileExternalService;
 import java.net.URI;
 import java.util.List;
@@ -36,10 +37,16 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class TokenProfileControllerImpl implements TokenProfileController {
 
     private TokenProfileExternalService tokenProfileService;
+    private TokenInstanceExternalService tokenInstanceService;
 
     @Autowired
     public void setTokenProfileService(TokenProfileExternalService tokenProfileService) {
         this.tokenProfileService = tokenProfileService;
+    }
+
+    @Autowired
+    public void setTokenInstanceService(TokenInstanceExternalService tokenInstanceService) {
+        this.tokenInstanceService = tokenInstanceService;
     }
 
     @Override
@@ -50,10 +57,12 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE,
-            affiliatedResource = Resource.TOKEN_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listTokenProfileAttributes(String tokenInstanceUuid) {
-        return List.of();
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "tokenProfile",
+            affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listTokenProfileAttributes(
+            @LogResource(uuid = true, affiliated = true) String tokenInstanceUuid)
+            throws ConnectorException, NotFoundException {
+        return tokenInstanceService.listTokenProfileAttributes(SecuredUUID.fromString(tokenInstanceUuid));
     }
 
     @Override
@@ -148,8 +157,9 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE,
             affiliatedResource = Resource.TOKEN, operation = Operation.LIST_KEY_USAGES)
     public List<KeyUsage> listSupportedTokenProfileKeyUsages(
-            @LogResource(uuid = true, affiliated = true) String tokenInstanceUuid) {
-        return List.of();
+            @LogResource(uuid = true, affiliated = true) String tokenInstanceUuid)
+            throws ConnectorException, NotFoundException {
+        return tokenInstanceService.listSupportedKeyUsages(SecuredUUID.fromString(tokenInstanceUuid));
     }
 
     @Override
