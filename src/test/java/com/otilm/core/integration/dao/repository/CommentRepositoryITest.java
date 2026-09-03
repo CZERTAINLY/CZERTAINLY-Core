@@ -44,7 +44,7 @@ class CommentRepositoryITest extends BaseSpringBootTest {
         Comment reply = commentRepository.saveAndFlush(newComment(objectUuid, root.getUuid()));
 
         assertThat(root.getCreatedAt()).isNotNull();
-        assertThat(commentRepository.findByParentUuidOrderByCreatedAtAsc(root.getUuid(), PageRequest.of(0, 10)))
+        assertThat(commentRepository.findByParentUuid(root.getUuid(), PageRequest.of(0, 10)))
                 .extracting(Comment::getUuid)
                 .containsExactly(reply.getUuid());
         assertThat(commentRepository.countRepliesByRoots(List.of(root.getUuid()))).singleElement().satisfies(row -> {
@@ -61,8 +61,7 @@ class CommentRepositoryITest extends BaseSpringBootTest {
         commentRepository.saveAndFlush(newComment(objectUuid, root.getUuid()));
 
         Page<Comment> page = commentRepository
-                .findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAsc(Resource.RA_PROFILE, objectUuid,
-                        PageRequest.of(0, 10));
+                .findByResourceAndObjectUuidAndParentUuidIsNull(Resource.RA_PROFILE, objectUuid, PageRequest.of(0, 10));
 
         assertThat(page.getTotalElements()).isEqualTo(1);
         assertThat(page.getContent().getFirst().getUuid()).isEqualTo(root.getUuid());
