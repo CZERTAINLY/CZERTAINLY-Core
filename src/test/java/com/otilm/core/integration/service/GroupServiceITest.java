@@ -5,27 +5,32 @@ import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.api.model.core.auth.UserWithPaginationDto;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.certificate.group.GroupRequestDto;
 import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.repository.GroupRepository;
+import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.GroupExternalService;
 import com.otilm.core.service.GroupInternalService;
 import com.otilm.core.util.BaseSpringBootTest;
+import com.otilm.core.util.mockbeans.ManagementApiMocks;
 import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.access.AccessDeniedException;
 
 import static org.mockito.Mockito.when;
 
+@Import(ManagementApiMocks.class)
 public class GroupServiceITest extends BaseSpringBootTest {
 
     private static final String CERTIFICATE_GROUP_NAME = "testCertificateGroup1";
@@ -39,7 +44,7 @@ public class GroupServiceITest extends BaseSpringBootTest {
     @Autowired
     private GroupRepository groupRepository;
 
-    @MockitoBean
+    @Autowired
     private UserManagementApiClient userManagementApiClient;
 
     private Group group;
@@ -197,6 +202,13 @@ public class GroupServiceITest extends BaseSpringBootTest {
 
         Assertions.assertEquals(1, users.size());
         Assertions.assertEquals("member", users.get(0).getUsername());
+    }
+
+    @Test
+    void getGroupUsersDeniesCallerWithoutMembersPermission() {
+        denyResourceAccess(Resource.GROUP, ResourceAction.MEMBERS);
+
+        Assertions.assertThrows(AccessDeniedException.class, () -> groupService.getGroupUsers(group.getSecuredUuid()));
     }
 
     private void stubUsers(UserDto... users) {
