@@ -1281,7 +1281,7 @@ public record AssetNormalizer(IdentityTables tables) {
      * repairable; over-merging is silent corruption.
      */
     private String residualLetters(String stripped, String paddingFromName, List<String> dropped) {
-        String letters = AsciiText.fold(NON_LETTERS.matcher(stripped).replaceAll(""));
+        String letters = AsciiText.foldPresent(NON_LETTERS.matcher(stripped).replaceAll(""));
         if (!letters.isEmpty() && !tables.variantVocabulary().contains(letters)) {
             dropped.add(letters);
         }
