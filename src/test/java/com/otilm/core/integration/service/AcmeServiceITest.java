@@ -1557,8 +1557,8 @@ class AcmeServiceITest extends BaseSpringBootTest {
         URI requestUri = new URI(baseUri + "/authz/authDeact");
 
         ResponseEntity<Authorization> response = acmeService
-                .getAuthorization(ACME_PROFILE_NAME, "authDeact",
-                        buildDeactivateAuthorizationRequestJSON(requestUri, baseUri), requestUri, false);
+                .getAuthorization(ACME_PROFILE_NAME, "authDeact", buildDeactivateRequestJSON(requestUri, baseUri),
+                        requestUri, false);
 
         Assertions
                 .assertEquals(AuthorizationStatus.DEACTIVATED, Objects.requireNonNull(response.getBody()).getStatus());
@@ -1585,8 +1585,8 @@ class AcmeServiceITest extends BaseSpringBootTest {
         URI requestUri = new URI(baseUri + "/authz/authDeactTarget");
 
         acmeService
-                .getAuthorization(ACME_PROFILE_NAME, "authDeactTarget",
-                        buildDeactivateAuthorizationRequestJSON(requestUri, baseUri), requestUri, false);
+                .getAuthorization(ACME_PROFILE_NAME, "authDeactTarget", buildDeactivateRequestJSON(requestUri, baseUri),
+                        requestUri, false);
 
         Assertions
                 .assertEquals(AuthorizationStatus.INVALID,
@@ -1690,7 +1690,11 @@ class AcmeServiceITest extends BaseSpringBootTest {
         return jwsObjectJSON.serializeFlattened();
     }
 
-    private String buildDeactivateAuthorizationRequestJSON(URI requestUri, String baseUri) throws JOSEException {
+    /**
+     * A request that deactivates whatever it is addressed to: the payload is the same for an account and for an
+     * authorization (RFC 8555 sections 7.3.6 and 7.5.2).
+     */
+    private String buildDeactivateRequestJSON(URI requestUri, String baseUri) throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"status\":\"deactivated\"}"));
         jwsObjectJSON
                 .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
@@ -1798,7 +1802,7 @@ class AcmeServiceITest extends BaseSpringBootTest {
 
         acmeService
                 .updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID,
-                        buildDeactivateAccountRequestJSON(requestUri, baseUri), requestUri, false);
+                        buildDeactivateRequestJSON(requestUri, baseUri), requestUri, false);
 
         AcmeAccount reloaded = acmeAccountRepository.findByUuid(accountUuid).orElseThrow();
         Assertions.assertEquals(AccountStatus.DEACTIVATED, reloaded.getStatus());
@@ -1807,17 +1811,6 @@ class AcmeServiceITest extends BaseSpringBootTest {
                         acmeOrderRepository.findByOrderId("orderDeactCount").orElseThrow().getStatus());
         // the concurrent count, plus every order this deactivation closed
         Assertions.assertTrue(reloaded.getFailedOrders() >= failedBefore + 2);
-    }
-
-    private String buildDeactivateAccountRequestJSON(URI requestUri, String baseUri) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"status\":\"deactivated\"}"));
-        jwsObjectJSON
-                .sign(new JWSHeader.Builder(JWSAlgorithm.RS256)
-                        .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
-                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
-                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
-                        .build(), rsa2048Signer);
-        return jwsObjectJSON.serializeFlattened();
     }
 
     /**
