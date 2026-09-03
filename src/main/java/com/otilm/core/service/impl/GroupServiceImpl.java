@@ -6,6 +6,7 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
+import com.otilm.api.model.client.certificate.group.GroupUserResponseDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.auth.UserDto;
@@ -24,6 +25,7 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.GroupExternalService;
 import com.otilm.core.service.GroupInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
+import com.otilm.core.util.RequestValidatorHelper;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.UUID;
@@ -142,14 +144,28 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
 
     @Override
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.MEMBERS)
-    public List<UserDto> getGroupUsers(SecuredUUID uuid) throws NotFoundException {
+    public GroupUserResponseDto getGroupUsers(SecuredUUID uuid, PaginationRequestDto paginationRequestDto)
+            throws NotFoundException {
+        RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         String groupUuid = getGroupEntity(uuid).getUuid().toString();
-        return userManagementApiClient
+        List<UserDto> members = userManagementApiClient
                 .getUsers()
                 .getData()
                 .stream()
                 .filter(user -> user.getGroups().stream().anyMatch(g -> g.getUuid().equals(groupUuid)))
                 .toList();
+
+        int itemsPerPage = paginationRequestDto.getItemsPerPage();
+        int pageNumber = paginationRequestDto.getPageNumber();
+
+        GroupUserResponseDto responseDto = new GroupUserResponseDto();
+        responseDto
+                .setUsers(members.stream().skip((long) (pageNumber - 1) * itemsPerPage).limit(itemsPerPage).toList());
+        responseDto.setItemsPerPage(itemsPerPage);
+        responseDto.setPageNumber(pageNumber);
+        responseDto.setTotalItems((long) members.size());
+        responseDto.setTotalPages((int) Math.ceil((double) members.size() / itemsPerPage));
+        return responseDto;
     }
 
     @Override

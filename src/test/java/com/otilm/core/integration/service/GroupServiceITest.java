@@ -4,12 +4,14 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.client.certificate.group.GroupUserResponseDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.api.model.core.auth.UserWithPaginationDto;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.certificate.group.GroupRequestDto;
+import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.model.auth.ResourceAction;
@@ -168,7 +170,7 @@ public class GroupServiceITest extends BaseSpringBootTest {
                 new NameAndUuidDto("33333333-3333-3333-3333-333333333333", "otherGroup"));
         stubUsers(member, outsider);
 
-        List<UserDto> users = groupService.getGroupUsers(group.getSecuredUuid());
+        List<UserDto> users = groupService.getGroupUsers(group.getSecuredUuid(), page(1, 10)).getUsers();
 
         Assertions.assertEquals(1, users.size());
         Assertions.assertEquals("member", users.get(0).getUsername());
@@ -179,7 +181,7 @@ public class GroupServiceITest extends BaseSpringBootTest {
         stubUsers(user("22222222-2222-2222-2222-222222222222", "outsider",
                 new NameAndUuidDto("33333333-3333-3333-3333-333333333333", "otherGroup")));
 
-        Assertions.assertTrue(groupService.getGroupUsers(group.getSecuredUuid()).isEmpty());
+        Assertions.assertTrue(groupService.getGroupUsers(group.getSecuredUuid(), page(1, 10)).getUsers().isEmpty());
     }
 
     @Test
@@ -189,7 +191,7 @@ public class GroupServiceITest extends BaseSpringBootTest {
 
         Assertions
                 .assertThrows(NotFoundException.class, () -> groupService
-                        .getGroupUsers(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+                        .getGroupUsers(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), page(1, 10)));
     }
 
     @Test
@@ -198,7 +200,7 @@ public class GroupServiceITest extends BaseSpringBootTest {
                 new NameAndUuidDto("33333333-3333-3333-3333-333333333333", "otherGroup"),
                 new NameAndUuidDto(group.getUuid().toString(), group.getName())));
 
-        List<UserDto> users = groupService.getGroupUsers(group.getSecuredUuid());
+        List<UserDto> users = groupService.getGroupUsers(group.getSecuredUuid(), page(1, 10)).getUsers();
 
         Assertions.assertEquals(1, users.size());
         Assertions.assertEquals("member", users.get(0).getUsername());
@@ -208,7 +210,58 @@ public class GroupServiceITest extends BaseSpringBootTest {
     void getGroupUsersDeniesCallerWithoutMembersPermission() {
         denyResourceAccess(Resource.GROUP, ResourceAction.MEMBERS);
 
-        Assertions.assertThrows(AccessDeniedException.class, () -> groupService.getGroupUsers(group.getSecuredUuid()));
+        Assertions
+                .assertThrows(AccessDeniedException.class,
+                        () -> groupService.getGroupUsers(group.getSecuredUuid(), page(1, 10)));
+    }
+
+    @Test
+    void getGroupUsersReturnsTheRequestedPageOfMembers() throws NotFoundException {
+        NameAndUuidDto membership = new NameAndUuidDto(group.getUuid().toString(), group.getName());
+        stubUsers(user("11111111-1111-1111-1111-111111111111", "first", membership),
+                user("22222222-2222-2222-2222-222222222222", "second", membership),
+                user("33333333-3333-3333-3333-333333333333", "third", membership));
+
+        GroupUserResponseDto response = groupService.getGroupUsers(group.getSecuredUuid(), page(2, 2));
+
+        Assertions.assertEquals(1, response.getUsers().size());
+        Assertions.assertEquals("third", response.getUsers().get(0).getUsername());
+        Assertions.assertEquals(3, response.getTotalItems());
+        Assertions.assertEquals(2, response.getTotalPages());
+        Assertions.assertEquals(2, response.getPageNumber());
+        Assertions.assertEquals(2, response.getItemsPerPage());
+    }
+
+    @Test
+    void getGroupUsersCountsOnlyMembersInTheTotals() throws NotFoundException {
+        stubUsers(
+                user("11111111-1111-1111-1111-111111111111", "member",
+                        new NameAndUuidDto(group.getUuid().toString(), group.getName())),
+                user("22222222-2222-2222-2222-222222222222", "outsider",
+                        new NameAndUuidDto("44444444-4444-4444-4444-444444444444", "otherGroup")));
+
+        GroupUserResponseDto response = groupService.getGroupUsers(group.getSecuredUuid(), page(1, 10));
+
+        Assertions.assertEquals(1, response.getTotalItems());
+        Assertions.assertEquals(1, response.getTotalPages());
+    }
+
+    @Test
+    void getGroupUsersReturnsAnEmptyPageBeyondTheLastOne() throws NotFoundException {
+        stubUsers(user("11111111-1111-1111-1111-111111111111", "member",
+                new NameAndUuidDto(group.getUuid().toString(), group.getName())));
+
+        GroupUserResponseDto response = groupService.getGroupUsers(group.getSecuredUuid(), page(5, 10));
+
+        Assertions.assertTrue(response.getUsers().isEmpty());
+        Assertions.assertEquals(1, response.getTotalItems());
+    }
+
+    private PaginationRequestDto page(int pageNumber, int itemsPerPage) {
+        PaginationRequestDto dto = new PaginationRequestDto();
+        dto.setPageNumber(pageNumber);
+        dto.setItemsPerPage(itemsPerPage);
+        return dto;
     }
 
     private void stubUsers(UserDto... users) {

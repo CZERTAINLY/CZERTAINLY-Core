@@ -4,9 +4,10 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
-import com.otilm.api.model.core.auth.UserDto;
+import com.otilm.api.model.client.certificate.group.GroupUserResponseDto;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.certificate.group.GroupRequestDto;
+import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 
@@ -27,5 +28,6 @@ public interface GroupExternalService {
 
     void bulkDeleteGroup(List<SecuredUUID> groupUuids);
 
-    List<UserDto> getGroupUsers(SecuredUUID uuid) throws NotFoundException;
+    GroupUserResponseDto getGroupUsers(SecuredUUID uuid, PaginationRequestDto paginationRequestDto)
+            throws NotFoundException;
 }
