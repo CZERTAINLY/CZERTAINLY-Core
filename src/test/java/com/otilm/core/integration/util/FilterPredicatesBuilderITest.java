@@ -101,6 +101,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.function.SelfRenderingSqmFunction;
+import org.hibernate.query.sqm.tree.expression.SqmLiteral;
 import org.hibernate.query.sqm.tree.predicate.SqmComparisonPredicate;
 import org.hibernate.query.sqm.tree.predicate.SqmExistsPredicate;
 import org.hibernate.query.sqm.tree.predicate.SqmJunctionPredicate;
@@ -318,6 +319,7 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
         SelfRenderingSqmFunction<?> leftHandExpressionHandExpression = (SelfRenderingSqmFunction<?>) comparisonPredicateTest
                 .getLeftHandExpression();
         Assertions.assertEquals("textregexeq", leftHandExpressionHandExpression.getFunctionName());
+        Assertions.assertInstanceOf(SqmLiteral.class, leftHandExpressionHandExpression.getArguments().getLast());
         Assertions
                 .assertEquals(testValue,
                         unquoted(leftHandExpressionHandExpression.getArguments().getLast().toHqlString()));
