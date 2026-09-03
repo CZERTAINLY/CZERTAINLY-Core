@@ -23,8 +23,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Pins the core#2152 symptom at the HTTP level: a connector answering an attribute callback with 401 problem+json
- * surfaces from Core's callback endpoint as 502, never as Core's own 401 (which clients read as a dead session).
+ * A connector answering an attribute callback with 401 problem+json must surface from Core's callback endpoint as 502,
+ * never as Core's own 401 — clients read a bare 401 as a dead session.
  */
 class CallbackControllerErrorTest {
 

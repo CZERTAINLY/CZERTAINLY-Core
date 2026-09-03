@@ -350,11 +350,9 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
-     * Handler for {@link ConnectorProblemException}. The rule mirrors the predicate below: 401, 403, anything below
-     * 400, and anything 5xx surface as 502 — an upstream fault, never the caller's session or a Core bug. Every other
-     * 4xx passes through verbatim, notably 404 (entity) and 422 (validation) — though for 422 only the status is
-     * preserved; aligning the body with the documented String[] validation shape lands with the shared connector-error
-     * classifier.
+     * Handler for {@link ConnectorProblemException}. 401, 403, anything below 400, and anything 5xx surface as 502 — an
+     * upstream fault, never the caller's session or a Core bug. Every other 4xx passes through verbatim, notably 404
+     * (entity) and 422 (validation) — though for 422 only the status is preserved.
      */
     @ExceptionHandler(ConnectorProblemException.class)
     public ResponseEntity<ErrorMessageDto> handleConnectorProblemException(ConnectorProblemException ex) {
