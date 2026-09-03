@@ -1,0 +1,926 @@
+"""Generate the ratified cryptographic asset identity decision tables.
+
+The table is committed at ``src/main/resources/cbom/identity-tables.json`` and read
+from the classpath, so no build needs Python and no build reaches the network. This
+script is what produced those bytes, and the ``Generated artifacts`` job in
+``.github/workflows/build_pr.yml`` re-runs it on every pull request and fails if one
+byte differs -- which is what makes the committed file reviewable without reading it.
+
+Regenerate after changing any input::
+
+    python3 scripts/cbom/build_identity_tables.py \
+        --output src/main/resources/cbom/identity-tables.json
+
+A regeneration that moves the bytes re-keys the cryptographic asset inventory, so the
+SHA-256 pinned by ``IdentityTablesTest`` has to be ratified in the same commit.
+
+Inputs live under ``src/main/cbom/identity``. The CycloneDX registry snapshot provides
+families and elliptic-curve equivalence data; the OID strand and grammar tables are
+ratified OmniTrust decisions that have no complete upstream source.
+"""
+
+from __future__ import annotations
+
+import argparse
+import collections
+import json
+import pathlib
+
+HERE = pathlib.Path(__file__).resolve().parent
+REPO_ROOT = HERE.parent.parent
+SOURCE_DIR = REPO_ROOT / "src" / "main" / "cbom" / "identity"
+REGISTRY = SOURCE_DIR / "cryptography-defs.json"
+DEFS_SCHEMA = SOURCE_DIR / "cryptography-defs.schema.json"
+OID_STRAND = SOURCE_DIR / "oid-strand.json"
+DEFAULT_OUTPUT = REPO_ROOT / "src" / "main" / "resources" / "cbom" / "identity-tables.json"
+
+# secg first: cbom-lens pins "Canonical namespace: secg/* for short-Weierstrass
+# curves", the 1.7 golden and the upstream conformance fixtures both emit secg/*,
+# and the OID table landed there independently. Electing secg means the common case
+# needs no folding at all.
+AUTHORITY_PRIORITY = [
+    "secg", "nist", "x962", "x963", "brainpool", "anssi", "oscaa",
+    "bls", "bn", "mnt", "nums", "oakley", "wtls", "gost", "other",
+]
+
+# PQC candidate families the registry cannot express. Measured on a 101-document
+# corpus: 370 of 472 family-less algorithm assets carry one of these names, and
+# `open-quantum-safe/liboqs` alone contributes 418 assets almost entirely of this
+# shape. Leaving them family-less is not survivable for this epic — the AC5
+# `algorithmFamily` filter and any PQC rule set keyed on that field would be blind to
+# Kyber, Falcon and SPHINCS+, which is precisely the surface the inventory exists to
+# report. So they become documented pseudo-families, exactly as RSA and EC already
+# are: not registry tokens, marked as pseudo, and grouped so they can be filtered.
+PQC_PSEUDO_FAMILIES = [
+    "bcrypt",
+    "Kyber", "Dilithium", "Falcon", "SPHINCS+", "Classic McEliece", "FrodoKEM",
+    "BIKE", "HQC", "NTRU", "NTRU-Prime", "CROSS", "MQOM", "SNOVA", "UOV", "MAYO",
+    "X-Wing", "SIKE", "GeMSS", "Rainbow", "Picnic", "SQIsign", "LESS", "PERK",
+    "RYDE", "MIRATH", "QR-UOV", "HAWK", "Raccoon", "AIMer",
+]
+
+PSEUDO_FAMILIES = {
+    # A pseudo-family is a deliberate generalization, not a guess: the registry has
+    # no bare RSA or EC token, yet a bare key is exactly what PQC triage must catch.
+    # The members list is what makes subsumption (concrete beats pseudo without
+    # refuting the OID) decidable.
+    "RSA": ["RSAES-OAEP", "RSAES-PKCS1", "RSASSA-PKCS1", "RSASSA-PSS", "RSA-X931"],
+    "EC": ["ECDSA", "ECDH", "ECIES", "EdDSA", "SM2", "MQV", "X3DH", "BLS", "SM9"],
+}
+
+# A pseudo-family stands alone: it has no concrete registry member that could subsume
+# it, so it is listed with an empty member set rather than omitted, keeping the
+# subsumption check total.
+PSEUDO_FAMILIES.update({name: [] for name in PQC_PSEUDO_FAMILIES})
+
+# Fernet is not post-quantum and not a registry token, but it is the same case: a real,
+# named construction that producers write and the registry cannot express. Five corpus
+# rows carry it as a bare name and resolved to no family at all, which is the answer that
+# loses information -- "AES-CBC plus HMAC, keyed and versioned this specific way" is a
+# construction, not an absence. Empty member set for the same reason the PQC entries have
+# one: nothing concrete can subsume it.
+PSEUDO_FAMILIES["Fernet"] = []
+
+# NOTE ON PATTERN DESIGN: every rule here is used for BOTH matching a family and
+# SUBSTITUTING the matched text out of the variant residue. A rule must therefore not
+# consume characters another slot needs — `^RSA-?\d` ate the leading digit of a key
+# size, so `RSA4096` kept `096` as a variant and split from `RSA-4096` across 23 corpus
+# rows. Use a lookahead when the pattern needs to see a character it must not eat.
+#
+# Ordered, word-guarded name grammar. Order IS the rule: the first match wins, so
+# every entry that could be a prefix or infix of a later one must come first.
+# Guards are on [A-Za-z0-9] adjacency rather than on separators, because the real
+# hazards are unseparated: RSAES-OAEP contains AES, HMACSHA2 contains SHA,
+# "design" contains DES.
+NAME_GRAMMAR = [
+    # --- exact producer strings, highest precedence -----------------------------
+    {"pattern": r"(?<![A-Za-z0-9])ChaCha20[-_]?Poly1305", "family": "ChaCha20",
+     "why": "cbom-lens ChaCha20-Poly1305 and the unseparated ChaCha20Poly1305 spelling "
+            "(separator-insensitive: CHACHA20_POLY1305 elected Poly1305 as its family, "
+            "one construction with two families decided by an underscore)"},
+    {"pattern": r"^3DES-EDE-CBC$", "family": "3DES", "why": "cbom-lens familyExact"},
+    {"pattern": r"^RC4-128$", "family": "RC4", "why": "cbom-lens familyExact"},
+    {"pattern": r"(?<![A-Za-z0-9])RIPEMD", "family": "RIPEMD",
+     "why": "cbom-lens familyExact RIPEMD-160, widened: the anchored form left a bare `RIPEMD` "
+            "family-less, and the guard still admits the -160 and -128 spellings"},
+    {"pattern": r"^HSS-LMS$", "family": "LMS", "why": "cbom-lens familyExact"},
+    {"pattern": r"^XMSS(-MT)?$", "family": "XMSS", "why": "cbom-lens familyExact"},
+    {"pattern": r"^ssh-ed25519$", "family": "EdDSA", "why": "cbom-lens familyExact"},
+    {"pattern": r"^ssh-rsa$", "family": "RSASSA-PKCS1", "why": "cbom-lens familyExact"},
+    {"pattern": r"^ssh-dss$", "family": "DSA", "why": "cbom-lens familyExact"},
+    # Word-guarded, not anchored. The anchored form resolved a bare `Ed25519` and nothing
+    # else, so every name that says the same thing with a word beside it fell through to no
+    # family at all -- measured, 19 corpus rows: `Ed25519 host key` (x4), straylight's
+    # `ed25519 (pub, sign, certify, ...)` (x12), `SSH Ed25519 key`, `Ed25519/Ed448` and
+    # `Ed25519/Ed448 (OID)`. A key artifact named after its algorithm is still that algorithm;
+    # leaving those family-less made the AC5 `algorithmFamily` filter blind to the most common
+    # Edwards spelling in the corpus. The guard keeps it from matching inside a longer token,
+    # so `X25519` and `Curve25519` are untouched.
+    {"pattern": r"(?<![A-Za-z0-9])Ed(25519|448)(ph|ctx)?(?![A-Za-z0-9])", "family": "EdDSA",
+     "why": "registry has no Ed25519 family token; EdDSA is the family, Ed25519 the curve"},
+
+    # --- KDFs and password-based constructions FIRST ----------------------------
+    # The outer construction wins over the inner primitive, the same principle that
+    # puts signature schemes ahead of digests. Measured on the wide corpus:
+    # `PBKDF2-HMAC-SHA-256` derived HMAC and `HKDF-SHA-256` derived SHA-2, both
+    # contradicted by their own OIDs.
+    {"pattern": r"(?<![A-Za-z0-9])Concat(enation)?[-_ ]?KDF", "family": "SP800-56C",
+     "why": "7 corpus rows name the construction rather than its standard; SP800-56C is the "
+            "registry token for it, and the KDF block runs before the digests so the outer "
+            "construction wins over the inner hash"},
+    {"pattern": r"(?<![A-Za-z0-9])PBKDF2", "family": "PBKDF2", "why": "Cosmian KMS PBKDF2-HMAC-SHA-256"},
+    {"pattern": r"(?<![A-Za-z0-9])PBKDF1", "family": "PBKDF1", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])PBMAC1", "family": "PBMAC1", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])PBES2", "family": "PBES2", "why": "observed in the wild"},
+    {"pattern": r"(?<![A-Za-z0-9])PBES1", "family": "PBES1", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])HKDF", "family": "HKDF", "why": "sbom-tools HKDF-SHA-256"},
+    {"pattern": r"(?<![A-Za-z0-9])Argon2", "family": "Argon2", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])yescrypt", "family": "yescrypt", "why": "before scrypt"},
+    {"pattern": r"(?<![A-Za-z0-9])scrypt", "family": "scrypt", "why": "registry token"},
+
+    # --- MAC before digest: HMAC-SHA256 must not read as SHA-2 ------------------
+    {"pattern": r"(?<![A-Za-z0-9])HMAC(?![A-Za-z0-9])", "family": "HMAC",
+     "why": "cbomkit HMAC-SHA256 / HMAC-SHA512"},
+    {"pattern": r"^HMAC", "family": "HMAC",
+     "why": "cbomkit HMACSHA2 - no separator, so the guarded rule above misses it"},
+    {"pattern": r"(?<![A-Za-z0-9])(CMAC|GMAC)(?![A-Za-z0-9])", "family": "CMAC",
+     "why": "MAC tokens must not fall through to their underlying cipher"},
+    {"pattern": r"(?<![A-Za-z0-9])Poly1305(?![A-Za-z0-9])", "family": "Poly1305",
+     "why": "standalone Poly1305; the size stoplist stops 1305 reading as a size"},
+
+    # --- key agreement, BEFORE the RSA composites --------------------------------
+    # `ECDHE-RSA-AES128-GCM-SHA256` is a real cipher-suite spelling. Matched against
+    # the `-RSA` rule first it becomes an RSA signature asset, which is simply wrong:
+    # the key-agreement token is the more specific statement about the name.
+    {"pattern": r"(?<![A-Za-z0-9])X(25519|448)(?![A-Za-z0-9])", "family": "ECDH",
+     "why": "the registry has no X25519 family token; it is an ECDH variant and the "
+            "curve carries the rest (11 assets in the wild corpus)"},
+    {"pattern": r"(?<![A-Za-z0-9])ECDHE?(?![A-Za-z0-9])", "family": "ECDH",
+     "why": "cbomkit ECDH; cbom-lens maps ECDHE- to ECDH; ahead of -RSA"},
+    {"pattern": r"(?<![A-Za-z0-9])ECIES(?![A-Za-z0-9])", "family": "ECIES", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])DHE(?![A-Za-z0-9])", "family": "FFDH",
+     "why": "cbom-lens maps DHE- to FFDH; ahead of -RSA"},
+
+    # --- signature schemes before their component primitives --------------------
+    # A composite name that mentions BOTH a signature family and a digest is a
+    # signature scheme, not a hash. Measured: `ECDSA-SHA256` derived SHA-2 while 1.7
+    # declares `algorithmFamily: ECDSA` for the same asset, which broke 1.6/1.7
+    # parity; `RSA-SHA256` did the same. So every signature family is matched before
+    # the digest rules, not after.
+    {"pattern": r"^RSA(ES)?-?OAEP", "family": "RSAES-OAEP",
+     "why": "RSA-OAEP and RSAES-OAEP are one algorithm; the short spelling had no rule"},
+    # A scheme spelling with the key size interposed. These were reaching the digest
+    # rules and deriving SHA-2 — an RSA signature asset stored as a hash — but the
+    # cipher-suite classifier was catching them first and yielding no family at all,
+    # which masked the gap. Authored from the registry tokens and by symmetry with the
+    # size-less spellings above, NOT from a hold-out witness; see §1.5.
+    {"pattern": r"^RSA[-_]?\d{3,5}[-_]OAEP", "family": "RSAES-OAEP",
+     "why": "RSA-2048-OAEP-SHA256: the size sits between the family and the scheme"},
+    {"pattern": r"^RSA[-_]?\d{3,5}[-_]PSS", "family": "RSASSA-PSS",
+     "why": "RSA-2048-PSS-SHA256, same interposed-size shape"},
+    {"pattern": r"^RSA[-_]?\d{3,5}[-_]PKCS1", "family": "RSASSA-PKCS1",
+     "why": "RSA-2048-PKCS1v15-SHA256, same interposed-size shape; a digest suffix "
+            "makes PKCS#1 v1.5 a signature scheme rather than the encryption scheme"},
+    {"pattern": r"^RSA[-_]?PSS(?=[-_]|$)", "family": "RSASSA-PSS",
+     "why": "RSA-PSS-SHA256: the size-less PSS spelling had no rule and fell to the digest rules, storing an RSA signature asset as a hash. Symmetry with ^RSASSA-PSS"},
+    {"pattern": r"^RSA[-_]?\d{3,5}[-_](?=(SHA|MD)\d)", "family": "RSASSA-PKCS1",
+     "why": r"rsa-2048-sha1-signed-key (authoring corpus): the interposed-size form of the existing ^RSA-(?=(SHA|MD)\d) rule — a digest-suffixed RSA name is a signature scheme, never the digest"},
+    {"pattern": r"^RSA[-_]?PKCS1(?:[-_.]?v?1[._]5)?(?=[-_])", "family": "RSASSA-PKCS1",
+     "why": "RSA-PKCS1-1.5-SHA512 (authoring corpus): PKCS#1 v1.5 with a digest is a "
+            "signature scheme; the cipher-suite classifier had been swallowing it"},
+    {"pattern": r"^RSAES-PKCS1", "family": "RSAES-PKCS1", "why": "explicit registry token"},
+    {"pattern": r"^RSASSA-PKCS1", "family": "RSASSA-PKCS1", "why": "explicit registry token"},
+    {"pattern": r"-RSAPSS", "family": "RSASSA-PSS", "why": "cbom-lens: PSS before PKCS1"},
+    {"pattern": r"^RSASSA-PSS", "family": "RSASSA-PSS", "why": "cbomkit RSASSA-PSS"},
+    {"pattern": r"^RSA-X931", "family": "RSA-X931", "why": "registry data token"},
+    {"pattern": r"-RSA(?![A-Za-z0-9])", "family": "RSASSA-PKCS1", "why": "cbom-lens substring rule"},
+    {"pattern": r"with-?RSA.*MGF1", "family": "RSASSA-PSS",
+     "why": "eclipse-keypont SHA256withRSAandMGF1: MGF1 means PSS, and the old guard "
+            "blocked on the following 'and' so it read as SHA-2"},
+    {"pattern": r"with-?RSA(Encryption)?(?![A-Za-z0-9])", "family": "RSASSA-PKCS1",
+     "why": "theia SHA512withRSA; corroborated by OID 1.2.840.113549.1.1.13"},
+    {"pattern": r"^rsa-sha2-", "family": "RSASSA-PKCS1", "why": "cbom-lens, RFC 8332"},
+    {"pattern": r"^RSA-(?=(SHA|MD)\d)", "family": "RSASSA-PKCS1",
+     "why": "conformance fixture RSA-SHA256: digest-suffixed RSA is a signature scheme"},
+    {"pattern": r"withECDSA(?![A-Za-z0-9])", "family": "ECDSA", "why": "JCA infix form"},
+    {"pattern": r"withDSA(?![A-Za-z0-9])", "family": "DSA", "why": "JCA infix form"},
+    # Signature families, ahead of the digest rules for the reason above.
+    {"pattern": r"(?<![A-Za-z0-9])ML-?DSA", "family": "ML-DSA",
+     "why": "cbom-lens familyPrefix; MLDSA44 has no separator"},
+    {"pattern": r"(?<![A-Za-z0-9])ML-?KEM", "family": "ML-KEM",
+     "why": "cbom-lens familyPrefix; MLKEM768 has no separator"},
+    {"pattern": r"(?<![A-Za-z0-9])SLH-?DSA", "family": "SLH-DSA", "why": "cbom-lens familyPrefix"},
+    {"pattern": r"(?<![A-Za-z0-9])ECDSA", "family": "ECDSA",
+     "why": "ECDSA-SHA256 must be ECDSA, not SHA-2 - the measured parity break"},
+    {"pattern": r"^ecdsa-sha2-", "family": "ECDSA", "why": "cbom-lens familyPrefix"},
+    {"pattern": r"(?<![A-Za-z0-9])EdDSA(?![A-Za-z0-9])", "family": "EdDSA", "why": "cbomkit EdDSA"},
+    {"pattern": r"^DSA-(?=(SHA|MD)\d)", "family": "DSA", "why": "digest-suffixed DSA"},
+
+    # --- PQC candidates. Pseudo-families; see PQC_PSEUDO_FAMILIES ---------------
+    # Ordered longest-first where one name contains another (X25519MLKEM768 is a
+    # hybrid and must not read as bare ML-KEM; NTRU-Prime before NTRU).
+    {"pattern": r"(?<![A-Za-z0-9])X-?Wing", "family": "X-Wing", "why": "hybrid KEM, liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])X25519MLKEM768", "family": "X-Wing",
+     "why": "the standard hybrid group; grouped with the hybrids, not bare ML-KEM"},
+    {"pattern": r"(?<![A-Za-z0-9])(CRYSTALS-?)?Kyber", "family": "Kyber",
+     "why": "pre-standard name; deliberately NOT folded into ML-KEM - different parameters"},
+    {"pattern": r"(?<![A-Za-z0-9])(CRYSTALS-?)?Dilithium", "family": "Dilithium",
+     "why": "pre-standard name; deliberately NOT folded into ML-DSA"},
+    {"pattern": r"(?<![A-Za-z0-9])SPHINCS", "family": "SPHINCS+", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])Falcon", "family": "Falcon", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])FrodoKEM", "family": "FrodoKEM", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])Classic-?\s?McEliece", "family": "Classic McEliece", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])McEliece", "family": "Classic McEliece", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])NTRU-?Prime", "family": "NTRU-Prime", "why": "before NTRU"},
+    {"pattern": r"(?<![A-Za-z0-9])(s?)NTRU", "family": "NTRU", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])BIKE", "family": "BIKE", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])HQC", "family": "HQC", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])CROSS(?![A-Za-z0-9])", "family": "CROSS", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])MQOM", "family": "MQOM", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])SNOVA", "family": "SNOVA", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])QR-?UOV", "family": "QR-UOV", "why": "before UOV"},
+    {"pattern": r"(?<![A-Za-z0-9])UOV", "family": "UOV", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])MAYO", "family": "MAYO", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])SIKE|(?<![A-Za-z0-9])SIDH", "family": "SIKE",
+     "why": "broken by SIDH attack; still present in real inventories"},
+    {"pattern": r"(?<![A-Za-z0-9])GeMSS", "family": "GeMSS", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])Rainbow", "family": "Rainbow", "why": "broken; still inventoried"},
+    {"pattern": r"(?<![A-Za-z0-9])Picnic", "family": "Picnic", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])SQIsign", "family": "SQIsign", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])HAWK(?![A-Za-z0-9])", "family": "HAWK", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])Raccoon", "family": "Raccoon", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])AIMer", "family": "AIMer", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])PERK(?![A-Za-z0-9])", "family": "PERK", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])RYDE(?![A-Za-z0-9])", "family": "RYDE", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])MIRATH", "family": "MIRATH", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])LESS(?![A-Za-z0-9])", "family": "LESS", "why": "liboqs"},
+
+    # --- key-exchange names that LOOK like digests, before the digest rules ------
+    {"pattern": r"^curve25519-sha", "family": "ECDH",
+     "why": "SSH KEX name; it read as SHA-2 and collided with SHA-256 on 33 components"},
+    {"pattern": r"^(diffie-hellman|dh)-group", "family": "FFDH", "why": "SSH/IKE KEX name"},
+    {"pattern": r"(?<![A-Za-z0-9])ecdh-sha2", "family": "ECDH", "why": "SSH KEX name"},
+    {"pattern": r"(?<![A-Za-z0-9])rsassa-?pss", "family": "RSASSA-PSS",
+     "why": "camelCase rsassaPss defeated the anchored rule"},
+    {"pattern": r"(?<![A-Za-z0-9])SM3(?![A-Za-z0-9])", "family": "SM3", "why": "observed"},
+    {"pattern": r"(?<![A-Za-z0-9])SM2(?![A-Za-z0-9])", "family": "SM2", "why": "observed"},
+    {"pattern": r"(?<![A-Za-z0-9])SM4(?![A-Za-z0-9])", "family": "SM4", "why": "observed"},
+    {"pattern": r"(?<![A-Za-z0-9])bcrypt", "family": "bcrypt", "why": "observed"},
+
+    # --- SHA-3 and SHAKE before SHA-2; SHA-1 before SHA-2 -----------------------
+    {"pattern": r"(?<![A-Za-z0-9])SHA-?3(?![0-9])", "family": "SHA-3",
+     "why": "SHA3-256 / SHA-3-256 / SHA3_256 all before the SHA-2 rule"},
+    {"pattern": r"(?<![A-Za-z0-9])SHAKE", "family": "SHA-3", "why": "cbom-lens familyPrefix"},
+    {"pattern": r"(?<![A-Za-z0-9])SHA-?1(?![0-9])", "family": "SHA-1",
+     "why": "cbomkit SHA1 and cbom-lens SHA-1; guarded so SHA-1 never eats SHA-160-ish forms"},
+    {"pattern": r"(?<![A-Za-z0-9])SHA-?(224|256|384|512)(?![0-9])", "family": "SHA-2",
+     "why": "cbomkit SHA256/384/512 (no dash) and cbom-lens SHA-256 etc"},
+    {"pattern": r"(?<![A-Za-z0-9])SHA-?2(?![0-9])", "family": "SHA-2",
+     "why": "the bare family spelling `SHA2`, as in SLH-DSA-SHA2-128s. Unrecognised it "
+            "survived into the variant residue as `shas`/`shaf`, which the closed "
+            "vocabulary then rejected — losing the s/f parameter-set distinction"},
+    {"pattern": r"(?<![A-Za-z0-9])BLAKE2", "family": "BLAKE2", "why": "cbom-lens familyPrefix"},
+    {"pattern": r"(?<![A-Za-z0-9])BLAKE3", "family": "BLAKE3", "why": "no OID anchor exists"},
+    {"pattern": r"(?<![A-Za-z0-9])MD-?5(?![0-9])", "family": "MD5", "why": "cbomkit MD5"},
+    {"pattern": r"(?<![A-Za-z0-9])MD-?4(?![0-9])", "family": "MD4", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])MD-?2(?![0-9])", "family": "MD2", "why": "registry token"},
+
+    # --- key agreement, remainder -----------------------------------------------
+    {"pattern": r"(?<![A-Za-z0-9])DH(?![A-Za-z0-9])", "family": "FFDH",
+     "why": "bare Diffie-Hellman"},
+
+    # --- 3DES strictly before DES; DES guarded so 'design' cannot match ---------
+    {"pattern": r"(?<![A-Za-z0-9])(3DES|TDES|DESede)(?![A-Za-z0-9])", "family": "3DES",
+     "why": "3DES before DES"},
+    {"pattern": r"(?<![A-Za-z0-9])DES(?![A-Za-z])", "family": "DES",
+     "why": "guarded against letters so 'design' cannot match, but DES56 and DES64 are "
+            "real observed names and a digit must be allowed to follow"},
+
+    # --- AES guarded so RSAES-OAEP cannot match --------------------------------
+    {"pattern": r"(?<![A-Za-z0-9])AES", "family": "AES",
+     "why": "cbomkit AES128 / AES128-GCM have no separator; guard blocks RSAES-*"},
+    {"pattern": r"(?<![A-Za-z0-9])(ChaCha20|ChaCha)(?![A-Za-z0-9])", "family": "ChaCha20",
+     "why": "ChaCha20 before ChaCha"},
+    {"pattern": r"(?<![A-Za-z0-9])ElGamal", "family": "ElGamal", "why": "observed in the wild"},
+    {"pattern": r"(?<![A-Za-z0-9])Diffie-?\s?Hellman", "family": "FFDH",
+     "why": "observed spelled out; the bare DH rule cannot match it"},
+    {"pattern": r"(?<![A-Za-z0-9])Blowfish", "family": "Blowfish", "why": "observed in the wild"},
+    {"pattern": r"(?<![A-Za-z0-9])Twofish", "family": "Twofish", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])Serpent", "family": "Serpent", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])Whirlpool", "family": "Whirlpool", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])Salsa20", "family": "Salsa20", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])Ascon", "family": "Ascon", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])IDEA(?![A-Za-z0-9])", "family": "IDEA", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])CAST-?5(?![0-9])", "family": "CAST5", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])CAST-?6(?![0-9])", "family": "CAST6", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])CAMELLIA", "family": "CAMELLIA", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])ARIA", "family": "ARIA", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])SEED(?![A-Za-z0-9])", "family": "SEED", "why": "registry token"},
+    # One rule per token: RC2/RC4/RC5/RC6 are four different families and four
+    # different risk verdicts, so they must never share a rule.
+    {"pattern": r"(?<![A-Za-z0-9])RC2(?![A-Za-z0-9])", "family": "RC2", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])RC4", "family": "RC4", "why": "cbom-lens RC4-128"},
+    {"pattern": r"(?<![A-Za-z0-9])RC5(?![A-Za-z0-9])", "family": "RC5", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])RC6(?![A-Za-z0-9])", "family": "RC6", "why": "registry token"},
+
+    # --- KDFs -------------------------------------------------------------------
+    {"pattern": r"(?<![A-Za-z0-9])GOST", "family": "GOST",
+     "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` and "
+            "`GOST R 34.10/34.11 (legacy)` resolved to nothing. Cipher suites naming GOST are "
+            "classified as suites before family derivation runs, so they cannot reach this"},
+    {"pattern": r"(?<![A-Za-z0-9])Skipjack", "family": "Skipjack",
+     "why": "registry token with no rule; `Skipjack (broken cipher)` resolved to nothing, and a "
+            "broken cipher going unnamed is the opposite of what the inventory is for"},
+    {"pattern": r"(?<![A-Za-z0-9])Fernet", "family": "Fernet",
+     "why": "pseudo-family: a real construction the registry cannot express, 5 corpus rows"},
+    {"pattern": r"(?<![A-Za-z0-9])HKDF", "family": "HKDF", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])PBKDF2", "family": "PBKDF2", "why": "registry token"},
+    {"pattern": r"(?<![A-Za-z0-9])scrypt(?![A-Za-z0-9])", "family": "scrypt",
+     "why": "scrypt before yescrypt"},
+    {"pattern": r"(?<![A-Za-z0-9])yescrypt(?![A-Za-z0-9])", "family": "yescrypt",
+     "why": "containment pair with scrypt"},
+    {"pattern": r"(?<![A-Za-z0-9])Argon2", "family": "Argon2", "why": "registry token"},
+
+    # --- DSA last: ECDSA / EdDSA / ML-DSA / SLH-DSA all contain it --------------
+    {"pattern": r"(?<![A-Za-z0-9])DSA(?![A-Za-z0-9])", "family": "DSA",
+     "why": "must come after ECDSA, EdDSA, ML-DSA, SLH-DSA - all contain DSA"},
+
+    # --- pseudo-families, last resort before 'no family' ------------------------
+    {"pattern": r"(?<![A-Za-z0-9])RSA(?![A-Za-z0-9])", "family": "RSA",
+     "why": "pseudo-family: padding scheme unknowable from a bare RSA key"},
+    {"pattern": r"^RSA-?(?=\d)", "family": "RSA",
+     "why": "RSA-2048 and the unseparated RSA2048/RSA3072/RSA4096 spellings"},
+    {"pattern": r"^DSA-?(?=\d)", "family": "DSA", "why": "DSA1024 observed unseparated"},
+    {"pattern": r"(?<![A-Za-z0-9])EC(?![A-Za-z0-9])", "family": "EC",
+     "why": "pseudo-family; guard blocks ECB, ECDSA, ECDH, ECIES"},
+]
+
+# Tokens whose digits are NOT a key or digest size. Poly1305 is the measured case:
+# without the stoplist it parses as size 1305, which is inside the whitelist.
+SIZE_STOPLIST = [
+    "3DES", "AES", "CBC", "CCM", "CFB", "CHACHA20", "CMAC", "CTR", "EAX", "ECB",
+    "GCM", "GMAC", "HMAC", "KW", "KWP", "MD2", "MD4", "MD5", "MGF1", "OAEP",
+    "OCB", "OFB", "P1363", "PKCS1", "PKCS5", "PKCS7", "PKCS8", "POLY1305",
+    "PSS", "RC2", "RC4", "RC5", "RC6", "RFC8439", "SHA1", "SHA2", "SHA3",
+    "SIV", "WRAP", "X931", "XTS",
+]
+
+# Synonym pairs that mean the same construction. Producers write both spellings, and
+# without folding them `AES-256-KW` and `AES-256-WRAP` - the same RFC 3394 algorithm -
+# land on different variants.
+VARIANT_SYNONYMS = {
+    "keywrappad": "wrappad", "keywrap": "wrap",
+    "kwp": "wrappad", "wrappad": "wrappad",
+    "kw": "wrap",
+    "ede3": "ede3", "ede": "ede3",
+}
+
+# Families for which a trailing separator-delimited length is a TRUNCATION marker.
+# Truncation is a digest concept: applying the rule to a signature scheme made
+# `ECDSA-P-256-SHA-256` and `ECDSA-P-256-SHA256` disagree on nothing but a hyphen.
+TRUNCATABLE_FAMILIES = ["SHA-2", "SHA-3", "BLAKE2", "BLAKE3", "SM3", "RIPEMD"]
+
+# A cipher-suite name is NOT a single algorithm, and must never be reduced to one.
+# Measured on unseen data: `TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256` and
+# `TLS_ECDHE_RSA_WITH_ARIA_128_GCM_SHA256` both reduced to the AES/ARIA cipher alone,
+# dropping key exchange and authentication, and 33 groups of distinct suites collapsed.
+# Names matching these shapes bypass family derivation entirely and are keyed on the
+# full normalized name, which keeps every suite distinct.
+CIPHER_SUITE_NAME_PATTERNS = [
+    r"^TLS[_-].+[_-]WITH[_-]",
+    r"^TLS[_-](AES|CHACHA|GOST|SM4|ARIA|CAMELLIA)",
+    # The bulk-cipher requirement is what separates an OpenSSL-style suite name from a
+    # signature scheme that merely ends in a digest. Without it, `RSA-PSS-SHA256` and
+    # `RSA-PKCS1-1.5-SHA512` were classified as cipher suites and left with no family —
+    # invisible to every family-keyed rule. A suite names a key exchange, a bulk cipher
+    # and a MAC; `RSA-PSS-SHA256` names no cipher.
+    r"^(SSL|SRP|PSK|DHE|ECDHE|ECDH|RSA|ADH|AECDH)[-_].*(?<![A-Za-z0-9])"
+    r"(AES|CHACHA20|CHACHA|ARIA|CAMELLIA|SEED|3DES|DES|RC4|RC2|SM4|GOST|IDEA|NULL)"
+    r"(?![A-Za-z]).*[-_](SHA|MD5|GCM|CCM|CBC)",
+    r"@(openssh\.com|libssh\.org)$",
+]
+
+# Tokens that are identity-bearing when they appear ALONGSIDE a winning family: the
+# digest in a signature or MAC construction, the AEAD tag, the XOF marker. Scanned
+# without a left word-guard because the real spellings run the words together
+# (`CHACHA20POLY1305`, `SHA3-256`).
+SECONDARY_MARKERS = [
+    ("poly1305", r"POLY1305"),
+    ("shake", r"SHAKE"),
+    ("gcm", r"(?<![A-Za-z0-9])GCM(?![A-Za-z0-9])"),
+    ("ccm8", r"CCM[_-]?8(?![0-9])"),
+    # A capturing group appends its value to the label, so the DH group NUMBER is
+    # identity-bearing: `DH-Group14` merged with bare `DH` because 14 sits below the
+    # key-size floor and had nowhere else to go.
+    ("dhgroup", r"group[-_ ]?(\d{1,3})"),
+    ("ikegroup", r"(?<![A-Za-z0-9])modp[-_ ]?(\d{3,5})"),
+]
+
+# CLOSED vocabulary of construction discriminators admitted into the `variant` slot.
+# L7: the slot was a free-text residue with 256 distinct values, 186 of them phrases or
+# compounds, and it over-split badly — `AES-256-GCM`, `AES-256-GCM (TLS record
+# protection)` and `AES/GCM/NoPadding` became three rows for one algorithm. A key must
+# admit only closed vocabularies, so the residue is now filtered against this list and
+# anything unrecognised is DROPPED from the key and recorded on the row instead.
+#
+# Every token here is a real construction difference observed in the corpus, not a
+# description of one. Adding a token is a ratification act, which is the point.
+VARIANT_VOCABULARY = [
+    # key wrapping and its padded variant
+    "wrap", "wrappad", "pad", "kw", "kwp",
+    # modes with no CycloneDX enum value
+    "xts", "siv", "ocb", "eax", "gmac", "cmac",
+    # extendable output versus fixed digest
+    "shake", "xof",
+    # parameter-set suffixes that carry the security level
+    "s", "f", "ph", "ctx",
+    # unix password hashing constructions: `sha512crypt` is not SHA-512
+    "crypt", "md5crypt", "bcrypt", "yescrypt",
+    # random generation and derivation categories producers emit as algorithm names
+    "csprng", "drbg", "prng", "kdf", "prf", "mgf",
+    # triple-DES keying option
+    "ede", "ede3", "ede2",
+    # hybrid and KEM composition markers
+    "kem", "hybrid", "prime",
+]
+
+# The CycloneDX `padding` enum. Stripped from the variant residue because padding has
+# its own field and is not a tuple slot, so a producer naming it (`AES128-CBC-PKCS5`)
+# must agree with one that puts it in the field.
+PADDING_TOKENS = ["PKCS5", "PKCS7", "PKCS1V15", "PKCS1", "OAEP", "RAW", "PSS", "OTHER"]
+
+# Padding aliases and the sentinel. `PKCS5` and `PKCS7` are the same scheme — PKCS#5 was
+# specified for 8-byte blocks and PKCS#7 generalised it, so for every cipher in this
+# vocabulary they are identical and splitting on the spelling is wrong. `PKCS1` is the
+# short spelling of `PKCS1V15`. `RAW` means "no padding", which is what an omitted field
+# also means, so it folds to absent rather than splitting a declaring producer from an
+# omitting one — the same lesson the `primitive` slot taught.
+# `RAW` deliberately does NOT fold to absent. Folding it was tried and reverted: `RAW`
+# is a POSITIVE assertion — "this construction uses no padding" — whereas an absent field
+# means "not stated". That is the same distinction the CBOM Profiles review established
+# for `other`/`unknown`, and collapsing the two merges a declared-unpadded construction
+# with an undisclosed one. The gold corpus pinned it (GOLD-ALG-15) and caught the
+# inconsistency.
+PADDING_ALIASES = {"PKCS5": "PKCS7", "PKCS1": "PKCS1V15"}
+
+# The mode vocabulary is the CycloneDX `mode` enum minus `unknown`, which is a genuine
+# placeholder. `other` STAYS: it is a legal value meaning "a real mode outside this
+# list", and stripping it folded such an asset onto one that said nothing at all.
+# It is deliberately SEPARATE from the size stoplist: WRAP, KW, KWP, POLY1305 and the
+# PKCS paddings all belong in the stoplist so their digits are never read as a key
+# size, but none of them is a legal `mode` value. Treating WRAP as a mode split
+# `AES-256-WRAP-PAD` from `AES256WrapPad` - the same RFC 5649 algorithm - because the
+# word-guarded mode match fires on one spelling and not the other.
+MODE_TOKENS = ["GCM", "CBC", "ECB", "CCM", "CFB", "OFB", "CTR", "OTHER"]
+
+# Values that mean "the producer had nothing to say". Treated as absent, because a
+# stored sentinel splits the asset from every producer that simply omits the field.
+# Ratified 2026-08-19: only genuine placeholders belong here. `none` and `other` were on
+# this list and came off — both are legal CycloneDX values that carry meaning, and folding
+# them onto "nothing said" throws a claim away: `padding: none` is explicitly unpadded,
+# which is the finding an inventory exists to surface, and `mode: other` says the mode is
+# real but outside the enum. `N/A` is redundant (it folds onto `n/a`) and `0.0.0.0` is a
+# placeholder address, so both stay.
+SENTINELS = ["", "unknown", "n/a", "N/A", "-", "0.0.0.0"]
+
+# The 15 primitive values expressible in BOTH 1.6 and 1.7. key-wrap is 1.7-only and
+# is deliberately excluded: primitive is in the identity tuple, so defaulting to a
+# 1.7-only value would key the same asset differently under the two versions and
+# break parity through the primitive slot.
+PRIMITIVES_1_6 = [
+    "drbg", "mac", "block-cipher", "stream-cipher", "signature", "hash", "pke",
+    "xof", "kdf", "key-agree", "kem", "ae", "combiner", "other", "unknown",
+]
+
+# Per-family primitive defaults, restricted to families whose registry variants all
+# agree on one primitive AND whose value is 1.6-expressible. Families with more than
+# one primitive get no default: a wrong default is a wrong merge, and an empty slot
+# is only a visible split.
+PRIMITIVE_DEFAULTS = {
+    "RSA": "pke",
+    "RSAES-OAEP": "pke",
+    "RSAES-PKCS1": "pke",
+    "RSASSA-PKCS1": "signature",
+    "RSASSA-PSS": "signature",
+    "ECDSA": "signature",
+    "EdDSA": "signature",
+    "DSA": "signature",
+    "ML-DSA": "signature",
+    "SLH-DSA": "signature",
+    "XMSS": "signature",
+    "LMS": "signature",
+    "ECDH": "key-agree",
+    "FFDH": "key-agree",
+    "EC": "key-agree",
+    "ML-KEM": "kem",
+    "SHA-1": "hash",
+    "SHA-2": "hash",
+    "MD2": "hash",
+    "MD4": "hash",
+    "MD5": "hash",
+    "RIPEMD": "hash",
+    "Skipjack": "block-cipher",
+    "SP800-56C": "kdf",
+    "Fernet": "ae",
+    "BLAKE3": "hash",
+    "HMAC": "mac",
+    "CMAC": "mac",
+    "Poly1305": "mac",
+    "HKDF": "kdf",
+    "PBKDF2": "kdf",
+    "scrypt": "kdf",
+    "yescrypt": "kdf",
+    "Argon2": "kdf",
+    "DES": "block-cipher",
+    "3DES": "block-cipher",
+    "CAMELLIA": "block-cipher",
+    "ARIA": "block-cipher",
+    "SEED": "block-cipher",
+    "RC4": "stream-cipher",
+    "ChaCha20": "stream-cipher",
+    "ECIES": "pke",
+    # Families whose registry variants disagree about the primitive still get a
+    # default, because `primitive` is back in the identity tuple and a missing value
+    # splits an omitting producer from a declaring one. The value chosen is the
+    # registry's first-declared variant primitive for the family. This is a
+    # deliberate normalization choice, not a claim of precision: where the
+    # distinction matters it is already carried by `mode` (AES-CBC vs AES-GCM) or by
+    # `variant` (SHA3-256 vs SHAKE-256).
+    "AES": "block-cipher",
+    "SHA-3": "hash",
+    "BLAKE2": "hash",
+    "GOST": "block-cipher",
+    "SM2": "signature",
+    "SM3": "hash",
+    "SM4": "block-cipher",
+    "SM9": "signature",
+    "Salsa20": "stream-cipher",
+    "Ascon": "ae",
+    "MILENAGE": "mac",
+    "TUAK": "mac",
+    "ZUC": "stream-cipher",
+    "SNOW3G": "stream-cipher",
+    "3GPP-XOR": "stream-cipher",
+    "PBES1": "other",
+    "PBES2": "other",
+    "PBMAC1": "mac",
+    "RSA-X931": "signature",
+    "bcrypt": "kdf", "SM3": "hash",
+    "RC2": "block-cipher", "RC5": "block-cipher", "RC6": "block-cipher",
+    "MQV": "key-agree",
+    "Blowfish": "block-cipher", "Twofish": "block-cipher", "Serpent": "block-cipher",
+    "IDEA": "block-cipher", "CAST5": "block-cipher", "CAST6": "block-cipher",
+    "Whirlpool": "hash", "ElGamal": "pke", "PBKDF1": "kdf", "PBMAC1": "mac",
+    # PQC candidates. `kem` or `signature` per the family's actual role; the two
+    # broken ones keep their role because the inventory must still classify them.
+    "Kyber": "kem", "FrodoKEM": "kem", "Classic McEliece": "kem", "BIKE": "kem",
+    "HQC": "kem", "NTRU": "kem", "NTRU-Prime": "kem", "SIKE": "kem", "X-Wing": "kem",
+    "Dilithium": "signature", "Falcon": "signature", "SPHINCS+": "signature",
+    "CROSS": "signature", "MQOM": "signature", "SNOVA": "signature", "UOV": "signature",
+    "QR-UOV": "signature", "MAYO": "signature", "GeMSS": "signature",
+    "Rainbow": "signature", "Picnic": "signature", "SQIsign": "signature",
+    "HAWK": "signature", "Raccoon": "signature", "AIMer": "signature",
+    "PERK": "signature", "RYDE": "signature", "MIRATH": "signature", "LESS": "signature",
+}
+
+NAME_INTRINSIC_SIZES = {
+    "ed25519": 256,
+    "x25519": 256,
+    "curve25519": 256,
+    "ed448": 456,
+    "x448": 448,
+    "curve448": 448,
+}
+
+DN_SHORT_NAMES = {
+    "cn": "2.5.4.3",
+    "sn": "2.5.4.4",
+    "serialnumber": "2.5.4.5",
+    "c": "2.5.4.6",
+    "l": "2.5.4.7",
+    "st": "2.5.4.8",
+    "street": "2.5.4.9",
+    "o": "2.5.4.10",
+    "ou": "2.5.4.11",
+    "title": "2.5.4.12",
+    "businesscategory": "2.5.4.15",
+    "postalcode": "2.5.4.17",
+    "name": "2.5.4.41",
+    "pseudonym": "2.5.4.65",
+    "organizationidentifier": "2.5.4.97",
+    "dnqualifier": "2.5.4.46",
+    "description": "2.5.4.13",
+    "givenname": "2.5.4.42",
+    "initials": "2.5.4.43",
+    "generationqualifier": "2.5.4.44",
+    "uniqueidentifier": "2.5.4.45",
+    "dc": "0.9.2342.19200300.100.1.25",
+    "uid": "0.9.2342.19200300.100.1.1",
+    "e": "1.2.840.113549.1.9.1",
+    "emailaddress": "1.2.840.113549.1.9.1",
+    "mail": "0.9.2342.19200300.100.1.3",
+    "commonname": "2.5.4.3",
+    "surname": "2.5.4.4",
+    "countryname": "2.5.4.6",
+    "localityname": "2.5.4.7",
+    "stateorprovincename": "2.5.4.8",
+    "streetaddress": "2.5.4.9",
+    "organizationname": "2.5.4.10",
+    "organizationalunitname": "2.5.4.11",
+    "domaincomponent": "0.9.2342.19200300.100.1.25",
+    "userid": "0.9.2342.19200300.100.1.1",
+    "distinguishednamequalifier": "2.5.4.46",
+    "organizationidentifiername": "2.5.4.97",
+}
+
+# WITHDRAWN. A curated arc->variant-label table was tried and refuted: it made an
+# asset key differently depending on whether its producer supplied the arc at all
+# (`AES-256-WRAP` with and without 2.16.840.1.101.3.4.1.45). The variant residue must
+# be derivable from the name alone, because the name is the one channel every producer
+# populates. Kept here as a record of the rejected option.
+_WITHDRAWN_OID_VARIANT_LABELS = {
+    "2.16.840.1.101.3.4.2.5": "sha512-224",
+    "2.16.840.1.101.3.4.2.6": "sha512-256",
+    "2.16.840.1.101.3.4.1.5": "wrap",
+    "2.16.840.1.101.3.4.1.8": "wrap-pad",
+    "2.16.840.1.101.3.4.1.25": "wrap",
+    "2.16.840.1.101.3.4.1.28": "wrap-pad",
+    "2.16.840.1.101.3.4.1.45": "wrap",
+    "2.16.840.1.101.3.4.1.48": "wrap-pad",
+    "2.16.840.1.101.3.4.2.17": "shake128",
+    "2.16.840.1.101.3.4.2.18": "shake256",
+}
+
+
+def load_registry() -> dict:
+    with REGISTRY.open(encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+# Curve spellings the registry does not list in bare form but producers write anyway.
+# Emitted rather than held in Java: this set decides which digit runs the parameter-set
+# parser may read, so a change to it is key-affecting. Held in code it moved keys without
+# moving the artifact, which left both guards -- the CI byte-diff and the two pinned
+# hashes -- unable to see it. The order is ratified and is deliberately not sorted.
+EXTRA_CURVE_SPELLINGS = [
+    "P-224", "P-256", "P-384", "P-521", "P-192",
+    "nistp256", "nistp384", "nistp521",
+    "x25519", "x448", "ed25519", "ed448",
+    "curve25519", "curve448", "prime256v1",
+]
+
+def curve_equivalence(registry: dict) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """Fold the 246 registry curve tokens onto one representative per real curve.
+
+    The registry names the same physical curve up to three times (nist/P-256,
+    secg/secp256r1, x962/prime256v1 all carry OID 1.2.840.10045.3.1.7) and declares
+    the equivalence itself via a symmetric `aliases` relation. Union-find over
+    aliases plus shared OID recovers the real classes; the authority priority elects
+    the stored representative.
+    """
+    tokens: dict[str, dict] = {}
+    for group in registry["ellipticCurves"]:
+        for curve in group["curves"]:
+            tokens[f"{group['name']}/{curve['name']}"] = curve
+
+    lowered = {token.lower(): token for token in tokens}
+    parent = {token: token for token in tokens}
+
+    def find(node: str) -> str:
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+        return node
+
+    def union(a: str, b: str) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    for token, curve in tokens.items():
+        # Case-insensitive: the registry references nist/k-163 while the token is
+        # nist/K-163. A case-sensitive match silently loses that edge and K-163
+        # splits.
+        for alias in curve.get("aliases") or []:
+            key = f"{alias['category']}/{alias['name']}".lower()
+            if key in lowered:
+                union(token, lowered[key])
+
+    by_oid: dict[str, list[str]] = collections.defaultdict(list)
+    for token, curve in tokens.items():
+        if curve.get("oid"):
+            by_oid[curve["oid"]].append(token)
+    for members in by_oid.values():
+        for other in members[1:]:
+            union(members[0], other)
+
+    def rank(token: str) -> tuple[int, str]:
+        authority = token.split("/", 1)[0]  # FIRST slash: mnt/mnt2/1 is 3 segments
+        index = AUTHORITY_PRIORITY.index(authority) if authority in AUTHORITY_PRIORITY \
+            else len(AUTHORITY_PRIORITY)
+        return index, token
+
+    classes: dict[str, list[str]] = collections.defaultdict(list)
+    for token in tokens:
+        classes[find(token)].append(token)
+
+    canonical: dict[str, str] = {}
+    multi: dict[str, list[str]] = {}
+    for members in classes.values():
+        representative = sorted(members, key=rank)[0]
+        for member in members:
+            canonical[member] = representative
+        if len(members) > 1:
+            multi[representative] = sorted(members)
+    return canonical, multi
+
+
+def curve_aliases(registry: dict, canonical: dict[str, str]) -> dict[str, str]:
+    """Producer spellings -> canonical token.
+
+    Keys are the bare forms producers actually write (`P-256`, `secp256r1`,
+    `prime256v1`, `nistp256`, `Ed25519`, `x25519`), not the namespaced registry
+    tokens, because producers overwhelmingly write the bare form. Namespaced values do
+    occur -- 37 of them across 17 corpus documents, from sbom-tools, sbomify and
+    ClaveQuantum as well as cbom-lens -- and one of them, sbomify's `nist/P-384`, is not
+    even the canonical authority, so the alias table has to fold namespaced spellings too
+    rather than assume they arrive canonical.
+    """
+    aliases: dict[str, str] = {}
+
+    def offer(spelling: str, token: str) -> None:
+        if spelling and token in canonical:
+            aliases.setdefault(spelling, canonical[token])
+
+    for group in registry["ellipticCurves"]:
+        for curve in group["curves"]:
+            token = f"{group['name']}/{curve['name']}"
+            offer(token, token)
+            offer(curve["name"], token)
+            for alias in curve.get("aliases") or []:
+                offer(alias["name"], token)
+                offer(f"{alias['category']}/{alias['name']}", token)
+
+    # Spellings the registry does not carry but producers do. cbom-lens's own
+    # curveField17 / paramSet17 tables are the source for the SSH and TLS forms.
+    for spelling, token in {
+        "nistp256": "secg/secp256r1",
+        "nistp384": "secg/secp384r1",
+        "nistp521": "secg/secp521r1",
+        "ecdh_x25519": "other/Curve25519",
+        "ecdh_x448": "other/Curve448",
+        "x25519": "other/Curve25519",
+        "x448": "other/Curve448",
+        "curve25519": "other/Curve25519",
+        "curve448": "other/Curve448",
+        "ed25519": "other/Ed25519",
+        "ed448": "other/Ed448",
+        "edwards25519": "other/Ed25519",
+        "edwards448": "other/Ed448",
+        "brainpoolP256r1tls13": "brainpool/brainpoolP256r1",
+        "brainpoolP384r1tls13": "brainpool/brainpoolP384r1",
+        "brainpoolP512r1tls13": "brainpool/brainpoolP512r1",
+    }.items():
+        offer(spelling, token)
+    return aliases
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=pathlib.Path, default=DEFAULT_OUTPUT,
+                        help="where to write identity-tables.json")
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    registry = load_registry()
+    canonical, multi = curve_equivalence(registry)
+    aliases = curve_aliases(registry, canonical)
+
+    with DEFS_SCHEMA.open(encoding="utf-8") as handle:
+        schema = json.load(handle)
+    enum_families = schema["definitions"]["algorithmFamiliesEnum"]["enum"]
+    data_families = [entry["family"] for entry in registry["algorithms"]]
+
+    with OID_STRAND.open(encoding="utf-8") as handle:
+        oid_strand = json.load(handle)
+
+    legal = set(enum_families) | set(data_families) | set(PSEUDO_FAMILIES)
+    bad_grammar = sorted({r["family"] for r in NAME_GRAMMAR} - legal)
+    bad_defaults = sorted(set(PRIMITIVE_DEFAULTS) - legal)
+    bad_primitives = sorted(set(PRIMITIVE_DEFAULTS.values()) - set(PRIMITIVES_1_6))
+    bad_oid = sorted({
+        e["family"] for e in oid_strand["oidToFamily"].values() if e.get("family")
+    } - legal)
+
+    tables = {
+        "$comment": "Ratified identity + normalization decision tables for core#2070.",
+        "specId": "otilm-crypto-identity-1",
+        "registrySnapshot": {
+            "source": "CycloneDX cryptography-defs.json",
+            "lastUpdated": registry.get("lastUpdated"),
+            "familiesInData": len(data_families),
+            "familiesInShippedEnum": len(enum_families),
+            "familiesDataOnly": sorted(set(data_families) - set(enum_families)),
+            "curveTokens": len(canonical),
+            "curveClasses": len(set(canonical.values())),
+        },
+        "algorithmFamilies": sorted(legal),
+        "pseudoFamilies": PSEUDO_FAMILIES,
+        "ellipticCurves": sorted(set(canonical.values())),
+        "curveCanonical": canonical,
+        "curveClasses": multi,
+        "curveAliases": aliases,
+        "extraCurveSpellings": EXTRA_CURVE_SPELLINGS,
+        "oidToFamily": oid_strand["oidToFamily"],
+        "oidBlockedPrefixes": [b["prefix"] for b in oid_strand["blockedPrefixes"]],
+        "nameGrammar": NAME_GRAMMAR,
+        "sizeStoplist": SIZE_STOPLIST,
+        "modeTokens": MODE_TOKENS,
+        "cipherSuiteNamePatterns": CIPHER_SUITE_NAME_PATTERNS,
+        "secondaryMarkers": SECONDARY_MARKERS,
+        "paddingTokens": PADDING_TOKENS,
+        "paddingAliases": PADDING_ALIASES,
+        "variantVocabulary": VARIANT_VOCABULARY,
+        "variantSynonyms": VARIANT_SYNONYMS,
+        "truncatableFamilies": TRUNCATABLE_FAMILIES,
+        "sizeWhitelist": {"min": 64, "max": 16384},
+        "sentinels": SENTINELS,
+        "primitiveDefaults": PRIMITIVE_DEFAULTS,
+        "primitivesExpressibleIn16": PRIMITIVES_1_6,
+        "$patched": "HAND-PATCHED 2026-08-19 to match build_tables.py: four RSA scheme rules and the bulk-cipher requirement in the cipher-suite classifier. The generator could not be re-run because its input strandD-oid.json did not survive the original scratchpad; restore it and regenerate to re-establish the generated provenance. Sentinels: `none` and `other` removed 2026-08-19 — they are legal CycloneDX values that carry meaning, ratified as real answers rather than placeholders. modeTokens and paddingTokens gained OTHER 2026-08-19: it is a legal CycloneDX enum value in both and had been stripped as if it were a placeholder. | 2026-08-20: nameIntrinsicSizes and dnShortNames lifted out of identity_kernel.py — round 3 could not derive Ed448=456 or Curve448=448 from any published artifact, and no artifact carried the DN short-name to OID map at all (only cn/o/c were witnessable).",
+        "nameIntrinsicSizes": NAME_INTRINSIC_SIZES,
+        "dnShortNames": DN_SHORT_NAMES,
+    }
+
+    print(f"  families legal        : {len(legal)} "
+          f"(enum {len(enum_families)}, data {len(data_families)}, pseudo {len(PSEUDO_FAMILIES)})")
+    print(f"  data-only families    : {tables['registrySnapshot']['familiesDataOnly']}")
+    print(f"  curve tokens -> classes: {len(canonical)} -> {len(set(canonical.values()))}")
+    print(f"  curve aliases         : {len(aliases)}")
+    print(f"  oid entries / blocked : {len(tables['oidToFamily'])} / {len(tables['oidBlockedPrefixes'])}")
+    print(f"  grammar rules         : {len(NAME_GRAMMAR)}")
+    print(f"  primitive defaults    : {len(PRIMITIVE_DEFAULTS)}")
+    # Closed-vocabulary tokens must be printable ASCII. Measured: all 129 families, 197
+    # curves, 8 modes, 8 padding tokens and 41 stoplist tokens already are, so this
+    # asserts an existing property rather than imposing a new one — and it means the
+    # lookup path never needs a Unicode-dependent case operation.
+    vocab_checks = {
+        "algorithmFamilies": tables["algorithmFamilies"],
+        "ellipticCurves": tables["ellipticCurves"],
+        "modeTokens": MODE_TOKENS,
+        "paddingTokens": PADDING_TOKENS,
+        "paddingAliases": PADDING_ALIASES,
+        "variantVocabulary": VARIANT_VOCABULARY,
+        "sizeStoplist": SIZE_STOPLIST,
+        "primitiveDefaults": list(PRIMITIVE_DEFAULTS) + list(PRIMITIVE_DEFAULTS.values()),
+    }
+    non_ascii = {
+        name: [t for t in values if not all(32 <= ord(c) <= 126 for c in t)]
+        for name, values in vocab_checks.items()
+    }
+    non_ascii = {k: v for k, v in non_ascii.items() if v}
+    print(f"  non-ASCII vocabulary tokens : {non_ascii if non_ascii else 'none'}")
+    if non_ascii:
+        raise SystemExit(
+            "closed-vocabulary tokens must be printable ASCII so the lookup path needs "
+            f"no Unicode-dependent case operation; offenders: {non_ascii}")
+
+    reachable = ({r["family"] for r in NAME_GRAMMAR}
+                 | {e["family"] for e in tables["oidToFamily"].values() if e.get("family")})
+    missing_defaults = sorted(reachable - set(PRIMITIVE_DEFAULTS))
+    # Every one of these fails the run, not just the last. Printing four of them and
+    # exiting on the fifth meant an illegal grammar family, an illegal primitive default,
+    # an illegal OID family or a primitive outside the 1.6 set all reported themselves
+    # and then landed in the committed table anyway -- the self-check announced the
+    # defect it was letting through.
+    invalid = {
+        "grammar": bad_grammar,
+        "primitiveDefaults": bad_defaults,
+        "oidToFamily": bad_oid,
+        "primitiveValues": bad_primitives,
+        "reachable-without-default": missing_defaults,
+    }
+    for label, bad in invalid.items():
+        print(f"  ILLEGAL in {label:26}: {bad if bad else 'none'}")
+    offenders = {label: bad for label, bad in invalid.items() if bad}
+    if offenders:
+        raise SystemExit(
+            "every family the grammar or the OID table can yield must be legal, spelled "
+            "the way the family lookup spells it, and carry a primitive default in the "
+            f"1.6 set; offenders: {offenders}")
+
+    # Written only now. Opening the output before these checks truncated the committed
+    # table on the way in, so a run that then exited non-zero had already replaced a good
+    # artifact with a bad one -- and the documented guarantee is that it checks before it
+    # writes.
+    out = args.output
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8") as handle:
+        json.dump(tables, handle, indent=1, sort_keys=False, ensure_ascii=False)
+    print(f"wrote {out}")
+
+
+if __name__ == "__main__":
+    main()
