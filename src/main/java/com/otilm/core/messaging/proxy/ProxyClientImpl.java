@@ -338,10 +338,11 @@ public class ProxyClientImpl implements ProxyClient {
 
     /**
      * Sneaky throw helper to throw checked exceptions without declaring them. Used to throw ConnectorException from
-     * lambda contexts.
+     * lambda contexts. Declares a return type it never produces so call sites can {@code throw sneakyThrow(e)} — JaCoCo
+     * credits an executed throw statement, while a bare never-returning call reads as uncovered.
      */
     @SuppressWarnings("unchecked")
-    private static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
+    private static <E extends Throwable> RuntimeException sneakyThrow(Throwable e) throws E {
         throw (E) e;
     }
 
@@ -365,14 +366,14 @@ public class ProxyClientImpl implements ProxyClient {
                 ConnectorClientException clientException = new ConnectorClientException(errorMessage,
                         HttpStatus.UNAUTHORIZED);
                 clientException.setConnector(connector);
-                sneakyThrow(clientException);
+                throw sneakyThrow(clientException);
             }
 
             case "authorization" -> {
                 ConnectorClientException clientException = new ConnectorClientException(errorMessage,
                         HttpStatus.FORBIDDEN);
                 clientException.setConnector(connector);
-                sneakyThrow(clientException);
+                throw sneakyThrow(clientException);
             }
 
             case "not_found" -> sneakyThrow(new ConnectorEntityNotFoundException(errorMessage));
