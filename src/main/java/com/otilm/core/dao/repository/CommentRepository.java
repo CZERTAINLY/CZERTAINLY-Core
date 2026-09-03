@@ -2,7 +2,6 @@ package com.otilm.core.dao.repository;
 
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.core.dao.entity.Comment;
-import jakarta.persistence.LockModeType;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -10,7 +9,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,8 +29,9 @@ public interface CommentRepository extends SecurityFilterRepository<Comment, UUI
 
     boolean existsByResourceAndObjectUuid(Resource resource, UUID objectUuid);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT c FROM Comment c WHERE c.uuid = :uuid")
+    // Spelled out because Hibernate renders a pessimistic write lock as FOR NO KEY UPDATE on PostgreSQL, which does
+    // not conflict with the key-share lock a reply's insert holds on its parent row; only FOR UPDATE does.
+    @Query(value = "SELECT * FROM {h-schema}comment WHERE uuid = :uuid FOR UPDATE", nativeQuery = true)
     Optional<Comment> findWithLockByUuid(@Param("uuid") UUID uuid);
 
     @Query("SELECT DISTINCT c.authorUuid FROM Comment c WHERE c.uuid = :rootUuid OR c.parentUuid = :rootUuid")
