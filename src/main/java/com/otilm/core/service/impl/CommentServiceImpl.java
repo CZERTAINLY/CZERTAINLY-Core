@@ -118,13 +118,14 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         Comment anchoredThread = anchoredThread(hostResource, objectUuid.getValue(), anchorUuid);
         int pageIndex = anchoredThread == null
                 ? pagination.getPageNumber() - 1
-                : (int) (commentRepository
-                        .countByResourceAndObjectUuidAndParentUuidIsNullAndCreatedAtLessThan(hostResource,
-                                objectUuid.getValue(), anchoredThread.getCreatedAt())
-                        / pagination.getItemsPerPage());
+                : Math
+                        .toIntExact(commentRepository
+                                .countRootsBefore(hostResource, objectUuid.getValue(), anchoredThread.getCreatedAt(),
+                                        anchoredThread.getUuid())
+                                / pagination.getItemsPerPage());
         Page<Comment> roots = commentRepository
-                .findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAsc(hostResource, objectUuid.getValue(),
-                        PageRequest.of(pageIndex, pagination.getItemsPerPage()));
+                .findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAscUuidAsc(hostResource,
+                        objectUuid.getValue(), PageRequest.of(pageIndex, pagination.getItemsPerPage()));
         List<UUID> rootUuids = roots.getContent().stream().map(Comment::getUuid).toList();
         Map<UUID, Long> replyCountsByRoot = rootUuids.isEmpty()
                 ? Map.of()
@@ -174,10 +175,12 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         Comment anchor = anchoredReply(uuid, anchorUuid);
         int pageIndex = anchor == null
                 ? pagination.getPageNumber() - 1
-                : (int) (commentRepository.countByParentUuidAndCreatedAtLessThan(uuid, anchor.getCreatedAt())
-                        / pagination.getItemsPerPage());
+                : Math
+                        .toIntExact(commentRepository.countRepliesBefore(uuid, anchor.getCreatedAt(), anchor.getUuid())
+                                / pagination.getItemsPerPage());
         Page<Comment> replies = commentRepository
-                .findByParentUuidOrderByCreatedAtAsc(uuid, PageRequest.of(pageIndex, pagination.getItemsPerPage()));
+                .findByParentUuidOrderByCreatedAtAscUuidAsc(uuid,
+                        PageRequest.of(pageIndex, pagination.getItemsPerPage()));
         List<CommentDto> replyDtos = replies
                 .getContent()
                 .stream()

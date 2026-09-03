@@ -7,7 +7,9 @@ import com.otilm.api.model.client.comment.CommentDto;
 import com.otilm.api.model.client.comment.CommentResponseDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
+import com.otilm.core.dao.entity.Comment;
 import com.otilm.core.dao.entity.RaProfile;
+import com.otilm.core.dao.repository.CommentRepository;
 import com.otilm.core.dao.repository.RaProfileRepository;
 import com.otilm.core.security.authz.SecuredResource;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -32,6 +34,9 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
     @Autowired
     private RaProfileRepository raProfileRepository;
 
+    @Autowired
+    private CommentRepository commentRepository;
+
     private UUID raProfileUuid;
 
     @BeforeEach
@@ -52,6 +57,19 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         return commentService
                 .createComment(SecuredResource.fromResource(Resource.RA_PROFILE), SecuredUUID.fromUUID(objectUuid),
                         request(body, parentUuid));
+    }
+
+    // Bypasses the service so several comments can share one timestamp, which the clock alone would never produce
+    private Comment saveAt(UUID objectUuid, UUID parentUuid, String body, OffsetDateTime createdAt) {
+        Comment comment = new Comment();
+        comment.setResource(Resource.RA_PROFILE);
+        comment.setObjectUuid(objectUuid);
+        comment.setParentUuid(parentUuid);
+        comment.setAuthorUuid(UUID.randomUUID());
+        comment.setAuthorUsername("tst-user");
+        comment.setBody(body);
+        comment.setCreatedAt(createdAt);
+        return commentRepository.saveAndFlush(comment);
     }
 
     private CommentResponseDto list(UUID objectUuid) throws NotFoundException {
@@ -95,6 +113,39 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         // A reply is never on a page of roots, so honouring it would defeat the absent-anchor stale signal
         assertThat(anchored.getPageNumber()).isEqualTo(1);
         assertThat(anchored.getComments()).extracting(CommentDto::getUuid).doesNotContain(reply.getUuid());
+    }
+
+    @Test
+    void threadsSharingATimestampAcrossAPageBoundaryAreEachFoundOnTheirOwnPage() throws NotFoundException {
+        OffsetDateTime sameInstant = OffsetDateTime.now().minusMinutes(1);
+        saveAt(raProfileUuid, null, "earlier", sameInstant.minusSeconds(1));
+        List<Comment> tied = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            tied.add(saveAt(raProfileUuid, null, "tied " + i, sameInstant));
+        }
+
+        // Four roots at two per page: the tie spans both pages, whichever way the database orders it
+        for (Comment anchor : tied) {
+            CommentResponseDto anchored = listAnchoredAt(raProfileUuid, anchor.getUuid(), 2);
+            assertThat(anchored.getComments()).extracting(CommentDto::getUuid).contains(anchor.getUuid());
+        }
+    }
+
+    @Test
+    void repliesSharingATimestampAcrossAPageBoundaryAreEachFoundOnTheirOwnPage() throws NotFoundException {
+        CommentDto root = post(raProfileUuid, "root", null);
+        OffsetDateTime sameInstant = OffsetDateTime.now();
+        List<Comment> tied = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            tied.add(saveAt(raProfileUuid, root.getUuid(), "tied reply " + i, sameInstant));
+        }
+
+        for (Comment anchor : tied) {
+            PaginationRequestDto pagination = new PaginationRequestDto();
+            pagination.setItemsPerPage(2);
+            CommentResponseDto anchored = commentService.listReplies(root.getUuid(), anchor.getUuid(), pagination);
+            assertThat(anchored.getComments()).extracting(CommentDto::getUuid).contains(anchor.getUuid());
+        }
     }
 
     @Test
