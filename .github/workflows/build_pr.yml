@@ -207,7 +207,11 @@ jobs:
 
       - name: Fail if the committed tables are not the generator's output
         run: |
-          if ! git diff --exit-code -- src/main/resources/cbom/identity-tables.json; then
+          # git status, not git diff: if the committed artifact were deleted or moved, regeneration
+          # writes an untracked file that `git diff` does not see, and the guard would pass on a
+          # tree whose committed bytes are gone.
+          if [ -n "$(git status --porcelain -- src/main/resources/cbom/identity-tables.json)" ]; then
+            git diff -- src/main/resources/cbom/identity-tables.json
             echo
             echo "::error file=src/main/resources/cbom/identity-tables.json::The committed identity tables are not reproducible from the inputs in src/main/cbom/identity."
             echo "The diff above is what regeneration produced minus what is committed."
