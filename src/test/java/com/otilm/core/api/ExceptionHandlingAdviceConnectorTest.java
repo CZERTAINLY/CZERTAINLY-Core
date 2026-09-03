@@ -1,10 +1,15 @@
 package com.otilm.core.api;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.otilm.api.exception.ConnectorClientException;
 import com.otilm.api.exception.ConnectorProblemException;
 import com.otilm.api.model.common.ErrorMessageDto;
 import com.otilm.api.model.common.error.ProblemDetailExtended;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -15,9 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Pins the connector-origin status translation: auth and server statuses from a connector are an upstream fault (502),
- * while entity (404) and validation (422) semantics pass through — on both the problem+json and the legacy path. The
- * deliberately-unchanged neighbor handlers are pinned too, so the translation provably touches only its own rows.
+ * The three deliberately-unchanged neighbor handlers are pinned alongside the translation rows so the change provably
+ * touches only its own handlers.
  */
 class ExceptionHandlingAdviceConnectorTest {
 
@@ -140,14 +144,60 @@ class ExceptionHandlingAdviceConnectorTest {
     }
 
     @Test
-    void bothPathsEmitNumericOnlyStatusSuffix() {
-        String problemMessage = advice.handleConnectorProblemException(problem(401, "denied")).getBody().getMessage();
-        String legacyMessage = advice
-                .handleConnectorClientException(new ConnectorClientException("denied", HttpStatus.UNAUTHORIZED))
-                .getBody()
-                .getMessage();
-        assertFalse(problemMessage.contains("UNAUTHORIZED"), "problem path must append the numeric code only");
-        assertFalse(legacyMessage.contains("UNAUTHORIZED"), "legacy path must append the numeric code only");
+    void problemPathEmitsNumericOnlyStatusSuffix() {
+        ResponseEntity<ErrorMessageDto> response = advice.handleConnectorProblemException(problem(401, "denied"));
+        assertNotNull(response.getBody());
+        assertFalse(response.getBody().getMessage().contains("UNAUTHORIZED"),
+                "problem path must append the numeric code only");
+    }
+
+    @Test
+    void legacyPathEmitsNumericOnlyStatusSuffix() {
+        ResponseEntity<ErrorMessageDto> translated = advice
+                .handleConnectorClientException(new ConnectorClientException("denied", HttpStatus.UNAUTHORIZED));
+        assertNotNull(translated.getBody());
+        assertFalse(translated.getBody().getMessage().contains("UNAUTHORIZED"),
+                "legacy path must append the numeric code only");
+
+        ResponseEntity<ErrorMessageDto> untranslated = advice
+                .handleConnectorClientException(new ConnectorClientException("dup", HttpStatus.CONFLICT));
+        assertNotNull(untranslated.getBody());
+        assertTrue(untranslated.getBody().getMessage().contains("Original response code 409"),
+                "untranslated rows keep the suffix");
+        assertFalse(untranslated.getBody().getMessage().contains("CONFLICT"),
+                "untranslated rows use the numeric form too");
+    }
+
+    @Test
+    void problemPathLogsServerErrorsAtErrorAndAuthAtWarn() {
+        ListAppender<ILoggingEvent> logged = captureLogsOfAdvice();
+        advice.handleConnectorProblemException(problem(500, "boom"));
+        advice.handleConnectorProblemException(problem(401, "denied"));
+        assertTrue(logged.list.stream().anyMatch(event -> event.getLevel() == Level.ERROR),
+                "a connector 500 must log at ERROR");
+        assertTrue(logged.list.stream().anyMatch(event -> event.getLevel() == Level.WARN),
+                "a connector 401 must log at WARN, not ERROR");
+        assertEquals(2, logged.list.size(), "each handled problem logs exactly once");
+    }
+
+    @Test
+    void legacyPathLogsTranslatedAtWarnAndUntranslatedAtInfo() {
+        ListAppender<ILoggingEvent> logged = captureLogsOfAdvice();
+        advice.handleConnectorClientException(new ConnectorClientException("denied", HttpStatus.UNAUTHORIZED));
+        advice.handleConnectorClientException(new ConnectorClientException("dup", HttpStatus.CONFLICT));
+        assertTrue(logged.list.stream().anyMatch(event -> event.getLevel() == Level.WARN),
+                "a translated legacy 401 must log at WARN");
+        assertTrue(logged.list.stream().anyMatch(event -> event.getLevel() == Level.INFO),
+                "an untranslated legacy row must stay at INFO");
+    }
+
+    private static ListAppender<ILoggingEvent> captureLogsOfAdvice() {
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        Logger logger = (Logger) LoggerFactory.getLogger(ExceptionHandlingAdvice.class);
+        logger.setLevel(Level.DEBUG);
+        logger.addAppender(appender);
+        return appender;
     }
 
     @Test

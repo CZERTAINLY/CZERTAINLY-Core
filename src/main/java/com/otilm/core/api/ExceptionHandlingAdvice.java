@@ -311,7 +311,11 @@ public class ExceptionHandlingAdvice {
         }
 
         if (ex.getHttpStatus() != null) {
-            messageBuilder.append(" ").append("Original response code ").append(ex.getHttpStatus()).append(". ");
+            messageBuilder
+                    .append(" ")
+                    .append("Original response code ")
+                    .append(ex.getHttpStatus().value())
+                    .append(". ");
         }
 
         LOG.info("HTTP 502: {}", messageBuilder);
@@ -346,19 +350,23 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
-     * Handler for {@link ConnectorProblemException}. Auth (401/403) and server (5xx) statuses from a connector are an
-     * upstream fault, never the caller's session or a Core bug — they surface as 502. Entity (404) and validation (422)
-     * semantics pass through verbatim.
+     * Handler for {@link ConnectorProblemException}. The rule mirrors the predicate below: 401, 403, anything below
+     * 400, and anything 5xx surface as 502 — an upstream fault, never the caller's session or a Core bug. Every other
+     * 4xx passes through verbatim, notably 404 (entity) and 422 (validation) — though for 422 only the status is
+     * preserved; aligning the body with the documented String[] validation shape lands with the shared connector-error
+     * classifier.
      */
     @ExceptionHandler(ConnectorProblemException.class)
     public ResponseEntity<ErrorMessageDto> handleConnectorProblemException(ConnectorProblemException ex) {
         int originalStatus = ex.getProblemDetail().getStatus();
         // Sub-400 statuses reach this handler too: the client throws for ANY non-2xx problem+json response, so a
         // connector's 3xx problem document must not surface as a bodyless-redirect-shaped Core response.
-        boolean translated = originalStatus < 400 || originalStatus == 401 || originalStatus == 403
-                || originalStatus >= 500;
+        boolean translated = HttpStatus.Series.resolve(originalStatus) != HttpStatus.Series.CLIENT_ERROR
+                || originalStatus == HttpStatus.UNAUTHORIZED.value() || originalStatus == HttpStatus.FORBIDDEN.value();
         int responseStatus = translated ? HttpStatus.BAD_GATEWAY.value() : originalStatus;
 
+        // The connector-authored problem detail is deliberately forwarded: the platform contract makes the
+        // connector responsible for detail safety (bounded, no secrets), and it is the operator's diagnostic.
         StringBuilder messageBuilder = new StringBuilder(ex.getFullMessage(false));
         if (translated) {
             messageBuilder.append(" Original response code ").append(originalStatus).append(".");

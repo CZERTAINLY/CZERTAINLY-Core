@@ -361,9 +361,19 @@ public class ProxyClientImpl implements ProxyClient {
         switch (errorCategory.toLowerCase()) {
             case "validation" -> throw new ValidationException(errorMessage);
 
-            case "authentication" -> sneakyThrow(new ConnectorClientException(errorMessage, HttpStatus.UNAUTHORIZED));
+            case "authentication" -> {
+                ConnectorClientException clientException = new ConnectorClientException(errorMessage,
+                        HttpStatus.UNAUTHORIZED);
+                clientException.setConnector(connector);
+                sneakyThrow(clientException);
+            }
 
-            case "authorization" -> sneakyThrow(new ConnectorClientException(errorMessage, HttpStatus.FORBIDDEN));
+            case "authorization" -> {
+                ConnectorClientException clientException = new ConnectorClientException(errorMessage,
+                        HttpStatus.FORBIDDEN);
+                clientException.setConnector(connector);
+                sneakyThrow(clientException);
+            }
 
             case "not_found" -> sneakyThrow(new ConnectorEntityNotFoundException(errorMessage));
 
