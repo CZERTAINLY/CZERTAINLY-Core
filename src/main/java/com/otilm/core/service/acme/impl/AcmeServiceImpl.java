@@ -102,6 +102,7 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -1037,14 +1038,22 @@ public class AcmeServiceImpl implements AcmeExternalService {
 
     private void deactivateOrders(AcmeAccount acmeAccount) {
         int closed = 0;
-        for (AcmeOrder order : acmeAccount.getOrders()) {
+        // The orders are taken in a fixed order. Each lock is held until this request commits, so two
+        // deactivations of one account walking them in different orders would each hold the order the other
+        // waits for.
+        List<AcmeOrder> orders = acmeAccount
+                .getOrders()
+                .stream()
+                .sorted(Comparator.comparing(AcmeOrder::getUuid))
+                .toList();
+        for (AcmeOrder order : orders) {
             if (acmeChallengeWriter.deactivateOrder(order.getUuid())) {
                 closed++;
             }
         }
-        // The account is written once, in the database, after the calls above have taken and released every
-        // order lock, and then re-read so that writing it back afterwards carries that count rather than the
-        // one this request loaded.
+        // The account is written once, after every order has been locked: writing it earlier would make a
+        // validation holding a later order wait for the account while this request waits for that order. It is
+        // then re-read so that writing it back afterwards carries this count rather than the one loaded before.
         acmeChallengeWriter.countFailedOrders(acmeAccount.getUuid(), closed);
         entityManager.refresh(acmeAccount);
     }

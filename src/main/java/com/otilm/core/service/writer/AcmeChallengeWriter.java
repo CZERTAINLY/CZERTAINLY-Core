@@ -133,10 +133,10 @@ public class AcmeChallengeWriter {
      * order.
      *
      * <p>
-     * The account is deliberately not written here. A caller deactivating an account walks its orders one by one, and
-     * writing the account between two order locks would let a challenge failing concurrently hold the next order while
-     * waiting for the account this call had already written, which deadlocks both. The caller counts the orders it
-     * closed once it has no further lock to take.
+     * The account is deliberately not written here. A caller deactivating an account walks its orders one by one and
+     * holds every lock until it commits, so writing the account between two of them would let a challenge failing
+     * concurrently hold the next order while waiting for the account this call had already written, deadlocking both.
+     * The caller counts the orders it closed once it has locked all of them.
      *
      * @return whether the order was still open, for the caller to count against the account
      */
