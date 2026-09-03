@@ -4,6 +4,7 @@ import com.otilm.api.exception.AlreadyExistException;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
+import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.certificate.group.GroupRequestDto;
 import com.otilm.core.security.authz.SecuredUUID;
@@ -25,4 +26,6 @@ public interface GroupExternalService {
     void deleteGroup(SecuredUUID uuid) throws NotFoundException;
 
     void bulkDeleteGroup(List<SecuredUUID> groupUuids);
+
+    List<UserDto> getGroupUsers(SecuredUUID uuid) throws NotFoundException;
 }

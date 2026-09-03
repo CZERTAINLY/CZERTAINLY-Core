@@ -5,10 +5,13 @@ import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.common.NameAndUuidDto;
+import com.otilm.api.model.core.auth.UserDto;
+import com.otilm.api.model.core.auth.UserWithPaginationDto;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.certificate.group.GroupRequestDto;
 import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.repository.GroupRepository;
+import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.GroupExternalService;
@@ -19,6 +22,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import static org.mockito.Mockito.when;
 
 public class GroupServiceITest extends BaseSpringBootTest {
 
@@ -32,6 +38,9 @@ public class GroupServiceITest extends BaseSpringBootTest {
 
     @Autowired
     private GroupRepository groupRepository;
+
+    @MockitoBean
+    private UserManagementApiClient userManagementApiClient;
 
     private Group group;
 
@@ -144,5 +153,63 @@ public class GroupServiceITest extends BaseSpringBootTest {
         nameAndUuidDto = groupInternalService.getResourceObjectExternal(group.getSecuredUuid());
         Assertions.assertEquals(group.getUuid().toString(), nameAndUuidDto.getUuid());
         Assertions.assertEquals(group.getName(), nameAndUuidDto.getName());
+    }
+
+    @Test
+    void getGroupUsersReturnsUsersAssignedToTheGroup() throws NotFoundException {
+        UserDto member = user("11111111-1111-1111-1111-111111111111", "member",
+                new NameAndUuidDto(group.getUuid().toString(), group.getName()));
+        UserDto outsider = user("22222222-2222-2222-2222-222222222222", "outsider",
+                new NameAndUuidDto("33333333-3333-3333-3333-333333333333", "otherGroup"));
+        stubUsers(member, outsider);
+
+        List<UserDto> users = groupService.getGroupUsers(group.getSecuredUuid());
+
+        Assertions.assertEquals(1, users.size());
+        Assertions.assertEquals("member", users.get(0).getUsername());
+    }
+
+    @Test
+    void getGroupUsersReturnsEmptyListWhenNoUserIsAssigned() throws NotFoundException {
+        stubUsers(user("22222222-2222-2222-2222-222222222222", "outsider",
+                new NameAndUuidDto("33333333-3333-3333-3333-333333333333", "otherGroup")));
+
+        Assertions.assertTrue(groupService.getGroupUsers(group.getSecuredUuid()).isEmpty());
+    }
+
+    @Test
+    void getGroupUsersThrowsNotFoundForUnknownGroup() {
+        stubUsers(user("11111111-1111-1111-1111-111111111111", "member",
+                new NameAndUuidDto(group.getUuid().toString(), group.getName())));
+
+        Assertions
+                .assertThrows(NotFoundException.class, () -> groupService
+                        .getGroupUsers(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+    }
+
+    @Test
+    void getGroupUsersReturnsUserBelongingToSeveralGroups() throws NotFoundException {
+        stubUsers(user("11111111-1111-1111-1111-111111111111", "member",
+                new NameAndUuidDto("33333333-3333-3333-3333-333333333333", "otherGroup"),
+                new NameAndUuidDto(group.getUuid().toString(), group.getName())));
+
+        List<UserDto> users = groupService.getGroupUsers(group.getSecuredUuid());
+
+        Assertions.assertEquals(1, users.size());
+        Assertions.assertEquals("member", users.get(0).getUsername());
+    }
+
+    private void stubUsers(UserDto... users) {
+        UserWithPaginationDto response = new UserWithPaginationDto();
+        response.setData(List.of(users));
+        when(userManagementApiClient.getUsers()).thenReturn(response);
+    }
+
+    private UserDto user(String uuid, String username, NameAndUuidDto... groups) {
+        UserDto dto = new UserDto();
+        dto.setUuid(uuid);
+        dto.setUsername(username);
+        dto.setGroups(List.of(groups));
+        return dto;
     }
 }

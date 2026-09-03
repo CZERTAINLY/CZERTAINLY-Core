@@ -8,6 +8,7 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.certificate.group.GroupRequestDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
@@ -16,6 +17,7 @@ import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.entity.Group_;
 import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -43,6 +45,8 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
 
     private AttributeEngine attributeEngine;
 
+    private UserManagementApiClient userManagementApiClient;
+
     @Autowired
     public void setGroupRepository(GroupRepository groupRepository) {
         this.groupRepository = groupRepository;
@@ -56,6 +60,11 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
     }
 
     @Override
@@ -129,6 +138,18 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
         objectAssociationService.removeGroupAssociations(group.getUuid());
         attributeEngine.deleteObjectAttributeContent(Resource.GROUP, group.getUuid());
         groupRepository.delete(group);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.MEMBERS)
+    public List<UserDto> getGroupUsers(SecuredUUID uuid) throws NotFoundException {
+        String groupUuid = getGroupEntity(uuid).getUuid().toString();
+        return userManagementApiClient
+                .getUsers()
+                .getData()
+                .stream()
+                .filter(user -> user.getGroups().stream().anyMatch(g -> g.getUuid().equals(groupUuid)))
+                .toList();
     }
 
     @Override

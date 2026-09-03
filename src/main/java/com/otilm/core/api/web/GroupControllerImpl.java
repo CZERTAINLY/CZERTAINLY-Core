@@ -7,6 +7,7 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.web.GroupController;
 import com.otilm.api.model.common.UuidDto;
 import com.otilm.api.model.core.auth.Resource;
+import com.otilm.api.model.core.auth.UserDto;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.certificate.group.GroupRequestDto;
 import com.otilm.api.model.core.logging.enums.Module;
@@ -82,5 +83,12 @@ public class GroupControllerImpl implements GroupController {
     @AuditLogged(module = Module.CORE, resource = Resource.GROUP, operation = Operation.DELETE)
     public void bulkDeleteGroup(@LogResource(uuid = true) List<String> groupUuids) {
         groupService.bulkDeleteGroup(SecuredUUID.fromList(groupUuids));
+    }
+
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.GROUP, affiliatedResource = Resource.USER,
+            operation = Operation.LIST)
+    public List<UserDto> getGroupUsers(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+        return groupService.getGroupUsers(SecuredUUID.fromString(uuid));
     }
 }
