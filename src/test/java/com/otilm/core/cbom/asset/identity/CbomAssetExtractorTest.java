@@ -374,10 +374,6 @@ class CbomAssetExtractorTest {
                 .hasMessageNotContaining(secret);
     }
 
-    private static List<String> keysOf(List<String> components) {
-        return keysOf(EXTRACTOR.extract(read("{\"components\":[" + String.join(",", components) + "]}")));
-    }
-
     private static List<String> keysOf(CbomAssetExtractor.Extraction extraction) {
         return extraction.assets().stream().map(CbomAssetExtractor.ExtractedAsset::identityKey).sorted().toList();
     }

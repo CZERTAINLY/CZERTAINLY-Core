@@ -778,7 +778,7 @@ public record AssetNormalizer(IdentityTables tables) {
         }
         String spelled = boundedText(parameterSetIdentifier);
         if (spelled == null) {
-            if (parameterSetIdentifier != null && parameterSetIdentifier.isTextual()) {
+            if (parameterSetIdentifier.isTextual()) {
                 notes.add(droppedFieldNote(CbomNames.PARAMETER_SET_IDENTIFIER));
             }
             return null;
