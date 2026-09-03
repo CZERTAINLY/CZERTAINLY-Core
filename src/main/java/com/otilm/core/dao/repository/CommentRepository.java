@@ -9,6 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,10 +18,17 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CommentRepository extends SecurityFilterRepository<Comment, UUID> {
 
-    Page<Comment> findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAsc(Resource resource, UUID objectUuid,
-            Pageable pageable);
+    /**
+     * Unordered unless the {@code Pageable} carries a {@link Sort}. Paging a comment listing without one walks rows in
+     * storage order, which shifts under writes and can repeat or drop a row across pages.
+     */
+    Page<Comment> findByResourceAndObjectUuidAndParentUuidIsNull(Resource resource, UUID objectUuid, Pageable pageable);
 
-    Page<Comment> findByParentUuidOrderByCreatedAtAsc(UUID parentUuid, Pageable pageable);
+    /**
+     * Unordered unless the {@code Pageable} carries a {@link Sort}, as for
+     * {@link #findByResourceAndObjectUuidAndParentUuidIsNull}.
+     */
+    Page<Comment> findByParentUuid(UUID parentUuid, Pageable pageable);
 
     @Query("SELECT c.parentUuid, COUNT(c) FROM Comment c WHERE c.parentUuid IN :rootUuids GROUP BY c.parentUuid")
     List<Object[]> countRepliesByRoots(@Param("rootUuids") Collection<UUID> rootUuids);
