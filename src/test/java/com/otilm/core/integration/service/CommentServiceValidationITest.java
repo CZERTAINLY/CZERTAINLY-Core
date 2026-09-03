@@ -5,8 +5,9 @@ import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.comment.CommentCreateRequestDto;
 import com.otilm.api.model.client.comment.CommentDto;
 import com.otilm.api.model.client.comment.CommentResponseDto;
+import com.otilm.api.model.common.SortedPaginationRequestDto;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.scheduler.PaginationRequestDto;
+import com.otilm.api.model.core.search.SortDirection;
 import com.otilm.core.dao.entity.Comment;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.repository.CommentRepository;
@@ -75,7 +76,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
     private CommentResponseDto list(UUID objectUuid) throws NotFoundException {
         return commentService
                 .listComments(SecuredResource.fromResource(Resource.RA_PROFILE), SecuredUUID.fromUUID(objectUuid), null,
-                        new PaginationRequestDto());
+                        new SortedPaginationRequestDto());
     }
 
     private CommentResponseDto listAnchoredAt(UUID objectUuid, UUID anchorUuid, int pageSize) throws NotFoundException {
@@ -84,9 +85,15 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
 
     private CommentResponseDto listAnchoredAt(UUID objectUuid, UUID anchorUuid, int pageSize, int pageNumber)
             throws NotFoundException {
-        PaginationRequestDto pagination = new PaginationRequestDto();
+        return listAnchoredAt(objectUuid, anchorUuid, pageSize, pageNumber, SortDirection.ASC);
+    }
+
+    private CommentResponseDto listAnchoredAt(UUID objectUuid, UUID anchorUuid, int pageSize, int pageNumber,
+            SortDirection direction) throws NotFoundException {
+        SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
         pagination.setItemsPerPage(pageSize);
         pagination.setPageNumber(pageNumber);
+        pagination.setSortDirection(direction);
         return commentService
                 .listComments(SecuredResource.fromResource(Resource.RA_PROFILE), SecuredUUID.fromUUID(objectUuid),
                         anchorUuid, pagination);
@@ -104,6 +111,42 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
 
         assertThat(anchored.getPageNumber()).isEqualTo(3);
         assertThat(anchored.getComments()).extracting(CommentDto::getUuid).contains(onThirdPage.getUuid());
+    }
+
+    @Test
+    void anchoringNewestFirstReturnsThePageHoldingTheThreadInThatOrder() throws NotFoundException {
+        List<CommentDto> roots = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            roots.add(post(raProfileUuid, "root " + i, null));
+        }
+        // Newest first at two per page: root 1 is the sixth item, on page 3; root 5 is the second, on page 1
+        CommentResponseDto old = listAnchoredAt(raProfileUuid, roots.get(1).getUuid(), 2, 1, SortDirection.DESC);
+        CommentResponseDto recent = listAnchoredAt(raProfileUuid, roots.get(5).getUuid(), 2, 1, SortDirection.DESC);
+
+        assertThat(old.getPageNumber()).isEqualTo(3);
+        assertThat(old.getComments()).extracting(CommentDto::getUuid).contains(roots.get(1).getUuid());
+        assertThat(recent.getPageNumber()).isEqualTo(1);
+        assertThat(recent.getComments())
+                .extracting(CommentDto::getUuid)
+                .containsExactly(roots.get(6).getUuid(), roots.get(5).getUuid());
+    }
+
+    @Test
+    void anchoringRepliesNewestFirstReturnsThePageHoldingTheReplyInThatOrder() throws NotFoundException {
+        CommentDto root = post(raProfileUuid, "root", null);
+        List<CommentDto> replies = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            replies.add(post(raProfileUuid, "reply " + i, root.getUuid()));
+        }
+
+        SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
+        pagination.setItemsPerPage(2);
+        pagination.setSortDirection(SortDirection.DESC);
+        CommentResponseDto anchored = commentService.listReplies(root.getUuid(), replies.get(0).getUuid(), pagination);
+
+        // Newest first, the oldest reply is the fifth item, on page 3
+        assertThat(anchored.getPageNumber()).isEqualTo(3);
+        assertThat(anchored.getComments()).extracting(CommentDto::getUuid).containsExactly(replies.get(0).getUuid());
     }
 
     @Test
@@ -147,7 +190,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         }
 
         for (Comment anchor : tied) {
-            PaginationRequestDto pagination = new PaginationRequestDto();
+            SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
             pagination.setItemsPerPage(2);
             CommentResponseDto anchored = commentService.listReplies(root.getUuid(), anchor.getUuid(), pagination);
             assertThat(anchored.getComments()).extracting(CommentDto::getUuid).contains(anchor.getUuid());
@@ -197,7 +240,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         }
         CommentDto target = replies.get(4);
 
-        PaginationRequestDto pagination = new PaginationRequestDto();
+        SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
         pagination.setItemsPerPage(2);
         CommentResponseDto anchored = commentService.listReplies(root.getUuid(), target.getUuid(), pagination);
 
@@ -210,7 +253,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         SecuredResource userResource = SecuredResource.fromResource(Resource.USER);
         SecuredUUID objectUuid = SecuredUUID.fromUUID(UUID.randomUUID());
         CommentCreateRequestDto createRequest = request("hello", null);
-        PaginationRequestDto pagination = new PaginationRequestDto();
+        SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
         assertThatThrownBy(() -> commentService.createComment(userResource, objectUuid, createRequest))
                 .isInstanceOf(ValidationException.class);
         assertThatThrownBy(() -> commentService.listComments(userResource, objectUuid, null, pagination))
@@ -236,7 +279,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         CommentResponseDto threads = list(raProfileUuid);
         assertThat(threads.getComments()).hasSize(1);
         assertThat(threads.getComments().getFirst().getReplyCount()).isEqualTo(1L);
-        assertThat(commentService.listReplies(root.getUuid(), null, new PaginationRequestDto()).getComments())
+        assertThat(commentService.listReplies(root.getUuid(), null, new SortedPaginationRequestDto()).getComments())
                 .extracting(CommentDto::getUuid)
                 .containsExactly(reply.getUuid());
     }
@@ -269,7 +312,7 @@ class CommentServiceValidationITest extends BaseSpringBootTest {
         CommentDto reply = post(raProfileUuid, "reply", root.getUuid());
 
         UUID replyUuid = reply.getUuid();
-        PaginationRequestDto pagination = new PaginationRequestDto();
+        SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
         assertThatThrownBy(() -> commentService.listReplies(replyUuid, null, pagination))
                 .isInstanceOf(ValidationException.class);
     }

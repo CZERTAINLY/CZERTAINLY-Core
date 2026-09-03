@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -19,25 +20,42 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface CommentRepository extends SecurityFilterRepository<Comment, UUID> {
 
-    // The uuid tie-break keeps the order total, so comments sharing a timestamp never straddle a page boundary
-    // differently from one request to the next.
-    Page<Comment> findByResourceAndObjectUuidAndParentUuidIsNullOrderByCreatedAtAscUuidAsc(Resource resource,
-            UUID objectUuid, Pageable pageable);
+    /**
+     * Unordered unless the {@code Pageable} carries a {@link Sort}. Paging a comment listing without one walks rows in
+     * storage order, which shifts under writes and can repeat or drop a row across pages.
+     */
+    Page<Comment> findByResourceAndObjectUuidAndParentUuidIsNull(Resource resource, UUID objectUuid, Pageable pageable);
 
-    Page<Comment> findByParentUuidOrderByCreatedAtAscUuidAsc(UUID parentUuid, Pageable pageable);
+    /**
+     * Unordered unless the {@code Pageable} carries a {@link Sort}, as for
+     * {@link #findByResourceAndObjectUuidAndParentUuidIsNull}.
+     */
+    Page<Comment> findByParentUuid(UUID parentUuid, Pageable pageable);
 
-    // Position of a comment within its listing, so a caller anchored at one can be given the page holding it. The
-    // predicate mirrors the listing order, tie-break included, and is evaluated in the database so that uuid ordering
-    // is the database's, not Java's.
+    // Position of a comment within its listing, so a caller anchored at one can be given the page holding it: the
+    // comments sorted ahead of it are those created before it when the listing ascends and after it when it descends.
+    // The predicates mirror the listing order, uuid tie-break included, and run in the database so its uuid ordering
+    // is the one used throughout.
     @Query("SELECT COUNT(c) FROM Comment c WHERE c.resource = :resource AND c.objectUuid = :objectUuid"
             + " AND c.parentUuid IS NULL"
             + " AND (c.createdAt < :createdAt OR (c.createdAt = :createdAt AND c.uuid < :uuid))")
-    long countRootsBefore(@Param("resource") Resource resource, @Param("objectUuid") UUID objectUuid,
+    long countRootsCreatedBefore(@Param("resource") Resource resource, @Param("objectUuid") UUID objectUuid,
+            @Param("createdAt") OffsetDateTime createdAt, @Param("uuid") UUID uuid);
+
+    @Query("SELECT COUNT(c) FROM Comment c WHERE c.resource = :resource AND c.objectUuid = :objectUuid"
+            + " AND c.parentUuid IS NULL"
+            + " AND (c.createdAt > :createdAt OR (c.createdAt = :createdAt AND c.uuid > :uuid))")
+    long countRootsCreatedAfter(@Param("resource") Resource resource, @Param("objectUuid") UUID objectUuid,
             @Param("createdAt") OffsetDateTime createdAt, @Param("uuid") UUID uuid);
 
     @Query("SELECT COUNT(c) FROM Comment c WHERE c.parentUuid = :parentUuid"
             + " AND (c.createdAt < :createdAt OR (c.createdAt = :createdAt AND c.uuid < :uuid))")
-    long countRepliesBefore(@Param("parentUuid") UUID parentUuid, @Param("createdAt") OffsetDateTime createdAt,
+    long countRepliesCreatedBefore(@Param("parentUuid") UUID parentUuid, @Param("createdAt") OffsetDateTime createdAt,
+            @Param("uuid") UUID uuid);
+
+    @Query("SELECT COUNT(c) FROM Comment c WHERE c.parentUuid = :parentUuid"
+            + " AND (c.createdAt > :createdAt OR (c.createdAt = :createdAt AND c.uuid > :uuid))")
+    long countRepliesCreatedAfter(@Param("parentUuid") UUID parentUuid, @Param("createdAt") OffsetDateTime createdAt,
             @Param("uuid") UUID uuid);
 
     @Query("SELECT c.parentUuid, COUNT(c) FROM Comment c WHERE c.parentUuid IN :rootUuids GROUP BY c.parentUuid")
