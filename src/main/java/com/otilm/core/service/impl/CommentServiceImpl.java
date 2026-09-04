@@ -306,8 +306,6 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         if (!(authorDeletesOwnThread || mayCascade)) {
             throw deletionDenied(uuid, comment);
         }
-        // Comments cannot be edited, so the audit record is the only place the text of a deleted comment survives:
-        // the replies removed with the root go into it alongside the root itself
         List<Comment> cascadedReplies = commentWriter.deleteRoot(uuid, mayCascade ? null : comment.getAuthorUuid());
         CommentDeletionData deletionData = fillEventData(new CommentDeletionData(), comment, hostObject.getName());
         deletionData

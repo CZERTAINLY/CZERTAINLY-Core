@@ -65,13 +65,12 @@ public class CommentWriter {
      * caller when they may delete only because every comment in the thread is theirs; null when they hold the cascade
      * privilege and other users' replies go with the root.
      *
-     * @return the replies removed along with the root, read under the same lock so none slips in unrecorded; the caller
-     * owes them to the audit record, which is the only place their text survives
+     * @return the replies removed along with the root, read and locked in the same transaction
      */
     @Transactional
     public List<Comment> deleteRoot(UUID uuid, UUID soleAuthor) throws NotFoundException {
         commentRepository.findWithLockByUuid(uuid).orElseThrow(() -> new NotFoundException(Comment.class, uuid));
-        List<Comment> replies = commentRepository.findByParentUuidOrderByCreatedAtAscUuidAsc(uuid);
+        List<Comment> replies = commentRepository.findRepliesWithLockByParentUuid(uuid);
         if (soleAuthor != null && replies.stream().anyMatch(reply -> !soleAuthor.equals(reply.getAuthorUuid()))) {
             throw new ValidationException("The thread gained replies from other users; only the host object's owner"
                     + " or an update holder may delete it");

@@ -163,16 +163,23 @@ class CommentControllerAuditITest extends BaseSpringBootTest {
     }
 
     @Test
-    void deletingAReplyOrAReplylessRootRecordsNoCascade() throws NotFoundException {
+    void deletingAReplyRecordsThatReplyOnly() throws NotFoundException {
         CommentDto root = post("thread", null);
         CommentDto reply = post("just me", root.getUuid());
 
         commentController.deleteComment(reply.getUuid());
+
         Serializable replyData = lastMessageOf(Operation.DELETE).getLogRecord().operationData();
         assertThat(replyData).isExactlyInstanceOf(CommentEventData.class);
         assertThat(((CommentEventData) replyData).getBody()).isEqualTo("just me");
+    }
+
+    @Test
+    void deletingAReplylessRootRecordsAnEmptyCascade() throws NotFoundException {
+        CommentDto root = post("thread", null);
 
         commentController.deleteComment(root.getUuid());
+
         CommentDeletionData rootData = (CommentDeletionData) lastMessageOf(Operation.DELETE)
                 .getLogRecord()
                 .operationData();
