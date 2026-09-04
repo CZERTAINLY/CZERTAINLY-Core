@@ -8,6 +8,7 @@ import com.otilm.api.model.client.certificate.SearchSortRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
+import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.key.KeyItemDto;
 import com.otilm.api.model.core.search.FilterConditionOperator;
@@ -121,16 +122,35 @@ class KeyCatalogueColumnsITest extends BaseSpringBootTest {
     void theCatalogueOffersTheEnabledColumn() {
         SearchFieldDataDto enabled = field(FilterField.CKI_ENABLED.name()).orElseThrow();
 
-        Assertions.assertEquals(true, enabled.getDisplayable());
         Assertions.assertEquals(true, enabled.getSortable());
+        // The heading the keys inventory already ships: a stored view refreshes its heading from the catalogue, so a
+        // different label here would rename the column of a saved view.
+        Assertions.assertEquals("Status", enabled.getFieldLabel());
     }
 
     @Test
     void theCatalogueOffersTheCreatedColumn() {
         SearchFieldDataDto created = field(FilterField.CKI_CREATED.name()).orElseThrow();
 
-        Assertions.assertEquals(true, created.getDisplayable());
         Assertions.assertEquals(true, created.getSortable());
+        Assertions.assertEquals("Creation Date", created.getFieldLabel());
+    }
+
+    /**
+     * The catalogue is assembled by naming fields one at a time, so a field added to {@code FilterField} and forgotten
+     * there is exactly the gap this issue closes - and nothing would report it. Pinned by count, as the secret and
+     * signing-record listings pin theirs.
+     */
+    @Test
+    void theCatalogueCarriesEveryKeyField() {
+        List<SearchFieldDataDto> published = cryptographicKeyService
+                .getSearchableFieldInformation()
+                .stream()
+                .filter(group -> group.getFilterFieldSource() == FilterFieldSource.PROPERTY)
+                .flatMap(group -> group.getSearchFieldData().stream())
+                .toList();
+
+        Assertions.assertEquals(FilterField.getEnumsForResource(Resource.CRYPTOGRAPHIC_KEY).size(), published.size());
     }
 
     @Test

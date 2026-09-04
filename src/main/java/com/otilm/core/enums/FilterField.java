@@ -211,13 +211,17 @@ public enum FilterField {
             SearchFieldTypeEnum.LIST, KeyUsage.class, null, false, null),
     CKI_LENGTH(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.length, "Key Size",
             SearchFieldTypeEnum.NUMBER),
-    CKI_ENABLED(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.enabled, Constants.ENABLED,
+    // Labelled as the keys inventory already labels these two columns, not as the platform labels the
+    // same concepts elsewhere. The picker lists the catalogue's label beside headings the page renders,
+    // and a stored view refreshes its heading from the catalogue - so a different label here renames a
+    // saved view's column rather than merely reading oddly next to it.
+    CKI_ENABLED(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.enabled, Constants.STATUS,
             SearchFieldTypeEnum.BOOLEAN),
     // The key's creation time rather than the item's: the listing DTO reads `key.getCreated()` into `creationTime`,
     // and a column has to be filtered and ordered by the value its cell shows. The two are written together today but
     // are separate columns, and an item added to an existing key later would carry its own.
     CKI_CREATED(Resource.CRYPTOGRAPHIC_KEY, null, List.of(CryptographicKeyItem_.key), Audited_.created,
-            Constants.CREATED_AT, SearchFieldTypeEnum.DATETIME),
+            Constants.CREATION_DATE, SearchFieldTypeEnum.DATETIME),
     CK_TOKEN_PROFILE(Resource.CRYPTOGRAPHIC_KEY, Resource.TOKEN_PROFILE,
             List.of(CryptographicKeyItem_.key, CryptographicKey_.tokenProfile), TokenProfile_.name, "Token profile",
             SearchFieldTypeEnum.LIST),
@@ -547,6 +551,9 @@ public enum FilterField {
         public static final String ENABLED = "Enabled";
         public static final String STATUS = "Status";
         public static final String CREATED_AT = "Created At";
+
+        /** The keys inventory's own heading for a key's creation time; see CKI_CREATED. */
+        public static final String CREATION_DATE = "Creation Date";
     }
 
 }
