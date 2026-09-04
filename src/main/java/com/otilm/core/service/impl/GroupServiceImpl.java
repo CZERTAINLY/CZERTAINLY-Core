@@ -19,6 +19,7 @@ import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
 import com.otilm.core.security.authz.ExternalAuthorization;
+import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.GroupExternalService;
@@ -143,9 +144,9 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
 
     @Override
     @Transactional(TxType.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.MEMBERS, parentResource = Resource.USER,
-            parentAction = ResourceAction.LIST)
-    public List<NameAndUuidDto> getGroupUsers(SecuredUUID uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.LIST, parentResource = Resource.GROUP,
+            parentAction = ResourceAction.MEMBERS)
+    public List<NameAndUuidDto> getGroupUsers(SecuredParentUUID uuid) throws NotFoundException {
         String groupUuid = getGroupEntity(uuid).getUuid().toString();
         UserWithPaginationDto users = userManagementApiClient.getUsers();
         if (users.getTotalCount() != null && users.getTotalCount() > users.getData().size()) {

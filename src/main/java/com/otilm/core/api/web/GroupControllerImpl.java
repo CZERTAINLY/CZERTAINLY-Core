@@ -15,6 +15,7 @@ import com.otilm.api.model.core.logging.enums.Operation;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.auth.AuthEndpoint;
 import com.otilm.core.logging.LogResource;
+import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.GroupExternalService;
@@ -90,6 +91,6 @@ public class GroupControllerImpl implements GroupController {
             operation = Operation.LIST)
     public List<NameAndUuidDto> getGroupUsers(@LogResource(uuid = true) @PathVariable String uuid)
             throws NotFoundException {
-        return groupService.getGroupUsers(SecuredUUID.fromString(uuid));
+        return groupService.getGroupUsers(SecuredParentUUID.fromString(uuid));
     }
 }

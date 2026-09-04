@@ -14,6 +14,7 @@ import com.otilm.core.dao.entity.Group;
 import com.otilm.core.dao.repository.GroupRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authn.client.UserManagementApiClient;
+import com.otilm.core.security.authz.SecuredParentUUID;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.GroupExternalService;
@@ -168,7 +169,7 @@ public class GroupServiceITest extends BaseSpringBootTest {
                 new NameAndUuidDto("33333333-3333-3333-3333-333333333333", "otherGroup"));
         stubUsers(member, outsider);
 
-        List<NameAndUuidDto> users = groupService.getGroupUsers(group.getSecuredUuid());
+        List<NameAndUuidDto> users = groupService.getGroupUsers(SecuredParentUUID.fromUUID(group.getUuid()));
 
         Assertions.assertEquals(1, users.size());
         Assertions.assertEquals("11111111-1111-1111-1111-111111111111", users.get(0).getUuid());
@@ -180,14 +181,14 @@ public class GroupServiceITest extends BaseSpringBootTest {
         stubUsers(user("22222222-2222-2222-2222-222222222222", "outsider",
                 new NameAndUuidDto("33333333-3333-3333-3333-333333333333", "otherGroup")));
 
-        Assertions.assertTrue(groupService.getGroupUsers(group.getSecuredUuid()).isEmpty());
+        Assertions.assertTrue(groupService.getGroupUsers(SecuredParentUUID.fromUUID(group.getUuid())).isEmpty());
     }
 
     @Test
     void getGroupUsersThrowsNotFoundForUnknownGroup() {
         Assertions
                 .assertThrows(NotFoundException.class, () -> groupService
-                        .getGroupUsers(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+                        .getGroupUsers(SecuredParentUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -196,7 +197,7 @@ public class GroupServiceITest extends BaseSpringBootTest {
                 new NameAndUuidDto("33333333-3333-3333-3333-333333333333", "otherGroup"),
                 new NameAndUuidDto(group.getUuid().toString(), group.getName())));
 
-        List<NameAndUuidDto> users = groupService.getGroupUsers(group.getSecuredUuid());
+        List<NameAndUuidDto> users = groupService.getGroupUsers(SecuredParentUUID.fromUUID(group.getUuid()));
 
         Assertions.assertEquals(1, users.size());
         Assertions.assertEquals("member", users.get(0).getName());
@@ -206,14 +207,18 @@ public class GroupServiceITest extends BaseSpringBootTest {
     void getGroupUsersDeniesCallerWithoutMembersPermission() {
         denyResourceAccess(Resource.GROUP, ResourceAction.MEMBERS);
 
-        Assertions.assertThrows(AccessDeniedException.class, () -> groupService.getGroupUsers(group.getSecuredUuid()));
+        Assertions
+                .assertThrows(AccessDeniedException.class,
+                        () -> groupService.getGroupUsers(SecuredParentUUID.fromUUID(group.getUuid())));
     }
 
     @Test
     void getGroupUsersDeniesCallerWithoutUserListPermission() {
         denyResourceAccess(Resource.USER, ResourceAction.LIST);
 
-        Assertions.assertThrows(AccessDeniedException.class, () -> groupService.getGroupUsers(group.getSecuredUuid()));
+        Assertions
+                .assertThrows(AccessDeniedException.class,
+                        () -> groupService.getGroupUsers(SecuredParentUUID.fromUUID(group.getUuid())));
     }
 
     // auth serves the user directory as a single capped page; members it did not return cannot be recovered here
@@ -227,7 +232,7 @@ public class GroupServiceITest extends BaseSpringBootTest {
         response.setTotalCount(1500);
         when(userManagementApiClient.getUsers()).thenReturn(response);
 
-        List<NameAndUuidDto> users = groupService.getGroupUsers(group.getSecuredUuid());
+        List<NameAndUuidDto> users = groupService.getGroupUsers(SecuredParentUUID.fromUUID(group.getUuid()));
 
         Assertions.assertEquals(1, users.size());
     }
