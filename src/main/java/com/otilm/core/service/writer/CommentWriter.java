@@ -8,6 +8,7 @@ import com.otilm.core.dao.entity.Comment;
 import com.otilm.core.dao.repository.CommentRepository;
 import com.otilm.core.service.ResourceInternalService;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -64,14 +65,20 @@ public class CommentWriter {
      * caller when they may delete only because every comment in the thread is theirs; null when they hold the cascade
      * privilege and other users' replies go with the root.
      */
+    /**
+     * @return the replies removed along with the root, read under the same lock so none slips in unrecorded; the caller
+     * owes them to the audit record, which is the only place their text survives
+     */
     @Transactional
-    public void deleteRoot(UUID uuid, UUID soleAuthor) throws NotFoundException {
+    public List<Comment> deleteRoot(UUID uuid, UUID soleAuthor) throws NotFoundException {
         commentRepository.findWithLockByUuid(uuid).orElseThrow(() -> new NotFoundException(Comment.class, uuid));
-        if (soleAuthor != null && commentRepository.existsByParentUuidAndAuthorUuidNot(uuid, soleAuthor)) {
+        List<Comment> replies = commentRepository.findByParentUuidOrderByCreatedAtAscUuidAsc(uuid);
+        if (soleAuthor != null && replies.stream().anyMatch(reply -> !soleAuthor.equals(reply.getAuthorUuid()))) {
             throw new ValidationException("The thread gained replies from other users; only the host object's owner"
                     + " or an update holder may delete it");
         }
         commentRepository.deleteCommentByUuid(uuid);
+        return replies;
     }
 
     /**

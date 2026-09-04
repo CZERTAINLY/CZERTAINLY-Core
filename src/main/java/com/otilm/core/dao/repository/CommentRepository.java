@@ -30,6 +30,8 @@ public interface CommentRepository extends SecurityFilterRepository<Comment, UUI
      */
     Page<Comment> findByParentUuid(UUID parentUuid, Pageable pageable);
 
+    List<Comment> findByParentUuidOrderByCreatedAtAscUuidAsc(UUID parentUuid);
+
     @Query("SELECT c.parentUuid, COUNT(c) FROM Comment c WHERE c.parentUuid IN :rootUuids GROUP BY c.parentUuid")
     List<Object[]> countRepliesByRoots(@Param("rootUuids") Collection<UUID> rootUuids);
 
