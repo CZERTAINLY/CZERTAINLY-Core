@@ -64,8 +64,7 @@ public class CommentWriter {
      * the delete commits — a root author must not erase words the thread gained meanwhile. {@code soleAuthor} is the
      * caller when they may delete only because every comment in the thread is theirs; null when they hold the cascade
      * privilege and other users' replies go with the root.
-     */
-    /**
+     *
      * @return the replies removed along with the root, read under the same lock so none slips in unrecorded; the caller
      * owes them to the audit record, which is the only place their text survives
      */
