@@ -110,14 +110,11 @@ public class FilterPredicatesBuilder {
      * The predicate a listing applies for the filters a request carries.
      *
      * @param contentFilterSource the caller's custom-attribute permissions, which an attribute-sourced filter is gated
-     * by. Taken as a supplier and read only once a filter actually reaches attribute content, because resolving them is
-     * an authorization round trip and a listing filtered on properties alone - which is most of them - must not pay for
-     * one. {@code AttributeColumnProjector} loads them on the same terms, after establishing that a column asked for
-     * attribute content. This method reads the supplier at most once, but a listing builds its predicate more than once
-     * - for the page and again for the count - so callers pass {@code AttributeEngine.customAttributeContentFilterOnce}
-     * and hold it across those builds, which is what makes it one resolution per request rather than per query. Every
-     * listing supplies it rather than being trusted to know it has no attribute fields, because what a request may name
-     * is the caller's choice, not the listing's.
+     * by. Read only once a filter actually reaches attribute content, so a listing filtered on properties alone pays
+     * for no authorization call - the terms {@code AttributeColumnProjector} already loads them on. Callers pass
+     * {@code AttributeEngine.customAttributeContentFilterOnce}, which is what keeps it to one resolution per request.
+     * Every listing supplies it rather than being trusted to know it has no attribute fields, because what a request
+     * may name is the caller's choice, not the listing's.
      */
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder,
             final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos,
