@@ -105,7 +105,7 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
 
     private CommentResponseDto list(Resource resource, UUID objectUuid) throws NotFoundException {
         return commentService
-                .listComments(SecuredResource.fromResource(resource), SecuredUUID.fromUUID(objectUuid),
+                .listComments(SecuredResource.fromResource(resource), SecuredUUID.fromUUID(objectUuid), null,
                         new SortedPaginationRequestDto());
     }
 
@@ -207,7 +207,7 @@ class CommentAuthorizationITest extends BaseSpringBootTest {
 
         UUID replyUuid = reply.getUuid();
         SortedPaginationRequestDto pagination = new SortedPaginationRequestDto();
-        assertThatThrownBy(() -> commentService.listReplies(replyUuid, pagination))
+        assertThatThrownBy(() -> commentService.listReplies(replyUuid, null, pagination))
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> commentService.resolveComment(replyUuid)).isInstanceOf(AccessDeniedException.class);
     }
