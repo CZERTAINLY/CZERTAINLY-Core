@@ -10,7 +10,9 @@ import com.otilm.core.model.crypto.TokenProfileFullModel;
 import com.otilm.core.security.authz.SecurityFilter;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +42,6 @@ public interface TokenProfileRepository extends SecurityFilterRepository<TokenPr
             WHERE profile.uuid = :uuid
               AND profile.tokenInstanceReferenceUuid = :tokenUuid
               AND token.status IS NOT NULL
-              AND token.connectorUuid IS NOT NULL
             """)
     Optional<TokenProfile> findWithTokenInstanceByUuidAndTokenInstanceReferenceUuid(@Param("uuid") UUID uuid,
             @Param("tokenUuid") UUID tokenUuid);
@@ -66,16 +67,16 @@ public interface TokenProfileRepository extends SecurityFilterRepository<TokenPr
 
     default List<TokenProfileFullModel> findFullModelsUsingSecurityFilter(SecurityFilter filter,
             Optional<Boolean> enabled) {
-        List<TokenProfile> profiles = enabled
-                .map(value -> findUsingSecurityFilter(filter, List.of("tokenInstanceReference"),
-                        (Root<TokenProfile> root, CriteriaBuilder cb,
-                                jakarta.persistence.criteria.CriteriaQuery<?> query) -> cb
-                                        .and(cb.equal(root.get("enabled"), value),
-                                                fullModelAssociationPredicate(root, cb))))
-                .orElseGet(() -> findUsingSecurityFilter(filter, List.of("tokenInstanceReference"),
-                        (Root<TokenProfile> root, CriteriaBuilder cb,
-                                jakarta.persistence.criteria.CriteriaQuery<?> query) -> fullModelAssociationPredicate(
-                                        root, cb)));
+        List<TokenProfile> profiles;
+        if (enabled.isPresent()) {
+            profiles = findUsingSecurityFilter(filter, List.of("tokenInstanceReference"),
+                    (Root<TokenProfile> root, CriteriaBuilder cb, CriteriaQuery<?> query) -> cb
+                            .and(cb.equal(root.get("enabled"), enabled.get()),
+                                    fullModelAssociationPredicate(root, cb)));
+        } else {
+            profiles = findUsingSecurityFilter(filter, List.of("tokenInstanceReference"), (Root<TokenProfile> root,
+                    CriteriaBuilder cb, CriteriaQuery<?> query) -> fullModelAssociationPredicate(root, cb));
+        }
         return profiles
                 .stream()
                 .map(ImmutableTokenProfileFullModel::from)
@@ -83,12 +84,9 @@ public interface TokenProfileRepository extends SecurityFilterRepository<TokenPr
                 .toList();
     }
 
-    private static jakarta.persistence.criteria.Predicate fullModelAssociationPredicate(Root<TokenProfile> root,
-            CriteriaBuilder cb) {
+    private static Predicate fullModelAssociationPredicate(Root<TokenProfile> root, CriteriaBuilder cb) {
         Join<TokenProfile, TokenInstanceReference> token = root.join(TokenProfile_.tokenInstanceReference);
-        return cb
-                .and(cb.isNotNull(token.get(TokenInstanceReference_.status)),
-                        cb.isNotNull(token.get(TokenInstanceReference_.connectorUuid)));
+        return cb.isNotNull(token.get(TokenInstanceReference_.status));
     }
 
 }

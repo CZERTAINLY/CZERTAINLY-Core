@@ -7,5 +7,5 @@ public interface TokenInstanceFullModel extends TokenInstanceBasicModel {
 
     ImmutableConnectorInterface connectorInterface();
 
-    Set<TokenProfileFullModel> tokenProfiles();
+    Set<TokenProfileBasicModel> tokenProfiles();
 }

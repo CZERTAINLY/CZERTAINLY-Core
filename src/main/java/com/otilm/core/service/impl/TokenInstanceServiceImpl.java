@@ -30,7 +30,7 @@ import com.otilm.core.model.connector.ImmutableConnectorFullModel;
 import com.otilm.core.model.crypto.ImmutableTokenInstanceBasicModel;
 import com.otilm.core.model.crypto.TokenInstanceBasicModel;
 import com.otilm.core.model.crypto.TokenInstanceFullModel;
-import com.otilm.core.model.crypto.TokenProfileFullModel;
+import com.otilm.core.model.crypto.TokenProfileBasicModel;
 import com.otilm.core.security.authz.ExternalAuthorization;
 import com.otilm.core.security.authz.SecuredUUID;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -514,7 +514,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceExternalService, T
                                             tokenInstanceReference
                                                     .tokenProfiles()
                                                     .stream()
-                                                    .map(TokenProfileFullModel::name)
+                                                    .map(TokenProfileBasicModel::name)
                                                     .collect(Collectors.toSet())));
         }
 

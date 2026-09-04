@@ -117,17 +117,9 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     }
 
     @Test
-    void listTokenProfiles_excludesProfileWhoseTokenHasNoConnector() {
+    void listTokenProfiles_includesProfileWhoseTokenHasNoConnector() {
         // given
-        var disconnectedToken = new TokenInstanceReference();
-        disconnectedToken.setTokenInstanceUuid("disconnected-token");
-        disconnectedToken.setStatus(TokenInstanceStatus.UNKNOWN);
-        disconnectedToken = tokenInstanceReferenceRepository.save(disconnectedToken);
-        var disconnectedProfile = new TokenProfile();
-        disconnectedProfile.setName("profile-without-connector");
-        disconnectedProfile.setEnabled(true);
-        disconnectedProfile.setTokenInstanceReference(disconnectedToken);
-        disconnectedProfile = tokenProfileRepository.save(disconnectedProfile);
+        var disconnectedProfile = createDisconnectedProfile();
         var disconnectedProfileUuid = disconnectedProfile.getUuid().toString();
 
         // when
@@ -136,8 +128,37 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
         // then
         Assertions
-                .assertFalse(
+                .assertTrue(
                         tokenProfiles.stream().anyMatch(profile -> disconnectedProfileUuid.equals(profile.getUuid())));
+    }
+
+    @Test
+    void getTokenProfile_returnsProfileWhoseTokenHasNoConnector() throws NotFoundException {
+        // given
+        var disconnectedProfile = createDisconnectedProfile();
+        var disconnectedTokenUuid = disconnectedProfile.getTokenInstanceReference().getSecuredParentUuid();
+
+        // when
+        TokenProfileDetailDto detail = tokenProfileService
+                .getTokenProfile(disconnectedTokenUuid, disconnectedProfile.getSecuredUuid());
+
+        // then
+        Assertions.assertEquals(disconnectedProfile.getUuid().toString(), detail.getUuid());
+        Assertions.assertEquals(TokenInstanceStatus.UNKNOWN, detail.getTokenInstanceStatus());
+    }
+
+    @Test
+    void deleteTokenProfile_deletesProfileWhoseTokenHasNoConnector() throws NotFoundException {
+        // given
+        var disconnectedProfile = createDisconnectedProfile();
+        var disconnectedTokenUuid = disconnectedProfile.getTokenInstanceReference().getSecuredParentUuid();
+        var disconnectedProfileUuid = disconnectedProfile.getSecuredUuid();
+
+        // when
+        tokenProfileService.deleteTokenProfile(disconnectedTokenUuid, disconnectedProfileUuid);
+
+        // then
+        Assertions.assertTrue(tokenProfileRepository.findByUuid(disconnectedProfileUuid).isEmpty());
     }
 
     @Test
@@ -474,6 +495,19 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         nameAndUuidDto = tokenProfileInternalService.getResourceObjectExternal(tokenProfile.getSecuredUuid());
         Assertions.assertEquals(tokenProfile.getUuid().toString(), nameAndUuidDto.getUuid());
         Assertions.assertEquals(tokenProfile.getName(), nameAndUuidDto.getName());
+    }
+
+    private TokenProfile createDisconnectedProfile() {
+        TokenInstanceReference disconnectedToken = new TokenInstanceReference();
+        disconnectedToken.setTokenInstanceUuid("disconnected-token");
+        disconnectedToken.setStatus(TokenInstanceStatus.UNKNOWN);
+        disconnectedToken = tokenInstanceReferenceRepository.save(disconnectedToken);
+
+        TokenProfile disconnectedProfile = new TokenProfile();
+        disconnectedProfile.setName("profile-without-connector");
+        disconnectedProfile.setEnabled(true);
+        disconnectedProfile.setTokenInstanceReference(disconnectedToken);
+        return tokenProfileRepository.save(disconnectedProfile);
     }
 
     private SigningProfile createSigningProfile(String name, int latestVersion) {
