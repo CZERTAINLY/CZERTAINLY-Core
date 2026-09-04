@@ -49,8 +49,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * free-text discriminator over-splits. The value is what is emitted, not the spelling that matched: emitting the
      * spelling keyed {@code TLS Suite-B} and {@code TLS SuiteB} apart, one posture as two.
      */
+    private static final String SUITE_B = "suite-b";
+
     private static final Map<String, String> POSTURE_TOKENS = Map
-            .of("cnsa", "cnsa", "pqc", "pqc", "fips", "fips", "suite-b", "suite-b", "suiteb", "suite-b");
+            .of("cnsa", "cnsa", "pqc", "pqc", "fips", "fips", SUITE_B, SUITE_B, "suiteb", SUITE_B);
 
     /**
      * A port is digits after a colon. The class used to admit a slash as well, so {@code TLS/12} contributed port 12

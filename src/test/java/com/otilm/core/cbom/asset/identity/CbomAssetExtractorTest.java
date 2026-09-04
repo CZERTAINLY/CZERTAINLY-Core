@@ -160,7 +160,7 @@ class CbomAssetExtractorTest {
                 .of(keys + certificateReferencingKeys("two-keys", "v", "u") + ","
                         + certificateReferencing("none", "nowhere")));
 
-        assertThat(transposed.get("two-keys")).isEqualTo(forward.get("two-keys"));
+        assertThat(transposed).containsEntry("two-keys", forward.get("two-keys"));
         assertThat(forward.get("two-keys").identityKey())
                 .describedAs("an ambiguous public-key reference resolves to nothing, as a dangling one does")
                 .isEqualTo(forward.get("none").identityKey());

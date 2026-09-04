@@ -135,7 +135,7 @@ public record AssetNormalizer(IdentityTables tables) {
      * and the commonest JCA spelling stored a 256-bit RSA key.
      */
     private static final Pattern DIGEST_IN_NAME = Pattern
-            .compile("(?:(?<![A-Za-z0-9])|(?<=with))(?:SHA|MD)-?(?:[23][-_/]?)?(\\d{3,4})(?!\\d)",
+            .compile("(?:(?<![A-Z0-9])|(?<=with))(?:SHA|MD)-?(?:[23][-_/]?)?(\\d{3,4})(?!\\d)",
                     Pattern.CASE_INSENSITIVE);
 
     /**
@@ -1135,7 +1135,7 @@ public record AssetNormalizer(IdentityTables tables) {
             String token = paddingSpelling(declared);
             // L7: the slot was an unbounded passthrough and has stored arbitrary producer text verbatim. Only a value
             // in the closed padding vocabulary may enter the key.
-            if (tables.paddingTokens().stream().noneMatch(known -> AsciiText.upper(known).equals(token))) {
+            if (tables.paddingTokens().stream().noneMatch(known -> AsciiText.upperPresent(known).equals(token))) {
                 norm.note("L7: padding " + declared + " is outside the closed vocabulary and does not enter the key");
                 return;
             }
@@ -1169,7 +1169,7 @@ public record AssetNormalizer(IdentityTables tables) {
      * what {@code PKCS5} says.
      */
     private static String paddingSpelling(String declared) {
-        String flattened = AsciiText.upper(NON_ALPHANUMERIC.matcher(declared).replaceAll(""));
+        String flattened = AsciiText.upperPresent(NON_ALPHANUMERIC.matcher(declared).replaceAll(""));
         return flattened.length() > JCA_PADDING_WORD.length() && flattened.endsWith(JCA_PADDING_WORD)
                 ? flattened.substring(0, flattened.length() - JCA_PADDING_WORD.length())
                 : flattened;

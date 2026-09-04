@@ -317,19 +317,24 @@ public final class DistinguishedNames {
         StringBuilder out = new StringBuilder(text.length());
         StringBuilder pending = new StringBuilder();
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        for (int index = 0; index < text.length(); index++) {
+        int index = 0;
+        while (index < text.length()) {
             char character = text.charAt(index);
             if (character == '\\' && index + 2 < text.length() && HexFormat.isHexDigit(text.charAt(index + 1))
                     && HexFormat.isHexDigit(text.charAt(index + 2))) {
                 bytes.write(HexFormat.fromHexDigits(text, index + 1, index + 3));
-                index += 2;
+                index += 3;
                 continue;
             }
             flushBytes(bytes, pending, out);
             if (character != '\\') {
                 pending.append(character);
+                index++;
             } else if (index + 1 < text.length()) {
-                pending.append(text.charAt(++index));
+                pending.append(text.charAt(index + 1));
+                index += 2;
+            } else {
+                index++;
             }
         }
         flushBytes(bytes, pending, out);
@@ -353,7 +358,7 @@ public final class DistinguishedNames {
     }
 
     private static void flushText(StringBuilder pending, StringBuilder out) {
-        if (pending.length() > 0) {
+        if (!pending.isEmpty()) {
             out.append(escapePercent(Normalizer.normalize(pending, Normalizer.Form.NFKC)));
             pending.setLength(0);
         }

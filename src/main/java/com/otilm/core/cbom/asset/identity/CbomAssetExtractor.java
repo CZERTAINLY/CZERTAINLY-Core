@@ -187,7 +187,7 @@ public final class CbomAssetExtractor {
                 List<JsonNode> occurrences = occurrencesOf(component);
                 ExtractedAsset asset = new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(),
                         nameOf(component), extracted.redaction().storedPayload(),
-                        OccurrenceEvidenceCapper.cap(sanitizedOccurrences(occurrences)),
+                        OccurrenceEvidenceCapper.cap(occurrences == null ? null : sanitizedOccurrences(occurrences)),
                         occurrences == null ? 0 : occurrences.size(), extracted.guard(),
                         extracted.redaction().findings());
                 requireEncodable(asset);
@@ -234,13 +234,11 @@ public final class CbomAssetExtractor {
      * read surface serves back.
      *
      * <p>
-     * {@code null} in, {@code null} out: a source that reported no evidence is distinct from one whose evidence capping
-     * emptied, and the capper preserves that distinction downstream.
+     * A source that reported no evidence is distinct from one whose evidence capping emptied, and the capper preserves
+     * that distinction downstream -- so the absent case is decided by the caller and never reaches here, and this
+     * method always answers with a list.
      */
     private static List<Map<String, Object>> sanitizedOccurrences(List<JsonNode> occurrences) {
-        if (occurrences == null) {
-            return null;
-        }
         List<JsonNode> retained = occurrences.size() > OccurrenceEvidenceCapper.MAX_OCCURRENCES
                 ? occurrences.subList(0, OccurrenceEvidenceCapper.MAX_OCCURRENCES)
                 : occurrences;
