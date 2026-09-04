@@ -19,6 +19,7 @@ import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.api.model.core.settings.SettingsSection;
 import com.otilm.api.model.core.settings.logging.LoggingSettingsDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.AttributeEngine.CustomAttributeContentFilter;
 import com.otilm.core.dao.entity.AuditLog;
 import com.otilm.core.dao.entity.AuditLog_;
 import com.otilm.core.dao.repository.AuditLogRepository;
@@ -46,6 +47,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -97,10 +99,10 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
         RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.AUDIT_LOG);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
+        final Supplier<CustomAttributeContentFilter> contentFilter = attributeEngine.customAttributeContentFilterOnce();
         final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery<?>, jakarta.persistence.criteria.Predicate> additionalWhereClause = (
-                root, cb, cr) -> FilterPredicatesBuilder
-                        .getFiltersPredicate(cb, cr, root, request.getFilters(),
-                                attributeEngine::loadCustomAttributeContentFilter);
+                root, cb,
+                cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters(), contentFilter);
         final List<AuditLogDto> auditLogs = auditLogRepository
                 .findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get(AuditLog_.id)))
@@ -123,9 +125,9 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
     @Override
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.EXPORT)
     public ExportResultDto exportAuditLogs(final List<SearchFilterRequestDto> filters) {
+        final Supplier<CustomAttributeContentFilter> contentFilter = attributeEngine.customAttributeContentFilterOnce();
         final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery<?>, jakarta.persistence.criteria.Predicate> additionalWhereClause = (
-                root, cb, cr) -> FilterPredicatesBuilder
-                        .getFiltersPredicate(cb, cr, root, filters, attributeEngine::loadCustomAttributeContentFilter);
+                root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters, contentFilter);
 
         final List<AuditLog> auditLogsEntities = auditLogRepository
                 .findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause,
@@ -178,9 +180,9 @@ public class AuditLogServiceImpl implements AuditLogExternalService, AuditLogInt
     @Override
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.DELETE)
     public void purgeAuditLogs(final List<SearchFilterRequestDto> filters) {
+        final Supplier<CustomAttributeContentFilter> contentFilter = attributeEngine.customAttributeContentFilterOnce();
         final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaDelete<AuditLog>, jakarta.persistence.criteria.Predicate> additionalWhereClause = (
-                root, cb, cd) -> FilterPredicatesBuilder
-                        .getFiltersPredicate(cb, cd, root, filters, attributeEngine::loadCustomAttributeContentFilter);
+                root, cb, cd) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cd, root, filters, contentFilter);
         final Integer deletedCount = auditLogRepository
                 .deleteUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
         logger.getLogger().debug("Deleted {} audit logs", deletedCount);

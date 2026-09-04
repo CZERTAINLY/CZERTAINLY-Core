@@ -1421,6 +1421,30 @@ public class AttributeEngine {
         return toContentFilter(loadCustomAttributesSecurityResourceFilter());
     }
 
+    /**
+     * The same permissions behind a supplier that resolves them on first use and then reuses the answer.
+     *
+     * <p>
+     * Resolving is a synchronous authorization call, and a listing builds its predicate more than once - once for the
+     * page and again for the count - so a caller that passed the load method itself would pay for each. Held for the
+     * span of one request by the method that starts it, and read on that request's own thread, which is what lets it
+     * memoize without synchronization.
+     */
+    public Supplier<CustomAttributeContentFilter> customAttributeContentFilterOnce() {
+        return new Supplier<>() {
+
+            private CustomAttributeContentFilter resolved;
+
+            @Override
+            public CustomAttributeContentFilter get() {
+                if (resolved == null) {
+                    resolved = loadCustomAttributeContentFilter();
+                }
+                return resolved;
+            }
+        };
+    }
+
     private static CustomAttributeContentFilter toContentFilter(SecurityResourceFilter securityResourceFilter) {
         List<UUID> allowedAttributes = null;
         List<UUID> forbiddenAttributes = null;

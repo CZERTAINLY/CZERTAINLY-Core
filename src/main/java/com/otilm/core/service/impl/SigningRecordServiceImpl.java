@@ -16,6 +16,7 @@ import com.otilm.api.model.core.signing.signingrecord.SigningRecordDto;
 import com.otilm.api.model.core.signing.signingrecord.SigningRecordListDto;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.AttributeEngine.CustomAttributeContentFilter;
 import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.dao.entity.Audited_;
@@ -53,6 +54,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.data.domain.PageRequest;
@@ -298,10 +300,10 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
             UUID signingProfileUuid) {
         filter.setParentRefProperty(SIGNING_PROFILE_PARENT_REF);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        final Supplier<CustomAttributeContentFilter> contentFilter = attributeEngine.customAttributeContentFilterOnce();
         TriFunction<Root<SigningRecord>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> {
             Predicate filters = FilterPredicatesBuilder
-                    .getFiltersPredicate(cb, cq, root, request.getFilters(),
-                            attributeEngine::loadCustomAttributeContentFilter);
+                    .getFiltersPredicate(cb, cq, root, request.getFilters(), contentFilter);
             return signingProfileUuid == null
                     ? filters
                     : cb.and(cb.equal(root.get(SigningRecord_.signingProfileUuid), signingProfileUuid), filters);

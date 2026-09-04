@@ -589,7 +589,7 @@ public class CertificateServiceImpl
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(
-                request.getFilters(), request.isIncludeArchived(), attributeEngine::loadCustomAttributeContentFilter);
+                request.getFilters(), request.isIncludeArchived(), attributeEngine.customAttributeContentFilterOnce());
         List<UUID> certificateUuids = certificateRepository
                 .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")),
@@ -2355,7 +2355,7 @@ public class CertificateServiceImpl
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
             PaginationRequestDto pagination) {
         final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(
-                filters, false, attributeEngine::loadCustomAttributeContentFilter);
+                filters, false, attributeEngine.customAttributeContentFilterOnce());
         return certificateRepository
                 .listResourceObjects(filter,
                         // Creates the name as "{commonName} (SN: {serialNumber})", if the common name is empty or null,

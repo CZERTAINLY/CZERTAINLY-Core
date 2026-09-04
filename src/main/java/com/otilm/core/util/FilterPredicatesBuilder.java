@@ -88,6 +88,11 @@ public class FilterPredicatesBuilder {
             .of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE,
                     AttributeContentType.TIME, AttributeContentType.DATETIME);
     private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
+
+    /** The path within a stored attribute definition at which its visibility lives. */
+    private static final String DEFINITION_PROPERTIES_KEY = "properties";
+
+    private static final String VISIBLE_KEY = "visible";
     private static final String TEXTREGEXEQ_FUNCTION_NAME = "textregexeq";
     private static final String ARRAY_CONTAINS_FUNCTION_NAME = PostgresFunctionContributor.ARRAY_CONTAINS;
 
@@ -105,11 +110,14 @@ public class FilterPredicatesBuilder {
      * The predicate a listing applies for the filters a request carries.
      *
      * @param contentFilterSource the caller's custom-attribute permissions, which an attribute-sourced filter is gated
-     * by. Taken as a supplier and read at most once, and only once a filter actually reaches attribute content:
-     * resolving them is an authorization round trip, and a listing filtered on properties alone - which is most of them
-     * - must not pay for one. {@code AttributeColumnProjector} loads them on the same terms, after establishing that a
-     * column asked for attribute content. Every listing supplies it rather than being trusted to know it has no
-     * attribute fields, because what a request may name is the caller's choice, not the listing's.
+     * by. Taken as a supplier and read only once a filter actually reaches attribute content, because resolving them is
+     * an authorization round trip and a listing filtered on properties alone - which is most of them - must not pay for
+     * one. {@code AttributeColumnProjector} loads them on the same terms, after establishing that a column asked for
+     * attribute content. This method reads the supplier at most once, but a listing builds its predicate more than once
+     * - for the page and again for the count - so callers pass {@code AttributeEngine.customAttributeContentFilterOnce}
+     * and hold it across those builds, which is what makes it one resolution per request rather than per query. Every
+     * listing supplies it rather than being trusted to know it has no attribute fields, because what a request may name
+     * is the caller's choice, not the listing's.
      */
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder,
             final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos,
@@ -164,6 +172,7 @@ public class FilterPredicatesBuilder {
                     .create("Filtering by %s was not resolved against the caller's attribute permissions."
                             .formatted(filterDto.getFieldIdentifier())));
         }
+        requireFilterableContentType(filterDto);
         final Subquery<Integer> subquery = query.subquery(Integer.class);
         final Root<AttributeContent2Object> subqueryRoot = subquery.from(AttributeContent2Object.class);
         final Join joinContentItem = subqueryRoot.join(AttributeContent2Object_.attributeContentItem, JoinType.INNER);
@@ -1302,6 +1311,46 @@ public class FilterPredicatesBuilder {
     }
 
     /**
+     * Content whose values a listing never reads, whatever a request asks for: a secret is rendered nowhere, and a code
+     * block is multi-line by construction. {@code AttributeColumnProjector} withholds both from a column and
+     * {@code SearchHelper} reports them undisplayable, so a filter that read them would be the one path left that does.
+     */
+    private static final Set<AttributeContentType> UNFILTERABLE_CONTENT_TYPES = Set
+            .of(AttributeContentType.SECRET, AttributeContentType.CODEBLOCK);
+
+    /**
+     * Refuses a filter on content no path may read, rather than answering it. Refused for the reason
+     * {@code ListingSortResolver} refuses the same content types for an ordering: the catalogue withholds the field,
+     * and answering anyway would make the flag it withheld it with meaningless.
+     */
+    private static void requireFilterableContentType(final SearchFilterRequestDto filterDto) {
+        final AttributeFieldIdentifier identifier = AttributeFieldIdentifier.parse(filterDto.getFieldIdentifier());
+        if (identifier != null && UNFILTERABLE_CONTENT_TYPES.contains(identifier.contentType())) {
+            throw new ValidationException(ValidationError
+                    .create("Field %s cannot be used to filter this resource."
+                            .formatted(filterDto.getFieldIdentifier())));
+        }
+    }
+
+    /**
+     * Whether the definition behind a content row says its attribute may be shown to a user.
+     *
+     * <p>
+     * Read out of the stored definition document, because visibility is a property of the serialized attribute rather
+     * than a column of its own - which is why {@code AttributeColumnProjector} answers it in Java, after loading. A
+     * query has to answer it before, so it reads the same path with {@code jsonb_extract_path_text}. Absent counts as
+     * visible, matching {@code AttributeDefinitionProperties.isVisible}, whose properties may be null.
+     */
+    private static Predicate definitionIsVisible(final CriteriaBuilder criteriaBuilder, final Join joinDefinition) {
+        final Expression<String> visible = criteriaBuilder
+                .function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class,
+                        joinDefinition.get(AttributeDefinition_.definition),
+                        criteriaBuilder.literal(DEFINITION_PROPERTIES_KEY), criteriaBuilder.literal(VISIBLE_KEY));
+        return criteriaBuilder
+                .or(criteriaBuilder.isNull(visible), criteriaBuilder.notEqual(visible, Boolean.FALSE.toString()));
+    }
+
+    /**
      * The predicates that keep a query from reading content the same response would withhold, mirroring
      * {@code AttributeContent2ObjectRepository.getProjectedAttributesContent} and the row-level checks
      * {@code AttributeColumnProjector} applies on top of it.
@@ -1326,6 +1375,7 @@ public class FilterPredicatesBuilder {
         if (readsStoredValue) {
             predicates.add(criteriaBuilder.isNull(joinContentItem.get(AttributeContentItem_.encryptedData)));
         }
+        predicates.add(definitionIsVisible(criteriaBuilder, joinDefinition));
         if (attributeType != AttributeType.CUSTOM) {
             return predicates;
         }

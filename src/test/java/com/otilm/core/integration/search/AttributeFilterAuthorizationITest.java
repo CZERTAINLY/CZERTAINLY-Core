@@ -1,5 +1,6 @@
 package com.otilm.core.integration.search;
 
+import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
@@ -21,6 +22,7 @@ import com.otilm.core.dao.repository.AttributeDefinitionRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecurityFilter;
+import com.otilm.core.security.authz.opa.dto.OpaRequestedResource;
 import com.otilm.core.service.DiscoveryExternalService;
 import com.otilm.core.util.BaseSpringBootTest;
 import java.util.ArrayList;
@@ -29,6 +31,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aCustomAttributeFilter;
@@ -42,6 +45,9 @@ import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aCustom
 class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
 
     private static final String ENVIRONMENT = "environment";
+
+    /** Registered with {@code visible: false}, which is what the catalogue withholds a column and an ordering for. */
+    private static final String HIDDEN = "hidden-environment";
 
     @Autowired
     private DiscoveryExternalService discoveryService;
@@ -141,6 +147,68 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
                         listNamesFiltered(FilterConditionOperator.NOT_EMPTY, null).stream().sorted().toList());
     }
 
+    /**
+     * An attribute the definition says not to show a user is one the projection drops and the ordering refuses, so a
+     * filter must not answer questions about it either. The catalogue still publishes it as filterable, which is what
+     * makes the filter reachable at all.
+     */
+    @Test
+    void contentOfAHiddenAttributeCannotNarrowTheListing() throws Exception {
+        UUID hiddenUuid = registerCustomAttribute(HIDDEN, AttributeContentType.TEXT, false);
+        storeContent("second-created", hiddenUuid, HIDDEN, "alpha");
+
+        Assertions
+                .assertEquals(List.of(),
+                        listNamesFiltered(HIDDEN, AttributeContentType.TEXT, FilterConditionOperator.EQUALS, "alpha"));
+    }
+
+    /** Nor may a presence filter stand in for the value question the case above closes. */
+    @Test
+    void aHiddenAttributeDoesNotAnswerAPresenceFilterEither() throws Exception {
+        UUID hiddenUuid = registerCustomAttribute(HIDDEN, AttributeContentType.TEXT, false);
+        storeContent("second-created", hiddenUuid, HIDDEN, "alpha");
+
+        Assertions
+                .assertEquals(List.of(),
+                        listNamesFiltered(HIDDEN, AttributeContentType.TEXT, FilterConditionOperator.NOT_EMPTY, null));
+    }
+
+    /**
+     * Secret and code-block content are withheld from a column whatever the request asks for, and the ordering refuses
+     * them outright; a filter naming one is refused for the same reason.
+     */
+    @Test
+    void aSecretAttributeCannotBeFiltered() throws Exception {
+        registerCustomAttribute("filter-secret-probe", AttributeContentType.SECRET, true);
+
+        Assertions
+                .assertThrows(ValidationException.class, () -> listNamesFiltered("filter-secret-probe",
+                        AttributeContentType.SECRET, FilterConditionOperator.NOT_EMPTY, null));
+    }
+
+    /**
+     * Resolving the caller's attribute permissions is a synchronous authorization call, and a listing builds its
+     * predicate twice - once for the page and again for the count. One request must still pay for one resolution.
+     */
+    @Test
+    void oneListingResolvesTheCallersAttributePermissionsOnce() {
+        // Seeding the content read permissions too, so only what the listing itself asks is counted.
+        Mockito.clearInvocations(opaClient);
+
+        listNamesFilteredByEnvironment("alpha");
+
+        Mockito
+                .verify(opaClient, Mockito.times(1))
+                .checkObjectAccess(Mockito.any(), Mockito.argThat(this::isAttributeMembersRequest), Mockito.any(),
+                        Mockito.any());
+    }
+
+    private boolean isAttributeMembersRequest(OpaRequestedResource request) {
+        return request != null && request.getProperties() != null
+                && Resource.ATTRIBUTE.getCode().equals(request.getProperties().get("name"))
+                && ResourceAction.MEMBERS.getCode().equals(request.getProperties().get("action"));
+    }
+
     /** Moves one stored value to the encrypted column, which is where content of an encrypted attribute lives. */
     private void encryptStoredContent(String value) {
         AttributeDefinition definition = attributeDefinitionRepository
@@ -162,8 +230,12 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
     }
 
     private List<String> listNamesFiltered(FilterConditionOperator condition, String value) {
-        SearchFilterRequestDto filter = aCustomAttributeFilter(ENVIRONMENT, AttributeContentType.TEXT, condition,
-                value);
+        return listNamesFiltered(ENVIRONMENT, AttributeContentType.TEXT, condition, value);
+    }
+
+    private List<String> listNamesFiltered(String attributeName, AttributeContentType contentType,
+            FilterConditionOperator condition, String value) {
+        SearchFilterRequestDto filter = aCustomAttributeFilter(attributeName, contentType, condition, value);
 
         SearchRequestDto request = new SearchRequestDto();
         request.setPageNumber(1);
@@ -179,15 +251,20 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
     }
 
     private UUID registerCustomAttribute() throws Exception {
+        return registerCustomAttribute(ENVIRONMENT, AttributeContentType.TEXT, true);
+    }
+
+    private UUID registerCustomAttribute(String name, AttributeContentType contentType, boolean visible)
+            throws Exception {
         CustomAttributeV3 attribute = new CustomAttributeV3();
         UUID uuid = UUID.randomUUID();
         attribute.setUuid(uuid.toString());
-        attribute.setName(ENVIRONMENT);
+        attribute.setName(name);
         attribute.setType(AttributeType.CUSTOM);
-        attribute.setContentType(AttributeContentType.TEXT);
+        attribute.setContentType(contentType);
         CustomAttributeProperties properties = new CustomAttributeProperties();
-        properties.setLabel(ENVIRONMENT);
-        properties.setVisible(true);
+        properties.setLabel(name);
+        properties.setVisible(visible);
         attribute.setProperties(properties);
         attributeEngine.updateCustomAttributeDefinition(attribute, List.of(Resource.DISCOVERY));
         return uuid;
@@ -206,6 +283,19 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
         attributeEngine
                 .updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(),
                         List.of(customContent(environmentValue)));
+    }
+
+    /** Writes one value of another registered attribute onto an already-seeded discovery. */
+    private void storeContent(String discoveryName, UUID attributeUuid, String attributeName, String value)
+            throws Exception {
+        Discovery discovery = discoveryRepository.findByName(discoveryName).orElseThrow();
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(attributeUuid);
+        requestAttribute.setName(attributeName);
+        requestAttribute.setContent(List.of(new TextAttributeContentV3(null, value)));
+        attributeEngine
+                .updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(),
+                        List.of(requestAttribute));
     }
 
     private RequestAttributeV3 customContent(String value) {

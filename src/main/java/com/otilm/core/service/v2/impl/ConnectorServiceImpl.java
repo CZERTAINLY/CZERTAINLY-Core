@@ -35,6 +35,7 @@ import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.AttributeEngine.CustomAttributeContentFilter;
 import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.config.cache.CacheConfig;
@@ -90,6 +91,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.TriFunction;
@@ -240,10 +242,10 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
+        final Supplier<CustomAttributeContentFilter> contentFilter = attributeEngine.customAttributeContentFilterOnce();
         final TriFunction<Root<Connector>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root,
-                cb, cr) -> FilterPredicatesBuilder
-                        .getFiltersPredicate(cb, cr, root, request.getFilters(),
-                                attributeEngine::loadCustomAttributeContentFilter);
+                cb,
+                cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters(), contentFilter);
         final List<ConnectorDto> connectorDtos = connectorRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")),

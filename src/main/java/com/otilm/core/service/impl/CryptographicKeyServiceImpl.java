@@ -51,6 +51,7 @@ import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.core.attribute.engine.AttributeColumnProjector;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.AttributeEngine.CustomAttributeContentFilter;
 import com.otilm.core.attribute.engine.ListingSortResolver;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.client.ConnectorApiFactory;
@@ -119,6 +120,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
@@ -313,10 +315,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         RequestValidatorHelper.revalidateSearchRequestDto(request);
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        final Supplier<CustomAttributeContentFilter> contentFilter = attributeEngine.customAttributeContentFilterOnce();
         final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
-                root, cb, cr) -> FilterPredicatesBuilder
-                        .getFiltersPredicate(cb, cr, root, request.getFilters(),
-                                attributeEngine::loadCustomAttributeContentFilter);
+                root, cb,
+                cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters(), contentFilter);
 
         List<UUID> filteredKeyUuids = cryptographicKeyItemRepository
                 .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,
