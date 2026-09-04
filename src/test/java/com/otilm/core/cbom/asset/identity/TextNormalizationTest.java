@@ -790,6 +790,24 @@ class TextNormalizationTest {
         assertThat(sanitize("a".repeat(64 * 1024 + 1))).isEmpty();
     }
 
+    /**
+     * Sanitizing a sanitized location changes nothing.
+     *
+     * <p>
+     * The location is sanitized twice on two paths -- once for the key, once for the stored evidence -- so the served
+     * string must be the string the key hashed. The cap can land on interior whitespace, and the leading-fragment
+     * retention can uncover a leading space, so a second application used to remove a character the first had kept.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"aaa  bbb", "# /path/to/key", "# pointer"})
+    void sanitizingASanitizedLocationChangesNothing(String tail) {
+        String location = "a".repeat(1020) + tail;
+        String once = sanitize(location);
+
+        assertThat(sanitize(once)).isEqualTo(once);
+        assertThat(sanitize(tail)).isEqualTo(sanitize(sanitize(tail)));
+    }
+
     private static String sanitize(String location) {
         return Occurrences.sanitizeLocation(new TextNode(location));
     }

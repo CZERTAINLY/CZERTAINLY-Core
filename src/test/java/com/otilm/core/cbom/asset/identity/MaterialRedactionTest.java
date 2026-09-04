@@ -122,11 +122,29 @@ class MaterialRedactionTest {
      * served back is the same leak one step removed. The identity digest still exists, because the identity key is a
      * hash of a whole pre-image and is never exposed on any API -- it is what keeps two different passwords at one
      * source coordinate apart.
+     *
+     * <p>
+     * {@code passphrase}, {@code pin}, {@code api-key} and {@code jwt} are here because a five-entry denylist let every
+     * one of them through: the type vocabulary is the producer's to invent, so the rule is an allowlist of the types
+     * that are high-entropy by construction and an unrecognised spelling is withheld like {@code unknown}.
      */
     @ParameterizedTest
-    @ValueSource(strings = {"password", "token", "credential", "PASSWORD"})
+    @ValueSource(strings = {
+            "password",
+            "token",
+            "credential",
+            "PASSWORD",
+            "passphrase",
+            "pin",
+            "api-key",
+            "jwt",
+            "session-token",
+            "secret",
+            "symmetric-key"})
     void lowEntropyMaterialPublishesNoDigestButStillKeysApart(String type) {
-        MaterialRedaction redaction = redact(type, "hunter2");
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"" + type + "\",\"value\":\"hunter2\","
+                        + "\"fingerprint\":{\"alg\":\"sha-256\",\"content\":\"f52fbd32b2b3b86f\"}}}"));
 
         assertThat(redaction.publishedDigest()).isNull();
         assertThat(redaction.identityDigest()).isNotNull().hasSize(64);
@@ -135,7 +153,17 @@ class MaterialRedactionTest {
                 .isTrue();
         assertThat(redaction.storedPayload().at("/relatedCryptoMaterialProperties/value/sha256").isMissingNode())
                 .isTrue();
+        assertThat(redaction.storedPayload().toString())
+                .describedAs("the producer's own digest of the value is as reversible as the one withheld")
+                .doesNotContain("f52fbd32b2b3b86f");
         assertThat(redaction.findings()).anySatisfy(finding -> assertThat(finding).contains("digest withheld"));
+    }
+
+    /** The allowlist is the schema's high-entropy vocabulary, matched on the lookup key like every other type. */
+    @ParameterizedTest
+    @ValueSource(strings = {"private-key", "publicKey", "SECRET_KEY", "shared secret", "nonce", "salt", "ciphertext"})
+    void highEntropyMaterialPublishesItsDigest(String type) {
+        assertThat(redact(type, "QUJDRA==").publishedDigest()).isNotNull();
     }
 
     @Test
@@ -173,7 +201,16 @@ class MaterialRedactionTest {
      * the platform then aggregates estate-wide. It is raised, not silently cleaned up.
      */
     @ParameterizedTest
-    @ValueSource(strings = {"private-key", "secret-key", "shared-secret", "seed", "key"})
+    @ValueSource(strings = {
+            "private-key",
+            "secret-key",
+            "shared-secret",
+            "seed",
+            "key",
+            "privateKey",
+            "private_key",
+            "PRIVATE KEY",
+            "shared_secret"})
     void anInlinedSecretIsReportedAsAnIngestFinding(String type) {
         assertThat(redact(type, SECRET).findings())
                 .anySatisfy(finding -> assertThat(finding).contains("producer inlined a value"));
@@ -367,26 +404,45 @@ class MaterialRedactionTest {
     }
 
     /**
-     * A member storage keeps is not also reported as exfiltration.
+     * The two unrestricted members are dropped and reported on a secret type, whatever its entropy.
      *
      * <p>
-     * The report and the drop asked two different questions -- the report against {@code CONTRACTED_MEMBERS} alone, the
-     * drop against its union with the publishable-only members. So on a secret type that is not low-entropy
-     * ({@code private-key}, {@code secret-key}, {@code shared-secret}, {@code seed}, {@code key}) a textual
-     * {@code relatedCryptoMaterialType} survived storage and still raised the loudest finding this class emits, on the
-     * producer's own spelling of the type it had already stated.
+     * The report and the drop asked two different questions, and aligning them onto the drop's looser set switched the
+     * exfiltration finding off for exactly the two members able to hold whatever a producer puts there: a PEM under
+     * {@code relatedCryptoMaterialType} or {@code fingerprint} on a {@code private-key} was stored verbatim with no
+     * finding, while the same PEM under {@code pem} was dropped and raised. Both now ask one question. The long type
+     * spelling is read by nothing, so dropping it on a secret type loses nothing; a fingerprint that is a string is not
+     * a fingerprint.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"relatedCryptoMaterialType", "fingerprint"})
+    void anUnrestrictedMemberOnASecretTypeIsDroppedAndReported(String member) {
+        MaterialRedaction redaction = MaterialRedaction
+                .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"private-key\",\"" + member + "\":\"" + SECRET
+                        + "\"}}"));
+
+        assertThat(redaction.storedPayload().toString()).doesNotContain(SECRET);
+        assertThat(redaction.storedPayload().at("/relatedCryptoMaterialProperties/" + member).isMissingNode()).isTrue();
+        assertThat(redaction.findings())
+                .anySatisfy(finding -> assertThat(finding)
+                        .contains("producer inlined a value on material type private-key")
+                        .contains("under member " + member));
+    }
+
+    /**
+     * A fingerprint in its schema shape stays stored on a secret type: it is the discriminator the
+     * {@code mat:fingerprint} tier keys on, irreversible for high-entropy material, and 443 corpus private keys carry
+     * one. Dropping it by name would have cost every one of those served payloads its fingerprint for no gain.
      */
     @Test
-    void aMemberStorageKeepsIsNotReportedAsExfiltration() {
+    void aFingerprintObjectOnASecretTypeStaysStoredAndIsNotCalledExfiltration() {
         MaterialRedaction redaction = MaterialRedaction
                 .of(read("{\"relatedCryptoMaterialProperties\":{\"type\":\"private-key\","
-                        + "\"relatedCryptoMaterialType\":\"private-key\"}}"));
+                        + "\"fingerprint\":{\"alg\":\"sha-256\",\"content\":\"aabb\"}}}"));
 
-        assertThat(redaction.storedPayload().at("/relatedCryptoMaterialProperties/relatedCryptoMaterialType").asText())
-                .describedAs("the drop keeps it, because a private key's digest is publishable")
-                .isEqualTo("private-key");
-        assertThat(redaction.findings())
-                .noneSatisfy(finding -> assertThat(finding).contains("producer inlined a value"));
+        assertThat(redaction.storedPayload().at("/relatedCryptoMaterialProperties/fingerprint/content").asText())
+                .isEqualTo("aabb");
+        assertThat(redaction.findings()).isEmpty();
     }
 
     /**

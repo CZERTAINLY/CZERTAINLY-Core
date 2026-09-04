@@ -129,38 +129,44 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                             + "a scan of the same algorithm");
         }
 
-        recordCaseRisk(preImage, tier.hashedInputs(), asset);
+        recordCaseRisk(tier.caseRiskInputs(), asset);
         return new Identity(IdentityDigests.sha256Hex(preImage), preImage, tier.step(), asset, normalized.redaction(),
                 guardFor(tier.digestRefuted(), tier.step(), asset));
     }
 
     /**
-     * One chain step's answer: the pre-image, the step that built it, and the inner strings it hashed on the way.
+     * One chain step's answer: the pre-image, the step that built it, and the strings the case-risk detector may read.
      *
      * <p>
-     * {@code hashedInputs} are the strings whose digest alone reaches the pre-image -- the distinguished-name
+     * {@code caseRiskInputs} are the pre-image and the strings whose digest alone reaches it -- the distinguished-name
      * composite, the occurrence triples and the cipher-suite token string, whose {@code n:<NAME>} fallback carries a
-     * producer's own spelling of a suite. They travel with the pre-image so the case-risk detector examines exactly
-     * what the key consumed, at the site that consumed it, rather than re-deriving it from the component and reading a
-     * raw {@code location} the key path had already sanitized. Deliberately absent: the material value behind
+     * producer's own spelling of a suite. They travel with the tier so the case-risk detector examines exactly what the
+     * key consumed, at the site that consumed it, rather than re-deriving it from the component and reading a raw
+     * {@code location} the key path had already sanitized. Deliberately absent: the material value behind
      * {@code MAT|..|V|}, the canonical JSON behind a projection digest, and the target algorithm's pre-image behind the
      * {@code A:} discriminator inside the distinguished-name composite. The first is the secret the redaction layer
      * exists to keep out of every carrier; the second is a whole payload, not a spelling an operator could fold; the
      * third is keyed on the target's own row, where its case risk is recorded.
      *
      * <p>
+     * A tier whose pre-image itself spells a possible secret lists what may be examined instead of the pre-image: the
+     * detector's note is stored in the row's provenance block and can be served, so a pre-image spelled into it is a
+     * disclosure. The {@code mat:fingerprint} claim is the one such tier -- see {@link #material}.
+     *
+     * <p>
      * {@code digestRefuted} is set only by the certificate tier, so the refutation stays visible outside the method
      * that saw it.
      */
-    private record Tier(String preImage, String step, boolean digestRefuted, List<String> hashedInputs) {
+    private record Tier(String preImage, String step, boolean digestRefuted, List<String> caseRiskInputs) {
 
         Tier(String preImage, String step) {
-            this(preImage, step, false, List.of());
+            this(preImage, step, false, List.of(preImage));
         }
 
         /** A tier whose pre-image carries the digest of {@code hashed}, or nothing more when {@code hashed} is null. */
         static Tier hashing(String preImage, String step, boolean digestRefuted, String hashed) {
-            return new Tier(preImage, step, digestRefuted, hashed == null ? List.of() : List.of(hashed));
+            return new Tier(preImage, step, digestRefuted,
+                    hashed == null ? List.of(preImage) : List.of(preImage, hashed));
         }
     }
 
@@ -389,6 +395,15 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * {@code normalizeAssetType}: this is a related-asset type, which that router does not know.
      *
      * <p>
+     * <b>Two public-key entries name nothing.</b> Taking the first one made array order decide the certificate's
+     * identity: transposing two {@code public-key} entries with different targets moved the key, one level below the
+     * rule that a duplicated {@code bom-ref} resolves to nothing because document order cannot be allowed to decide
+     * identity. An array inside a component is a different serialization of one document exactly as a permutation of
+     * its components is, so the same arm applies -- more than one entry folding to {@code publickey} is an unresolved
+     * reference, and the 1.6 field is not consulted in its place, since the array did state the key and stated it
+     * ambiguously. 0 corpus certificates carry two such entries, so nothing moves today.
+     *
+     * <p>
      * Takes the certificate node nullable and tests it here rather than being handed a proven-present one, so the
      * absence of {@code certificateProperties} is answered in one place instead of at every call.
      */
@@ -398,12 +413,21 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         }
         JsonNode related = certificate.get("relatedCryptographicAssets");
         if (related != null && related.isArray()) {
+            JsonNode publicKey = null;
+            int publicKeys = 0;
             for (JsonNode entry : related) {
                 JsonNode type = entry.isObject() ? entry.get("type") : null;
                 String entryType = type != null && type.isTextual() ? AsciiText.lookupKey(type.textValue()) : null;
                 if (PUBLIC_KEY_REFERENCE.equals(entryType)) {
-                    return entry.get("ref");
+                    publicKey = entry.get("ref");
+                    publicKeys++;
                 }
+            }
+            if (publicKeys > 1) {
+                return null;
+            }
+            if (publicKeys == 1) {
+                return publicKey;
             }
         }
         return certificate.get("subjectPublicKeyRef");
@@ -453,9 +477,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * surrounding whitespace nothing -- {@code content: "   "} is absent -- while the keyed value kept it, so
      * {@code content: " abc "} keyed {@code %20abc%20} and split from {@code "abc"}, and the gate and the key disagreed
      * about what a space means. Stripping matches {@code mat:id} one tier below and the serial in
-     * {@code crt:serial+issuer}. 0 of 753 corpus fingerprints and 0 vectors carry a padded half, so nothing moves. What
-     * is <em>not</em> closed here is alias canonicalization: {@code SHA256} and {@code SHA-256} are still two labels,
-     * which needs the ratified alias source {@code CertificateDigests.canonicalLabel} reads and is open on core#2165.
+     * {@code crt:serial+issuer}. 0 of the 453 fingerprints in the 2026-08-18 corpus and 0 vectors carry a padded half,
+     * so nothing moves. What is <em>not</em> closed here is alias canonicalization: {@code SHA256} and {@code SHA-256}
+     * are still two labels, which needs the ratified alias source {@code CertificateDigests.canonicalLabel} reads and
+     * is open on core#2165.
      */
     private static String fingerprintClaim(JsonNode algorithm, JsonNode content) {
         String label = algorithm == null || !algorithm.isTextual() || AsciiText.isBlank(algorithm.textValue())
@@ -686,10 +711,15 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // secret keys collapsed onto one row and the value-hash tier one branch below, which would have kept them
         // apart, was never reached. Blank is the reference whitespace set, as it is in every other slot.
         if (fingerprint != null && fingerprint.isObject() && hasContent(fingerprint.get(CbomNames.CONTENT))) {
+            // The claim spells `content` literally, and this tier is open to low-entropy material -- a producer that
+            // puts non-hex cleartext under `fingerprint.content` on a `password` row has put the password in the
+            // pre-image. The case-risk detector therefore examines the type slot alone: read the pre-image and it
+            // would publish the cleartext's cased characters in a served note, the same class of leak as reading a raw
+            // occurrence location, with the fingerprint as the source instead.
             return new Tier(
                     "MAT|" + PreImageSlot.of(kind) + "|F|"
                             + fingerprintClaim(fingerprint.get("alg"), fingerprint.get(CbomNames.CONTENT)),
-                    "mat:fingerprint");
+                    "mat:fingerprint", false, List.of(PreImageSlot.of(kind)));
         }
         if (redaction.identityDigest() != null) {
             return new Tier("MAT|" + PreImageSlot.of(kind) + "|V|" + redaction.identityDigest(), "mat:value-hash");
@@ -757,10 +787,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * This is provenance, not a claim that a duplicate exists: whether one does is a question about the estate, which
      * only a batch-scoped detector can answer.
      */
-    private static void recordCaseRisk(String preImage, List<String> hashedInputs, NormalizedAsset asset) {
-        List<String> keyed = new ArrayList<>(hashedInputs.size() + 1);
-        keyed.add(preImage);
-        keyed.addAll(hashedInputs);
+    private static void recordCaseRisk(List<String> keyed, NormalizedAsset asset) {
         asset.setKeyedCaseValues(keyed);
         asset.setAsciiCaseRisk(unfoldedCaseRisk(keyed));
         if (!asset.asciiCaseRisk().isEmpty()) {

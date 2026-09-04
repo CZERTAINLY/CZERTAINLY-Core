@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.TextNode;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -651,12 +652,68 @@ class NormalizationRulesTest {
      *
      * <p>
      * Both rules were fully anchored, so every real parameter-set spelling fell through the grammar to the SHA-2 rule
-     * and an XMSS or LMS asset was inventoried as a digest family.
+     * and an XMSS or LMS asset was inventoried as a digest family. Widening LMS to the two-word {@code HSS-LMS} literal
+     * fixed one spelling and left the registered ones -- {@code LMS_SHA256_M32_H5} and {@code LMOTS_SHA256_N32_W8} from
+     * RFC 8554 and SP 800-208, and the underscore form of {@code HSS-LMS} a JCA-call scanner emits -- keyed as SHA-2 or
+     * SHA-3, so a separator decided which family a signature was.
      */
     @ParameterizedTest
-    @CsvSource({"XMSS-SHA2_10_256,XMSS", "XMSS-MT,XMSS", "XMSS,XMSS", "HSS-LMS-SHA256-M32-H5,LMS", "HSS-LMS,LMS"})
+    @CsvSource({
+            "XMSS-SHA2_10_256,XMSS",
+            "XMSS-MT,XMSS",
+            "XMSS,XMSS",
+            "HSS-LMS-SHA256-M32-H5,LMS",
+            "HSS-LMS,LMS",
+            "HSS_LMS_SHA256_M32_H5,LMS",
+            "LMS_SHA256_M32_H5,LMS",
+            "LMS-SHA256-M32-H5,LMS",
+            "LMOTS_SHA256_N32_W8,LMS",
+            "LMS-SHAKE_M32_H5,LMS",
+            "LMS,LMS",
+            "LMOTS,LMS",
+            "LMS (HSS/LMS),LMS"})
     void aParameterSetSpellingKeepsItsSignatureFamily(String name, String expected) {
         assertThat(normalize(name).family()).isEqualTo(expected);
+    }
+
+    /**
+     * GOST is one registry token for several standards, so a name citing a standard stays on the name tier -- glued or
+     * separated -- and every other spelling elects the family.
+     *
+     * <p>
+     * The rule grew a right word-boundary guard its {@code why} never mentioned, and between that and a bare
+     * {@code [0-9]} lookahead the family was unreachable from every parameterised spelling: {@code GOST-256-CTR} and
+     * {@code GOST-512} are a key size and a mode, the {@code AES-256-CBC} shape, and {@code GOSTHASH} cites nothing.
+     * Bouncy Castle's glued {@code GOST3411} cites 34.11 as surely as {@code GOST R 34.11-2012} does, so both stay on
+     * the name tier, where {@code 34.10} and {@code 34.11} keep apart.
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "GOST,GOST",
+            "GOST cipher/hash (legacy),GOST",
+            "GOST-256-CTR,GOST",
+            "GOST-512,GOST",
+            "GOST 256,GOST",
+            "GOSTHASH,GOST",
+            "GOSTKDF,GOST",
+            "GOST R 34.10-2012,",
+            "GOST R 34.11-2012,",
+            "GOST_R_34_10_2012,",
+            "GOST 28147-89,",
+            "GOST-28147,",
+            "GOST3411,",
+            "GOSTR3410,",
+            "GOST28147,",
+            "GOST3410-2012-256,"})
+    void aGostNameCitingAStandardStaysOnTheNameTierAndEveryOtherElectsTheFamily(String name, String expected) {
+        assertThat(normalize(name).family()).isEqualTo(expected);
+    }
+
+    /** The two standards must not share a key through the family, whatever the spelling. */
+    @Test
+    void theTwoGostStandardsDoNotMergeThroughTheFamily() {
+        assertThat(keyOfAlgorithm("GOST R 34.10-2012")).isNotEqualTo(keyOfAlgorithm("GOST R 34.11-2012"));
+        assertThat(keyOfAlgorithm("GOST3410")).isNotEqualTo(keyOfAlgorithm("GOST3411"));
     }
 
     /**
@@ -673,6 +730,122 @@ class NormalizationRulesTest {
         assertThat(TABLES.isSentinel("0.0.0.0" + noBreakSpace)).isTrue();
         assertThat(TABLES.isSentinel("unknown" + noBreakSpace)).isTrue();
         assertThat(TABLES.familyToken("RSA" + noBreakSpace)).isEqualTo("RSA");
+    }
+
+    /**
+     * An over-long side field reads as absent and leaves its drop note; at the bound it is still read.
+     *
+     * <p>
+     * The bound is load-bearing for availability and moves no key, so the vector suite is structurally blind to it:
+     * deleting it left every test green while a 200 000-arc {@code oid} cost 265 seconds in {@code oidLookup} and a 300
+     * 000-digit {@code parameterSetIdentifier} more than a second in {@code BigInteger}. Each field here is pinned on
+     * both sides of the bound, because a test that only checks the drop would pass a bound of zero.
+     */
+    @ParameterizedTest
+    @CsvSource({"oid,1.2.840.113549", "ellipticCurve,P-256", "parameterSetIdentifier,2048"})
+    void anOverLongSideFieldReadsAsAbsentAndLeavesTheDropNote(String field, String value) {
+        String note = "the declared " + field + " exceeds 1024 characters and was dropped rather than normalized";
+        NormalizedAsset atTheBound = normalize(algorithmWithField(field, value + " ".repeat(1024 - value.length())));
+        NormalizedAsset pastIt = normalize(algorithmWithField(field, value + " ".repeat(1025 - value.length())));
+
+        assertThat(atTheBound.notes()).doesNotContain(note);
+        assertThat(slotOf(field, atTheBound))
+                .describedAs("at the bound the field is read and fills its slot")
+                .isNotNull();
+        assertThat(pastIt.notes()).contains(note);
+        assertThat(slotOf(field, pastIt)).isNull();
+    }
+
+    private static Object slotOf(String field, NormalizedAsset asset) {
+        return switch (field) {
+            case "oid" -> asset.oid();
+            case "ellipticCurve" -> asset.curve();
+            default -> asset.parameterSet();
+        };
+    }
+
+    /**
+     * The asset type is the router, not a slot, so it is not bounded: one character past the bound used to cost a
+     * material row its whole chain and key it on the unknown-type backstop -- the whitespace defect
+     * {@code ASSET_TYPE_SEPARATORS} closed, reached through length instead.
+     */
+    @Test
+    void anOverLongAssetTypeStillRoutes() {
+        JsonNode component = read("{\"type\":\"cryptographic-asset\",\"name\":\"k\",\"cryptoProperties\":"
+                + "{\"assetType\":\"related-crypto-material" + " ".repeat(1002) + "\","
+                + "\"relatedCryptoMaterialProperties\":{\"type\":\"secret-key\",\"id\":\"k1\"}}}");
+
+        assertThat(normalize(component).assetType()).isEqualTo(CbomNames.ASSET_TYPE_RELATED_CRYPTO_MATERIAL);
+        assertThat(IDENTITY.of(component).step()).isEqualTo("mat:id");
+        assertThat(normalize(component).notes()).noneMatch(note -> note.contains("assetType"));
+    }
+
+    /**
+     * A non-finite parameter set is dropped with a note that says so, whatever node shape the mapper hands over.
+     *
+     * <p>
+     * The guard used to test {@code isDouble() || isFloat()}, which a {@code DecimalNode} -- the shape a mapper with
+     * {@code USE_BIG_DECIMAL_FOR_FLOATS} produces for the same literal -- is neither of, so {@code toBigIntegerExact()}
+     * materialised a 401-digit integer that landed verbatim in a served note. And the note it did leave reused the
+     * over-length wording, which for a five-character {@code 1e400} is false in a stored provenance block.
+     */
+    @Test
+    void aNonFiniteParameterSetIsDroppedWithItsOwnNoteWhateverTheNodeShape() {
+        ObjectMapper bigDecimals = new ObjectMapper()
+                .enable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+        String component = "{\"type\":\"cryptographic-asset\",\"name\":\"RSA\",\"cryptoProperties\":{\"assetType\":"
+                + "\"algorithm\",\"algorithmProperties\":{\"parameterSetIdentifier\":1e400}}}";
+
+        for (JsonNode parsed : List.of(read(component), readWith(bigDecimals, component))) {
+            NormalizedAsset asset = normalize(parsed);
+            assertThat(asset.parameterSet()).isNull();
+            assertThat(asset.notes())
+                    .contains(AssetNormalizer.NON_FINITE_PARAMETER_SET_NOTE)
+                    .noneMatch(note -> note.contains("exceeds 1024 characters"))
+                    .noneMatch(note -> note.contains("outside whitelist"));
+        }
+    }
+
+    /**
+     * The fingerprint claim on low-entropy material is not read for case risk, because the claim spells the content.
+     *
+     * <p>
+     * {@code mat:fingerprint} renders {@code alg:content} literally and is open to a {@code password} row, so a
+     * producer putting non-hex cleartext there put the password in the pre-image -- and the detector, reading the
+     * pre-image, published its cased characters in a served R12 note. It examines the type slot alone on that tier,
+     * which is asserted positively so the exclusion cannot pass on a blinded detector.
+     */
+    @Test
+    void theFingerprintClaimIsNotReadForCaseRiskOnLowEntropyMaterial() {
+        NormalizedAsset password = IDENTITY.of(materialOfType("password", "Pässwörd-ß")).asset();
+        NormalizedAsset typeRisk = IDENTITY.of(materialOfType("pässword", "aabb")).asset();
+
+        assertThat(password.asciiCaseRisk()).isEmpty();
+        assertThat(password.notes()).noneMatch(note -> note.startsWith("R12:"));
+        assertThat(password.keyedCaseValues())
+                .describedAs("the detector's stored input carries the type slot and not the claim")
+                .containsExactly("password");
+        assertThat(typeRisk.asciiCaseRisk()).describedAs("the type slot is still examined").containsExactly("ä");
+    }
+
+    private static JsonNode materialOfType(String type, String fingerprintContent) {
+        return read("{\"type\":\"cryptographic-asset\",\"cryptoProperties\":{\"assetType\":"
+                + "\"related-crypto-material\",\"relatedCryptoMaterialProperties\":{\"type\":" + quote(type)
+                + ",\"fingerprint\":{\"alg\":\"sha-256\",\"content\":" + quote(fingerprintContent) + "}}}}");
+    }
+
+    private static JsonNode algorithmWithField(String field, String value) {
+        return field.equals("oid")
+                ? algorithmComponent("x", "{}", "\"oid\":" + quote(value) + ",")
+                : algorithmComponent("x", "{" + quote(field) + ":" + quote(value) + "}");
+    }
+
+    private static JsonNode readWith(ObjectMapper mapper, String json) {
+        try {
+            return mapper.readTree(json);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("test fixture is not JSON: " + json, e);
+        }
     }
 
     private static JsonNode certificateComponent(String notValidBefore, String notValidAfter) {

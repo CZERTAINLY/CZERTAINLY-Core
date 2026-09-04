@@ -70,8 +70,9 @@ public record AssetNormalizer(IdentityTables tables) {
 
     /**
      * The longest producer string this normalizer will read, matching {@code ck_crypto_asset_name_length} and the
-     * writer's own pre-check on the name. Held as a constant here because normalization runs long before the write.
-     * Every other producer field is held to the same bound -- {@link #boundedText} says why one bound is enough.
+     * writer's own pre-check on the name. Held as a constant here because normalization runs long before the write. The
+     * algorithm-property fields and the {@code oid} are held to the same bound -- {@link #boundedText} says why one
+     * bound is enough, and which producer strings it does not cover.
      */
     private static final int MAX_NORMALIZABLE_LENGTH = 1024;
 
@@ -219,14 +220,19 @@ public record AssetNormalizer(IdentityTables tables) {
         // algorithms and certificates; a presence-based router would have pulled those into the wrong chain and
         // minted phantom material rows from the empty blocks it left behind.
         //
-        // The name is the one field read raw: past the bound it refuses the component, where every other field
-        // reads as absent, and the bounded reader would have turned the refusal into a nameless row.
+        // The name is read raw because past the bound it refuses the component, where every other field reads as
+        // absent, and the bounded reader would have turned the refusal into a nameless row. The asset type is read
+        // raw because it is the router, not a slot: bounded, one character past the limit cost a material row its
+        // whole chain and keyed it on the unknown-type backstop, the outcome ASSET_TYPE_SEPARATORS was added to
+        // close for whitespace, reached through length instead. Routing is a closed four-value decision that does
+        // linear work and no unbounded work follows it, so the bound bought nothing there.
         JsonNode name = component.get("name");
         String componentName = name != null && name.isTextual() ? name.textValue() : null;
         requireNormalizableName(componentName);
         JsonNode assetType = properties.get("assetType");
-        NormalizedAsset norm = new NormalizedAsset(normalizeAssetType(boundedText(assetType)), componentName);
-        noteIfDropped(norm, assetType, "assetType");
+        NormalizedAsset norm = new NormalizedAsset(
+                normalizeAssetType(assetType != null && assetType.isTextual() ? assetType.textValue() : null),
+                componentName);
 
         recordOid(norm, boundedText(norm, properties, "oid"));
         if (CbomNames.ASSET_TYPE_ALGORITHM.equals(norm.assetType())) {
@@ -766,10 +772,12 @@ public record AssetNormalizer(IdentityTables tables) {
             // Refused before `decimalValue()`, which throws NumberFormatException on a non-finite double: Jackson
             // parses `1e400` into DoubleNode(Infinity), and the throw escaped as a RuntimeException that the extractor
             // catches as a whole-component skip. An unreadable side field costs its own slot, never the row -- the
-            // same ruling `boundedText` applies to an over-long one.
-            if ((parameterSetIdentifier.isDouble() || parameterSetIdentifier.isFloat())
+            // same ruling `boundedText` applies to an over-long one. Keyed on the number, not the node shape: a
+            // mapper with USE_BIG_DECIMAL_FOR_FLOATS hands the same literal over as a DecimalNode, which is neither a
+            // double nor a float and whose exact value is a 401-digit integer that used to land verbatim in a note.
+            if (parameterSetIdentifier.isFloatingPointNumber()
                     && !Double.isFinite(parameterSetIdentifier.doubleValue())) {
-                notes.add(droppedFieldNote(CbomNames.PARAMETER_SET_IDENTIFIER));
+                notes.add(NON_FINITE_PARAMETER_SET_NOTE);
                 return null;
             }
             // The exact value reaches `accept`, so a refusal names what the producer wrote. Through `(int)` a
@@ -1348,12 +1356,20 @@ public record AssetNormalizer(IdentityTables tables) {
      * {@code MAX_NORMALIZABLE_LENGTH}.
      *
      * <p>
-     * This is the one gate every producer string passes before a grammar, a table or an arc walk sees it. The name
-     * carried the bound and nothing else did, so a producer's {@code ellipticCurve}, {@code parameterSetIdentifier} or
-     * {@code oid} reached the alternatives split, a {@code BigInteger} parse and the per-arc OID walk at whatever
-     * length the JSON reader allowed -- 20 million characters by default, with no body cap on the upload -- and the
-     * last two are quadratic. No registry spelling, mode, padding or arc comes near the bound, so nothing real reads as
-     * absent.
+     * The gate in front of every producer string <em>this normalizer</em> reads before a grammar, a table or an arc
+     * walk sees it: the algorithm-property fields and the {@code oid}. The name carried the bound and nothing else did,
+     * so a producer's {@code ellipticCurve}, {@code parameterSetIdentifier} or {@code oid} reached the alternatives
+     * split, a {@code BigInteger} parse and the per-arc OID walk at whatever length the JSON reader allowed -- 20
+     * million characters by default, with no body cap on the upload -- and the last two are quadratic. Measured at this
+     * bound's absence, a 200 000-arc OID took 265 seconds through {@code oidLookup}. No registry spelling, mode,
+     * padding or arc comes near the bound, so nothing real reads as absent.
+     *
+     * <p>
+     * It is not the gate for the strings the identity tiers read themselves -- a material id or fingerprint content, a
+     * certificate serial, a protocol type -- which reach a pre-image at the parser's length. Those paths are linear,
+     * roughly 10 ns per character at four million, so the bound is not needed for availability there and is not
+     * applied; what it would decide is which of them enters a key, which is a ratification question. The asset type is
+     * deliberately unbounded too -- see {@link #normalize}.
      *
      * <p>
      * Absent rather than refused: an over-long side field costs its own slot, not the row -- the ruling the over-long
@@ -1393,6 +1409,13 @@ public record AssetNormalizer(IdentityTables tables) {
         return "the declared " + field + " exceeds " + MAX_NORMALIZABLE_LENGTH
                 + " characters and was dropped rather than normalized";
     }
+
+    /**
+     * Its own note, not {@link #droppedFieldNote}'s: that one says the value exceeded 1024 characters, which for a
+     * five-character {@code 1e400} is false in a provenance block that is stored and can be served.
+     */
+    static final String NON_FINITE_PARAMETER_SET_NOTE = "the declared " + CbomNames.PARAMETER_SET_IDENTIFIER
+            + " is not a finite number and was dropped rather than normalized";
 
     private static String nullToEmpty(String value) {
         return value == null ? "" : value;

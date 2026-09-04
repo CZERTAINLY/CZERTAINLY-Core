@@ -194,8 +194,13 @@ class DistinguishedNamesTest {
      * NFKC maps U+FF05 FULLWIDTH PERCENT SIGN onto {@code %}, so escaping before normalizing left {@code CN=\uFF05FF}
      * rendering the bare {@code %FF} that the malformed-bytes fallback reserves for {@code CN=#FF} -- the same
      * two-issuers-on-one-row merge the escape namespace exists to prevent, reached through the normalizer rather than
-     * through a hex path. Its mirror, U+FF03 onto {@code #}, split rather than merged and closes with the same
-     * reordering.
+     * through a hex path.
+     *
+     * <p>
+     * Its mirror is not closed by the same reordering but by the opposite one. Testing for the {@code #} marker
+     * <em>after</em> NFKC let U+FF03 FULLWIDTH NUMBER SIGN manufacture a marker: {@code CN=\uFF03FF} was decoded as
+     * DER, failed UTF-8, and rendered the same bare {@code %FF} as {@code CN=#FF}, so three issuers became one row. RFC
+     * 4514 defines the marker over ASCII {@code #} alone; a compatibility number sign is text.
      */
     @Test
     void aFullwidthEscapeCharacterCannotForgeARefusedByte() {
@@ -203,11 +208,33 @@ class DistinguishedNamesTest {
                 .describedAs("the normalizer's percent is a producer's percent, so it is escaped like one")
                 .isEqualTo(DistinguishedNames.normalize("CN=%FF", TABLES))
                 .isNotEqualTo(DistinguishedNames.normalize("CN=#FF", TABLES));
-        assertThat(DistinguishedNames.normalize("CN=\uFF03414243", TABLES))
-                .describedAs("and a fullwidth marker names the hex-DER form it normalizes to")
-                .isEqualTo(DistinguishedNames.normalize("CN=#414243", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=\uFF03FF", TABLES))
+                .describedAs("a compatibility number sign is text, never the hex-DER marker")
+                .isEqualTo(DistinguishedNames.normalize("CN=\\#FF", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=#FF", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=\uFE5F414243", TABLES))
+                .describedAs("so a readable payload behind one is not decoded either")
+                .isNotEqualTo(DistinguishedNames.normalize("CN=#414243", TABLES));
         assertThat(DistinguishedNames.normalize("CN=#%FF", TABLES))
                 .describedAs("an unreadable hex spelling is text, and text has its percents escaped")
                 .isNotEqualTo(DistinguishedNames.normalize("CN=#FF", TABLES));
+    }
+
+    /**
+     * The bare-common-name path reserves the escape namespace exactly as the attribute path does.
+     *
+     * <p>
+     * A DN with no {@code =} is keyed as a common name, and its percents were escaped by a different line of code than
+     * {@code CN=}'s. Dropping that escape leaves every other test green while {@code %FF} and {@code CN=#FF} -- a
+     * producer spelling an escape and a byte no decoder could read -- merge onto one issuer, which is the invariant
+     * {@link #aMalformedDerValueDoesNotKeyAsItsOwnEscape} pins for the prefixed spelling.
+     */
+    @Test
+    void theBareNamePathReservesTheEscapeNamespaceToo() {
+        assertThat(DistinguishedNames.normalize("%FF", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=#FF", TABLES));
+        assertThat(DistinguishedNames.normalize("\uFF05FF", TABLES))
+                .describedAs("and normalizes before it escapes, as the attribute path does")
+                .isEqualTo(DistinguishedNames.normalize("%FF", TABLES));
     }
 }

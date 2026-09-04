@@ -37,7 +37,11 @@ public final class IdentityDigests {
         return HexFormat.of().formatHex(digest(bytes));
     }
 
-    private static void requireWellFormedUnicode(String text) {
+    /**
+     * Refuses a string with no UTF-8 encoding -- the check {@link #sha256Hex} applies to every pre-image, exposed so
+     * the extractor can apply the same rule to the strings it hands toward a {@code jsonb} column without hashing them.
+     */
+    static void requireWellFormedUnicode(String text) {
         int index = 0;
         while (index < text.length()) {
             char character = text.charAt(index);

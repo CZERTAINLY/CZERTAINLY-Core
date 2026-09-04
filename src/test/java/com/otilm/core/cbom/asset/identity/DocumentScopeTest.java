@@ -106,7 +106,7 @@ class DocumentScopeTest {
         JsonNode camelCased = read(protocol("camel", "TLS_AES_128_GCM_SHA256", "\"0x1301\"")
                 .toString()
                 .replace("\"assetType\":\"protocol\"", "\"assetType\":\"Protocol\""));
-        JsonNode otherName = read(protocol("other", "TLS_AKE_WITH_AES_128_GCM_SHA256", "\"0x1301\"")
+        JsonNode otherName = read(protocol("other", "TLS_CHACHA20_POLY1305_SHA256", "\"0x1301\"")
                 .toString()
                 .replace("\"assetType\":\"protocol\"", "\"assetType\":\"PROTOCOL\""));
 
@@ -114,10 +114,39 @@ class DocumentScopeTest {
                 .describedAs("a camel-cased and an upper-cased protocol still contradict each other")
                 .containsExactly("1301");
         assertThat(DocumentScope
-                .of(document(camelCased, algorithmCarryingAStaleSuiteBlock()), NORMALIZER)
+                .of(document(camelCased, staleSuiteBlockTyped("\"algorithm\"")), NORMALIZER)
                 .refutedSuiteCodes())
                 .describedAs("while an algorithm carrying a stale suites block contributes no second name")
                 .isEmpty();
+    }
+
+    /**
+     * The gate bars every <em>stated</em> non-protocol type, routable or not, and lets an unstated one contribute.
+     *
+     * <p>
+     * Requiring the type to route barred only the three other known types, so {@code protocols} -- a plausible typo,
+     * and exactly the shape the gate was added for -- still refuted a real code document-wide. The absent-type arm is
+     * the stated adjudication that a block carrying suites and no type is more likely a protocol than not; flipping it
+     * left every other test green.
+     */
+    @Test
+    void aStatedTypeIsBarredWhetherOrNotItRoutesAndAnUnstatedOneContributes() {
+        JsonNode genuine = protocol("genuine", "TLS_AES_128_GCM_SHA256", "\"0x1301\"");
+
+        assertThat(DocumentScope
+                .of(document(genuine, staleSuiteBlockTyped("\"protocols\"")), NORMALIZER)
+                .refutedSuiteCodes())
+                .describedAs("a stated type the router does not know is still not protocol")
+                .isEmpty();
+        assertThat(DocumentScope
+                .of(document(genuine, staleSuiteBlockTyped("\"cryptographic-asset\"")), NORMALIZER)
+                .refutedSuiteCodes()).isEmpty();
+        assertThat(DocumentScope.of(document(genuine, staleSuiteBlockTyped(null)), NORMALIZER).refutedSuiteCodes())
+                .describedAs("a block that states no type at all still contributes")
+                .containsExactly("1301");
+        assertThat(DocumentScope.of(document(genuine, staleSuiteBlockTyped("\"  \"")), NORMALIZER).refutedSuiteCodes())
+                .describedAs("and a blank type is an unstated one")
+                .containsExactly("1301");
     }
 
     /**
@@ -178,16 +207,34 @@ class DocumentScopeTest {
 
     // ---------------------------------------------------------------- suite codes
 
-    /** A code under two names is refuted; one name spelled in two cases is one name. */
+    /**
+     * A code under two suites is refuted; one suite named in two cases, or under its OpenSSL alias, is one suite.
+     *
+     * <p>
+     * {@code TLS_AKE_WITH_AES_128_GCM_SHA256} is what one producer calls code {@code 0x1301}; IANA calls it
+     * {@code TLS_AES_128_GCM_SHA256}. Comparing raw names read the pair as a contradiction, so one estate scanned by
+     * two tools refuted the code document-wide and re-keyed every protocol row claiming it -- including a third
+     * endpoint that carried only the IANA spelling. Refutation is the control for a placeholder stamped on genuinely
+     * different suites, which is what the contradicted fixture now describes.
+     */
     @Test
-    void oneCodeUnderTwoSuiteNamesIsRefutedWhileOneNameRepeatedIsNot() {
+    void oneCodeUnderTwoSuitesIsRefutedWhileOneSuiteUnderTwoNamesIsNot() {
         JsonNode contradicted = document(protocol("one", "TLS_AES_128_GCM_SHA256", "\"0x13\",\"0x01\""),
-                protocol("two", "TLS_AKE_WITH_AES_128_GCM_SHA256", "\"0x1301\""));
+                protocol("two", "TLS_CHACHA20_POLY1305_SHA256", "\"0x1301\""));
         JsonNode repeated = document(protocol("one", "TLS_AES_128_GCM_SHA256", "\"0x13\",\"0x01\""),
                 protocol("two", "tls_aes_128_gcm_sha256", "\"0x1301\""));
+        JsonNode aliased = document(protocol("one", "TLS_AES_128_GCM_SHA256", "\"0x13\",\"0x01\""),
+                protocol("two", "TLS_AKE_WITH_AES_128_GCM_SHA256", "\"0x1301\""),
+                protocol("three", "TLS_AES_128_GCM_SHA256", "\"0x1301\""));
 
         assertThat(DocumentScope.of(contradicted, NORMALIZER).refutedSuiteCodes()).containsExactly("1301");
         assertThat(DocumentScope.of(repeated, NORMALIZER).refutedSuiteCodes()).isEmpty();
+        assertThat(DocumentScope.of(aliased, NORMALIZER).refutedSuiteCodes())
+                .describedAs("a naming alias is not a contradiction")
+                .isEmpty();
+        assertThat(IDENTITY.of(aliased.get("components").get(0), DocumentScope.of(aliased, NORMALIZER), Set.of()).key())
+                .describedAs("so the endpoint that never saw the alias keys as it would alone")
+                .isEqualTo(IDENTITY.of(aliased.get("components").get(0)).key());
     }
 
     /**
@@ -197,7 +244,7 @@ class DocumentScopeTest {
     @Test
     void aRefutedSuiteCodeFallsBackToTheSuiteNameInTheKey() {
         JsonNode one = protocol("one", "TLS_AES_128_GCM_SHA256", "\"0x13\",\"0x01\"");
-        JsonNode two = protocol("two", "TLS_AKE_WITH_AES_128_GCM_SHA256", "\"0x1301\"");
+        JsonNode two = protocol("two", "TLS_CHACHA20_POLY1305_SHA256", "\"0x1301\"");
         DocumentScope scope = DocumentScope.of(document(one, two), NORMALIZER);
 
         assertThat(CipherSuites.tokens(one.get("cryptoProperties"), scope.refutedSuiteCodes()))
@@ -218,10 +265,14 @@ class DocumentScopeTest {
                 + furtherFacts + "}}}");
     }
 
-    /** An algorithm carrying a protocol's suites block, which is the shape the non-protocol check exists to ignore. */
-    private static JsonNode algorithmCarryingAStaleSuiteBlock() {
-        return read("{\"type\":\"cryptographic-asset\",\"name\":\"stale\",\"cryptoProperties\":"
-                + "{\"assetType\":\"algorithm\",\"protocolProperties\":{\"cipherSuites\":[{\"name\":"
+    /**
+     * A component carrying a protocol's suites block under the given {@code assetType} JSON, or under none when
+     * {@code null} -- the shape the non-protocol gate decides about.
+     */
+    private static JsonNode staleSuiteBlockTyped(String assetTypeJson) {
+        return read("{\"type\":\"cryptographic-asset\",\"name\":\"stale\",\"cryptoProperties\":{"
+                + (assetTypeJson == null ? "" : "\"assetType\":" + assetTypeJson + ",")
+                + "\"protocolProperties\":{\"cipherSuites\":[{\"name\":"
                 + "\"SOMETHING_ELSE\",\"identifiers\":[\"0x1301\"]}]}}}");
     }
 

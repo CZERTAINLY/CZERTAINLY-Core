@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * The derivations that need a view of a whole document rather than of one component, computed once per document.
@@ -103,14 +104,21 @@ public final class DocumentScope {
                 refutedSuiteCodes(document, normalizer), byRef, Set.copyOf(duplicated));
     }
 
-    /** True when the component states an {@code assetType} that is not the protocol type. */
+    /**
+     * True when the component states an {@code assetType} that does not route to the protocol type.
+     *
+     * <p>
+     * Stated means textual and non-blank; whether it <em>routes</em> is not part of the test. Requiring the type to
+     * route barred only the three other known types, so {@code protocols}, {@code algo} or a component {@code type}
+     * copied into the wrong field -- all plausible producer text -- still contributed a suite name and could refute a
+     * real code document-wide, which is the hazard {@link #refutedSuiteCodes} states this gate exists to close.
+     */
     private static boolean statesANonProtocolType(JsonNode properties, AssetNormalizer normalizer) {
         JsonNode declared = properties == null ? null : properties.get("assetType");
-        if (declared == null || !declared.isTextual()) {
+        if (declared == null || !declared.isTextual() || AsciiText.isBlank(declared.textValue())) {
             return false;
         }
-        String routed = normalizer.normalizeAssetType(declared.textValue());
-        return routed != null && !CbomNames.ASSET_TYPE_PROTOCOL.equals(routed);
+        return !CbomNames.ASSET_TYPE_PROTOCOL.equals(normalizer.normalizeAssetType(declared.textValue()));
     }
 
     /**
@@ -312,7 +320,8 @@ public final class DocumentScope {
      * {@code protocol} would also skip a component that states no type at all -- which, for a block carrying
      * {@code cipherSuites}, is far more likely a protocol than not, and losing its refutation <em>over</em>-merges.
      * That is the opposite direction from the certificate pass, where losing a refutation under-merges, so the safe
-     * gate here is "a type is stated and it is not protocol" rather than "the type is not protocol".
+     * gate here is "a type is stated and it is not protocol" rather than "the type is not protocol". A stated type the
+     * router does not know is barred like any other stated non-protocol type -- see {@link #statesANonProtocolType}.
      */
     private static Set<String> refutedSuiteCodes(JsonNode document, AssetNormalizer normalizer) {
         Map<String, Set<String>> names = new LinkedHashMap<>();
@@ -342,8 +351,24 @@ public final class DocumentScope {
     }
 
     /**
-     * Files every named suite under its code. A code seen under two names is refuted; one name repeated is not, so the
-     * value is a set rather than a count.
+     * The infix that separates the OpenSSL alias of a TLS 1.3 suite from its IANA name: code {@code 0x1301} is
+     * {@code TLS_AES_128_GCM_SHA256} to IANA and {@code TLS_AKE_WITH_AES_128_GCM_SHA256} to one producer, and the
+     * {@code _WITH_} of every TLS 1.2 registry name is the same word.
+     */
+    private static final Pattern SUITE_NAME_ALIAS_INFIX = Pattern.compile("(?:ake)?with");
+
+    /**
+     * Files every named suite under its code, by the suite the name denotes rather than by its spelling. A code seen
+     * under two suites is refuted; one suite named twice is not, so the value is a set rather than a count.
+     *
+     * <p>
+     * Comparing raw names refuted a code on a naming alias: one document carrying both {@code TLS_AES_128_GCM_SHA256}
+     * and {@code TLS_AKE_WITH_AES_128_GCM_SHA256} for {@code 0x1301} -- the shape of one estate scanned by two tools --
+     * refuted the code document-wide and re-keyed every protocol row claiming it, including rows that never saw the
+     * alias. Refutation is the control for a fabricated code stamped on differently-named suites, so what has to differ
+     * is the suite: separators and case are dropped as for every table lookup, and the {@code WITH} infix goes with
+     * them. Nothing else is folded -- the 7 refuted codes in the 2026-08-18 corpus each carry two or more suites that
+     * stay distinct under this reading, so 0 rows move.
      */
     private static void recordSuiteNames(JsonNode suites, Map<String, Set<String>> names) {
         if (suites == null) {
@@ -356,11 +381,13 @@ public final class DocumentScope {
             String code = CipherSuites.code(suite.get("identifiers"));
             JsonNode name = suite.get("name");
             if (code != null && name != null && name.isTextual() && !AsciiText.isBlank(name.textValue())) {
-                names
-                        .computeIfAbsent(code, key -> new HashSet<>())
-                        .add(AsciiText.upper(AsciiText.strip(name.textValue())));
+                names.computeIfAbsent(code, key -> new HashSet<>()).add(denotedSuite(name.textValue()));
             }
         }
+    }
+
+    private static String denotedSuite(String name) {
+        return SUITE_NAME_ALIAS_INFIX.matcher(AsciiText.lookupKey(name)).replaceAll("");
     }
 
     private static void put(Map<String, String> facts, String field, String value) {

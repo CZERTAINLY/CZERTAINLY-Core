@@ -9,7 +9,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -17,7 +16,8 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Keys every component of an external corpus and writes the result, so two revisions can be diffed row by row.
+ * Extracts every document of an external corpus exactly as ingest would and writes the result, so two revisions can be
+ * diffed row by row.
  *
  * <p>
  * An instrument rather than a pin: it ratifies no key, and a moved row is a result to read rather than a failure. What
@@ -26,15 +26,25 @@ import static org.assertj.core.api.Assertions.assertThat;
  * own and so see neither cross-component reference resolution nor document-scoped refutation.
  *
  * <p>
- * It does assert, on the run itself rather than on any key: a corpus that yielded no rows, or an output file that did
- * not receive them, is a misconfigured run and not a corpus with nothing in it. Without that, pointing
- * {@code corpus.dir} at the wrong directory wrote an empty file and passed, and the empty diff that followed read as
- * "no keys moved".
+ * <b>The population is ingest's, not the walk's.</b> An earlier revision keyed every component
+ * {@link DocumentScope#walk} returned, so ordinary libraries, files and frameworks landed on
+ * {@code backstop:unknown-type} and were counted as inventory: of the 8 048 components in the 2026-08-18 corpus, 3 054
+ * are not cryptographic assets at all, and two {@code library} components sharing a name in different documents form a
+ * size-2 key group that ingest cannot produce. Driving the snapshot through {@link CbomAssetExtractor#extract} keys the
+ * components {@code isCryptographicAsset} admits, runs occurrence sanitisation, and reports a component that could not
+ * be keyed as the skip ingest would record -- so the partition figures describe the inventory, and a regression in the
+ * routing itself is visible as a change in the row count.
+ *
+ * <p>
+ * It asserts on the run, not on any key: a corpus that yielded no rows, or a {@code .json} file that did not parse, is
+ * a misconfigured run and not a corpus with nothing in it. Without that, pointing {@code corpus.dir} at the wrong
+ * directory wrote an empty file and passed, and the empty diff that followed read as "no keys moved"; and a directory
+ * of 196 files of which 150 failed to parse produced a plausible snapshot with no sign that most of it was missing.
  *
  * <p>
  * It is committed because the alternative is a number nobody can reproduce. core#2165's costing rests on runs of this
- * over the 2026-08-31 corpus (196 documents, 8 048 components): 2 rows moved, 4 836 distinct keys before and after,
- * identical group-size histograms. A reviewer who wants to check that has to be able to re-run it.
+ * over the 2026-08-18 corpus, and the figures quoted there are this instrument's: a reviewer who wants to check them
+ * has to be able to re-run it.
  *
  * <p>
  * The corpus is not in this repository -- it carries real third-party documents, some with secret-scanner findings in
@@ -46,10 +56,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * </pre>
  *
  * <p>
- * Each row is {@code document<TAB>component index<TAB>chain step<TAB>identity key}, sorted, so two runs diff with
- * {@code diff} and a moved row names itself. A component that cannot be keyed records the exception class rather than
- * failing the run, because a crash is exactly the kind of movement worth diffing -- that is how the surrogate defect in
- * this branch was first priced.
+ * The first line is a header counting documents, parse failures, walked components, keyed assets and skips. Each row
+ * after it is {@code document<TAB>asset index<TAB>chain step<TAB>identity key}, or
+ * {@code document<TAB>skip:index<TAB>THROWN<TAB>failure class} for a component ingest would skip, sorted, so two runs
+ * diff with {@code diff} and a moved row names itself. A skip is a row rather than a failure because a crash is exactly
+ * the kind of movement worth diffing -- that is how the surrogate defect in this branch was first priced.
  */
 @EnabledIfSystemProperty(named = "corpus.dir", matches = ".+")
 class CorpusKeySnapshotTest {
@@ -63,46 +74,55 @@ class CorpusKeySnapshotTest {
         // followed the skip condition alone with an NPE from Path.of(null) instead of a snapshot.
         Path out = Path.of(System.getProperty("corpus.out", "target/corpus-keys.tsv"));
         Files.createDirectories(out.toAbsolutePath().getParent());
-        AssetNormalizer normalizer = new AssetNormalizer(IdentityTables.load());
-        CryptoAssetIdentity identity = new CryptoAssetIdentity(normalizer);
+        CbomAssetExtractor extractor = new CbomAssetExtractor(
+                new CryptoAssetIdentity(new AssetNormalizer(IdentityTables.load())));
         List<String> rows = new ArrayList<>();
         List<Path> documents;
         try (Stream<Path> walk = Files.walk(corpora)) {
             documents = walk.filter(p -> p.toString().endsWith(".json")).sorted().toList();
         }
+        int unparseable = 0;
+        int nonObject = 0;
+        int components = 0;
+        int skipped = 0;
         for (Path document : documents) {
             JsonNode root;
             try {
                 root = MAPPER.readTree(document.toFile());
             } catch (IOException e) {
+                unparseable++;
                 continue;
             }
             if (!root.isObject()) {
+                nonObject++;
                 continue;
             }
-            DocumentScope scope = DocumentScope.of(root, normalizer);
-            List<JsonNode> components = DocumentScope.walk(root);
-            for (int i = 0; i < components.size(); i++) {
-                JsonNode component = components.get(i);
-                String key;
-                String step;
-                try {
-                    CryptoAssetIdentity.Identity built = identity.of(component, scope, Set.of());
-                    key = built == null ? "null" : built.key();
-                    step = built == null ? "null" : built.step();
-                } catch (RuntimeException e) {
-                    key = "THROWN:" + e.getClass().getSimpleName();
-                    step = "THROWN";
-                }
-                rows.add(corpora.relativize(document) + "\t" + i + "\t" + step + "\t" + key);
+            components += DocumentScope.walk(root).size();
+            String name = corpora.relativize(document).toString();
+            CbomAssetExtractor.Extraction extraction = extractor.extract(root);
+            List<CbomAssetExtractor.ExtractedAsset> assets = extraction.assets();
+            for (int i = 0; i < assets.size(); i++) {
+                rows.add(name + "\t" + i + "\t" + assets.get(i).chainStep() + "\t" + assets.get(i).identityKey());
             }
+            List<CbomAssetExtractor.Skip> skips = extraction.skips();
+            for (int i = 0; i < skips.size(); i++) {
+                rows.add(name + "\tskip:" + i + "\tTHROWN\t" + skips.get(i).reason());
+            }
+            skipped += skips.size();
         }
         rows.sort(Comparator.naturalOrder());
-        Files.write(out, rows, StandardCharsets.UTF_8);
+        String header = "# documents=" + documents.size() + " parsed=" + (documents.size() - unparseable - nonObject)
+                + " unparseable=" + unparseable + " non-object=" + nonObject + " components=" + components + " keyed="
+                + (rows.size() - skipped) + " skipped=" + skipped;
+        List<String> lines = new ArrayList<>(rows.size() + 1);
+        lines.add(header);
+        lines.addAll(rows);
+        Files.write(out, lines, StandardCharsets.UTF_8);
 
         assertThat(rows).describedAs("corpus at %s yielded no keyed components", corpora).isNotEmpty();
-        assertThat(Files.readAllLines(out, StandardCharsets.UTF_8))
-                .describedAs("every keyed row reached %s", out)
-                .hasSameSizeAs(rows);
+        assertThat(unparseable)
+                .describedAs("%d of %d .json files under %s did not parse; a corpus that does not parse is a wrong "
+                        + "directory, not a corpus with nothing in it", unparseable, documents.size(), corpora)
+                .isZero();
     }
 }

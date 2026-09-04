@@ -79,7 +79,10 @@ public final class DistinguishedNames {
                 }
                 String rawType = AsciiText.fold(AsciiText.strip(ava.substring(0, separator)));
                 String oid = tables.dnAttributeOids().getOrDefault(rawType, rawType);
-                String value = normalizeValue(unescape(AsciiText.strip(ava.substring(separator + 1))), oid);
+                String rawValue = AsciiText.strip(ava.substring(separator + 1));
+                // The marker is decided on the spelling as written: RFC 4514 writes a literal leading `#` as `\#`, and
+                // deciding after unescaping read that escape as the hex-DER marker too.
+                String value = normalizeValue(unescape(rawValue), rawValue.startsWith("#"), oid);
                 avas.add(oid + "=" + escape(value));
             }
             if (!avas.isEmpty()) {
@@ -116,7 +119,11 @@ public final class DistinguishedNames {
                 .allMatch(part -> part.startsWith(COMMON_NAME_OID + "=") && splitUnescaped(part, "+").size() == 1);
     }
 
-    private static String normalizeValue(String raw, String oid) {
+    /**
+     * @param hexDer whether the value as written opens with the ASCII {@code #} marker -- decided by the caller on the
+     * raw spelling, before RFC 4514 unescaping and before NFKC, because both can manufacture a {@code #}
+     */
+    private static String normalizeValue(String raw, boolean hexDer, String oid) {
         // One escape rule, three paths, and they must not overlap. A bare `%XX` in the output means "a byte no
         // decoder could read"; every other percent is escaped to `%25` -- here for an ordinary textual value, and
         // inside decodeHexDer for a hex value that decodes. Escaping only inside the hex paths left `CN=#FF` and
@@ -125,11 +132,16 @@ public final class DistinguishedNames {
         // NFKC runs FIRST, on every path, because the escape is injective only over normalized text. U+FF05 FULLWIDTH
         // PERCENT SIGN is not a `%` when the escape looks at it and is one afterwards, so `CN=\uFF05FF` normalized to
         // a bare `%FF` -- byte-identical to what the malformed-bytes fallback renders for `CN=#FF`, and two issuers
-        // merged onto one row. The `#` test moves with it: U+FF03 and U+FE5F fold to `#`, so testing the raw value
-        // sent a hex-DER spelling down the literal path. Ordering it this way is what makes the class's own rule --
-        // that any `%` in a normalized value came from an escape here -- true rather than nearly true.
+        // merged onto one row. Ordering it this way is what makes the class's own rule -- that any `%` in a
+        // normalized value came from an escape here -- true rather than nearly true.
+        //
+        // The `#` test does NOT move with it. RFC 4514 defines the hex-DER marker over ASCII `#` alone, and NFKC maps
+        // U+FF03 FULLWIDTH NUMBER SIGN and U+FE5F SMALL NUMBER SIGN onto `#`: tested after normalization, a textual
+        // common name spelled with a compatibility number sign was decoded as DER, failed UTF-8, and rendered the
+        // bare `%FF` reserved for a byte no decoder could read -- so `CN=#FF`, `CN=\uFF03FF` and `CN=\uFF05FF` were
+        // one issuer. The spelling as written decides whether the payload is hex; NFKC still normalizes the payload.
         String normalized = Normalizer.normalize(raw, Normalizer.Form.NFKC);
-        String value = normalized.startsWith("#") ? decodeHexDer(normalized) : escapePercent(normalized);
+        String value = hexDer ? decodeHexDer(normalized) : escapePercent(normalized);
         value = AsciiText.strip(AsciiText.collapseWhitespace(value));
         // ASCII-only (R12). A value differing only in non-ASCII case keys separately; the case-fold twin detector
         // reports the pair rather than merging it, which is what makes the under-merge visible instead of silent.

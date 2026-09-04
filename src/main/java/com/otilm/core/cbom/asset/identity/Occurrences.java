@@ -183,11 +183,20 @@ public final class Occurrences {
      * {@code @} or {@code :} for a later step to miss.
      *
      * <p>
-     * <b>The user-info strip runs on both sides of the cut, and that is not belt-and-braces.</b> Before the cut it sees
-     * a credential whose {@code @} lies beyond a {@code ?} or {@code #}, which the cut would otherwise truncate into a
-     * stored password prefix. After the cut it sees the authority that the leading-fragment retention uncovers, which
-     * was not an authority before the {@code #} came off. Each pass closes a case the other cannot, and the second is a
-     * no-op for every location that carried no delimiter.
+     * <b>The user-info strip runs before the cut, once.</b> Before it, so a credential whose {@code @} lies beyond a
+     * {@code ?} or {@code #} is stripped whole rather than truncated by the cut into a stored password prefix. Once,
+     * because {@link #USERINFO} is unanchored: an authority the leading-fragment retention uncovers was already visible
+     * to the first pass, and {@link #withoutQueryOrFragment} returns a contiguous substring of its input, in which no
+     * match can appear that the whole did not have. A second pass after the cut used to run here and was believed to
+     * close that case; an exhaustive sweep to length 8 over <code>{/ : @ ? # a p}</code> found no input it changed. It
+     * went because a paragraph claiming it was load-bearing would have licensed re-anchoring the pattern.
+     *
+     * <p>
+     * <b>The strip after the cap makes the whole a fixpoint.</b> The cap is last and can land on interior whitespace,
+     * so the result could end in a space that a second application removed -- and the location is sanitized twice on
+     * two paths, once for the key and once for the stored evidence, which then disagreed by one character. The
+     * leading-fragment retention could likewise uncover a leading space. Sanitizing a sanitized location now changes
+     * nothing, which is what lets the two surfaces be compared byte for byte.
      */
     public static String sanitizeLocation(String location) {
         if (AsciiText.isBlank(location)) {
@@ -207,8 +216,7 @@ public final class Occurrences {
         text = LINE_BREAK.matcher(text).replaceAll("");
         text = withoutUserInfo(text);
         text = withoutQueryOrFragment(text);
-        text = withoutUserInfo(text);
-        return text.substring(0, capBoundary(text));
+        return AsciiText.strip(text.substring(0, capBoundary(text)));
     }
 
     /**
@@ -347,8 +355,8 @@ public final class Occurrences {
      * {@link #UNPAIRED_SURROGATE} scrubs those explicitly rather than relying on where the cut lands.
      *
      * <p>
-     * The cap is the last step of {@link #sanitizeLocation}, after the query, fragment and user-info have already gone,
-     * so it can neither expose nor preserve a credential -- only shorten a location that no longer carries one.
+     * The cap runs after the query, fragment and user-info have already gone, so it can neither expose nor preserve a
+     * credential -- only shorten a location that no longer carries one. The final strip follows it, and nothing else.
      */
     private static int capBoundary(String text) {
         return text.codePointCount(0, text.length()) <= MAX_LOCATION_LENGTH

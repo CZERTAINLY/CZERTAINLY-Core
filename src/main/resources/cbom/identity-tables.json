@@ -3238,9 +3238,9 @@
    "why": "cbom-lens familyExact"
   },
   {
-   "pattern": "(?<![A-Za-z0-9])HSS-LMS",
+   "pattern": "(?<![A-Za-z0-9])(HSS[-_/ ]?LMS|LMOTS|LMS)(?![A-Za-z0-9])",
    "family": "LMS",
-   "why": "cbom-lens familyExact, widened: the anchored form matched only the bare name, so every real parameter-set spelling (HSS-LMS-SHA256-M32-H5) fell through to the SHA-2 rule and keyed as a digest family"
+   "why": "cbom-lens familyExact, widened twice: the anchored form matched only the bare name, and the two-word HSS-LMS literal that replaced it still let the registered parameter-set names fall through to the SHA-2 rule -- LMS_SHA256_M32_H5 and LMOTS_SHA256_N32_W8 are what RFC 8554 and SP 800-208 register and what a JCA-call scanner emits, so a separator decided whether a stateful hash-based signature was inventoried as a signature or as a digest. Word-guarded on both sides so the bare tokens resolve and nothing matches inside another word; bare HSS is not listed, since the token is also a telecom name"
   },
   {
    "pattern": "(?<![A-Za-z0-9])XMSS",
@@ -3853,9 +3853,9 @@
    "why": "registry token"
   },
   {
-   "pattern": "(?<![A-Za-z0-9])GOST(?![A-Za-z0-9])(?![-_ \\t\\n\\x0B\\f\\r\\x1C\\x1D\\x1E\\x1F\\x85\\xA0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*R?[-_ \\t\\n\\x0B\\f\\r\\x1C\\x1D\\x1E\\x1F\\x85\\xA0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*[0-9])",
+   "pattern": "(?<![A-Za-z0-9])GOST(?![-_ \\t\\n\\x0B\\f\\r\\x1C\\x1D\\x1E\\x1F\\x85\\xA0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*R?[-_ \\t\\n\\x0B\\f\\r\\x1C\\x1D\\x1E\\x1F\\x85\\xA0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*(?:28147|34[._-]?1[012]|34[._-]?3))",
    "family": "GOST",
-   "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to nothing. Guarded against a following standard number, because the single registry token cannot carry which standard is meant, and the guard spells the reference whitespace set rather than an ASCII space: `GOST R 34.10` written with U+00A0 for either space defeated the narrow spelling and merged 34.10 with 34.11 again. Cipher suites naming GOST are classified as suites before family derivation runs, so they cannot reach this"
+   "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to nothing. One guard, against a following standard number -- 28147, 34.10, 34.11, 34.12 or 34.3, separated by the reference whitespace set or by nothing (`GOST R 34.11-2012`, `GOST_R_34_10_2012`, `GOST28147`, Bouncy Castle's `GOST3411` and `GOSTR3410`) -- because the single registry token cannot carry which standard is meant, so a name citing one stays on the name tier where the number keeps 34.10 apart from 34.11. The guard spells the reference whitespace set rather than an ASCII space: `GOST R 34.10` written with U+00A0 for either space defeated the narrow spelling and merged 34.10 with 34.11 again. Nothing else is guarded: a trailing key size or mode (`GOST-256-CTR`, `GOST-512`) and a glued word (`GOSTHASH`, `GOSTKDF`) elect the family, since a bare `[0-9]` lookahead and a right word guard between them left only six plain-ASCII spellings able to reach it. Cipher suites naming GOST are classified as suites before family derivation runs, so they cannot reach this"
   },
   {
    "pattern": "(?<![A-Za-z0-9])Skipjack",

@@ -1,6 +1,8 @@
 package com.otilm.core.cbom.asset.identity;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.otilm.core.serialization.ObjectMapperFactory;
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,9 +12,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Guards the ratified artifact the whole identity chain keys on.
@@ -49,7 +57,7 @@ class IdentityTablesTest {
             assertThat(stream).isNotNull();
             assertThat(IdentityDigests.sha256HexOfBytes(stream.readAllBytes()))
                     .describedAs("the decision tables are ratified data; editing them re-keys the inventory")
-                    .isEqualTo("1f647c456c1fe503ba76c607132603fc9487b3862e4a016610aca6a53012abc2");
+                    .isEqualTo("0b42d1a5e2458eddb50bd87ec4cef0b92b86121dee7aad078796f6470949e2c4");
         }
     }
 
@@ -181,6 +189,61 @@ class IdentityTablesTest {
         assertThat(IdentityTables.load()).isNotNull();
         assertThat(IdentityTables.load().nameGrammar()).isNotEmpty();
         assertThat(IdentityTables.load().curveCanonical()).isNotEmpty();
+    }
+
+    /**
+     * A malformed artifact refuses to load, naming the table and the shape it wanted.
+     *
+     * <p>
+     * Jackson's own traversal is fail-open -- {@code forEach} over a scalar visits nothing, {@code asInt()} of text is
+     * 0 -- so a mis-typed table once loaded as an <em>empty</em> one with every vector green and only the artifact hash
+     * red. The typed reader closed that, and nothing could reach its refusals: the constructor was private and
+     * {@code load()} reads one fixed resource. Each shape the reader refuses is driven here through a copy of the
+     * shipped artifact with one thing wrong, so the fail-open state is one red test away rather than one regression.
+     */
+    @ParameterizedTest
+    @MethodSource("malformedArtifacts")
+    void aMalformedArtifactRefusesToLoadNamingTheTable(String description, Consumer<ObjectNode> corruption,
+            String refusal) throws IOException {
+        ObjectNode artifact = (ObjectNode) rawTables();
+        corruption.accept(artifact);
+
+        assertThatThrownBy(() -> IdentityTables.of(artifact))
+                .describedAs(description)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(refusal);
+    }
+
+    static Stream<Arguments> malformedArtifacts() {
+        return Stream
+                .of(malformed("a wrong container type", tables -> tables.put("oidBlockedPrefixes", "1.2.840"),
+                        "table `oidBlockedPrefixes` must be an array, not STRING"),
+                        malformed("a wrong element type", tables -> ((ArrayNode) tables.get("sizeStoplist")).set(0, 5),
+                                "table `sizeStoplist[0]` must be a string, not NUMBER"),
+                        malformed("a missing table", tables -> tables.remove("nameGrammar"),
+                                "table `nameGrammar` is missing"),
+                        malformed("a missing member of a rule",
+                                tables -> ((ObjectNode) tables.get("nameGrammar").get(0)).remove("family"),
+                                "table `nameGrammar[0].family` is missing"),
+                        malformed("a null map value",
+                                tables -> ((ObjectNode) tables.get("paddingAliases")).putNull("PKCS5"),
+                                "table `paddingAliases.PKCS5` must be a string, not NULL"),
+                        malformed("a non-integer bound",
+                                tables -> ((ObjectNode) tables.get("sizeWhitelist")).put("min", "64"),
+                                "table `sizeWhitelist.min` must be an integer, not STRING"),
+                        malformed("an over-long marker tuple",
+                                tables -> ((ArrayNode) tables.get("secondaryMarkers").get(0)).add("POLY1305"),
+                                "table `secondaryMarkers[0]` must hold exactly 2 elements, not 3"),
+                        malformed("two family tokens folding together",
+                                tables -> ((ArrayNode) tables.get("algorithmFamilies")).add("aes"),
+                                "family tokens `AES` and `aes` fold to the same lookup key `aes`"),
+                        malformed("two curve aliases folding together with different targets",
+                                tables -> ((ObjectNode) tables.get("curveAliases")).put("P_256", "secg/secp384r1"),
+                                "`P_256` -> `secg/secp384r1` fold to the same lookup key `p256` with different targets"));
+    }
+
+    private static Arguments malformed(String description, Consumer<ObjectNode> corruption, String refusal) {
+        return Arguments.of(description, corruption, refusal);
     }
 
     private static JsonNode rawTables() throws IOException {

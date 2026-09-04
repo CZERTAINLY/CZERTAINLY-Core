@@ -81,14 +81,31 @@ final class IdentityKeyExposureFence {
             .compile(STORED_VALUE_VOCABULARY + "|" + PRE_IMAGE_VOCABULARY, Pattern.CASE_INSENSITIVE);
 
     /**
-     * Any method call named after a log level. Deliberately loose — it matches {@code log.debug(}, {@code logger.warn(}
-     * and the wrapped {@code logger.getLogger().debug(} alike, because the point is to catch the bound value reaching
-     * an appender, whatever the logger handle is called.
+     * Any call that puts a value on a log line. Deliberately loose — it matches {@code log.debug(},
+     * {@code logger.warn(} and the wrapped {@code logger.getLogger().debug(} alike, because the point is to catch the
+     * bound value reaching an appender, whatever the logger handle is called.
+     *
+     * <p>
+     * An MDC or {@code ThreadContext} binding is a log line too, and the one this codebase actually writes: eighteen
+     * {@code MDC.put} sites attach context to every subsequent statement of the request, so a value bound there is
+     * printed by every log line until it is removed. A span attribute or event is forwarded by the tracing appender the
+     * same way. Both were invisible to the level-name rule.
      */
     private static final Pattern LOGGING_CALL = Pattern
             .compile("\\.\\s*(trace|debug|info|warn|error|logEvent|log)\\s*\\("
                     + "|\\bSystem\\s*\\.\\s*(out|err)\\s*\\.\\s*(print|println|printf|format)\\s*\\("
-                    + "|\\.\\s*printStackTrace\\s*\\(", Pattern.CASE_INSENSITIVE);
+                    + "|\\.\\s*printStackTrace\\s*\\("
+                    + "|\\b(MDC|ThreadContext)\\s*\\.\\s*(put|putCloseable|putAll)\\s*\\("
+                    + "|\\.\\s*(setAttribute|addEvent)\\s*\\(", Pattern.CASE_INSENSITIVE);
+
+    /**
+     * The argument list of a thrown exception. A message travels to whatever catches the exception and is logged there,
+     * and {@code CryptoAssetConstraintTranslator} — allowlisted for the stored value — exists to turn the unique
+     * constraint on that value into a message. Unlike a logging call this is judged on the line with its literals
+     * blanked: {@code "identity key has invalid shape"} names the column and states no value, where a bound variable
+     * beside it does.
+     */
+    private static final Pattern THROW_ARGUMENT = Pattern.compile("\\bthrow\\s+new\\s+[\\w.$<>]+\\s*\\(");
 
     /**
      * A string or character literal, escapes included. Blanked out before parentheses are counted, so a parenthesis
@@ -274,6 +291,87 @@ final class IdentityKeyExposureFence {
     }
 
     /**
+     * One declared method, reduced to what the fence needs to judge a re-export: who declares it, what it returns, and
+     * which {@link #KEY_CARRIER_ACCESSORS carriers} it calls. Class names are binary names, as the byte code reports
+     * them; {@code carrierTargets} are in the {@code Outer$Inner.method} form the carrier map is keyed by.
+     */
+    record MethodShape(String declaringClass, String name, String returnType, Collection<String> carrierTargets) {
+
+        String target() {
+            return declaringClass + "." + name;
+        }
+    }
+
+    /**
+     * One declared member and every raw type its declaration involves -- its own type or return type, its parameters,
+     * and the type arguments of each -- reduced to binary class names.
+     */
+    record TypedMember(String declaringClass, String packageName, String kind, String name,
+            Collection<String> involvedTypes) {
+
+        @Override
+        public String toString() {
+            return declaringClass + "." + name + " (" + kind + ")";
+        }
+    }
+
+    /**
+     * Methods that read a carrier and hand its value on under a name no rule sees.
+     *
+     * <p>
+     * {@link #keyCarrierCallViolations} judges the call site, so one method in an allowlisted class returning
+     * {@code asset.identityKey()} as {@code fingerprintOf(asset)} made every caller of {@code fingerprintOf} invisible
+     * to all four rules: the allowlisted file read the carrier legitimately, and the service reading the re-export
+     * named nothing fenced. A method that calls a registered carrier and returns a {@code String} is therefore itself a
+     * carrier, and must be registered as one or stop returning the value -- registration is the reviewed record that
+     * the re-export is deliberate, as {@code ExtractedAsset.identityKey} is.
+     *
+     * <p>
+     * What this does not see, stated so nobody relies on it: a carrier value returned inside a record or a collection,
+     * or passed as an argument to another class's method. Following the value through those needs dataflow the byte
+     * code does not hand out, so the residual is confined to methods of the allowlisted classes and closed by review of
+     * those files rather than by this rule.
+     */
+    static List<String> carrierReExportViolations(Collection<MethodShape> methods) {
+        return methods
+                .stream()
+                .filter(method -> "java.lang.String".equals(method.returnType()))
+                .filter(method -> !KEY_CARRIER_ACCESSORS.containsKey(method.target()))
+                .filter(method -> method.carrierTargets().stream().anyMatch(KEY_CARRIER_ACCESSORS::containsKey))
+                .map(method -> method.target() + "() returns a String after reading "
+                        + method.carrierTargets().stream().filter(KEY_CARRIER_ACCESSORS::containsKey).sorted().toList()
+                        + ": a re-export of the crypto-asset identity key or its pre-image that no caller's line "
+                        + "names; register it in KEY_CARRIER_ACCESSORS or stop returning the value")
+                .toList();
+    }
+
+    /**
+     * Members of a fenced package typed with a class that declares a carrier, directly or as a type argument.
+     *
+     * <p>
+     * {@link #declaredMemberViolations} judges member names, so {@code record Dto(String name, Identity detail)} in a
+     * model package passed: nothing on it is called anything fenced. {@code Identity} and {@code ExtractedAsset} are
+     * public records, and a serializer walks a record by its components and renders {@code preImage} and
+     * {@code identityKey} verbatim -- the stock wire mapper refuses the empty beans behind them today, and one
+     * {@code @JsonIgnoreProperties} would turn that refusal into the leak. A client-facing declaration has no business
+     * being typed with the material's carrier, whatever the member is called.
+     */
+    static List<String> carrierTypedMemberViolations(Collection<TypedMember> members) {
+        return members
+                .stream()
+                .filter(member -> isFencedPackage(member.packageName()))
+                .filter(member -> member.involvedTypes().stream().anyMatch(IdentityKeyExposureFence::declaresACarrier))
+                .map(member -> member + " is typed with a class that carries the crypto-asset identity key or its "
+                        + "pre-image, in a client-facing package")
+                .toList();
+    }
+
+    /** Whether the class, named in binary form, declares one of the registered carriers. */
+    static boolean declaresACarrier(String className) {
+        return KEY_CARRIER_ACCESSORS.keySet().stream().anyMatch(accessor -> accessor.startsWith(className + "."));
+    }
+
+    /**
      * The repository-relative source file a class was compiled from. The outermost class decides: a nested class, an
      * anonymous class and a lambda's synthetic host all live in the file of the class enclosing them, and the allowlist
      * is written in files.
@@ -303,6 +401,7 @@ final class IdentityKeyExposureFence {
         Pattern exempt = SOURCE_ALLOWLIST.get(path);
         List<String> violations = new ArrayList<>();
         int openLoggingParens = 0;
+        int openThrowParens = 0;
         boolean inTextBlock = false;
         boolean inBlockComment = false;
         for (int i = 0; i < lines.size(); i++) {
@@ -330,31 +429,37 @@ final class IdentityKeyExposureFence {
             }
             String code = LITERAL.matcher(countable).replaceAll("\"\"");
             boolean insideLoggingCall = openLoggingParens > 0 || LOGGING_CALL.matcher(code).find();
+            boolean insideThrow = openThrowParens > 0 || THROW_ARGUMENT.matcher(code).find();
             if (mentionsIdentityKey(line)) {
                 if (insideLoggingCall) {
                     violations.add(path + ":" + (i + 1) + " logs the crypto-asset identity key: " + line.strip());
+                } else if (insideThrow && mentionsIdentityKey(code)) {
+                    violations
+                            .add(path + ":" + (i + 1) + " puts the crypto-asset identity key in an exception message: "
+                                    + line.strip());
                 } else if (!namesNothingBeyondItsVocabulary(exempt, line)) {
                     violations
                             .add(path + ":" + (i + 1) + " names the crypto-asset identity key outside persistence: "
                                     + line.strip());
                 }
             }
-            openLoggingParens = remainingLoggingParens(code, openLoggingParens);
+            openLoggingParens = remainingParens(LOGGING_CALL, code, openLoggingParens);
+            openThrowParens = remainingParens(THROW_ARGUMENT, code, openThrowParens);
         }
         return violations;
     }
 
     /**
-     * How many parentheses of a logging call are still open at the end of this line, given how many were open at its
-     * start. Counting begins at the {@code (} of a logging call and stops when that call closes, so ordinary
-     * parenthesised code between two logging statements is never mistaken for an open call.
+     * How many parentheses of a sink call are still open at the end of this line, given how many were open at its
+     * start. Counting begins at the {@code (} of the call and stops when that call closes, so ordinary parenthesised
+     * code between two sink statements is never mistaken for an open call.
      *
      * <p>
      * A count that drifts can only drift toward reporting more, never less: an unbalanced line leaves the call open and
-     * keeps the following lines under the logging rule, which is the direction a fence should fail in.
+     * keeps the following lines under the sink's rule, which is the direction a fence should fail in.
      */
-    private static int remainingLoggingParens(String code, int carriedDepth) {
-        Matcher call = LOGGING_CALL.matcher(code);
+    private static int remainingParens(Pattern sink, String code, int carriedDepth) {
+        Matcher call = sink.matcher(code);
         int depth = carriedDepth;
         int callOpensAt = call.find() ? call.end() - 1 : -1;
         for (int i = 0; i < code.length(); i++) {

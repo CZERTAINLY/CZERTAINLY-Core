@@ -173,11 +173,12 @@ public final class CbomAssetExtractor {
                 // across the space between them -- a rule about text, applied to text, with no idea what a type is.
                 CryptoAssetIdentity.Identity extracted = identity.of(component, scope, batchRefutedDigests);
                 List<Map<String, Object>> reported = sanitizedOccurrences(component);
-                assets
-                        .add(new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(), nameOf(component),
-                                extracted.redaction().storedPayload(), OccurrenceEvidenceCapper.cap(reported),
-                                reported == null ? 0 : reported.size(), extracted.guard(),
-                                extracted.redaction().findings()));
+                ExtractedAsset asset = new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(),
+                        nameOf(component), extracted.redaction().storedPayload(),
+                        OccurrenceEvidenceCapper.cap(reported), reported == null ? 0 : reported.size(),
+                        extracted.guard(), extracted.redaction().findings());
+                requireEncodable(asset);
+                assets.add(asset);
             } catch (RuntimeException e) {
                 // Deliberately broad, and deliberately not logged with the throwable. Producer input reaches every
                 // derivation below this line; the failure classes are open-ended, and one of them must not be fatal.
@@ -220,6 +221,54 @@ public final class CbomAssetExtractor {
             sanitized.add(MAPPER.convertValue(copy, MAP_TYPE));
         }
         return sanitized;
+    }
+
+    /**
+     * Refuses an asset whose stored surfaces carry a string with no UTF-8 encoding, so the refusal is a rule stated
+     * here rather than an accident of which tier ran.
+     *
+     * <p>
+     * {@link IdentityDigests#sha256Hex} refuses an unpaired surrogate in a pre-image, so a component spelling one into
+     * a keyed slot was already a reported skip. A string that reaches storage without reaching a pre-image was not: a
+     * cipher-suite name on a version-less protocol row, or an unread member of {@code algorithmProperties} on a row
+     * keyed by family, was retained in a payload that has no valid encoding for the {@code jsonb} column -- so whether
+     * the row survived was decided by the database, on a path that once rolled back a whole source upsert. The
+     * component name, the stored payload, the sanitized evidence and the provenance notes are what persistence
+     * receives, and each is checked. The occurrence locations are not among the refusals: {@link Occurrences} scrubs a
+     * surrogate there rather than refusing it, and the evidence checked here is the scrubbed form.
+     */
+    private static void requireEncodable(ExtractedAsset asset) {
+        IdentityDigests.requireWellFormedUnicode(asset.componentName());
+        requireEncodable(asset.retainedProperties());
+        asset.normalized().notes().forEach(IdentityDigests::requireWellFormedUnicode);
+        if (asset.evidence() != null) {
+            asset.evidence().forEach(CbomAssetExtractor::requireEncodable);
+        }
+    }
+
+    private static void requireEncodable(JsonNode node) {
+        if (node == null) {
+            return;
+        }
+        if (node.isTextual()) {
+            IdentityDigests.requireWellFormedUnicode(node.textValue());
+        } else if (node.isContainerNode()) {
+            node.properties().forEach(member -> IdentityDigests.requireWellFormedUnicode(member.getKey()));
+            node.forEach(CbomAssetExtractor::requireEncodable);
+        }
+    }
+
+    private static void requireEncodable(Object value) {
+        if (value instanceof String text) {
+            IdentityDigests.requireWellFormedUnicode(text);
+        } else if (value instanceof Map<?, ?> map) {
+            map.forEach((key, member) -> {
+                requireEncodable(key);
+                requireEncodable(member);
+            });
+        } else if (value instanceof Iterable<?> members) {
+            members.forEach(CbomAssetExtractor::requireEncodable);
+        }
     }
 
     /**

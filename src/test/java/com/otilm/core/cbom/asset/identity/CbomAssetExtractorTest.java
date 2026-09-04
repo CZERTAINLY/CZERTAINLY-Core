@@ -127,7 +127,8 @@ class CbomAssetExtractorTest {
                         certificateReferencing("resolving", "u"), certificateWithDigest("digest-one", "one"),
                         certificateWithDigest("digest-two", "two"),
                         protocolWithSuite("tls-one", "TLS_AES_128_GCM_SHA256"),
-                        protocolWithSuite("tls-two", "TLS_AKE_WITH_AES_128_GCM_SHA256")));
+                        protocolWithSuite("tls-two", "TLS_CHACHA20_POLY1305_SHA256"),
+                        material("second-key", "v", "BBBB"), certificateReferencingKeys("two-keys", "u", "v")));
         Map<String, Row> forward = rowsByName(components);
         assertThatEveryDocumentScopedEffectIsLive(forward);
 
@@ -141,17 +142,45 @@ class CbomAssetExtractorTest {
     }
 
     /**
+     * Order inside a component is a serialization of the document as much as the order of its components is.
+     *
+     * <p>
+     * {@code subjectPublicKeyRef} took the first related-asset entry typed {@code public-key}, so a certificate
+     * carrying two of them keyed differently depending on which was written first -- one level below the rule that a
+     * duplicated {@code bom-ref} resolves to nothing. The permutation fixture shuffles components, not this array, so
+     * the pair is transposed here. Two entries name nothing, exactly as the duplicated ref does.
+     */
+    @Test
+    void transposingTwoPublicKeyEntriesChangesNothing() {
+        String keys = material("first-key", "u", "AAAA") + "," + material("second-key", "v", "BBBB") + ",";
+        Map<String, Row> forward = rowsByName(List
+                .of(keys + certificateReferencingKeys("two-keys", "u", "v") + ","
+                        + certificateReferencing("none", "nowhere")));
+        Map<String, Row> transposed = rowsByName(List
+                .of(keys + certificateReferencingKeys("two-keys", "v", "u") + ","
+                        + certificateReferencing("none", "nowhere")));
+
+        assertThat(transposed.get("two-keys")).isEqualTo(forward.get("two-keys"));
+        assertThat(forward.get("two-keys").identityKey())
+                .describedAs("an ambiguous public-key reference resolves to nothing, as a dangling one does")
+                .isEqualTo(forward.get("none").identityKey());
+    }
+
+    /**
      * A permutation test proves nothing about state that never fired, so each document-scoped effect is asserted live
-     * first. The three referencing certificates share one subject, issuer and validity, so their keys can differ only
-     * through what the reference resolved to.
+     * first. The referencing certificates share one subject, issuer and validity, so their keys can differ only through
+     * what the reference resolved to.
      */
     private static void assertThatEveryDocumentScopedEffectIsLive(Map<String, Row> rows) {
-        assertThat(rows).hasSize(16);
+        assertThat(rows).hasSize(18);
         assertThat(rows.get("resolving").identityKey())
                 .describedAs("the reference into the nested library resolved and filled the composite's key slot")
                 .isNotEqualTo(rows.get("dangling").identityKey());
         assertThat(rows.get("ambiguous").identityKey())
                 .describedAs("a duplicated ref resolves to nothing, exactly as a dangling one does")
+                .isEqualTo(rows.get("dangling").identityKey());
+        assertThat(rows.get("two-keys").identityKey())
+                .describedAs("and so do two public-key entries on one certificate")
                 .isEqualTo(rows.get("dangling").identityKey());
         assertThat(List.of(rows.get("digest-one").chainStep(), rows.get("digest-two").chainStep()))
                 .describedAs("the contradicted digest was refused and both certificates fell to the composite")
@@ -377,6 +406,71 @@ class CbomAssetExtractorTest {
         assertThat(extraction.assets()).hasSize(1);
     }
 
+    /**
+     * A string with no UTF-8 encoding in a stored surface is a reported skip, whichever tier keyed the row.
+     *
+     * <p>
+     * {@code IdentityDigests.sha256Hex} refuses an unpaired surrogate in a pre-image, so a suite name carrying one was
+     * a skip while the suite digest ran for every protocol row. Once the digest ran only on the versioned tier, a
+     * version-less row keyed on {@code prt:type+name} and its retained payload carried a string the {@code jsonb}
+     * evidence column cannot encode -- the failure that once rolled back a whole source upsert. The same was true all
+     * along for a member no tier reads at all, such as an extension in {@code algorithmProperties} on a row keyed by
+     * family. The rule is now stated at the extraction boundary, over what persistence receives.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"type\":\"cryptographic-asset\",\"name\":\"ep\",\"cryptoProperties\":{\"assetType\":\"protocol\","
+                    + "\"protocolProperties\":{\"type\":\"tls\",\"cipherSuites\":[{\"name\":\"TLS_BAD\\ud800\"}]}}}",
+            "{\"type\":\"cryptographic-asset\",\"name\":\"alg\",\"cryptoProperties\":{\"assetType\":\"algorithm\","
+                    + "\"algorithmProperties\":{\"primitive\":\"hash\",\"vendorNote\":\"x\\ud800\"}}}",
+            "{\"type\":\"cryptographic-asset\",\"name\":\"bad\\udc00name\",\"cryptoProperties\":"
+                    + "{\"assetType\":\"algorithm\",\"algorithmProperties\":{}}}"})
+    void anUnencodableStoredStringIsASkipWhateverTierKeyedTheRow(String component) {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR.extract(read("{\"components\":[" + component + "]}"));
+
+        assertThat(extraction.assets()).isEmpty();
+        assertThat(extraction.skips())
+                .singleElement()
+                .satisfies(skip -> assertThat(skip.reason()).isEqualTo("IllegalArgumentException"));
+    }
+
+    /** The occurrence location keeps its own rule: a surrogate there is scrubbed, and the asset survives. */
+    @Test
+    void aSurrogateInALocationIsScrubbedRatherThanCostingTheAsset() {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"TLSv1.2\","
+                        + "\"cryptoProperties\":{\"assetType\":\"protocol\",\"protocolProperties\":{\"type\":\"tls\"}},"
+                        + "\"evidence\":{\"occurrences\":[{\"location\":\"file:///a\\ud800b/key.pem\"}]}}]}"));
+
+        assertThat(extraction.skips()).isEmpty();
+        assertThat(extraction.assets())
+                .singleElement()
+                .satisfies(
+                        asset -> assertThat(asset.evidence().get(0)).containsEntry("location", "file:///ab/key.pem"));
+    }
+
+    /**
+     * An unreadable side field costs its own slot, never the row.
+     *
+     * <p>
+     * Jackson parses {@code 1e400} into a double of infinity, and {@code decimalValue()} on it threw a
+     * {@code NumberFormatException} the extractor caught as a whole-component skip. The vector suite is blind to the
+     * guard because the guard moves no key, so its consequence -- the row -- is pinned here.
+     */
+    @Test
+    void aNonFiniteParameterSetCostsItsSlotAndNotTheRow() {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"RSA\","
+                        + "\"cryptoProperties\":{\"assetType\":\"algorithm\",\"algorithmProperties\":"
+                        + "{\"parameterSetIdentifier\":1e400}}}]}"));
+
+        assertThat(extraction.skips()).isEmpty();
+        assertThat(extraction.assets())
+                .singleElement()
+                .satisfies(asset -> assertThat(asset.normalized().notes())
+                        .contains(AssetNormalizer.NON_FINITE_PARAMETER_SET_NOTE));
+    }
+
     // ---------------------------------------------------------------- the ingest mapper
 
     /**
@@ -466,6 +560,17 @@ class CbomAssetExtractorTest {
         return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"cryptoProperties\":"
                 + "{\"assetType\":\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=referrer\","
                 + "\"issuerName\":\"CN=ca\",\"subjectPublicKeyRef\":\"" + ref + "\"}}}";
+    }
+
+    /** The 1.7 shape of {@link #certificateReferencing}: every ref given is a {@code public-key} related asset. */
+    private static String certificateReferencingKeys(String name, String... refs) {
+        List<String> entries = new ArrayList<>();
+        for (String ref : refs) {
+            entries.add("{\"ref\":\"" + ref + "\",\"type\":\"public-key\"}");
+        }
+        return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"cryptoProperties\":"
+                + "{\"assetType\":\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=referrer\","
+                + "\"issuerName\":\"CN=ca\",\"relatedCryptographicAssets\":[" + String.join(",", entries) + "]}}}";
     }
 
     /** A certificate claiming one shared digest through {@code component.hashes[]}. */

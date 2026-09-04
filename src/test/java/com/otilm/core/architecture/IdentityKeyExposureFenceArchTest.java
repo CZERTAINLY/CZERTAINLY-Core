@@ -2,12 +2,15 @@ package com.otilm.core.architecture;
 
 import com.otilm.core.architecture.IdentityKeyExposureFence.AccessorCall;
 import com.otilm.core.architecture.IdentityKeyExposureFence.MemberRef;
+import com.otilm.core.architecture.IdentityKeyExposureFence.MethodShape;
+import com.otilm.core.architecture.IdentityKeyExposureFence.TypedMember;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.domain.JavaMethodReference;
+import com.tngtech.archunit.core.domain.JavaType;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -28,16 +31,20 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>
  * The key is a hash over a low-entropy preimage — algorithm family, parameter set, curve. Handed the key, an attacker
  * recovers the material by dictionary attack, which is why the redaction ruling in core#2070 rests on the value never
- * leaving the database and on nothing else. Four rules, one kernel:
+ * leaving the database and on nothing else. Six rules, one kernel:
  *
  * <ol>
  * <li>no member naming the key may be declared in a client-facing package, the imported contract artifact
  * included;</li>
  * <li>{@code FilterField} — the search allowlist — must not name it;</li>
- * <li>no production source may name it outside persistence, and none may log it, not even the persistence sources that
- * legitimately hold it;</li>
+ * <li>no production source may name it outside persistence, and none may put it on a log line — a logger call, an MDC
+ * binding, a span attribute or an exception message — not even the persistence sources that legitimately hold it;</li>
  * <li>no production class may read an accessor that returns the key or its pre-image unless its source is allowlisted
- * for that value — the rule that sees {@code extracted.key()}, which names nothing the three text rules can match.</li>
+ * for that value — the rule that sees {@code extracted.key()}, which names nothing the three text rules can match;</li>
+ * <li>no production method may read such an accessor and return its value as a {@code String} unless it is itself
+ * registered as a carrier — the re-export that would make every caller invisible to the rule above;</li>
+ * <li>no client-facing declaration may be typed with a class that declares a carrier, directly or as a type
+ * argument.</li>
  * </ol>
  *
  * <p>
@@ -119,6 +126,78 @@ class IdentityKeyExposureFenceArchTest {
                         + "sources allowlisted for that value: the record component is named so that no text rule "
                         + "sees it, and a call site is the same disclosure whatever the line says.")
                 .isEmpty();
+    }
+
+    /**
+     * The call-site rule judges who reads a carrier; this one judges what a reader does with it. A method that reads a
+     * carrier and returns a {@code String} has minted a carrier of its own under a name no text rule sees, and every
+     * caller of it is then invisible to the rule above -- so it must be registered as a carrier or stop returning the
+     * value. Lambdas are methods the byte code names, so a stream forwarding the value is judged too.
+     */
+    @ArchTest
+    static void noProductionMethodReExportsACarrierUnregistered(JavaClasses classes) {
+        List<MethodShape> methods = new ArrayList<>();
+        for (JavaClass clazz : classes) {
+            if (!isProductionClass(clazz)) {
+                continue;
+            }
+            for (JavaMethod method : clazz.getMethods()) {
+                List<String> carriers = new ArrayList<>();
+                for (JavaMethodCall call : method.getMethodCallsFromSelf()) {
+                    carriers.add(call.getTargetOwner().getName() + "." + call.getName());
+                }
+                for (JavaMethodReference reference : method.getMethodReferencesFromSelf()) {
+                    carriers.add(reference.getTargetOwner().getName() + "." + reference.getName());
+                }
+                methods
+                        .add(new MethodShape(clazz.getName(), method.getName(), method.getRawReturnType().getName(),
+                                carriers));
+            }
+        }
+
+        assertThat(IdentityKeyExposureFence.carrierReExportViolations(methods))
+                .describedAs("A method returning what a carrier handed it is a carrier: register it, so the "
+                        + "call-site rule sees its readers, or do not return the value.")
+                .isEmpty();
+    }
+
+    /**
+     * The declaration rule judges member names; this one judges member types. A DTO component typed
+     * {@code CryptoAssetIdentity.Identity} is called nothing fenced and is serialized by walking the record, pre-image
+     * included.
+     */
+    @ArchTest
+    static void noClientFacingDeclarationIsTypedWithACarrier(JavaClasses classes) {
+        List<TypedMember> members = new ArrayList<>();
+        for (JavaClass clazz : classes) {
+            for (JavaField field : clazz.getFields()) {
+                members
+                        .add(new TypedMember(clazz.getName(), clazz.getPackageName(), "field", field.getName(),
+                                rawTypeNames(List.of(field.getType()))));
+            }
+            for (JavaMethod method : clazz.getMethods()) {
+                List<JavaType> involved = new ArrayList<>(method.getParameterTypes());
+                involved.add(method.getReturnType());
+                members
+                        .add(new TypedMember(clazz.getName(), clazz.getPackageName(), "method", method.getName(),
+                                rawTypeNames(involved)));
+            }
+        }
+
+        assertThat(IdentityKeyExposureFence.carrierTypedMemberViolations(members))
+                .describedAs("A model or API declaration must not be typed with a class that carries the identity key "
+                        + "or its pre-image: a serializer renders the record's components whatever the member is called.")
+                .isEmpty();
+    }
+
+    private static List<String> rawTypeNames(List<JavaType> types) {
+        List<String> names = new ArrayList<>();
+        for (JavaType type : types) {
+            for (JavaClass raw : type.getAllInvolvedRawTypes()) {
+                names.add(raw.getName());
+            }
+        }
+        return names;
     }
 
     /** A class with no known source is judged as production: the fence fails toward reporting, never toward silence. */

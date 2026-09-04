@@ -2,6 +2,8 @@ package com.otilm.core.architecture;
 
 import com.otilm.core.architecture.IdentityKeyExposureFence.AccessorCall;
 import com.otilm.core.architecture.IdentityKeyExposureFence.MemberRef;
+import com.otilm.core.architecture.IdentityKeyExposureFence.MethodShape;
+import com.otilm.core.architecture.IdentityKeyExposureFence.TypedMember;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -392,6 +394,42 @@ class IdentityKeyExposureFenceSelfTest {
                 .hasSize(1);
     }
 
+    /**
+     * The two ways a value actually reaches a log line in this codebase: an MDC binding, which every later statement of
+     * the request prints, and an exception message, which whatever catches it logs. Both name only the vocabulary the
+     * writer is allowlisted for, so the naming rule exempts them; neither matched the level-name pattern.
+     */
+    @Test
+    void anMdcBindingOrAnExceptionMessageIsALogLine() {
+        Path writer = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer, List.of("  org.slf4j.MDC.put(\"identity_key\", identityKey);")))
+                .describedAs("an MDC binding")
+                .hasSize(1);
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer, List.of("  span.setAttribute(\"asset.identity_key\", identityKey);")))
+                .describedAs("a span attribute")
+                .hasSize(1);
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer,
+                        List.of("  throw new IllegalStateException(\"duplicate identity_key \" + identityKey);")))
+                .describedAs("an exception message")
+                .singleElement()
+                .asString()
+                .contains("exception message");
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer,
+                        List.of("  throw new IllegalStateException(", "          \"duplicate \" + identityKey);")))
+                .describedAs("wrapped across lines")
+                .hasSize(1);
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer, List
+                        .of("  throw new ValidationException(ValidationError.create(\"identity key has invalid shape\"));")))
+                .describedAs("a message naming the column and no value is the writer's own validation error")
+                .isEmpty();
+    }
+
     // ---------------------------------------------------------------- key carriers
 
     private static final String IDENTITY = "com.otilm.core.cbom.asset.identity.CryptoAssetIdentity$Identity";
@@ -502,5 +540,83 @@ class IdentityKeyExposureFenceSelfTest {
 
     private static List<String> carrierViolations(String caller, String target, String method) {
         return IdentityKeyExposureFence.keyCarrierCallViolations(List.of(new AccessorCall(caller, target, method)));
+    }
+
+    // ---------------------------------------------------------------- re-exports
+
+    /**
+     * The second hop the call-site rule cannot see: an allowlisted class reads a carrier legitimately and returns the
+     * value under a name of its own, and every caller of that name is then invisible to all four rules.
+     */
+    @Test
+    void aReExportOfACarrierFromAnAllowlistedClassIsReported() {
+        assertThat(reExportViolations(EXTRACTOR, "fingerprintOf", "java.lang.String", EXTRACTED + ".identityKey"))
+                .singleElement()
+                .asString()
+                .contains("CbomAssetExtractor.fingerprintOf")
+                .contains("ExtractedAsset.identityKey");
+        assertThat(reExportViolations(CALCULATOR, "describe", "java.lang.String", IDENTITY + ".preImage"))
+                .describedAs("the pre-image is the worse of the two")
+                .hasSize(1);
+        assertThat(reExportViolations(WRITER, "lambda$store$0", "java.lang.String", EXTRACTED + ".identityKey"))
+                .describedAs("a lambda forwarding the value is a method the byte code names")
+                .hasSize(1);
+    }
+
+    /**
+     * The rule is about a String that came from a carrier; a registered carrier, another type, or another value is not
+     * it.
+     */
+    @Test
+    void aMethodThatIsNotAReExportIsNotReported() {
+        assertThat(reExportViolations(EXTRACTED, "identityKey", "java.lang.String"))
+                .describedAs("a registered carrier is the reviewed record of a deliberate hand-off")
+                .isEmpty();
+        assertThat(reExportViolations(EXTRACTOR, "extract", EXTRACTOR + "$Extraction", IDENTITY + ".key"))
+                .describedAs(
+                        "a value handed on inside a record is the extractor's contract, and its components are registered")
+                .isEmpty();
+        assertThat(reExportViolations(SERVICE, "stepOf", "java.lang.String", IDENTITY + ".step"))
+                .describedAs("the chain step carries nothing fenced")
+                .isEmpty();
+        assertThat(reExportViolations(CALCULATOR, "publicKeyDigest", "java.lang.String", CALCULATOR + "$Tier.preImage"))
+                .describedAs("a private tier record is not a registered carrier")
+                .isEmpty();
+    }
+
+    /**
+     * A fenced-package member typed with a carrier's class passes the name rule with nothing fenced on it, and a
+     * serializer walking the record renders the component anyway.
+     */
+    @Test
+    void aFencedMemberTypedWithACarrierIsReported() {
+        String dto = "com.otilm.core.model.cbom.FencePlantDto";
+        String fenced = "com.otilm.core.model.cbom";
+
+        assertThat(typedMemberViolations(dto, fenced, "field", "detail", IDENTITY)).hasSize(1);
+        assertThat(typedMemberViolations(dto, fenced, "method", "rows", "java.util.List", EXTRACTED))
+                .describedAs("as a type argument")
+                .hasSize(1);
+        assertThat(typedMemberViolations(dto, fenced, "method", "redaction", REDACTION))
+                .describedAs("the redaction carries the material's identity digest")
+                .hasSize(1);
+        assertThat(typedMemberViolations(dto, fenced, "field", "name", "java.lang.String")).isEmpty();
+        assertThat(typedMemberViolations(dto, fenced, "field", "step", "java.util.List", "java.lang.String")).isEmpty();
+        assertThat(typedMemberViolations(EXTRACTOR + "$Extraction", "com.otilm.core.cbom.asset.identity", "field",
+                "assets", "java.util.List", EXTRACTED))
+                .describedAs("outside a fenced package the carrier is where it belongs")
+                .isEmpty();
+    }
+
+    private static List<String> reExportViolations(String owner, String method, String returnType, String... carriers) {
+        return IdentityKeyExposureFence
+                .carrierReExportViolations(List.of(new MethodShape(owner, method, returnType, List.of(carriers))));
+    }
+
+    private static List<String> typedMemberViolations(String owner, String packageName, String kind, String name,
+            String... involvedTypes) {
+        return IdentityKeyExposureFence
+                .carrierTypedMemberViolations(
+                        List.of(new TypedMember(owner, packageName, kind, name, List.of(involvedTypes))));
     }
 }

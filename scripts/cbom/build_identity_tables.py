@@ -113,10 +113,14 @@ NAME_GRAMMAR = [
             "one construction with two families decided by an underscore)"},
     {"pattern": r"^3DES-EDE-CBC$", "family": "3DES", "why": "cbom-lens familyExact"},
     {"pattern": r"^RC4-128$", "family": "RC4", "why": "cbom-lens familyExact"},
-    {"pattern": r"(?<![A-Za-z0-9])HSS-LMS", "family": "LMS",
-     "why": "cbom-lens familyExact, widened: the anchored form matched only the bare name, so every "
-            "real parameter-set spelling (HSS-LMS-SHA256-M32-H5) fell through to the SHA-2 rule and keyed as a "
-            "digest family"},
+    {"pattern": r"(?<![A-Za-z0-9])(HSS[-_/ ]?LMS|LMOTS|LMS)(?![A-Za-z0-9])", "family": "LMS",
+     "why": "cbom-lens familyExact, widened twice: the anchored form matched only the bare name, and the "
+            "two-word HSS-LMS literal that replaced it still let the registered parameter-set names fall "
+            "through to the SHA-2 rule -- LMS_SHA256_M32_H5 and LMOTS_SHA256_N32_W8 are what RFC 8554 and "
+            "SP 800-208 register and what a JCA-call scanner emits, so a separator decided whether a stateful "
+            "hash-based signature was inventoried as a signature or as a digest. Word-guarded on both sides so "
+            "the bare tokens resolve and nothing matches inside another word; bare HSS is not listed, since the "
+            "token is also a telecom name"},
     {"pattern": r"(?<![A-Za-z0-9])XMSS", "family": "XMSS",
      "why": "cbom-lens familyExact, widened: XMSS-SHA2_10_256 and XMSS-MT spellings fell through to "
             "the SHA-2 rule; the left guard keeps the token from matching inside another word"},
@@ -359,15 +363,20 @@ NAME_GRAMMAR = [
     # name tier, where the number keeps it distinct. Under the bare family the sub-64 standard
     # digits vanished from the residue and the year was read as the key size, so
     # `GOST R 34.10-2012` and `GOST R 34.11-2012` shared `ALG|GOST|2012`.
-    {"pattern": r"(?<![A-Za-z0-9])GOST(?![A-Za-z0-9])(?![" + GUARD_SEPARATORS + r"]*R?["
-                + GUARD_SEPARATORS + r"]*[0-9])", "family": "GOST",
+    {"pattern": r"(?<![A-Za-z0-9])GOST(?![" + GUARD_SEPARATORS + r"]*R?["
+                + GUARD_SEPARATORS + r"]*(?:28147|34[._-]?1[012]|34[._-]?3))", "family": "GOST",
      "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to "
-            "nothing. Guarded against a following standard number, because the single registry "
-            "token cannot carry which standard is meant, and the guard spells the reference "
-            "whitespace set rather than an ASCII space: `GOST R 34.10` written with U+00A0 for "
-            "either space defeated the narrow spelling and merged 34.10 with 34.11 again. Cipher "
-            "suites naming GOST are "
-            "classified as suites before family derivation runs, so they cannot reach this"},
+            "nothing. One guard, against a following standard number -- 28147, 34.10, 34.11, 34.12 or "
+            "34.3, separated by the reference whitespace set or by nothing (`GOST R 34.11-2012`, "
+            "`GOST_R_34_10_2012`, `GOST28147`, Bouncy Castle's `GOST3411` and `GOSTR3410`) -- because the "
+            "single registry token cannot carry which standard is meant, so a name citing one stays on the "
+            "name tier where the number keeps 34.10 apart from 34.11. The guard spells the reference "
+            "whitespace set rather than an ASCII space: `GOST R 34.10` written with U+00A0 for either space "
+            "defeated the narrow spelling and merged 34.10 with 34.11 again. Nothing else is guarded: a "
+            "trailing key size or mode (`GOST-256-CTR`, `GOST-512`) and a glued word (`GOSTHASH`, `GOSTKDF`) "
+            "elect the family, since a bare `[0-9]` lookahead and a right word guard between them left only "
+            "six plain-ASCII spellings able to reach it. Cipher suites naming GOST are classified as suites "
+            "before family derivation runs, so they cannot reach this"},
     {"pattern": r"(?<![A-Za-z0-9])Skipjack", "family": "Skipjack",
      "why": "registry token with no rule; `Skipjack (broken cipher)` resolved to nothing, and a "
             "broken cipher going unnamed is the opposite of what the inventory is for"},
@@ -878,27 +887,78 @@ def alias_fold_collisions(aliases: dict[str, str], canonical: dict[str, str]) ->
 
 # The `(?` openers that Python `re` and `java.util.regex` define identically. Every other opener
 # is one engine's own -- `(?P<n>`, `(?P=n)`, `(?#`, `(?(1)` and the `a`/`L`/`u` flags on the
-# Python side -- and Java is the engine that compiles the shipped table. `\Z` is refused because
-# Python's end anchor is Java's `\z` and Java's `\Z` admits a trailing terminator; `\A` goes with
-# it, the tables anchoring with `^`/`$` throughout, so neither spelling is carried. An unescaped
-# `{` is refused unless it opens a well-formed `{n}`, `{n,}` or `{n,m}`: Python reads `AES{`,
-# `x{a}` and `a{1,2` as literals and `{,n}` as `{0,n}`, and Java rejects all four with "Illegal
-# repetition" -- the one error class the `re.compile` pass below cannot see. A literal brace is
-# spelled `\{` (both engines), and a brace inside a character class is refused with the rest,
-# fail-closed. `\s`, `\d` and `$` are NOT refused here: both engines accept them, and where their
-# meanings differ that is a key-moving decision the tables already carry.
+# Python side -- and Java is the engine that compiles the shipped table. An unescaped `{` is
+# refused unless it opens a well-formed `{n}`, `{n,}` or `{n,m}`: Python reads `AES{`, `x{a}` and
+# `a{1,2` as literals and `{,n}` as `{0,n}`, and Java rejects all four with "Illegal repetition"
+# -- the one error class the `re.compile` pass below cannot see. A literal brace is spelled `\{`
+# (both engines), and a brace inside a character class is refused with the rest, fail-closed.
 NON_PORTABLE_REGEX = re.compile(
     r"\\(?P<escape>.)|(?P<opener>\(\?(?!:|=|!|<=|<!))|(?P<brace>\{(?!\d+(?:,\d*)?\}))")
+
+# The alphanumeric escapes both engines define identically; every other one is refused. An
+# allowlist, because the denylist it replaced named `\A` and `\Z` and waved the rest through:
+# `\0` is a null byte to Python and "Illegal octal escape" to Java, so it reached the artifact with
+# exit 0 and killed every crypto asset at startup; `\v` is U+000B to Python and a vertical-whitespace
+# class to Java, so both compiled and the two automata disagreed with nothing red anywhere. `\Z`
+# admits a trailing terminator in Java and not in Python, `\A` goes with it, and `\1`..`\9` are
+# back-references no table uses. `\x` and `\u` are here because `\xhh` and `\uhhhh` read alike in
+# both and the guard-separator class is spelled with them. `\s`, `\d` and `\b` are NOT refused:
+# both engines accept them, and where their meanings differ at the edges that is a key-moving
+# decision the tables already carry. What Python cannot compile (`\h`, `\R`, `\z`, `\Q`, `\p{..}`,
+# `\cA`) never reaches this list.
+PORTABLE_ESCAPES = frozenset("dDsSwWbBntrfaxu")
 
 
 def non_portable_constructs(pattern: str) -> list[str]:
     found = []
     for token in NON_PORTABLE_REGEX.finditer(pattern):
-        if token.group("escape") in ("A", "Z"):
-            found.append("\\" + token.group("escape"))
-        elif token.group("opener") or token.group("brace"):
+        escape = token.group("escape")
+        if escape is not None:
+            if escape.isalnum() and escape not in PORTABLE_ESCAPES:
+                found.append("\\" + escape)
+        else:
             found.append(pattern[token.start():token.start() + 3])
+    found.extend(nested_character_classes(pattern))
     return found
+
+
+def nested_character_classes(pattern: str) -> list[str]:
+    """An unescaped `[` inside a character class. Java reads `[a-d[m-p]]` as a union and Python as the
+    class `a-d[m-p` followed by a literal `]`, and Python warns about only the `[[`, `--`, `&&` and
+    `~~` spellings -- so both engines compiled the shape and keyed a name differently. Refused with
+    the rest, fail-closed, as the brace inside a class already is."""
+    found = []
+    opened_at = -1
+    index = 0
+    while index < len(pattern):
+        character = pattern[index]
+        if character == "\\":
+            index += 2
+            continue
+        if opened_at < 0:
+            if character == "[":
+                opened_at = index
+        elif character == "[":
+            found.append(pattern[opened_at:index + 1])
+        elif character == "]" and index > opened_at + 1 and pattern[opened_at + 1:index] != "^":
+            opened_at = -1
+        index += 1
+    return found
+
+
+# The screen is proven able to fail before it judges the tables: a witness it should refuse that it
+# accepts, or one it should accept that it refuses, fails the run like any other offender.
+SCREEN_MUST_REFUSE = [r"AES\0", r"[\0]", r"AES\v", r"[a-d[m-p]]RC4", r"x\Z", r"\Ax", r"(?P<n>x)",
+                      r"x{,3}", r"(x)\1"]
+SCREEN_MUST_ACCEPT = [r"\d\s\b\w", r"[\x0B\u2028\xA0]*R?", r"(?<![A-Za-z0-9])AES(?![A-Za-z0-9])",
+                      r"a{1,2}\.\-\(", r"[^]a]", r"(?:ake)?with"]
+
+
+def screen_self_check() -> list[str]:
+    offenders = [f"accepted {pattern!r}" for pattern in SCREEN_MUST_REFUSE if not non_portable_constructs(pattern)]
+    offenders += [f"refused {pattern!r}: {non_portable_constructs(pattern)}" for pattern in SCREEN_MUST_ACCEPT
+                  if non_portable_constructs(pattern)]
+    return offenders
 
 
 def unloadable_patterns(labelled: list[tuple[str, str]]) -> list[str]:
@@ -1165,6 +1225,7 @@ def main() -> None:
         "primitiveValues": bad_primitives,
         "reachable-without-default": missing_defaults,
         "patterns": unloadable_patterns(emitted_patterns()),
+        "patterns-screen-self-check": screen_self_check(),
         "curveAliases-fold": alias_fold_collisions(aliases, canonical),
         "value-shape": non_string_table_values(tables),
     }

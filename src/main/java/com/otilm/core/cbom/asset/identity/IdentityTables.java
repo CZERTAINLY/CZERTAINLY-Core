@@ -24,7 +24,7 @@ import java.util.stream.Stream;
  * <p>
  * The tables are <em>data, never code</em>: they load from {@code cbom/identity-tables.json}, the same artifact the
  * reference implementation reads, so a vocabulary change is a reviewed data change rather than a code change in two
- * languages. The shipped file's SHA-256 is {@code 1f647c456c1f...}. Every published cross-implementation agreement
+ * languages. The shipped file's SHA-256 is {@code 0b42d1a5e245...}. Every published cross-implementation agreement
  * figure predates it and was measured against {@code 1331969bb507...} -- quote an agreement number only with the
  * artifact hash it was taken against, because a number measured before a table change is a historical number, not a
  * current one.
@@ -184,10 +184,23 @@ public final class IdentityTables {
                 throw new IllegalStateException(
                         "The ratified identity tables are missing from the classpath: " + RESOURCE);
             }
-            return new IdentityTables(ObjectMapperFactory.storage().readTree(stream));
+            return of(ObjectMapperFactory.storage().readTree(stream));
         } catch (IOException e) {
             throw new IllegalStateException("The ratified identity tables could not be read: " + RESOURCE, e);
         }
+    }
+
+    /**
+     * Reads tables from a parsed tree, refusing a malformed one.
+     *
+     * <p>
+     * Package-private so the refusals in {@link Node} can be reached from a test. {@link #load} reads one fixed
+     * classpath resource, so with only that entry point nothing could hand the loader a wrong-typed table -- and the
+     * fail-open state this loader replaced, a mis-typed table read as empty with every vector green, was one regression
+     * away from returning with the same green suite.
+     */
+    static IdentityTables of(JsonNode raw) {
+        return new IdentityTables(raw);
     }
 
     /**
