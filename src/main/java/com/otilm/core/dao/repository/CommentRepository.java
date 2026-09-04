@@ -32,6 +32,32 @@ public interface CommentRepository extends SecurityFilterRepository<Comment, UUI
 
     List<Comment> findByParentUuidOrderByCreatedAtAscUuidAsc(UUID parentUuid);
 
+    // Position of a comment within its listing, so a caller anchored at one can be given the page holding it: the
+    // comments sorted ahead of it are those created before it when the listing ascends and after it when it descends.
+    // The predicates mirror the listing order, uuid tie-break included, and run in the database so its uuid ordering
+    // is the one used throughout.
+    @Query("SELECT COUNT(c) FROM Comment c WHERE c.resource = :resource AND c.objectUuid = :objectUuid"
+            + " AND c.parentUuid IS NULL"
+            + " AND (c.createdAt < :createdAt OR (c.createdAt = :createdAt AND c.uuid < :uuid))")
+    long countRootsCreatedBefore(@Param("resource") Resource resource, @Param("objectUuid") UUID objectUuid,
+            @Param("createdAt") OffsetDateTime createdAt, @Param("uuid") UUID uuid);
+
+    @Query("SELECT COUNT(c) FROM Comment c WHERE c.resource = :resource AND c.objectUuid = :objectUuid"
+            + " AND c.parentUuid IS NULL"
+            + " AND (c.createdAt > :createdAt OR (c.createdAt = :createdAt AND c.uuid > :uuid))")
+    long countRootsCreatedAfter(@Param("resource") Resource resource, @Param("objectUuid") UUID objectUuid,
+            @Param("createdAt") OffsetDateTime createdAt, @Param("uuid") UUID uuid);
+
+    @Query("SELECT COUNT(c) FROM Comment c WHERE c.parentUuid = :parentUuid"
+            + " AND (c.createdAt < :createdAt OR (c.createdAt = :createdAt AND c.uuid < :uuid))")
+    long countRepliesCreatedBefore(@Param("parentUuid") UUID parentUuid, @Param("createdAt") OffsetDateTime createdAt,
+            @Param("uuid") UUID uuid);
+
+    @Query("SELECT COUNT(c) FROM Comment c WHERE c.parentUuid = :parentUuid"
+            + " AND (c.createdAt > :createdAt OR (c.createdAt = :createdAt AND c.uuid > :uuid))")
+    long countRepliesCreatedAfter(@Param("parentUuid") UUID parentUuid, @Param("createdAt") OffsetDateTime createdAt,
+            @Param("uuid") UUID uuid);
+
     @Query("SELECT c.parentUuid, COUNT(c) FROM Comment c WHERE c.parentUuid IN :rootUuids GROUP BY c.parentUuid")
     List<Object[]> countRepliesByRoots(@Param("rootUuids") Collection<UUID> rootUuids);
 
