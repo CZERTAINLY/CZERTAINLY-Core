@@ -181,29 +181,35 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
     @Test
     void scopedEdit_throwsNotFoundException_forProfileOwnedByAnotherToken() {
         // given
-        var anotherTokenUuid = SecuredParentUUID.fromUUID(java.util.UUID.randomUUID());
+        String originalDescription = "original description";
+        String attemptedDescription = "must not be applied";
+        TokenInstanceReference anotherToken = new TokenInstanceReference();
+        anotherToken.setTokenInstanceUuid("another-persisted-token");
+        anotherToken.setConnector(connector);
+        anotherToken.setStatus(TokenInstanceStatus.UNKNOWN);
+        anotherToken = tokenInstanceReferenceRepository.save(anotherToken);
+        tokenProfile.setDescription(originalDescription);
+        tokenProfile = tokenProfileRepository.save(tokenProfile);
+        stubTokenProfileAttributeValidation();
         var request = new EditTokenProfileRequestDto();
+        request.setDescription(attemptedDescription);
+        request.setAttributes(List.of());
         var tokenProfileUuid = tokenProfile.getSecuredUuid();
+        var anotherTokenUuid = anotherToken.getSecuredParentUuid();
 
         // when
         Executable edit = () -> tokenProfileService.editTokenProfile(anotherTokenUuid, tokenProfileUuid, request);
 
         // then
         Assertions.assertThrows(NotFoundException.class, edit);
+        TokenProfile unchangedProfile = tokenProfileRepository.findByUuid(tokenProfileUuid).orElseThrow();
+        Assertions.assertEquals(tokenInstanceReference.getUuid(), unchangedProfile.getTokenInstanceReferenceUuid());
+        Assertions.assertEquals(originalDescription, unchangedProfile.getDescription());
     }
 
     @Test
     void testAddTokenProfile() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-        mockServer
-                .stubFor(WireMock
-                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
-                        .willReturn(WireMock.okJson("[]")));
-        mockServer
-                .stubFor(WireMock
-                        .post(WireMock
-                                .urlPathMatching(
-                                        "/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes/validate"))
-                        .willReturn(WireMock.okJson("true")));
+        stubTokenProfileAttributeValidation();
 
         AddTokenProfileRequestDto request = new AddTokenProfileRequestDto();
         request.setName("testTokenProfile2");
@@ -238,16 +244,7 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
 
     @Test
     void testEditTokenProfile() throws ConnectorException, AttributeException, NotFoundException {
-        mockServer
-                .stubFor(WireMock
-                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
-                        .willReturn(WireMock.okJson("[]")));
-        mockServer
-                .stubFor(WireMock
-                        .post(WireMock
-                                .urlPathMatching(
-                                        "/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes/validate"))
-                        .willReturn(WireMock.okJson("true")));
+        stubTokenProfileAttributeValidation();
 
         EditTokenProfileRequestDto request = new EditTokenProfileRequestDto();
         request.setDescription("updated description");
@@ -536,6 +533,19 @@ class TokenProfileServiceITest extends BaseSpringBootTest {
         key.setTokenProfile(tokenProfile);
         key.setTokenInstanceReference(tokenInstanceReference);
         return cryptographicKeyRepository.save(key);
+    }
+
+    private void stubTokenProfileAttributeValidation() {
+        mockServer
+                .stubFor(WireMock
+                        .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
+                        .willReturn(WireMock.okJson("[]")));
+        mockServer
+                .stubFor(WireMock
+                        .post(WireMock
+                                .urlPathMatching(
+                                        "/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes/validate"))
+                        .willReturn(WireMock.okJson("true")));
     }
 
     private static String joinErrorDescriptions(ValidationException e) {
