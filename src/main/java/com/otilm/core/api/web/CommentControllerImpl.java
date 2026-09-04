@@ -39,17 +39,18 @@ public class CommentControllerImpl implements CommentController {
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.COMMENT, operation = Operation.LIST)
     public CommentResponseDto listComments(@LogResource(resource = true, affiliated = true) Resource resource,
-            @LogResource(uuid = true, affiliated = true) UUID objectUuid, SortedPaginationRequestDto pagination)
-            throws NotFoundException {
+            @LogResource(uuid = true, affiliated = true) UUID objectUuid, UUID anchorUuid,
+            SortedPaginationRequestDto pagination) throws NotFoundException {
         return commentService
-                .listComments(SecuredResource.fromResource(resource), SecuredUUID.fromUUID(objectUuid), pagination);
+                .listComments(SecuredResource.fromResource(resource), SecuredUUID.fromUUID(objectUuid), anchorUuid,
+                        pagination);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.COMMENT, operation = Operation.LIST)
-    public CommentResponseDto listReplies(@LogResource(uuid = true) UUID uuid, SortedPaginationRequestDto pagination)
-            throws NotFoundException {
-        return commentService.listReplies(uuid, pagination);
+    public CommentResponseDto listReplies(@LogResource(uuid = true) UUID uuid, UUID anchorUuid,
+            SortedPaginationRequestDto pagination) throws NotFoundException {
+        return commentService.listReplies(uuid, anchorUuid, pagination);
     }
 
     @Override
