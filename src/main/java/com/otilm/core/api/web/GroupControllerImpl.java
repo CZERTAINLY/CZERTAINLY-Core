@@ -5,14 +5,13 @@ import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.interfaces.core.web.GroupController;
-import com.otilm.api.model.client.certificate.group.GroupUserResponseDto;
+import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.common.UuidDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.certificate.group.GroupRequestDto;
 import com.otilm.api.model.core.logging.enums.Module;
 import com.otilm.api.model.core.logging.enums.Operation;
-import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.aop.AuditLogged;
 import com.otilm.core.auth.AuthEndpoint;
 import com.otilm.core.logging.LogResource;
@@ -89,8 +88,8 @@ public class GroupControllerImpl implements GroupController {
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.GROUP, affiliatedResource = Resource.USER,
             operation = Operation.LIST)
-    public GroupUserResponseDto getGroupUsers(@LogResource(uuid = true) @PathVariable String uuid,
-            PaginationRequestDto paginationRequestDto) throws NotFoundException {
-        return groupService.getGroupUsers(SecuredUUID.fromString(uuid), paginationRequestDto);
+    public List<NameAndUuidDto> getGroupUsers(@LogResource(uuid = true) @PathVariable String uuid)
+            throws NotFoundException {
+        return groupService.getGroupUsers(SecuredUUID.fromString(uuid));
     }
 }

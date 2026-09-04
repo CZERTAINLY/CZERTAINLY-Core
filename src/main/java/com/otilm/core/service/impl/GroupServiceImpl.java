@@ -6,10 +6,9 @@ import com.otilm.api.exception.NotFoundException;
 import com.otilm.api.exception.ValidationError;
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
-import com.otilm.api.model.client.certificate.group.GroupUserResponseDto;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.auth.UserDto;
+import com.otilm.api.model.core.auth.UserWithPaginationDto;
 import com.otilm.api.model.core.certificate.group.GroupDto;
 import com.otilm.api.model.core.certificate.group.GroupRequestDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
@@ -25,8 +24,8 @@ import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.GroupExternalService;
 import com.otilm.core.service.GroupInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
-import com.otilm.core.util.RequestValidatorHelper;
 import jakarta.transaction.Transactional;
+import jakarta.transaction.Transactional.TxType;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -143,29 +142,23 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.MEMBERS)
-    public GroupUserResponseDto getGroupUsers(SecuredUUID uuid, PaginationRequestDto paginationRequestDto)
-            throws NotFoundException {
-        RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
+    @Transactional(TxType.NOT_SUPPORTED)
+    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.MEMBERS, parentResource = Resource.USER,
+            parentAction = ResourceAction.LIST)
+    public List<NameAndUuidDto> getGroupUsers(SecuredUUID uuid) throws NotFoundException {
         String groupUuid = getGroupEntity(uuid).getUuid().toString();
-        List<UserDto> members = userManagementApiClient
-                .getUsers()
+        UserWithPaginationDto users = userManagementApiClient.getUsers();
+        if (users.getTotalCount() != null && users.getTotalCount() > users.getData().size()) {
+            logger
+                    .warn("Auth service returned {} of {} users; members of group {} beyond that page are not listed",
+                            users.getData().size(), users.getTotalCount(), groupUuid);
+        }
+        return users
                 .getData()
                 .stream()
                 .filter(user -> user.getGroups().stream().anyMatch(g -> g.getUuid().equals(groupUuid)))
+                .map(user -> new NameAndUuidDto(user.getUuid(), user.getUsername()))
                 .toList();
-
-        int itemsPerPage = paginationRequestDto.getItemsPerPage();
-        int pageNumber = paginationRequestDto.getPageNumber();
-
-        GroupUserResponseDto responseDto = new GroupUserResponseDto();
-        responseDto
-                .setUsers(members.stream().skip((long) (pageNumber - 1) * itemsPerPage).limit(itemsPerPage).toList());
-        responseDto.setItemsPerPage(itemsPerPage);
-        responseDto.setPageNumber(pageNumber);
-        responseDto.setTotalItems((long) members.size());
-        responseDto.setTotalPages((int) Math.ceil((double) members.size() / itemsPerPage));
-        return responseDto;
     }
 
     @Override
@@ -213,10 +206,5 @@ public class GroupServiceImpl implements GroupExternalService, GroupInternalServ
 
     private Group getGroupEntity(SecuredUUID uuid) throws NotFoundException {
         return groupRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Group.class, uuid));
-    }
-
-    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.MEMBERS)
-    public void groupMembersDummyMethod() {
-        // Method is used just to sync MEMBERS resource action for GROUP resource with Auth service
     }
 }
