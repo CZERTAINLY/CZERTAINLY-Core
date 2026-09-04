@@ -121,8 +121,17 @@ public final class CbomAssetExtractor {
     public record Skip(String componentName, String reason) {
     }
 
-    /** Everything a document yielded: the assets, and the components that could not be turned into assets. */
-    public record Extraction(List<ExtractedAsset> assets, List<Skip> skips, boolean depthLimitReached) {
+    /**
+     * Everything a document yielded: the assets, and the components that could not be turned into assets.
+     *
+     * <p>
+     * {@code documentScopeUnavailable} records that the whole-document scope could not be built and the walk ran
+     * without it. That is not the recoverable direction: with nothing refuted a fabricated placeholder digest is
+     * trusted, and with no reference resolving every certificate's public-key slot empties -- both over-merges. It is
+     * recorded here because a caller reading only the assets would see rows and no sign of what they lack.
+     */
+    public record Extraction(List<ExtractedAsset> assets, List<Skip> skips, boolean depthLimitReached,
+            boolean documentScopeUnavailable) {
 
         public int assetCount() {
             return assets.size();
@@ -147,17 +156,20 @@ public final class CbomAssetExtractor {
      */
     public Extraction extract(JsonNode document, Set<String> batchRefutedDigests) {
         if (document == null || !document.isObject()) {
-            return new Extraction(List.of(), List.of(), false);
+            return new Extraction(List.of(), List.of(), false, false);
         }
+        Set<String> refuted = batchRefutedDigests == null ? Set.of() : batchRefutedDigests;
 
         DocumentScope scope;
+        boolean scopeUnavailable = false;
         try {
             scope = DocumentScope.of(document, identity.normalizer());
         } catch (RuntimeException e) {
             // The scope is a whole-document derivation, so a failure here is not attributable to one component. The
-            // walk still runs, with nothing refuted and no reference resolving, which under-merges rather than
-            // over-merges -- the recoverable direction.
+            // walk still runs with nothing refuted and no reference resolving -- see Extraction for why that is the
+            // over-merging direction, and why it is recorded rather than only survived.
             scope = DocumentScope.none();
+            scopeUnavailable = true;
         }
 
         List<ExtractedAsset> assets = new ArrayList<>();
@@ -171,12 +183,13 @@ public final class CbomAssetExtractor {
                 // Named `extracted`, not anything beginning with "key". The exposure fence matches
                 // identity[_-<space>]?key, so the type name followed by such a variable reads as the fenced token
                 // across the space between them -- a rule about text, applied to text, with no idea what a type is.
-                CryptoAssetIdentity.Identity extracted = identity.of(component, scope, batchRefutedDigests);
-                List<Map<String, Object>> reported = sanitizedOccurrences(component);
+                CryptoAssetIdentity.Identity extracted = identity.of(component, scope, refuted);
+                List<JsonNode> occurrences = occurrencesOf(component);
                 ExtractedAsset asset = new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(),
                         nameOf(component), extracted.redaction().storedPayload(),
-                        OccurrenceEvidenceCapper.cap(reported), reported == null ? 0 : reported.size(),
-                        extracted.guard(), extracted.redaction().findings());
+                        OccurrenceEvidenceCapper.cap(sanitizedOccurrences(occurrences)),
+                        occurrences == null ? 0 : occurrences.size(), extracted.guard(),
+                        extracted.redaction().findings());
                 requireEncodable(asset);
                 assets.add(asset);
             } catch (RuntimeException e) {
@@ -185,11 +198,32 @@ public final class CbomAssetExtractor {
                 skips.add(new Skip(nameOf(component), e.getClass().getSimpleName()));
             }
         }
-        return new Extraction(List.copyOf(assets), List.copyOf(skips), walk.depthLimitReached());
+        return new Extraction(List.copyOf(assets), List.copyOf(skips), walk.depthLimitReached(), scopeUnavailable);
+    }
+
+    /** The component's occurrence objects in producer order, or {@code null} when it reported none. */
+    private static List<JsonNode> occurrencesOf(JsonNode component) {
+        JsonNode evidence = component.get("evidence");
+        JsonNode occurrences = evidence == null ? null : evidence.get("occurrences");
+        if (occurrences == null || !occurrences.isArray()) {
+            return null;
+        }
+        List<JsonNode> objects = new ArrayList<>(occurrences.size());
+        for (JsonNode occurrence : occurrences) {
+            if (occurrence.isObject()) {
+                objects.add(occurrence);
+            }
+        }
+        return objects;
     }
 
     /**
-     * The component's occurrences with every location sanitized, or {@code null} when it reported none.
+     * The occurrences the cap can keep, each location sanitized, or {@code null} when the component reported none.
+     *
+     * <p>
+     * Only the first {@link OccurrenceEvidenceCapper#MAX_OCCURRENCES} are copied and converted: the cap keeps that
+     * prefix in producer order and drops the rest whole, so sanitizing a million occurrences to retain fifty was three
+     * copies of the parsed subtree spent on a count the caller already has.
      *
      * <p>
      * <b>Sanitizing here, not only on the keying path, is the point.</b> A location is a real shape like
@@ -203,17 +237,15 @@ public final class CbomAssetExtractor {
      * {@code null} in, {@code null} out: a source that reported no evidence is distinct from one whose evidence capping
      * emptied, and the capper preserves that distinction downstream.
      */
-    private static List<Map<String, Object>> sanitizedOccurrences(JsonNode component) {
-        JsonNode evidence = component.get("evidence");
-        JsonNode occurrences = evidence == null ? null : evidence.get("occurrences");
-        if (occurrences == null || !occurrences.isArray()) {
+    private static List<Map<String, Object>> sanitizedOccurrences(List<JsonNode> occurrences) {
+        if (occurrences == null) {
             return null;
         }
-        List<Map<String, Object>> sanitized = new ArrayList<>(occurrences.size());
-        for (JsonNode occurrence : occurrences) {
-            if (!occurrence.isObject()) {
-                continue;
-            }
+        List<JsonNode> retained = occurrences.size() > OccurrenceEvidenceCapper.MAX_OCCURRENCES
+                ? occurrences.subList(0, OccurrenceEvidenceCapper.MAX_OCCURRENCES)
+                : occurrences;
+        List<Map<String, Object>> sanitized = new ArrayList<>(retained.size());
+        for (JsonNode occurrence : retained) {
             ObjectNode copy = occurrence.deepCopy();
             if (copy.has(CbomNames.LOCATION)) {
                 copy.put(CbomNames.LOCATION, Occurrences.sanitizeLocation(copy.get(CbomNames.LOCATION)));

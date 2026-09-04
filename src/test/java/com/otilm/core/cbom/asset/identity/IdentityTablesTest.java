@@ -57,7 +57,7 @@ class IdentityTablesTest {
             assertThat(stream).isNotNull();
             assertThat(IdentityDigests.sha256HexOfBytes(stream.readAllBytes()))
                     .describedAs("the decision tables are ratified data; editing them re-keys the inventory")
-                    .isEqualTo("0b42d1a5e2458eddb50bd87ec4cef0b92b86121dee7aad078796f6470949e2c4");
+                    .isEqualTo("a34c40d2f6fcfeb5aedeb58f371974e5e90e36fa225fd93ad9eb766162a153e2");
         }
     }
 
@@ -172,6 +172,41 @@ class IdentityTablesTest {
                 .allSatisfy(primitive -> assertThat(expressible)
                         .describedAs("primitive default value is expressible in CycloneDX 1.6")
                         .contains(primitive));
+    }
+
+    /**
+     * Every family a grammar rule names is a legal token, so a hand-edit of the artifact cannot elect a family the
+     * vocabulary does not carry. The generator refuses this on its side; a re-pinned SHA over an edited artifact would
+     * have passed every Java test without this mirror.
+     */
+    @Test
+    void everyGrammarFamilyIsALegalFamily() {
+        IdentityTables tables = IdentityTables.load();
+
+        assertThat(tables.nameGrammar())
+                .allSatisfy(rule -> assertThat(tables.families())
+                        .describedAs("grammar rule %s names a legal family", rule.strict())
+                        .contains(rule.family()));
+    }
+
+    /** Every family the grammar or an arc can yield has a primitive default, or an omitting producer splits. */
+    @Test
+    void everyReachableFamilyHasAPrimitiveDefault() {
+        IdentityTables tables = IdentityTables.load();
+        Set<String> reachable = new HashSet<>();
+        tables.nameGrammar().forEach(rule -> reachable.add(rule.family()));
+        tables
+                .oidToFamily()
+                .values()
+                .stream()
+                .map(IdentityTables.OidEntry::family)
+                .filter(f -> f != null)
+                .forEach(reachable::add);
+
+        assertThat(reachable)
+                .allSatisfy(family -> assertThat(tables.primitiveDefaults())
+                        .describedAs("family %s can be derived and needs a primitive default", family)
+                        .containsKey(family));
     }
 
     /** The size whitelist is the one the specification names; both bounds feed the parameter-set parser. */

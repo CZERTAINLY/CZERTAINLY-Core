@@ -24,7 +24,7 @@ import java.util.stream.Stream;
  * <p>
  * The tables are <em>data, never code</em>: they load from {@code cbom/identity-tables.json}, the same artifact the
  * reference implementation reads, so a vocabulary change is a reviewed data change rather than a code change in two
- * languages. The shipped file's SHA-256 is {@code 0b42d1a5e245...}. Every published cross-implementation agreement
+ * languages. The shipped file's SHA-256 is {@code a34c40d2f6fc...}. Every published cross-implementation agreement
  * figure predates it and was measured against {@code 1331969bb507...} -- quote an agreement number only with the
  * artifact hash it was taken against, because a number measured before a table change is a historical number, not a
  * current one.
@@ -93,12 +93,19 @@ public final class IdentityTables {
     public record SecondaryMarker(String label, Pattern pattern) {
     }
 
-    /** What an OID arc says about an asset. Every field beyond the family is enrichment and may be absent. */
-    public record OidEntry(String family, Integer parameterSet, String mode, String curve, String primitive,
-            String matchedArc, List<String> residualArcs) {
+    /**
+     * What an OID arc says about an asset. Every field beyond the family is enrichment and may be absent.
+     *
+     * <p>
+     * The strand's {@code primitive} column is deliberately not read: the arc never supplies the primitive, because a
+     * correct arc contributing {@code block-cipher} where an OID-less producer had nothing made adding an OID change
+     * the key. The column stays in the artifact as the arc's documentation and decides nothing here.
+     */
+    public record OidEntry(String family, Integer parameterSet, String mode, String curve, String matchedArc,
+            List<String> residualArcs) {
 
         OidEntry matchedAt(String arc, List<String> residual) {
-            return new OidEntry(family, parameterSet, mode, curve, primitive, arc, residual);
+            return new OidEntry(family, parameterSet, mode, curve, arc, residual);
         }
     }
 
@@ -479,8 +486,7 @@ public final class IdentityTables {
             entries
                     .put(entry.getKey(),
                             new OidEntry(value.optionalText("family"), value.optionalInteger("parameterSet"),
-                                    value.optionalText("mode"), value.optionalText("curve"),
-                                    value.optionalText("primitive"), null, List.of()));
+                                    value.optionalText("mode"), value.optionalText("curve"), null, List.of()));
         }
         return Map.copyOf(entries);
     }

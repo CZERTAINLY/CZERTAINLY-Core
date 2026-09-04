@@ -32,6 +32,9 @@ HERE = pathlib.Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
 SOURCE_DIR = REPO_ROOT / "src" / "main" / "cbom" / "identity"
 REGISTRY = SOURCE_DIR / "cryptography-defs.json"
+# The bytes of `schema/cryptography-defs.json` in CycloneDX/specification at this commit; README.md
+# beside the inputs pins the same value, and moving the snapshot moves both.
+REGISTRY_UPSTREAM_COMMIT = "5cbdee80a1"
 DEFS_SCHEMA = SOURCE_DIR / "cryptography-defs.schema.json"
 OID_STRAND = SOURCE_DIR / "oid-strand.json"
 DEFAULT_OUTPUT = REPO_ROOT / "src" / "main" / "resources" / "cbom" / "identity-tables.json"
@@ -93,7 +96,10 @@ PSEUDO_FAMILIES["Fernet"] = []
 # every entry that could be a prefix or infix of a later one must come first.
 # Guards are on [A-Za-z0-9] adjacency rather than on separators, because the real
 # hazards are unseparated: RSAES-OAEP contains AES, HMACSHA2 contains SHA,
-# "design" contains DES.
+# "design" contains DES. The class is ASCII on purpose: a non-ASCII letter counts as a
+# word boundary, so `ÉEd25519` elects EdDSA. That is the same ASCII-only reading every
+# fold in the keyed path applies, and it keeps the guard independent of the runtime's
+# Unicode tables.
 # ``AsciiText.PYTHON_WHITESPACE`` again, spelled for a character class inside an emitted
 # pattern. A guard written with an ASCII space only is defeated by the one character this
 # codebase repeatedly documents as arriving from producer text pasted out of a document:
@@ -257,7 +263,9 @@ NAME_GRAMMAR = [
     {"pattern": r"(?<![A-Za-z0-9])McEliece", "family": "Classic McEliece", "why": "liboqs"},
     {"pattern": r"(?<![A-Za-z0-9])NTRU-?Prime", "family": "NTRU-Prime", "why": "before NTRU"},
     {"pattern": r"(?<![A-Za-z0-9])(s?)NTRU", "family": "NTRU", "why": "liboqs"},
-    {"pattern": r"(?<![A-Za-z0-9])BIKE", "family": "BIKE", "why": "liboqs"},
+    {"pattern": r"(?<![A-Za-z0-9])BIKE(?![A-Za-z])", "family": "BIKE",
+     "why": "liboqs. Guarded against a following letter, not a digit: `bikeshed` elected the family, while "
+            "liboqs's own pre-0.5 spellings BIKE1-L1-CPA, BIKE2 and BIKE3 glue a digit to the token"},
     {"pattern": r"(?<![A-Za-z0-9])HQC", "family": "HQC", "why": "liboqs"},
     {"pattern": r"(?<![A-Za-z0-9])CROSS(?![A-Za-z0-9])", "family": "CROSS", "why": "liboqs"},
     {"pattern": r"(?<![A-Za-z0-9])MQOM", "family": "MQOM", "why": "liboqs"},
@@ -324,8 +332,10 @@ NAME_GRAMMAR = [
      "why": "bare Diffie-Hellman"},
 
     # --- 3DES strictly before DES; DES guarded so 'design' cannot match ---------
-    {"pattern": r"(?<![A-Za-z0-9])(3DES|TDES|DESede)(?![A-Za-z0-9])", "family": "3DES",
-     "why": "3DES before DES"},
+    {"pattern": r"(?<![A-Za-z0-9])(3DES|DES3|TDES|DESede)(?![A-Za-z0-9])", "family": "3DES",
+     "why": "3DES before DES. DES3 is in the alternation because the DES rule below admits a trailing digit "
+            "for DES56 and DES64, so `DES3-CBC` elected DES and keyed identically to `DES-CBC` -- the merge "
+            "of a broken cipher into a different one"},
     {"pattern": r"(?<![A-Za-z0-9])DES(?![A-Za-z])", "family": "DES",
      "why": "guarded against letters so 'design' cannot match, but DES56 and DES64 are "
             "real observed names and a digit must be allowed to follow"},
@@ -357,7 +367,7 @@ NAME_GRAMMAR = [
     {"pattern": r"(?<![A-Za-z0-9])RC5(?![A-Za-z0-9])", "family": "RC5", "why": "registry token"},
     {"pattern": r"(?<![A-Za-z0-9])RC6(?![A-Za-z0-9])", "family": "RC6", "why": "registry token"},
 
-    # --- KDFs -------------------------------------------------------------------
+    # --- GOST, Skipjack, Fernet ---------------------------------------------------
     # The registry has one GOST token for what are several algorithms -- 34.10 signs, 34.11
     # hashes, 34.12 and 28147 encrypt -- so a name that cites the standard must stay on the
     # name tier, where the number keeps it distinct. Under the bare family the sub-64 standard
@@ -382,13 +392,6 @@ NAME_GRAMMAR = [
             "broken cipher going unnamed is the opposite of what the inventory is for"},
     {"pattern": r"(?<![A-Za-z0-9])Fernet", "family": "Fernet",
      "why": "pseudo-family: a real construction the registry cannot express, 5 corpus rows"},
-    {"pattern": r"(?<![A-Za-z0-9])HKDF", "family": "HKDF", "why": "registry token"},
-    {"pattern": r"(?<![A-Za-z0-9])PBKDF2", "family": "PBKDF2", "why": "registry token"},
-    {"pattern": r"(?<![A-Za-z0-9])scrypt(?![A-Za-z0-9])", "family": "scrypt",
-     "why": "scrypt before yescrypt"},
-    {"pattern": r"(?<![A-Za-z0-9])yescrypt(?![A-Za-z0-9])", "family": "yescrypt",
-     "why": "containment pair with scrypt"},
-    {"pattern": r"(?<![A-Za-z0-9])Argon2", "family": "Argon2", "why": "registry token"},
 
     # --- DSA last: ECDSA / EdDSA / ML-DSA / SLH-DSA all contain it --------------
     {"pattern": r"(?<![A-Za-z0-9])DSA(?![A-Za-z0-9])", "family": "DSA",
@@ -453,9 +456,14 @@ CIPHER_SUITE_NAME_PATTERNS = [
 # digest in a signature or MAC construction, the AEAD tag, the XOF marker. Scanned
 # without a left word-guard because the real spellings run the words together
 # (`CHACHA20POLY1305`, `SHA3-256`).
+# `shake` and `poly1305` are guarded against a preceding LETTER only, so the digit-glued
+# `CHACHA20POLY1305` still carries its tag while `TLS handshake key` no longer contributes
+# a `shake` token. `sphincsshake128fsimple` loses the marker under this guard; its SHA-3
+# secondary token survives through the grammar's loose form, and no corpus row or vector
+# spells the name that way.
 SECONDARY_MARKERS = [
-    ("poly1305", r"POLY1305"),
-    ("shake", r"SHAKE"),
+    ("poly1305", r"(?<![A-Za-z])POLY1305"),
+    ("shake", r"(?<![A-Za-z])SHAKE"),
     ("gcm", r"(?<![A-Za-z0-9])GCM(?![A-Za-z0-9])"),
     ("ccm8", r"CCM[_-]?8(?![0-9])"),
     # A capturing group appends its value to the label, so the DH group NUMBER is
@@ -614,12 +622,12 @@ PRIMITIVE_DEFAULTS = {
     "PBES2": "other",
     "PBMAC1": "mac",
     "RSA-X931": "signature",
-    "bcrypt": "kdf", "SM3": "hash",
+    "bcrypt": "kdf",
     "RC2": "block-cipher", "RC5": "block-cipher", "RC6": "block-cipher",
     "MQV": "key-agree",
     "Blowfish": "block-cipher", "Twofish": "block-cipher", "Serpent": "block-cipher",
     "IDEA": "block-cipher", "CAST5": "block-cipher", "CAST6": "block-cipher",
-    "Whirlpool": "hash", "ElGamal": "pke", "PBKDF1": "kdf", "PBMAC1": "mac",
+    "Whirlpool": "hash", "ElGamal": "pke", "PBKDF1": "kdf",
     # PQC candidates. `kem` or `signature` per the family's actual role; the two
     # broken ones keep their role because the inventory must still classify them.
     "Kyber": "kem", "FrodoKEM": "kem", "Classic McEliece": "kem", "BIKE": "kem",
@@ -632,6 +640,9 @@ PRIMITIVE_DEFAULTS = {
     "PERK": "signature", "RYDE": "signature", "MIRATH": "signature", "LESS": "signature",
 }
 
+# Both tables below were knowledge in the reference kernel rather than data until 2026-08-20:
+# a third implementation could derive neither Ed448 = 456 nor Curve448 = 448 from any published
+# artifact, and no artifact carried the attribute-name-to-OID map at all.
 NAME_INTRINSIC_SIZES = {
     "ed25519": 256,
     "x25519": 256,
@@ -1002,6 +1013,50 @@ def emitted_patterns() -> list[tuple[str, str]]:
     return labelled
 
 
+OID_ARC = re.compile(r"[0-9]+(\.[0-9]+)+")
+
+
+def strand_offenders(oid_strand: dict, canonical: dict[str, str], aliases: dict[str, str]) -> list[str]:
+    """Enrichment the loader would accept and the pipeline would then key on unexamined.
+
+    The family column has been checked against the vocabulary since the first cut; the other three
+    enrichment columns were not, and one entry shipped ``"mode": "POLY1305"`` -- a value outside the
+    ``modeTokens`` the same artifact declares, which the Java side wrote into the mode slot verbatim
+    while a name-derived mode goes through that vocabulary. So a ChaCha20-Poly1305 asset keyed one way
+    with the CMS arc and another without it. Every column an arc may contribute is held to the
+    vocabulary its slot is keyed on, the arcs themselves to the dotted shape the loader walks, and a
+    blocked prefix to having an entry beneath it, since a mistyped prefix blocks nothing and says so
+    nowhere."""
+    offenders = []
+    modes = {m.upper() for m in MODE_TOKENS}
+    curves = set(canonical) | set(canonical.values())
+    entries = oid_strand["oidToFamily"]
+    for oid, entry in entries.items():
+        if not OID_ARC.fullmatch(oid):
+            offenders.append(f"{oid}: not a dotted arc")
+        mode = entry.get("mode")
+        if mode is not None and mode.upper() not in modes:
+            offenders.append(f"{oid}: mode {mode!r} is not a modeTokens value")
+        curve = entry.get("curve")
+        if curve is not None and curve not in curves and java_lookup_key(curve) not in {
+                java_lookup_key(a) for a in aliases}:
+            offenders.append(f"{oid}: curve {curve!r} is not a registry curve or alias")
+        primitive = entry.get("primitive")
+        if primitive is not None and primitive not in PRIMITIVES_1_6:
+            offenders.append(f"{oid}: primitive {primitive!r} is not expressible in CycloneDX 1.6")
+    seen = set()
+    for blocked in oid_strand["blockedPrefixes"]:
+        prefix = blocked["prefix"]
+        if not OID_ARC.fullmatch(prefix):
+            offenders.append(f"blocked prefix {prefix!r}: not a dotted arc")
+        elif prefix in seen:
+            offenders.append(f"blocked prefix {prefix!r}: listed twice")
+        elif not any(oid.startswith(prefix + ".") for oid in entries):
+            offenders.append(f"blocked prefix {prefix!r}: no table entry beneath it, so it blocks nothing")
+        seen.add(prefix)
+    return offenders
+
+
 def blank_oid_families(oid_to_family: dict[str, dict]) -> list[str]:
     """A family of ``""`` or whitespace is not "no family": Java's ``text()`` hands it to
     ``setFamily`` unguarded and the row keys ``ALG||size||||`` instead of taking the name tier.
@@ -1024,7 +1079,6 @@ def blank_oid_families(oid_to_family: dict[str, dict]) -> list[str]:
 # an empty list is a legitimate value here (31 ``pseudoFamilies`` entries are one).
 TABLE_SHAPES = {
     "$comment": "str",
-    "$patched": "str",
     "specId": "str",
     "registrySnapshot": {"familiesInData": "int", "familiesInShippedEnum": "int",
                          "curveTokens": "int", "curveClasses": "int",
@@ -1141,6 +1195,9 @@ def main() -> None:
         "specId": "otilm-crypto-identity-1",
         "registrySnapshot": {
             "source": "CycloneDX cryptography-defs.json",
+            # `lastUpdated` is the registry's own last declared revision, which upstream stopped
+            # advancing; the commit is the provenance. Both are stated so neither is read as the other.
+            "upstreamCommit": REGISTRY_UPSTREAM_COMMIT,
             "lastUpdated": registry.get("lastUpdated"),
             "familiesInData": len(data_families),
             "familiesInShippedEnum": len(enum_families),
@@ -1171,7 +1228,6 @@ def main() -> None:
         "sentinels": SENTINELS,
         "primitiveDefaults": PRIMITIVE_DEFAULTS,
         "primitivesExpressibleIn16": PRIMITIVES_1_6,
-        "$patched": "HAND-PATCHED 2026-08-19 to match build_tables.py: four RSA scheme rules and the bulk-cipher requirement in the cipher-suite classifier. The generator could not be re-run because its input strandD-oid.json did not survive the original scratchpad; restore it and regenerate to re-establish the generated provenance. Sentinels: `none` and `other` removed 2026-08-19 — they are legal CycloneDX values that carry meaning, ratified as real answers rather than placeholders. modeTokens and paddingTokens gained OTHER 2026-08-19: it is a legal CycloneDX enum value in both and had been stripped as if it were a placeholder. | 2026-08-20: nameIntrinsicSizes and dnShortNames lifted out of identity_kernel.py — round 3 could not derive Ed448=456 or Curve448=448 from any published artifact, and no artifact carried the DN short-name to OID map at all (only cn/o/c were witnessable).",
         "nameIntrinsicSizes": NAME_INTRINSIC_SIZES,
         "dnShortNames": DN_SHORT_NAMES,
     }
@@ -1222,6 +1278,7 @@ def main() -> None:
         "primitiveDefaults": bad_defaults,
         "oidToFamily": bad_oid,
         "oidToFamily-blank": blank_oid_families(tables["oidToFamily"]),
+        "oidToFamily-enrichment": strand_offenders(oid_strand, canonical, aliases),
         "primitiveValues": bad_primitives,
         "reachable-without-default": missing_defaults,
         "patterns": unloadable_patterns(emitted_patterns()),
@@ -1248,8 +1305,12 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     # newline="\n": the byte-diff and the two pinned hashes are over LF bytes, and the default
     # would write CRLF on Windows.
+    # indent=2 and a final newline are what `.editorconfig` asks of every JSON file here, so an
+    # editorconfig-aware save of the artifact reproduces the generator's bytes instead of moving
+    # the SHA pin and failing the drift gate.
     with out.open("w", encoding="utf-8", newline="\n") as handle:
-        json.dump(tables, handle, indent=1, sort_keys=False, ensure_ascii=False)
+        json.dump(tables, handle, indent=2, sort_keys=False, ensure_ascii=False)
+        handle.write("\n")
     print(f"wrote {out}")
 
 

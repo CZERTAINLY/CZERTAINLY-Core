@@ -282,6 +282,24 @@ class CbomAssetExtractorTest {
         assertThat(extraction.skips()).isEmpty();
     }
 
+    /**
+     * A caller passing no batch index passes {@code null} as easily as an empty set, and {@code null} used to reach
+     * {@code addAll} inside the certificate tier -- so every certificate in the document became a silent skip while
+     * every other asset type extracted.
+     */
+    @Test
+    void aNullBatchIsAnEmptyBatch() {
+        JsonNode document = read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"cert\","
+                + "\"cryptoProperties\":{\"assetType\":\"certificate\",\"certificateProperties\":"
+                + "{\"subjectName\":\"CN=a\",\"issuerName\":\"CN=ca\"}}}]}");
+
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR.extract(document, null);
+
+        assertThat(extraction.skips()).isEmpty();
+        assertThat(extraction.assets()).hasSize(1);
+        assertThat(extraction.documentScopeUnavailable()).isFalse();
+    }
+
     @Test
     void anAbsentDocumentIsNotAFailure() {
         assertThat(EXTRACTOR.extract(null).assets()).isEmpty();

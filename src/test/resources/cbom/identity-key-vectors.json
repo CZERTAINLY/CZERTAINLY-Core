@@ -2,7 +2,7 @@
  "$comment": "Frozen byte-level conformance vectors for core#2070 (R15/D19). The identity value is SHA-256 over the pre-image encoded UTF-8, lowercase hex. A mismatch on preImage names the slot; a mismatch on identityKey alone means the hashing or encoding differs.",
  "specId": "v1",
  "hash": "sha256(preImage.encode('utf-8')).hexdigest()",
- "vectorCount": 268,
+ "vectorCount": 269,
  "vectors": [
   {
    "id": "crt-dn-public-key-target",
@@ -2688,7 +2688,7 @@
   },
   {
    "id": "gen-063-alg-family",
-   "why": "corpus shape alg:family/110000/fam=name/ps/notes=1, first seen at corpora/wild/0xD1g5~QU.I.R.K~examples~cbom~data-in-motion.cbom.json#7",
+   "why": "corpus shape alg:family/110000/fam=name/ps/notes=1, first seen at corpora/wild/0xD1g5~QU.I.R.K~examples~cbom~data-in-motion.cbom.json#7 | re-pinned 2026-09-04: the trailing 1 of SHA-1 was read as a parameter level after the family rule had consumed it; SHA-1 and SHA1 now key alike",
    "component": {
     "bom-ref": "crypto/algorithm/sha-1",
     "cryptoProperties": {
@@ -2711,13 +2711,13 @@
    },
    "expected": {
     "chainStep": "alg:family",
-    "preImage": "ALG|SHA-1|1||||",
-    "identityKey": "e2118dc3593be99e871be556fc1ee24a060682147a8df9307c91ec53ebf2ad77"
+    "preImage": "ALG|SHA-1|||||",
+    "identityKey": "614bc9aefdccf8b60daea00dbec3bccd05bd5f30a9987b0b0d482711fc7fbf90"
    }
   },
   {
    "id": "gen-155-alg-family",
-   "why": "corpus shape alg:family/110000/fam=name/ps/notes=2, first seen at corpora/wild/jusso-dev~Boab~examples~demo~reports~cbom.cdx.json#15",
+   "why": "corpus shape alg:family/110000/fam=name/ps/notes=2, first seen at corpora/wild/jusso-dev~Boab~examples~demo~reports~cbom.cdx.json#15 | re-pinned 2026-09-04: the trailing 1 of SHA-1 was read as a parameter level after the family rule had consumed it; SHA-1 and SHA1 now key alike",
    "component": {
     "type": "cryptographic-asset",
     "bom-ref": "boab:e04e1a1e-1b0f-47b7-b02b-9353e6df8055",
@@ -2744,8 +2744,8 @@
    },
    "expected": {
     "chainStep": "alg:family",
-    "preImage": "ALG|SHA-1|1||||",
-    "identityKey": "e2118dc3593be99e871be556fc1ee24a060682147a8df9307c91ec53ebf2ad77"
+    "preImage": "ALG|SHA-1|||||",
+    "identityKey": "614bc9aefdccf8b60daea00dbec3bccd05bd5f30a9987b0b0d482711fc7fbf90"
    }
   },
   {
@@ -4166,7 +4166,7 @@
   },
   {
    "id": "gen-165-alg-family",
-   "why": "corpus shape alg:family/110101/fam=corroborated/var=sized/ps, first seen at corpora/wild/qtonicquantum~cbom-cyclonedx-examples~examples~openssl~openssl.cbom.json#4",
+   "why": "corpus shape alg:family/110101/fam=corroborated/var=sized/ps, first seen at corpora/wild/qtonicquantum~cbom-cyclonedx-examples~examples~openssl~openssl.cbom.json#4 | re-pinned 2026-09-04: the CMS arc's strand row said mode POLY1305, a value outside modeTokens; the mode slot now holds vocabulary values only",
    "component": {
     "type": "cryptographic-asset",
     "bom-ref": "algo-chacha20",
@@ -4192,8 +4192,8 @@
    },
    "expected": {
     "chainStep": "alg:family",
-    "preImage": "ALG|ChaCha20|256||POLY1305||poly1305",
-    "identityKey": "2d76be3f0a02dded18277669ca0a0be585ce075ff6a9ef98e4e50f8962a84c16"
+    "preImage": "ALG|ChaCha20|256||||poly1305",
+    "identityKey": "604ce1019c9f47deaad8081d51b8230858e3418ed069e51e073c9a87d1d7c062"
    }
   },
   {
@@ -9216,6 +9216,32 @@
      }
     }
    ]
+  },
+  {
+   "id": "crt-serial-sentinel",
+   "why": "a serialNumber spelling the ratified sentinel `unknown` is an absent serial: keyed, it gave every certificate of the issuer one CRT|S row, so the pair falls to the distinguished-name composite. Curated 2026-09-04; the composite's inner pre-image is published so the slot is testable",
+   "component": {
+    "type": "cryptographic-asset",
+    "name": "issued.pem",
+    "cryptoProperties": {
+     "assetType": "certificate",
+     "certificateProperties": {
+      "subjectName": "CN=issued.example",
+      "issuerName": "CN=Example CA",
+      "serialNumber": "unknown",
+      "notValidBefore": "2026-01-01T00:00:00Z",
+      "notValidAfter": "2027-01-01T00:00:00Z"
+     }
+    }
+   },
+   "expected": {
+    "chainStep": "crt:dn-composite",
+    "preImage": "CRT|D|v1|9987c38aee243f590b38e5cd74c53018a5d8414bba61f6f499c9f26949a27dbf",
+    "identityKey": "32e47bde57452815c2443884e8ae12ace0b5f83492f0d6f23a46d60bac856e88",
+    "innerPreImages": {
+     "dnComposite": "2.5.4.3=issued.example|2.5.4.3=example ca|1767225600|1798761600|"
+    }
+   }
   }
  ]
 }

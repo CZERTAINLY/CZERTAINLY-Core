@@ -111,6 +111,67 @@ class DistinguishedNamesTest {
     }
 
     /**
+     * An RFC 4514 hex pair is the octet it names, and consecutive pairs are one UTF-8 run. Dropping the backslash and
+     * keeping the digits made {@code CN=a\\2Cb} the same name as {@code CN=a2Cb}, and rendered the NetLock and E-Tugra
+     * roots in the corpus -- seven DN values -- as {@code TanC3BAs...}.
+     */
+    @Test
+    void aHexPairIsTheOctetItNames() {
+        assertThat(DistinguishedNames.normalize("CN=a\\2Cb", TABLES))
+                .isEqualTo(DistinguishedNames.normalize("CN=a\\,b", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=a2Cb", TABLES));
+        assertThat(DistinguishedNames.normalize("O=Tan\\C3\\BAs", TABLES))
+                .isEqualTo(DistinguishedNames.normalize("O=Tan\u00FAs", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=e\\CC\\81", TABLES))
+                .describedAs("the decoded run joins the surrounding text before NFKC, so a combining mark composes")
+                .isEqualTo(DistinguishedNames.normalize("CN=\u00E9", TABLES));
+    }
+
+    /** A pair that is not UTF-8 renders as the reserved bare byte, so it cannot alias a producer's literal escape. */
+    @Test
+    void anUndecodableHexPairRendersAsTheReservedBareByte() {
+        assertThat(DistinguishedNames.normalize("CN=\\FF", TABLES))
+                .isEqualTo("2.5.4.3=%ff")
+                .isNotEqualTo(DistinguishedNames.normalize("CN=%FF", TABLES));
+    }
+
+    /**
+     * An RFC 2253 quoted value is one value. 84 of the 1 595 corpus DN values are OpenSSL's {@code O = "Entrust, Inc."}
+     * rendering; split on the inner comma, {@code "Entrust, Inc."} and {@code "Entrust, Ltd."} rendered one AVA with
+     * the rest silently dropped, and the quote itself was kept as text.
+     */
+    @Test
+    void aQuotedValueIsOneValue() {
+        assertThat(DistinguishedNames.normalize("O=\"Entrust, Inc.\",C=US", TABLES))
+                .isEqualTo("2.5.4.10=entrust\\, inc.,2.5.4.6=us")
+                .isEqualTo(DistinguishedNames.normalize("O=Entrust\\, Inc.,C=US", TABLES))
+                .isEqualTo(DistinguishedNames.normalize("C = US, O = \"Entrust, Inc.\"", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("O=\"Entrust, Ltd.\",C=US", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=\"#414243\"", TABLES))
+                .describedAs("quoted content is text whatever it opens with")
+                .isEqualTo("2.5.4.3=\\#414243");
+        assertThat(DistinguishedNames.normalize("CN=say \"hi\"", TABLES))
+                .describedAs("a quote that does not enclose the whole value is a character in it")
+                .isEqualTo("2.5.4.3=say \\\"hi\\\"");
+    }
+
+    /** RFC 2253 §4 requires {@code ;} to be read as an RDN separator; RFC 4514 gives an unescaped one no meaning. */
+    @Test
+    void aSemicolonSeparatesRdns() {
+        assertThat(DistinguishedNames.normalize("CN=a;O=b", TABLES))
+                .isEqualTo(DistinguishedNames.normalize("CN=a,O=b", TABLES));
+    }
+
+    /**
+     * RDNs sort by code point, as the reference and every other ordered sequence here do. {@code sort(null)} compared
+     * UTF-16 units, which put an astral character below one at or above U+E000.
+     */
+    @Test
+    void rdnsSortByCodePointNotByUtf16Unit() {
+        assertThat(DistinguishedNames.normalize("CN=\uD83D\uDE00,CN=\uE000", TABLES)).startsWith("2.5.4.3=\uE000,");
+    }
+
+    /**
      * Go emits every attribute type it does not know this way, and decoding is mandatory or two producers never match.
      */
     @Test

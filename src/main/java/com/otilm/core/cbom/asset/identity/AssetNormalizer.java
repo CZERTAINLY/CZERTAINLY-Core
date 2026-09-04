@@ -119,13 +119,24 @@ public record AssetNormalizer(IdentityTables tables) {
 
     /**
      * Families whose {@code parameterSet} means a KEY size, so a digest length in the name can never be it: an
-     * "RSA-256" key is absurd, and {@code SHA512withRSA} was storing 512. Scoped to the RSA schemes on purpose -- for a
+     * "RSA-256" key is absurd, and {@code SHA512withRSA} was storing 512. Scoped to the RSA family on purpose -- for a
      * hash or a MAC the digest length IS the parameter, and for ECDSA it usually coincides with the curve size, so
-     * stripping it there would discard real information to fix a coincidence.
+     * stripping it there would discard real information to fix a coincidence. The bare pseudo-family is in scope: it is
+     * what a JCA transformation such as {@code RSA/ECB/OAEPWithSHA-256AndMGF1Padding} elects, and the scheme prefixes
+     * alone let exactly that name store a 256-bit key.
      */
-    private static final List<String> KEY_SIZE_FAMILIES = List.of("RSASSA-", "RSAES-", "RSA-X931");
+    private static final List<String> KEY_SIZE_FAMILIES = List.of("RSA");
 
-    private static final Pattern DIGEST_IN_NAME = Pattern.compile("(?<![A-Za-z0-9])(?i:SHA|MD)-?(\\d{3,4})(?!\\d)");
+    /**
+     * A digest token and the length it names, in every spelling the RSA schemes are written with. The left guard admits
+     * the JCA infix -- {@code RSA/ECB/OAEPWithSHA-256AndMGF1Padding} names SHA-256 after a letter -- and the optional
+     * family digit admits RFC 8332's {@code rsa-sha2-256} and the {@code SHA3-256} spelling; without either, the rule
+     * the Javadoc of {@link #KEY_SIZE_FAMILIES} states was true only for the hyphenated {@code SHA256withRSA} shape,
+     * and the commonest JCA spelling stored a 256-bit RSA key.
+     */
+    private static final Pattern DIGEST_IN_NAME = Pattern
+            .compile("(?:(?<![A-Za-z0-9])|(?<=with))(?:SHA|MD)-?(?:[23][-_/]?)?(\\d{3,4})(?!\\d)",
+                    Pattern.CASE_INSENSITIVE);
 
     /**
      * The separators a producer's {@code assetType} spelling may carry, over the reference whitespace set.
@@ -171,6 +182,16 @@ public record AssetNormalizer(IdentityTables tables) {
     private static final Pattern NON_LETTERS = Pattern.compile("[^A-Za-z]");
 
     private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^A-Za-z0-9]");
+
+    /**
+     * The word JCA glues to a padding token in a transformation string. Admitted into the name match as an optional
+     * suffix because the right word guard alone refused it: {@code AES/CBC/PKCS5Padding} -- the commonest JCA spelling
+     * -- derived no padding while {@code AES/CBC/PKCS5} did, and the two split. {@code OAEPWithSHA-256AndMGF1Padding}
+     * still derives none: the token there is followed by {@code With}, not by this word.
+     */
+    private static final String JCA_PADDING_WORD = "PADDING";
+
+    private static final String JCA_PADDING_SUFFIX = "(?:" + JCA_PADDING_WORD + ")?";
 
     private static final Pattern LOCAL_SIZE_RUN = Pattern.compile("[^A-Za-z0-9]*[A-Za-z]*[-_/]?(\\d{1,5})");
 
@@ -830,8 +851,11 @@ public record AssetNormalizer(IdentityTables tables) {
         // Nothing passed the key-size whitelist. A trailing standalone integer is then a PARAMETER LEVEL, not a key
         // size, and it must bypass the floor: `ML-DSA-44` keyed identically to bare `ML-DSA` because 44 is below 64,
         // while `-65` and `-87` separated only by the accident of clearing it. Applied to the STRIPPED name, so a
-        // trailing digit run belonging to a curve cannot be read as a level.
-        Matcher level = PARAMETER_LEVEL.matcher(AsciiText.strip(stripStoplist(name)));
+        // trailing digit run belonging to a curve cannot be read as a level -- and with the family rule's own match
+        // removed, so a digit the family spelling consumed is not read a second time as a level: `SHA-1` stored a
+        // parameter set of 1 and split from `SHA1`, `MD-5` from `MD5`. A digit run consumed by one slot must never
+        // be consumed again by another, and the family is a slot.
+        Matcher level = PARAMETER_LEVEL.matcher(AsciiText.strip(stripStoplist(withoutFamilyToken(name))));
         if (!level.find()) {
             return null;
         }
@@ -839,6 +863,17 @@ public record AssetNormalizer(IdentityTables tables) {
                 .add("parameter level " + level.group(1) + " accepted below the key-size floor: it labels a "
                         + "parameter set, not a key length");
         return Integer.parseInt(level.group(1));
+    }
+
+    /** The name with the text the first matching grammar rule consumed replaced by a space. */
+    private String withoutFamilyToken(String name) {
+        for (IdentityTables.GrammarRule rule : tables.nameGrammar()) {
+            Matcher matcher = rule.strict().matcher(name);
+            if (matcher.find()) {
+                return matcher.replaceFirst(" ");
+            }
+        }
+        return name;
     }
 
     /**
@@ -1031,7 +1066,17 @@ public record AssetNormalizer(IdentityTables tables) {
                 .setMode(normalizeMode(boundedText(norm, algorithm, "mode"),
                         boundedText(norm, algorithm, CbomNames.PARAMETER_SET_IDENTIFIER), norm.name()));
         if (norm.mode() == null && enrichment != null && enrichment.mode() != null) {
-            norm.setMode(enrichment.mode());
+            // Through the same vocabulary the field and the name go through. Taken verbatim, an arc whose strand row
+            // said `POLY1305` put a value outside `modeTokens` into the slot, and a ChaCha20-Poly1305 asset keyed
+            // one way with the CMS arc and another without it. The generator refuses such a row now; this is the
+            // loader-side half of the same rule, for an artifact that did not come out of the generator.
+            String token = modeToken(enrichment.mode());
+            if (token == null) {
+                norm
+                        .note("mode " + enrichment.mode() + " from arc " + enrichment.matchedArc()
+                                + " is not a mode token and does not enter the key");
+            }
+            norm.setMode(token);
         }
     }
 
@@ -1047,10 +1092,9 @@ public record AssetNormalizer(IdentityTables tables) {
     public String normalizeMode(String mode, String parameterSetIdentifier, String name) {
         for (String candidate : new String[]{mode, parameterSetIdentifier}) {
             if (candidate != null && !tables.isSentinel(candidate)) {
-                for (String token : tables.modeTokens()) {
-                    if (AsciiText.lookupKey(token).equals(AsciiText.lookupKey(candidate))) {
-                        return AsciiText.upper(token);
-                    }
+                String token = modeToken(candidate);
+                if (token != null) {
+                    return token;
                 }
             }
         }
@@ -1066,6 +1110,16 @@ public record AssetNormalizer(IdentityTables tables) {
         return null;
     }
 
+    /** The vocabulary's spelling of a mode a producer or an arc named, or {@code null} when it names none. */
+    private String modeToken(String candidate) {
+        for (String token : tables.modeTokens()) {
+            if (AsciiText.lookupKey(token).equals(AsciiText.lookupKey(candidate))) {
+                return AsciiText.upper(token);
+            }
+        }
+        return null;
+    }
+
     /**
      * Padding, field first then the name -- exactly parallel to mode.
      *
@@ -1076,7 +1130,9 @@ public record AssetNormalizer(IdentityTables tables) {
     private void derivePadding(NormalizedAsset norm, JsonNode algorithm) {
         String declared = boundedText(norm, algorithm, "padding");
         if (declared != null && !AsciiText.isBlank(declared) && !tables.isSentinel(declared)) {
-            String token = AsciiText.upper(AsciiText.strip(declared));
+            // Flattened exactly as the name is below: `PKCS#7` and `PKCS5Padding` are the same spellings in the field
+            // as in a name, and compared raw the field refused both as out-of-vocabulary.
+            String token = paddingSpelling(declared);
             // L7: the slot was an unbounded passthrough and has stored arbitrary producer text verbatim. Only a value
             // in the closed padding vocabulary may enter the key.
             if (tables.paddingTokens().stream().noneMatch(known -> AsciiText.upper(known).equals(token))) {
@@ -1091,14 +1147,32 @@ public record AssetNormalizer(IdentityTables tables) {
             // without this they fail to match a producer that puts the value in the field instead.
             String flattened = NON_ALPHANUMERIC.matcher(norm.name()).replaceAll("");
             for (String token : tables.paddingTokens()) {
-                Pattern word = Pattern.compile(Pattern.quote(token) + RIGHT_WORD_GUARD, Pattern.CASE_INSENSITIVE);
-                if (word.matcher(flattened).find()) {
+                Pattern word = Pattern
+                        .compile(Pattern.quote(token) + JCA_PADDING_SUFFIX + RIGHT_WORD_GUARD,
+                                Pattern.CASE_INSENSITIVE);
+                Matcher matcher = word.matcher(flattened);
+                if (matcher.find()) {
                     norm.setPadding(canonicalPadding(token));
-                    norm.setPaddingFromName(token);
+                    // The matched spelling, suffix included, so the residue pass strips what this slot consumed:
+                    // recording the bare token left `padding` in the variant of `AES/CBC/PKCS5Padding` and split it
+                    // from `AES/CBC/PKCS5` a second time, one slot over.
+                    norm.setPaddingFromName(matcher.group());
                     return;
                 }
             }
         }
+    }
+
+    /**
+     * A declared padding reduced to the vocabulary's spelling: punctuation dropped, upper-cased, and the JCA
+     * {@code Padding} suffix removed, so {@code padding: "PKCS5Padding"} copied out of a transformation string says
+     * what {@code PKCS5} says.
+     */
+    private static String paddingSpelling(String declared) {
+        String flattened = AsciiText.upper(NON_ALPHANUMERIC.matcher(declared).replaceAll(""));
+        return flattened.length() > JCA_PADDING_WORD.length() && flattened.endsWith(JCA_PADDING_WORD)
+                ? flattened.substring(0, flattened.length() - JCA_PADDING_WORD.length())
+                : flattened;
     }
 
     private String canonicalPadding(String token) {

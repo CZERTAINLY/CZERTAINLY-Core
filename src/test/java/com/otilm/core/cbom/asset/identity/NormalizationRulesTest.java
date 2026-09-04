@@ -3,7 +3,10 @@ package com.otilm.core.cbom.asset.identity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.otilm.core.serialization.ObjectMapperFactory;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -311,7 +314,153 @@ class NormalizationRulesTest {
         assertThat(NORMALIZER.normalizeAssetType("quantum-widget")).isNull();
     }
 
+    // ---------------------------------------------------------------- one construction, one key (core#2196 round 4)
+
+    /**
+     * The JCA transformation spelling of a padding is the padding. {@code AES/CBC/PKCS5Padding} derived none while
+     * {@code AES/CBC/PKCS5} derived PKCS7, because the right word guard refused the {@code P} of {@code Padding}; and
+     * once it derived, the bare token left {@code padding} in the variant, splitting the pair a second time.
+     */
+    @Test
+    void aJcaPaddingSuffixNamesThePadding() {
+        assertThat(normalize("AES/CBC/PKCS5Padding").padding()).isEqualTo("PKCS7");
+        assertThat(keyOfAlgorithm("AES/CBC/PKCS5Padding")).isEqualTo(keyOfAlgorithm("AES/CBC/PKCS5"));
+        assertThat(normalize("RSA/ECB/OAEPWithSHA-1AndMGF1Padding").padding())
+                .describedAs("a token followed by With, not by Padding, still derives none -- gen-147 pins the key")
+                .isNull();
+    }
+
+    /** The declared field is read in every spelling the name is: punctuation dropped, JCA suffix removed. */
+    @ParameterizedTest
+    @CsvSource({
+            "'PKCS#7', PKCS7",
+            "'PKCS #7', PKCS7",
+            "PKCS5Padding, PKCS7",
+            "'PKCS#1 v1.5', PKCS1V15",
+            "OAEPPadding, OAEP"})
+    void aDeclaredPaddingIsReadInEverySpellingTheNameIs(String declared, String expected) {
+        assertThat(normalize(algorithmComponent("AES", "{\"padding\":" + quote(declared) + "}")).padding())
+                .isEqualTo(expected);
+    }
+
+    /**
+     * The ratified rule -- an RSA-family key size is never a digest length -- in the JCA infix and SSH spellings it
+     * missed. {@code RSA/ECB/OAEPWithSHA-256AndMGF1Padding} stored a 256-bit RSA key, the very case the rule's own
+     * Javadoc names as prevented, because the digest recognizer wanted a word boundary before {@code SHA}.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"RSA/ECB/OAEPWithSHA-256AndMGF1Padding", "rsa-sha2-256", "rsa-sha2-512", "RSA-SHA3-256"})
+    void aDigestLengthIsNotAKeySizeInTheInfixAndSshSpellings(String name) {
+        assertThat(normalize(name).parameterSet()).isNull();
+        assertThat(normalize(name).family()).startsWith("RSA");
+    }
+
+    /**
+     * A digit the family rule consumed is not read again as a parameter level. {@code SHA-1} stored a parameter set of
+     * 1 -- a factually wrong column value -- and split from {@code SHA1}; {@code MD-5} likewise from {@code MD5}.
+     * {@code ML-DSA-44} is the control: its level sits outside the family's own match and stays.
+     */
+    @Test
+    void aDigitTheFamilyConsumedIsNotALevel() {
+        assertThat(normalize("SHA-1").parameterSet()).isNull();
+        assertThat(keyOfAlgorithm("SHA-1")).isEqualTo(keyOfAlgorithm("SHA1"));
+        assertThat(keyOfAlgorithm("MD-5")).isEqualTo(keyOfAlgorithm("MD5"));
+        assertThat(normalize("ML-DSA-44").parameterSet()).isEqualTo(44);
+    }
+
+    /**
+     * A mode an arc contributes goes through the vocabulary a field or a name goes through. The shipped strand carried
+     * {@code POLY1305} on the ChaCha20-Poly1305 arc and the slot took it verbatim, so the asset keyed one way with the
+     * CMS arc and another without it. The generator refuses such a row now; the loader-side rule is driven through a
+     * copy of the artifact with the old row restored.
+     */
+    @Test
+    void anArcModeOutsideTheVocabularyDoesNotEnterTheKey() throws IOException {
+        ObjectNode artifact = (ObjectNode) ObjectMapperFactory
+                .storage()
+                .readTree(getClass().getClassLoader().getResourceAsStream("cbom/identity-tables.json"));
+        ((ObjectNode) artifact.get("oidToFamily").get("1.2.840.113549.1.9.16.3.18")).put("mode", "POLY1305");
+        AssetNormalizer patched = new AssetNormalizer(IdentityTables.of(artifact));
+        JsonNode component = algorithmComponent("ChaCha20-Poly1305", "{}", "\"oid\":\"1.2.840.113549.1.9.16.3.18\",");
+
+        NormalizedAsset asset = patched.normalize(component).asset();
+
+        assertThat(asset.mode()).isNull();
+        assertThat(asset.notes()).anyMatch(note -> note.contains("is not a mode token"));
+        assertThat(normalize(algorithmComponent("AES", "{}", "\"oid\":\"2.16.840.1.101.3.4.1.6\",")).mode())
+                .describedAs("a vocabulary mode from an arc still enriches")
+                .isEqualTo("GCM");
+    }
+
+    /**
+     * A sentinel serial is an absent serial. Keyed, {@code serialNumber: "unknown"} put every certificate of an issuer
+     * on one {@code CRT|S} row; the pair falls to the composite instead, where the subject still discriminates.
+     */
+    @Test
+    void aSentinelSerialIsAnAbsentSerial() {
+        assertThat(IDENTITY.of(certificateWithSerial("unknown", "CN=a")).step()).isEqualTo("crt:dn-composite");
+        assertThat(keyOf(certificateWithSerial("unknown", "CN=a")))
+                .isNotEqualTo(keyOf(certificateWithSerial("unknown", "CN=b")));
+        assertThat(IDENTITY.of(certificateWithSerial("0A1B2C", "CN=a")).step()).isEqualTo("crt:serial+issuer");
+    }
+
+    /** One posture, one token: the spelling that matched used to be emitted, so Suite-B and SuiteB keyed apart. */
+    @Test
+    void aPostureSpellingKeysAsOneToken() {
+        assertThat(IDENTITY.protocolConfiguration("TLS Suite-B")).isEqualTo("suite-b");
+        assertThat(IDENTITY.protocolConfiguration("TLS SuiteB")).isEqualTo("suite-b");
+    }
+
+    /** A port follows a colon. The slash was in the class too, so {@code TLS/12} and a date contributed ports. */
+    @Test
+    void aPathSegmentIsNotAPort() {
+        assertThat(IDENTITY.protocolConfiguration("TLS/12")).isNull();
+        assertThat(IDENTITY.protocolConfiguration("scanned 2024/05/01")).isNull();
+        assertThat(IDENTITY.protocolConfiguration("protocol:tls:localhost:13443")).isEqualTo("13443");
+    }
+
+    /**
+     * Whitespace runs in a keyed name collapse over the reference set on every name-keyed tier. Only a double ASCII
+     * space collapsed before, so a tab or a no-break space keyed apart from the plain-space spelling, and the
+     * unknown-type backstop did not strip at all.
+     */
+    @Test
+    void whitespaceRunsInANameCollapseOnEveryNameTier() {
+        assertThat(keyOfAlgorithm("private\tkey")).isEqualTo(keyOfAlgorithm("private key"));
+        assertThat(keyOfAlgorithm("private\u00A0key")).isEqualTo(keyOfAlgorithm("private  key"));
+        assertThat(keyOf(unroutable(" broken\tasset"))).isEqualTo(keyOf(unroutable("broken asset")));
+    }
+
+    /**
+     * An attribute type is rendered as written, and a delimiter inside it still cannot reach the composite raw: the
+     * composite escapes every field against its own {@code |}, so a subject of {@code a|b=c} contributes exactly one
+     * field. Pinned on the type because the value case was pinned and the type case never was.
+     */
+    @Test
+    void anAttributeTypeCannotShiftTheCompositeBoundary() {
+        JsonNode component = read("{\"type\":\"cryptographic-asset\",\"cryptoProperties\":{\"assetType\":"
+                + "\"certificate\",\"certificateProperties\":{\"subjectName\":\"a|b=c\",\"issuerName\":\"CN=ca\"}}}");
+        String composite = IDENTITY
+                .dnPreImage(MaterialRedaction.of(component.get("cryptoProperties")).keyedPayload(),
+                        DocumentScope.none());
+
+        assertThat(composite.chars().filter(character -> character == '|').count())
+                .describedAs("five fields, four delimiters, whatever the type spells: %s", composite)
+                .isEqualTo(4);
+        assertThat(composite).startsWith("a%7Cb=c|");
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    private static JsonNode certificateWithSerial(String serial, String subject) {
+        return read("{\"type\":\"cryptographic-asset\",\"name\":\"cert\",\"cryptoProperties\":{\"assetType\":"
+                + "\"certificate\",\"certificateProperties\":{\"subjectName\":" + quote(subject)
+                + ",\"issuerName\":\"CN=ca\",\"serialNumber\":" + quote(serial) + "}}}");
+    }
+
+    private static JsonNode unroutable(String name) {
+        return read("{\"type\":\"cryptographic-asset\",\"name\":" + quote(name) + "}");
+    }
 
     // ---------------------------------------------------------------- sub-delimiters and dropped slots (core#2165)
 
