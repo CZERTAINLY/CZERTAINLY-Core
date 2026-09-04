@@ -142,7 +142,9 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<Cbom>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb,
-                cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+                cr) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cr, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         final List<CbomDto> cbomDtos = cbomRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("createdAt")),

@@ -109,7 +109,9 @@ public class TimeQualityConfigurationServiceImpl
         RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.TIME_QUALITY_CONFIGURATION);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<TimeQualityConfiguration>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
-                cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
+                cq) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cq, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         List<TimeQualityConfigurationListDto> configurations = timeQualityConfigurationRepository
                 .findUsingSecurityFilter(filter, List.of(), predicate, p,
                         (root, cb) -> cb.desc(root.get(Audited_.CREATED)))

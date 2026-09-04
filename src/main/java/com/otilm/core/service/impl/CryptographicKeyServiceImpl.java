@@ -314,7 +314,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
-                root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+                root, cb, cr) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cr, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
 
         List<UUID> filteredKeyUuids = cryptographicKeyItemRepository
                 .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,

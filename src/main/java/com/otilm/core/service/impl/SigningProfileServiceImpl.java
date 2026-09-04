@@ -200,7 +200,9 @@ public class SigningProfileServiceImpl implements SigningProfileExternalService,
         RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.SIGNING_PROFILE);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<SigningProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
-                cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
+                cq) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cq, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         List<SigningProfileListDto> profiles = signingProfileRepository
                 .findUsingSecurityFilter(filter, List.of(), predicate, p,
                         (root, cb) -> cb.desc(root.get(Audited_.CREATED)))

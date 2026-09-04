@@ -241,7 +241,9 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<Connector>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root,
-                cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+                cb, cr) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cr, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         final List<ConnectorDto> connectorDtos = connectorRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")),

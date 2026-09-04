@@ -13,6 +13,7 @@ import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.auth.UserProfileDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
+import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.Approval;
 import com.otilm.core.dao.entity.ApprovalProfileVersion;
 import com.otilm.core.dao.entity.ApprovalRecipient;
@@ -77,6 +78,8 @@ public class ApprovalServiceImpl implements ApprovalExternalService, ApprovalInt
                                             root.<Resource>get("resource").as(String.class)),
                                     "/"),
                             root.<UUID>get("objectUuid").as(String.class));
+
+    private AttributeEngine attributeEngine;
 
     private ApprovalRepository approvalRepository;
 
@@ -454,6 +457,11 @@ public class ApprovalServiceImpl implements ApprovalExternalService, ApprovalInt
     // SETTERs
 
     @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
     public void setApprovalRepository(ApprovalRepository approvalRepository) {
         this.approvalRepository = approvalRepository;
     }
@@ -499,7 +507,8 @@ public class ApprovalServiceImpl implements ApprovalExternalService, ApprovalInt
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
             PaginationRequestDto pagination) {
         TriFunction<Root<Approval>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb,
-                cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
+                cr) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cr, root, filters, attributeEngine::loadCustomAttributeContentFilter);
         return approvalRepository
                 .listResourceObjects(filter, APPROVAL_NAME_EXPRESSION, additionalWhereClause, pagination);
     }

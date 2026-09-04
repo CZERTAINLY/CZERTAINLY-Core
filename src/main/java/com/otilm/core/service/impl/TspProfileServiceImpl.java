@@ -111,7 +111,9 @@ public class TspProfileServiceImpl implements TspProfileExternalService, TspProf
         RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.TSP_PROFILE);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<TspProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
-                cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
+                cq) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cq, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         List<TspProfileListDto> profiles = tspProfileRepository
                 .findUsingSecurityFilter(filter, List.of(), predicate, p,
                         (root, cb) -> cb.desc(root.get(Audited_.CREATED)))

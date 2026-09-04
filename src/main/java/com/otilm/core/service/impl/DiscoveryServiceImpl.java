@@ -201,7 +201,9 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<Discovery>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root,
-                cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+                cb, cr) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cr, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         final List<DiscoveryListDto> listedDiscoveriesDTOs = discoveryRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")),

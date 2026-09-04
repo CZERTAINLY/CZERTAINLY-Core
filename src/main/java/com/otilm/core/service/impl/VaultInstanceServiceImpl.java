@@ -195,7 +195,9 @@ public class VaultInstanceServiceImpl implements VaultInstanceExternalService, V
         RequestValidatorHelper.revalidateSearchRequestDto(request, Resource.VAULT);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultInstance>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
-                cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
+                cq) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cq, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         List<VaultInstanceDto> vaultInstances = vaultInstanceRepository
                 .findUsingSecurityFilter(securityFilter,
                         List.of(VaultInstance_.CONNECTOR, VaultInstance_.CONNECTOR_INTERFACE), predicate, p,

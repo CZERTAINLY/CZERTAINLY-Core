@@ -299,7 +299,9 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
         filter.setParentRefProperty(SIGNING_PROFILE_PARENT_REF);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<SigningRecord>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb, cq) -> {
-            Predicate filters = FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
+            Predicate filters = FilterPredicatesBuilder
+                    .getFiltersPredicate(cb, cq, root, request.getFilters(),
+                            attributeEngine::loadCustomAttributeContentFilter);
             return signingProfileUuid == null
                     ? filters
                     : cb.and(cb.equal(root.get(SigningRecord_.signingProfileUuid), signingProfileUuid), filters);

@@ -215,7 +215,9 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<Location>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root,
-                cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+                cb, cr) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cr, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         final List<LocationDto> listedKeyDTOs = locationRepository
                 .findUsingSecurityFilter(filter, List.of("certificates", "certificates.certificate"),
                         additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
@@ -1072,7 +1074,8 @@ public class LocationServiceImpl implements LocationExternalService, LocationInt
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
             PaginationRequestDto pagination) {
         final TriFunction<Root<Location>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root,
-                cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
+                cb, cr) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cr, root, filters, attributeEngine::loadCustomAttributeContentFilter);
         return locationRepository.listResourceObjects(filter, Location_.name, additionalWhereClause, pagination);
     }
 

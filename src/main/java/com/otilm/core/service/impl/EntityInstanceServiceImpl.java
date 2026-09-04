@@ -130,7 +130,9 @@ public class EntityInstanceServiceImpl implements EntityInstanceExternalService,
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
-                root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+                root, cb, cr) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cr, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         final List<EntityInstanceDto> listedKeyDTOs = entityInstanceReferenceRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")))
@@ -393,7 +395,8 @@ public class EntityInstanceServiceImpl implements EntityInstanceExternalService,
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters,
             PaginationRequestDto pagination) {
         final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (
-                root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
+                root, cb, cr) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cr, root, filters, attributeEngine::loadCustomAttributeContentFilter);
         return entityInstanceReferenceRepository
                 .listResourceObjects(filter, EntityInstanceReference_.name, additionalWhereClause, pagination);
     }

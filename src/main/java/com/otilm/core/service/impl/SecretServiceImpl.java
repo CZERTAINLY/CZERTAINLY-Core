@@ -307,7 +307,9 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
             parentResource = Resource.VAULT_PROFILE, parentAction = ResourceAction.MEMBERS)
     public PaginationResponseDto<SecretDto> listSecrets(SearchRequestDto searchRequest, SecurityFilter securityFilter) {
         TriFunction<Root<Secret>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb,
-                cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, searchRequest.getFilters());
+                cq) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cq, root, searchRequest.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         Pageable p = PageRequest.of(searchRequest.getPageNumber() - 1, searchRequest.getItemsPerPage());
         List<Secret> secrets = getSecrets(securityFilter, p, additionalWhereClause,
                 listingSortResolver.resolve(Resource.SECRET, searchRequest.getSort()));
@@ -1190,8 +1192,8 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
             PaginationRequestDto pagination) {
         filter.setParentRefProperty(Secret_.SOURCE_VAULT_PROFILE_UUID);
         return secretRepository
-                .listResourceObjects(filter, Secret_.name,
-                        (root, cb, cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, filters),
+                .listResourceObjects(filter, Secret_.name, (root, cb, cq) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cq, root, filters, attributeEngine::loadCustomAttributeContentFilter),
                         pagination);
     }
 

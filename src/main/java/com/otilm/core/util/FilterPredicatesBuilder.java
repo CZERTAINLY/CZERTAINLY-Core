@@ -64,6 +64,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
@@ -100,9 +101,22 @@ public class FilterPredicatesBuilder {
                     FilterConditionOperator.ENDS_WITH, FilterConditionOperator.MATCHES,
                     FilterConditionOperator.NOT_MATCHES);
 
+    /**
+     * The predicate a listing applies for the filters a request carries.
+     *
+     * @param contentFilterSource the caller's custom-attribute permissions, which an attribute-sourced filter is gated
+     * by. Taken as a supplier and read at most once, and only once a filter actually reaches attribute content:
+     * resolving them is an authorization round trip, and a listing filtered on properties alone - which is most of them
+     * - must not pay for one. {@code AttributeColumnProjector} loads them on the same terms, after establishing that a
+     * column asked for attribute content. Every listing supplies it rather than being trusted to know it has no
+     * attribute fields, because what a request may name is the caller's choice, not the listing's.
+     */
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder,
-            final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
+            final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos,
+            final Supplier<CustomAttributeContentFilter> contentFilterSource) {
         Map<String, From> joinedAssociations = new HashMap<>();
+        CustomAttributeContentFilter contentFilter = null;
+        boolean contentFilterRead = false;
 
         // An explicit filter on the refuted-OID facet is the caller opting into matching refuted OID
         // values, so the carve-outs below switch off for the whole request; the facet's own predicate
@@ -121,7 +135,11 @@ public class FilterPredicatesBuilder {
                             .add(getPropertyFilterPredicate(criteriaBuilder, query, root, filterDto, joinedAssociations,
                                     refutedOidsOptedIn));
                 } else {
-                    predicates.add(getAttributeFilterPredicate(criteriaBuilder, query, root, filterDto));
+                    if (!contentFilterRead) {
+                        contentFilter = contentFilterSource == null ? null : contentFilterSource.get();
+                        contentFilterRead = true;
+                    }
+                    predicates.add(getAttributeFilterPredicate(criteriaBuilder, query, root, filterDto, contentFilter));
                 }
             }
         }
@@ -129,8 +147,23 @@ public class FilterPredicatesBuilder {
         return criteriaBuilder.and(predicates.toArray(new Predicate[]{}));
     }
 
+    /**
+     * The {@code EXISTS} subquery one attribute-sourced filter selects rows by.
+     *
+     * <p>
+     * The rows it returns are the rows whose content matched, so the filter answers direct questions about a value -
+     * which makes it the strongest of the three paths that read attribute content, and the one that most needs the
+     * readability gates the projection applies. Without them, resource LIST access is enough to recover a restricted
+     * value by asking after it, one predicate at a time.
+     */
     private static <T> Predicate getAttributeFilterPredicate(final CriteriaBuilder criteriaBuilder,
-            final CommonAbstractCriteria query, final Root<T> root, final SearchFilterRequestDto filterDto) {
+            final CommonAbstractCriteria query, final Root<T> root, final SearchFilterRequestDto filterDto,
+            final CustomAttributeContentFilter contentFilter) {
+        if (contentFilter == null) {
+            throw new ValidationException(ValidationError
+                    .create("Filtering by %s was not resolved against the caller's attribute permissions."
+                            .formatted(filterDto.getFieldIdentifier())));
+        }
         final Subquery<Integer> subquery = query.subquery(Integer.class);
         final Root<AttributeContent2Object> subqueryRoot = subquery.from(AttributeContent2Object.class);
         final Join joinContentItem = subqueryRoot.join(AttributeContent2Object_.attributeContentItem, JoinType.INNER);
@@ -156,8 +189,13 @@ public class FilterPredicatesBuilder {
         List<Predicate> predicates = new ArrayList<>(attributeCorrelationPredicates(criteriaBuilder, root, subqueryRoot,
                 joinDefinition, attributeType, contentType, attributeName, resource, objectUuidPath));
 
-        if (filterDto.getCondition() != FilterConditionOperator.EMPTY
-                && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
+        final boolean readsStoredValue = filterDto.getCondition() != FilterConditionOperator.EMPTY
+                && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY;
+        predicates
+                .addAll(attributeReadabilityPredicates(criteriaBuilder, joinContentItem, joinDefinition, attributeType,
+                        contentFilter, readsStoredValue));
+
+        if (readsStoredValue) {
             Expression<String> attributeContentExpression = criteriaBuilder
                     .function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class,
                             joinContentItem.get(AttributeContentItem_.json),
@@ -1252,7 +1290,7 @@ public class FilterPredicatesBuilder {
                 subqueryRoot, joinDefinition, attributeType, contentType, attributeName, resource, objectUuidPath));
         predicates
                 .addAll(attributeReadabilityPredicates(criteriaBuilder, joinContentItem, joinDefinition, attributeType,
-                        contentFilter));
+                        contentFilter, true));
 
         subquery.select(value).where(predicates.toArray(new Predicate[]{}));
         ((JpaSubQuery) subquery)
@@ -1264,7 +1302,7 @@ public class FilterPredicatesBuilder {
     }
 
     /**
-     * The predicates that keep a sort from reading content the same response would withhold, mirroring
+     * The predicates that keep a query from reading content the same response would withhold, mirroring
      * {@code AttributeContent2ObjectRepository.getProjectedAttributesContent} and the row-level checks
      * {@code AttributeColumnProjector} applies on top of it.
      *
@@ -1274,12 +1312,20 @@ public class FilterPredicatesBuilder {
      * set on custom definitions alone - data and metadata definitions leave the nullable column alone, so applying it
      * to them would match nothing - and the definition-uuid lists are the caller's attribute permissions, without which
      * resource LIST access would be enough to compare the values of a restricted attribute by ordering on it.
+     *
+     * @param readsStoredValue whether the query reads the stored value rather than only asking whether one exists. A
+     * presence filter on encrypted content is what the catalogue offers for it - {@code SearchHelper} narrows an
+     * encrypted field to {@code EMPTY} and {@code NOT_EMPTY} alone - so excluding ciphertext rows there would answer
+     * "no value" for content that is set. The permission and {@code enabled} gates apply either way: whether an object
+     * carries a value for a restricted attribute is itself something the projection withholds.
      */
     private static List<Predicate> attributeReadabilityPredicates(final CriteriaBuilder criteriaBuilder,
             final Join joinContentItem, final Join joinDefinition, final AttributeType attributeType,
-            final CustomAttributeContentFilter contentFilter) {
+            final CustomAttributeContentFilter contentFilter, final boolean readsStoredValue) {
         final List<Predicate> predicates = new ArrayList<>();
-        predicates.add(criteriaBuilder.isNull(joinContentItem.get(AttributeContentItem_.encryptedData)));
+        if (readsStoredValue) {
+            predicates.add(criteriaBuilder.isNull(joinContentItem.get(AttributeContentItem_.encryptedData)));
+        }
         if (attributeType != AttributeType.CUSTOM) {
             return predicates;
         }

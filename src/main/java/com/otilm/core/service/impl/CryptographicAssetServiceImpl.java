@@ -20,6 +20,7 @@ import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.api.model.core.search.FilterFieldSource;
 import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
+import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.comparator.SearchFieldDataComparator;
 import com.otilm.core.dao.entity.Cbom;
 import com.otilm.core.dao.entity.Cbom_;
@@ -101,6 +102,13 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
 
     private ObjectFilterAspect objectFilterAspect;
 
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
+
     @Autowired
     public void setCryptoAssetRepository(CryptoAssetRepository cryptoAssetRepository) {
         this.cryptoAssetRepository = cryptoAssetRepository;
@@ -129,7 +137,8 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
         validatePaging(request);
         TriFunction<Root<CryptoAsset>, CriteriaBuilder, CriteriaQuery<?>, Predicate> where = (root, cb,
                 criteriaQuery) -> FilterPredicatesBuilder
-                        .getFiltersPredicate(cb, criteriaQuery, root, request.getFilters());
+                        .getFiltersPredicate(cb, criteriaQuery, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         Pageable page = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         // The contract's "ordered by name ascending" means the SERVED name -- displayLabel's guarded coalesce --
         // not the bare column, which would sort every oid-served row after the named ones (NULL sorts last).
@@ -347,7 +356,8 @@ public class CryptographicAssetServiceImpl implements CryptographicAssetExternal
                 || filters.isEmpty()
                         ? null
                         : (root, cb, criteriaQuery) -> FilterPredicatesBuilder
-                                .getFiltersPredicate(cb, criteriaQuery, root, filters);
+                                .getFiltersPredicate(cb, criteriaQuery, root, filters,
+                                        attributeEngine::loadCustomAttributeContentFilter);
         return cryptoAssetRepository
                 .listResourceObjects(filter, CryptographicAssetServiceImpl::displayLabel, where, pagination);
     }

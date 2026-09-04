@@ -126,7 +126,9 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
 
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         TriFunction<Root<VaultProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
-                cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, request.getFilters());
+                cq) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cq, root, request.getFilters(),
+                                attributeEngine::loadCustomAttributeContentFilter);
         List<VaultProfileDto> vaultProfiles = vaultProfileRepository
                 .findUsingSecurityFilter(securityFilter, List.of(), predicate, p,
                         (root, cb) -> cb.desc(root.get(Audited_.CREATED)))
@@ -350,7 +352,8 @@ public class VaultProfileServiceImpl implements VaultProfileExternalService, Vau
             PaginationRequestDto pagination) {
         filter.setParentRefProperty(VaultProfile_.VAULT_INSTANCE_UUID);
         TriFunction<Root<VaultProfile>, CriteriaBuilder, CriteriaQuery<?>, Predicate> predicate = (root, cb,
-                cq) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cq, root, filters);
+                cq) -> FilterPredicatesBuilder
+                        .getFiltersPredicate(cb, cq, root, filters, attributeEngine::loadCustomAttributeContentFilter);
         return vaultProfileRepository.listResourceObjects(filter, VaultProfile_.name, predicate, pagination);
     }
 
