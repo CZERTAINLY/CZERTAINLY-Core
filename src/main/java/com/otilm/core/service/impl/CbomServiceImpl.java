@@ -149,11 +149,12 @@ public class CbomServiceImpl implements CbomExternalService, CbomInternalService
         final List<CbomDto> cbomDtos = cbomRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("createdAt")),
-                        listingSortResolver.resolve(Resource.CBOM, request.getSort()))
+                        listingSortResolver.resolve(Resource.CBOM, request.getSort(), contentFilter))
                 .stream()
                 .map(Cbom::mapToDto)
                 .toList();
-        attributeColumnProjector.project(Resource.CBOM, request.getColumns(), cbomDtos, CbomDto::getUuid);
+        attributeColumnProjector
+                .project(Resource.CBOM, request.getColumns(), cbomDtos, CbomDto::getUuid, contentFilter);
 
         final Long maxItems = cbomRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 

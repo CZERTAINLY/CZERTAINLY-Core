@@ -249,13 +249,13 @@ public class ConnectorServiceImpl implements ConnectorExternalService, Connector
         final List<ConnectorDto> connectorDtos = connectorRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")),
-                        listingSortResolver.resolve(Resource.CONNECTOR, request.getSort()))
+                        listingSortResolver.resolve(Resource.CONNECTOR, request.getSort(), contentFilter))
                 .stream()
                 .map(Connector::mapToListDto)
                 .toList();
         attributeColumnProjector
                 .project(Resource.CONNECTOR, request.getColumns(), connectorDtos,
-                        connector -> AttributeColumnProjector.parseUuid(connector.getUuid()));
+                        connector -> AttributeColumnProjector.parseUuid(connector.getUuid()), contentFilter);
 
         final Long maxItems = connectorRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 

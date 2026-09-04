@@ -311,13 +311,13 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
         List<SigningRecordListDto> dtos = signingRecordRepository
                 .findUsingSecurityFilter(filter, List.of(), predicate, p,
                         (root, cb) -> cb.desc(root.get(Audited_.CREATED)),
-                        listingSortResolver.resolve(Resource.SIGNING_RECORD, request.getSort()))
+                        listingSortResolver.resolve(Resource.SIGNING_RECORD, request.getSort(), contentFilter))
                 .stream()
                 .map(SigningRecordMapper::toListDto)
                 .toList();
         attributeColumnProjector
                 .project(Resource.SIGNING_RECORD, request.getColumns(), dtos,
-                        record -> AttributeColumnProjector.parseUuid(record.getUuid()));
+                        record -> AttributeColumnProjector.parseUuid(record.getUuid()), contentFilter);
 
         long totalItems = signingRecordRepository.countUsingSecurityFilter(filter, predicate);
         return PaginationResponseMapper.toDto(dtos, request.getPageNumber(), request.getItemsPerPage(), totalItems);

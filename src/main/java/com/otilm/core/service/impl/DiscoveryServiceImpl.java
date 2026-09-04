@@ -209,13 +209,13 @@ public class DiscoveryServiceImpl implements DiscoveryExternalService, Discovery
         final List<DiscoveryListDto> listedDiscoveriesDTOs = discoveryRepository
                 .findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")),
-                        listingSortResolver.resolve(Resource.DISCOVERY, request.getSort()))
+                        listingSortResolver.resolve(Resource.DISCOVERY, request.getSort(), contentFilter))
                 .stream()
                 .map(Discovery::mapToListDto)
                 .toList();
         attributeColumnProjector
                 .project(Resource.DISCOVERY, request.getColumns(), listedDiscoveriesDTOs,
-                        discovery -> AttributeColumnProjector.parseUuid(discovery.getUuid()));
+                        discovery -> AttributeColumnProjector.parseUuid(discovery.getUuid()), contentFilter);
 
         final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 

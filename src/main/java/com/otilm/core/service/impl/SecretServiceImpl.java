@@ -314,12 +314,12 @@ public class SecretServiceImpl implements SecretExternalService, SecretInternalS
                         .getFiltersPredicate(cb, cq, root, searchRequest.getFilters(), contentFilter);
         Pageable p = PageRequest.of(searchRequest.getPageNumber() - 1, searchRequest.getItemsPerPage());
         List<Secret> secrets = getSecrets(securityFilter, p, additionalWhereClause,
-                listingSortResolver.resolve(Resource.SECRET, searchRequest.getSort()));
+                listingSortResolver.resolve(Resource.SECRET, searchRequest.getSort(), contentFilter));
         List<SecretDto> secretDtos = secrets.stream().map(Secret::mapToDto).toList();
 
         attributeColumnProjector
                 .project(Resource.SECRET, searchRequest.getColumns(), secretDtos,
-                        secret -> AttributeColumnProjector.parseUuid(secret.getUuid()));
+                        secret -> AttributeColumnProjector.parseUuid(secret.getUuid()), contentFilter);
 
         PaginationResponseDto<SecretDto> response = new PaginationResponseDto<>();
         response.setItems(secretDtos);

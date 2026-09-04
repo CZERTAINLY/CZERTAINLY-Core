@@ -2,23 +2,34 @@ package com.otilm.core.integration.search;
 
 import com.otilm.api.exception.ValidationException;
 import com.otilm.api.model.client.attribute.RequestAttributeV3;
+import com.otilm.api.model.client.certificate.SearchColumnRequestDto;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
+import com.otilm.api.model.client.certificate.SearchSortRequestDto;
+import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.otilm.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.otilm.api.model.common.attribute.v3.CustomAttributeV3;
+import com.otilm.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.otilm.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.otilm.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.discovery.DiscoveryStatus;
 import com.otilm.api.model.core.search.FilterConditionOperator;
+import com.otilm.api.model.core.search.FilterFieldSource;
+import com.otilm.api.model.core.search.SearchFieldDataDto;
+import com.otilm.api.model.core.search.SortDirection;
 import com.otilm.core.attribute.engine.AttributeEngine;
+import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.dao.entity.AttributeContentItem;
 import com.otilm.core.dao.entity.AttributeDefinition;
+import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.Discovery;
 import com.otilm.core.dao.repository.AttributeContentItemRepository;
 import com.otilm.core.dao.repository.AttributeDefinitionRepository;
+import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.DiscoveryRepository;
 import com.otilm.core.model.auth.ResourceAction;
 import com.otilm.core.security.authz.SecurityFilter;
@@ -35,6 +46,7 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aCustomAttributeFilter;
+import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aMetaAttributeFilter;
 
 /**
  * Filtering an attribute reads its content, so it is gated like the projection that renders one and the ordering that
@@ -49,11 +61,16 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
     /** Registered with {@code visible: false}, which is what the catalogue withholds a column and an ordering for. */
     private static final String HIDDEN = "hidden-environment";
 
+    private static final String HIDDEN_METADATA = "hidden-metadata-environment";
+
     @Autowired
     private DiscoveryExternalService discoveryService;
 
     @Autowired
     private DiscoveryRepository discoveryRepository;
+
+    @Autowired
+    private ConnectorRepository connectorRepository;
 
     @Autowired
     private AttributeEngine attributeEngine;
@@ -66,8 +83,17 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
 
     private UUID definitionUuid;
 
+    /** Metadata is connector-scoped, so the definition write needs a connector row to point at. */
+    private UUID connectorUuid;
+
     @BeforeEach
     void loadData() throws Exception {
+        Connector connector = new Connector();
+        connector.setName("attribute-filter-connector");
+        connector.setUrl("http://localhost:0/attribute-filter");
+        connector.setVersion(ConnectorVersion.V2);
+        connectorUuid = connectorRepository.saveAndFlush(connector).getUuid();
+
         definitionUuid = registerCustomAttribute();
 
         seedDiscovery("first-created", "charlie");
@@ -82,16 +108,11 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
         Assertions.assertEquals(List.of(), listNamesFilteredByEnvironment("alpha"));
     }
 
-    /** The values do narrow the listing when the caller may read them, which is what the case above removes. */
     @Test
     void anAttributeTheCallerMayReadNarrowsTheListing() {
         Assertions.assertEquals(List.of("second-created"), listNamesFilteredByEnvironment("alpha"));
     }
 
-    /**
-     * Whether an object carries a value at all is content too: the projection returns nothing for a restricted
-     * attribute, so a presence filter that still answered would say which objects have one.
-     */
     @Test
     void aRestrictedCallerIsNotToldWhichObjectsCarryAValue() {
         restrictObjectAccess(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
@@ -99,11 +120,6 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
         Assertions.assertEquals(List.of(), listNamesFiltered(FilterConditionOperator.NOT_EMPTY, null));
     }
 
-    /**
-     * The flip side of matching nothing: a negated condition is a {@code NOT EXISTS}, so with no readable content it
-     * holds for every row. That keeps rows from being dropped by a restriction the caller cannot see, and tells them
-     * nothing - every object answers the same.
-     */
     @Test
     void aNegatedConditionKeepsEveryRowForARestrictedCaller() {
         restrictObjectAccess(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
@@ -113,7 +129,6 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
                         listNamesFiltered(FilterConditionOperator.NOT_EQUALS, "alpha").stream().sorted().toList());
     }
 
-    /** A disabled definition is one the platform has withdrawn; the projection skips its content, so a filter must. */
     @Test
     void contentOfADisabledCustomDefinitionCannotNarrowTheListing() {
         AttributeDefinition definition = attributeDefinitionRepository
@@ -125,7 +140,6 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
         Assertions.assertEquals(List.of(), listNamesFilteredByEnvironment("alpha"));
     }
 
-    /** Ciphertext is readable only by its own decryption path, which a listing query does not take. */
     @Test
     void encryptedContentCannotNarrowTheListingByValue() {
         encryptStoredContent("alpha");
@@ -133,11 +147,6 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
         Assertions.assertEquals(List.of(), listNamesFilteredByEnvironment("alpha"));
     }
 
-    /**
-     * Presence is the one question an encrypted attribute is meant to answer - {@code SearchHelper} narrows an
-     * encrypted field to {@code EMPTY} and {@code NOT_EMPTY} alone - so the ciphertext gate must not reach it, or the
-     * catalogue would offer two operators that always answer "no value".
-     */
     @Test
     void encryptedContentStillAnswersAPresenceFilter() {
         encryptStoredContent("alpha");
@@ -147,11 +156,6 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
                         listNamesFiltered(FilterConditionOperator.NOT_EMPTY, null).stream().sorted().toList());
     }
 
-    /**
-     * An attribute the definition says not to show a user is one the projection drops and the ordering refuses, so a
-     * filter must not answer questions about it either. The catalogue still publishes it as filterable, which is what
-     * makes the filter reachable at all.
-     */
     @Test
     void contentOfAHiddenAttributeCannotNarrowTheListing() throws Exception {
         UUID hiddenUuid = registerCustomAttribute(HIDDEN, AttributeContentType.TEXT, false);
@@ -162,7 +166,6 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
                         listNamesFiltered(HIDDEN, AttributeContentType.TEXT, FilterConditionOperator.EQUALS, "alpha"));
     }
 
-    /** Nor may a presence filter stand in for the value question the case above closes. */
     @Test
     void aHiddenAttributeDoesNotAnswerAPresenceFilterEither() throws Exception {
         UUID hiddenUuid = registerCustomAttribute(HIDDEN, AttributeContentType.TEXT, false);
@@ -173,29 +176,66 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
                         listNamesFiltered(HIDDEN, AttributeContentType.TEXT, FilterConditionOperator.NOT_EMPTY, null));
     }
 
-    /**
-     * Secret and code-block content are withheld from a column whatever the request asks for, and the ordering refuses
-     * them outright; a filter naming one is refused for the same reason.
-     */
     @Test
-    void aSecretAttributeCannotBeFiltered() throws Exception {
+    void aSecretAttributeCannotBeFilteredByValue() throws Exception {
         registerCustomAttribute("filter-secret-probe", AttributeContentType.SECRET, true);
 
         Assertions
                 .assertThrows(ValidationException.class, () -> listNamesFiltered("filter-secret-probe",
+                        AttributeContentType.SECRET, FilterConditionOperator.EQUALS, "anything"));
+    }
+
+    @Test
+    void aSecretAttributeIsOfferedPresenceConditionsAlone() throws Exception {
+        // The refusal above is only safe because the catalogue never offers a value condition for these content
+        // types; otherwise the picker would publish a filter the listing then rejects.
+        registerCustomAttribute("filter-secret-probe", AttributeContentType.SECRET, true);
+
+        SearchFieldDataDto field = attributeEngine
+                .getResourceSearchableFields(Resource.DISCOVERY, false)
+                .stream()
+                .flatMap(group -> group.getSearchFieldData().stream())
+                .filter(item -> ("filter-secret-probe|" + AttributeContentType.SECRET.name())
+                        .equals(item.getFieldIdentifier()))
+                .findFirst()
+                .orElseThrow();
+
+        Assertions
+                .assertEquals(List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY),
+                        field.getConditions());
+    }
+
+    @Test
+    void aSecretAttributeStillAnswersAPresenceFilter() throws Exception {
+        UUID secretUuid = registerCustomAttribute("filter-secret-probe", AttributeContentType.SECRET, true);
+        storeContent("second-created", secretUuid, "filter-secret-probe", "s3cret");
+
+        Assertions
+                .assertEquals(List.of("second-created"), listNamesFiltered("filter-secret-probe",
                         AttributeContentType.SECRET, FilterConditionOperator.NOT_EMPTY, null));
     }
 
+    @Test
+    void aHiddenMetadataDefinitionStillFiltersByValue() throws Exception {
+        // A connector's `visible: false` is a display hint, not a permission, and the catalogue publishes the field
+        // as filterable - so gating it would silently answer "no rows" for content the listing may read.
+        seedHiddenMetadata("second-created", "alpha");
+
+        Assertions
+                .assertEquals(List.of("second-created"), listNames(aMetaAttributeFilter(HIDDEN_METADATA,
+                        AttributeContentType.TEXT, FilterConditionOperator.EQUALS, "alpha")));
+    }
+
     /**
-     * Resolving the caller's attribute permissions is a synchronous authorization call, and a listing builds its
-     * predicate twice - once for the page and again for the count. One request must still pay for one resolution.
+     * Resolving the caller's attribute permissions is a synchronous authorization call, and one listing reaches
+     * attribute content four times over: the page predicate, the count predicate, the sort key and the projection.
      */
     @Test
     void oneListingResolvesTheCallersAttributePermissionsOnce() {
-        // Seeding the content read permissions too, so only what the listing itself asks is counted.
+        // Anything the setup above authorized has already been counted, so only what the listing itself asks remains.
         Mockito.clearInvocations(opaClient);
 
-        listNamesFilteredByEnvironment("alpha");
+        listFilteredSortedAndProjectedByEnvironment();
 
         Mockito
                 .verify(opaClient, Mockito.times(1))
@@ -235,19 +275,62 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
 
     private List<String> listNamesFiltered(String attributeName, AttributeContentType contentType,
             FilterConditionOperator condition, String value) {
-        SearchFilterRequestDto filter = aCustomAttributeFilter(attributeName, contentType, condition, value);
+        return listNames(aCustomAttributeFilter(attributeName, contentType, condition, value));
+    }
 
+    private List<String> listNames(SearchFilterRequestDto filter) {
         SearchRequestDto request = new SearchRequestDto();
         request.setPageNumber(1);
         request.setItemsPerPage(10);
         request.setFilters(List.of(filter));
+        return listNames(request);
+    }
 
+    /** One request that filters, orders and projects the same attribute - the three paths that read its content. */
+    private List<String> listFilteredSortedAndProjectedByEnvironment() {
+        String fieldIdentifier = ENVIRONMENT + "|" + AttributeContentType.TEXT.name();
+
+        SearchRequestDto request = new SearchRequestDto();
+        request.setPageNumber(1);
+        request.setItemsPerPage(10);
+        request
+                .setFilters(List
+                        .of(aCustomAttributeFilter(ENVIRONMENT, AttributeContentType.TEXT,
+                                FilterConditionOperator.NOT_EMPTY, null)));
+        request.setSort(new SearchSortRequestDto(FilterFieldSource.CUSTOM, fieldIdentifier, SortDirection.ASC));
+        request.setColumns(List.of(new SearchColumnRequestDto(FilterFieldSource.CUSTOM, fieldIdentifier)));
+        return listNames(request);
+    }
+
+    private List<String> listNames(SearchRequestDto request) {
         return discoveryService
                 .listDiscoveries(SecurityFilter.create(), request)
                 .getDiscoveries()
                 .stream()
                 .map(discovery -> discovery.getName())
                 .toList();
+    }
+
+    /** Metadata registered {@code visible: false}, which is how a connector marks a technical attribute. */
+    private void seedHiddenMetadata(String discoveryName, String value) throws Exception {
+        Discovery discovery = discoveryRepository.findByName(discoveryName).orElseThrow();
+        MetadataAttributeV3 meta = new MetadataAttributeV3();
+        meta.setUuid(UUID.randomUUID().toString());
+        meta.setName(HIDDEN_METADATA);
+        meta.setType(AttributeType.META);
+        meta.setContentType(AttributeContentType.TEXT);
+        MetadataAttributeProperties properties = new MetadataAttributeProperties();
+        properties.setLabel(HIDDEN_METADATA);
+        properties.setVisible(false);
+        properties.setGlobal(false);
+        meta.setProperties(properties);
+        meta.setContent(List.of(new TextAttributeContentV3(null, value)));
+        attributeEngine
+                .updateMetadataAttribute(meta,
+                        ObjectAttributeContentInfo
+                                .builder(Resource.DISCOVERY, discovery.getUuid())
+                                .connector(connectorUuid)
+                                .build());
     }
 
     private UUID registerCustomAttribute() throws Exception {
@@ -276,7 +359,7 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
         discovery.setStatus(DiscoveryStatus.COMPLETED);
         discovery.setConnectorStatus(DiscoveryStatus.COMPLETED);
         // The list DTO reads both, so a discovery without them cannot be mapped for the response.
-        discovery.setConnectorUuid(UUID.randomUUID());
+        discovery.setConnectorUuid(connectorUuid);
         discovery.setConnectorName("attribute-filter-connector");
         discovery = discoveryRepository.save(discovery);
 

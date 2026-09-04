@@ -323,7 +323,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         List<UUID> filteredKeyUuids = cryptographicKeyItemRepository
                 .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("createdAt")),
-                        listingSortResolver.resolve(Resource.CRYPTOGRAPHIC_KEY, request.getSort()));
+                        listingSortResolver.resolve(Resource.CRYPTOGRAPHIC_KEY, request.getSort(), contentFilter));
 
         List<CryptographicKeyItem> filteredKeys = SortOrderBuilder
                 .rankBy(filteredKeyUuids, cryptographicKeyItemRepository.findFullByUuidIn(filteredKeyUuids),
@@ -347,7 +347,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyExternalServ
         attributeColumnProjector
                 .project(Resource.CRYPTOGRAPHIC_KEY, request.getColumns(), listedKeyDtos,
                         keyItem -> AttributeColumnProjector.parseUuid(keyItem.getKeyWrapperUuid()),
-                        keyItem -> AttributeColumnProjector.parseUuid(keyItem.getUuid()));
+                        keyItem -> AttributeColumnProjector.parseUuid(keyItem.getUuid()), contentFilter);
 
         final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final CryptographicKeyResponseDto responseDto = new CryptographicKeyResponseDto();

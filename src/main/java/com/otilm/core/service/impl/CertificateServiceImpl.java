@@ -588,12 +588,13 @@ public class CertificateServiceImpl
         setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        final Supplier<CustomAttributeContentFilter> contentFilter = attributeEngine.customAttributeContentFilterOnce();
         TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(
-                request.getFilters(), request.isIncludeArchived(), attributeEngine.customAttributeContentFilterOnce());
+                request.getFilters(), request.isIncludeArchived(), contentFilter);
         List<UUID> certificateUuids = certificateRepository
                 .findUuidsUsingSecurityFilter(filter, additionalWhereClause, p,
                         (root, cb) -> cb.desc(root.get("created")),
-                        listingSortResolver.resolve(Resource.CERTIFICATE, request.getSort()));
+                        listingSortResolver.resolve(Resource.CERTIFICATE, request.getSort(), contentFilter));
 
         // We use DTO projection instead of Hibernate entities for performance reasons.
         List<CertificateDto> certificates;
@@ -618,7 +619,7 @@ public class CertificateServiceImpl
 
         attributeColumnProjector
                 .project(Resource.CERTIFICATE, request.getColumns(), certificates,
-                        certificate -> AttributeColumnProjector.parseUuid(certificate.getUuid()));
+                        certificate -> AttributeColumnProjector.parseUuid(certificate.getUuid()), contentFilter);
 
         Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         CertificateResponseDto responseDto = new CertificateResponseDto();

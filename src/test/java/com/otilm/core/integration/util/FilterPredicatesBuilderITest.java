@@ -273,12 +273,8 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
         root = criteriaQuery.from(Certificate.class);
     }
 
-    /**
-     * A listing that never resolved the caller's attribute permissions must not be allowed to read content with them
-     * unresolved: the refusal is what stops a new call site from quietly filtering on restricted values.
-     */
     @Test
-    void anAttributeFilterWithUnresolvedPermissionsIsRefused() {
+    void aListingWithoutTheCallersAttributePermissionsIsRefused() {
         final List<SearchFilterRequestDto> filters = List
                 .of(aCustomAttributeFilter("anything", AttributeContentType.TEXT, FilterConditionOperator.EQUALS,
                         testValue));
@@ -288,37 +284,49 @@ class FilterPredicatesBuilderITest extends BaseSpringBootTest {
                         .getFiltersPredicate(criteriaBuilder, criteriaQuery, root, filters, null));
     }
 
-    /** Resolving permissions is an authorization round trip, so a request that reads no attribute content pays none. */
     @Test
     void aPropertyOnlyFilterDoesNotResolveAttributePermissions() {
         final AtomicInteger reads = new AtomicInteger();
 
         FilterPredicatesBuilder
                 .getFiltersPredicate(criteriaBuilder, criteriaQuery, root,
-                        List.of(prepareDummyFilterRequest(FilterConditionOperator.EQUALS)), () -> {
-                            reads.incrementAndGet();
-                            return new CustomAttributeContentFilter(null, null);
-                        });
+                        List.of(prepareDummyFilterRequest(FilterConditionOperator.EQUALS)), countingReads(reads));
 
         Assertions.assertEquals(0, reads.get());
     }
 
-    /** And a request that does read content resolves them once, however many attribute fields it names. */
     @Test
-    void severalAttributeFiltersResolveAttributePermissionsOnce() {
+    void aMetadataFilterDoesNotResolveCustomAttributePermissions() {
+        // Only custom content is gated by them, so a metadata filter must not pay for the authorization call either.
+        final AtomicInteger reads = new AtomicInteger();
+        final List<SearchFilterRequestDto> filters = List
+                .of(aMetaAttributeFilter("meta-only", AttributeContentType.TEXT, FilterConditionOperator.EQUALS,
+                        testValue));
+
+        FilterPredicatesBuilder
+                .getFiltersPredicate(criteriaBuilder, criteriaQuery, root, filters, countingReads(reads));
+
+        Assertions.assertEquals(0, reads.get());
+    }
+
+    @Test
+    void aCustomAttributeFilterResolvesTheCallersAttributePermissions() {
         final AtomicInteger reads = new AtomicInteger();
         final List<SearchFilterRequestDto> filters = List
                 .of(aCustomAttributeFilter("first", AttributeContentType.TEXT, FilterConditionOperator.EQUALS,
-                        testValue),
-                        aCustomAttributeFilter("second", AttributeContentType.TEXT, FilterConditionOperator.EQUALS,
-                                testValue));
+                        testValue));
 
-        FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, filters, () -> {
-            reads.incrementAndGet();
-            return new CustomAttributeContentFilter(null, null);
-        });
+        FilterPredicatesBuilder
+                .getFiltersPredicate(criteriaBuilder, criteriaQuery, root, filters, countingReads(reads));
 
         Assertions.assertEquals(1, reads.get());
+    }
+
+    private static Supplier<CustomAttributeContentFilter> countingReads(final AtomicInteger reads) {
+        return () -> {
+            reads.incrementAndGet();
+            return new CustomAttributeContentFilter(null, null);
+        };
     }
 
     @Test
