@@ -5,26 +5,16 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.certificate.SearchSortRequestDto;
-import com.otilm.api.model.client.connector.v2.ConnectorVersion;
 import com.otilm.api.model.common.enums.cryptography.KeyAlgorithm;
-import com.otilm.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.otilm.api.model.core.auth.Resource;
-import com.otilm.api.model.core.connector.ConnectorStatus;
 import com.otilm.api.model.core.cryptography.key.KeyItemDto;
 import com.otilm.api.model.core.search.FilterConditionOperator;
 import com.otilm.api.model.core.search.FilterFieldSource;
-import com.otilm.api.model.core.search.SearchFieldDataByGroupDto;
 import com.otilm.api.model.core.search.SearchFieldDataDto;
 import com.otilm.api.model.core.search.SortDirection;
-import com.otilm.core.dao.entity.Connector;
 import com.otilm.core.dao.entity.CryptographicKey;
 import com.otilm.core.dao.entity.CryptographicKeyItem;
-import com.otilm.core.dao.entity.TokenInstanceReference;
-import com.otilm.core.dao.entity.TokenProfile;
-import com.otilm.core.dao.repository.ConnectorRepository;
 import com.otilm.core.dao.repository.CryptographicKeyItemRepository;
-import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
-import com.otilm.core.dao.repository.TokenProfileRepository;
 import com.otilm.core.enums.FilterField;
 import com.otilm.core.security.authz.SecurityFilter;
 import com.otilm.core.service.CryptographicKeyExternalService;
@@ -33,16 +23,18 @@ import com.otilm.core.util.WireMockPorts;
 import com.otilm.core.util.seeders.CryptographicKeySeeder;
 import com.otilm.core.util.seeders.CryptographicKeySeeder.KeyItemSpec;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import static com.otilm.core.integration.search.CatalogueFields.field;
+import static com.otilm.core.integration.search.CatalogueFields.propertyFields;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aPropertyFilter;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The key columns the inventory renders but the catalogue did not carry.
@@ -60,29 +52,16 @@ class KeyCatalogueColumnsITest extends BaseSpringBootTest {
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
 
     @Autowired
-    private ConnectorRepository connectorRepository;
-
-    @Autowired
-    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
-
-    @Autowired
-    private TokenProfileRepository tokenProfileRepository;
-
-    @Autowired
     private CryptographicKeySeeder keySeeder;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    private TokenProfile tokenProfile;
-
-    private TokenInstanceReference tokenInstanceReference;
-
     /** The keys catalogue lists owners, so it reaches the user-management service the stub stands in for. */
     private WireMockServer authService;
 
     @BeforeEach
-    void loadData() {
+    void startAuthService() {
         authService = new WireMockServer(WireMockPorts.AUTH_SERVICE);
         authService.start();
         WireMock.configureFor("localhost", authService.port());
@@ -90,27 +69,6 @@ class KeyCatalogueColumnsITest extends BaseSpringBootTest {
                 .stubFor(WireMock
                         .get(WireMock.urlPathEqualTo("/auth/users"))
                         .willReturn(WireMock.okJson("{\"data\": []}")));
-
-        Connector connector = new Connector();
-        connector.setName("key-catalogue-connector");
-        connector.setUrl("http://localhost:0/key-catalogue");
-        connector.setVersion(ConnectorVersion.V2);
-        connector.setStatus(ConnectorStatus.CONNECTED);
-        connector = connectorRepository.saveAndFlush(connector);
-
-        tokenInstanceReference = new TokenInstanceReference();
-        tokenInstanceReference.setName("key-catalogue-token");
-        tokenInstanceReference.setTokenInstanceUuid("1l");
-        tokenInstanceReference.setConnector(connector);
-        tokenInstanceReference.setStatus(TokenInstanceStatus.CONNECTED);
-        tokenInstanceReferenceRepository.saveAndFlush(tokenInstanceReference);
-
-        tokenProfile = new TokenProfile();
-        tokenProfile.setName("key-catalogue-profile");
-        tokenProfile.setTokenInstanceReference(tokenInstanceReference);
-        tokenProfile.setTokenInstanceName("key-catalogue-token");
-        tokenProfile.setEnabled(true);
-        tokenProfileRepository.saveAndFlush(tokenProfile);
     }
 
     @AfterEach
@@ -120,69 +78,76 @@ class KeyCatalogueColumnsITest extends BaseSpringBootTest {
 
     @Test
     void theCatalogueOffersTheEnabledColumn() {
-        SearchFieldDataDto enabled = field(FilterField.CKI_ENABLED.name()).orElseThrow();
+        SearchFieldDataDto enabled = field(cryptographicKeyService.getSearchableFieldInformation(),
+                FilterField.CKI_ENABLED.name()).orElseThrow();
 
-        Assertions.assertEquals(true, enabled.getSortable());
-        // The heading the keys inventory already ships: a stored view refreshes its heading from the catalogue, so a
-        // different label here would rename the column of a saved view.
-        Assertions.assertEquals("Status", enabled.getFieldLabel());
+        assertThat(enabled.getSortable()).isTrue();
+        assertThat(enabled.getFieldLabel()).isEqualTo("Enabled");
     }
 
     @Test
     void theCatalogueOffersTheCreatedColumn() {
-        SearchFieldDataDto created = field(FilterField.CKI_CREATED.name()).orElseThrow();
+        SearchFieldDataDto created = field(cryptographicKeyService.getSearchableFieldInformation(),
+                FilterField.CKI_CREATED.name()).orElseThrow();
 
-        Assertions.assertEquals(true, created.getSortable());
-        Assertions.assertEquals("Creation Date", created.getFieldLabel());
+        assertThat(created.getSortable()).isTrue();
+        assertThat(created.getFieldLabel()).isEqualTo("Created At");
     }
 
     /**
-     * The catalogue is assembled by naming fields one at a time, so a field added to {@code FilterField} and forgotten
-     * there is exactly the gap this issue closes - and nothing would report it. Pinned by count, as the secret and
-     * signing-record listings pin theirs.
+     * The catalogue is assembled by naming fields one at a time, so a field present in {@code FilterField} and
+     * forgotten there is published nowhere and nothing would report it.
      */
     @Test
     void theCatalogueCarriesEveryKeyField() {
-        List<SearchFieldDataDto> published = cryptographicKeyService
-                .getSearchableFieldInformation()
+        List<String> published = propertyFields(cryptographicKeyService.getSearchableFieldInformation())
                 .stream()
-                .filter(group -> group.getFilterFieldSource() == FilterFieldSource.PROPERTY)
-                .flatMap(group -> group.getSearchFieldData().stream())
+                .map(SearchFieldDataDto::getFieldIdentifier)
                 .toList();
 
-        Assertions.assertEquals(FilterField.getEnumsForResource(Resource.CRYPTOGRAPHIC_KEY).size(), published.size());
+        assertThat(published)
+                .containsExactlyInAnyOrderElementsOf(FilterField
+                        .getEnumsForResource(Resource.CRYPTOGRAPHIC_KEY)
+                        .stream()
+                        .map(FilterField::name)
+                        .toList());
     }
 
     @Test
-    void theListingCanBeFilteredByEnabled() {
+    void theListingCanBeFilteredAndOrderedByEnabled() {
         seedItem("enabled-one", true, OffsetDateTime.now().minusDays(3));
         seedItem("enabled-two", true, OffsetDateTime.now().minusDays(2));
         seedItem("disabled-one", false, OffsetDateTime.now().minusDays(1));
 
-        SearchFilterRequestDto filter = aPropertyFilter(FilterField.CKI_ENABLED, FilterConditionOperator.EQUALS, false);
-
-        Assertions.assertEquals(List.of("disabled-one"), listNames(filter, null));
+        assertThat(listNames(aPropertyFilter(FilterField.CKI_ENABLED, FilterConditionOperator.EQUALS, false), null))
+                .containsExactly("disabled-one");
+        assertThat(listNames(null, sortBy(FilterField.CKI_ENABLED, SortDirection.ASC))).startsWith("disabled-one");
+        assertThat(listNames(null, sortBy(FilterField.CKI_ENABLED, SortDirection.DESC))).endsWith("disabled-one");
     }
 
     @Test
-    void theListingCanBeOrderedByCreated() {
+    void theListingCanBeFilteredAndOrderedByCreated() {
         seedItem("oldest", true, OffsetDateTime.now().minusDays(3));
         seedItem("newest", true, OffsetDateTime.now().minusDays(1));
         seedItem("middle", true, OffsetDateTime.now().minusDays(2));
 
-        SearchSortRequestDto ascending = new SearchSortRequestDto(FilterFieldSource.PROPERTY,
-                FilterField.CKI_CREATED.name(), SortDirection.ASC);
-
-        Assertions.assertEquals(List.of("oldest", "middle", "newest"), listNames(null, ascending));
+        assertThat(listNames(null, sortBy(FilterField.CKI_CREATED, SortDirection.ASC)))
+                .containsExactly("oldest", "middle", "newest");
+        // The filter traverses the same join to the key and parses the bound as a datetime, which the sort does not.
+        // The bound sits half a day from the nearest row, so no timezone the JDBC session might apply moves one
+        // across it.
+        assertThat(listNames(createdAfter(OffsetDateTime.now().minusHours(36)), null)).containsExactly("newest");
+        assertThat(listNames(createdAfter(OffsetDateTime.now().minusHours(84)), null))
+                .containsExactlyInAnyOrder("oldest", "middle", "newest");
     }
 
-    private Optional<SearchFieldDataDto> field(String identifier) {
-        List<SearchFieldDataByGroupDto> catalogue = cryptographicKeyService.getSearchableFieldInformation();
-        return catalogue
-                .stream()
-                .flatMap(group -> group.getSearchFieldData().stream())
-                .filter(item -> identifier.equals(item.getFieldIdentifier()))
-                .findFirst();
+    private static SearchFilterRequestDto createdAfter(OffsetDateTime bound) {
+        return aPropertyFilter(FilterField.CKI_CREATED, FilterConditionOperator.GREATER,
+                bound.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")));
+    }
+
+    private static SearchSortRequestDto sortBy(FilterField field, SortDirection direction) {
+        return new SearchSortRequestDto(FilterFieldSource.PROPERTY, field.name(), direction);
     }
 
     private List<String> listNames(SearchFilterRequestDto filter, SearchSortRequestDto sort) {
@@ -202,22 +167,15 @@ class KeyCatalogueColumnsITest extends BaseSpringBootTest {
                 .toList();
     }
 
-    /**
-     * Creation time is written straight to the key's audited column, for two reasons. It is a
-     * {@code @CreationTimestamp} and not updatable, so rows saved inside one test would otherwise share the instant
-     * auditing stamps on them and an ordering over equal values would be decided by the uuid tie-break rather than by
-     * the field under test. And it is the key's own time, not the item's, because that is what the listing renders as
-     * {@code creationTime} - the item's {@code created_at} is deliberately left at its default here, so a definition
-     * pointing at the item instead would order these rows by an unrelated instant and fail.
-     */
     private void seedItem(String name, boolean enabled, OffsetDateTime created) {
-        CryptographicKey key = keySeeder
-                .seedKey(name, tokenProfile, tokenInstanceReference, KeyItemSpec.signingPrivateKey(KeyAlgorithm.RSA));
+        CryptographicKey key = keySeeder.seedKey(name, null, null, KeyItemSpec.signingPrivateKey(KeyAlgorithm.RSA));
         CryptographicKeyItem item = key.getItems().iterator().next();
         item.setName(name);
         item.setEnabled(enabled);
         cryptographicKeyItemRepository.saveAndFlush(item);
 
+        // A @CreationTimestamp cannot be set through the entity, and rows saved inside one test would otherwise share
+        // the instant auditing stamps on them, leaving an ordering over equal values to the uuid tie-break.
         jdbcTemplate.update("UPDATE cryptographic_key SET i_cre = ? WHERE uuid = ?", created, key.getUuid());
     }
 }
