@@ -397,7 +397,7 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
             }
             Future<Integer> blocked = waiting
                     .submit(() -> doInTransaction(() -> repository.deleteByUuid(signingRecord.getUuid())));
-            awaitBackendWaitingOnALock();
+            awaitDeleteBlockedOnTheRecord();
             inFlight.commit();
             return blocked.get(BLOCKED_DELETE_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
         } finally {
@@ -406,16 +406,24 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
     }
 
     /**
-     * Polls until a backend is blocked on a lock, so the delete under test is known to be waiting before the competing
-     * transaction commits. Gives up quietly at the bound: the assertions hold either way, this only makes the
-     * interleaving the test is after the one that actually happens.
+     * Polls until the delete under test is blocked on the record, so the competing transaction only commits once it is
+     * waiting. {@code pg_stat_activity} spans the cluster, so the predicate has to name this database, exclude the
+     * probe itself, and require the stalled statement to be one touching {@code signing_record} — matched against any
+     * waiter, the probe would release the competitor before the delete had begun, and every assertion would still hold
+     * over an interleaving the test never produced. Gives up quietly at the bound; the assertions hold either way, this
+     * only makes the interleaving the one that actually happens.
      */
-    private void awaitBackendWaitingOnALock() throws SQLException, InterruptedException {
+    private void awaitDeleteBlockedOnTheRecord() throws SQLException, InterruptedException {
         Instant deadline = Instant.now().plus(BLOCKED_DELETE_TIMEOUT);
         while (Instant.now().isBefore(deadline)) {
             try (Connection probe = testDataSource.getConnection();
-                    PreparedStatement waiting = probe
-                            .prepareStatement("SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock'");
+                    PreparedStatement waiting = probe.prepareStatement("""
+                            SELECT count(*) FROM pg_stat_activity
+                            WHERE wait_event_type = 'Lock'
+                              AND datname = current_database()
+                              AND pid <> pg_backend_pid()
+                              AND query ILIKE '%signing_record%'
+                            """);
                     ResultSet result = waiting.executeQuery()) {
                 if (result.next() && result.getInt(1) > 0) {
                     return;
