@@ -16,17 +16,18 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.IntSupplier;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,13 +38,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SigningRecordRepositoryITest extends BaseSpringBootTest {
 
     private static final int BATCH_LIMIT_LARGER_THAN_FIXTURES = 1000;
     private static final Duration BLOCKED_DELETE_TIMEOUT = Duration.ofSeconds(20);
-    private static final Duration POLL_INTERVAL = Duration.ofMillis(50);
+    private static final Duration BLOCK_CONFIRMATION = Duration.ofSeconds(1);
 
     @Autowired
     private SigningRecordRepository repository;
@@ -384,8 +386,14 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
 
     /**
      * Runs the keyed delete against a record another connection has already deleted but not yet committed, releasing
-     * that connection only once the keyed delete is waiting on the row. The competing delete does not roll anything up,
-     * so a statement that rolls up rows it did not remove shows up here as a bucket that should not exist.
+     * that connection only once the keyed delete is confirmed to be waiting on the row. The competing delete rolls
+     * nothing up, so a statement that rolls up rows it did not remove shows up here as a bucket that should not exist.
+     *
+     * <p>
+     * The delete is confirmed stuck rather than assumed stuck: it has started, and a moment later it still has not
+     * returned, which for a statement whose only obstacle is the held row means it is waiting on it. Letting the
+     * competing transaction go early would leave the delete nothing to find, and the assertions would then pass over an
+     * interleaving this test never produced.
      */
     private int deleteBehindAnInFlightDelete(SigningRecord signingRecord) throws Exception {
         ExecutorService waiting = Executors.newSingleThreadExecutor();
@@ -395,41 +403,20 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
                 delete.setObject(1, signingRecord.getUuid());
                 delete.executeUpdate();
             }
-            Future<Integer> blocked = waiting
-                    .submit(() -> doInTransaction(() -> repository.deleteByUuid(signingRecord.getUuid())));
-            awaitDeleteBlockedOnTheRecord();
+            CountDownLatch started = new CountDownLatch(1);
+            Future<Integer> blocked = waiting.submit(() -> {
+                started.countDown();
+                return doInTransaction(() -> repository.deleteByUuid(signingRecord.getUuid()));
+            });
+            assertTrue(started.await(BLOCKED_DELETE_TIMEOUT.toSeconds(), TimeUnit.SECONDS),
+                    "the delete under test never started");
+            assertThrows(TimeoutException.class,
+                    () -> blocked.get(BLOCK_CONFIRMATION.toMillis(), TimeUnit.MILLISECONDS),
+                    "the delete under test should be waiting for the row the competing transaction holds");
             inFlight.commit();
             return blocked.get(BLOCKED_DELETE_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
         } finally {
             waiting.shutdownNow();
-        }
-    }
-
-    /**
-     * Polls until the delete under test is blocked on the record, so the competing transaction only commits once it is
-     * waiting. {@code pg_stat_activity} spans the cluster, so the predicate has to name this database, exclude the
-     * probe itself, and require the stalled statement to be one touching {@code signing_record} — matched against any
-     * waiter, the probe would release the competitor before the delete had begun, and every assertion would still hold
-     * over an interleaving the test never produced. Gives up quietly at the bound; the assertions hold either way, this
-     * only makes the interleaving the one that actually happens.
-     */
-    private void awaitDeleteBlockedOnTheRecord() throws SQLException, InterruptedException {
-        Instant deadline = Instant.now().plus(BLOCKED_DELETE_TIMEOUT);
-        while (Instant.now().isBefore(deadline)) {
-            try (Connection probe = testDataSource.getConnection();
-                    PreparedStatement waiting = probe.prepareStatement("""
-                            SELECT count(*) FROM pg_stat_activity
-                            WHERE wait_event_type = 'Lock'
-                              AND datname = current_database()
-                              AND pid <> pg_backend_pid()
-                              AND query ILIKE '%signing_record%'
-                            """);
-                    ResultSet result = waiting.executeQuery()) {
-                if (result.next() && result.getInt(1) > 0) {
-                    return;
-                }
-            }
-            Thread.sleep(POLL_INTERVAL.toMillis());
         }
     }
 
