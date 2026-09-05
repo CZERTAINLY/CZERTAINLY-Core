@@ -9,6 +9,7 @@ import com.otilm.core.security.authn.PlatformAnonymousToken;
 import com.otilm.core.security.authn.PlatformAuthenticationToken;
 import com.otilm.core.security.authn.PlatformUserDetails;
 import com.otilm.core.security.authn.client.AuthenticationInfo;
+import com.otilm.core.security.authn.client.PlatformAuthenticationClient;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -28,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 /**
  * Contract of the scoped {@code runAsSystem} elevation: the action runs under a system principal, and the caller's
@@ -174,6 +176,27 @@ class AuthHelperTest {
         SecurityContextHolder.clearContext();
 
         assertNull(AuthHelper.getActingUserOrNull());
+    }
+
+    /**
+     * The user-proxy step every TSP authenticator ends in — a Basic credential resolves to a mapped user, and this is
+     * what puts that user where {@link AuthHelper#getActingUserOrNull()} reads it from.
+     */
+    @Test
+    void authenticateAsUser_putsTheResolvedUserInTheSecurityContext() {
+        UUID mappedUser = UUID.randomUUID();
+        PlatformAuthenticationClient authenticationClient = mock(PlatformAuthenticationClient.class);
+        when(authenticationClient.authenticateByUserUuid(mappedUser))
+                .thenReturn(
+                        new AuthenticationInfo(AuthMethod.USER_PROXY, mappedUser.toString(), "mapped-user", List.of()));
+        authHelper.setAuthenticationClient(authenticationClient);
+
+        authHelper.authenticateAsUser(mappedUser);
+
+        NameAndUuidDto actingUser = AuthHelper.getActingUserOrNull();
+        assertNotNull(actingUser);
+        assertEquals(mappedUser.toString(), actingUser.getUuid());
+        assertEquals("mapped-user", actingUser.getName());
     }
 
     @Test
