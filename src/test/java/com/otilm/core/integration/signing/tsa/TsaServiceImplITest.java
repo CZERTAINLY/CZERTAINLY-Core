@@ -376,7 +376,7 @@ class TsaServiceImplITest extends BaseSpringBootTest {
 
         @Test
         void throwsValidationException_whenNeitherTheRequestNorTheProfileNamesAPolicy() throws Exception {
-            // given — a profile without a default policy, and a request that names none either
+            // given
             SigningProfileDto profile = createTimestampingSigningProfile("sp-no-default-policy", List.of(), List.of(),
                     null);
 

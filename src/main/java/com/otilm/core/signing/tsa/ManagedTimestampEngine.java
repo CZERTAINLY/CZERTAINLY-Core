@@ -145,11 +145,7 @@ public class ManagedTimestampEngine {
         }
     }
 
-    /**
-     * RFC 3161 makes the policy mandatory in {@code TSTInfo}, so a request that names none is only servable by a
-     * profile that configures a default. Refusing here keeps the formatter from being asked to encode a policy that
-     * does not exist.
-     */
+    /** Refusing here keeps the formatter from being asked to encode a policy that does not exist. */
     private static void requirePolicy(TspRequest request, ResolvedManagedTimestampingProfile timestampingProfile)
             throws SigningEngineException {
         if (EffectiveTimestampPolicy.resolve(request, timestampingProfile.defaultPolicyId()).isEmpty()) {

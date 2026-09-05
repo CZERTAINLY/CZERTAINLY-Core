@@ -31,7 +31,13 @@ class EffectiveTimestampPolicyTest {
         assertThat(EffectiveTimestampPolicy.resolve(aTspRequest().build(), defaultPolicyId)).isEmpty();
     }
 
-    /** A request that names a policy is servable even by a profile that configures no default. */
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    void fallsBackToTheProfileDefault_whenTheRequestNamesABlankPolicy(String requestedPolicy) {
+        assertThat(EffectiveTimestampPolicy.resolve(aTspRequest().policy(requestedPolicy).build(), DEFAULT_POLICY))
+                .contains(DEFAULT_POLICY);
+    }
+
     @Test
     void resolvesTheRequestedPolicy_whenTheProfileConfiguresNoDefault() {
         assertThat(EffectiveTimestampPolicy.resolve(aTspRequest().policy(REQUESTED_POLICY).build(), null))

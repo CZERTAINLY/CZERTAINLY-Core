@@ -149,7 +149,7 @@ class TspRequestValidatorTest {
 
     @Test
     void doesNotThrow_whenTheRequestNamesAPolicyAndTheProfileHasNoDefault() {
-        // given — the request supplies the policy the profile cannot
+        // given
         var workflow = aManagedTimestampingWorkflow().defaultPolicyId(null).build();
         var request = aTspRequest().policy("1.2.3.4.5").build();
 

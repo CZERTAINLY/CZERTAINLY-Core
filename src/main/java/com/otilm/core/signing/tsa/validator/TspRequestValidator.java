@@ -25,11 +25,6 @@ public class TspRequestValidator {
         }
     }
 
-    /**
-     * A token cannot be stamped without a policy, so a request that names none is only servable by a profile that
-     * configures a default; the client message says which of the two it can supply. A policy the request does name must
-     * additionally be one the profile accepts.
-     */
     private void validatePolicy(TimestampingWorkflow timestampingWorkflow, TspRequest request)
             throws TspRequestValidationException {
         if (EffectiveTimestampPolicy.resolve(request, timestampingWorkflow.defaultPolicyId()).isEmpty()) {

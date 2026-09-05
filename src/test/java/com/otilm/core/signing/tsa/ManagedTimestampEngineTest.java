@@ -165,7 +165,7 @@ class ManagedTimestampEngineTest {
     /** RFC 3161 makes TSTInfo.policy mandatory, so nothing can be assembled without one. */
     @Test
     void failsIssuanceAsMisconfigured_whenNeitherTheRequestNorTheProfileNamesAPolicy() throws Exception {
-        // given — a profile without a default policy, and a request that names none either
+        // given
         var profileWithoutDefaultPolicy = aResolvedProfile(false, null, null);
 
         // when
