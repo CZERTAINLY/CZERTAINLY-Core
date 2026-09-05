@@ -46,19 +46,26 @@ final class SigningRecordRollupSql {
     /**
      * Rolls the claimed rows into their UTC hourly buckets and deletes them. Only {@code signing_record} rows are
      * locked, so a claim never holds up the signing profile version the batch selectors join.
+     *
+     * <p>
+     * The buckets are inserted in key order. Two sweeps running at once can each carry rows for the same profile and
+     * hour, and an unordered grouped upsert would let them take those bucket locks in opposite orders and deadlock.
      */
     static final String ROLL_UP_THEN_DELETE = """
+            )
+            , bucket AS (
+                SELECT victim.signing_profile_uuid AS signing_profile_uuid,
+                       date_trunc('hour', victim.signing_time AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS bucket_start,
+                       count(*) AS signing_count
+                FROM victim
+                GROUP BY 1, 2
             )
             , rolled AS (
                 INSERT INTO {h-schema}signing_record_volume AS srv
                     (uuid, signing_profile_uuid, bucket_start, signing_count)
-                SELECT gen_random_uuid(),
-                       victim.signing_profile_uuid,
-                       date_trunc('hour', victim.signing_time AT TIME ZONE 'UTC') AT TIME ZONE 'UTC',
-                       count(*)
-                FROM victim
-                GROUP BY victim.signing_profile_uuid,
-                         date_trunc('hour', victim.signing_time AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'
+                SELECT gen_random_uuid(), bucket.signing_profile_uuid, bucket.bucket_start, bucket.signing_count
+                FROM bucket
+                ORDER BY bucket.signing_profile_uuid, bucket.bucket_start
                 ON CONFLICT (signing_profile_uuid, bucket_start)
                 DO UPDATE SET signing_count = srv.signing_count + EXCLUDED.signing_count
             )

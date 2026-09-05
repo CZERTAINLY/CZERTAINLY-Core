@@ -305,6 +305,32 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
     }
 
     @Test
+    void deleteExpiredByRetention_rollsUpEveryBucketOneBatchSpans() {
+        // given one batch covering two profiles across two hours
+        var retentionDays = 7;
+        var firstHour = Instant.now().minus(Duration.ofDays(10)).truncatedTo(ChronoUnit.HOURS);
+        var secondHour = firstHour.plus(Duration.ofHours(1));
+        SigningProfile profile = insertProfile("rollup-batch-spread");
+        SigningProfile otherProfile = insertProfile("rollup-batch-spread-other");
+        insertProfileVersion(profile, 1, retentionDays, false);
+        insertProfileVersion(otherProfile, 1, retentionDays, false);
+        insertRecordSignedAt(profile, 1, firstHour);
+        insertRecordSignedAt(profile, 1, firstHour.plus(Duration.ofMinutes(20)));
+        insertRecordSignedAt(profile, 1, secondHour);
+        insertRecordSignedAt(otherProfile, 1, firstHour);
+
+        // when
+        int deleted = doInTransaction(() -> repository.deleteExpiredByRetention(BATCH_LIMIT_LARGER_THAN_FIXTURES));
+
+        // then
+        assertEquals(4, deleted);
+        assertEquals(3, volumeRepository.count());
+        assertEquals(2, countIn(profile, firstHour));
+        assertEquals(1, countIn(profile, secondHour));
+        assertEquals(1, countIn(otherProfile, firstHour));
+    }
+
+    @Test
     void deleteExpiredByRetention_rollsUpOnlyTheRecordsWithinTheBatchLimit() {
         // given
         var oneOfTwo = 1;

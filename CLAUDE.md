@@ -92,7 +92,7 @@ Capture entry state before the external call (`final State entryState = entity.g
 
 ## Historical figures must not be derived from deletable rows
 
-A dashboard series, counter, or report that aggregates a table rows get deleted from is rewritten by every deletion — and retention sweeps and delete-after-retrieval mean history changes with nobody touching it. Derive such a figure from a separate append-only aggregate instead, and fold rows into it in the **same statement** that deletes them:
+A dashboard series, counter, or report that aggregates a table whose rows get deleted is rewritten by every one of those deletions — and retention sweeps and delete-after-retrieval mean the history changes with nobody touching it. Derive such a figure from a separate append-only aggregate instead, and fold rows into it in the **same statement** that deletes them:
 
 ```sql
 WITH victim AS MATERIALIZED (SELECT uuid, ... FROM detail WHERE ... LIMIT :limit)
@@ -105,7 +105,7 @@ DELETE FROM detail WHERE uuid IN (SELECT uuid FROM victim)
 
 PostgreSQL runs a data-modifying CTE exactly once and to completion, and every part reads the same snapshot of the materialized `victim` rows, so the roll-up and the delete cover the identical set and commit together: no double counting, no gap, and nothing added to the write path. The statement's own result is still the DELETE's row count, so batch loops keep working. Native, so `@Modifying(flushAutomatically = true)` — Hibernate cannot auto-flush for SQL it does not parse.
 
-**Claim the rows.** Without a locking clause a second deleter sees the same rows in its own snapshot, folds them in too, and then deletes nothing — one row counted twice. Which clause depends on the caller's contract: a keyed delete **waits** (`FOR UPDATE`), because its caller is told the row is gone and skipping would report success for a row the winner might yet roll back; a batch **skips** (`FOR UPDATE ... SKIP LOCKED`), because it has no per-record contract and waiting lets two sweeps picking overlapping victims in different index orders deadlock. Lock only the table you delete from (`FOR UPDATE OF sr`), never the ones you join for the predicate.
+**Claim the rows, and fold them in in key order.** Without a locking clause a second deleter sees the same rows in its own snapshot, folds them in too, and then deletes nothing — one row counted twice. Without an `ORDER BY` on the grouped upsert, two writers carrying rows for the same aggregate keys can take those locks in opposite orders and deadlock. Which clause depends on the caller's contract: a keyed delete **waits** (`FOR UPDATE`), because its caller is told the row is gone and skipping would report success for a row the winner might yet roll back; a batch **skips** (`FOR UPDATE ... SKIP LOCKED`), because it has no per-record contract and waiting lets two sweeps picking overlapping victims in different index orders deadlock. Lock only the table you delete from (`FOR UPDATE OF sr`), never the ones you join for the predicate.
 
 Assemble the figure under one snapshot — `@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)`. Read across the two tables in separate READ COMMITTED statements and a row deleted between them is counted as both live and history.
 
