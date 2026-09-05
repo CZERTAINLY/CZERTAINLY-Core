@@ -6,14 +6,29 @@ import com.otilm.api.model.core.signing.SigningProtocol;
 import com.otilm.core.dao.entity.signing.SigningProfile;
 import com.otilm.core.dao.entity.signing.SigningProfileVersion;
 import com.otilm.core.dao.entity.signing.SigningRecord;
+import com.otilm.core.dao.entity.signing.SigningRecordVolume;
 import com.otilm.core.dao.repository.signing.SigningProfileRepository;
 import com.otilm.core.dao.repository.signing.SigningProfileVersionRepository;
 import com.otilm.core.dao.repository.signing.SigningRecordRepository;
+import com.otilm.core.dao.repository.signing.SigningRecordVolumeRepository;
 import com.otilm.core.util.BaseSpringBootTest;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,9 +42,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SigningRecordRepositoryITest extends BaseSpringBootTest {
 
     private static final int BATCH_LIMIT_LARGER_THAN_FIXTURES = 1000;
+    private static final Duration BLOCKED_DELETE_TIMEOUT = Duration.ofSeconds(20);
+    private static final Duration POLL_INTERVAL = Duration.ofMillis(50);
 
     @Autowired
     private SigningRecordRepository repository;
+
+    @Autowired
+    private SigningRecordVolumeRepository volumeRepository;
 
     @Autowired
     private SigningProfileRepository signingProfileRepository;
@@ -39,6 +59,12 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private DataSource testDataSource;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     /**
      * Wraps the {@code @Modifying} native delete queries, which require an active transaction. Fixtures are committed
@@ -202,6 +228,249 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
         // then
         assertEquals(0, deleted);
         assertTrue(repository.existsById(pending.getUuid()));
+    }
+
+    @Test
+    void deleteByUuid_rollsTheRecordIntoItsHourlyBucket() {
+        // given
+        var signedAt = Instant.parse("2026-03-01T12:34:56Z");
+        SigningProfile profile = insertProfile("rollup-single");
+        insertProfileVersion(profile, 1);
+        SigningRecord signingRecord = insertRecordSignedAt(profile, 1, signedAt);
+
+        // when
+        int deleted = doInTransaction(() -> repository.deleteByUuid(signingRecord.getUuid()));
+
+        // then
+        assertEquals(1, deleted);
+        assertFalse(repository.existsById(signingRecord.getUuid()));
+        assertEquals(1, countIn(profile, "2026-03-01T12:00:00Z"));
+    }
+
+    @Test
+    void deleteByUuid_accumulatesRecordsSignedInTheSameHour() {
+        // given
+        SigningProfile profile = insertProfile("rollup-accumulate");
+        insertProfileVersion(profile, 1);
+        SigningRecord first = insertRecordSignedAt(profile, 1, Instant.parse("2026-03-01T12:00:00Z"));
+        SigningRecord second = insertRecordSignedAt(profile, 1, Instant.parse("2026-03-01T12:59:59Z"));
+
+        // when
+        doInTransaction(() -> repository.deleteByUuid(first.getUuid()));
+        doInTransaction(() -> repository.deleteByUuid(second.getUuid()));
+
+        // then
+        assertEquals(1, volumeRepository.count());
+        assertEquals(2, countIn(profile, "2026-03-01T12:00:00Z"));
+    }
+
+    @Test
+    void deleteByUuid_keepsSeparateBucketsPerHourAndProfile() {
+        // given
+        SigningProfile profile = insertProfile("rollup-split");
+        SigningProfile otherProfile = insertProfile("rollup-split-other");
+        insertProfileVersion(profile, 1);
+        insertProfileVersion(otherProfile, 1);
+        SigningRecord noon = insertRecordSignedAt(profile, 1, Instant.parse("2026-03-01T12:10:00Z"));
+        SigningRecord onePm = insertRecordSignedAt(profile, 1, Instant.parse("2026-03-01T13:10:00Z"));
+        SigningRecord elsewhere = insertRecordSignedAt(otherProfile, 1, Instant.parse("2026-03-01T12:20:00Z"));
+
+        // when
+        doInTransaction(() -> repository.deleteByUuid(noon.getUuid()));
+        doInTransaction(() -> repository.deleteByUuid(onePm.getUuid()));
+        doInTransaction(() -> repository.deleteByUuid(elsewhere.getUuid()));
+
+        // then
+        assertEquals(1, countIn(profile, "2026-03-01T12:00:00Z"));
+        assertEquals(1, countIn(profile, "2026-03-01T13:00:00Z"));
+        assertEquals(1, countIn(otherProfile, "2026-03-01T12:00:00Z"));
+    }
+
+    @Test
+    void deleteExpiredByRetention_rollsUpEveryRecordItRemoves() {
+        // given
+        var retentionDays = 7;
+        var expiredHour = Instant.now().minus(Duration.ofDays(10)).truncatedTo(ChronoUnit.HOURS);
+        SigningProfile profile = insertProfile("rollup-retention");
+        insertProfileVersion(profile, 1, retentionDays, false);
+        insertRecordSignedAt(profile, 1, expiredHour);
+        insertRecordSignedAt(profile, 1, expiredHour.plus(Duration.ofMinutes(30)));
+
+        // when
+        int deleted = doInTransaction(() -> repository.deleteExpiredByRetention(BATCH_LIMIT_LARGER_THAN_FIXTURES));
+
+        // then
+        assertEquals(2, deleted);
+        assertEquals(2, countIn(profile, expiredHour));
+    }
+
+    @Test
+    void deleteExpiredByRetention_rollsUpOnlyTheRecordsWithinTheBatchLimit() {
+        // given
+        var oneOfTwo = 1;
+        var retentionDays = 7;
+        var expiredHour = Instant.now().minus(Duration.ofDays(10)).truncatedTo(ChronoUnit.HOURS);
+        SigningProfile profile = insertProfile("rollup-retention-limit");
+        insertProfileVersion(profile, 1, retentionDays, false);
+        insertRecordSignedAt(profile, 1, expiredHour);
+        insertRecordSignedAt(profile, 1, expiredHour);
+
+        // when
+        int deleted = doInTransaction(() -> repository.deleteExpiredByRetention(oneOfTwo));
+
+        // then
+        assertEquals(oneOfTwo, deleted);
+        assertEquals(oneOfTwo, countIn(profile, expiredHour));
+        assertEquals(1, repository.count());
+    }
+
+    @Test
+    void deleteRetrievedAndFlagged_rollsUpEveryRecordItRemoves() {
+        // given
+        var signedAt = Instant.parse("2026-04-02T08:15:00Z");
+        SigningProfile profile = insertProfile("rollup-retrieved");
+        insertProfileVersion(profile, 1, null, true);
+        insertRecord(profile, 1, Instant.now(), signedAt);
+
+        // when
+        int deleted = doInTransaction(() -> repository.deleteRetrievedAndFlagged(BATCH_LIMIT_LARGER_THAN_FIXTURES));
+
+        // then
+        assertEquals(1, deleted);
+        assertEquals(1, countIn(profile, "2026-04-02T08:00:00Z"));
+    }
+
+    @Test
+    void deleteByUuid_countsTheSigningOnceWhenAnotherDeletePathRemovesTheRecordFirst() throws Exception {
+        // given
+        SigningProfile profile = insertProfile("rollup-contested");
+        insertProfileVersion(profile, 1);
+        SigningRecord contested = insertRecordSignedAt(profile, 1, Instant.parse("2026-05-01T09:30:00Z"));
+
+        // when
+        int deleted = deleteBehindAnInFlightDelete(contested);
+
+        // then
+        assertEquals(0, deleted);
+        assertFalse(repository.existsById(contested.getUuid()));
+        assertEquals(0, volumeRepository.count());
+    }
+
+    /**
+     * Runs the keyed delete against a record another connection has already deleted but not yet committed, releasing
+     * that connection only once the keyed delete is waiting on the row. The competing delete does not roll anything up,
+     * so a statement that rolls up rows it did not remove shows up here as a bucket that should not exist.
+     */
+    private int deleteBehindAnInFlightDelete(SigningRecord signingRecord) throws Exception {
+        ExecutorService waiting = Executors.newSingleThreadExecutor();
+        try (Connection inFlight = testDataSource.getConnection()) {
+            inFlight.setAutoCommit(false);
+            try (PreparedStatement delete = inFlight.prepareStatement("DELETE FROM signing_record WHERE uuid = ?")) {
+                delete.setObject(1, signingRecord.getUuid());
+                delete.executeUpdate();
+            }
+            Future<Integer> blocked = waiting
+                    .submit(() -> doInTransaction(() -> repository.deleteByUuid(signingRecord.getUuid())));
+            awaitBackendWaitingOnALock();
+            inFlight.commit();
+            return blocked.get(BLOCKED_DELETE_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+        } finally {
+            waiting.shutdownNow();
+        }
+    }
+
+    /**
+     * Polls until a backend is blocked on a lock, so the delete under test is known to be waiting before the competing
+     * transaction commits. Gives up quietly at the bound: the assertions hold either way, this only makes the
+     * interleaving the test is after the one that actually happens.
+     */
+    private void awaitBackendWaitingOnALock() throws SQLException, InterruptedException {
+        Instant deadline = Instant.now().plus(BLOCKED_DELETE_TIMEOUT);
+        while (Instant.now().isBefore(deadline)) {
+            try (Connection probe = testDataSource.getConnection();
+                    PreparedStatement waiting = probe
+                            .prepareStatement("SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock'");
+                    ResultSet result = waiting.executeQuery()) {
+                if (result.next() && result.getInt(1) > 0) {
+                    return;
+                }
+            }
+            Thread.sleep(POLL_INTERVAL.toMillis());
+        }
+    }
+
+    @Test
+    void deleteExpiredByRetention_leavesAContendedRecordToTheStatementHoldingIt() throws SQLException {
+        // given
+        var retentionDays = 7;
+        var expiredHour = Instant.now().minus(Duration.ofDays(10)).truncatedTo(ChronoUnit.HOURS);
+        SigningProfile profile = insertProfile("rollup-retention-contended");
+        insertProfileVersion(profile, 1, retentionDays, false);
+        SigningRecord contested = insertRecordSignedAt(profile, 1, expiredHour);
+
+        // when
+        int deleted = whileHeldElsewhere(contested,
+                () -> doInTransaction(() -> repository.deleteExpiredByRetention(BATCH_LIMIT_LARGER_THAN_FIXTURES)));
+
+        // then
+        assertEquals(0, deleted);
+        assertEquals(0, volumeRepository.count());
+        assertTrue(repository.existsById(contested.getUuid()));
+    }
+
+    /**
+     * Runs {@code sweep} while a second connection holds {@code signingRecord} under {@code FOR UPDATE}. A batch that
+     * waited for contended rows instead of skipping them would block here until the test's own claim is released, which
+     * only happens afterwards.
+     */
+    private int whileHeldElsewhere(SigningRecord signingRecord, IntSupplier sweep) throws SQLException {
+        try (Connection holder = testDataSource.getConnection()) {
+            holder.setAutoCommit(false);
+            try (PreparedStatement select = holder
+                    .prepareStatement("SELECT uuid FROM signing_record WHERE uuid = ? FOR UPDATE")) {
+                select.setObject(1, signingRecord.getUuid());
+                select.executeQuery().close();
+            }
+            try {
+                return Objects.requireNonNull(transactionTemplate.execute(status -> {
+                    entityManager.createNativeQuery("SET LOCAL lock_timeout = '5s'").executeUpdate();
+                    return sweep.getAsInt();
+                }));
+            } finally {
+                holder.rollback();
+            }
+        }
+    }
+
+    @Test
+    void deleteQueries_recordNothingWhenTheyRemoveNothing() {
+        // given
+        var withinRetentionWindow = Instant.now();
+        SigningProfile profile = insertProfile("rollup-noop");
+        insertProfileVersion(profile, 1, 30, false);
+        insertRecordSignedAt(profile, 1, withinRetentionWindow);
+
+        // when
+        doInTransaction(() -> repository.deleteExpiredByRetention(BATCH_LIMIT_LARGER_THAN_FIXTURES));
+        doInTransaction(() -> repository.deleteRetrievedAndFlagged(BATCH_LIMIT_LARGER_THAN_FIXTURES));
+        doInTransaction(() -> repository.deleteByUuid(UUID.randomUUID()));
+
+        // then
+        assertEquals(0, volumeRepository.count());
+    }
+
+    private long countIn(SigningProfile profile, String bucketStart) {
+        return countIn(profile, Instant.parse(bucketStart));
+    }
+
+    private long countIn(SigningProfile profile, Instant bucketStart) {
+        return volumeRepository
+                .findAll()
+                .stream()
+                .filter(volume -> volume.getSigningProfileUuid().equals(profile.getUuid()))
+                .filter(volume -> volume.getBucketStart().equals(bucketStart))
+                .mapToLong(SigningRecordVolume::getSigningCount)
+                .sum();
     }
 
     private SigningProfile insertProfile(String name) {
