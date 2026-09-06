@@ -130,8 +130,8 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
 
     /**
      * Read under one snapshot: the signing figures are assembled from two tables, and a record deleted between the two
-     * queries would otherwise be counted both as retained and as history. {@code REPEATABLE_READ} costs nothing here —
-     * the transaction only reads, so it cannot fail to serialize.
+     * queries would otherwise be counted both as retained and as history. The transaction only reads, so the snapshot
+     * cannot fail to serialize; it does hold the vacuum horizon for the length of the read.
      */
     @Override
     @ExternalAuthorization(resource = Resource.SIGNING_RECORD, action = ResourceAction.LIST,
@@ -270,8 +270,8 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
     /**
      * The signing-profile half of {@code filter}. Signing-record visibility follows signing-profile access, and a
      * rolled-up bucket has no record identity left for a record-level filter to match on, so only the parent filter
-     * carries over to the history rows. Nothing is lost with it: {@link Resource#SIGNING_RECORD} declares no
-     * object-level access, so the record half of the filter never narrows anything on its own.
+     * carries over to the history rows. Nothing is lost with it while the authorization policy grants no object-level
+     * access on signing records, which is what {@link Resource#SIGNING_RECORD} declaring none asks of it.
      */
     private static SecurityFilter signingProfileScope(SecurityFilter filter) {
         SecurityFilter scope = SecurityFilter.create();

@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import static com.otilm.core.dao.repository.signing.SigningRecordRollupSql.CLAIM_VICTIMS;
+import static com.otilm.core.dao.repository.signing.SigningRecordRollupSql.OPEN_VICTIM_CTE;
 import static com.otilm.core.dao.repository.signing.SigningRecordRollupSql.ROLL_UP_THEN_DELETE;
 import static com.otilm.core.dao.repository.signing.SigningRecordRollupSql.SKIP_CONTENDED_ROWS;
 import static com.otilm.core.dao.repository.signing.SigningRecordRollupSql.WAIT_FOR_CONTENDED_ROWS;
@@ -25,7 +25,7 @@ public interface SigningRecordRepository extends SecurityFilterRepository<Signin
     boolean existsBySigningProfileUuid(UUID signingProfileUuid);
 
     @Modifying(flushAutomatically = true)
-    @Query(value = CLAIM_VICTIMS + """
+    @Query(value = OPEN_VICTIM_CTE + """
             SELECT sr.uuid, sr.signing_profile_uuid, sr.signing_time
             FROM {h-schema}signing_record sr
             WHERE sr.uuid = :uuid
@@ -33,7 +33,7 @@ public interface SigningRecordRepository extends SecurityFilterRepository<Signin
     int deleteByUuid(@Param("uuid") UUID uuid);
 
     @Modifying(flushAutomatically = true)
-    @Query(value = CLAIM_VICTIMS + """
+    @Query(value = OPEN_VICTIM_CTE + """
             SELECT sr.uuid, sr.signing_profile_uuid, sr.signing_time
             FROM {h-schema}signing_record sr
             JOIN {h-schema}signing_profile_version spv
@@ -46,7 +46,7 @@ public interface SigningRecordRepository extends SecurityFilterRepository<Signin
     int deleteExpiredByRetention(@Param("limit") int limit);
 
     @Modifying(flushAutomatically = true)
-    @Query(value = CLAIM_VICTIMS + """
+    @Query(value = OPEN_VICTIM_CTE + """
             SELECT sr.uuid, sr.signing_profile_uuid, sr.signing_time
             FROM {h-schema}signing_record sr
             JOIN {h-schema}signing_profile_version spv

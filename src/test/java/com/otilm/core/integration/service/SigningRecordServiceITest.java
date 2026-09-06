@@ -717,7 +717,7 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
             return Instant.now().minus(Duration.ofDays(2)).truncatedTo(ChronoUnit.DAYS).plus(Duration.ofHours(hour));
         }
 
-        private long volumeIn(Instant bucket) {
+        private Long volumeIn(Instant bucket) {
             return statistics().getVolumeOverTime().get(HOUR_BUCKET_KEY.format(bucket));
         }
 

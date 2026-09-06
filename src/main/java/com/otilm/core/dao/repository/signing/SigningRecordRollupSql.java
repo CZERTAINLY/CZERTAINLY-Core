@@ -1,22 +1,18 @@
 package com.otilm.core.dao.repository.signing;
 
 /**
- * The two halves every statement that removes signing records is wrapped in, so that removing a record never removes
+ * The SQL fragments every statement that removes signing records is wrapped in, so that deleting a record never deletes
  * the fact that the signing happened.
  *
  * <p>
- * A statement opens with {@link #CLAIM_VICTIMS}, selects the rows it is about to delete, claims them with
- * {@link #WAIT_FOR_CONTENDED_ROWS} or {@link #SKIP_CONTENDED_ROWS}, and closes with {@link #ROLL_UP_THEN_DELETE}, which
- * folds those rows into {@code signing_record_volume} and then deletes them. PostgreSQL runs a data-modifying CTE
- * exactly once and to completion, and every part of the statement reads the same snapshot of the materialized
- * {@code victim} rows, so the roll-up and the delete cover the identical set and commit together. The statement's own
- * result is the DELETE's row count, so callers still learn how many records were removed.
+ * A statement is assembled as {@link #OPEN_VICTIM_CTE}, the caller's SELECT naming the rows to delete,
+ * {@link #WAIT_FOR_CONTENDED_ROWS} or {@link #SKIP_CONTENDED_ROWS}, and {@link #ROLL_UP_THEN_DELETE}. Each fragment
+ * that follows the SELECT opens with its own newline, so the joins never depend on how the caller ended it.
  *
  * <p>
- * Claiming the rows is what keeps the count exact when two delete paths reach the same record at once — an operator
- * deleting by hand while a retention or delete-after-retrieval sweep is mid-flight. Unclaimed, the loser would still
- * see the record in its own snapshot, roll it up, and then delete nothing, counting one signing twice. Claimed, the
- * roll-up covers exactly the rows the statement goes on to remove.
+ * PostgreSQL runs a data-modifying CTE exactly once and to completion, and every part of the statement reads the same
+ * snapshot of the materialized {@code victim} rows, so the roll-up and the delete cover the identical set and commit
+ * together. The statement's own result is the DELETE's row count, so callers still learn how many records were removed.
  */
 final class SigningRecordRollupSql {
 
@@ -26,14 +22,14 @@ final class SigningRecordRollupSql {
      * {@code signing_time}. Materialized because both halves of the statement read it and must see the same rows — a
      * re-evaluated {@code LIMIT} could pick a different set.
      */
-    static final String CLAIM_VICTIMS = "WITH victim AS MATERIALIZED (";
+    static final String OPEN_VICTIM_CTE = "WITH victim AS MATERIALIZED (";
 
     /**
      * Waits for a row another statement holds, then re-reads it: one the winner deleted is not returned. For the keyed
      * delete, whose caller is told the record is gone — skipping a contended row would report success for a record the
      * winner might yet roll back. It locks a single row, so it can wait for a cycle but never form one.
      */
-    static final String WAIT_FOR_CONTENDED_ROWS = "FOR UPDATE OF sr\n";
+    static final String WAIT_FOR_CONTENDED_ROWS = "\nFOR UPDATE OF sr\n";
 
     /**
      * Leaves a row another statement holds where it is. For the batch sweeps, which have no per-record contract —
@@ -41,7 +37,7 @@ final class SigningRecordRollupSql {
      * two sweeps that pick overlapping victims in different index orders deadlock, or let one open transaction stall a
      * sweep while it holds the cluster-wide sweep lock.
      */
-    static final String SKIP_CONTENDED_ROWS = "FOR UPDATE OF sr SKIP LOCKED\n";
+    static final String SKIP_CONTENDED_ROWS = "\nFOR UPDATE OF sr SKIP LOCKED\n";
 
     /**
      * Rolls the claimed rows into their UTC hourly buckets and deletes them. Only {@code signing_record} rows are

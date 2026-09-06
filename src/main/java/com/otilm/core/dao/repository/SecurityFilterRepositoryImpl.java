@@ -271,6 +271,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     public Map<String, Long> sumGroupedUsingSecurityFilter(SecurityFilter filter, SingularAttribute<T, Long> sumOf,
             BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupByExpression,
             TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+        Objects.requireNonNull(groupByExpression, "groupByExpression");
         return aggregateGroupedUsingSecurityFilter(filter, groupByExpression, (root, cb) -> cb.sum(root.get(sumOf)),
                 additionalWhereClause);
     }

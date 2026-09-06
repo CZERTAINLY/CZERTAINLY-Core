@@ -95,9 +95,11 @@ Capture entry state before the external call (`final State entryState = entity.g
 A dashboard series, counter, or report that aggregates a table whose rows get deleted is rewritten by every one of those deletions — and retention sweeps and delete-after-retrieval mean the history changes with nobody touching it. Derive such a figure from a separate append-only aggregate instead, and fold rows into it in the **same statement** that deletes them:
 
 ```sql
-WITH victim AS MATERIALIZED (SELECT uuid, ... FROM detail WHERE ... LIMIT :limit)
+WITH victim AS MATERIALIZED (
+    SELECT uuid, ... FROM detail WHERE ... LIMIT :limit FOR UPDATE OF detail [SKIP LOCKED]
+)
 , rolled AS (
-    INSERT INTO aggregate AS a (...) SELECT ... FROM victim GROUP BY ...
+    INSERT INTO aggregate AS a (...) SELECT ... FROM victim GROUP BY ... ORDER BY <aggregate key>
     ON CONFLICT (...) DO UPDATE SET row_count = a.row_count + EXCLUDED.row_count
 )
 DELETE FROM detail WHERE uuid IN (SELECT uuid FROM victim)
