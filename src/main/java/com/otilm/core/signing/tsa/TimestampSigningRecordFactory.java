@@ -28,9 +28,9 @@ import org.springframework.stereotype.Component;
  * {@code requestMetadataJson}, unconditionally.
  *
  * <p>
- * {@code requestedBy} is the identity on the thread that issued the token: the caller a TSP authenticator put into the
- * SecurityContext, or — for in-process issuance, which has no caller of its own — whoever requested the signature the
- * timestamp is going into. It stays unset when the issuing thread carries no identity.
+ * {@code requestedBy} is the identity on the thread that issued the token. On the TSP path a TSP authenticator put it
+ * into the SecurityContext; in-process issuance has no caller of its own, so the record names whoever requested the
+ * signature the timestamp goes into. It stays unset when the issuing thread carries no identity.
  */
 @Component
 public class TimestampSigningRecordFactory {

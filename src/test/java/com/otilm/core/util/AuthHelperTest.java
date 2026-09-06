@@ -32,10 +32,13 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 /**
- * Contract of the scoped {@code runAsSystem} elevation: the action runs under a system principal, and the caller's
- * prior context is restored afterwards — on success, on exception, and (critically) leaving NO system principal on a
- * principal-less thread (the async status-poll listener runs pooled with no {@code SecurityContext}). The remote
- * elevation is stubbed so these assertions test only the save/restore discipline, not the auth-service call.
+ * Two {@link AuthHelper} concerns: the scoped {@code runAsSystem} elevation, and resolving the acting user from — and
+ * installing it into — the {@code SecurityContext}.
+ *
+ * <p>
+ * The elevation tests stub the remote call, so they assert only the save/restore discipline: the action runs under a
+ * system principal, the caller's prior context is restored on success and on exception, and no system principal is left
+ * on a principal-less thread (the async status-poll listener runs pooled with no {@code SecurityContext}).
  */
 class AuthHelperTest {
 

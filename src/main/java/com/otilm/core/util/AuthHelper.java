@@ -244,11 +244,8 @@ public class AuthHelper {
      * users (acme, scep, cmp, localhost) are ordinary auth-service users and are carried like any other.
      */
     public static UUID getActingUserUuidOrNull() {
-        try {
-            return NullUtil.parseUuidOrNull(getUserIdentification().getUuid());
-        } catch (ValidationException | IllegalArgumentException e) {
-            return null;
-        }
+        NameAndUuidDto actingUser = getActingUserOrNull();
+        return actingUser == null ? null : UUID.fromString(actingUser.getUuid());
     }
 
     /**
