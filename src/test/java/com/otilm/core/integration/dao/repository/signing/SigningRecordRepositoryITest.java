@@ -390,10 +390,10 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
      * nothing up, so a statement that rolls up rows it did not remove shows up here as a bucket that should not exist.
      *
      * <p>
-     * The delete is confirmed stuck rather than assumed stuck: it has started, and a moment later it still has not
-     * returned, which for a statement whose only obstacle is the held row means it is waiting on it. Letting the
-     * competing transaction go early would leave the delete nothing to find, and the assertions would then pass over an
-     * interleaving this test never produced.
+     * The delete is confirmed stuck rather than assumed stuck: its transaction is open and its connection in hand, so
+     * issuing the statement is all that is left, and a moment later it still has not returned — for a statement whose
+     * only obstacle is the held row, that means it is waiting on it. Letting the competing transaction go early would
+     * leave the delete nothing to find, and the assertions would then pass over an interleaving never produced.
      */
     private int deleteBehindAnInFlightDelete(SigningRecord signingRecord) throws Exception {
         ExecutorService waiting = Executors.newSingleThreadExecutor();
@@ -403,13 +403,13 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
                 delete.setObject(1, signingRecord.getUuid());
                 delete.executeUpdate();
             }
-            CountDownLatch started = new CountDownLatch(1);
-            Future<Integer> blocked = waiting.submit(() -> {
-                started.countDown();
-                return doInTransaction(() -> repository.deleteByUuid(signingRecord.getUuid()));
-            });
-            assertTrue(started.await(BLOCKED_DELETE_TIMEOUT.toSeconds(), TimeUnit.SECONDS),
-                    "the delete under test never started");
+            CountDownLatch transactionOpen = new CountDownLatch(1);
+            Future<Integer> blocked = waiting.submit(() -> doInTransaction(() -> {
+                transactionOpen.countDown();
+                return repository.deleteByUuid(signingRecord.getUuid());
+            }));
+            assertTrue(transactionOpen.await(BLOCKED_DELETE_TIMEOUT.toSeconds(), TimeUnit.SECONDS),
+                    "the delete under test never opened its transaction");
             assertThrows(TimeoutException.class,
                     () -> blocked.get(BLOCK_CONFIRMATION.toMillis(), TimeUnit.MILLISECONDS),
                     "the delete under test should be waiting for the row the competing transaction holds");

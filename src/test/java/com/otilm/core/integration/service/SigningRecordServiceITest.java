@@ -613,6 +613,20 @@ class SigningRecordServiceITest extends BaseSpringBootTest {
         }
 
         @Test
+        void windowCountsExcludeADeletedSigningOlderThanTheWindow() throws NotFoundException {
+            // given
+            SigningRecord signingRecord = insertRecordSignedAt(Instant.now().minus(Duration.ofDays(3)));
+
+            // when
+            signingRecordService.deleteSigningRecord(SecuredUUID.fromUUID(signingRecord.getUuid()));
+
+            // then
+            SigningRecordStatisticsDto statistics = statistics();
+            assertEquals(0L, statistics.getCountLast24h());
+            assertEquals(1L, statistics.getCountLast7d());
+        }
+
+        @Test
         void windowCountsAreUnchangedByDeletingASigningAtTheWindowEdge() throws NotFoundException {
             // given a signing in the very hour the 24h cutoff falls in, where an exact and an hour-aligned window
             // disagree about whether it belongs

@@ -237,7 +237,6 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
         return cutoff.truncatedTo(ChronoUnit.HOURS);
     }
 
-    /** Bucketed counts of the records still held in {@code signing_record}. */
     private Map<String, Long> retainedVolume(SecurityFilter filter, Bucket bucket, Instant from) {
         return signingRecordRepository
                 .countGroupedUsingSecurityFilter(filter, null, null,
