@@ -16,6 +16,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
@@ -412,11 +413,29 @@ class SigningRecordRepositoryITest extends BaseSpringBootTest {
                     "the delete under test never opened its transaction");
             assertThrows(TimeoutException.class,
                     () -> blocked.get(BLOCK_CONFIRMATION.toMillis(), TimeUnit.MILLISECONDS),
+                    "the delete under test should not have returned while the row is held");
+            assertTrue(aSessionIsBlockedByAnother(),
                     "the delete under test should be waiting for the row the competing transaction holds");
             inFlight.commit();
             return blocked.get(BLOCKED_DELETE_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
         } finally {
             waiting.shutdownNow();
+        }
+    }
+
+    /**
+     * Whether PostgreSQL reports a session in this database blocked by another. Asked once, after the timeout above has
+     * established that the delete has not returned, so being stuck is confirmed by the server rather than inferred from
+     * how fast the box happens to be.
+     */
+    private boolean aSessionIsBlockedByAnother() throws SQLException {
+        try (Connection probe = testDataSource.getConnection(); PreparedStatement blocked = probe.prepareStatement("""
+                SELECT count(*) FROM pg_stat_activity
+                WHERE datname = current_database()
+                  AND pid <> pg_backend_pid()
+                  AND cardinality(pg_blocking_pids(pid)) > 0
+                """); ResultSet result = blocked.executeQuery()) {
+            return result.next() && result.getInt(1) > 0;
         }
     }
 
