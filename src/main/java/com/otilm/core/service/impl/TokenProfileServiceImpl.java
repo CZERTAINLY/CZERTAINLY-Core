@@ -156,14 +156,14 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE,
             parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void disableTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException {
-        tokenProfileWriter.setEnabled(tokenInstanceUuid.getValue(), uuid.getValue(), false);
+        tokenProfileWriter.setEnabledScoped(tokenInstanceUuid.getValue(), uuid.getValue(), false);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE,
             parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void enableTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException {
-        tokenProfileWriter.setEnabled(tokenInstanceUuid.getValue(), uuid.getValue(), true);
+        tokenProfileWriter.setEnabledScoped(tokenInstanceUuid.getValue(), uuid.getValue(), true);
     }
 
     @Override
@@ -211,7 +211,7 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
             parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid,
             List<KeyUsage> usages) throws NotFoundException {
-        tokenProfileWriter.setUsages(tokenInstanceUuid.getValue(), tokenProfileUuid.getValue(), usages);
+        tokenProfileWriter.setUsagesScoped(tokenInstanceUuid.getValue(), tokenProfileUuid.getValue(), usages);
     }
 
     @Override

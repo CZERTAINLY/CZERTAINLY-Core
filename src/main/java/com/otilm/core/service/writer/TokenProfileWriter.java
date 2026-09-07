@@ -97,7 +97,7 @@ public class TokenProfileWriter {
     }
 
     @Transactional
-    public void setEnabled(UUID parentUuid, UUID profileUuid, boolean enabled) throws NotFoundException {
+    public void setEnabledScoped(UUID parentUuid, UUID profileUuid, boolean enabled) throws NotFoundException {
         findScopedLocked(parentUuid, profileUuid).setEnabled(enabled);
     }
 
@@ -107,7 +107,7 @@ public class TokenProfileWriter {
     }
 
     @Transactional
-    public void setUsages(UUID parentUuid, UUID profileUuid, List<KeyUsage> usages) throws NotFoundException {
+    public void setUsagesScoped(UUID parentUuid, UUID profileUuid, List<KeyUsage> usages) throws NotFoundException {
         findScopedLocked(parentUuid, profileUuid).setUsage(usages);
     }
 
