@@ -53,7 +53,7 @@ public class TokenProfileWriter {
     public TokenProfileFullModel create(UUID tokenInstanceUuid, AddTokenProfileRequestDto request)
             throws NotFoundException, AttributeException {
         TokenInstanceReference parent = tokenInstanceReferenceRepository
-                .findWithLockByUuid(tokenInstanceUuid)
+                .findByUuid(tokenInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstanceReferenceRepository.class, tokenInstanceUuid));
 
         TokenProfile profile = new TokenProfile();
