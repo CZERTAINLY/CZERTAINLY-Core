@@ -63,11 +63,7 @@ public interface TokenProfileRepository extends SecurityFilterRepository<TokenPr
         } else {
             profiles = findUsingSecurityFilter(filter, List.of("tokenInstanceReference"), null);
         }
-        return profiles
-                .stream()
-                .map(ImmutableTokenProfileFullModel::from)
-                .map(value -> (TokenProfileFullModel) value)
-                .toList();
+        return profiles.stream().<TokenProfileFullModel>map(ImmutableTokenProfileFullModel::from).toList();
     }
 
 }
