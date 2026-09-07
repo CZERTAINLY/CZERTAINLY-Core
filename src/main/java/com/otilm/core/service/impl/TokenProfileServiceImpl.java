@@ -58,33 +58,33 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     private TokenProfileWriter tokenProfileWriter;
 
     @Autowired
-    public void setAttributeEngine(AttributeEngine value) {
-        attributeEngine = value;
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
     }
 
     @Autowired
-    public void setTokenProfileRepository(TokenProfileRepository value) {
-        tokenProfileRepository = value;
+    public void setTokenProfileRepository(TokenProfileRepository tokenProfileRepository) {
+        this.tokenProfileRepository = tokenProfileRepository;
     }
 
     @Autowired
-    public void setTokenInstanceReferenceRepository(TokenInstanceReferenceRepository value) {
-        tokenInstanceReferenceRepository = value;
+    public void setTokenInstanceReferenceRepository(TokenInstanceReferenceRepository tokenInstanceReferenceRepository) {
+        this.tokenInstanceReferenceRepository = tokenInstanceReferenceRepository;
     }
 
     @Autowired
-    public void setTokenProfileWriter(TokenProfileWriter value) {
-        tokenProfileWriter = value;
+    public void setTokenProfileWriter(TokenProfileWriter tokenProfileWriter) {
+        this.tokenProfileWriter = tokenProfileWriter;
     }
 
     @Autowired
-    public void setTokenInstanceService(TokenInstanceInternalService value) {
-        tokenInstanceService = value;
+    public void setTokenInstanceService(TokenInstanceInternalService tokenInstanceService) {
+        this.tokenInstanceService = tokenInstanceService;
     }
 
     @Autowired
-    public void setAuthorizationEnforcer(AuthorizationEnforcer value) {
-        authorizationEnforcer = value;
+    public void setAuthorizationEnforcer(AuthorizationEnforcer authorizationEnforcer) {
+        this.authorizationEnforcer = authorizationEnforcer;
     }
 
     @Override
