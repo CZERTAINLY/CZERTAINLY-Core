@@ -123,7 +123,8 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
         ensureTokenExists(tokenInstanceUuid.getValue(), tokenInstanceUuid);
         attributeEngine.validateCustomAttributesContent(Resource.TOKEN_PROFILE, request.getCustomAttributes());
         validateTokenProfileAttributes(tokenInstanceUuid.getValue(), request.getAttributes());
-        return assembleDetail(tokenProfileWriter.create(tokenInstanceUuid.getValue(), request));
+        TokenProfileFullModel tokenProfile = tokenProfileWriter.create(tokenInstanceUuid.getValue(), request);
+        return assembleDetail(tokenProfile);
     }
 
     @Override
