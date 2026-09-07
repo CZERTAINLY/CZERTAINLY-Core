@@ -69,6 +69,7 @@ public class TokenProviderV1Adapter
 
     @Override
     public List<KeyUsage> listSupportedKeyUsages(TokenInstanceBasicModel tokenInstanceReference) {
+        // The v1 connector protocol has no operation for discovering supported key usages.
         return Arrays.stream(KeyUsage.values()).toList();
     }
 

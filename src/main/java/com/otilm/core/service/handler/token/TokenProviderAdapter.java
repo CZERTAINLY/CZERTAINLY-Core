@@ -28,5 +28,6 @@ public interface TokenProviderAdapter {
     List<BaseAttribute> listTokenProfileAttributes(TokenInstanceBasicModel tokenInstanceReference)
             throws ConnectorException;
 
+    /** Lists token-supported key usages; v1 has no connector operation and therefore returns all Core key usages. */
     List<KeyUsage> listSupportedKeyUsages(TokenInstanceBasicModel tokenInstanceReference) throws ConnectorException;
 }
