@@ -85,8 +85,8 @@ public class TokenProfileControllerImpl implements TokenProfileController {
                 .createTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), request);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
-                .path("/tokenInstances/{tokenInstanceUuid}/tokenProfiles/{uuid}")
-                .buildAndExpand(tokenInstanceUuid, tokenProfileDetailDto.getUuid())
+                .path("/{uuid}")
+                .buildAndExpand(tokenProfileDetailDto.getUuid())
                 .toUri();
         return ResponseEntity.created(location).body(tokenProfileDetailDto);
     }
