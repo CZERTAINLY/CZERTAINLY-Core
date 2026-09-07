@@ -7,6 +7,7 @@ import com.otilm.api.model.client.certificate.SearchFilterRequestDto;
 import com.otilm.api.model.client.certificate.SearchRequestDto;
 import com.otilm.api.model.client.certificate.SearchSortRequestDto;
 import com.otilm.api.model.client.connector.v2.ConnectorVersion;
+import com.otilm.api.model.client.discovery.DiscoveryListDto;
 import com.otilm.api.model.common.attribute.common.AttributeType;
 import com.otilm.api.model.common.attribute.common.content.AttributeContentType;
 import com.otilm.api.model.common.attribute.common.properties.CustomAttributeProperties;
@@ -42,11 +43,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aCustomAttributeFilter;
 import static com.otilm.core.util.builders.SearchFilterRequestDtoBuilder.aMetaAttributeFilter;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * Filtering an attribute reads its content, so it is gated like the projection that renders one and the ordering that
@@ -233,14 +238,11 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
     @Test
     void oneListingResolvesTheCallersAttributePermissionsOnce() {
         // Anything the setup above authorized has already been counted, so only what the listing itself asks remains.
-        Mockito.clearInvocations(opaClient);
+        clearInvocations(opaClient);
 
         listFilteredSortedAndProjectedByEnvironment();
 
-        Mockito
-                .verify(opaClient, Mockito.times(1))
-                .checkObjectAccess(Mockito.any(), Mockito.argThat(this::isAttributeMembersRequest), Mockito.any(),
-                        Mockito.any());
+        verify(opaClient, times(1)).checkObjectAccess(any(), argThat(this::isAttributeMembersRequest), any(), any());
     }
 
     private boolean isAttributeMembersRequest(OpaRequestedResource request) {
@@ -307,7 +309,7 @@ class AttributeFilterAuthorizationITest extends BaseSpringBootTest {
                 .listDiscoveries(SecurityFilter.create(), request)
                 .getDiscoveries()
                 .stream()
-                .map(discovery -> discovery.getName())
+                .map(DiscoveryListDto::getName)
                 .toList();
     }
 

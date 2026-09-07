@@ -374,7 +374,7 @@ public class SigningRecordServiceImpl implements SigningRecordExternalService, S
                 .toList();
         attributeColumnProjector
                 .project(Resource.SIGNING_RECORD, request.getColumns(), dtos,
-                        record -> AttributeColumnProjector.parseUuid(record.getUuid()), contentFilter);
+                        signingRecord -> AttributeColumnProjector.parseUuid(signingRecord.getUuid()), contentFilter);
 
         long totalItems = signingRecordRepository.countUsingSecurityFilter(filter, predicate);
         return PaginationResponseMapper.toDto(dtos, request.getPageNumber(), request.getItemsPerPage(), totalItems);
