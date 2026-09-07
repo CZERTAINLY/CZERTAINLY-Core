@@ -321,6 +321,16 @@ class NormalizationRulesTest {
      * {@code AES/CBC/PKCS5} derived PKCS7, because the right word guard refused the {@code P} of {@code Padding}; and
      * once it derived, the bare token left {@code padding} in the variant, splitting the pair a second time.
      */
+
+    @Test
+    void aJcaPaddingSuffixNamesThePadding() {
+        assertThat(normalize("AES/CBC/PKCS5Padding").padding()).isEqualTo("PKCS7");
+        assertThat(keyOfAlgorithm("AES/CBC/PKCS5Padding")).isEqualTo(keyOfAlgorithm("AES/CBC/PKCS5"));
+        assertThat(normalize("RSA/ECB/OAEPWithSHA-1AndMGF1Padding").padding())
+                .describedAs("a token followed by With, not by Padding, still derives none -- gen-147 pins the key")
+                .isNull();
+    }
+
     /**
      * The residue note describes the value that reaches the key, not the value before the padding is removed.
      *
@@ -341,15 +351,6 @@ class NormalizationRulesTest {
         assertThat(asset.notes())
                 .describedAs("so no note may claim a residue is part of this row's identity")
                 .noneMatch(note -> note.contains("pkcs"));
-    }
-
-    @Test
-    void aJcaPaddingSuffixNamesThePadding() {
-        assertThat(normalize("AES/CBC/PKCS5Padding").padding()).isEqualTo("PKCS7");
-        assertThat(keyOfAlgorithm("AES/CBC/PKCS5Padding")).isEqualTo(keyOfAlgorithm("AES/CBC/PKCS5"));
-        assertThat(normalize("RSA/ECB/OAEPWithSHA-1AndMGF1Padding").padding())
-                .describedAs("a token followed by With, not by Padding, still derives none -- gen-147 pins the key")
-                .isNull();
     }
 
     /** The declared field is read in every spelling the name is: punctuation dropped, JCA suffix removed. */
