@@ -251,19 +251,42 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute<?, ?> join,
             SingularAttribute<?, ?> groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupByExpression,
             TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+        BiFunction<Root<T>, CriteriaBuilder, Expression<?>> grouping = groupByExpression != null
+                ? groupByExpression
+                : groupingByAttribute(join, groupBy);
+        return aggregateGroupedUsingSecurityFilter(filter, grouping, (root, cb) -> cb.countDistinct(root),
+                additionalWhereClause);
+    }
+
+    /** Groups by {@code groupBy}, read off the root or off a left join to {@code join} when one is given. */
+    private BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupingByAttribute(Attribute<?, ?> join,
+            SingularAttribute<?, ?> groupBy) {
+        return (root, cb) -> {
+            From<?, ?> from = join == null ? root : root.join(join.getName(), JoinType.LEFT);
+            return from.get(groupBy.getName());
+        };
+    }
+
+    @Override
+    public Map<String, Long> sumGroupedUsingSecurityFilter(SecurityFilter filter, SingularAttribute<T, Long> sumOf,
+            BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupByExpression,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+        Objects.requireNonNull(groupByExpression, "groupByExpression");
+        return aggregateGroupedUsingSecurityFilter(filter, groupByExpression, (root, cb) -> cb.sum(root.get(sumOf)),
+                additionalWhereClause);
+    }
+
+    private Map<String, Long> aggregateGroupedUsingSecurityFilter(SecurityFilter filter,
+            BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupByExpression,
+            BiFunction<Root<T>, CriteriaBuilder, Expression<? extends Number>> aggregation,
+            TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<AggregateResultDto> cr = cb.createQuery(AggregateResultDto.class);
 
         final Root<T> root = cr.from(entity);
-        Expression<?> groupBySelection;
-        if (groupByExpression != null) {
-            groupBySelection = groupByExpression.apply(root, cb);
-        } else {
-            From from = join == null ? root : root.join(join.getName(), JoinType.LEFT);
-            groupBySelection = from.get(groupBy);
-        }
-        cr.multiselect(groupBySelection, cb.countDistinct(root));
+        Expression<?> groupBySelection = groupByExpression.apply(root, cb);
+        cr.multiselect(groupBySelection, aggregation.apply(root, cb));
         cr.groupBy(groupBySelection);
 
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
