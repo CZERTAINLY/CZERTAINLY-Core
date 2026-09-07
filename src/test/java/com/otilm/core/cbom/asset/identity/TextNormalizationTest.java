@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -464,6 +468,106 @@ class TextNormalizationTest {
     }
 
     /**
+     * A location made only of lone surrogates is refused, not fatal.
+     *
+     * <p>
+     * {@link AsciiText#isBlank} does not treat a surrogate as whitespace, so such a location passed the entry guard;
+     * the scrub then emptied it and the fragment rule read its first character, throwing
+     * {@code StringIndexOutOfBoundsException} out of the ingest path with no {@code catch} between it and the source
+     * upsert. On {@code main} the same input reached the digest guard and became a reported skip, so the step order
+     * turned a diagnosable skip into an index error.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"\uD800", "\uDFFF", "\uD800\uD800", " \uD800 ", "\uDFFF\uD800"})
+    void anAllSurrogateLocationIsRefusedRatherThanFatal(String location) {
+        assertThat(sanitize(location)).isEmpty();
+    }
+
+    /**
+     * The whole leading delimiter run comes off, so a doubled marker is not absence.
+     *
+     * <p>
+     * Removing exactly one {@code #} left {@code ##a} cutting at position zero again and rendering as the empty
+     * location -- the defect the retention exists to close, one character further along. What the rule does not restore
+     * is the count: {@code #a} and {@code ##a} both render {@code a}, because the delimiter cannot come back into an
+     * unescaped slot.
+     */
+    @Test
+    void aLeadingDelimiterRunComesOffWhole() {
+        assertThat(sanitize("##a")).isEqualTo("a");
+        assertThat(sanitize("###/x")).isEqualTo("/x");
+        assertThat(sanitize("##a")).isNotEqualTo(sanitize(""));
+        assertThat(sanitize("#")).isEmpty();
+        assertThat(sanitize("##")).isEmpty();
+    }
+
+    /**
+     * A delimiter inside the authority does not hide the credential behind it.
+     *
+     * <p>
+     * The user-info class excluded {@code ?} and {@code #}, so a password containing one put the {@code @} beyond the
+     * pattern's reach and the cut then kept everything before the delimiter -- {@code //user:sec?ret@host/x} stored
+     * {@code //user:sec}, and a password ending in {@code ?} stored whole. No step order repairs that: the class cannot
+     * span a character it excludes.
+     */
+    @Test
+    void aDelimiterInsideTheAuthorityDoesNotHideTheCredential() {
+        assertThat(sanitize("//user:sec?ret@host/x")).isEqualTo("//host/x");
+        assertThat(sanitize("https://user:sec?ret@host/x")).isEqualTo("https://host/x");
+        assertThat(sanitize("//u:secret?@h")).isEqualTo("//h");
+        assertThat(sanitize("//user:sec#ret@host/x")).isEqualTo("//host/x");
+    }
+
+    /**
+     * A location nested past the pass bound names nothing, rather than costing unbounded CPU or keeping a credential.
+     *
+     * <p>
+     * Stripping user-info once, or twice, is not stripping it. The replacement can create the shape it matches:
+     * consuming {@code //u1:p1@} from {@code //u1:p1@/u2:p2@/u3:p3@host} leaves {@code ///u2:p2@…}, where the scan
+     * resumes past the slash and finds only one before the next credential. Each pass peels one layer, so the two-pass
+     * version left the third password in the key and in the served evidence column. Found by an exhaustive sweep the
+     * hand-built cases missed.
+     *
+     * <p>
+     * Each pass rescans the whole string and the cap is the last step, so {@code n} nested authorities cost {@code n}
+     * passes over an uncapped location. Capping first is not available -- that is the truncation defect core#2165 item
+     * 3 closed -- so the passes are bounded and what still matches afterwards is refused.
+     */
+    @Test
+    void aLocationNestedPastTheBoundIsRefused() {
+        String pathological = "//" + "u:p@/".repeat(64) + "host";
+
+        assertThat(sanitize(pathological)).describedAs("refused, not partly stripped").isEmpty();
+        assertThat(sanitize("//" + "u:p@/".repeat(8) + "host"))
+                .describedAs("real depth still sanitizes")
+                .doesNotContain("@")
+                .endsWith("host");
+    }
+
+    @Test
+    void userInfoIsStrippedToAFixpointRatherThanOnce() {
+        assertThat(sanitize("//u1:p1@/u2:p2@/u3:p3@host")).isEqualTo("////host");
+        assertThat(sanitize("#//u1:p1@/u2:p2@/u3:p3@host")).doesNotContain("p3").doesNotContain("@");
+        assertThat(sanitize("file://user@/mnt@/root:toor@nas/x")).doesNotContain("toor").doesNotContain("@");
+        assertThat(sanitize("//@/@/@")).isEqualTo("////");
+    }
+
+    /**
+     * Keeping a pointer's text does not uncover a credential the anchored pattern could no longer see.
+     *
+     * <p>
+     * Cutting the {@code #} off {@code #/api/v1//admin:hunter2@db.internal/x} moves the {@code //} into the middle of a
+     * path, where a pattern anchored at the string start or after a colon does not match -- so the retention re-exposed
+     * a credential {@code main} dropped, in the key and in the served evidence column alike.
+     */
+    @Test
+    void aKeptPointerDoesNotUncoverACredential() {
+        assertThat(sanitize("#/api/v1//admin:hunter2@db.internal:5432/x")).doesNotContain("hunter2");
+        assertThat(sanitize("#x//user:secret@host")).isEqualTo("x//host");
+        assertThat(sanitize("#//user:secret@host")).isEqualTo("//host");
+    }
+
+    /**
      * No sanitized location carries the triple's own separator.
      *
      * <p>
@@ -473,7 +577,8 @@ class TextNormalizationTest {
      */
     @Test
     void noSanitizedLocationCarriesTheTripleSeparator() {
-        assertThat(sanitize("##\na")).doesNotContain("#");
+        assertThat(sanitize("##\na")).doesNotContain("#").doesNotContain("\n");
+        assertThat(sanitize("a\nb")).describedAs("the joiner is a newline and this slot is unescaped").isEqualTo("ab");
         assertThat(sanitize("#a##\nb#1#2")).doesNotContain("#");
         assertThat(Occurrences.triples(occurrences("[{\"location\": \"##\\na\"}]")))
                 .describedAs("one occurrence cannot render as two triples")
@@ -670,6 +775,92 @@ class TextNormalizationTest {
         assertThat(Occurrences.triples(occurrences("[\"a.py\", 7]")))
                 .describedAs("entries that are not objects carry no triple at all")
                 .isNull();
+    }
+
+    /**
+     * A location past the input bound is refused rather than sanitized.
+     *
+     * <p>
+     * The cap on the result is deliberately the last step, so every pass above it scans the producer's string at the
+     * producer's length -- and the location is the one producer string that never passes {@code boundedText}. Refusing
+     * bounds that work without capping first, which is the defect core#2165 item 3 closed by leaving
+     * {@code //user:passwo} standing. The longest corpus location is 194 characters.
+     */
+    @Test
+    void aLocationPastTheInputBoundIsRefused() {
+        assertThat(sanitize("a".repeat(64 * 1024)))
+                .describedAs("at the bound it is still sanitized, and capped to the result length")
+                .hasSize(1024);
+        assertThat(sanitize("a".repeat(64 * 1024 + 1))).isEmpty();
+    }
+
+    /**
+     * Sanitizing a sanitized location changes nothing.
+     *
+     * <p>
+     * The location is sanitized twice on two paths -- once for the key, once for the stored evidence -- so the served
+     * string must be the string the key hashed. The cap can land on interior whitespace, and the leading-fragment
+     * retention can uncover a leading space, so a second application used to remove a character the first had kept.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"aaa  bbb", "# /path/to/key", "# pointer"})
+    void sanitizingASanitizedLocationChangesNothing(String tail) {
+        String location = "a".repeat(1020) + tail;
+        String once = sanitize(location);
+
+        assertThat(sanitize(once)).isEqualTo(once);
+        assertThat(sanitize(tail)).isEqualTo(sanitize(sanitize(tail)));
+    }
+
+    /**
+     * A stated location that renders as nothing is recorded by mechanism, and the record never quotes the location.
+     *
+     * <p>
+     * Four classes empty a stated location -- a non-string value, the input-length refusal, the user-info pass-cap
+     * refusal, and a string the sanitizer leaves nothing of -- and each renders the triple an absent location renders.
+     * The one-argument {@code triples} is the reference operation the kernel mirrors and stays byte-identical to the
+     * recording overload; the record is the only thing that separates the four from absence.
+     */
+    @Test
+    void aStatedLocationThatRendersAsNothingIsRecordedByMechanismAndNeverQuoted() {
+        Map<String, String> emptiedBy = new LinkedHashMap<>();
+        emptiedBy.put("42", "is not a string");
+        emptiedBy.put("\"" + "a".repeat(64 * 1024 + 1) + "\"", "is longer than 65536 characters");
+        emptiedBy.put("\"//u:secret@" + "/u:secret@".repeat(39) + "host\"", "nests user-info deeper than 16");
+        emptiedBy.put("\"?sig=secret\"", "names no place");
+        emptiedBy.put("\"#?tok=secret\"", "names no place");
+        emptiedBy.put("\"##\"", "names no place");
+        emptiedBy.put("\"\\ud800\"", "names no place");
+        emptiedBy.put("\"\\ud800 ?a\"", "names no place");
+
+        emptiedBy.forEach((location, mechanism) -> {
+            List<String> findings = new ArrayList<>();
+            JsonNode component = occurrences("[{\"location\": " + location + ", \"line\": 7}]");
+            assertThat(Occurrences.triples(component, findings)).describedAs(location).isEqualTo("#7#");
+            assertThat(Occurrences.triples(component)).describedAs(location).isEqualTo("#7#");
+            assertThat(findings)
+                    .describedAs(location)
+                    .singleElement()
+                    .asString()
+                    .startsWith("occurrence 0: the stated location ")
+                    .contains(mechanism)
+                    .doesNotContain("secret");
+        });
+        for (String absent : List.of("null", "\"   \"", "\"\\u00a0\"", "\"\\r\\n\"")) {
+            List<String> findings = new ArrayList<>();
+            assertThat(Occurrences.triples(occurrences("[{\"location\": " + absent + ", \"line\": 7}]"), findings))
+                    .isEqualTo("#7#");
+            assertThat(findings).describedAs("%s states nothing and is not a refusal", absent).isEmpty();
+        }
+        List<String> findings = new ArrayList<>();
+        assertThat(
+                Occurrences.triples(occurrences("[{\"line\": 7}, {\"location\": \"a\"}, {\"location\": 1}]"), findings))
+                .isEqualTo("##\n#7#\na##");
+        assertThat(findings)
+                .describedAs("the index is the producer's, counted over the whole array")
+                .singleElement()
+                .asString()
+                .startsWith("occurrence 2:");
     }
 
     private static String sanitize(String location) {
