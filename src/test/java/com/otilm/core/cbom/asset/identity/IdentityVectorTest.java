@@ -116,10 +116,17 @@ class IdentityVectorTest {
     void everyHashedSlotMatchesTheStringItHashes(Vector vector) {
         JsonNode inner = vector.node().get("expected").get("innerPreImages");
         if (inner == null || inner.isNull()) {
-            assertThat(vector.node().get("expected").get("chainStep").asText())
+            String step = vector.node().get("expected").get("chainStep").asText();
+            assertThat(step)
                     .describedAs("%s hashes an inner string and must publish it as innerPreImages", vector.id())
-                    .isNotIn(ChainStep.CRT_DN_COMPOSITE.label(), ChainStep.PRT_TYPE_VERSION_SUITES.label(),
-                            ChainStep.PRT_TYPE_OCCURRENCE.label(), ChainStep.MAT_OCCURRENCE.label());
+                    .isNotIn(ChainStep.hashingLabels());
+            // The two subject tiers hash the occurrence triples only when the certificate states an occurrence, so
+            // the requirement is asserted against the component rather than against the step alone.
+            if (step.equals(ChainStep.CRT_CN_ONLY.label()) || step.equals(ChainStep.CRT_SUBJECT_ONLY.label())) {
+                assertThat(vector.node().get("component").at("/evidence/occurrences").isMissingNode())
+                        .describedAs("%s keys an occurrence digest and must publish its triples", vector.id())
+                        .isTrue();
+            }
             return;
         }
         JsonNode component = vector.node().get("component");

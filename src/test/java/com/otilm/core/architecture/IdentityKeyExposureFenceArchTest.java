@@ -30,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -304,26 +305,36 @@ class IdentityKeyExposureFenceArchTest {
         List<Object> instances = List
                 .of(keyed, keyed.asset(), keyed.redaction(), extraction.assets().get(0), extraction);
 
-        List<String> carried = new ArrayList<>();
+        Set<String> reached = new LinkedHashSet<>();
         for (Object instance : instances) {
-            carried.addAll(carriedValues(instance));
-        }
-        assertThat(carried)
-                .describedAs("the probe must reach every registered carrier, or the pin checks nothing")
-                .hasSizeGreaterThanOrEqualTo(IdentityKeyExposureFence.KEY_CARRIER_ACCESSORS.size())
-                .allSatisfy(value -> assertThat(value).isNotBlank());
-
-        for (Object instance : instances) {
+            List<String> carried = carriedValues(instance, reached);
+            assertThat(carried).allSatisfy(value -> assertThat(value).isNotBlank());
+            // An instance can carry nothing -- a carrier that answers an empty list contributes no value -- and that
+            // is exactly why coverage below is judged on the accessors invoked rather than on the values returned.
+            if (carried.isEmpty()) {
+                continue;
+            }
+            // Each instance is compared only against what it carries: an aggregate would reject a printed form for
+            // holding text a different instance happens to carry, which is not a disclosure.
             assertThat(String.valueOf(instance))
-                    .describedAs("the printed form of %s must omit every carried value", instance.getClass().getName())
+                    .describedAs("the printed form of %s must omit every value it carries",
+                            instance.getClass().getName())
                     .doesNotContain(carried.toArray(String[]::new));
         }
+
+        // Coverage is asserted over the accessors invoked, not over the values they returned: a carrier that answers
+        // an empty list contributes no value, so a size check on the values passes while the accessor was never
+        // reached -- and a new carrier on a type absent from `instances` would never be noticed at all.
+        assertThat(reached)
+                .describedAs("the probe must invoke every registered carrier, or the pin checks nothing")
+                .containsExactlyInAnyOrderElementsOf(IdentityKeyExposureFence.KEY_CARRIER_ACCESSORS.keySet());
     }
 
     /**
-     * Every value the registered carriers declared on the instance's class hand out, strings and string lists alike.
+     * Every value the registered carriers declared on the instance's class hand out, strings and string lists alike,
+     * recording each accessor it invoked in {@code reached} so coverage is judged on the calls and not on the values.
      */
-    private static List<String> carriedValues(Object instance) throws Exception {
+    private static List<String> carriedValues(Object instance, Set<String> reached) throws Exception {
         List<String> values = new ArrayList<>();
         String prefix = instance.getClass().getName() + ".";
         for (String accessor : IdentityKeyExposureFence.KEY_CARRIER_ACCESSORS.keySet()) {
@@ -331,6 +342,7 @@ class IdentityKeyExposureFenceArchTest {
                 continue;
             }
             Method method = instance.getClass().getMethod(accessor.substring(prefix.length()));
+            reached.add(accessor);
             Object value = method.invoke(instance);
             if (value instanceof Iterable<?> items) {
                 items.forEach(item -> values.add(String.valueOf(item)));

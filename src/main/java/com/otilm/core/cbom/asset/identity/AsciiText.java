@@ -176,6 +176,15 @@ public final class AsciiText {
         if (text == null) {
             return null;
         }
+        return stripPresent(text);
+    }
+
+    /**
+     * {@link #strip} for a string the caller knows is present -- the same split, and for the same reason, as
+     * {@link #foldPresent} against {@link #fold}: a nullable return propagates into the dataflow of every caller that
+     * dereferences it one line later, where the null is unreachable but unprovable.
+     */
+    public static String stripPresent(String text) {
         int start = 0;
         int end = text.length();
         while (start < end && isWhitespace(text.charAt(start))) {

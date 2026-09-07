@@ -285,8 +285,9 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // every certificate of an issuer one row -- the over-merge in the severe direction, on a producer spelling the
         // sentinel list exists to name.
         if (serial != null && !AsciiText.isBlank(serial) && !normalizer.tables().isSentinel(serial) && issuer != null) {
-            return new Tier("CRT|S|" + SPEC_ID + "|" + PreImageSlot.of(AsciiText.fold(AsciiText.strip(serial))) + "|"
-                    + PreImageSlot.of(issuer), ChainStep.CRT_SERIAL_ISSUER, digestRefuted, List.of());
+            String serialIssuer = "CRT|S|" + SPEC_ID + "|" + PreImageSlot.of(AsciiText.fold(AsciiText.strip(serial)))
+                    + "|" + PreImageSlot.of(issuer);
+            return new Tier(serialIssuer, ChainStep.CRT_SERIAL_ISSUER, digestRefuted, List.of(serialIssuer));
         }
 
         String subject = DistinguishedNames.normalize(text(certificate, CbomNames.SUBJECT_NAME), normalizer.tables());
@@ -315,8 +316,9 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         }
         // The backstop needs the name too: two certificates with no digest, no issuer and no subject --
         // `server-rsa-2048.pem` and `server-ecdsa-p256.pem` in a real document -- merged on a payload hash alone.
-        return new Tier("RAW|certificate|" + PreImageSlot.of(token) + "|" + CanonicalJson.projectionDigest(properties),
-                ChainStep.CRT_BACKSTOP, digestRefuted, List.of());
+        String certificateBackstop = "RAW|certificate|" + PreImageSlot.of(token) + "|"
+                + CanonicalJson.projectionDigest(properties);
+        return new Tier(certificateBackstop, ChainStep.CRT_BACKSTOP, digestRefuted, List.of(certificateBackstop));
     }
 
     /**

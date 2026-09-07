@@ -321,6 +321,28 @@ class NormalizationRulesTest {
      * {@code AES/CBC/PKCS5} derived PKCS7, because the right word guard refused the {@code P} of {@code Padding}; and
      * once it derived, the bare token left {@code padding} in the variant, splitting the pair a second time.
      */
+    /**
+     * The residue note describes the value that reaches the key, not the value before the padding is removed.
+     *
+     * <p>
+     * {@code residualLetters} tested the letters against the variant vocabulary before removing the padding spelling,
+     * and the two differ whenever the flattened spelling is absent from the raw name: {@code PKCS#7} flattens to
+     * {@code PKCS7}, which {@code strippedOfConsumedTokens} cannot find, so {@code pkcs} survived into the note while
+     * the returned residue was empty. The note then said a residue was part of the row's identity for a value the
+     * method dropped one line later.
+     */
+    @Test
+    void theResidueNoteNamesWhatReachesTheKey() {
+        NormalizedAsset asset = normalize(algorithmComponent("AES/CBC/PKCS#7",
+                "{\"primitive\":\"block-cipher\",\"parameterSetIdentifier\":\"128\"}"));
+
+        assertThat(asset.padding()).describedAs("the padding is read from the name").isEqualTo("PKCS7");
+        assertThat(asset.variant()).describedAs("and nothing survives it into the variant slot").isNull();
+        assertThat(asset.notes())
+                .describedAs("so no note may claim a residue is part of this row's identity")
+                .noneMatch(note -> note.contains("pkcs"));
+    }
+
     @Test
     void aJcaPaddingSuffixNamesThePadding() {
         assertThat(normalize("AES/CBC/PKCS5Padding").padding()).isEqualTo("PKCS7");

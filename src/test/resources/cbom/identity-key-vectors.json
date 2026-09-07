@@ -6441,7 +6441,10 @@
    "expected": {
     "chainStep": "crt:cn-only",
     "preImage": "CRT|C|v1|2.5.4.3=localhost|1709251200|1740787200|localhostdev1|c65c95305f39f3cb75406d141dfe62a4cc5daab80c7c3c0138e95c8b0018e574",
-    "identityKey": "ac6494af5a8d72dba71f877537a3c250dc9bbd37d3493f6f653d95f913a56994"
+    "identityKey": "ac6494af5a8d72dba71f877537a3c250dc9bbd37d3493f6f653d95f913a56994",
+    "innerPreImages": {
+     "occurrences": "hosts/build-01/tls/server.pem##"
+    }
    }
   },
   {

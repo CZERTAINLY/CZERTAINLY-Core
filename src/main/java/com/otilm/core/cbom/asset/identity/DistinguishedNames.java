@@ -147,8 +147,8 @@ public final class DistinguishedNames {
         }
         String rawType = AsciiText.fold(AsciiText.strip(ava.substring(0, separator)));
         String oid = tables.dnAttributeOids().getOrDefault(rawType, rawType);
-        return oid + "="
-                + renderValue(AsciiText.strip(ava.substring(separator + 1)), FOLDABLE_ATTRIBUTE_OIDS.contains(oid));
+        return oid + "=" + renderValue(AsciiText.stripPresent(ava.substring(separator + 1)),
+                FOLDABLE_ATTRIBUTE_OIDS.contains(oid));
     }
 
     /**
@@ -380,7 +380,6 @@ public final class DistinguishedNames {
             current.append(character);
             if (escaped) {
                 escaped = false;
-                valueStart = false;
             } else if (character == '\\') {
                 escaped = true;
                 valueStart = false;

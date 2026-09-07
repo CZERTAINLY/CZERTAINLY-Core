@@ -1373,11 +1373,25 @@ public record AssetNormalizer(IdentityTables tables) {
      */
     private String residualLetters(String stripped, String paddingFromName, List<String> dropped) {
         String letters = AsciiText.foldPresent(NON_LETTERS.matcher(stripped).replaceAll(""));
-        if (!letters.isEmpty() && !tables.variantVocabulary().contains(letters)) {
-            dropped.add(letters);
+        String residue = withoutPaddingSpelling(letters, paddingFromName);
+        // The note is recorded against the residue and not against `letters`, because the two differ whenever the
+        // flattened padding spelling is absent from the raw name -- `AES/CBC/PKCS#7` flattens to `PKCS7`, which
+        // `strippedOfConsumedTokens` cannot remove, so `letters` still held `pkcs` and the note claimed a residue was
+        // part of the identity that the strip below then dropped.
+        if (!residue.isEmpty() && !tables.variantVocabulary().contains(residue)) {
+            dropped.add(residue);
         }
-        // Stripping every padding spelling unconditionally ate a meaningful token: `AES-128-CBC-OpenPKCS11` collapsed
-        // onto `AES-128-CBC-Open` because `pkcs` is a substring of `openpkcs`.
+        return residue;
+    }
+
+    /**
+     * {@code letters} without the padding spelling the name already yielded, at a prefix or a suffix only.
+     *
+     * <p>
+     * Stripping every padding spelling unconditionally ate a meaningful token: {@code AES-128-CBC-OpenPKCS11} collapsed
+     * onto {@code AES-128-CBC-Open} because {@code pkcs} is a substring of {@code openpkcs}.
+     */
+    private static String withoutPaddingSpelling(String letters, String paddingFromName) {
         if (paddingFromName == null) {
             return letters;
         }

@@ -26,17 +26,20 @@ are the ratified ones.
 `cryptography-defs.json` is the CycloneDX cryptographic algorithm and curve
 registry snapshot used by the recovered generator. It is pinned by upstream
 commit, not by any field inside it: the bytes are those of
-`schema/cryptography-defs.json` in `CycloneDX/specification` at commit
-`5cbdee80a1` (2026-05-21). Moving the snapshot means replacing the file with the
-upstream blob and moving this pin in the same change.
+`schema/cryptography-defs.json` in `CycloneDX/specification` at the commit
+`REGISTRY_UPSTREAM_COMMIT` names in `scripts/cbom/build_identity_tables.py`.
+Moving the snapshot means replacing the file with the upstream blob and moving
+that constant in the same change. The commit is not repeated here, because a
+second copy of a pin goes stale the moment the pin moves and nothing compares
+the two.
 
-The file's own `lastUpdated` field reads `2026-02-24T00:00:00Z`, and the generator
-copies it into `identity-tables.json` as `registrySnapshot.lastUpdated`. It is not
+The file's own `lastUpdated` field is copied by the generator into
+`identity-tables.json` as `registrySnapshot.lastUpdated`. It is not
 the snapshot's provenance: upstream kept adding entries without advancing it. The
 repo shows as much on its own - the five families `registrySnapshot.familiesDataOnly`
 lists are present in the registry data and absent from the schema enum below, whose
-`$comment` is stamped nine days after that `lastUpdated`. Read the field as the
-registry's own last declared revision, and read the commit above for which bytes
+`$comment` is stamped after that `lastUpdated`. Read the field as the registry's
+own last declared revision, and read `REGISTRY_UPSTREAM_COMMIT` for which bytes
 these are.
 
 `cryptography-defs.schema.json` is the matching CycloneDX schema snapshot used

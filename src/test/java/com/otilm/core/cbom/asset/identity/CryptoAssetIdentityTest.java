@@ -107,6 +107,54 @@ class CryptoAssetIdentityTest {
                 .doesNotContain(identity.preImage());
     }
 
+    /**
+     * Every certificate tier that keys producer text is examined by the case-risk detector.
+     *
+     * <p>
+     * {@code crt:serial+issuer} keys {@code fold(strip(serial))} beside the normalized issuer, and the fold is
+     * ASCII-only, so a non-ASCII cased letter in the issuer reaches the key as the producer wrote it. The tier passed
+     * no case-risk inputs, so two certificates differing only by {@code Ä} against {@code ä} keyed apart with nothing
+     * recorded, which is the pair {@link NormalizedAsset#asciiCaseRisk()} exists to report. Neither the serial nor the
+     * issuer is withheld from storage, so the disclosure argument that empties the list on the {@code mat:fingerprint}
+     * claim does not reach here.
+     *
+     * <p>
+     * The other two are empty for reasons of their own, asserted so the distinction does not decay into an oversight.
+     * {@code crt:backstop} carries the pre-image, but {@code ComponentNames.stableToken} deletes every non-alphanumeric
+     * character before folding, so no cased character outside ASCII can reach that slot. {@code crt:fingerprint} and
+     * {@code crt:component-hash} key a hex digest, which a fold cannot move.
+     */
+    @Test
+    void everyCertificateTierThatKeysProducerTextIsExaminedForCaseRisk() {
+        CryptoAssetIdentity.Identity serialIssuer = IDENTITY
+                .of(certificate("{\"serialNumber\":\"0A\",\"issuerName\":\"CN=cÄ\"}", "cert"));
+        CryptoAssetIdentity.Identity backstop = IDENTITY.of(certificate("{}", "servÄr.pem"));
+        CryptoAssetIdentity.Identity digest = IDENTITY
+                .of(certificate("{\"fingerprint\":{\"alg\":\"SHA-256\",\"content\":\"" + HEX + "\"}}", "cert"));
+
+        assertThat(serialIssuer.step()).isEqualTo("crt:serial+issuer");
+        assertThat(serialIssuer.asset().asciiCaseRisk())
+                .describedAs("the issuer is keyed unfolded, so its cased characters are reported")
+                .containsExactly("Ä");
+        assertThat(serialIssuer.asset().notes()).anyMatch(note -> note.startsWith("R12:"));
+
+        assertThat(backstop.step()).isEqualTo("crt:backstop");
+        assertThat(backstop.asset().asciiCaseRisk())
+                .describedAs("the backstop keys stableToken, which deletes a non-ASCII letter before folding")
+                .isEmpty();
+
+        assertThat(digest.step()).isEqualTo("crt:fingerprint");
+        assertThat(digest.asset().asciiCaseRisk())
+                .describedAs("a hex digest slot has nothing a fold could move")
+                .isEmpty();
+    }
+
+    private static JsonNode certificate(String certificateProperties, String name) {
+        return read("{\"type\":\"cryptographic-asset\",\"name\":" + quote(name)
+                + ",\"cryptoProperties\":{\"assetType\":\"certificate\",\"certificateProperties\":"
+                + certificateProperties + "}}");
+    }
+
     private static JsonNode storedMaterial(CryptoAssetIdentity.Identity identity) {
         return identity.redaction().storedPayload().get("relatedCryptoMaterialProperties");
     }
