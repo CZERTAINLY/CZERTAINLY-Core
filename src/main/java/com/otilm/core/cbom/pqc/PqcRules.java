@@ -34,6 +34,10 @@ public final class PqcRules {
 
     public static final String PARAMETER_SET = "parameterSet";
 
+    public static final String CURVE = "curve";
+
+    public static final String VARIANT = "variant";
+
     public static final String NAME = "name";
 
     public static final String HYBRID_COMPONENTS = "hybridComponents";
@@ -45,8 +49,8 @@ public final class PqcRules {
     public static final String NIST_QUANTUM_SECURITY_LEVEL = "nistQuantumSecurityLevel";
 
     public static final Set<String> EVIDENCE_FIELDS = Set
-            .of(ASSET_TYPE, ALGORITHM_FAMILY, PARAMETER_SET, "curve", "mode", "padding", "variant", NAME,
-                    HYBRID_COMPONENTS, MATERIAL_TYPE, MATERIAL_SIZE, NIST_QUANTUM_SECURITY_LEVEL);
+            .of(ASSET_TYPE, ALGORITHM_FAMILY, PARAMETER_SET, CURVE, "mode", "padding", VARIANT, NAME, HYBRID_COMPONENTS,
+                    MATERIAL_TYPE, MATERIAL_SIZE, NIST_QUANTUM_SECURITY_LEVEL);
 
     /** Symmetric key or shared secret: quantum-resistant if long enough. */
     public static final Set<String> SYMMETRIC_MATERIAL = Set.of("secret-key", "symmetric-key", "shared-secret");
@@ -67,6 +71,8 @@ public final class PqcRules {
     public static final int MIN_SYMMETRIC_KEY_BITS = 128;
 
     public static final String FAMILY_UNRESOLVED = "FAMILY-UNRESOLVED";
+
+    public static final String HYBRID = "PQC-HYBRID";
 
     private PqcRules() {
     }
@@ -90,8 +96,8 @@ public final class PqcRules {
                                 input -> input.assetType() == null
                                         || input.assetType() == CryptographicAssetType.UNROUTABLE,
                                 PqcVerdict.NOT_APPLICABLE,
-                                "The producer named an asset type this platform does not route, so there is no algorithm "
-                                        + "to assess",
+                                "The producer named no asset type this platform routes, so there is no algorithm to "
+                                        + "assess",
                                 List.of(ASSET_TYPE)),
 
                         // ---- Material that is not a key -----------------------------------------------------------
@@ -101,27 +107,34 @@ public final class PqcRules {
                                 List.of(ASSET_TYPE, MATERIAL_TYPE)),
 
                         // ---- Names that are not algorithm names ---------------------------------------------------
+                        // Both yield to a resolved family: a producer that declares `RSA` on an asset it named `digest`
+                        // has said what the asset is, and a 56-entry name list must not remove it from the inventory.
                         new PqcRule("NAME-CIPHER-SUITE",
                                 input -> input.assetType() == CryptographicAssetType.ALGORITHM
-                                        && input.name() != null && normalizer.isCipherSuiteName(input.name()),
+                                        && PqcFamilies.of(input.algorithmFamily()) == null && input.name() != null
+                                        && normalizer.isCipherSuiteName(input.name()),
                                 PqcVerdict.NOT_APPLICABLE,
                                 "The name denotes a cipher suite rather than a single algorithm; readiness belongs to its "
                                         + "component algorithms",
-                                List.of(NAME)),
+                                List.of(ASSET_TYPE, ALGORITHM_FAMILY, NAME)),
                         new PqcRule("NAME-NOT-AN-ALGORITHM",
                                 input -> input.assetType() == CryptographicAssetType.ALGORITHM
-                                        && isNonAlgorithmName(input),
+                                        && PqcFamilies.of(input.algorithmFamily()) == null && isNonAlgorithmName(input),
                                 PqcVerdict.NOT_APPLICABLE,
                                 "The name denotes a library, an API, a container format or a construction category rather "
                                         + "than an algorithm",
-                                List.of(NAME)),
+                                List.of(ASSET_TYPE, ALGORITHM_FAMILY, NAME)),
 
                         // ---- Hybrids, before any family rule ------------------------------------------------------
-                        // No predicate of its own beyond being hybrid: the verdict is its post-quantum component's, so
-                        // the evaluator resolves it rather than this table. See PqcEvaluator#hybridDecision.
-                        new PqcRule("PQC-HYBRID", PqcRuleInput::isHybrid, PqcVerdict.READY,
+                        // Algorithms only: a key's name may record the construction that produced it, and a 256-bit
+                        // session key labelled with its hybrid KEX is decided by the symmetric rules below, not by the
+                        // KEX. The verdict is the post-quantum component's, so the evaluator resolves it rather than
+                        // this table. See PqcEvaluator#hybridDecision.
+                        new PqcRule(HYBRID,
+                                input -> input.assetType() == CryptographicAssetType.ALGORITHM && input.isHybrid(),
+                                PqcVerdict.READY,
                                 "A hybrid construction; its readiness is that of its post-quantum component",
-                                List.of(ALGORITHM_FAMILY, HYBRID_COMPONENTS, NAME)),
+                                List.of(ASSET_TYPE, ALGORITHM_FAMILY, HYBRID_COMPONENTS, NAME)),
 
                         // ---- Symmetric key material ---------------------------------------------------------------
                         new PqcRule("MATERIAL-SYMMETRIC-READY",
@@ -131,9 +144,17 @@ public final class PqcRules {
                                 "A symmetric key of at least 128 bits; Grover's algorithm halves its strength but does not "
                                         + "break it",
                                 List.of(ASSET_TYPE, MATERIAL_TYPE, MATERIAL_SIZE)),
-                        new PqcRule("MATERIAL-SYMMETRIC-UNSIZED", input -> isMaterial(SYMMETRIC_MATERIAL, input),
+                        new PqcRule("MATERIAL-SYMMETRIC-WEAK",
+                                input -> isMaterial(SYMMETRIC_MATERIAL, input) && input.materialSize() != null
+                                        && input.materialSize() < MIN_SYMMETRIC_KEY_BITS,
+                                PqcVerdict.NOT_READY,
+                                "A symmetric key whose declared size is below 128 bits, so Grover's algorithm leaves it "
+                                        + "with no adequate strength",
+                                List.of(ASSET_TYPE, MATERIAL_TYPE, MATERIAL_SIZE)),
+                        new PqcRule("MATERIAL-SYMMETRIC-UNSIZED",
+                                input -> isMaterial(SYMMETRIC_MATERIAL, input) && input.materialSize() == null,
                                 PqcVerdict.UNKNOWN,
-                                "A symmetric key whose declared size is absent or below 128 bits, so its strength cannot "
+                                "A symmetric key whose declared size is absent or implausible, so its strength cannot "
                                         + "be affirmed",
                                 List.of(ASSET_TYPE, MATERIAL_TYPE, MATERIAL_SIZE)));
     }

@@ -1,5 +1,6 @@
 package com.otilm.core.cbom.pqc;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.otilm.core.cbom.asset.JsonColumnText;
 import com.otilm.core.cbom.asset.identity.AssetNormalizer;
 import com.otilm.core.cbom.asset.identity.IdentityTables;
@@ -7,8 +8,10 @@ import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,10 +45,32 @@ class PqcEvidenceAllowlistTest {
                         .containsAll(rule.readsFields()));
     }
 
+    /**
+     * The parity corpus of algorithm names, plus the shapes it lacks: the material and asset-type rules read fields no
+     * algorithm row carries, so without these the allowlist was never driven through them.
+     */
+    static Stream<Arguments> components() {
+        return Stream
+                .concat(PqcParityTest
+                        .assets()
+                        .stream()
+                        .map(name -> Arguments.of(name, PqcEvaluatorTest.algorithm(name))),
+                        Stream
+                                .of(Arguments
+                                        .of("secret-key of 256 bits",
+                                                PqcEvaluatorTest.material("secret-key@1", "secret-key", 256)),
+                                        Arguments
+                                                .of("RSA-2048 private key",
+                                                        PqcEvaluatorTest.material("RSA-2048", "private-key", 2048)),
+                                        Arguments
+                                                .of("certificate", PqcEvaluatorTest
+                                                        .component("certificate", "www.example.test", "{}"))));
+    }
+
     @ParameterizedTest
-    @MethodSource("com.otilm.core.cbom.pqc.PqcParityTest#assets")
-    void nothingOutsideTheAllowlistReachesTheColumn(String name) {
-        PqcDecision decision = decide(name);
+    @MethodSource("components")
+    void nothingOutsideTheAllowlistReachesTheColumn(String name, JsonNode component) {
+        PqcDecision decision = decide(component);
         assertThat(decision.evaluatedFields().keySet())
                 .describedAs("evidence keys for %s", name)
                 .isSubsetOf(PqcRules.EVIDENCE_FIELDS);
@@ -65,9 +90,9 @@ class PqcEvidenceAllowlistTest {
      * The adversarial case below records the difference rather than pretending it away.
      */
     @ParameterizedTest
-    @MethodSource("com.otilm.core.cbom.pqc.PqcParityTest#assets")
-    void noRenderedEvidenceNamesAKeyBearingField(String name) {
-        PqcDecision decision = decide(name);
+    @MethodSource("components")
+    void noRenderedEvidenceNamesAKeyBearingField(String name, JsonNode component) {
+        PqcDecision decision = decide(component);
         assertThat(JsonColumnText.render(decision.evaluatedFields())).isNotNull();
         // The keys, not the values: the keys are ours and closed, the values are producer text that a producer can
         // spell however it likes. Asserting the regex over the whole rendered blob reads as a guarantee about the
@@ -85,7 +110,7 @@ class PqcEvidenceAllowlistTest {
     @Test
     void anAdversarialProducerNameIsEchoedRatherThanLeaking() {
         String keyShaped = "identity key " + "a".repeat(64);
-        PqcDecision decision = decide(keyShaped);
+        PqcDecision decision = decide(PqcEvaluatorTest.algorithm(keyShaped));
 
         assertThat(decision.ruleId()).isEqualTo(PqcRules.FAMILY_UNRESOLVED);
         assertThat(decision.evaluatedFields())
@@ -122,15 +147,15 @@ class PqcEvidenceAllowlistTest {
                 .fromNormalized(normalizer.normalize(PqcEvaluatorTest.algorithm("RSA-2048")).asset(), null);
         List<String> rogueFields = List.of("identityKey");
 
-        // The evaluator's own check, not AssertJ's. An earlier revision asserted that containsAll threw, which tested
-        // AssertJ and would have passed with the production guard deleted.
+        // The allowlist guard's own text, not the field name: the exhaustiveness default in the projection's switch
+        // also throws with the field name in it, so matching on that let either guard be deleted alone.
         assertThatThrownBy(() -> PqcEvaluator.projectEvidence(rogueFields, input, null, "ROGUE"))
                 .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("outside the allowlist")
                 .hasMessageContaining("identityKey");
     }
 
-    private PqcDecision decide(String name) {
-        var component = PqcEvaluatorTest.algorithm(name);
+    private PqcDecision decide(JsonNode component) {
         var properties = component.get("cryptoProperties");
         return evaluator
                 .evaluate(evaluator.fromNormalized(normalizer.normalize(component).asset(), properties),

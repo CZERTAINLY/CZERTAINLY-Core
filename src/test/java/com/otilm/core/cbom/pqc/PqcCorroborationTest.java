@@ -73,6 +73,14 @@ class PqcCorroborationTest {
     }
 
     /**
+     * {@code isIntegralNumber} accepts a long and {@code intValue} truncates it, so 4294967299 read as a plausible 3.
+     */
+    @Test
+    void aLevelOutsideTheIntRangeIsAbsentRatherThanTruncated() {
+        assertThat(decide("SHA-384", "4294967299").evaluatedFields()).doesNotContainKey("nistQuantumSecurityLevel");
+    }
+
+    /**
      * The structural half: no rule can read it, because the type a predicate sees does not hold it.
      *
      * <p>

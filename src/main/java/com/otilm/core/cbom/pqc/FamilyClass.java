@@ -1,6 +1,8 @@
 package com.otilm.core.cbom.pqc;
 
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * Why a family reaches its verdict. The rule id travels to the client, so "broken" stays distinct from "no standard".
@@ -42,10 +44,19 @@ public enum FamilyClass {
 
     /**
      * The token spans several primitive kinds and the properties do not say which. {@code GOST} covers a hash, two
-     * block ciphers and an EC signature; {@code RIPEMD} covers a broken 128-bit digest and RIPEMD-160.
+     * block ciphers and an EC signature; {@code RIPEMD} covers a broken 128-bit digest and RIPEMD-160. The reason names
+     * the classical axis, because RIPEMD's split is classical: no RIPEMD member is quantum-vulnerable.
      */
     FAMILY_AMBIGUOUS(PqcVerdict.UNKNOWN, "FAMILY-AMBIGUOUS",
-            "The family covers both quantum-vulnerable and quantum-resistant primitives, and the recorded properties do not say which");
+            "The family covers both a classically broken and an unbroken primitive, and the recorded properties do not say which");
+
+    /**
+     * Which post-quantum component decides a hybrid, most decisive first. A standardised component wins outright.
+     * Between a broken candidate and a pre-standard one the broken one decides: it is the more severe finding, and a
+     * pre-standard draft beside it must not mask it.
+     */
+    private static final List<FamilyClass> HYBRID_PRECEDENCE = List
+            .of(PQC_STANDARDIZED, PQC_HYBRID, PQC_BROKEN, PQC_PRESTANDARD);
 
     private final PqcVerdict verdict;
     private final String ruleId;
@@ -67,5 +78,13 @@ public enum FamilyClass {
 
     public String reason() {
         return reason;
+    }
+
+    public boolean isPostQuantum() {
+        return HYBRID_PRECEDENCE.contains(this);
+    }
+
+    public static Comparator<FamilyClass> byHybridPrecedence() {
+        return Comparator.comparingInt(HYBRID_PRECEDENCE::indexOf);
     }
 }

@@ -1,5 +1,6 @@
 package com.otilm.core.cbom.pqc;
 
+import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.core.cbom.asset.identity.IdentityTables;
 import java.util.Map;
 import java.util.Set;
@@ -77,13 +78,36 @@ class PqcFamiliesTest {
      */
     @Test
     void onlyTheStandardisedSchemesAreReadyOnPostQuantumGrounds() {
-        Set<String> standardized = new TreeSet<>();
+        assertThat(familiesIn(FamilyClass.PQC_STANDARDIZED))
+                .containsExactlyInAnyOrder("ML-KEM", "ML-DSA", "SLH-DSA", "XMSS", "LMS");
+    }
+
+    /**
+     * The ready column, pinned by size, and the one other class that answers {@code ready} on post-quantum grounds,
+     * pinned by membership. Moving a pre-standard scheme into either used to leave the whole suite green; now the move
+     * has to be declared here in the same commit.
+     */
+    @Test
+    void aMoveIntoTheReadyColumnMustBeDeclared() {
+        assertThat(familiesIn(FamilyClass.PQC_HYBRID)).containsExactly("X-Wing");
+
+        Set<String> ready = new TreeSet<>();
         PqcFamilies.dispositions().forEach((family, disposition) -> {
-            if (disposition == FamilyClass.PQC_STANDARDIZED) {
-                standardized.add(family);
+            if (disposition.verdict() == PqcVerdict.READY) {
+                ready.add(family);
             }
         });
-        assertThat(standardized).containsExactlyInAnyOrder("ML-KEM", "ML-DSA", "SLH-DSA", "XMSS", "LMS");
+        assertThat(ready).hasSize(55);
+    }
+
+    private static Set<String> familiesIn(FamilyClass disposition) {
+        Set<String> families = new TreeSet<>();
+        PqcFamilies.dispositions().forEach((family, candidate) -> {
+            if (candidate == disposition) {
+                families.add(family);
+            }
+        });
+        return families;
     }
 
     /**
@@ -144,13 +168,13 @@ class PqcFamiliesTest {
      */
     @Test
     void theRuleSetIsPinnedToTheTablesItWasAuthoredAgainst() throws Exception {
-        byte[] tables;
+        byte[] artifact;
         try (var in = IdentityTables.class.getClassLoader().getResourceAsStream("cbom/identity-tables.json")) {
-            tables = in.readAllBytes();
+            artifact = in.readAllBytes();
         }
         String digest = java.util.HexFormat
                 .of()
-                .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(tables));
+                .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(artifact));
 
         assertThat(digest).isEqualTo("689676ea84873545eb25bcecb527f138e09fc3968e42bff2d07343f6dbfa7945");
     }
