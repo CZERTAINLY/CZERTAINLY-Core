@@ -93,11 +93,10 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     public List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled, SecurityFilter filter) {
         logger.info("Listing token profiles");
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
-        return tokenProfileRepository
-                .findFullModelsUsingSecurityFilter(filter, enabled)
-                .stream()
-                .map(TokenProfileDtoMapper::mapToDto)
-                .toList();
+        List<TokenProfileFullModel> tokenProfiles = enabled
+                .map(value -> tokenProfileRepository.findFullModelsUsingSecurityFilter(filter, value))
+                .orElseGet(() -> tokenProfileRepository.findFullModelsUsingSecurityFilter(filter));
+        return tokenProfiles.stream().map(TokenProfileDtoMapper::mapToDto).toList();
     }
 
     @Override

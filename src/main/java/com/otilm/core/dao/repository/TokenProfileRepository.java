@@ -54,16 +54,20 @@ public interface TokenProfileRepository extends SecurityFilterRepository<TokenPr
                 .map(ImmutableTokenProfileFullModel::from);
     }
 
-    default List<TokenProfileFullModel> findFullModelsUsingSecurityFilter(SecurityFilter filter,
-            Optional<Boolean> enabled) {
-        List<TokenProfile> profiles;
-        if (enabled.isPresent()) {
-            profiles = findUsingSecurityFilter(filter, List.of("tokenInstanceReference"), (Root<TokenProfile> root,
-                    CriteriaBuilder cb, CriteriaQuery<?> query) -> cb.equal(root.get("enabled"), enabled.get()));
-        } else {
-            profiles = findUsingSecurityFilter(filter, List.of("tokenInstanceReference"), null);
-        }
-        return profiles.stream().<TokenProfileFullModel>map(ImmutableTokenProfileFullModel::from).toList();
+    default List<TokenProfileFullModel> findFullModelsUsingSecurityFilter(SecurityFilter filter) {
+        return findUsingSecurityFilter(filter, List.of("tokenInstanceReference"), null)
+                .stream()
+                .<TokenProfileFullModel>map(ImmutableTokenProfileFullModel::from)
+                .toList();
+    }
+
+    default List<TokenProfileFullModel> findFullModelsUsingSecurityFilter(SecurityFilter filter, boolean enabled) {
+        return findUsingSecurityFilter(filter, List.of("tokenInstanceReference"),
+                (Root<TokenProfile> root, CriteriaBuilder cb, CriteriaQuery<?> query) -> cb
+                        .equal(root.get("enabled"), enabled))
+                .stream()
+                .<TokenProfileFullModel>map(ImmutableTokenProfileFullModel::from)
+                .toList();
     }
 
 }
