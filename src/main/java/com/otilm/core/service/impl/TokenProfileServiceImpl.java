@@ -116,10 +116,12 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
             AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException,
             AttributeException, NotFoundException {
         logger.info("Creating token profile with name: {}", request.getName());
-        if (StringUtils.isBlank(request.getName()))
+        if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("Token Profile name must not be empty"));
-        if (tokenProfileRepository.existsByName(request.getName()))
+        }
+        if (tokenProfileRepository.existsByName(request.getName())) {
             throw new AlreadyExistException(TokenProfile.class, request.getName());
+        }
         ensureTokenExists(tokenInstanceUuid.getValue(), tokenInstanceUuid);
         attributeEngine.validateCustomAttributesContent(Resource.TOKEN_PROFILE, request.getCustomAttributes());
         validateTokenProfileAttributes(tokenInstanceUuid.getValue(), request.getAttributes());
@@ -170,7 +172,7 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DELETE,
             parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void deleteTokenProfile(List<SecuredUUID> uuids) {
-        for (SecuredUUID uuid : uuids)
+        for (SecuredUUID uuid : uuids) {
             try {
                 tokenProfileWriter.deleteForBulk(uuid.getValue());
             } catch (NotFoundException e) {
@@ -178,6 +180,7 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
             } catch (ValidationException e) {
                 logger.warn(e.getMessage());
             }
+        }
     }
 
     @Override
@@ -198,12 +201,13 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE,
             parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void updateKeyUsages(List<SecuredUUID> uuids, List<KeyUsage> usages) {
-        for (SecuredUUID uuid : uuids)
+        for (SecuredUUID uuid : uuids) {
             try {
                 tokenProfileWriter.setUsages(uuid.getValue(), usages);
             } catch (Exception e) {
                 logger.warn(e.getMessage());
             }
+        }
     }
 
     @Override
@@ -238,8 +242,9 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         ImmutableTokenProfileBasicModel profile = findBasicModel(uuid.getValue());
-        if (profile.tokenInstanceReferenceUuid() != null)
+        if (profile.tokenInstanceReferenceUuid() != null) {
             enforceParentDetail(profile);
+        }
     }
 
     @Override
@@ -276,8 +281,9 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     }
 
     private void ensureTokenExists(UUID tokenUuid, SecuredParentUUID securedTokenUuid) throws NotFoundException {
-        if (!tokenInstanceReferenceRepository.existsByUuid(tokenUuid))
+        if (!tokenInstanceReferenceRepository.existsByUuid(tokenUuid)) {
             throw new NotFoundException(TokenInstanceReferenceRepository.class, securedTokenUuid);
+        }
     }
 
     private void validateTokenProfileAttributes(UUID tokenUuid, List<RequestAttribute> attributes)
@@ -295,11 +301,12 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     }
 
     private void setEnabledForBulk(List<SecuredUUID> uuids, boolean enabled) {
-        for (SecuredUUID uuid : uuids)
+        for (SecuredUUID uuid : uuids) {
             try {
                 tokenProfileWriter.setEnabled(uuid.getValue(), enabled);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find Token Profile with uuid {}. It may have already been deleted", uuid);
             }
+        }
     }
 }
