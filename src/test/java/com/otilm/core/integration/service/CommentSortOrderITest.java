@@ -74,7 +74,7 @@ class CommentSortOrderITest extends BaseSpringBootTest {
         save("first reply", rootUuid, SECOND_INSTANT);
         save("second reply", rootUuid, THIRD_INSTANT);
 
-        CommentResponseDto response = commentService.listReplies(rootUuid, pagination(SortDirection.DESC, 10, 1));
+        CommentResponseDto response = commentService.listReplies(rootUuid, null, pagination(SortDirection.DESC, 10, 1));
 
         assertThat(response.getComments())
                 .extracting(CommentDto::getBody)
@@ -150,6 +150,6 @@ class CommentSortOrderITest extends BaseSpringBootTest {
     private CommentResponseDto listRoots(SortedPaginationRequestDto pagination) throws NotFoundException {
         return commentService
                 .listComments(SecuredResource.fromResource(Resource.RA_PROFILE), SecuredUUID.fromUUID(raProfileUuid),
-                        pagination);
+                        null, pagination);
     }
 }
