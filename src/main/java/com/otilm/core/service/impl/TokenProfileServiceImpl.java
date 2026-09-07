@@ -262,7 +262,7 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
                 .setAttributes(attributeEngine
                         .getObjectDataAttributesContent(ObjectAttributeContentInfo
                                 .builder(Resource.TOKEN_PROFILE, profile.uuid())
-                                .connector(profile.connectorUuid().orElse(null))
+                                .connector(profile.connectorUuid())
                                 .build()));
         return dto;
     }
