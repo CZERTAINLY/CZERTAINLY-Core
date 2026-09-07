@@ -242,9 +242,7 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         ImmutableTokenProfileBasicModel profile = findBasicModel(uuid.getValue());
-        if (profile.tokenInstanceReferenceUuid() != null) {
-            enforceParentDetail(profile);
-        }
+        enforceParentDetail(profile);
     }
 
     @Override
