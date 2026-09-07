@@ -17,7 +17,6 @@ import jakarta.persistence.criteria.Root;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,10 +30,6 @@ public interface TokenProfileRepository extends SecurityFilterRepository<TokenPr
     Optional<TokenProfile> findByName(String name);
 
     boolean existsByName(String name);
-
-    @EntityGraph(attributePaths = "tokenInstanceReference")
-    @Query("SELECT profile FROM TokenProfile profile WHERE profile.uuid = :uuid")
-    Optional<TokenProfile> findWithTokenInstanceByUuid(@Param("uuid") UUID uuid);
 
     @Query("""
             SELECT profile FROM TokenProfile profile
