@@ -130,7 +130,10 @@ public interface TokenInstanceExternalService {
      * Lists the key usages supported by the token instance.
      *
      * @param tokenInstanceUuid the UUID of the token instance
-     * @return a list of {@link KeyUsage} values supported by the token instance
+     * @return a list of {@link KeyUsage} values supported by the token instance; for v1 connectors, all values are
+     * returned
+     * @throws NotFoundException when the token instance is not found
+     * @throws ConnectorException when there are issues with connector communication or error from connector
      */
     List<KeyUsage> listSupportedKeyUsages(SecuredUUID tokenInstanceUuid) throws NotFoundException, ConnectorException;
 
