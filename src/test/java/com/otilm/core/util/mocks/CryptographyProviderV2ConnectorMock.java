@@ -103,6 +103,13 @@ public class CryptographyProviderV2ConnectorMock extends BaseConnectorMock {
         server
                 .verify(postRequestedFor(
                         WireMock.urlPathEqualTo("/v2/cryptographyProvider/tokens/tokenProfile/attributes"))
+                        .withRequestBody(WireMock.equalToJson(expectedRequestJson)));
+    }
+
+    public void verifyScopedTokenProfileAttributesRequestContaining(String expectedRequestJson) {
+        server
+                .verify(postRequestedFor(
+                        WireMock.urlPathEqualTo("/v2/cryptographyProvider/tokens/tokenProfile/attributes"))
                         .withRequestBody(WireMock.equalToJson(expectedRequestJson, true, true)));
     }
 
@@ -110,10 +117,23 @@ public class CryptographyProviderV2ConnectorMock extends BaseConnectorMock {
         server
                 .verify(postRequestedFor(
                         WireMock.urlPathEqualTo("/v2/cryptographyProvider/tokens/tokenProfile/keyUsages"))
+                        .withRequestBody(WireMock.equalToJson(expectedRequestJson)));
+    }
+
+    public void verifyScopedTokenProfileKeyUsagesRequestContaining(String expectedRequestJson) {
+        server
+                .verify(postRequestedFor(
+                        WireMock.urlPathEqualTo("/v2/cryptographyProvider/tokens/tokenProfile/keyUsages"))
                         .withRequestBody(WireMock.equalToJson(expectedRequestJson, true, true)));
     }
 
     public void verifyScopedTokenStatusRequest(String expectedRequestJson) {
+        server
+                .verify(postRequestedFor(WireMock.urlPathEqualTo("/v2/cryptographyProvider/tokens/status"))
+                        .withRequestBody(WireMock.equalToJson(expectedRequestJson)));
+    }
+
+    public void verifyScopedTokenStatusRequestContaining(String expectedRequestJson) {
         server
                 .verify(postRequestedFor(WireMock.urlPathEqualTo("/v2/cryptographyProvider/tokens/status"))
                         .withRequestBody(WireMock.equalToJson(expectedRequestJson, true, true)));

@@ -170,7 +170,7 @@ class TokenInstanceServiceV2ITest extends BaseSpringBootTest {
 
         // then
         assertNotNull(attributes);
-        connectorMock.verifyScopedTokenProfileAttributesRequest(expectedScopedRequest);
+        connectorMock.verifyScopedTokenProfileAttributesRequestContaining(expectedScopedRequest);
     }
 
     @Test
@@ -193,7 +193,7 @@ class TokenInstanceServiceV2ITest extends BaseSpringBootTest {
         assertEquals(TokenInstanceStatus.CONNECTED, reloaded.getStatus());
         String expectedScopedRequest = "{\"tokenAttributes\":[{\"name\":\"" + attributeName
                 + "\",\"content\":[{\"data\":\"" + attributeValue + "\"}]}]}";
-        connectorMock.verifyScopedTokenStatusRequest(expectedScopedRequest);
+        connectorMock.verifyScopedTokenStatusRequestContaining(expectedScopedRequest);
     }
 
     @Test
@@ -296,7 +296,7 @@ class TokenInstanceServiceV2ITest extends BaseSpringBootTest {
 
         // then
         assertEquals(List.of(KeyUsage.SIGN, KeyUsage.ENCRYPT), usages);
-        connectorMock.verifyScopedTokenProfileKeyUsagesRequest(expectedScopedRequest);
+        connectorMock.verifyScopedTokenProfileKeyUsagesRequestContaining(expectedScopedRequest);
     }
 
     @Test
