@@ -9,7 +9,9 @@ import com.otilm.core.cbom.asset.OccurrenceEvidenceCapper;
 import com.otilm.core.serialization.ObjectMapperFactory;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -33,6 +35,20 @@ class CbomAssetExtractorTest {
             new CryptoAssetIdentity(new AssetNormalizer(IdentityTables.load())));
 
     // ---------------------------------------------------------------- extraction
+
+    /** A redaction finding survives to the extraction boundary, where core#2073 can wire it to a report. */
+    @Test
+    void anIngestFindingReachesTheExtractionBoundary() {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"k\","
+                        + "\"cryptoProperties\":{\"assetType\":\"relatedCryptoMaterial\","
+                        + "\"relatedCryptoMaterialProperties\":{\"type\":\"private-key\","
+                        + "\"value\":\"-----BEGIN PRIVATE KEY-----AAAA-----END PRIVATE KEY-----\"}}}]}"));
+
+        assertThat(extraction.assets()).hasSize(1);
+        assertThat(extraction.assets().get(0).findings())
+                .anySatisfy(finding -> assertThat(finding).contains("producer inlined a value"));
+    }
 
     @Test
     void nestedComponentTreesAreWalkedToTheirLeaves() {
@@ -85,26 +101,138 @@ class CbomAssetExtractorTest {
     // ---------------------------------------------------------------- determinism
 
     /**
-     * An asset's identity is a function of the asset, so permuting the document cannot change what results.
+     * An asset's identity is a function of the asset and of what its document says about it, never of where in the
+     * document it sits, so permuting the document cannot change what results.
      *
      * <p>
      * This is the property the whole inventory rests on: two nodes, two releases and two re-ingests of one document
      * must agree, and the merge must not depend on which producer synced first.
+     *
+     * <p>
+     * Five flat, self-contained components cannot test it: with no reference, no duplicated {@code bom-ref}, no shared
+     * digest and no shared suite code there is no document-scoped state for order to reach, and first-in-document-order
+     * reference resolution passed such a fixture. The document here carries every kind of that state -- a reference
+     * from a certificate into a nested library, a duplicated ref that a certificate points at, two certificates
+     * contradicting one another about one digest, two protocols disagreeing about one suite code -- and each is proven
+     * live before the permutation is asserted, because a refutation that never fired would leave this test green
+     * whatever the walker did with order.
      */
     @Test
     void permutingTheDocumentChangesNothingButOrder() {
         List<String> components = new ArrayList<>(List
                 .of(algorithm("AES-256"), algorithm("RSA-2048"), algorithm("SHA-256"), certificate("a"),
-                        certificate("b")));
-        List<String> forward = keysOf(components);
+                        certificate("b"), material("dup-first", "k", "AQID"), material("dup-second", "k", "BAUG"),
+                        certificateReferencing("ambiguous", "k"), certificateReferencing("dangling", "nowhere"),
+                        library("outer", algorithm("ChaCha20"), material("nested-key", "u", "AAAA")),
+                        certificateReferencing("resolving", "u"), certificateWithDigest("digest-one", "one"),
+                        certificateWithDigest("digest-two", "two"),
+                        protocolWithSuite("tls-one", "TLS_AES_128_GCM_SHA256"),
+                        protocolWithSuite("tls-two", "TLS_CHACHA20_POLY1305_SHA256"),
+                        material("second-key", "v", "BBBB"), certificateReferencingKeys("two-keys", "u", "v")));
+        Map<String, Row> forward = rowsByName(components);
+        assertThatEveryDocumentScopedEffectIsLive(forward);
 
         Collections.reverse(components);
-        List<String> reversed = keysOf(components);
+        Map<String, Row> reversed = rowsByName(components);
         Collections.shuffle(components, new java.util.Random(20260827));
-        List<String> shuffled = keysOf(components);
+        Map<String, Row> shuffled = rowsByName(components);
 
-        assertThat(reversed).containsExactlyInAnyOrderElementsOf(forward);
-        assertThat(shuffled).containsExactlyInAnyOrderElementsOf(forward);
+        assertThat(reversed).isEqualTo(forward);
+        assertThat(shuffled).isEqualTo(forward);
+    }
+
+    /**
+     * Order inside a component is a serialization of the document as much as the order of its components is.
+     *
+     * <p>
+     * {@code subjectPublicKeyRef} took the first related-asset entry typed {@code public-key}, so a certificate
+     * carrying two of them keyed differently depending on which was written first -- one level below the rule that a
+     * duplicated {@code bom-ref} resolves to nothing. The permutation fixture shuffles components, not this array, so
+     * the pair is transposed here. Two entries name nothing, exactly as the duplicated ref does.
+     */
+    @Test
+    void transposingTwoPublicKeyEntriesChangesNothing() {
+        String keys = material("first-key", "u", "AAAA") + "," + material("second-key", "v", "BBBB") + ",";
+        Map<String, Row> forward = rowsByName(List
+                .of(keys + certificateReferencingKeys("two-keys", "u", "v") + ","
+                        + certificateReferencing("none", "nowhere")));
+        Map<String, Row> transposed = rowsByName(List
+                .of(keys + certificateReferencingKeys("two-keys", "v", "u") + ","
+                        + certificateReferencing("none", "nowhere")));
+
+        assertThat(transposed).containsEntry("two-keys", forward.get("two-keys"));
+        assertThat(forward.get("two-keys").identityKey())
+                .describedAs("an ambiguous public-key reference resolves to nothing, as a dangling one does")
+                .isEqualTo(forward.get("none").identityKey());
+    }
+
+    /**
+     * A permutation test proves nothing about state that never fired, so each document-scoped effect is asserted live
+     * first. The referencing certificates share one subject, issuer and validity, so their keys can differ only through
+     * what the reference resolved to.
+     */
+    private static void assertThatEveryDocumentScopedEffectIsLive(Map<String, Row> rows) {
+        assertThat(rows).hasSize(18);
+        assertThat(rows.get("resolving").identityKey())
+                .describedAs("the reference into the nested library resolved and filled the composite's key slot")
+                .isNotEqualTo(rows.get("dangling").identityKey());
+        assertThat(rows.get("ambiguous").identityKey())
+                .describedAs("a duplicated ref resolves to nothing, exactly as a dangling one does")
+                .isEqualTo(rows.get("dangling").identityKey());
+        assertThat(rows.get("two-keys").identityKey())
+                .describedAs("and so do two public-key entries on one certificate")
+                .isEqualTo(rows.get("dangling").identityKey());
+        assertThat(List.of(rows.get("digest-one").chainStep(), rows.get("digest-two").chainStep()))
+                .describedAs("the contradicted digest was refused and both certificates fell to the composite")
+                .containsOnly("crt:dn-composite");
+        assertThat(rows.get("tls-one").identityKey())
+                .describedAs("the refuted suite code fell back to two different suite names")
+                .isNotEqualTo(rows.get("tls-two").identityKey());
+    }
+
+    /**
+     * The object-shaped {@code value} arm of the composite's key slot, which no ratified vector reaches.
+     *
+     * <p>
+     * {@code asText()} on a container yields the empty string rather than null, so every certificate pointing at a
+     * target whose {@code sha256} was an object or an array used to render the bare discriminator {@code K:} -- and a
+     * JSON null rendered {@code K:null}, a boolean {@code K:true}. Read as the absent claim it is instead, which is the
+     * same reading a blank fingerprint content already gets. Note what that does and does not buy: it stops a malformed
+     * digest impersonating a real one, but two certificates pointing at two different KEYLESS material targets still
+     * share an empty slot, because the fallback below discriminates an algorithm target only. That over-merge is the
+     * first of the open findings on core#2165, not something this closes.
+     */
+    @Test
+    void aMalformedKeyDigestReadsAsTheAbsentClaimItIs() {
+        Map<String, Row> rows = rowsByName(List
+                .of(certificateReferencing("cert-upper", "k-upper"), certificateReferencing("cert-lower", "k-lower"),
+                        certificateReferencing("cert-other", "k-other"),
+                        certificateReferencing("cert-container", "k-container"),
+                        certificateReferencing("cert-json-null", "k-json-null"),
+                        certificateReferencing("cert-keyless", "k-keyless"),
+                        publicKeyWithValue("k-upper", "{\"sha256\":\"" + "AB".repeat(32) + "\"}"),
+                        publicKeyWithValue("k-lower", "{\"sha256\":\"" + "ab".repeat(32) + "\"}"),
+                        publicKeyWithValue("k-other", "{\"sha256\":\"" + "cd".repeat(32) + "\"}"),
+                        publicKeyWithValue("k-container", "{\"sha256\":{}}"),
+                        publicKeyWithValue("k-json-null", "{\"sha256\":null}"), publicKeyWithValue("k-keyless", null)));
+
+        assertThat(rows.get("cert-upper").identityKey())
+                .describedAs("one digest spelled two ways is one key: the textual arm renders lowercase hex, so an "
+                        + "uppercase spelling keyed apart from it until the fold")
+                .isEqualTo(rows.get("cert-lower").identityKey());
+        assertThat(rows.get("cert-other").identityKey())
+                .describedAs("two different digests still discriminate, so the fold above is not vacuous")
+                .isNotEqualTo(rows.get("cert-lower").identityKey());
+        assertThat(rows.get("cert-container").identityKey())
+                .describedAs("a container sha256 is no digest, so it must not render a discriminator a real digest "
+                        + "could never produce")
+                .isEqualTo(rows.get("cert-keyless").identityKey());
+        assertThat(rows.get("cert-json-null").identityKey())
+                .describedAs("a JSON null keyed as the literal text `null` before this")
+                .isEqualTo(rows.get("cert-keyless").identityKey());
+        assertThat(rows.get("cert-container").identityKey())
+                .describedAs("a malformed digest must not impersonate a real one")
+                .isNotEqualTo(rows.get("cert-lower").identityKey());
     }
 
     @Test
@@ -138,7 +266,7 @@ class CbomAssetExtractorTest {
 
         assertThat(extraction.skips()).isEmpty();
         assertThat(extraction.assets()).hasSize(1);
-        assertThat(extraction.assets().get(0).key()).hasSize(64);
+        assertThat(extraction.assets().get(0).identityKey()).hasSize(64);
     }
 
     @ParameterizedTest
@@ -152,6 +280,24 @@ class CbomAssetExtractorTest {
 
         assertThat(extraction.assets()).isEmpty();
         assertThat(extraction.skips()).isEmpty();
+    }
+
+    /**
+     * A caller passing no batch index passes {@code null} as easily as an empty set, and {@code null} used to reach
+     * {@code addAll} inside the certificate tier -- so every certificate in the document became a silent skip while
+     * every other asset type extracted.
+     */
+    @Test
+    void aNullBatchIsAnEmptyBatch() {
+        JsonNode document = read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"cert\","
+                + "\"cryptoProperties\":{\"assetType\":\"certificate\",\"certificateProperties\":"
+                + "{\"subjectName\":\"CN=a\",\"issuerName\":\"CN=ca\"}}}]}");
+
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR.extract(document, null);
+
+        assertThat(extraction.skips()).isEmpty();
+        assertThat(extraction.assets()).hasSize(1);
+        assertThat(extraction.documentScopeUnavailable()).isFalse();
     }
 
     @Test
@@ -278,6 +424,202 @@ class CbomAssetExtractorTest {
         assertThat(extraction.assets()).hasSize(1);
     }
 
+    /**
+     * A string with no UTF-8 encoding in a stored surface is a reported skip, whichever tier keyed the row.
+     *
+     * <p>
+     * {@code IdentityDigests.sha256Hex} refuses an unpaired surrogate in a pre-image, so a suite name carrying one was
+     * a skip while the suite digest ran for every protocol row. Once the digest ran only on the versioned tier, a
+     * version-less row keyed on {@code prt:type+name} and its retained payload carried a string the {@code jsonb}
+     * evidence column cannot encode -- the failure that once rolled back a whole source upsert. The same was true all
+     * along for a member no tier reads at all, such as an extension in {@code algorithmProperties} on a row keyed by
+     * family. The rule is now stated at the extraction boundary, over what persistence receives.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"type\":\"cryptographic-asset\",\"name\":\"ep\",\"cryptoProperties\":{\"assetType\":\"protocol\","
+                    + "\"protocolProperties\":{\"type\":\"tls\",\"cipherSuites\":[{\"name\":\"TLS_BAD\\ud800\"}]}}}",
+            "{\"type\":\"cryptographic-asset\",\"name\":\"alg\",\"cryptoProperties\":{\"assetType\":\"algorithm\","
+                    + "\"algorithmProperties\":{\"primitive\":\"hash\",\"vendorNote\":\"x\\ud800\"}}}",
+            // The name sits outside this tier's pre-image -- the value-hash tier reads the material alone -- so only
+            // the boundary check can refuse it. On a family-less algorithm the name reached the pre-image and the
+            // digest refused it first, which pinned nothing here.
+            "{\"type\":\"cryptographic-asset\",\"name\":\"bad\\udc00name\",\"cryptoProperties\":"
+                    + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                    + "{\"type\":\"private-key\",\"value\":\"AAAAAAAA\"}}}",
+            // The findings echo a producer member name the redaction dropped. On the value-hash tier no pre-image
+            // reads that member, and the stored payload no longer carries it, so the findings are the only surface
+            // it reaches.
+            "{\"type\":\"cryptographic-asset\",\"name\":\"k\",\"cryptoProperties\":"
+                    + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                    + "{\"type\":\"private-key\",\"value\":\"AAAAAAAA\",\"bad\\ud800\":\"x\"}}}",
+            // The second route into the findings, which works on every tier: the reference array is stripped from
+            // every pre-image and its dropped member names are echoed.
+            "{\"type\":\"cryptographic-asset\",\"name\":\"k\",\"cryptoProperties\":"
+                    + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                    + "{\"type\":\"private-key\",\"relatedCryptographicAssets\":[{\"ref\":\"u\",\"pem\\ud800\":\"x\"}]}}}"})
+    void anUnencodableStoredStringIsASkipWhateverTierKeyedTheRow(String component) {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR.extract(read("{\"components\":[" + component + "]}"));
+
+        assertThat(extraction.assets()).isEmpty();
+        assertThat(extraction.skips())
+                .singleElement()
+                .satisfies(skip -> assertThat(skip.reason()).isEqualTo("IllegalArgumentException"));
+    }
+
+    /**
+     * Every fixture above must key on {@code origin/main}'s rule too, or it pins the boundary check for nothing: a
+     * component whose surrogate a pre-image already refused was a skip before the check existed. The surrogate-free
+     * spelling of each keys, which is what says the surrogate alone -- not the shape -- costs the row.
+     */
+    @Test
+    void theUnencodableFixturesAreKeyableWithoutTheirSurrogate() {
+        String[] fixtures = {
+                "{\"type\":\"cryptographic-asset\",\"name\":\"badname\",\"cryptoProperties\":"
+                        + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                        + "{\"type\":\"private-key\",\"value\":\"AAAAAAAA\"}}}",
+                "{\"type\":\"cryptographic-asset\",\"name\":\"k\",\"cryptoProperties\":"
+                        + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                        + "{\"type\":\"private-key\",\"value\":\"AAAAAAAA\",\"bad\":\"x\"}}}",
+                "{\"type\":\"cryptographic-asset\",\"name\":\"k\",\"cryptoProperties\":"
+                        + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                        + "{\"type\":\"private-key\",\"relatedCryptographicAssets\":[{\"ref\":\"u\",\"pem\":\"x\"}]}}}"};
+        for (String fixture : fixtures) {
+            CbomAssetExtractor.Extraction extraction = EXTRACTOR.extract(read("{\"components\":[" + fixture + "]}"));
+            assertThat(extraction.skips()).describedAs(fixture).isEmpty();
+            assertThat(extraction.assets()).describedAs(fixture).hasSize(1);
+        }
+    }
+
+    // ---------------------------------------------------------------- printed forms
+
+    /**
+     * The hand-written {@code toString} overrides are load-bearing, so what they omit is asserted.
+     *
+     * <p>
+     * A record prints every component, and anything that logs an extraction -- or a collection holding one -- prints
+     * the records inside it. The logging fence judges call sites by the words on the line, so a record printed through
+     * {@code {}} carries its components past the fence with nothing for a regex to see. Deleting the override left
+     * every fence test green and put the stored value in the generated printout; the only test touching a printed form
+     * asserted that the <em>material secret</em> was absent, which the default printout also satisfies. The positive
+     * assertion is there so a printout of nothing cannot pass.
+     */
+    @Test
+    void aPrintedExtractionNamesTheComponentAndNeverTheStoredValue() {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[" + algorithm("RSA-2048") + "]}"));
+        CbomAssetExtractor.ExtractedAsset asset = extraction.assets().get(0);
+
+        assertThat(asset.toString())
+                .contains("RSA-2048")
+                .contains(asset.chainStep())
+                .doesNotContain(asset.identityKey());
+        assertThat(extraction.toString())
+                .describedAs("the outer record recurses into the inner one")
+                .contains("RSA-2048")
+                .doesNotContain(asset.identityKey());
+    }
+
+    // ---------------------------------------------------------------- refused locations
+
+    /**
+     * An occurrence whose stated location renders as no location is recorded; one that stated none is not.
+     *
+     * <p>
+     * Every mechanism that renders a stated location as the empty string keys onto the row an absent location keys,
+     * {@code #7#3} in the triple, and through the real extractor every input here does. The key cannot separate them,
+     * because this slot is unescaped and any sentinel a producer can also spell; the finding is what does. The stated
+     * inputs each record exactly one line naming the occurrence and never the location, which is the string that may
+     * hold the credential the sanitizer removed. The absent class -- member absent, JSON null, blank -- records
+     * nothing, because blank is absent in every slot of the chain, and line breaks are whitespace to it.
+     *
+     * <p>
+     * The keys are asserted equal on purpose: the reference operation is untouched by the recording, and a future
+     * sentinel that split them would re-key every occurrence row and diverge from the kernel.
+     */
+    @Test
+    void aStatedLocationThatRendersAsNothingIsRecordedWhereAnAbsentOneIsNot() {
+        CbomAssetExtractor.ExtractedAsset absent = occurrenceRow(null);
+        assertThat(absent.chainStep()).isEqualTo("prt:type+occurrence");
+        assertThat(absent.findings()).isEmpty();
+        assertThat(occurrenceRow("\"/a/b.java\"").identityKey())
+                .describedAs("a real location keys apart, so the equalities below are not vacuous")
+                .isNotEqualTo(absent.identityKey());
+
+        List<String> statedNothing = List.of("null", "\"   \"", "\"\\u00a0\\u00a0\"", "\"\\r\\n\"");
+        for (String location : statedNothing) {
+            CbomAssetExtractor.ExtractedAsset row = occurrenceRow(location);
+            assertThat(row.identityKey()).describedAs(location).isEqualTo(absent.identityKey());
+            assertThat(row.findings()).describedAs("%s is absent, not refused", location).isEmpty();
+        }
+
+        List<String> statedAndEmptied = List
+                .of("42", "true", "{}", "[]", "\"?sig=abc\"", "\"?X-Amz-Signature=\"", "\"#?tok=1\"", "\"#\"", "\"##\"",
+                        "\"\\ud800\"", "\"\\ud800 ?a\"", "\"#" + " ".repeat(1030) + "a\"",
+                        "\"" + "a".repeat(64 * 1024 + 1) + "\"", "\"//u:p@" + "/u:p@".repeat(39) + "host\"");
+        for (String location : statedAndEmptied) {
+            CbomAssetExtractor.ExtractedAsset row = occurrenceRow(location);
+            assertThat(row.identityKey()).describedAs(location).isEqualTo(absent.identityKey());
+            assertThat(row.evidence().get(0)).describedAs(location).containsEntry("location", "");
+            assertThat(row.findings())
+                    .describedAs(location)
+                    .singleElement()
+                    .asString()
+                    .startsWith("occurrence 0: the stated location ")
+                    .doesNotContain("sig")
+                    .doesNotContain("tok")
+                    .doesNotContain("u:p@");
+        }
+    }
+
+    /** A protocol row that reaches the occurrence tier, at one occurrence whose location is the given JSON value. */
+    private static CbomAssetExtractor.ExtractedAsset occurrenceRow(String locationJson) {
+        String location = locationJson == null ? "" : "\"location\":" + locationJson + ",";
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[{\"type\":\"cryptographic-asset\",\"cryptoProperties\":"
+                        + "{\"assetType\":\"protocol\",\"protocolProperties\":{\"type\":\"tls\",\"cipherSuites\":[{}]}},"
+                        + "\"evidence\":{\"occurrences\":[{" + location + "\"line\":7,\"offset\":3}]}}]}"));
+        assertThat(extraction.skips()).isEmpty();
+        return extraction.assets().get(0);
+    }
+
+    /** The occurrence location keeps its own rule: a surrogate there is scrubbed, and the asset survives. */
+    @Test
+    void aSurrogateInALocationIsScrubbedRatherThanCostingTheAsset() {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"TLSv1.2\","
+                        + "\"cryptoProperties\":{\"assetType\":\"protocol\",\"protocolProperties\":{\"type\":\"tls\"}},"
+                        + "\"evidence\":{\"occurrences\":[{\"location\":\"file:///a\\ud800b/key.pem\"}]}}]}"));
+
+        assertThat(extraction.skips()).isEmpty();
+        assertThat(extraction.assets())
+                .singleElement()
+                .satisfies(
+                        asset -> assertThat(asset.evidence().get(0)).containsEntry("location", "file:///ab/key.pem"));
+    }
+
+    /**
+     * An unreadable side field costs its own slot, never the row.
+     *
+     * <p>
+     * Jackson parses {@code 1e400} into a double of infinity, and {@code decimalValue()} on it threw a
+     * {@code NumberFormatException} the extractor caught as a whole-component skip. The vector suite is blind to the
+     * guard because the guard moves no key, so its consequence -- the row -- is pinned here.
+     */
+    @Test
+    void aNonFiniteParameterSetCostsItsSlotAndNotTheRow() {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[{\"type\":\"cryptographic-asset\",\"name\":\"RSA\","
+                        + "\"cryptoProperties\":{\"assetType\":\"algorithm\",\"algorithmProperties\":"
+                        + "{\"parameterSetIdentifier\":1e400}}}]}"));
+
+        assertThat(extraction.skips()).isEmpty();
+        assertThat(extraction.assets())
+                .singleElement()
+                .satisfies(asset -> assertThat(asset.normalized().notes())
+                        .contains(AssetNormalizer.NON_FINITE_PARAMETER_SET_NOTE));
+    }
+
     // ---------------------------------------------------------------- the ingest mapper
 
     /**
@@ -320,12 +662,25 @@ class CbomAssetExtractorTest {
                 .hasMessageNotContaining(secret);
     }
 
-    private static List<String> keysOf(List<String> components) {
-        return keysOf(EXTRACTOR.extract(read("{\"components\":[" + String.join(",", components) + "]}")));
+    private static List<String> keysOf(CbomAssetExtractor.Extraction extraction) {
+        return extraction.assets().stream().map(CbomAssetExtractor.ExtractedAsset::identityKey).sorted().toList();
     }
 
-    private static List<String> keysOf(CbomAssetExtractor.Extraction extraction) {
-        return extraction.assets().stream().map(CbomAssetExtractor.ExtractedAsset::key).sorted().toList();
+    /** What a permutation may not move: which step keyed a component, and what it was keyed as. */
+    private record Row(String chainStep, String identityKey) {
+    }
+
+    private static Map<String, Row> rowsByName(List<String> components) {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[" + String.join(",", components) + "]}"));
+        assertThat(extraction.skips()).isEmpty();
+        Map<String, Row> rows = new HashMap<>();
+        for (CbomAssetExtractor.ExtractedAsset asset : extraction.assets()) {
+            assertThat(rows.put(asset.componentName(), new Row(asset.chainStep(), asset.identityKey())))
+                    .describedAs("component names in the fixture are unique")
+                    .isNull();
+        }
+        return rows;
     }
 
     /** A component tree {@code depth} levels deep with one algorithm asset at the bottom. */
@@ -347,6 +702,60 @@ class CbomAssetExtractorTest {
         return "{\"type\":\"cryptographic-asset\",\"name\":\"cert-" + subject + "\",\"cryptoProperties\":"
                 + "{\"assetType\":\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=" + subject
                 + "\",\"issuerName\":\"CN=ca\"}}}";
+    }
+
+    /** A certificate whose composite can differ from its siblings' only through what its key reference resolves to. */
+    private static String certificateReferencing(String name, String ref) {
+        return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"cryptoProperties\":"
+                + "{\"assetType\":\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=referrer\","
+                + "\"issuerName\":\"CN=ca\",\"subjectPublicKeyRef\":\"" + ref + "\"}}}";
+    }
+
+    /** The 1.7 shape of {@link #certificateReferencing}: every ref given is a {@code public-key} related asset. */
+    private static String certificateReferencingKeys(String name, String... refs) {
+        List<String> entries = new ArrayList<>();
+        for (String ref : refs) {
+            entries.add("{\"ref\":\"" + ref + "\",\"type\":\"public-key\"}");
+        }
+        return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"cryptoProperties\":"
+                + "{\"assetType\":\"certificate\",\"certificateProperties\":{\"subjectName\":\"CN=referrer\","
+                + "\"issuerName\":\"CN=ca\",\"relatedCryptographicAssets\":[" + String.join(",", entries) + "]}}}";
+    }
+
+    /** A certificate claiming one shared digest through {@code component.hashes[]}. */
+    private static String certificateWithDigest(String name, String subject) {
+        return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"hashes\":[{\"alg\":\"SHA-256\","
+                + "\"content\":\"" + "cd".repeat(32) + "\"}],\"cryptoProperties\":{\"assetType\":\"certificate\","
+                + "\"certificateProperties\":{\"subjectName\":\"CN=" + subject + "\",\"issuerName\":\"CN=ca\"}}}";
+    }
+
+    /**
+     * A public-key material whose {@code value} is a raw JSON fragment rather than a PEM string, or absent when
+     * {@code value} is null. The certificate tier reads this node directly, so the shape reaches it even though
+     * {@link MaterialRedaction} drops a non-string value from the material's own row.
+     */
+    private static String publicKeyWithValue(String ref, String value) {
+        return "{\"type\":\"cryptographic-asset\",\"bom-ref\":\"" + ref + "\",\"name\":\"" + ref + "\","
+                + "\"cryptoProperties\":{\"assetType\":\"related-crypto-material\","
+                + "\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\""
+                + (value == null ? "" : ",\"value\":" + value) + "}}}";
+    }
+
+    private static String material(String name, String ref, String value) {
+        return "{\"type\":\"cryptographic-asset\",\"bom-ref\":\"" + ref + "\",\"name\":\"" + name + "\","
+                + "\"cryptoProperties\":{\"assetType\":\"related-crypto-material\","
+                + "\"relatedCryptoMaterialProperties\":{\"type\":\"public-key\",\"value\":\"" + value + "\"}}}";
+    }
+
+    /** A TLS 1.3 protocol offering one suite under code {@code 0x1301}, named as the caller says. */
+    private static String protocolWithSuite(String name, String suiteName) {
+        return "{\"type\":\"cryptographic-asset\",\"name\":\"" + name + "\",\"cryptoProperties\":"
+                + "{\"assetType\":\"protocol\",\"protocolProperties\":{\"type\":\"tls\",\"version\":\"1.3\","
+                + "\"cipherSuites\":[{\"name\":\"" + suiteName + "\",\"identifiers\":[\"0x13\",\"0x01\"]}]}}}";
+    }
+
+    private static String library(String name, String... children) {
+        return "{\"type\":\"library\",\"name\":\"" + name + "\",\"components\":[" + String.join(",", children) + "]}";
     }
 
     private static JsonNode read(String json) {

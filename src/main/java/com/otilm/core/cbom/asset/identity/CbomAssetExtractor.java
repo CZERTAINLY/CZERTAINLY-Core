@@ -3,7 +3,6 @@ package com.otilm.core.cbom.asset.identity;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.otilm.core.cbom.asset.OccurrenceEvidenceCapper;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import com.otilm.core.serialization.ObjectMapperFactory;
@@ -78,20 +77,32 @@ public final class CbomAssetExtractor {
      * two of the three signals are visible only inside the tier that produced the key.
      *
      * <p>
-     * The first component is {@code key} rather than a more descriptive name on purpose: the exposure fence refuses a
-     * production source outside persistence that <em>names</em> the identity key, and a record component is a
-     * declaration -- it generates an accessor. Naming it plainly here would have put the phrase on a public member of a
-     * class that has no business advertising it.
+     * {@code findings} carries what the pipeline has to tell the producer -- a dropped value, a withheld digest, an
+     * inlined secret, a dropped extension, an occurrence whose stated location rendered as no location. It is published
+     * because {@code MaterialRedaction.findings()} had no reader anywhere: the values were computed, and then died at
+     * this boundary, so a promise the redaction class makes in its own Javadoc was unreachable the moment extraction
+     * returned. Carrying them here does not report them -- core#2073 owns the per-CBOM reporting path -- but it turns
+     * that work into wiring an existing value rather than re-deriving it, and it makes the gap visible to anyone
+     * reading this record.
+     *
+     * <p>
+     * <b>{@code identityKey}, and this file is allowlisted for that vocabulary.</b> The component was called
+     * {@code key} so the exposure fence's regex would not see it -- which worked, and was the wrong shape: a production
+     * source routing <em>around</em> a fence is invisible to the next reader, where an allowlist entry is a reviewed
+     * record that this file carries the value on purpose. It does carry it: this record is how the keyed asset reaches
+     * the persistence path. The entry exempts only the stored-value vocabulary, so a pre-image spelling here still
+     * fails, and the logging rule carries no allowlist at all -- which is why the {@code toString} override below is
+     * still the thing that keeps the value out of a log line.
      */
-    public record ExtractedAsset(String key, String chainStep, NormalizedAsset normalized, String componentName,
+    public record ExtractedAsset(String identityKey, String chainStep, NormalizedAsset normalized, String componentName,
             JsonNode retainedProperties, List<Map<String, Object>> evidence, int reportedOccurrences,
-            CryptoAssetIdentityGuard guard) {
+            CryptoAssetIdentityGuard guard, List<String> findings) {
 
         /**
          * Omits the identity key. The generated {@code toString} would print it, and a record is printed by anything
          * that logs the value or a collection holding it -- including {@link Extraction}, whose own generated
-         * {@code toString} recurses into this one. Naming the component {@code key} keeps it away from the exposure
-         * fence's regex; it does not keep it out of a log line, and only this override does.
+         * {@code toString} recurses into this one. The fence's logging rule has no allowlist, so this file may name the
+         * value and may not log it: this override is what makes that true rather than merely stated.
          */
         @Override
         public String toString() {
@@ -110,8 +121,17 @@ public final class CbomAssetExtractor {
     public record Skip(String componentName, String reason) {
     }
 
-    /** Everything a document yielded: the assets, and the components that could not be turned into assets. */
-    public record Extraction(List<ExtractedAsset> assets, List<Skip> skips, boolean depthLimitReached) {
+    /**
+     * Everything a document yielded: the assets, and the components that could not be turned into assets.
+     *
+     * <p>
+     * {@code documentScopeUnavailable} records that the whole-document scope could not be built and the walk ran
+     * without it. That is not the recoverable direction: with nothing refuted a fabricated placeholder digest is
+     * trusted, and with no reference resolving every certificate's public-key slot empties -- both over-merges. It is
+     * recorded here because a caller reading only the assets would see rows and no sign of what they lack.
+     */
+    public record Extraction(List<ExtractedAsset> assets, List<Skip> skips, boolean depthLimitReached,
+            boolean documentScopeUnavailable) {
 
         public int assetCount() {
             return assets.size();
@@ -136,17 +156,20 @@ public final class CbomAssetExtractor {
      */
     public Extraction extract(JsonNode document, Set<String> batchRefutedDigests) {
         if (document == null || !document.isObject()) {
-            return new Extraction(List.of(), List.of(), false);
+            return new Extraction(List.of(), List.of(), false, false);
         }
+        Set<String> refuted = batchRefutedDigests == null ? Set.of() : batchRefutedDigests;
 
         DocumentScope scope;
+        boolean scopeUnavailable = false;
         try {
             scope = DocumentScope.of(document, identity.normalizer());
         } catch (RuntimeException e) {
             // The scope is a whole-document derivation, so a failure here is not attributable to one component. The
-            // walk still runs, with nothing refuted and no reference resolving, which under-merges rather than
-            // over-merges -- the recoverable direction.
+            // walk still runs with nothing refuted and no reference resolving -- see Extraction for why that is the
+            // over-merging direction, and why it is recorded rather than only survived.
             scope = DocumentScope.none();
+            scopeUnavailable = true;
         }
 
         List<ExtractedAsset> assets = new ArrayList<>();
@@ -160,54 +183,124 @@ public final class CbomAssetExtractor {
                 // Named `extracted`, not anything beginning with "key". The exposure fence matches
                 // identity[_-<space>]?key, so the type name followed by such a variable reads as the fenced token
                 // across the space between them -- a rule about text, applied to text, with no idea what a type is.
-                CryptoAssetIdentity.Identity extracted = identity.of(component, scope, batchRefutedDigests);
-                List<Map<String, Object>> reported = sanitizedOccurrences(component);
-                assets
-                        .add(new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(), nameOf(component),
-                                extracted.redaction().payload(), OccurrenceEvidenceCapper.cap(reported),
-                                reported == null ? 0 : reported.size(), extracted.guard()));
+                CryptoAssetIdentity.Identity extracted = identity.of(component, scope, refuted);
+                List<JsonNode> occurrences = occurrencesOf(component);
+                ExtractedAsset asset = new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(),
+                        nameOf(component), extracted.redaction().storedPayload(),
+                        OccurrenceEvidenceCapper.cap(occurrences == null ? null : retainedOccurrences(occurrences)),
+                        occurrences == null ? 0 : occurrences.size(), extracted.guard(), extracted.findings());
+                requireEncodable(asset);
+                assets.add(asset);
             } catch (RuntimeException e) {
                 // Deliberately broad, and deliberately not logged with the throwable. Producer input reaches every
                 // derivation below this line; the failure classes are open-ended, and one of them must not be fatal.
                 skips.add(new Skip(nameOf(component), e.getClass().getSimpleName()));
             }
         }
-        return new Extraction(List.copyOf(assets), List.copyOf(skips), walk.depthLimitReached());
+        return new Extraction(List.copyOf(assets), List.copyOf(skips), walk.depthLimitReached(), scopeUnavailable);
     }
 
-    /**
-     * The component's occurrences with every location sanitized, or {@code null} when it reported none.
-     *
-     * <p>
-     * <b>Sanitizing here, not only on the keying path, is the point.</b> A location is a real shape like
-     * {@code tcp://user:pass@host:443/path?token=...}, and it feeds the identity key for version-less protocols and
-     * identity-less material -- so the keying path already strips credentials, or a password would be hashed into the
-     * key. The stored evidence is the other half of the same rule and had no such step: capped and retained verbatim,
-     * {@code crypto_asset_source.evidence} would hold the credential the key was careful not to hash, in a column the
-     * read surface serves back.
-     *
-     * <p>
-     * {@code null} in, {@code null} out: a source that reported no evidence is distinct from one whose evidence capping
-     * emptied, and the capper preserves that distinction downstream.
-     */
-    private static List<Map<String, Object>> sanitizedOccurrences(JsonNode component) {
+    /** The component's occurrence objects in producer order, or {@code null} when it reported none. */
+    private static List<JsonNode> occurrencesOf(JsonNode component) {
         JsonNode evidence = component.get("evidence");
         JsonNode occurrences = evidence == null ? null : evidence.get("occurrences");
         if (occurrences == null || !occurrences.isArray()) {
             return null;
         }
-        List<Map<String, Object>> sanitized = new ArrayList<>(occurrences.size());
+        List<JsonNode> objects = new ArrayList<>(occurrences.size());
         for (JsonNode occurrence : occurrences) {
-            if (!occurrence.isObject()) {
-                continue;
+            if (occurrence.isObject()) {
+                objects.add(occurrence);
             }
-            ObjectNode copy = occurrence.deepCopy();
-            if (copy.has(CbomNames.LOCATION)) {
-                copy.put(CbomNames.LOCATION, Occurrences.sanitizeLocation(copy.get(CbomNames.LOCATION)));
-            }
-            sanitized.add(MAPPER.convertValue(copy, MAP_TYPE));
         }
-        return sanitized;
+        return objects;
+    }
+
+    /**
+     * The occurrences the cap can keep, converted for it, or {@code null} when the component reported none.
+     *
+     * <p>
+     * Only the first {@link OccurrenceEvidenceCapper#MAX_OCCURRENCES} are converted: the cap keeps that prefix in
+     * producer order and drops the rest whole, so converting a million occurrences to retain fifty was three copies of
+     * the parsed subtree spent on a count the caller already has.
+     *
+     * <p>
+     * <b>The location is not sanitized here.</b> A location is a real shape like
+     * {@code tcp://user:pass@host:443/path?token=...}, and the keying path strips its credential or a password would be
+     * hashed into the key; the stored evidence is the other half of the same rule, and the capper applies it to every
+     * {@code location} member of every occurrence it retains, at every depth. A pass here sanitized the top-level
+     * member a second time, which made the served string depend on neither pass alone -- deleting either left every
+     * test green, and a paragraph calling this one load-bearing would have licensed weakening the other. The property
+     * is pinned where it is observable, on the extracted evidence, not on which class produced it.
+     *
+     * <p>
+     * A source that reported no evidence is distinct from one whose evidence capping emptied, and the capper preserves
+     * that distinction downstream -- so the absent case is decided by the caller and never reaches here, and this
+     * method always answers with a list.
+     */
+    private static List<Map<String, Object>> retainedOccurrences(List<JsonNode> occurrences) {
+        List<JsonNode> retained = occurrences.size() > OccurrenceEvidenceCapper.MAX_OCCURRENCES
+                ? occurrences.subList(0, OccurrenceEvidenceCapper.MAX_OCCURRENCES)
+                : occurrences;
+        List<Map<String, Object>> converted = new ArrayList<>(retained.size());
+        for (JsonNode occurrence : retained) {
+            converted.add(MAPPER.convertValue(occurrence, MAP_TYPE));
+        }
+        return converted;
+    }
+
+    /**
+     * Refuses an asset whose stored surfaces carry a string with no UTF-8 encoding, so the refusal is a rule stated
+     * here rather than an accident of which tier ran.
+     *
+     * <p>
+     * {@link IdentityDigests#sha256Hex} refuses an unpaired surrogate in a pre-image, so a component spelling one into
+     * a keyed slot was already a reported skip. A string that reaches storage without reaching a pre-image was not: a
+     * cipher-suite name on a version-less protocol row, or an unread member of {@code algorithmProperties} on a row
+     * keyed by family, was retained in a payload that has no valid encoding for the {@code jsonb} column -- so whether
+     * the row survived was decided by the database, on a path that once rolled back a whole source upsert. Five
+     * surfaces are what persistence receives, and each is checked: the component name, the stored payload, the
+     * sanitized evidence, the provenance notes, and the findings -- which echo producer member names, so a surrogate in
+     * a member the redaction dropped reached them on a tier whose pre-image never read that member.
+     *
+     * <p>
+     * The one exemption is the occurrence {@code location}: {@link Occurrences} scrubs a surrogate there rather than
+     * refusing it, and the evidence checked here is the scrubbed form. The exemption is that member alone -- a
+     * surrogate in any sibling member of the same occurrence, name or value, still costs the component its row.
+     */
+    private static void requireEncodable(ExtractedAsset asset) {
+        IdentityDigests.requireWellFormedUnicode(asset.componentName());
+        requireEncodable(asset.retainedProperties());
+        asset.normalized().notes().forEach(IdentityDigests::requireWellFormedUnicode);
+        asset.findings().forEach(IdentityDigests::requireWellFormedUnicode);
+        if (asset.evidence() != null) {
+            asset.evidence().forEach(CbomAssetExtractor::requireEncodable);
+        }
+    }
+
+    private static void requireEncodable(JsonNode node) {
+        if (node == null) {
+            return;
+        }
+        if (node.isTextual()) {
+            IdentityDigests.requireWellFormedUnicode(node.textValue());
+        } else if (node.isContainerNode()) {
+            node.properties().forEach(member -> IdentityDigests.requireWellFormedUnicode(member.getKey()));
+            node.forEach(CbomAssetExtractor::requireEncodable);
+        }
+    }
+
+    private static void requireEncodable(Object value) {
+        if (value instanceof String text) {
+            IdentityDigests.requireWellFormedUnicode(text);
+        } else if (value instanceof Map<?, ?> map) {
+            map.forEach((key, member) -> {
+                requireEncodable(key);
+                requireEncodable(member);
+            });
+        } else if (value instanceof Iterable<?> members) {
+            members.forEach(CbomAssetExtractor::requireEncodable);
+        }
     }
 
     /**
