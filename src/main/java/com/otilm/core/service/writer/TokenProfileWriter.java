@@ -156,11 +156,15 @@ public class TokenProfileWriter {
 
     private void delete(TokenProfile profile) {
         validateNoDependentObjects(profile);
+        // Capture diagnostic data before the flush; a constraint failure aborts the transaction,
+        // so the catch path must not depend on further database access.
         String profileName = profile.getName();
         attributeEngine.deleteObjectAttributeContent(Resource.TOKEN_PROFILE, profile.getUuid());
         commentService.removeObjectComments(Resource.TOKEN_PROFILE, profile.getUuid());
         try {
             tokenProfileRepository.delete(profile);
+            // Force the DELETE to execute here; without the flush it runs at commit,
+            // outside this try, and a concurrent FK violation would surface as HTTP 500.
             tokenProfileRepository.flush();
         } catch (DataIntegrityViolationException e) {
             throw new ValidationException(ValidationError
@@ -180,6 +184,8 @@ public class TokenProfileWriter {
         if (!latestVersionNames.isEmpty()) {
             blockers.add("dependent Signing Profile(s): " + String.join(", ", latestVersionNames));
         }
+        // Superseded versions are retained for audit and cannot be edited, so these references
+        // can only be released by deleting the Signing Profile itself.
         List<String> supersededOnlyNames = new ArrayList<>(
                 signingProfileVersionRepository.findDistinctSigningProfileNamesByTokenProfileUuid(profile.getUuid()));
         supersededOnlyNames.removeAll(latestVersionNames);
@@ -189,6 +195,8 @@ public class TokenProfileWriter {
                             + String.join(", ", supersededOnlyNames));
         }
         if (!blockers.isEmpty()) {
+            // Single placeholder: sequential {} substitution would garble the message when the
+            // profile name itself contains a literal "{}".
             throw new ValidationException(ValidationError
                     .create("Cannot delete Token Profile {}", profile.getName() + ": " + String.join("; ", blockers)));
         }
