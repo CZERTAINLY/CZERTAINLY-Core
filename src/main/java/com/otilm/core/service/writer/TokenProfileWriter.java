@@ -54,7 +54,7 @@ public class TokenProfileWriter {
             throws NotFoundException, AttributeException {
         TokenInstanceReference parent = tokenInstanceReferenceRepository
                 .findByUuid(tokenInstanceUuid)
-                .orElseThrow(() -> new NotFoundException(TokenInstanceReferenceRepository.class, tokenInstanceUuid));
+                .orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, tokenInstanceUuid));
 
         TokenProfile profile = new TokenProfile();
         profile.setName(request.getName());

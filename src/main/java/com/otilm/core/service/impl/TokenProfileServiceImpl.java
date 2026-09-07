@@ -18,6 +18,7 @@ import com.otilm.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.otilm.api.model.core.scheduler.PaginationRequestDto;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.otilm.core.dao.entity.TokenInstanceReference;
 import com.otilm.core.dao.entity.TokenProfile;
 import com.otilm.core.dao.entity.TokenProfile_;
 import com.otilm.core.dao.repository.TokenInstanceReferenceRepository;
@@ -280,7 +281,7 @@ public class TokenProfileServiceImpl implements TokenProfileExternalService, Tok
 
     private void ensureTokenExists(UUID tokenUuid, SecuredParentUUID securedTokenUuid) throws NotFoundException {
         if (!tokenInstanceReferenceRepository.existsByUuid(tokenUuid)) {
-            throw new NotFoundException(TokenInstanceReferenceRepository.class, securedTokenUuid);
+            throw new NotFoundException(TokenInstanceReference.class, securedTokenUuid);
         }
     }
 
