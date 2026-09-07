@@ -57,7 +57,7 @@ class IdentityTablesTest {
             assertThat(stream).isNotNull();
             assertThat(IdentityDigests.sha256HexOfBytes(stream.readAllBytes()))
                     .describedAs("the decision tables are ratified data; editing them re-keys the inventory")
-                    .isEqualTo("a34c40d2f6fcfeb5aedeb58f371974e5e90e36fa225fd93ad9eb766162a153e2");
+                    .isEqualTo("689676ea84873545eb25bcecb527f138e09fc3968e42bff2d07343f6dbfa7945");
         }
     }
 
@@ -253,6 +253,11 @@ class IdentityTablesTest {
         return Stream
                 .of(malformed("a wrong container type", tables -> tables.put("oidBlockedPrefixes", "1.2.840"),
                         "table `oidBlockedPrefixes` must be an array, not STRING"),
+                        // The fail-open shape the reader was written against: a scalar where a map is wanted once
+                        // loaded five tables as empty maps with every vector green. Each of the other branches had a
+                        // row; this one had none, and neutering `object()` left the class green.
+                        malformed("a map-shaped table as a string", tables -> tables.put("pseudoFamilies", "Kyber"),
+                                "table `pseudoFamilies` must be an object, not STRING"),
                         malformed("a wrong element type", tables -> ((ArrayNode) tables.get("sizeStoplist")).set(0, 5),
                                 "table `sizeStoplist[0]` must be a string, not NUMBER"),
                         malformed("a missing table", tables -> tables.remove("nameGrammar"),

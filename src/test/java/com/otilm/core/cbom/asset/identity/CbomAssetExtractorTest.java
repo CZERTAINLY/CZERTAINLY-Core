@@ -441,8 +441,23 @@ class CbomAssetExtractorTest {
                     + "\"protocolProperties\":{\"type\":\"tls\",\"cipherSuites\":[{\"name\":\"TLS_BAD\\ud800\"}]}}}",
             "{\"type\":\"cryptographic-asset\",\"name\":\"alg\",\"cryptoProperties\":{\"assetType\":\"algorithm\","
                     + "\"algorithmProperties\":{\"primitive\":\"hash\",\"vendorNote\":\"x\\ud800\"}}}",
+            // The name sits outside this tier's pre-image -- the value-hash tier reads the material alone -- so only
+            // the boundary check can refuse it. On a family-less algorithm the name reached the pre-image and the
+            // digest refused it first, which pinned nothing here.
             "{\"type\":\"cryptographic-asset\",\"name\":\"bad\\udc00name\",\"cryptoProperties\":"
-                    + "{\"assetType\":\"algorithm\",\"algorithmProperties\":{}}}"})
+                    + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                    + "{\"type\":\"private-key\",\"value\":\"AAAAAAAA\"}}}",
+            // The findings echo a producer member name the redaction dropped. On the value-hash tier no pre-image
+            // reads that member, and the stored payload no longer carries it, so the findings are the only surface
+            // it reaches.
+            "{\"type\":\"cryptographic-asset\",\"name\":\"k\",\"cryptoProperties\":"
+                    + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                    + "{\"type\":\"private-key\",\"value\":\"AAAAAAAA\",\"bad\\ud800\":\"x\"}}}",
+            // The second route into the findings, which works on every tier: the reference array is stripped from
+            // every pre-image and its dropped member names are echoed.
+            "{\"type\":\"cryptographic-asset\",\"name\":\"k\",\"cryptoProperties\":"
+                    + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                    + "{\"type\":\"private-key\",\"relatedCryptographicAssets\":[{\"ref\":\"u\",\"pem\\ud800\":\"x\"}]}}}"})
     void anUnencodableStoredStringIsASkipWhateverTierKeyedTheRow(String component) {
         CbomAssetExtractor.Extraction extraction = EXTRACTOR.extract(read("{\"components\":[" + component + "]}"));
 
@@ -450,6 +465,122 @@ class CbomAssetExtractorTest {
         assertThat(extraction.skips())
                 .singleElement()
                 .satisfies(skip -> assertThat(skip.reason()).isEqualTo("IllegalArgumentException"));
+    }
+
+    /**
+     * Every fixture above must key on {@code origin/main}'s rule too, or it pins the boundary check for nothing: a
+     * component whose surrogate a pre-image already refused was a skip before the check existed. The surrogate-free
+     * spelling of each keys, which is what says the surrogate alone -- not the shape -- costs the row.
+     */
+    @Test
+    void theUnencodableFixturesAreKeyableWithoutTheirSurrogate() {
+        String[] fixtures = {
+                "{\"type\":\"cryptographic-asset\",\"name\":\"badname\",\"cryptoProperties\":"
+                        + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                        + "{\"type\":\"private-key\",\"value\":\"AAAAAAAA\"}}}",
+                "{\"type\":\"cryptographic-asset\",\"name\":\"k\",\"cryptoProperties\":"
+                        + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                        + "{\"type\":\"private-key\",\"value\":\"AAAAAAAA\",\"bad\":\"x\"}}}",
+                "{\"type\":\"cryptographic-asset\",\"name\":\"k\",\"cryptoProperties\":"
+                        + "{\"assetType\":\"related-crypto-material\",\"relatedCryptoMaterialProperties\":"
+                        + "{\"type\":\"private-key\",\"relatedCryptographicAssets\":[{\"ref\":\"u\",\"pem\":\"x\"}]}}}"};
+        for (String fixture : fixtures) {
+            CbomAssetExtractor.Extraction extraction = EXTRACTOR.extract(read("{\"components\":[" + fixture + "]}"));
+            assertThat(extraction.skips()).describedAs(fixture).isEmpty();
+            assertThat(extraction.assets()).describedAs(fixture).hasSize(1);
+        }
+    }
+
+    // ---------------------------------------------------------------- printed forms
+
+    /**
+     * The hand-written {@code toString} overrides are load-bearing, so what they omit is asserted.
+     *
+     * <p>
+     * A record prints every component, and anything that logs an extraction -- or a collection holding one -- prints
+     * the records inside it. The logging fence judges call sites by the words on the line, so a record printed through
+     * {@code {}} carries its components past the fence with nothing for a regex to see. Deleting the override left
+     * every fence test green and put the stored value in the generated printout; the only test touching a printed form
+     * asserted that the <em>material secret</em> was absent, which the default printout also satisfies. The positive
+     * assertion is there so a printout of nothing cannot pass.
+     */
+    @Test
+    void aPrintedExtractionNamesTheComponentAndNeverTheStoredValue() {
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[" + algorithm("RSA-2048") + "]}"));
+        CbomAssetExtractor.ExtractedAsset asset = extraction.assets().get(0);
+
+        assertThat(asset.toString())
+                .contains("RSA-2048")
+                .contains(asset.chainStep())
+                .doesNotContain(asset.identityKey());
+        assertThat(extraction.toString())
+                .describedAs("the outer record recurses into the inner one")
+                .contains("RSA-2048")
+                .doesNotContain(asset.identityKey());
+    }
+
+    // ---------------------------------------------------------------- refused locations
+
+    /**
+     * An occurrence whose stated location renders as no location is recorded; one that stated none is not.
+     *
+     * <p>
+     * Every mechanism that renders a stated location as the empty string keys onto the row an absent location keys,
+     * {@code #7#3} in the triple, and through the real extractor every input here does. The key cannot separate them,
+     * because this slot is unescaped and any sentinel a producer can also spell; the finding is what does. The stated
+     * inputs each record exactly one line naming the occurrence and never the location, which is the string that may
+     * hold the credential the sanitizer removed. The absent class -- member absent, JSON null, blank -- records
+     * nothing, because blank is absent in every slot of the chain, and line breaks are whitespace to it.
+     *
+     * <p>
+     * The keys are asserted equal on purpose: the reference operation is untouched by the recording, and a future
+     * sentinel that split them would re-key every occurrence row and diverge from the kernel.
+     */
+    @Test
+    void aStatedLocationThatRendersAsNothingIsRecordedWhereAnAbsentOneIsNot() {
+        CbomAssetExtractor.ExtractedAsset absent = occurrenceRow(null);
+        assertThat(absent.chainStep()).isEqualTo("prt:type+occurrence");
+        assertThat(absent.findings()).isEmpty();
+        assertThat(occurrenceRow("\"/a/b.java\"").identityKey())
+                .describedAs("a real location keys apart, so the equalities below are not vacuous")
+                .isNotEqualTo(absent.identityKey());
+
+        List<String> statedNothing = List.of("null", "\"   \"", "\"\\u00a0\\u00a0\"", "\"\\r\\n\"");
+        for (String location : statedNothing) {
+            CbomAssetExtractor.ExtractedAsset row = occurrenceRow(location);
+            assertThat(row.identityKey()).describedAs(location).isEqualTo(absent.identityKey());
+            assertThat(row.findings()).describedAs("%s is absent, not refused", location).isEmpty();
+        }
+
+        List<String> statedAndEmptied = List
+                .of("42", "true", "{}", "[]", "\"?sig=abc\"", "\"?X-Amz-Signature=\"", "\"#?tok=1\"", "\"#\"", "\"##\"",
+                        "\"\\ud800\"", "\"\\ud800 ?a\"", "\"#" + " ".repeat(1030) + "a\"",
+                        "\"" + "a".repeat(64 * 1024 + 1) + "\"", "\"//u:p@" + "/u:p@".repeat(39) + "host\"");
+        for (String location : statedAndEmptied) {
+            CbomAssetExtractor.ExtractedAsset row = occurrenceRow(location);
+            assertThat(row.identityKey()).describedAs(location).isEqualTo(absent.identityKey());
+            assertThat(row.evidence().get(0)).describedAs(location).containsEntry("location", "");
+            assertThat(row.findings())
+                    .describedAs(location)
+                    .singleElement()
+                    .asString()
+                    .startsWith("occurrence 0: the stated location ")
+                    .doesNotContain("sig")
+                    .doesNotContain("tok")
+                    .doesNotContain("u:p@");
+        }
+    }
+
+    /** A protocol row that reaches the occurrence tier, at one occurrence whose location is the given JSON value. */
+    private static CbomAssetExtractor.ExtractedAsset occurrenceRow(String locationJson) {
+        String location = locationJson == null ? "" : "\"location\":" + locationJson + ",";
+        CbomAssetExtractor.Extraction extraction = EXTRACTOR
+                .extract(read("{\"components\":[{\"type\":\"cryptographic-asset\",\"cryptoProperties\":"
+                        + "{\"assetType\":\"protocol\",\"protocolProperties\":{\"type\":\"tls\",\"cipherSuites\":[{}]}},"
+                        + "\"evidence\":{\"occurrences\":[{" + location + "\"line\":7,\"offset\":3}]}}]}"));
+        assertThat(extraction.skips()).isEmpty();
+        return extraction.assets().get(0);
     }
 
     /** The occurrence location keeps its own rule: a surrogate there is scrubbed, and the asset survives. */

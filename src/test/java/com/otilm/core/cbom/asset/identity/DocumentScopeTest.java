@@ -133,20 +133,53 @@ class DocumentScopeTest {
     void aStatedTypeIsBarredWhetherOrNotItRoutesAndAnUnstatedOneContributes() {
         JsonNode genuine = protocol("genuine", "TLS_AES_128_GCM_SHA256", "\"0x1301\"");
 
-        assertThat(DocumentScope
-                .of(document(genuine, staleSuiteBlockTyped("\"protocols\"")), NORMALIZER)
-                .refutedSuiteCodes())
-                .describedAs("a stated type the router does not know is still not protocol")
-                .isEmpty();
-        assertThat(DocumentScope
-                .of(document(genuine, staleSuiteBlockTyped("\"cryptographic-asset\"")), NORMALIZER)
-                .refutedSuiteCodes()).isEmpty();
-        assertThat(DocumentScope.of(document(genuine, staleSuiteBlockTyped(null)), NORMALIZER).refutedSuiteCodes())
-                .describedAs("a block that states no type at all still contributes")
+        assertThatTheStaleBlockIsBarred(genuine, "\"protocols\"", "a stated type the router does not know");
+        assertThatTheStaleBlockIsBarred(genuine, "\"cryptographic-asset\"", "a component type copied into the field");
+        assertThatTheStaleBlockContributes(genuine, null, "a block that states no type at all");
+        assertThatTheStaleBlockContributes(genuine, "\"  \"", "a blank type, which is an unstated one");
+    }
+
+    /**
+     * A non-textual {@code assetType} is stated, and it is not protocol.
+     *
+     * <p>
+     * The gate read "stated" as "textual", so a number, a boolean, an array or an object under the member -- a type the
+     * router reads as none, keying the row on the unroutable backstop -- was treated as unstated and contributed a
+     * second name for a real code, which is the same sentence the textual fix closed with a non-string spelling. JSON
+     * {@code null} stays absent, as it is in every other slot.
+     */
+    @Test
+    void aNonTextualTypeIsStatedAndBarredWhileAJsonNullIsAbsent() {
+        JsonNode genuine = protocol("genuine", "TLS_AES_128_GCM_SHA256", "\"0x1301\"");
+
+        for (String stated : List.of("5", "true", "[\"protocol\"]", "{\"a\":\"b\"}")) {
+            assertThatTheStaleBlockIsBarred(genuine, stated, "a non-textual type");
+        }
+        assertThatTheStaleBlockContributes(genuine, "null", "a JSON null");
+    }
+
+    /**
+     * Barred means the code is not refuted <em>and</em> the genuine row keys as it would alone -- the second half is
+     * the one that catches a gate that bars in one place and not the other.
+     */
+    private static void assertThatTheStaleBlockIsBarred(JsonNode genuine, String assetTypeJson, String what) {
+        DocumentScope scope = DocumentScope.of(document(genuine, staleSuiteBlockTyped(assetTypeJson)), NORMALIZER);
+
+        assertThat(scope.refutedSuiteCodes()).describedAs("%s (%s) is barred", what, assetTypeJson).isEmpty();
+        assertThat(IDENTITY.of(genuine, scope, Set.of()).key())
+                .describedAs("so the genuine row keeps the key it has alone")
+                .isEqualTo(IDENTITY.of(genuine).key());
+    }
+
+    private static void assertThatTheStaleBlockContributes(JsonNode genuine, String assetTypeJson, String what) {
+        DocumentScope scope = DocumentScope.of(document(genuine, staleSuiteBlockTyped(assetTypeJson)), NORMALIZER);
+
+        assertThat(scope.refutedSuiteCodes())
+                .describedAs("%s (%s) still contributes", what, assetTypeJson)
                 .containsExactly("1301");
-        assertThat(DocumentScope.of(document(genuine, staleSuiteBlockTyped("\"  \"")), NORMALIZER).refutedSuiteCodes())
-                .describedAs("and a blank type is an unstated one")
-                .containsExactly("1301");
+        assertThat(IDENTITY.of(genuine, scope, Set.of()).key())
+                .describedAs("and the refutation reaches the genuine row's key")
+                .isNotEqualTo(IDENTITY.of(genuine).key());
     }
 
     /**
@@ -235,6 +268,26 @@ class DocumentScopeTest {
         assertThat(IDENTITY.of(aliased.get("components").get(0), DocumentScope.of(aliased, NORMALIZER), Set.of()).key())
                 .describedAs("so the endpoint that never saw the alias keys as it would alone")
                 .isEqualTo(IDENTITY.of(aliased.get("components").get(0)).key());
+    }
+
+    /**
+     * The alias infix comes off once, and no non-blank name denotes the empty suite.
+     *
+     * <p>
+     * The fold deleted every occurrence, so {@code TLS_WITH_WITH_AES_128_GCM_SHA256} denoted the real suite, and a name
+     * that was nothing but the infix denoted the empty string -- two such names under one code read as one suite while
+     * the blank guard, testing the raw name, saw nothing blank. Both pairs are genuinely different names for one code
+     * and are refuted.
+     */
+    @Test
+    void theAliasInfixComesOffOnceAndANameNeverDenotesTheEmptySuite() {
+        JsonNode twiceInfixed = document(protocol("one", "TLS_WITH_WITH_AES_128_GCM_SHA256", "\"0x1301\""),
+                protocol("two", "TLS_AES_128_GCM_SHA256", "\"0x1301\""));
+        JsonNode bareInfixes = document(protocol("one", "WITH", "\"0x1301\""),
+                protocol("two", "AKE_WITH", "\"0x1301\""));
+
+        assertThat(DocumentScope.of(twiceInfixed, NORMALIZER).refutedSuiteCodes()).containsExactly("1301");
+        assertThat(DocumentScope.of(bareInfixes, NORMALIZER).refutedSuiteCodes()).containsExactly("1301");
     }
 
     /**

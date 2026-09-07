@@ -6,8 +6,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -81,31 +83,69 @@ final class IdentityKeyExposureFence {
             .compile(STORED_VALUE_VOCABULARY + "|" + PRE_IMAGE_VOCABULARY, Pattern.CASE_INSENSITIVE);
 
     /**
+     * The classes through which this code base writes the MDC. Every static method on one of them is a log sink to the
+     * lexical rule, and {@link #unregisteredMdcWriterViolations} keeps the list complete by refusing an {@code MDC.put}
+     * from anywhere else.
+     *
+     * <p>
+     * The eighteen {@code MDC.put} sites in production all sit behind {@code LoggingHelper.putSourceInfo},
+     * {@code putAuditLogOperation} and their siblings, so a value handed to one of those is bound into every later log
+     * line of the request while the disclosing line says nothing that matches {@code MDC.put}. A one-line wrapper
+     * written beside a disclosure would open the same hole again, which is what the byte-code rule closes: the wrapper
+     * either registers here, and becomes a sink to the lexical rule, or it fails the build.
+     */
+    static final List<String> LOG_SINK_FACADES = List.of("com.otilm.core.logging.LoggingHelper");
+
+    /**
+     * {@code org.slf4j.MDC} methods that bind a value into every later log line of the thread. {@code setContextMap} is
+     * not one: it restores a map that {@code put} already filled, on a thread hand-off, and binds nothing new.
+     */
+    private static final List<String> MDC_WRITES = List.of("org.slf4j.MDC.put", "org.slf4j.MDC.putCloseable");
+
+    /**
      * Any call that puts a value on a log line. Deliberately loose — it matches {@code log.debug(},
      * {@code logger.warn(} and the wrapped {@code logger.getLogger().debug(} alike, because the point is to catch the
      * bound value reaching an appender, whatever the logger handle is called.
      *
      * <p>
-     * An MDC or {@code ThreadContext} binding is a log line too, and the one this codebase actually writes: eighteen
-     * {@code MDC.put} sites attach context to every subsequent statement of the request, so a value bound there is
-     * printed by every log line until it is removed. A span attribute or event is forwarded by the tracing appender the
-     * same way. Both were invisible to the level-name rule.
+     * An MDC or {@code ThreadContext} binding is a log line too, and the one this codebase actually writes: a value
+     * bound there is printed by every log line until it is removed. So is any call on a {@link #LOG_SINK_FACADES
+     * registered façade}, which is where the bindings actually happen. A span attribute or event is forwarded by the
+     * tracing appender the same way. All of these were invisible to the level-name rule.
      */
     private static final Pattern LOGGING_CALL = Pattern
             .compile("\\.\\s*(trace|debug|info|warn|error|logEvent|log)\\s*\\("
                     + "|\\bSystem\\s*\\.\\s*(out|err)\\s*\\.\\s*(print|println|printf|format)\\s*\\("
                     + "|\\.\\s*printStackTrace\\s*\\("
-                    + "|\\b(MDC|ThreadContext)\\s*\\.\\s*(put|putCloseable|putAll)\\s*\\("
-                    + "|\\.\\s*(setAttribute|addEvent)\\s*\\(", Pattern.CASE_INSENSITIVE);
+                    + "|\\b(MDC|ThreadContext)\\s*\\.\\s*(put|putCloseable|putAll)\\s*\\(" + "|\\b("
+                    + facadeSimpleNames() + ")\\s*\\.\\s*\\w+\\s*\\(" + "|\\.\\s*(setAttribute|addEvent)\\s*\\(",
+                    Pattern.CASE_INSENSITIVE);
+
+    private static String facadeSimpleNames() {
+        return LOG_SINK_FACADES
+                .stream()
+                .map(name -> Pattern.quote(name.substring(name.lastIndexOf('.') + 1)))
+                .reduce((left, right) -> left + "|" + right)
+                .orElseThrow();
+    }
 
     /**
-     * The argument list of a thrown exception. A message travels to whatever catches the exception and is logged there,
-     * and {@code CryptoAssetConstraintTranslator} — allowlisted for the stored value — exists to turn the unique
-     * constraint on that value into a message. Unlike a logging call this is judged on the line with its literals
-     * blanked: {@code "identity key has invalid shape"} names the column and states no value, where a bound variable
-     * beside it does.
+     * The argument list of an exception's construction, or of whatever a {@code throw} statement throws. A message
+     * travels to whatever catches the exception and is logged there, and {@code CryptoAssetConstraintTranslator} —
+     * allowlisted for the stored value — exists to turn the unique constraint on that value into a message. Unlike a
+     * logging call this is judged on the line with its literals blanked: {@code "identity key has invalid shape"} names
+     * the column and states no value, where a bound variable beside it does.
+     *
+     * <p>
+     * The construction is the sink, not the {@code throw}: an exception built into a local and thrown two lines later,
+     * one handed to {@code initCause}, and one thrown through a factory — {@code throw failure(message)} — all carry
+     * the message the same distance, and only the first of them puts {@code throw new} on the disclosing line. So a
+     * {@code new} of anything named {@code *Exception}, {@code *Error} or {@code *Throwable} counts wherever it sits,
+     * and a {@code throw} counts whatever expression follows it.
      */
-    private static final Pattern THROW_ARGUMENT = Pattern.compile("\\bthrow\\s+new\\s+[\\w.$<>]+\\s*\\(");
+    private static final Pattern EXCEPTION_MESSAGE = Pattern
+            .compile(
+                    "\\bthrow\\s+(?:new\\s+)?[\\w.$<>]+\\s*\\(|\\bnew\\s+[\\w.$]*(?:Exception|Error|Throwable)\\s*\\(");
 
     /**
      * A string or character literal, escapes included. Blanked out before parentheses are counted, so a parenthesis
@@ -291,11 +331,33 @@ final class IdentityKeyExposureFence {
     }
 
     /**
-     * One declared method, reduced to what the fence needs to judge a re-export: who declares it, what it returns, and
-     * which {@link #KEY_CARRIER_ACCESSORS carriers} it calls. Class names are binary names, as the byte code reports
-     * them; {@code carrierTargets} are in the {@code Outer$Inner.method} form the carrier map is keyed by.
+     * MDC writes from a class that is not a {@link #LOG_SINK_FACADES registered façade}.
+     *
+     * <p>
+     * The lexical rule treats a façade's calls as log sinks, so the façade list has to be the whole set of places the
+     * MDC is written from, or a wrapper beside a disclosure -- {@code bind("identity_key", identityKey)} in the writer
+     * -- puts the value on every later log line and matches nothing. Registration is the reviewed record; this rule is
+     * what makes the record complete.
      */
-    record MethodShape(String declaringClass, String name, String returnType, Collection<String> carrierTargets) {
+    static List<String> unregisteredMdcWriterViolations(Collection<AccessorCall> calls) {
+        return calls
+                .stream()
+                .filter(call -> MDC_WRITES.contains(call.target()))
+                .filter(call -> !LOG_SINK_FACADES.contains(outermostClass(call.callerClass())))
+                .map(call -> call.callerClass() + " writes the MDC through " + call.target()
+                        + "(); a binding made outside a registered logging facade is a log sink the lexical rule "
+                        + "cannot see -- bind through one of " + LOG_SINK_FACADES + " or register the class there")
+                .toList();
+    }
+
+    /**
+     * One declared method, reduced to what the fence needs to judge a re-export: who declares it, what it returns,
+     * which {@link #KEY_CARRIER_ACCESSORS carriers} it calls and which fields it writes. Class names are binary names,
+     * as the byte code reports them; {@code carrierTargets} are in the {@code Outer$Inner.method} form the carrier map
+     * is keyed by, and {@code writtenFields} in the same {@code Owner.field} form.
+     */
+    record MethodShape(String declaringClass, String name, String returnType, Collection<String> carrierTargets,
+            Collection<String> writtenFields) {
 
         String target() {
             return declaringClass + "." + name;
@@ -316,37 +378,72 @@ final class IdentityKeyExposureFence {
     }
 
     /**
-     * Methods that read a carrier and hand its value on under a name no rule sees.
+     * Methods that read a carrier and hand its value on under a name no rule sees: through their return value, or by
+     * storing it in a field.
      *
      * <p>
      * {@link #keyCarrierCallViolations} judges the call site, so one method in an allowlisted class returning
      * {@code asset.identityKey()} as {@code fingerprintOf(asset)} made every caller of {@code fingerprintOf} invisible
      * to all four rules: the allowlisted file read the carrier legitimately, and the service reading the re-export
-     * named nothing fenced. A method that calls a registered carrier and returns a {@code String} is therefore itself a
-     * carrier, and must be registered as one or stop returning the value -- registration is the reviewed record that
-     * the re-export is deliberate, as {@code ExtractedAsset.identityKey} is.
+     * named nothing fenced. A method that calls a registered carrier and returns a value is therefore itself a carrier,
+     * and must be registered as one or stop returning the value -- registration is the reviewed record that the
+     * re-export is deliberate, as {@code ExtractedAsset.identityKey} is.
      *
      * <p>
-     * What this does not see, stated so nobody relies on it: a carrier value returned inside a record or a collection,
-     * or passed as an argument to another class's method. Following the value through those needs dataflow the byte
-     * code does not hand out, so the residual is confined to methods of the allowlisted classes and closed by review of
-     * those files rather than by this rule.
+     * <b>This is a shape bound, not a depth bound.</b> The rule sees exactly two hand-offs, both direct: the value
+     * returned, under any type that can hold a string and cannot register a carrier of its own -- {@code String},
+     * {@code CharSequence}, {@code Object}, a builder, an {@code Optional}, a collection, a stream, an array, anything
+     * outside this code base -- and the value written into a field, from which a second method returns it while calling
+     * no carrier at all. A method returning one of this code base's own types is not judged here: that type registers
+     * the accessor that carries the value, and {@link #carrierTypedMemberViolations} judges where the type may appear.
+     * Nothing else is followed. A carrier value passed as an argument to another method or a constructor -- the
+     * record-component shape -- needs dataflow the byte code does not hand out, so that residual is confined to methods
+     * of the allowlisted classes and closed by review of those files rather than by this rule.
      */
     static List<String> carrierReExportViolations(Collection<MethodShape> methods) {
-        return methods
-                .stream()
-                .filter(method -> "java.lang.String".equals(method.returnType()))
-                .filter(method -> !KEY_CARRIER_ACCESSORS.containsKey(method.target()))
-                .filter(method -> method.carrierTargets().stream().anyMatch(KEY_CARRIER_ACCESSORS::containsKey))
-                .map(method -> method.target() + "() returns a String after reading "
-                        + method.carrierTargets().stream().filter(KEY_CARRIER_ACCESSORS::containsKey).sorted().toList()
-                        + ": a re-export of the crypto-asset identity key or its pre-image that no caller's line "
-                        + "names; register it in KEY_CARRIER_ACCESSORS or stop returning the value")
-                .toList();
+        List<String> violations = new ArrayList<>();
+        for (MethodShape method : methods) {
+            List<String> carriers = method
+                    .carrierTargets()
+                    .stream()
+                    .filter(KEY_CARRIER_ACCESSORS::containsKey)
+                    .sorted()
+                    .toList();
+            if (carriers.isEmpty() || KEY_CARRIER_ACCESSORS.containsKey(method.target())) {
+                continue;
+            }
+            if (!method.writtenFields().isEmpty()) {
+                violations
+                        .add(method.target() + "() writes " + method.writtenFields().stream().sorted().toList()
+                                + " after reading " + carriers + ": a carrier value stored in a field is handed out "
+                                + "later by a method that reads no carrier and is invisible to every rule; keep it "
+                                + "in a registered carrier's component or do not store it");
+            }
+            if (cannotRegisterACarrier(method.returnType())) {
+                violations
+                        .add(method.target() + "() returns " + method.returnType() + " after reading " + carriers
+                                + ": a re-export of the crypto-asset identity key or its pre-image that no caller's "
+                                + "line names; register it in KEY_CARRIER_ACCESSORS or stop returning the value");
+            }
+        }
+        return violations;
     }
 
     /**
-     * Members of a fenced package typed with a class that declares a carrier, directly or as a type argument.
+     * Whether a value of this return type could carry a fenced string without any accessor of it being registrable:
+     * everything but {@code void}, a primitive, and this code base's own types.
+     */
+    private static boolean cannotRegisterACarrier(String returnType) {
+        return !"void".equals(returnType) && !PRIMITIVE_TYPES.contains(returnType)
+                && !returnType.startsWith("com.otilm.");
+    }
+
+    private static final List<String> PRIMITIVE_TYPES = List
+            .of("boolean", "byte", "char", "short", "int", "long", "float", "double");
+
+    /**
+     * Members of a fenced package typed with a class that carries a carrier: one that declares a registered accessor,
+     * or that holds -- through any depth of its own fields -- a class that does.
      *
      * <p>
      * {@link #declaredMemberViolations} judges member names, so {@code record Dto(String name, Identity detail)} in a
@@ -354,13 +451,22 @@ final class IdentityKeyExposureFence {
      * public records, and a serializer walks a record by its components and renders {@code preImage} and
      * {@code identityKey} verbatim -- the stock wire mapper refuses the empty beans behind them today, and one
      * {@code @JsonIgnoreProperties} would turn that refusal into the leak. A client-facing declaration has no business
-     * being typed with the material's carrier, whatever the member is called.
+     * being typed with the material's carrier, whatever the member is called, and wrapping the carrier in a holder
+     * record moves the leak one field deeper without moving it off the wire -- which is why the member types are
+     * followed through {@code fieldTypesByClass} rather than judged by their own raw type alone.
+     *
+     * @param fieldTypesByClass every scanned class, binary name, mapped to the raw types its fields involve; a class
+     * absent from the map -- a JDK type, a third-party type -- holds nothing the fence knows about
      */
-    static List<String> carrierTypedMemberViolations(Collection<TypedMember> members) {
+    static List<String> carrierTypedMemberViolations(Collection<TypedMember> members,
+            Map<String, ? extends Collection<String>> fieldTypesByClass) {
         return members
                 .stream()
                 .filter(member -> isFencedPackage(member.packageName()))
-                .filter(member -> member.involvedTypes().stream().anyMatch(IdentityKeyExposureFence::declaresACarrier))
+                .filter(member -> member
+                        .involvedTypes()
+                        .stream()
+                        .anyMatch(type -> carriesACarrier(type, fieldTypesByClass, new HashSet<>())))
                 .map(member -> member + " is typed with a class that carries the crypto-asset identity key or its "
                         + "pre-image, in a client-facing package")
                 .toList();
@@ -372,14 +478,33 @@ final class IdentityKeyExposureFence {
     }
 
     /**
+     * {@link #declaresACarrier}, followed through the class's fields. {@code visited} bounds the walk: a class that
+     * holds itself, directly or through a cycle, is asked once.
+     */
+    private static boolean carriesACarrier(String className,
+            Map<String, ? extends Collection<String>> fieldTypesByClass, Set<String> visited) {
+        if (!visited.add(className)) {
+            return false;
+        }
+        if (declaresACarrier(className)) {
+            return true;
+        }
+        Collection<String> held = fieldTypesByClass.get(className);
+        return held != null && held.stream().anyMatch(type -> carriesACarrier(type, fieldTypesByClass, visited));
+    }
+
+    private static String outermostClass(String className) {
+        int nested = className.indexOf('$');
+        return nested < 0 ? className : className.substring(0, nested);
+    }
+
+    /**
      * The repository-relative source file a class was compiled from. The outermost class decides: a nested class, an
      * anonymous class and a lambda's synthetic host all live in the file of the class enclosing them, and the allowlist
      * is written in files.
      */
     static String sourcePathOf(String className) {
-        int nested = className.indexOf('$');
-        String outer = nested < 0 ? className : className.substring(0, nested);
-        return "src/main/java/" + outer.replace('.', '/') + ".java";
+        return "src/main/java/" + outermostClass(className).replace('.', '/') + ".java";
     }
 
     /**
@@ -429,7 +554,7 @@ final class IdentityKeyExposureFence {
             }
             String code = LITERAL.matcher(countable).replaceAll("\"\"");
             boolean insideLoggingCall = openLoggingParens > 0 || LOGGING_CALL.matcher(code).find();
-            boolean insideThrow = openThrowParens > 0 || THROW_ARGUMENT.matcher(code).find();
+            boolean insideThrow = openThrowParens > 0 || EXCEPTION_MESSAGE.matcher(code).find();
             if (mentionsIdentityKey(line)) {
                 if (insideLoggingCall) {
                     violations.add(path + ":" + (i + 1) + " logs the crypto-asset identity key: " + line.strip());
@@ -444,7 +569,7 @@ final class IdentityKeyExposureFence {
                 }
             }
             openLoggingParens = remainingParens(LOGGING_CALL, code, openLoggingParens);
-            openThrowParens = remainingParens(THROW_ARGUMENT, code, openThrowParens);
+            openThrowParens = remainingParens(EXCEPTION_MESSAGE, code, openThrowParens);
         }
         return violations;
     }

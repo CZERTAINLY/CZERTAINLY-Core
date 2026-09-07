@@ -3,7 +3,6 @@ package com.otilm.core.cbom.asset.identity;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.otilm.core.cbom.asset.OccurrenceEvidenceCapper;
 import com.otilm.core.model.cbom.CryptoAssetIdentityGuard;
 import com.otilm.core.serialization.ObjectMapperFactory;
@@ -78,12 +77,13 @@ public final class CbomAssetExtractor {
      * two of the three signals are visible only inside the tier that produced the key.
      *
      * <p>
-     * {@code findings} carries what the redaction pass has to tell the producer -- a dropped value, a withheld digest,
-     * an inlined secret, a dropped extension. It is published because {@code MaterialRedaction.findings()} had no
-     * reader anywhere: the values were computed, and then died at this boundary, so a promise the redaction class makes
-     * in its own Javadoc was unreachable the moment extraction returned. Carrying them here does not report them --
-     * core#2073 owns the per-CBOM reporting path -- but it turns that work into wiring an existing value rather than
-     * re-deriving it, and it makes the gap visible to anyone reading this record.
+     * {@code findings} carries what the pipeline has to tell the producer -- a dropped value, a withheld digest, an
+     * inlined secret, a dropped extension, an occurrence whose stated location rendered as no location. It is published
+     * because {@code MaterialRedaction.findings()} had no reader anywhere: the values were computed, and then died at
+     * this boundary, so a promise the redaction class makes in its own Javadoc was unreachable the moment extraction
+     * returned. Carrying them here does not report them -- core#2073 owns the per-CBOM reporting path -- but it turns
+     * that work into wiring an existing value rather than re-deriving it, and it makes the gap visible to anyone
+     * reading this record.
      *
      * <p>
      * <b>{@code identityKey}, and this file is allowlisted for that vocabulary.</b> The component was called
@@ -187,9 +187,8 @@ public final class CbomAssetExtractor {
                 List<JsonNode> occurrences = occurrencesOf(component);
                 ExtractedAsset asset = new ExtractedAsset(extracted.key(), extracted.step(), extracted.asset(),
                         nameOf(component), extracted.redaction().storedPayload(),
-                        OccurrenceEvidenceCapper.cap(occurrences == null ? null : sanitizedOccurrences(occurrences)),
-                        occurrences == null ? 0 : occurrences.size(), extracted.guard(),
-                        extracted.redaction().findings());
+                        OccurrenceEvidenceCapper.cap(occurrences == null ? null : retainedOccurrences(occurrences)),
+                        occurrences == null ? 0 : occurrences.size(), extracted.guard(), extracted.findings());
                 requireEncodable(asset);
                 assets.add(asset);
             } catch (RuntimeException e) {
@@ -218,39 +217,36 @@ public final class CbomAssetExtractor {
     }
 
     /**
-     * The occurrences the cap can keep, each location sanitized, or {@code null} when the component reported none.
+     * The occurrences the cap can keep, converted for it, or {@code null} when the component reported none.
      *
      * <p>
-     * Only the first {@link OccurrenceEvidenceCapper#MAX_OCCURRENCES} are copied and converted: the cap keeps that
-     * prefix in producer order and drops the rest whole, so sanitizing a million occurrences to retain fifty was three
-     * copies of the parsed subtree spent on a count the caller already has.
+     * Only the first {@link OccurrenceEvidenceCapper#MAX_OCCURRENCES} are converted: the cap keeps that prefix in
+     * producer order and drops the rest whole, so converting a million occurrences to retain fifty was three copies of
+     * the parsed subtree spent on a count the caller already has.
      *
      * <p>
-     * <b>Sanitizing here, not only on the keying path, is the point.</b> A location is a real shape like
-     * {@code tcp://user:pass@host:443/path?token=...}, and it feeds the identity key for version-less protocols and
-     * identity-less material -- so the keying path already strips credentials, or a password would be hashed into the
-     * key. The stored evidence is the other half of the same rule and had no such step: capped and retained verbatim,
-     * {@code crypto_asset_source.evidence} would hold the credential the key was careful not to hash, in a column the
-     * read surface serves back.
+     * <b>The location is not sanitized here.</b> A location is a real shape like
+     * {@code tcp://user:pass@host:443/path?token=...}, and the keying path strips its credential or a password would be
+     * hashed into the key; the stored evidence is the other half of the same rule, and the capper applies it to every
+     * {@code location} member of every occurrence it retains, at every depth. A pass here sanitized the top-level
+     * member a second time, which made the served string depend on neither pass alone -- deleting either left every
+     * test green, and a paragraph calling this one load-bearing would have licensed weakening the other. The property
+     * is pinned where it is observable, on the extracted evidence, not on which class produced it.
      *
      * <p>
      * A source that reported no evidence is distinct from one whose evidence capping emptied, and the capper preserves
      * that distinction downstream -- so the absent case is decided by the caller and never reaches here, and this
      * method always answers with a list.
      */
-    private static List<Map<String, Object>> sanitizedOccurrences(List<JsonNode> occurrences) {
+    private static List<Map<String, Object>> retainedOccurrences(List<JsonNode> occurrences) {
         List<JsonNode> retained = occurrences.size() > OccurrenceEvidenceCapper.MAX_OCCURRENCES
                 ? occurrences.subList(0, OccurrenceEvidenceCapper.MAX_OCCURRENCES)
                 : occurrences;
-        List<Map<String, Object>> sanitized = new ArrayList<>(retained.size());
+        List<Map<String, Object>> converted = new ArrayList<>(retained.size());
         for (JsonNode occurrence : retained) {
-            ObjectNode copy = occurrence.deepCopy();
-            if (copy.has(CbomNames.LOCATION)) {
-                copy.put(CbomNames.LOCATION, Occurrences.sanitizeLocation(copy.get(CbomNames.LOCATION)));
-            }
-            sanitized.add(MAPPER.convertValue(copy, MAP_TYPE));
+            converted.add(MAPPER.convertValue(occurrence, MAP_TYPE));
         }
-        return sanitized;
+        return converted;
     }
 
     /**
@@ -262,15 +258,21 @@ public final class CbomAssetExtractor {
      * a keyed slot was already a reported skip. A string that reaches storage without reaching a pre-image was not: a
      * cipher-suite name on a version-less protocol row, or an unread member of {@code algorithmProperties} on a row
      * keyed by family, was retained in a payload that has no valid encoding for the {@code jsonb} column -- so whether
-     * the row survived was decided by the database, on a path that once rolled back a whole source upsert. The
-     * component name, the stored payload, the sanitized evidence and the provenance notes are what persistence
-     * receives, and each is checked. The occurrence locations are not among the refusals: {@link Occurrences} scrubs a
-     * surrogate there rather than refusing it, and the evidence checked here is the scrubbed form.
+     * the row survived was decided by the database, on a path that once rolled back a whole source upsert. Five
+     * surfaces are what persistence receives, and each is checked: the component name, the stored payload, the
+     * sanitized evidence, the provenance notes, and the findings -- which echo producer member names, so a surrogate in
+     * a member the redaction dropped reached them on a tier whose pre-image never read that member.
+     *
+     * <p>
+     * The one exemption is the occurrence {@code location}: {@link Occurrences} scrubs a surrogate there rather than
+     * refusing it, and the evidence checked here is the scrubbed form. The exemption is that member alone -- a
+     * surrogate in any sibling member of the same occurrence, name or value, still costs the component its row.
      */
     private static void requireEncodable(ExtractedAsset asset) {
         IdentityDigests.requireWellFormedUnicode(asset.componentName());
         requireEncodable(asset.retainedProperties());
         asset.normalized().notes().forEach(IdentityDigests::requireWellFormedUnicode);
+        asset.findings().forEach(IdentityDigests::requireWellFormedUnicode);
         if (asset.evidence() != null) {
             asset.evidence().forEach(CbomAssetExtractor::requireEncodable);
         }

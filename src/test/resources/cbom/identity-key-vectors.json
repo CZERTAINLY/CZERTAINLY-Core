@@ -1532,8 +1532,8 @@
    },
    "expected": {
     "chainStep": "alg:family",
-    "preImage": "ALG|LMS|||||",
-    "identityKey": "94ef89166f22da15dec9a07c7228ccb9bc6bcb84e8f2dbcafea5ade78d5905a5"
+    "preImage": "ALG|LMS|||||hss",
+    "identityKey": "ba2c1934e49c44e75bc588c8a6dcb45069dd3a15d6be63e6d873ffed8579c1f5"
    }
   },
   {

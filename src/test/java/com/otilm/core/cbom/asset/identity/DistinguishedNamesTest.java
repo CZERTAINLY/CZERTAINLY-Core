@@ -163,6 +163,82 @@ class DistinguishedNamesTest {
     }
 
     /**
+     * A segment carrying no {@code =} is kept, never dropped.
+     *
+     * <p>
+     * Dropping it keyed {@code CN=a;b} as {@code CN=a}: reading {@code ;} as a separator was right, and discarding what
+     * followed it merged two subjects. The same drop reached through {@code ,} and {@code +}. The segment is text on
+     * its own -- not a common name, or {@code CN=a;b} would merge with {@code CN=a,CN=b}, and not part of the preceding
+     * value, or it would merge with {@code CN=a\;b}.
+     */
+    @Test
+    void aTypelessSegmentIsKeptNotDropped() {
+        assertThat(DistinguishedNames.normalize("CN=a;b", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=a", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=a,CN=b", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=a\\;b", TABLES))
+                .describedAs("both separators read the same name")
+                .isEqualTo(DistinguishedNames.normalize("CN=a,b", TABLES));
+        assertThat(DistinguishedNames.normalize("O=Acme; Legal Dept, C=US", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("O=Acme, C=US", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=a+b", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=a", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=a,b", TABLES));
+        assertThat(DistinguishedNames.isCommonNameOnly(DistinguishedNames.normalize("CN=a;b", TABLES)))
+                .describedAs("a DN carrying something that is not a common name is not CN-only")
+                .isFalse();
+    }
+
+    /**
+     * A quote that does not open a value is a character, so it cannot swallow the RDNs after it.
+     *
+     * <p>
+     * Toggling quote mode on every unescaped quote let {@code CN=a"b, O=c} -- one stray inch mark -- absorb {@code O=c}
+     * into the common name, and re-escaping then rendered it byte-identical to the single-valued
+     * {@code CN=a\"b\, O\=c}: a two-RDN subject and a one-RDN subject on one key.
+     */
+    @Test
+    void aStrayQuoteDoesNotSwallowLaterRdns() {
+        assertThat(DistinguishedNames.normalize("CN=a\"b, O=c", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=a\\\"b\\, O\\=c", TABLES))
+                .describedAs("it is the two-RDN name whose common name carries a quote character")
+                .isEqualTo(DistinguishedNames.normalize("CN=a\\\"b, O=c", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=5\" pipe, O=Acme", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("CN=5\\\" pipe\\, O\\=Acme", TABLES));
+        assertThat(DistinguishedNames.normalize("O=\"a\"b, C=US", TABLES))
+                .describedAs("a closed quote followed by more text does not reopen")
+                .isNotEqualTo(DistinguishedNames.normalize("O=\"a\"b\\, C\\=US", TABLES));
+    }
+
+    /**
+     * A value that opens a quote and is not one well-formed quoted string renders in a namespace nothing well-formed
+     * reaches.
+     *
+     * <p>
+     * An unterminated opening quote still runs to the end of the DN, as RFC 2253 quoting requires of a real one, so the
+     * swallowed text has to render as something no producer can spell: its unescaped quotes stay bare, where every
+     * quote in a well-formed value is escaped. Otherwise {@code O="Entrust, Inc., C=US} keyed as the one-RDN
+     * {@code O=\"Entrust\, Inc.\, C\=US}.
+     */
+    @Test
+    void aMalformedQuotedValueCannotAliasAWellFormedOne() {
+        assertThat(DistinguishedNames.normalize("O=\"Entrust, Inc., C=US", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("O=\\\"Entrust\\, Inc.\\, C\\=US", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("O=\\\"Entrust, Inc., C=US", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("O=\"Entrust, Inc., C=US\"", TABLES));
+        assertThat(DistinguishedNames.normalize("O=\"a\"b", TABLES))
+                .describedAs("two malformed spellings that differ in which quote is escaped are two values")
+                .isNotEqualTo(DistinguishedNames.normalize("O=\"a\\\"b", TABLES))
+                .isNotEqualTo(DistinguishedNames.normalize("O=\\\"a\\\"b", TABLES));
+        assertThat(DistinguishedNames.normalize("O=\"a\"b\"", TABLES))
+                .describedAs("a closed quote with trailing text is not a quoted string with an inner quote")
+                .isNotEqualTo(DistinguishedNames.normalize("O=\"a\\\"b\"", TABLES));
+        assertThat(DistinguishedNames.normalize("CN=say \"hi\", O=\"x, y\", C=\\\"z\\\"", TABLES))
+                .describedAs("a well-formed name renders every quote escaped, so a bare one is the reserved marker")
+                .doesNotContainPattern("(?<!\\\\)\"");
+    }
+
+    /**
      * RDNs sort by code point, as the reference and every other ordered sequence here do. {@code sort(null)} compared
      * UTF-16 units, which put an astral character below one at or above U+E000.
      */

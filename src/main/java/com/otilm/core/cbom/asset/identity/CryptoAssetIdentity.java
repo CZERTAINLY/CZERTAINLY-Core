@@ -85,13 +85,19 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * bare-CN subject -- are visible only inside the certificate tier.
      *
      * <p>
+     * {@code findings} is what the pipeline has to tell the producer: the redaction findings, and one line for every
+     * occurrence whose stated location rendered as no location -- see {@link Occurrences#triples(JsonNode, List)}. They
+     * are gathered here rather than by the caller because the occurrence pass runs here, once, for the tiers that key
+     * on it, and a caller re-running it to learn what was refused would sanitize every location a second time.
+     *
+     * <p>
      * <b>The generated {@code toString} is overridden deliberately.</b> A record prints every component, so the default
      * would put the identity key and its un-hashed pre-image into any log line that reported an extraction. The
      * pre-image is the worse of the two: it is the dictionary-attackable input whose secrecy is the entire reason the
      * key is fenced from every client-facing surface.
      */
     public record Identity(String key, String preImage, String step, NormalizedAsset asset, MaterialRedaction redaction,
-            CryptoAssetIdentityGuard guard) {
+            CryptoAssetIdentityGuard guard, List<String> findings) {
 
         @Override
         public String toString() {
@@ -115,13 +121,19 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         AssetNormalizer.Result normalized = normalizer.normalize(component);
         NormalizedAsset asset = normalized.asset();
         JsonNode properties = normalized.redaction().keyedPayload();
+        List<String> findings = new ArrayList<>(normalized.redaction().findings());
+        // Computed once, before the tier is known: the occurrence tiers hash it, and every tier owes the producer the
+        // record of a location that rendered as nothing, since the stored evidence renders it that way whatever tier
+        // keyed the row. One pass over the occurrences serves both.
+        String triples = Occurrences.triples(component, findings);
 
         Tier tier = switch (asset.assetType() == null ? "" : asset.assetType()) {
             case CbomNames.ASSET_TYPE_ALGORITHM -> algorithm(asset, properties);
-            case CbomNames.ASSET_TYPE_CERTIFICATE -> certificate(component, properties, scope, batchRefutedDigests);
-            case CbomNames.ASSET_TYPE_PROTOCOL -> protocol(component, properties, scope);
+            case CbomNames.ASSET_TYPE_CERTIFICATE ->
+                certificate(component, properties, scope, batchRefutedDigests, triples);
+            case CbomNames.ASSET_TYPE_PROTOCOL -> protocol(component, properties, scope, triples);
             case CbomNames.ASSET_TYPE_RELATED_CRYPTO_MATERIAL ->
-                material(component, properties, normalized.redaction());
+                material(component, properties, normalized.redaction(), triples);
             default -> new Tier(backstop(asset, properties), ChainStep.UNKNOWN_TYPE);
         };
         String preImage = tier.preImage();
@@ -138,7 +150,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
 
         recordCaseRisk(tier.caseRiskInputs(), asset);
         return new Identity(IdentityDigests.sha256Hex(preImage), preImage, tier.step().label(), asset,
-                normalized.redaction(), guardFor(tier.digestRefuted(), tier.step(), asset));
+                normalized.redaction(), guardFor(tier.digestRefuted(), tier.step(), asset), List.copyOf(findings));
     }
 
     /**
@@ -156,9 +168,9 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * third is keyed on the target's own row, where its case risk is recorded.
      *
      * <p>
-     * A tier whose pre-image itself spells a possible secret lists what may be examined instead of the pre-image: the
-     * detector's note is stored in the row's provenance block and can be served, so a pre-image spelled into it is a
-     * disclosure. The {@code mat:fingerprint} claim is the one such tier -- see {@link #material}.
+     * A tier whose pre-image spells a value storage withholds lists what may be examined instead of the pre-image: the
+     * detector's note is stored in the row's provenance block and can be served, so a withheld value spelled into it is
+     * a disclosure. The {@code mat:fingerprint} claim is the one such tier -- see {@link #fingerprintCaseRiskInputs}.
      *
      * <p>
      * {@code digestRefuted} is set only by the certificate tier, so the refutation stays visible outside the method
@@ -243,7 +255,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * normalization-dependent key over a content hash present in 100% of the data would be a strict downgrade.
      */
     private Tier certificate(JsonNode component, JsonNode properties, DocumentScope scope,
-            Set<String> batchRefutedDigests) {
+            Set<String> batchRefutedDigests, String triples) {
         JsonNode certificate = objectOrNull(properties.get(CbomNames.CERTIFICATE_PROPERTIES));
         Set<String> refuted = new TreeSet<>(scope.refutedCertificateDigests());
         refuted.addAll(batchRefutedDigests);
@@ -290,7 +302,6 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
             // Reached when the composite is not constructible -- typically a CN-only subject with no issuer. It gets
             // its own row and is never merged into a full-DN row: two internal CAs both issue CN=localhost, and
             // merging them would make "where is weak crypto deployed" answer CLEAN for a vulnerable host.
-            String triples = Occurrences.triples(component);
             // The occurrence discriminator is appended ONLY when the component has occurrences. Emitting a trailing
             // empty slot re-keys every degenerate certificate.
             String suffix = triples == null ? "" : "|" + IdentityDigests.sha256Hex(triples);
@@ -490,20 +501,63 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * surrounding whitespace nothing -- {@code content: "   "} is absent -- while the keyed value kept it, so
      * {@code content: " abc "} keyed {@code %20abc%20} and split from {@code "abc"}, and the gate and the key disagreed
      * about what a space means. Stripping matches {@code mat:id} one tier below and the serial in
-     * {@code crt:serial+issuer}. 0 of the 453 fingerprints in the 2026-08-18 corpus and 0 vectors carry a padded half,
-     * so nothing moves. What is <em>not</em> closed here is alias canonicalization: {@code SHA256} and {@code SHA-256}
-     * are still two labels, which needs the ratified alias source {@code CertificateDigests.canonicalLabel} reads and
-     * is open on core#2165.
+     * {@code crt:serial+issuer}. 0 of the 447 fingerprints in {@code cbom-corpus-2026-08-18-r2} (443 on
+     * {@code private-key}, 4 on {@code public-key}) and 0 vectors carry a padded half, so nothing moves. What is
+     * <em>not</em> closed here is alias canonicalization: {@code SHA256} and {@code SHA-256} are still two labels,
+     * which needs the ratified alias source {@code CertificateDigests.canonicalLabel} reads and is open on core#2165.
      */
     private static String fingerprintClaim(JsonNode algorithm, JsonNode content) {
-        String label = algorithm == null || !algorithm.isTextual() || AsciiText.isBlank(algorithm.textValue())
-                ? "unknown"
-                : AsciiText.fold(AsciiText.strip(algorithm.textValue()));
         return PreImageSlot
-                .of(PreImageSlot.escape(label, CryptoAssetIdentity::claimEscapeFor) + ":"
+                .of(PreImageSlot.escape(fingerprintLabel(algorithm), CryptoAssetIdentity::claimEscapeFor) + ":"
                         + PreImageSlot
                                 .escape(AsciiText.fold(AsciiText.strip(content.textValue())),
                                         CryptoAssetIdentity::claimEscapeFor));
+    }
+
+    /** The algorithm half of a fingerprint claim as the key reads it: stripped and folded, or {@code unknown}. */
+    private static String fingerprintLabel(JsonNode algorithm) {
+        return algorithm == null || !algorithm.isTextual() || AsciiText.isBlank(algorithm.textValue())
+                ? "unknown"
+                : AsciiText.fold(AsciiText.strip(algorithm.textValue()));
+    }
+
+    /**
+     * What the case-fold twin detector may read on the fingerprint tier: the pre-image when storage serves the
+     * fingerprint, and the type and algorithm slots alone when storage withholds it.
+     *
+     * <p>
+     * The claim spells {@code content} literally and the tier is open to low-entropy material, so a producer that puts
+     * non-hex cleartext under {@code fingerprint.content} on a {@code password} row has put the password in the
+     * pre-image. The detector's note is stored in the row's provenance block and can be served, so reading the
+     * pre-image there published the cleartext's cased characters -- the same class of leak as reading a raw occurrence
+     * location, with the fingerprint as the source. Reading the type slot alone closed that and blinded the detector on
+     * the whole tier: a case-fold twin in the algorithm label, or in the content of a {@code private-key} row whose
+     * fingerprint is a hex digest and is stored verbatim, keyed apart with nothing recorded, which is exactly what
+     * {@link NormalizedAsset#asciiCaseRisk()} promises to record.
+     *
+     * <p>
+     * The line between the two is drawn by what storage serves, not by a type list of this method's own. Where the
+     * stored payload carries the fingerprint object, every character of the claim is already served, so a note naming
+     * some of its cased characters discloses nothing the row does not; where storage drops the fingerprint --
+     * {@code MaterialRedaction} withholds it on every type whose digest it will not publish -- the content is withheld
+     * from the detector too, and only the type and the algorithm label are read. The label is producer metadata for the
+     * hash, {@code sha-256} on all 447 corpus fingerprints, and is never the material. Deriving the line from the
+     * stored payload rather than restating the type list means a storage rule that withholds more tomorrow withholds it
+     * from the note in the same change.
+     */
+    private static List<String> fingerprintCaseRiskInputs(String kind, JsonNode fingerprint,
+            MaterialRedaction redaction, String preImage) {
+        if (storesFingerprint(redaction)) {
+            return List.of(preImage);
+        }
+        return List.of(PreImageSlot.of(kind), fingerprintLabel(fingerprint.get("alg")));
+    }
+
+    /** True when the stored payload carries the material's fingerprint object, so its content is already served. */
+    private static boolean storesFingerprint(MaterialRedaction redaction) {
+        JsonNode material = objectOrNull(redaction.storedPayload().get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES));
+        JsonNode fingerprint = material == null ? null : material.get("fingerprint");
+        return fingerprint != null && fingerprint.isObject();
     }
 
     private static String claimEscapeFor(char character) {
@@ -571,7 +625,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         return null;
     }
 
-    private Tier protocol(JsonNode component, JsonNode properties, DocumentScope scope) {
+    private Tier protocol(JsonNode component, JsonNode properties, DocumentScope scope, String triples) {
         JsonNode protocol = objectOrNull(properties.get("protocolProperties"));
         String rawKind = text(protocol, "type");
         String kind = rawKind == null || AsciiText.isBlank(rawKind) ? null : AsciiText.fold(AsciiText.strip(rawKind));
@@ -597,7 +651,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
                     ChainStep.PRT_TYPE_VERSION);
         }
         if (kind != null) {
-            return protocolBelowSuiteDigest(component, properties, kind, version, suffix);
+            return protocolBelowSuiteDigest(component, properties, kind, version, suffix, triples);
         }
         // The name is in the key, mirroring the unknown-type backstop. Two type-less protocol components with
         // byte-identical properties and different names used to merge. Stated precisely: the same name at different
@@ -618,9 +672,8 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * {@code cipherSuites} array, and sit at the same occurrence.
      */
     private Tier protocolBelowSuiteDigest(JsonNode component, JsonNode properties, String kind, String version,
-            String suffix) {
+            String suffix, String triples) {
         String token = ComponentNames.stableToken(text(component, "name"));
-        String triples = Occurrences.triples(component);
         if (version != null && !token.isEmpty()) {
             return new Tier(
                     "PRT|" + PreImageSlot.of(kind) + "|" + PreImageSlot.of(version) + "|N:" + PreImageSlot.of(token),
@@ -714,7 +767,7 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
      * producer emits {@code {"type": "secret-key"}} and nothing else for all 37 of its assets, so 84% reach the
      * occurrence tier.
      */
-    private Tier material(JsonNode component, JsonNode properties, MaterialRedaction redaction) {
+    private Tier material(JsonNode component, JsonNode properties, MaterialRedaction redaction, String triples) {
         JsonNode material = objectOrNull(properties.get(CbomNames.RELATED_CRYPTO_MATERIAL_PROPERTIES));
         String rawKind = text(material, "type");
         String kind = AsciiText.fold(AsciiText.strip(rawKind == null ? "" : rawKind));
@@ -728,15 +781,10 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // secret keys collapsed onto one row and the value-hash tier one branch below, which would have kept them
         // apart, was never reached. Blank is the reference whitespace set, as it is in every other slot.
         if (fingerprint != null && fingerprint.isObject() && hasContent(fingerprint.get(CbomNames.CONTENT))) {
-            // The claim spells `content` literally, and this tier is open to low-entropy material -- a producer that
-            // puts non-hex cleartext under `fingerprint.content` on a `password` row has put the password in the
-            // pre-image. The case-risk detector therefore examines the type slot alone: read the pre-image and it
-            // would publish the cleartext's cased characters in a served note, the same class of leak as reading a raw
-            // occurrence location, with the fingerprint as the source instead.
-            return new Tier(
-                    "MAT|" + PreImageSlot.of(kind) + "|F|"
-                            + fingerprintClaim(fingerprint.get("alg"), fingerprint.get(CbomNames.CONTENT)),
-                    ChainStep.MAT_FINGERPRINT, false, List.of(PreImageSlot.of(kind)));
+            String preImage = "MAT|" + PreImageSlot.of(kind) + "|F|"
+                    + fingerprintClaim(fingerprint.get("alg"), fingerprint.get(CbomNames.CONTENT));
+            return new Tier(preImage, ChainStep.MAT_FINGERPRINT, false,
+                    fingerprintCaseRiskInputs(kind, fingerprint, redaction, preImage));
         }
         if (redaction.identityDigest() != null) {
             return new Tier("MAT|" + PreImageSlot.of(kind) + "|V|" + redaction.identityDigest(),
@@ -751,7 +799,6 @@ public record CryptoAssetIdentity(AssetNormalizer normalizer) {
         // Below the content-derived tiers the type slot may carry nothing at all -- `other` is a catch-all -- so the
         // stable part of the name joins the discriminator. That is what keeps a CRL and a CSR apart.
         String token = ComponentNames.stableToken(text(component, "name"));
-        String triples = Occurrences.triples(component);
         if (triples != null) {
             return Tier
                     .hashing("MAT|" + PreImageSlot.of(kind) + "|O|" + PreImageSlot.of(token) + "|"

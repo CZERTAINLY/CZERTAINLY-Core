@@ -647,9 +647,9 @@ class NormalizationRulesTest {
      * While one payload served identity and storage, such an asset's {@code fingerprint} was dropped before
      * {@code material()} could read it, so the row fell to {@code mat:backstop}. The keyed payload keeps it, so the row
      * keys on {@code mat:fingerprint} instead. That is toward the reference -- the specification's
-     * {@code MAT|<type>|F|...} carries no low-entropy exception -- and it costs 0 corpus rows, because all 453 corpus
-     * fingerprints sit on publishable types. No corpus row means the snapshot instrument is silent here by luck of the
-     * corpus rather than by construction, which is why it is pinned by hand.
+     * {@code MAT|<type>|F|...} carries no low-entropy exception -- and it costs 0 corpus rows, because all 447
+     * fingerprints in {@code cbom-corpus-2026-08-18-r2} sit on publishable types. No corpus row means the snapshot
+     * instrument is silent here by luck of the corpus rather than by construction, which is why it is pinned by hand.
      */
     @Test
     void aLowEntropyFingerprintKeysTheFingerprintTier() {
@@ -826,6 +826,82 @@ class NormalizationRulesTest {
     }
 
     /**
+     * One family, three registered schemes, three keys.
+     *
+     * <p>
+     * The rule once consumed {@code HSS-LMS}, {@code LMOTS} and {@code LMS} whole, and because a grammar match is also
+     * the text substituted out of the variant residue, the token that said <em>which</em> scheme a key belonged to was
+     * eaten: four spellings keyed {@code ALG|LMS|||||}. LM-OTS is a one-time signature, LMS is many-time and HSS is a
+     * hierarchy over LMS -- SP 800-208 registers them separately, and key reuse is the risk class that separates them.
+     * The rule now consumes the {@code LMS} token alone, or the {@code LM} of {@code LMOTS} with {@code OTS} looked
+     * ahead at, so {@code hss} and {@code ots} stay in the residue exactly as the XMSS rule leaves {@code MT} behind.
+     * The sibling test asserts the family; this one asserts what the family assertion cannot see.
+     */
+    @Test
+    void theThreeHashBasedSignatureSchemesDoNotMergeThroughTheFamily() {
+        assertThat(keyOfAlgorithm("LMS")).isNotEqualTo(keyOfAlgorithm("LMOTS"));
+        assertThat(keyOfAlgorithm("LMS")).isNotEqualTo(keyOfAlgorithm("HSS-LMS"));
+        assertThat(keyOfAlgorithm("LMOTS")).isNotEqualTo(keyOfAlgorithm("HSS-LMS"));
+        assertThat(keyOfAlgorithm("LMS-SHA256-M32-H5")).isNotEqualTo(keyOfAlgorithm("HSS-LMS-SHA256-M32-H5"));
+        assertThat(keyOfAlgorithm("LMOTS_SHA256_N32_W8")).isNotEqualTo(keyOfAlgorithm("LMS_SHA256_M32_H5"));
+        assertThat(keyOfAlgorithm("XMSS")).isNotEqualTo(keyOfAlgorithm("XMSS-MT"));
+        // The merges that are meant: a separator never decides the scheme, and a name that says HSS/LMS is HSS-LMS.
+        assertThat(keyOfAlgorithm("LMS_SHA256_M32_H5")).isEqualTo(keyOfAlgorithm("LMS-SHA256-M32-H5"));
+        assertThat(keyOfAlgorithm("HSS_LMS_SHA256_M32_H5")).isEqualTo(keyOfAlgorithm("HSS-LMS-SHA256-M32-H5"));
+        assertThat(keyOfAlgorithm("LM-OTS")).isEqualTo(keyOfAlgorithm("LMOTS"));
+        assertThat(keyOfAlgorithm("LMS (HSS/LMS)")).isEqualTo(keyOfAlgorithm("HSS-LMS"));
+    }
+
+    /**
+     * A glued parameter-set letter does not decide whether a KEM is BIKE.
+     *
+     * <p>
+     * The right guard refused any following letter so that {@code bikeshed} stopped electing the family -- and with it
+     * refused liboqs's own {@code BIKE-L1}, {@code -L3} and {@code -L5} in their separator-stripped spelling, so
+     * {@code BIKEL1} became an unfamilied name while {@code BIKE2} still elected: a separator decided the family, the
+     * defect the LMS and ChaCha20 rules exist to prevent. The guard now refuses a letter only when no digit follows it.
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "BIKE,BIKE",
+            "BIKE-L1,BIKE",
+            "BIKE_L3,BIKE",
+            "BIKEL1,BIKE",
+            "BIKEL3,BIKE",
+            "BIKEL5,BIKE",
+            "BIKE1-L1-CPA,BIKE",
+            "BIKE2,BIKE",
+            "BIKE3,BIKE",
+            "bikeshed,",
+            "bikes,"})
+    void aGluedLevelLetterStillElectsBike(String name, String expected) {
+        assertThat(normalize(name).family()).isEqualTo(expected);
+    }
+
+    @Test
+    void aSeparatorDoesNotSplitABikeParameterSet() {
+        assertThat(keyOfAlgorithm("BIKEL1")).isEqualTo(keyOfAlgorithm("BIKE-L1"));
+        assertThat(keyOfAlgorithm("BIKE-L1")).isNotEqualTo(keyOfAlgorithm("BIKE-L3"));
+    }
+
+    /**
+     * The XOF marker survives a glued spelling.
+     *
+     * <p>
+     * {@code shake} is guarded against a preceding letter so that {@code TLS handshake key} contributes no marker, and
+     * the guard also dropped it from {@code SLHDSASHAKE128f}, splitting one FIPS 205 parameter set from its
+     * {@code SLH-DSA-SHAKE-128f} spelling on nothing but separators. A preceding letter is admitted when the token is
+     * followed by its output length, which {@code handshake} never is.
+     */
+    @Test
+    void aGluedShakeSpellingKeepsItsMarker() {
+        assertThat(NORMALIZER.secondaryTokens("SLHDSASHAKE128f", "SLH-DSA")).contains("shake");
+        assertThat(keyOfAlgorithm("SLHDSASHAKE128f")).isEqualTo(keyOfAlgorithm("SLH-DSA-SHAKE-128f"));
+        assertThat(keyOfAlgorithm("SLHDSASHAKE256s")).isEqualTo(keyOfAlgorithm("SLH-DSA-SHAKE-256s"));
+        assertThat(NORMALIZER.secondaryTokens("TLS handshake key", null)).doesNotContain("shake");
+    }
+
+    /**
      * GOST is one registry token for several standards, so a name citing a standard stays on the name tier -- glued or
      * separated -- and every other spelling elects the family.
      *
@@ -863,6 +939,27 @@ class NormalizationRulesTest {
     void theTwoGostStandardsDoNotMergeThroughTheFamily() {
         assertThat(keyOfAlgorithm("GOST R 34.10-2012")).isNotEqualTo(keyOfAlgorithm("GOST R 34.11-2012"));
         assertThat(keyOfAlgorithm("GOST3410")).isNotEqualTo(keyOfAlgorithm("GOST3411"));
+    }
+
+    /**
+     * A name citing a GOST standard keys by its own spelling: six spellings of 34.11 are six keys, and that is the
+     * ruling rather than an accident.
+     *
+     * <p>
+     * "Stays on the name tier" is not "keys alike". The single registry token cannot carry which standard is meant, so
+     * the name tier is where these live, and there the only fold that would merge {@code GOST3411} with
+     * {@code GOST R 34.11-2012} is the one that merged 34.10 with 34.11. An over-split is visible and repairable; the
+     * merge is silent. Pinned so that whoever folds these does so knowing it reverses a ruling, not a slip.
+     */
+    @Test
+    void aGostNameCitingAStandardKeysByItsSpelling() {
+        List<String> spellings = List
+                .of("GOST3411", "GOSTR3411", "GOST3411-2012-256", "GOST R 34.11-2012", "GOST_R_34_11_2012",
+                        "GOST 34.11");
+        assertThat(spellings.stream().map(NormalizationRulesTest::keyOfAlgorithm).distinct())
+                .describedAs("each spelling of the 34.11 digest is its own key on the name tier")
+                .hasSize(spellings.size());
+        assertThat(spellings).allSatisfy(name -> assertThat(normalize(name).family()).isNull());
     }
 
     /**
@@ -953,34 +1050,6 @@ class NormalizationRulesTest {
                     .noneMatch(note -> note.contains("exceeds 1024 characters"))
                     .noneMatch(note -> note.contains("outside whitelist"));
         }
-    }
-
-    /**
-     * The fingerprint claim on low-entropy material is not read for case risk, because the claim spells the content.
-     *
-     * <p>
-     * {@code mat:fingerprint} renders {@code alg:content} literally and is open to a {@code password} row, so a
-     * producer putting non-hex cleartext there put the password in the pre-image -- and the detector, reading the
-     * pre-image, published its cased characters in a served R12 note. It examines the type slot alone on that tier,
-     * which is asserted positively so the exclusion cannot pass on a blinded detector.
-     */
-    @Test
-    void theFingerprintClaimIsNotReadForCaseRiskOnLowEntropyMaterial() {
-        NormalizedAsset password = IDENTITY.of(materialOfType("password", "Pässwörd-ß")).asset();
-        NormalizedAsset typeRisk = IDENTITY.of(materialOfType("pässword", "aabb")).asset();
-
-        assertThat(password.asciiCaseRisk()).isEmpty();
-        assertThat(password.notes()).noneMatch(note -> note.startsWith("R12:"));
-        assertThat(password.keyedCaseValues())
-                .describedAs("the detector's stored input carries the type slot and not the claim")
-                .containsExactly("password");
-        assertThat(typeRisk.asciiCaseRisk()).describedAs("the type slot is still examined").containsExactly("ä");
-    }
-
-    private static JsonNode materialOfType(String type, String fingerprintContent) {
-        return read("{\"type\":\"cryptographic-asset\",\"cryptoProperties\":{\"assetType\":"
-                + "\"related-crypto-material\",\"relatedCryptoMaterialProperties\":{\"type\":" + quote(type)
-                + ",\"fingerprint\":{\"alg\":\"sha-256\",\"content\":" + quote(fingerprintContent) + "}}}}");
     }
 
     private static JsonNode algorithmWithField(String field, String value) {

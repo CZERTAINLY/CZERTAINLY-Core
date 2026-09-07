@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -806,6 +810,57 @@ class TextNormalizationTest {
 
         assertThat(sanitize(once)).isEqualTo(once);
         assertThat(sanitize(tail)).isEqualTo(sanitize(sanitize(tail)));
+    }
+
+    /**
+     * A stated location that renders as nothing is recorded by mechanism, and the record never quotes the location.
+     *
+     * <p>
+     * Four classes empty a stated location -- a non-string value, the input-length refusal, the user-info pass-cap
+     * refusal, and a string the sanitizer leaves nothing of -- and each renders the triple an absent location renders.
+     * The one-argument {@code triples} is the reference operation the kernel mirrors and stays byte-identical to the
+     * recording overload; the record is the only thing that separates the four from absence.
+     */
+    @Test
+    void aStatedLocationThatRendersAsNothingIsRecordedByMechanismAndNeverQuoted() {
+        Map<String, String> emptiedBy = new LinkedHashMap<>();
+        emptiedBy.put("42", "is not a string");
+        emptiedBy.put("\"" + "a".repeat(64 * 1024 + 1) + "\"", "is longer than 65536 characters");
+        emptiedBy.put("\"//u:secret@" + "/u:secret@".repeat(39) + "host\"", "nests user-info deeper than 16");
+        emptiedBy.put("\"?sig=secret\"", "names no place");
+        emptiedBy.put("\"#?tok=secret\"", "names no place");
+        emptiedBy.put("\"##\"", "names no place");
+        emptiedBy.put("\"\\ud800\"", "names no place");
+        emptiedBy.put("\"\\ud800 ?a\"", "names no place");
+
+        emptiedBy.forEach((location, mechanism) -> {
+            List<String> findings = new ArrayList<>();
+            JsonNode component = occurrences("[{\"location\": " + location + ", \"line\": 7}]");
+            assertThat(Occurrences.triples(component, findings)).describedAs(location).isEqualTo("#7#");
+            assertThat(Occurrences.triples(component)).describedAs(location).isEqualTo("#7#");
+            assertThat(findings)
+                    .describedAs(location)
+                    .singleElement()
+                    .asString()
+                    .startsWith("occurrence 0: the stated location ")
+                    .contains(mechanism)
+                    .doesNotContain("secret");
+        });
+        for (String absent : List.of("null", "\"   \"", "\"\\u00a0\"", "\"\\r\\n\"")) {
+            List<String> findings = new ArrayList<>();
+            assertThat(Occurrences.triples(occurrences("[{\"location\": " + absent + ", \"line\": 7}]"), findings))
+                    .isEqualTo("#7#");
+            assertThat(findings).describedAs("%s states nothing and is not a refusal", absent).isEmpty();
+        }
+        List<String> findings = new ArrayList<>();
+        assertThat(
+                Occurrences.triples(occurrences("[{\"line\": 7}, {\"location\": \"a\"}, {\"location\": 1}]"), findings))
+                .isEqualTo("##\n#7#\na##");
+        assertThat(findings)
+                .describedAs("the index is the producer's, counted over the whole array")
+                .singleElement()
+                .asString()
+                .startsWith("occurrence 2:");
     }
 
     private static String sanitize(String location) {

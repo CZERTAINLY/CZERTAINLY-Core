@@ -3239,9 +3239,9 @@
       "why": "cbom-lens familyExact"
     },
     {
-      "pattern": "(?<![A-Za-z0-9])(HSS[-_/ ]?LMS|LMOTS|LMS)(?![A-Za-z0-9])",
+      "pattern": "(?<![A-Za-z0-9])(?:LMS(?![A-Za-z0-9])|LM[-_]?(?=OTS(?![A-Za-z0-9])))",
       "family": "LMS",
-      "why": "cbom-lens familyExact, widened twice: the anchored form matched only the bare name, and the two-word HSS-LMS literal that replaced it still let the registered parameter-set names fall through to the SHA-2 rule -- LMS_SHA256_M32_H5 and LMOTS_SHA256_N32_W8 are what RFC 8554 and SP 800-208 register and what a JCA-call scanner emits, so a separator decided whether a stateful hash-based signature was inventoried as a signature or as a digest. Word-guarded on both sides so the bare tokens resolve and nothing matches inside another word; bare HSS is not listed, since the token is also a telecom name"
+      "why": "cbom-lens familyExact, widened twice and then narrowed to the token. The anchored form matched only the bare name, and the two-word HSS-LMS literal that replaced it still let the registered parameter-set names fall through to the SHA-2 rule -- LMS_SHA256_M32_H5 and LMOTS_SHA256_N32_W8 are what RFC 8554 and SP 800-208 register and what a JCA-call scanner emits, so a separator decided whether a stateful hash-based signature was inventoried as a signature or as a digest. Consuming HSS-LMS and LMOTS whole then ate the discriminator out of the variant residue, and LM-OTS, LMS and HSS-LMS -- a one-time signature, a many-time one and a hierarchy over it, which key reuse keeps apart -- keyed alike as ALG|LMS|||||. So only the LMS token is consumed, or the LM of LMOTS with OTS looked ahead at, and `hss` and `ots` stay in the residue the way the XMSS rule leaves `MT`. Word-guarded so nothing matches inside another word; bare HSS is not listed, since the token is also a telecom name"
     },
     {
       "pattern": "(?<![A-Za-z0-9])XMSS",
@@ -3544,9 +3544,9 @@
       "why": "liboqs"
     },
     {
-      "pattern": "(?<![A-Za-z0-9])BIKE(?![A-Za-z])",
+      "pattern": "(?<![A-Za-z0-9])BIKE(?![A-Za-z](?![0-9]))",
       "family": "BIKE",
-      "why": "liboqs. Guarded against a following letter, not a digit: `bikeshed` elected the family, while liboqs's own pre-0.5 spellings BIKE1-L1-CPA, BIKE2 and BIKE3 glue a digit to the token"
+      "why": "liboqs. Meant to elect: bare BIKE, the current BIKE-L1, -L3 and -L5 parameter sets under any separator or none (BIKEL1), and the pre-0.5 BIKE1-L1-CPA, BIKE2 and BIKE3 that glue a digit to the token. Meant not to: an English word that begins with it, `bikeshed`. The guard refuses a following letter only when no digit follows that letter, because refusing every letter left BIKEL1 an unfamilied name while BIKE2 still elected -- a separator deciding the family"
     },
     {
       "pattern": "(?<![A-Za-z0-9])HQC",
@@ -3856,7 +3856,7 @@
     {
       "pattern": "(?<![A-Za-z0-9])GOST(?![-_ \\t\\n\\x0B\\f\\r\\x1C\\x1D\\x1E\\x1F\\x85\\xA0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*R?[-_ \\t\\n\\x0B\\f\\r\\x1C\\x1D\\x1E\\x1F\\x85\\xA0\\u1680\\u2000\\u2001\\u2002\\u2003\\u2004\\u2005\\u2006\\u2007\\u2008\\u2009\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]*(?:28147|34[._-]?1[012]|34[._-]?3))",
       "family": "GOST",
-      "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to nothing. One guard, against a following standard number -- 28147, 34.10, 34.11, 34.12 or 34.3, separated by the reference whitespace set or by nothing (`GOST R 34.11-2012`, `GOST_R_34_10_2012`, `GOST28147`, Bouncy Castle's `GOST3411` and `GOSTR3410`) -- because the single registry token cannot carry which standard is meant, so a name citing one stays on the name tier where the number keeps 34.10 apart from 34.11. The guard spells the reference whitespace set rather than an ASCII space: `GOST R 34.10` written with U+00A0 for either space defeated the narrow spelling and merged 34.10 with 34.11 again. Nothing else is guarded: a trailing key size or mode (`GOST-256-CTR`, `GOST-512`) and a glued word (`GOSTHASH`, `GOSTKDF`) elect the family, since a bare `[0-9]` lookahead and a right word guard between them left only six plain-ASCII spellings able to reach it. Cipher suites naming GOST are classified as suites before family derivation runs, so they cannot reach this"
+      "why": "registry token with no rule at all until now: `GOST cipher/hash (legacy)` resolved to nothing. One guard, against a following standard number -- 28147, 34.10, 34.11, 34.12 or 34.3, separated by the reference whitespace set or by nothing (`GOST R 34.11-2012`, `GOST_R_34_10_2012`, `GOST28147`, Bouncy Castle's `GOST3411` and `GOSTR3410`) -- because the single registry token cannot carry which standard is meant, so a name citing one stays on the name tier where the number keeps 34.10 apart from 34.11. The guard spells the reference whitespace set rather than an ASCII space: `GOST R 34.10` written with U+00A0 for either space defeated the narrow spelling and merged 34.10 with 34.11 again. Nothing else is guarded: a trailing key size or mode (`GOST-256-CTR`, `GOST-512`) and a glued word (`GOSTHASH`, `GOSTKDF`) elect the family, since a bare `[0-9]` lookahead and a right word guard between them left only six plain-ASCII spellings able to reach it. Ruled, not merely tolerated: a name that cites a standard keys by its own spelling on the name tier, so `GOST3411`, `GOSTR3411`, `GOST 34.11` and `GOST R 34.11-2012` are as many keys as spellings. That over-split is visible and repairable; the fold that would merge them is the one that merged 34.10 with 34.11. Dropping the right word guard also moves the table's own curve tokens read as an algorithm name -- `gost256` and `gost512` -- from the name tier onto the family, 0 corpus rows. Cipher suites naming GOST are classified as suites before family derivation runs, so they cannot reach this"
     },
     {
       "pattern": "(?<![A-Za-z0-9])Skipjack",
@@ -3960,7 +3960,7 @@
     ],
     [
       "shake",
-      "(?<![A-Za-z])SHAKE"
+      "(?<![A-Za-z])SHAKE|SHAKE(?=[-_]?[0-9])"
     ],
     [
       "gcm",

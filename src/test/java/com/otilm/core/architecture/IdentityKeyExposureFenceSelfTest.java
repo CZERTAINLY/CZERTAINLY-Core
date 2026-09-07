@@ -6,6 +6,7 @@ import com.otilm.core.architecture.IdentityKeyExposureFence.MethodShape;
 import com.otilm.core.architecture.IdentityKeyExposureFence.TypedMember;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -430,6 +431,102 @@ class IdentityKeyExposureFenceSelfTest {
                 .isEmpty();
     }
 
+    /**
+     * The construction is the sink, not the {@code throw}. An exception built into a local, one handed to
+     * {@code initCause}, and one thrown through a factory all carry the message to whatever logs it, and none of them
+     * puts {@code throw new} on the disclosing line.
+     */
+    @Test
+    void anExceptionMessageBuiltOffTheThrowLineIsALogLine() {
+        Path writer = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer, List
+                        .of("  IllegalStateException failure = new IllegalStateException(\"duplicate \" + identityKey);",
+                                "  throw failure;")))
+                .describedAs("built into a local and thrown two lines later")
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetWriter.java:1")
+                .contains("exception message");
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer,
+                        List.of("  throw duplicateIdentity(\"duplicate identity_key \" + identityKey);")))
+                .describedAs("thrown through a factory")
+                .singleElement()
+                .asString()
+                .contains("exception message");
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer,
+                        List.of("  failure.initCause(new IllegalArgumentException(identityKey));")))
+                .describedAs("handed to initCause")
+                .hasSize(1);
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer,
+                        List
+                                .of("  Supplier<RuntimeException> onDuplicate = () -> new DuplicateKeyError(",
+                                        "          identityKey);")))
+                .describedAs("an Error, wrapped across lines")
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetWriter.java:2");
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer, List.of("  repository.upsertIdentity(new IdentityKeyRow(identityKey));")))
+                .describedAs("a constructed value type is not an exception")
+                .isEmpty();
+    }
+
+    /**
+     * The shape the code base actually uses: eighteen {@code MDC.put} sites sit behind {@code LoggingHelper}'s static
+     * methods, so a value handed to one of them is bound into every later log line while the disclosing line names no
+     * logger and no MDC.
+     */
+    @Test
+    void aCallOnARegisteredLoggingFacadeIsALogLine() {
+        Path writer = Path.of("src/main/java/com/otilm/core/service/writer/cbom/CryptoAssetWriter.java");
+
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer,
+                        List.of("  LoggingHelper.putLogResourceInfo(Resource.CBOM, false, identityKey, name);")))
+                .singleElement()
+                .asString()
+                .contains("logs the crypto-asset identity key");
+        assertThat(IdentityKeyExposureFence
+                .sourceFileViolations(writer, List
+                        .of("  com.otilm.core.logging.LoggingHelper.putAuditLogOperation(", "          identityKey);")))
+                .describedAs("qualified, and wrapped across lines")
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetWriter.java:2");
+    }
+
+    /**
+     * The façade list is only a sink list while it is the whole set of MDC writers, so a binding made from anywhere
+     * else is refused -- a one-line {@code bind(key, value)} wrapper beside a disclosure would otherwise be the wrapper
+     * shape reopened.
+     */
+    @Test
+    void anMdcWriteOutsideARegisteredFacadeIsReported() {
+        assertThat(IdentityKeyExposureFence
+                .unregisteredMdcWriterViolations(List.of(new AccessorCall(WRITER, "org.slf4j.MDC", "put"))))
+                .singleElement()
+                .asString()
+                .contains("CryptoAssetWriter")
+                .contains("org.slf4j.MDC.put");
+        assertThat(IdentityKeyExposureFence
+                .unregisteredMdcWriterViolations(
+                        List.of(new AccessorCall(WRITER + "$1", "org.slf4j.MDC", "putCloseable"))))
+                .describedAs("from a nested class, judged by the class that encloses it")
+                .hasSize(1);
+        assertThat(IdentityKeyExposureFence
+                .unregisteredMdcWriterViolations(List
+                        .of(new AccessorCall("com.otilm.core.logging.LoggingHelper", "org.slf4j.MDC", "put"),
+                                new AccessorCall(WRITER, "org.slf4j.MDC", "get"),
+                                new AccessorCall(WRITER, "org.slf4j.MDC", "remove"))))
+                .describedAs("the registered facade binds; reading or clearing the MDC binds nothing")
+                .isEmpty();
+    }
+
     // ---------------------------------------------------------------- key carriers
 
     private static final String IDENTITY = "com.otilm.core.cbom.asset.identity.CryptoAssetIdentity$Identity";
@@ -564,17 +661,21 @@ class IdentityKeyExposureFenceSelfTest {
     }
 
     /**
-     * The rule is about a String that came from a carrier; a registered carrier, another type, or another value is not
-     * it.
+     * The rule is about a value that came from a carrier; a registered carrier, one of this code base's own types, or
+     * another value is not it.
      */
     @Test
     void aMethodThatIsNotAReExportIsNotReported() {
-        assertThat(reExportViolations(EXTRACTED, "identityKey", "java.lang.String"))
-                .describedAs("a registered carrier is the reviewed record of a deliberate hand-off")
+        assertThat(reExportViolations(EXTRACTED, "identityKey", "java.lang.String", IDENTITY + ".key"))
+                .describedAs("a registered carrier reading another carrier is the reviewed record of a deliberate "
+                        + "hand-off -- this is the assertion that pins the registration filter")
                 .isEmpty();
         assertThat(reExportViolations(EXTRACTOR, "extract", EXTRACTOR + "$Extraction", IDENTITY + ".key"))
                 .describedAs(
                         "a value handed on inside a record is the extractor's contract, and its components are registered")
+                .isEmpty();
+        assertThat(reExportViolations(CALCULATOR, "material", CALCULATOR + "$Tier", REDACTION + ".identityDigest"))
+                .describedAs("a type of this code base registers its own carriers and is judged where it appears")
                 .isEmpty();
         assertThat(reExportViolations(SERVICE, "stepOf", "java.lang.String", IDENTITY + ".step"))
                 .describedAs("the chain step carries nothing fenced")
@@ -582,6 +683,61 @@ class IdentityKeyExposureFenceSelfTest {
         assertThat(reExportViolations(CALCULATOR, "publicKeyDigest", "java.lang.String", CALCULATOR + "$Tier.preImage"))
                 .describedAs("a private tier record is not a registered carrier")
                 .isEmpty();
+        assertThat(reExportViolations(WRITER, "hasKey", "boolean", EXTRACTED + ".identityKey"))
+                .describedAs("a primitive cannot carry the value")
+                .isEmpty();
+        assertThat(reExportViolations(WRITER, "store", "void", EXTRACTED + ".identityKey"))
+                .describedAs("a void method that writes no field handed nothing on")
+                .isEmpty();
+    }
+
+    /**
+     * The bound is the shape of the hand-off, not its depth. {@code String} was the only return type judged, so the
+     * same re-export under {@code CharSequence}, {@code Object}, an {@code Optional} or a collection passed with no
+     * second method needed.
+     */
+    @Test
+    void aReExportUnderAnyTypeThatCanHoldTheValueIsReported() {
+        for (String returnType : List
+                .of("java.lang.CharSequence", "java.lang.Object", "java.lang.StringBuilder", "java.util.Optional",
+                        "java.util.List", "java.util.Map", "java.util.stream.Stream", "[Ljava.lang.String;",
+                        "com.fasterxml.jackson.databind.JsonNode")) {
+            assertThat(reExportViolations(EXTRACTOR, "probe", returnType, EXTRACTED + ".identityKey"))
+                    .describedAs("returned as %s", returnType)
+                    .singleElement()
+                    .asString()
+                    .contains("CbomAssetExtractor.probe")
+                    .contains(returnType);
+        }
+    }
+
+    /**
+     * One method split in two: a void method reads the carrier into a field, and a getter returns the field while
+     * calling no carrier at all. Neither half is a {@code String}-returning re-export, so the pair passed.
+     */
+    @Test
+    void aCarrierCapturedIntoAFieldIsReported() {
+        assertThat(IdentityKeyExposureFence
+                .carrierReExportViolations(List
+                        .of(new MethodShape(EXTRACTOR, "probeCapture", "void", List.of(EXTRACTED + ".identityKey"),
+                                List.of(EXTRACTOR + ".probeField")))))
+                .singleElement()
+                .asString()
+                .contains("CbomAssetExtractor.probeCapture")
+                .contains("CbomAssetExtractor.probeField")
+                .contains("ExtractedAsset.identityKey");
+        assertThat(IdentityKeyExposureFence
+                .carrierReExportViolations(List
+                        .of(new MethodShape(EXTRACTOR, "probeRead", "java.lang.String", List.of(),
+                                List.of(EXTRACTOR + ".probeField")))))
+                .describedAs("the getter half reads no carrier; the capture is what is judged")
+                .isEmpty();
+        assertThat(IdentityKeyExposureFence
+                .carrierReExportViolations(List
+                        .of(new MethodShape(EXTRACTOR, "probeBoth", "java.lang.CharSequence",
+                                List.of(EXTRACTED + ".identityKey"), List.of(EXTRACTOR + ".probeField")))))
+                .describedAs("a method that both stores and returns the value is reported for each")
+                .hasSize(2);
     }
 
     /**
@@ -608,15 +764,47 @@ class IdentityKeyExposureFenceSelfTest {
                 .isEmpty();
     }
 
+    /**
+     * The one-hop ceiling: {@code record WrapDto(String name, Holder holder)} with the {@code Identity} inside
+     * {@code Holder} passed, because only the member's own raw type was asked. The serializer walks the holder too.
+     */
+    @Test
+    void aFencedMemberTypedWithAHolderOfACarrierIsReported() {
+        String dto = "com.otilm.core.model.cbom.FencePlantWrapDto";
+        String fenced = "com.otilm.core.model.cbom";
+        String holder = "com.otilm.core.service.cbom.FencePlantHolder";
+        String deeper = "com.otilm.core.service.cbom.FencePlantDeeperHolder";
+        TypedMember member = new TypedMember(dto, fenced, "field", "holder", List.of(holder));
+
+        assertThat(IdentityKeyExposureFence
+                .carrierTypedMemberViolations(List.of(member), Map.of(holder, List.of("java.lang.String", IDENTITY))))
+                .describedAs("one field deep")
+                .hasSize(1);
+        assertThat(IdentityKeyExposureFence
+                .carrierTypedMemberViolations(List.of(member),
+                        Map.of(holder, List.of(deeper), deeper, List.of("java.util.List", EXTRACTED))))
+                .describedAs("two fields deep, through a type argument")
+                .hasSize(1);
+        assertThat(IdentityKeyExposureFence
+                .carrierTypedMemberViolations(List.of(member),
+                        Map.of(holder, List.of("java.lang.String", deeper, holder), deeper, List.of(holder))))
+                .describedAs("a holder that holds itself, and nothing fenced, terminates and passes")
+                .isEmpty();
+        assertThat(IdentityKeyExposureFence.carrierTypedMemberViolations(List.of(member), Map.of()))
+                .describedAs("a holder the scan knows nothing about holds nothing the fence knows about")
+                .isEmpty();
+    }
+
     private static List<String> reExportViolations(String owner, String method, String returnType, String... carriers) {
         return IdentityKeyExposureFence
-                .carrierReExportViolations(List.of(new MethodShape(owner, method, returnType, List.of(carriers))));
+                .carrierReExportViolations(
+                        List.of(new MethodShape(owner, method, returnType, List.of(carriers), List.of())));
     }
 
     private static List<String> typedMemberViolations(String owner, String packageName, String kind, String name,
             String... involvedTypes) {
         return IdentityKeyExposureFence
                 .carrierTypedMemberViolations(
-                        List.of(new TypedMember(owner, packageName, kind, name, List.of(involvedTypes))));
+                        List.of(new TypedMember(owner, packageName, kind, name, List.of(involvedTypes))), Map.of());
     }
 }

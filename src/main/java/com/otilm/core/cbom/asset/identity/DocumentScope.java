@@ -108,17 +108,26 @@ public final class DocumentScope {
      * True when the component states an {@code assetType} that does not route to the protocol type.
      *
      * <p>
-     * Stated means textual and non-blank; whether it <em>routes</em> is not part of the test. Requiring the type to
-     * route barred only the three other known types, so {@code protocols}, {@code algo} or a component {@code type}
-     * copied into the wrong field -- all plausible producer text -- still contributed a suite name and could refute a
-     * real code document-wide, which is the hazard {@link #refutedSuiteCodes} states this gate exists to close.
+     * Unstated is absent, JSON {@code null} or blank -- the shapes the whole chain reads as "said nothing". Anything
+     * else is stated, and whether it <em>routes</em> is not part of the test. Requiring the type to route barred only
+     * the three other known types, so {@code protocols}, {@code algo} or a component {@code type} copied into the wrong
+     * field -- all plausible producer text -- still contributed a suite name and could refute a real code
+     * document-wide, which is the hazard {@link #refutedSuiteCodes} states this gate exists to close. Requiring it to
+     * be textual left the same hole one spelling over: a number, a boolean, an array or an object under
+     * {@code assetType} is a type the router reads as none, so the row keys on the unroutable backstop and is not a
+     * protocol -- yet it was read here as unstated and contributed. A producer that wrote a value there stated a type,
+     * whatever the value is.
      */
     private static boolean statesANonProtocolType(JsonNode properties, AssetNormalizer normalizer) {
         JsonNode declared = properties == null ? null : properties.get("assetType");
-        if (declared == null || !declared.isTextual() || AsciiText.isBlank(declared.textValue())) {
+        if (declared == null || declared.isNull()) {
             return false;
         }
-        return !CbomNames.ASSET_TYPE_PROTOCOL.equals(normalizer.normalizeAssetType(declared.textValue()));
+        if (!declared.isTextual()) {
+            return true;
+        }
+        return !AsciiText.isBlank(declared.textValue())
+                && !CbomNames.ASSET_TYPE_PROTOCOL.equals(normalizer.normalizeAssetType(declared.textValue()));
     }
 
     /**
@@ -312,8 +321,8 @@ public final class DocumentScope {
      * the <em>normalized</em> {@code assetType} because a raw comparison made that control evadable by capitalization.
      * The asymmetry was reachable: an {@code algorithm} component carrying a stale protocol block could contribute a
      * second name for a real suite code and refute it document-wide, moving the identity of every genuine protocol row
-     * that claims it. 0 of 107 corpus {@code cipherSuites} blocks sit on a non-protocol component, so nothing moves
-     * today.
+     * that claims it. 0 of the 101 {@code cipherSuites} blocks in {@code cbom-corpus-2026-08-18-r2} sit on a component
+     * whose {@code assetType} is stated and is not protocol -- textual or otherwise -- so nothing moves today.
      *
      * <p>
      * <b>An absent {@code assetType} still contributes.</b> Skipping everything that does not normalize to
@@ -367,8 +376,22 @@ public final class DocumentScope {
      * refuted the code document-wide and re-keyed every protocol row claiming it, including rows that never saw the
      * alias. Refutation is the control for a fabricated code stamped on differently-named suites, so what has to differ
      * is the suite: separators and case are dropped as for every table lookup, and the {@code WITH} infix goes with
-     * them. Nothing else is folded -- the 7 refuted codes in the 2026-08-18 corpus each carry two or more suites that
-     * stay distinct under this reading, so 0 rows move.
+     * them, once. Nothing else is folded -- the 7 refuted codes in {@code cbom-corpus-2026-08-18-r2} each carry two or
+     * more suites that stay distinct under this reading, so 0 rows move.
+     *
+     * <p>
+     * <b>This compares spellings, and one alias family is out of its reach.</b> OpenSSL's classic names drop the
+     * {@code TLS_} prefix, the {@code WITH} and the {@code CBC}, and omit {@code RSA} where key exchange and
+     * authentication are both RSA: {@code ECDHE-RSA-AES128-GCM-SHA256} is {@code TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256}
+     * and {@code AES128-GCM-SHA256} is {@code TLS_RSA_WITH_AES_128_GCM_SHA256}, and a document naming a code both ways
+     * still refutes it here. Stripping the prefix would not repair it and would open a merge: TLS 1.3's
+     * {@code TLS_AES_128_GCM_SHA256} and OpenSSL's {@code AES128-GCM-SHA256} -- code {@code 0x009C}, a different suite
+     * -- would then denote one suite, and a code stamped on both would go unrefuted. Only a code-to-name registry can
+     * say which suite a name denotes, {@code identity-tables.json} carries none, and adding one is a ratification.
+     * Until then the residual is stated rather than folded, and its direction is the recoverable one: a refuted code
+     * falls back to the suite names, which splits the two tools' rows instead of merging two suites. 0 of the 7 refuted
+     * corpus codes is an alias pair -- five are one producer's placeholder {@code 0xC030} under five different suites,
+     * two are a TLS 1.3 suite beside its hybrid variants.
      */
     private static void recordSuiteNames(JsonNode suites, Map<String, Set<String>> names) {
         if (suites == null) {
@@ -386,8 +409,19 @@ public final class DocumentScope {
         }
     }
 
+    /**
+     * The lookup key with the alias infix removed once, or the lookup key itself when nothing but the infix remains.
+     *
+     * <p>
+     * Once, because a registry name carries the word once and removing every occurrence read {@code TLS_WITH_WITH_AES}
+     * as the suite {@code TLS_AES}. And never the empty string: a name that <em>is</em> the infix denoted the empty
+     * suite, so two such names under one code read as one suite, and the caller's blank guard tests the raw name and
+     * could not see it. The denotation of a non-blank name is non-blank.
+     */
     private static String denotedSuite(String name) {
-        return SUITE_NAME_ALIAS_INFIX.matcher(AsciiText.lookupKey(name)).replaceAll("");
+        String key = AsciiText.lookupKey(name);
+        String denoted = SUITE_NAME_ALIAS_INFIX.matcher(key).replaceFirst("");
+        return denoted.isEmpty() ? key : denoted;
     }
 
     private static void put(Map<String, String> facts, String field, String value) {

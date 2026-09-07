@@ -132,21 +132,57 @@ public final class Occurrences {
      * Exposed as a named operation because a hashed slot is invisible to a conformance vector: the vector shows the
      * digest, so an implementer who computes a different string sees only that "the key differs" with no way to find
      * out why. The sibling case cost one proof-of-concept round 768 guesses for exactly this reason.
+     *
+     * <p>
+     * This signature is the one the reference kernel mirrors, so it stays as it is; a caller that also wants to know
+     * which locations rendered as nothing passes a list to the overload, and the string is the same either way.
      */
     public static String triples(JsonNode component) {
+        return triples(component, new ArrayList<>());
+    }
+
+    /**
+     * {@link #triples}, recording every occurrence whose <em>stated</em> location rendered as no location.
+     *
+     * <p>
+     * Many mechanisms render a stated location as the empty string, and the empty string is what an occurrence that
+     * stated no location renders as: a non-string value of any JSON type, the input-length refusal, the user-info
+     * pass-cap refusal, a bare query string, a fragment delimiter run followed by a query, a run of nothing but
+     * delimiters, unpaired surrogates alone, a fragment whose retained text is longer than the cap and all whitespace,
+     * and a location whose sanitized remainder is whitespace the final strip removes. Every one of them keyed and
+     * stored identically to {@code "location": null}, and nothing said so -- an operator reading the stored evidence
+     * saw an occurrence with no location and could not tell a producer that stated nothing from one whose statement was
+     * refused. The key cannot tell them apart either, and deliberately: this slot is unescaped, so any sentinel it
+     * could carry a producer can also spell, which is why the position slot has a sentinel and this one has a record.
+     *
+     * <p>
+     * The record is a finding beside the redaction findings, one per emptied occurrence, naming the occurrence by its
+     * index and the mechanism by class -- never the location itself, which is the string that may hold the credential
+     * the sanitizer exists to remove. A location that is absent, JSON {@code null} or blank is not recorded: blank is
+     * absent in every slot of the chain, and a producer that wrote whitespace -- line breaks are whitespace -- stated
+     * nothing. The line is the chain's own {@link AsciiText#isBlank}, not a list of spellings.
+     *
+     * @param findings receives one line per occurrence whose stated location rendered as none
+     */
+    public static String triples(JsonNode component, List<String> findings) {
         JsonNode evidence = component == null ? null : component.get("evidence");
         JsonNode occurrences = evidence == null ? null : evidence.get("occurrences");
         if (occurrences == null || !occurrences.isArray()) {
             return null;
         }
         List<String> triples = new ArrayList<>();
-        for (JsonNode occurrence : occurrences) {
+        for (int index = 0; index < occurrences.size(); index++) {
+            JsonNode occurrence = occurrences.get(index);
             if (!occurrence.isObject()) {
                 continue;
             }
-            triples
-                    .add(sanitizeLocation(occurrence.get("location")) + "#" + slot(occurrence.get("line")) + "#"
-                            + slot(occurrence.get("offset")));
+            Sanitized location = sanitize(occurrence.get("location"));
+            if (location.emptiedBecauseIt() != null) {
+                findings
+                        .add("occurrence " + index + ": the stated location " + location.emptiedBecauseIt()
+                                + ", so it is keyed and stored as no location");
+            }
+            triples.add(location.text() + "#" + slot(occurrence.get("line")) + "#" + slot(occurrence.get("offset")));
         }
         if (triples.isEmpty()) {
             return null;
@@ -166,10 +202,36 @@ public final class Occurrences {
      * place, and {@link #withoutQueryOrFragment} keeps its text without its delimiter.
      */
     public static String sanitizeLocation(JsonNode location) {
-        if (location == null || !location.isTextual() || AsciiText.isBlank(location.textValue())) {
-            return "";
+        return sanitize(location).text();
+    }
+
+    /**
+     * A sanitized location, and the mechanism that emptied it when the producer stated one and nothing survived.
+     *
+     * <p>
+     * {@code emptiedBecauseIt} is {@code null} for a location that kept some text and for one that was absent, JSON
+     * {@code null} or blank -- the shapes the chain reads as "stated nothing" everywhere. It is set only when a stated
+     * location rendered as the empty string, which is the case {@link #triples(JsonNode, List)} records.
+     */
+    private record Sanitized(String text, String emptiedBecauseIt) {
+
+        static final Sanitized ABSENT = new Sanitized("", null);
+
+        static Sanitized emptied(String because) {
+            return new Sanitized("", because);
         }
-        return sanitizeLocation(location.textValue());
+    }
+
+    private static Sanitized sanitize(JsonNode location) {
+        if (location == null || location.isNull()) {
+            return Sanitized.ABSENT;
+        }
+        if (!location.isTextual()) {
+            // The stored evidence renders a non-string location as the empty string too, so the two surfaces agree,
+            // and the schema types the member as a string, so this is a producer defect worth a line.
+            return Sanitized.emptied("is not a string");
+        }
+        return sanitize(location.textValue());
     }
 
     /**
@@ -199,8 +261,12 @@ public final class Occurrences {
      * nothing, which is what lets the two surfaces be compared byte for byte.
      */
     public static String sanitizeLocation(String location) {
+        return sanitize(location).text();
+    }
+
+    private static Sanitized sanitize(String location) {
         if (AsciiText.isBlank(location)) {
-            return "";
+            return Sanitized.ABSENT;
         }
         if (location.length() > MAX_LOCATION_INPUT) {
             // Refused before any pass runs, for the reason `withoutUserInfo` refuses a location nested past its pass
@@ -209,14 +275,25 @@ public final class Occurrences {
             // Jackson's 20-million-character ceiling that is seconds of CPU per occurrence, multiplied by every
             // occurrence of every component. Refusing rather than capping first keeps core#2165 item 3 closed, where
             // truncating first left `//user:passwo` standing. The longest corpus location is 194 characters.
-            return "";
+            return Sanitized.emptied("is longer than " + MAX_LOCATION_INPUT + " characters and was refused unread");
         }
         String text = AsciiText.strip(location);
         text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
         text = LINE_BREAK.matcher(text).replaceAll("");
         text = withoutUserInfo(text);
+        if (text == null) {
+            return Sanitized
+                    .emptied("nests user-info deeper than " + MAX_USERINFO_PASSES
+                            + " authorities and was refused with a credential still standing");
+        }
         text = withoutQueryOrFragment(text);
-        return AsciiText.strip(text.substring(0, capBoundary(text)));
+        text = AsciiText.strip(text.substring(0, capBoundary(text)));
+        if (text.isEmpty()) {
+            return Sanitized
+                    .emptied("names no place once its query string, fragment delimiters, line breaks, unpaired "
+                            + "surrogates and surrounding whitespace are removed");
+        }
+        return new Sanitized(text, null);
     }
 
     /**
@@ -242,11 +319,11 @@ public final class Occurrences {
      * {@code //user:passwo} standing.
      *
      * <p>
-     * So the passes are capped and a location that still matches afterwards is <b>refused</b>, rendering as the empty
-     * location rather than as a partly-stripped one. Refusing costs a pathological location its discriminator; keeping
-     * it would either store a credential or spend unbounded CPU deciding not to. Real data needs one pass and the
-     * corpus needs zero: no corpus location carries a user-info shape at all, and the deepest construction either
-     * review pass could build was eight.
+     * So the passes are capped and a location that still matches afterwards is <b>refused</b>, answered as {@code null}
+     * so the caller can record the refusal, and rendered as the empty location rather than as a partly-stripped one.
+     * Refusing costs a pathological location its discriminator; keeping it would either store a credential or spend
+     * unbounded CPU deciding not to. Real data needs one pass and the corpus needs zero: no corpus location carries a
+     * user-info shape at all, and the deepest construction either review pass could build was eight.
      *
      * <p>
      * Two residuals stay, both pre-existing and both measured: a user-info containing a {@code /} survives whole
@@ -265,7 +342,7 @@ public final class Occurrences {
         }
         // Still matching after the bound: the location is nested past anything a producer emits, and what is left
         // holds a credential. Neither storing it nor scanning further is acceptable, so it names nothing.
-        return USERINFO.matcher(stripped).find() ? "" : stripped;
+        return USERINFO.matcher(stripped).find() ? null : stripped;
     }
 
     /**
@@ -296,7 +373,8 @@ public final class Occurrences {
      * {@code ?} is a bare query string -- {@code ?X-Amz-Signature=}, {@code ?sig=}, {@code ?token=} are the shapes this
      * rule was written for -- so keeping it verbatim would store exactly the session token the rule drops. It renders
      * as the empty location. A sentinel distinguishable from absence would be better, as it is for a refused position,
-     * but this slot is unescaped: any sentinel a location could carry, a producer can also spell.
+     * but this slot is unescaped: any sentinel a location could carry, a producer can also spell. What distinguishes it
+     * from absence is the finding {@link #triples(JsonNode, List)} records instead.
      *
      * <p>
      * <b>The whole leading run comes off, not one character.</b> Removing exactly one {@code #} left {@code ##a}

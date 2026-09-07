@@ -41,8 +41,18 @@ import java.util.Set;
  * {@code CN=a\2Cb} is the same name as {@code CN=a\,b} and not as {@code CN=a2Cb}, which dropping the backslash made
  * it. A quoted value ({@code O="Entrust, Inc."}, the OpenSSL {@code -nameopt} rendering that 84 of the 1 595 corpus DN
  * values carry) is one value: split on its inner comma, {@code O="Entrust, Inc."} and {@code O="Entrust, Ltd."}
- * rendered one AVA, {@code 2.5.4.10=\"entrust}, with the rest silently dropped. And {@code ;} separates RDNs as RFC
- * 2253 §4 requires, where RFC 4514 gives an unescaped {@code ;} no reading at all.</li>
+ * rendered one AVA, {@code 2.5.4.10=\"entrust}, with the rest silently dropped. A quote opens a quoted value only as
+ * the first character of one; anywhere else it is a character, or a stray one would swallow every later RDN and
+ * {@code CN=a"b, O=c} would render exactly as the single-valued {@code CN=a\"b\, O\=c}. And {@code ;} separates RDNs as
+ * RFC 2253 §4 requires, where RFC 4514 gives an unescaped {@code ;} no reading at all.</li>
+ * <li><b>A segment carrying no {@code =} is kept as text, never dropped.</b> Dropping it keyed {@code CN=a;b},
+ * {@code CN=a,b} and {@code CN=a+b} all as {@code CN=a}: a producer-controlled spelling that merges two subjects. It
+ * renders without a type, which no attribute can, so it cannot alias one -- and it is not read as a common name, or
+ * {@code CN=a;b} would merge with {@code CN=a,CN=b}.</li>
+ * <li><b>A quoted value that is not one well-formed quoted string renders in a reserved namespace.</b> An unterminated
+ * quote, or a closing quote followed by more text, is malformed under RFC 2253; its unescaped quotes render bare, which
+ * {@link #escape} never lets a well-formed value do, so {@code O="Entrust, Inc., C=US} cannot key as the one-RDN
+ * {@code O=\"Entrust\, Inc.\, C\=US} nor as the two-RDN {@code O=\"Entrust, Inc., C=US}.</li>
  * <li><b>A DN carrying no {@code =} at all is a bare common name</b>, not a malformed DN. Refusing it made the
  * composite unconstructible and dropped two <em>different</em> root CAs onto one identity.</li>
  * </ul>
@@ -82,13 +92,9 @@ public final class DistinguishedNames {
             }
             List<String> avas = new ArrayList<>();
             for (String ava : splitUnescaped(rdn, "+")) {
-                int separator = ava.indexOf('=');
-                if (separator < 0) {
-                    continue;
+                if (!AsciiText.isBlank(ava)) {
+                    avas.add(renderAttribute(ava, tables));
                 }
-                String rawType = AsciiText.fold(AsciiText.strip(ava.substring(0, separator)));
-                String oid = tables.dnAttributeOids().getOrDefault(rawType, rawType);
-                avas.add(oid + "=" + escape(normalizeValue(AsciiText.strip(ava.substring(separator + 1)), oid)));
             }
             if (!avas.isEmpty()) {
                 avas.sort(AsciiText.BY_CODE_POINT);
@@ -125,11 +131,104 @@ public final class DistinguishedNames {
     }
 
     /**
+     * One {@code type=value} pair rendered as {@code oid=value}, or a segment with no {@code =} rendered as escaped
+     * text on its own.
+     *
+     * <p>
+     * The typeless segment is compared verbatim -- default-deny, like any attribute whose syntax is unknown -- and is
+     * deliberately not promoted to a common name, which is what the whole-DN bare-name rule does: that rule reads a
+     * producer's {@code issuerName: "EJBCA-Root-CA"}, while a typeless segment inside a DN is a spelling nobody
+     * defined, and reading it as {@code CN=} would merge {@code CN=a;b} with {@code CN=a,CN=b}.
+     */
+    private static String renderAttribute(String ava, IdentityTables tables) {
+        int separator = ava.indexOf('=');
+        if (separator < 0) {
+            return escape(normalizeText(AsciiText.strip(ava)));
+        }
+        String rawType = AsciiText.fold(AsciiText.strip(ava.substring(0, separator)));
+        String oid = tables.dnAttributeOids().getOrDefault(rawType, rawType);
+        return oid + "="
+                + renderValue(AsciiText.strip(ava.substring(separator + 1)), FOLDABLE_ATTRIBUTE_OIDS.contains(oid));
+    }
+
+    /**
+     * The value normalized and escaped.
+     *
+     * <p>
+     * Escaping happens here rather than in the caller because one rendering must escape <em>selectively</em>: a value
+     * that opens a quote it never closes, or closes it and carries on, is malformed, and its unescaped quotes render
+     * bare so that no well-formed value -- every one of whose quotes {@link #escape} escapes -- can render alike.
+     * Rendering the malformed spelling as text instead reproduced the composite that a single-valued RDN with the
+     * separators escaped produces, which is the boundary-shift collision the escape exists to prevent.
+     *
      * @param rawValue the value as written, stripped and still escaped: whether it is quoted or opens with the ASCII
      * {@code #} marker is decided on this spelling, before RFC 4514 unescaping and before NFKC, because both can
      * manufacture a {@code #}
+     * @param fold whether the attribute's syntax is case-insensitive, so ASCII letters fold
      */
-    private static String normalizeValue(String rawValue, String oid) {
+    private static String renderValue(String rawValue, boolean fold) {
+        if (rawValue.startsWith("\"") && closingQuote(rawValue) != rawValue.length() - 1) {
+            return renderMalformedQuote(rawValue, fold);
+        }
+        return escape(normalizeValue(rawValue, fold));
+    }
+
+    /**
+     * Every unescaped quote bare, the text between them normalized and escaped as any value is.
+     *
+     * <p>
+     * The pieces render separately so that the quotes' positions survive: {@code O="a"b} and {@code O="a\"b} are two
+     * malformed spellings, and rendering their text as one piece made them one value.
+     */
+    private static String renderMalformedQuote(String rawValue, boolean fold) {
+        StringBuilder out = new StringBuilder(rawValue.length() + 8);
+        int start = 0;
+        for (int index = 0; index <= rawValue.length(); index++) {
+            if (index == rawValue.length() || isUnescapedQuote(rawValue, index)) {
+                out.append(escape(foldIf(fold, normalizeText(rawValue.substring(start, index)))));
+                if (index < rawValue.length()) {
+                    out.append('"');
+                }
+                start = index + 1;
+            }
+        }
+        return out.toString();
+    }
+
+    private static boolean isUnescapedQuote(String text, int index) {
+        if (text.charAt(index) != '"') {
+            return false;
+        }
+        int backslashes = 0;
+        for (int back = index - 1; back >= 0 && text.charAt(back) == '\\'; back--) {
+            backslashes++;
+        }
+        return backslashes % 2 == 0;
+    }
+
+    /**
+     * The index of the unescaped quote that closes the one the value opens with, or {@code -1} when nothing does. The
+     * value is one well-formed RFC 2253 quoted string exactly when that index is its last.
+     */
+    private static int closingQuote(String rawValue) {
+        for (int index = 1; index < rawValue.length(); index++) {
+            if (isUnescapedQuote(rawValue, index)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private static String foldIf(boolean fold, String value) {
+        return fold ? AsciiText.fold(value) : value;
+    }
+
+    /** Ordinary text: RFC 4514 escapes decoded, NFKC applied, whitespace collapsed and stripped. Never folded. */
+    private static String normalizeText(String raw) {
+        return AsciiText.strip(AsciiText.collapseWhitespace(decodeEscapes(raw)));
+    }
+
+    private static String normalizeValue(String rawValue, boolean fold) {
         // One escape rule, three paths, and they must not overlap. A bare `%XX` in the output means "a byte no
         // decoder could read"; every other percent is escaped to `%25` -- inside decodeEscapes for an ordinary textual
         // value, and inside decodeHexDer for a hex value that decodes. Escaping only inside the hex paths left `CN=#FF`
@@ -146,19 +245,20 @@ public final class DistinguishedNames {
         // common name spelled with a compatibility number sign was decoded as DER, failed UTF-8, and rendered the
         // bare `%FF` reserved for a byte no decoder could read -- so `CN=#FF`, `CN=\uFF03FF` and `CN=\uFF05FF` were
         // one issuer. The spelling as written decides whether the payload is hex; NFKC still normalizes the payload.
-        // A quoted value is text whatever it opens with: RFC 2253 quotes make the content literal.
+        // A quoted value is text whatever it opens with: RFC 2253 quotes make the content literal. The caller has
+        // already ruled that a value opening with a quote is one well-formed quoted string.
         String value;
-        if (isQuoted(rawValue)) {
-            value = decodeEscapes(rawValue.substring(1, rawValue.length() - 1));
+        if (rawValue.startsWith("\"")) {
+            value = normalizeText(rawValue.substring(1, rawValue.length() - 1));
         } else if (rawValue.startsWith("#")) {
-            value = decodeHexDer(Normalizer.normalize(unescapePairs(rawValue), Normalizer.Form.NFKC));
+            String decoded = decodeHexDer(Normalizer.normalize(unescapePairs(rawValue), Normalizer.Form.NFKC));
+            value = AsciiText.strip(AsciiText.collapseWhitespace(decoded));
         } else {
-            value = decodeEscapes(rawValue);
+            value = normalizeText(rawValue);
         }
-        value = AsciiText.strip(AsciiText.collapseWhitespace(value));
         // ASCII-only (R12). A value differing only in non-ASCII case keys separately; the case-fold twin detector
         // reports the pair rather than merging it, which is what makes the under-merge visible instead of silent.
-        return FOLDABLE_ATTRIBUTE_OIDS.contains(oid) ? AsciiText.fold(value) : value;
+        return foldIf(fold, value);
     }
 
     /**
@@ -260,45 +360,46 @@ public final class DistinguishedNames {
      * <p>
      * A plain split would break {@code O=Qualys\, Inc.} -- a real value in the corpus -- into two RDNs, and a split
      * blind to quotes broke {@code O="Entrust, Inc."} -- 84 corpus values -- the same way.
+     *
+     * <p>
+     * A quote opens a quoted value only where a value starts: directly after an unescaped {@code =}, with nothing but
+     * whitespace between. A quote anywhere else is a character. Toggling on every unescaped quote let one stray
+     * {@code "} -- an inch mark, a truncated rendering -- swallow every RDN after it into the value, which then
+     * rendered exactly as a single-valued RDN spelling the same text with its separators escaped. An opening quote that
+     * is never closed still runs to the end: the value renders in the reserved namespace {@link #renderMalformedQuote}
+     * owns, so the swallowed text cannot alias anything.
      */
     static List<String> splitUnescaped(String text, String separators) {
         List<String> parts = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         boolean escaped = false;
         boolean quoted = false;
+        boolean valueStart = false;
         for (int index = 0; index < text.length(); index++) {
             char character = text.charAt(index);
+            current.append(character);
             if (escaped) {
-                current.append(character);
                 escaped = false;
+                valueStart = false;
             } else if (character == '\\') {
-                current.append(character);
                 escaped = true;
-            } else if (character == '"') {
-                current.append(character);
-                quoted = !quoted;
-            } else if (!quoted && separators.indexOf(character) >= 0) {
+                valueStart = false;
+            } else if (quoted) {
+                quoted = character != '"';
+            } else if (character == '"' && valueStart) {
+                quoted = true;
+                valueStart = false;
+            } else if (separators.indexOf(character) >= 0) {
+                current.setLength(current.length() - 1);
                 parts.add(current.toString());
                 current.setLength(0);
+                valueStart = false;
             } else {
-                current.append(character);
+                valueStart = character == '=' || (valueStart && AsciiText.isWhitespace(character));
             }
         }
         parts.add(current.toString());
         return parts;
-    }
-
-    /** True when the value as written is one RFC 2253 quoted string: an opening quote closed by an unescaped one. */
-    private static boolean isQuoted(String rawValue) {
-        int last = rawValue.length() - 1;
-        if (last < 1 || rawValue.charAt(0) != '"' || rawValue.charAt(last) != '"') {
-            return false;
-        }
-        int backslashes = 0;
-        for (int index = last - 1; index > 0 && rawValue.charAt(index) == '\\'; index--) {
-            backslashes++;
-        }
-        return backslashes % 2 == 0;
     }
 
     /**
