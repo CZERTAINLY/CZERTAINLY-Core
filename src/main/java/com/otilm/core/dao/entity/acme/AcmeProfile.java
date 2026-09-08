@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.otilm.api.model.common.NameAndUuidDto;
 import com.otilm.api.model.core.acme.AcmeProfileDto;
 import com.otilm.api.model.core.acme.AcmeProfileListDto;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.core.dao.entity.ProtocolCertificateAssociations;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.UniquelyIdentifiedAndAudited;
@@ -12,6 +13,8 @@ import com.otilm.core.util.DtoMapper;
 import com.otilm.core.util.ObjectAccessControlMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
@@ -95,9 +98,18 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited
     @ToString.Exclude
     private ProtocolCertificateAssociations certificateAssociations;
 
+    @Column(name = "challenge_source", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ProtocolChallengeSource challengeSource = ProtocolChallengeSource.PROTOCOL_DEFAULT;
+
+    public boolean isRegistrationMode() {
+        return challengeSource == ProtocolChallengeSource.CERTIFICATE_REGISTRATION;
+    }
+
     @Override
     public AcmeProfileDto mapToDto() {
         AcmeProfileDto acmeProfileDto = new AcmeProfileDto();
+        acmeProfileDto.setChallengeSource(challengeSource);
         if (raProfile != null) {
             acmeProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
         }

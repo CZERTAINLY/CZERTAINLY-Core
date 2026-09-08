@@ -20,6 +20,8 @@ public interface AcmeAccountRepository extends SecurityFilterRepository<AcmeAcco
 
     boolean existsByAcmeProfileUuidAndIsDefaultRaProfileTrue(UUID acmeProfileUuid);
 
+    boolean existsByRegistrationCertificateUuid(UUID registrationCertificateUuid);
+
     /**
      * Counts one more failed order against the account in the database itself, so that orders of one account failing
      * concurrently cannot lose a count the way a read-modify-write of the entity would.

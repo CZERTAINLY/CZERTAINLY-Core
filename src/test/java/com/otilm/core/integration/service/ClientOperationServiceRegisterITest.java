@@ -1,5 +1,6 @@
 package com.otilm.core.integration.service;
 
+import com.nimbusds.jose.util.Base64URL;
 import com.otilm.api.exception.AttributeException;
 import com.otilm.api.exception.CertificateOperationException;
 import com.otilm.api.exception.ConnectorException;
@@ -107,6 +108,7 @@ import com.otilm.core.util.AuthHelper;
 import com.otilm.core.util.BaseSpringBootTest;
 import com.otilm.core.util.CertificateTestUtil;
 import com.otilm.core.util.CertificateUtil;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.cert.CertificateException;
@@ -1253,7 +1255,7 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
                 .assertThrows(ValidationException.class,
                         () -> clientOperationService.registerCertificate(authorityParent, securedRaProfile, request));
         Assertions
-                .assertTrue(ex.getMessage().contains("requires an authorization secret"),
+                .assertTrue(ex.getMessage().contains("requires a challenge"),
                         "an issuance window without a challenge must be rejected");
         Assertions
                 .assertEquals(0, certificateRepository.count(),
@@ -1639,6 +1641,101 @@ class ClientOperationServiceRegisterITest extends BaseSpringBootTest {
         Assertions
                 .assertEquals(0, authorizationRepository.count(),
                         "the operator register flow (no secret) must create no authorization");
+    }
+
+    @Test
+    void registerWithGeneratedEabCredentialReturnsItOnceAndStoresItAsTheChallenge() throws Exception {
+        when(registeringAdapter().register(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(AdapterOperationResult.syncOk(null, null, CertificateType.X509));
+        ClientCertificateRegistrationDto request = new ClientCertificateRegistrationDto();
+        request.setSubjectDn("CN=device-1,O=Acme");
+        request.setSubjectAltName("DNS:device-1.example.com");
+        request.setGenerateEabCredential(true);
+
+        ClientCertificateDataResponseDto response = clientOperationService
+                .registerCertificate(authorityParent, securedRaProfile, request);
+
+        Assertions.assertEquals(response.getUuid(), response.getEabKid(), "the EAB kid is the registration UUID");
+        byte[] macKey = new Base64URL(response.getEabHmacKey()).decode();
+        Assertions.assertTrue(macKey.length >= 32, "the client decodes at least 256 bits of HS256 key material");
+        CertificateRegistrationAuthorization auth = authorizationRepository
+                .findByCertificateUuid(UUID.fromString(response.getUuid()))
+                .orElseThrow();
+        Assertions.assertEquals(RegistrationState.ACTIVE, auth.getState());
+        Assertions
+                .assertTrue(registrationChallengeStore.verify(auth, new String(macKey, StandardCharsets.UTF_8)),
+                        "the decoded credential is the stored registration challenge text");
+        Assertions.assertNotNull(auth.getExpiresAt(), "the default issuance window bounds the binding");
+    }
+
+    @Test
+    void registerWithGeneratedEabCredentialAcceptsAnIssuanceWindow() throws Exception {
+        when(registeringAdapter().register(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(AdapterOperationResult.syncOk(null, null, CertificateType.X509));
+        OffsetDateTime window = OffsetDateTime.now().plusDays(2).withNano(0);
+        ClientCertificateRegistrationDto request = new ClientCertificateRegistrationDto();
+        request.setSubjectDn("CN=device-1,O=Acme");
+        request.setGenerateEabCredential(true);
+        request.setExpiresAt(window);
+
+        ClientCertificateDataResponseDto response = clientOperationService
+                .registerCertificate(authorityParent, securedRaProfile, request);
+
+        CertificateRegistrationAuthorization auth = authorizationRepository
+                .findByCertificateUuid(UUID.fromString(response.getUuid()))
+                .orElseThrow();
+        Assertions.assertEquals(window.toInstant(), auth.getExpiresAt().toInstant());
+    }
+
+    @Test
+    void undeliverableGeneratedCredentialIsRemovedWhenTheConnectorAcceptedButALocalStepFailed() throws Exception {
+        when(registeringAdapter().register(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(AdapterOperationResult.syncOk(null, null, CertificateType.X509));
+        doThrow(new IllegalStateException("db down")).when(registrationWriter).upsert(Mockito.any(), Mockito.any());
+        ClientCertificateRegistrationDto request = new ClientCertificateRegistrationDto();
+        request.setSubjectDn("CN=device-1,O=Acme");
+        request.setGenerateEabCredential(true);
+
+        Assertions
+                .assertThrows(ConnectorAcceptedButLocalFailureException.class,
+                        () -> clientOperationService.registerCertificate(authorityParent, securedRaProfile, request));
+
+        Assertions
+                .assertEquals(0, authorizationRepository.count(),
+                        "a challenge nobody was told must not stay on the reconcilable registration");
+        Assertions
+                .assertEquals(CertificateState.PENDING_REGISTRATION, certificateRepository.findAll().get(0).getState());
+    }
+
+    @Test
+    void registerWithSecretAndGeneratedCredentialIsRejectedBeforeAnyPlaceholder() {
+        registeringAdapter();
+        ClientCertificateRegistrationDto request = new ClientCertificateRegistrationDto();
+        request.setSubjectDn("CN=device-1,O=Acme");
+        request.setAuthorizationSecret(CHALLENGE);
+        request.setGenerateEabCredential(true);
+
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> clientOperationService.registerCertificate(authorityParent, securedRaProfile, request));
+        Assertions
+                .assertEquals(0, certificateRepository.count(), "the ambiguous challenge source is rejected up front");
+        Assertions.assertEquals(0, authorizationRepository.count());
+    }
+
+    @Test
+    void registerWithSecretReturnsNoEabCredential() throws Exception {
+        when(registeringAdapter().register(Mockito.any(), Mockito.any(), Mockito.any()))
+                .thenReturn(AdapterOperationResult.syncOk(null, null, CertificateType.X509));
+        ClientCertificateRegistrationDto request = new ClientCertificateRegistrationDto();
+        request.setSubjectDn("CN=device-1,O=Acme");
+        request.setAuthorizationSecret(CHALLENGE);
+
+        ClientCertificateDataResponseDto response = clientOperationService
+                .registerCertificate(authorityParent, securedRaProfile, request);
+
+        Assertions.assertNull(response.getEabKid());
+        Assertions.assertNull(response.getEabHmacKey());
     }
 
     @Test
