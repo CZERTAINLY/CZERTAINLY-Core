@@ -90,6 +90,31 @@ try {
 
 Capture entry state before the external call (`final State entryState = entity.getState();`) so the restoration path has something to restore *to*.
 
+## Historical figures must not be derived from deletable rows
+
+A dashboard series, counter, or report that aggregates a table whose rows get deleted is rewritten by every one of those deletions — and retention sweeps and delete-after-retrieval mean the history changes with nobody touching it. Derive such a figure from a separate append-only aggregate instead, and fold rows into it in the **same statement** that deletes them:
+
+```sql
+WITH victim AS MATERIALIZED (
+    SELECT uuid, ... FROM detail WHERE ... LIMIT :limit FOR UPDATE OF detail [SKIP LOCKED]
+)
+, rolled AS (
+    INSERT INTO aggregate AS a (...) SELECT ... FROM victim GROUP BY ... ORDER BY <aggregate key>
+    ON CONFLICT (...) DO UPDATE SET row_count = a.row_count + EXCLUDED.row_count
+)
+DELETE FROM detail WHERE uuid IN (SELECT uuid FROM victim)
+```
+
+PostgreSQL runs a data-modifying CTE exactly once and to completion, and every part reads the same snapshot of the materialized `victim` rows, so the roll-up and the delete cover the identical set and commit together: no double counting, no gap, and nothing added to the write path. The statement's own result is still the DELETE's row count, so batch loops keep working. Native, so `@Modifying(flushAutomatically = true)` — Hibernate cannot auto-flush for SQL it does not parse.
+
+**Claim the rows, and fold them in in key order.** Without a locking clause a second deleter sees the same rows in its own snapshot, folds them in too, and then deletes nothing — one row counted twice. Without an `ORDER BY` on the grouped upsert, two writers carrying rows for the same aggregate keys can take those locks in opposite orders and deadlock. Which clause depends on the caller's contract: a keyed delete **waits** (`FOR UPDATE`), because its caller is told the row is gone and skipping would report success for a row the winner might yet roll back; a batch **skips** (`FOR UPDATE ... SKIP LOCKED`), because it has no per-record contract and waiting lets two sweeps picking overlapping victims in different index orders deadlock. Lock only the table you delete from (`FOR UPDATE OF sr`), never the ones you join for the predicate.
+
+Assemble the figure under one snapshot — `@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)`. Read across the two tables in separate READ COMMITTED statements and a row deleted between them is counted as both live and history.
+
+The aggregate keeps the column its detail rows were access-controlled by, and **no FK to it**: the parent is usually deletable once its detail rows are gone, and the aggregate has to outlive it. Read it back through the parent half of the security filter only — a rolled-up row has no detail identity left for a row-level filter to match on.
+
+Align the live half's window to the aggregate's bucket boundary, not to the exact cutoff. Against an exact cutoff a row inside the first bucket but before the cutoff counts for nothing while live and for one once deleted — deleting it *raises* the figure. Floored on both sides the two are exactly equivalent, and deletion becomes invisible. Say on the API field that the window opens on a bucket boundary.
+
 ## Transactional boundaries live on services, not repositories
 
 Repositories in `com.otilm.core.dao.repository.*` must not carry `@Transactional`. Every guarded write uses a bean-pair: an **orchestrator** (no class-level `@Transactional`; HTTP-bearing methods use `NOT_SUPPORTED` when needed to avoid holding locks across external calls) and a **writer** bean (suffix `Writer`) whose short `@Transactional`(REQUIRED) methods each execute one `@Modifying @Query`. Two beans is mandatory — Spring proxy self-invocation silently skips advice. Writers use REQUIRED so they compose: joining an ambient tx if present, starting one otherwise. `@Modifying @Query` bypasses JPA dirty-checking; set audit columns (`c.updated = CURRENT_TIMESTAMP`) in the SQL.

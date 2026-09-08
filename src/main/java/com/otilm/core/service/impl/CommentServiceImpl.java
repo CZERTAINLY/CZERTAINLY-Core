@@ -21,6 +21,7 @@ import com.otilm.core.mapper.comment.CommentMapper;
 import com.otilm.core.messaging.jms.producers.EventProducer;
 import com.otilm.core.messaging.model.EventMessage;
 import com.otilm.core.model.auth.ResourceAction;
+import com.otilm.core.model.comment.CommentDeletionData;
 import com.otilm.core.security.authz.AnyPrincipalEndpoint;
 import com.otilm.core.security.authz.AuthorizationEnforcer;
 import com.otilm.core.security.authz.ExternalAuthorizationDynamic;
@@ -38,6 +39,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.IntFunction;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,15 +115,26 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     @Override
     @ExternalAuthorizationDynamic(action = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public CommentResponseDto listComments(SecuredResource resource, SecuredUUID objectUuid,
+    public CommentResponseDto listComments(SecuredResource resource, SecuredUUID objectUuid, UUID anchorUuid,
             SortedPaginationRequestDto pagination) throws NotFoundException {
         Resource hostResource = validateCommentable(resource);
         resourceService.getResourceObject(hostResource, objectUuid.getValue());
         RequestValidatorHelper.revalidatePaginationRequestDto(pagination);
 
-        Page<Comment> roots = commentRepository
+        Comment anchoredThread = anchoredThread(hostResource, objectUuid.getValue(), anchorUuid);
+        IntFunction<Page<Comment>> pageOfRoots = pageIndex -> commentRepository
                 .findByResourceAndObjectUuidAndParentUuidIsNull(hostResource, objectUuid.getValue(),
-                        pageByCreationTime(pagination));
+                        pageByCreationTime(pagination, pageIndex));
+        Page<Comment> roots = anchoredThread == null
+                ? pageOfRoots.apply(pagination.getPageNumber() - 1)
+                : pageHolding(anchoredThread, pagination, pageOfRoots,
+                        () -> descending(pagination)
+                                ? commentRepository
+                                        .countRootsCreatedAfter(hostResource, objectUuid.getValue(),
+                                                anchoredThread.getCreatedAt(), anchoredThread.getUuid())
+                                : commentRepository
+                                        .countRootsCreatedBefore(hostResource, objectUuid.getValue(),
+                                                anchoredThread.getCreatedAt(), anchoredThread.getUuid()));
         List<UUID> rootUuids = roots.getContent().stream().map(Comment::getUuid).toList();
         Map<UUID, Long> replyCountsByRoot = rootUuids.isEmpty()
                 ? Map.of()
@@ -136,10 +150,53 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         return CommentMapper.toResponseDto(roots, threads);
     }
 
+    /**
+     * The page holding the anchor: the comments sorted ahead of it are counted and that page read. The two are separate
+     * statements, so a comment added or removed ahead of the anchor in between moves it one page over; the count and
+     * read are repeated once before the requested page is served, the documented answer for an anchor that cannot be
+     * shown.
+     */
+    private static Page<Comment> pageHolding(Comment anchor, SortedPaginationRequestDto pagination,
+            IntFunction<Page<Comment>> pageAt, LongSupplier countSortedAhead) {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            int pageIndex = Math.toIntExact(countSortedAhead.getAsLong() / pagination.getItemsPerPage());
+            Page<Comment> page = pageAt.apply(pageIndex);
+            if (contains(page, anchor)) {
+                return page;
+            }
+        }
+        return pageAt.apply(pagination.getPageNumber() - 1);
+    }
+
+    private static boolean descending(SortedPaginationRequestDto pagination) {
+        return direction(pagination) == Sort.Direction.DESC;
+    }
+
+    private static boolean contains(Page<Comment> page, Comment comment) {
+        return page.getContent().stream().anyMatch(candidate -> candidate.getUuid().equals(comment.getUuid()));
+    }
+
+    /**
+     * The anchored thread root, or null when no anchor was asked for, or when it no longer exists, is not a root, or
+     * never belonged to this object. Only roots are accepted because the caller tells a stale anchor by its absence
+     * from the returned page, and a reply is never on a page of roots. A stale anchor leaves the caller on the page
+     * they requested rather than failing the listing, which can still serve the object's other comments.
+     */
+    private Comment anchoredThread(Resource hostResource, UUID objectUuid, UUID anchorUuid) {
+        if (anchorUuid == null) {
+            return null;
+        }
+        Comment anchor = commentRepository.findByUuid(SecuredUUID.fromUUID(anchorUuid)).orElse(null);
+        boolean rootOfThisObject = anchor != null && anchor.getParentUuid() == null
+                && anchor.getResource() == hostResource && anchor.getObjectUuid().equals(objectUuid);
+        return rootOfThisObject ? anchor : null;
+    }
+
     @Override
     @AnyPrincipalEndpoint
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public CommentResponseDto listReplies(UUID uuid, SortedPaginationRequestDto pagination) throws NotFoundException {
+    public CommentResponseDto listReplies(UUID uuid, UUID anchorUuid, SortedPaginationRequestDto pagination)
+            throws NotFoundException {
         Comment root = getComment(uuid);
         // Authorization comes before shape validation, so an unauthorized caller cannot tell roots from replies
         // by the status code
@@ -150,13 +207,28 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         }
         RequestValidatorHelper.revalidatePaginationRequestDto(pagination);
 
-        Page<Comment> replies = commentRepository.findByParentUuid(uuid, pageByCreationTime(pagination));
+        Comment anchor = anchoredReply(uuid, anchorUuid);
+        IntFunction<Page<Comment>> pageOfReplies = pageIndex -> commentRepository
+                .findByParentUuid(uuid, pageByCreationTime(pagination, pageIndex));
+        Page<Comment> replies = anchor == null
+                ? pageOfReplies.apply(pagination.getPageNumber() - 1)
+                : pageHolding(anchor, pagination, pageOfReplies, () -> descending(pagination)
+                        ? commentRepository.countRepliesCreatedAfter(uuid, anchor.getCreatedAt(), anchor.getUuid())
+                        : commentRepository.countRepliesCreatedBefore(uuid, anchor.getCreatedAt(), anchor.getUuid()));
         List<CommentDto> replyDtos = replies
                 .getContent()
                 .stream()
                 .map(reply -> CommentMapper.toDto(reply, null))
                 .toList();
         return CommentMapper.toResponseDto(replies, replyDtos);
+    }
+
+    private Comment anchoredReply(UUID rootUuid, UUID anchorUuid) {
+        if (anchorUuid == null) {
+            return null;
+        }
+        Comment anchor = commentRepository.findByUuid(SecuredUUID.fromUUID(anchorUuid)).orElse(null);
+        return anchor != null && rootUuid.equals(anchor.getParentUuid()) ? anchor : null;
     }
 
     @Override
@@ -234,8 +306,12 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
         if (!(authorDeletesOwnThread || mayCascade)) {
             throw deletionDenied(uuid, comment);
         }
-        recordAuditData(baseEventData(comment, hostObject.getName()));
-        commentWriter.deleteRoot(uuid, mayCascade ? null : comment.getAuthorUuid());
+        List<Comment> cascadedReplies = commentWriter.deleteRoot(uuid, mayCascade ? null : comment.getAuthorUuid());
+        CommentDeletionData deletionData = fillEventData(new CommentDeletionData(), comment, hostObject.getName());
+        deletionData
+                .setCascadedReplies(
+                        cascadedReplies.stream().map(reply -> baseEventData(reply, hostObject.getName())).toList());
+        recordAuditData(deletionData);
     }
 
     private AccessDeniedException deletionDenied(UUID uuid, Comment comment) {
@@ -282,15 +358,17 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
                 eventData, UUID.fromString(actor.getUuid()), null));
     }
 
-    private static PageRequest pageByCreationTime(SortedPaginationRequestDto pagination) {
-        // The converter maps a blank sortDirection to null, which overwrites the request object's own default
-        SortDirection requested = Objects.requireNonNullElse(pagination.getSortDirection(), SortDirection.ASC);
-        Sort.Direction direction = requested == SortDirection.DESC ? Sort.Direction.DESC : Sort.Direction.ASC;
+    private static PageRequest pageByCreationTime(SortedPaginationRequestDto pagination, int pageIndex) {
         // createdAt is stamped per request and can tie, so the primary key follows it to make the order total.
         // It takes the requested direction too, or descending would not be the reverse of ascending within a tie.
         return PageRequest
-                .of(pagination.getPageNumber() - 1, pagination.getItemsPerPage(),
-                        Sort.by(direction, "createdAt", "uuid"));
+                .of(pageIndex, pagination.getItemsPerPage(), Sort.by(direction(pagination), "createdAt", "uuid"));
+    }
+
+    private static Sort.Direction direction(SortedPaginationRequestDto pagination) {
+        // The converter maps a blank sortDirection to null, which overwrites the request object's own default
+        SortDirection requested = Objects.requireNonNullElse(pagination.getSortDirection(), SortDirection.ASC);
+        return requested == SortDirection.DESC ? Sort.Direction.DESC : Sort.Direction.ASC;
     }
 
     private Resource validateCommentable(SecuredResource resource) {
@@ -341,7 +419,10 @@ public class CommentServiceImpl implements CommentExternalService, CommentIntern
     }
 
     private CommentEventData baseEventData(Comment comment, String objectName) {
-        CommentEventData eventData = new CommentEventData();
+        return fillEventData(new CommentEventData(), comment, objectName);
+    }
+
+    private static <T extends CommentEventData> T fillEventData(T eventData, Comment comment, String objectName) {
         eventData.setCommentUuid(comment.getUuid());
         eventData.setParentUuid(comment.getParentUuid());
         eventData.setResource(comment.getResource());
