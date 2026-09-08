@@ -338,6 +338,21 @@ class AcmeRegistrationBindingITest extends BaseSpringBootTest {
     }
 
     @Test
+    void omittedContactIsStoredAsAnEmptyListWhenContactIsOptional() throws Exception {
+        Certificate registration = seedRegistration();
+        KeyPair keyPair = accountKeyPair();
+
+        ResponseEntity<Account> response = acmeService
+                .newAccount(PROFILE_NAME,
+                        newAccountJws(keyPair, bindingFor(registration, keyPair, challenge), null, true), NEW_ACCOUNT,
+                        false);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(List.of(), response.getBody().getContact());
+        assertEquals(List.of(), acmeAccountRepository.findAll().getFirst().mapToDto().getContact());
+    }
+
+    @Test
     void missingContactOnARequireContactProfileAnswersInvalidContact() throws Exception {
         acmeProfile.setRequireContact(true);
         acmeProfileRepository.save(acmeProfile);

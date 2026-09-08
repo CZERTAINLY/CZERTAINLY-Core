@@ -1029,7 +1029,9 @@ public class AcmeServiceImpl implements AcmeExternalService {
         account.setPublicKey(publicKey);
         account.setDefaultRaProfile(!isRaProfileBased);
         account.setAccountId(accountId);
-        account.setContact(SerializationUtil.serialize(accountRequest.getContact()));
+        account
+                .setContact(SerializationUtil
+                        .serialize(accountRequest.getContact() != null ? accountRequest.getContact() : List.of()));
         if (boundRegistration == null) {
             acmeAccountRepository.save(account);
         } else {
