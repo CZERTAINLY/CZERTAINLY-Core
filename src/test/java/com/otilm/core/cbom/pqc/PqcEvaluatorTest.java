@@ -6,6 +6,11 @@ import com.otilm.api.model.core.cryptoasset.CryptographicAssetType;
 import com.otilm.api.model.core.cryptoasset.PqcVerdict;
 import com.otilm.core.cbom.asset.identity.AssetNormalizer;
 import com.otilm.core.cbom.asset.identity.IdentityTables;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -470,15 +475,101 @@ class PqcEvaluatorTest {
         assertThat(verdictOf(algorithm("SPHINCS+-SHA2-128s")).ruleId()).isEqualTo("PQC-PRESTANDARD");
     }
 
-    /** The ratified detector, not a prefix test: it recognises the OpenSSL and OpenSSH spellings too. */
+    /**
+     * The ratified detector, swept in both directions rather than sampled: every suite OpenSSL 3.5.3 lists, in both
+     * spellings, and every plain algorithm name that shares a shape with one. The two-suite sample it replaces passed
+     * while 26 of the 318 names -- every unprefixed RSA-key-exchange suite and every ChaCha20 suite -- read as their
+     * bulk cipher and were served {@code ready}.
+     */
     @Test
-    void theRatifiedCipherSuiteDetectorDecidesSuiteNames() {
-        assertThat(verdictOf(algorithm("ECDHE-RSA-AES128-GCM-SHA256")).ruleId()).isEqualTo("NAME-CIPHER-SUITE");
-        assertThat(verdictOf(algorithm("DHE-RSA-AES256-SHA")).ruleId()).isEqualTo("NAME-CIPHER-SUITE");
-        assertThat(verdictOf(algorithm("TLS-PRF")).ruleId())
-                .describedAs("a ratified family that merely starts with TLS- must not be called a suite; that it then "
-                        + "resolves to no family is a normalizer gap, not this rule set's")
-                .isEqualTo(PqcRules.FAMILY_UNRESOLVED);
+    void theRatifiedCipherSuiteDetectorDecidesSuiteNames() throws IOException {
+        List<String> suites = new ArrayList<>();
+        for (String row : resourceLines("cbom/pqc/openssl-3.5.3-cipher-suites.tsv")) {
+            suites.addAll(List.of(row.split("\t")));
+        }
+        assertThat(suites).hasSize(318);
+        // RFC 9150 integrity-only suites and the weak suites compiled out of the measured build, C8's RC4-MD5 among
+        // them; RC4-MD5, RC4-SHA and DES-CBC3-SHA are also corpus algorithm components.
+        suites
+                .addAll(List
+                        .of("TLS_SHA256_SHA256", "TLS_SHA384_SHA384", "RC4-MD5", "RC4-SHA", "DES-CBC3-SHA",
+                                "DES-CBC-SHA", "IDEA-CBC-SHA", "SEED-SHA", "EXP-RC4-MD5", "EXP-DES-CBC-SHA",
+                                "EXP-RC2-CBC-MD5"));
+        for (String suite : suites) {
+            assertThat(verdictOf(algorithm(suite)).ruleId())
+                    .describedAs("suite %s", suite)
+                    .isEqualTo("NAME-CIPHER-SUITE");
+        }
+    }
+
+    /**
+     * The other direction. A suite read as an algorithm loses a {@code notApplicable}; an algorithm read as a suite
+     * loses the asset from the migration inventory, so no widening of the detector may buy recall with one of these.
+     * The glued spellings ({@code AES128-GCM}, {@code aes256-ctr}) are the ones a size-based discriminator would take.
+     */
+    @Test
+    void plainAlgorithmNamesAreNotCipherSuites() throws IOException {
+        List<String> algorithms = new ArrayList<>(List
+                .of("AES-256-GCM", "AES-128-CBC", "AES-192-CCM", "AES-256-CTR", "AES-128-GCM", "CHACHA20-POLY1305",
+                        "CHACHA20", "RSA-PSS-SHA256", "RSA-PKCS1-1.5-SHA512", "RSA-OAEP-SHA256", "HMAC-SHA256",
+                        "ECDSA-SHA384", "SHA-256", "3DES-EDE-CBC", "DES-EDE3-CBC", "SEED-CBC", "ARIA-128-GCM",
+                        "CAMELLIA-256-CBC", "AES128-GCM", "AES256-GCM", "AES128-CBC-PKCS5", "AES128-OFB", "AES128",
+                        "aes256-ctr", "AES-128-CBC-HMAC-SHA1", "aes256-cts-hmac-sha1-96", "des3-cbc-sha1",
+                        "arcfour-hmac-md5", "rc4-hmac", "RC4-128", "RC2-CBC", "IDEA-CBC", "DES-CBC", "NULL",
+                        "TLS-PRF-SHA256", "TLS_SHA256", "ECDH-ES+A256KW", "X25519MLKEM768", "SecP256r1MLKEM768",
+                        "sntrup761x25519-sha512", "CMEA", "Yarrow"));
+        algorithms.addAll(normalizer.tables().families());
+        algorithms.addAll(resourceLines("cbom/pqc/openssh-10.5-negotiable-names.txt"));
+        assertThat(algorithms).hasSizeGreaterThan(130 + 65);
+        for (String name : algorithms) {
+            assertThat(verdictOf(algorithm(name)).ruleId())
+                    .describedAs("algorithm %s", name)
+                    .isNotEqualTo("NAME-CIPHER-SUITE");
+        }
+    }
+
+    /**
+     * The {@code @openssh.com} / {@code @libssh.org} suffix is a vendor namespace, not a suite marker: SSH has no
+     * suites. Read as one, {@code ssh-rsa-cert-v01@openssh.com} was {@code notApplicable} while {@code ssh-rsa} was
+     * {@code CLASSICAL-SHOR}, and {@code sntrup761x25519-sha512} got opposite verdicts from the two spellings OpenSSH
+     * lists side by side.
+     */
+    @Test
+    void aVendorSuffixedSshNameIsDecidedLikeItsUnsuffixedSpelling() {
+        assertThat(verdictOf(algorithm("ssh-rsa-cert-v01@openssh.com")).ruleId()).isEqualTo("CLASSICAL-SHOR");
+        assertThat(verdictOf(algorithm("curve25519-sha256@libssh.org")).ruleId())
+                .isEqualTo(verdictOf(algorithm("curve25519-sha256")).ruleId())
+                .isEqualTo("CLASSICAL-SHOR");
+        for (String hybrid : new String[]{"sntrup761x25519-sha512", "mlkem768x25519-sha256"}) {
+            PqcDecision suffixed = verdictOf(algorithm(hybrid + "@openssh.com"));
+            assertThat(suffixed.verdict())
+                    .describedAs("%s@openssh.com", hybrid)
+                    .isNotEqualTo(PqcVerdict.NOT_APPLICABLE);
+            assertThat(suffixed.ruleId())
+                    .describedAs("%s@openssh.com", hybrid)
+                    .isEqualTo(verdictOf(algorithm(hybrid)).ruleId());
+        }
+        assertThat(verdictOf(algorithm("hmac-md5-etm@openssh.com")).ruleId())
+                .isEqualTo(verdictOf(algorithm("hmac-md5")).ruleId())
+                .isEqualTo("CLASSICAL-LEGACY-COMPONENT");
+        assertThat(verdictOf(algorithm("aes128-gcm@openssh.com")).ruleId())
+                .isEqualTo(verdictOf(algorithm("aes128-gcm")).ruleId())
+                .isEqualTo("SYMMETRIC-READY");
+    }
+
+    /**
+     * Two families whose own disposition is legacy had no grammar rule, so the name survived into the variant and was
+     * read back as a broken component of an asset that has none -- the wrong rule id, and no family in the evidence.
+     */
+    @Test
+    void cmeaAndYarrowElectTheirOwnFamilies() {
+        for (String name : new String[]{"CMEA", "Yarrow", "CMEA (legacy)"}) {
+            PqcDecision decision = verdictOf(algorithm(name));
+            assertThat(decision.ruleId()).describedAs(name).isEqualTo("CLASSICAL-LEGACY");
+            assertThat(decision.evaluatedFields())
+                    .describedAs(name)
+                    .containsEntry("algorithmFamily", name.startsWith("CMEA") ? "CMEA" : "Yarrow");
+        }
     }
 
     @Test
@@ -555,6 +646,17 @@ class PqcEvaluatorTest {
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
+
+    /** The non-comment lines of a test resource. */
+    private static List<String> resourceLines(String resource) throws IOException {
+        try (InputStream in = PqcEvaluatorTest.class.getClassLoader().getResourceAsStream(resource)) {
+            assertThat(in).describedAs(resource).isNotNull();
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8)
+                    .lines()
+                    .filter(line -> !line.isBlank() && !line.startsWith("#"))
+                    .toList();
+        }
+    }
 
     private PqcDecision verdictOf(JsonNode component) {
         JsonNode properties = component.get("cryptoProperties");
