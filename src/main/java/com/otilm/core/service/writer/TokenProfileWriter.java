@@ -91,32 +91,32 @@ public class TokenProfileWriter {
         return ImmutableTokenProfileFullModel.from(profile);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void setEnabled(UUID profileUuid, boolean enabled) throws NotFoundException {
         findLocked(profileUuid).setEnabled(enabled);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void setEnabledScoped(UUID parentUuid, UUID profileUuid, boolean enabled) throws NotFoundException {
         findScopedLocked(parentUuid, profileUuid).setEnabled(enabled);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void setUsages(UUID profileUuid, List<KeyUsage> usages) throws NotFoundException {
         findLocked(profileUuid).setUsage(usages);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void setUsagesScoped(UUID parentUuid, UUID profileUuid, List<KeyUsage> usages) throws NotFoundException {
         findScopedLocked(parentUuid, profileUuid).setUsage(usages);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteScoped(UUID parentUuid, UUID profileUuid) throws NotFoundException {
         delete(findScopedLocked(parentUuid, profileUuid));
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteUnassociated(UUID profileUuid) throws NotFoundException {
         TokenProfile profile = findLocked(profileUuid);
         if (profile.getTokenInstanceReferenceUuid() != null) {
@@ -126,7 +126,7 @@ public class TokenProfileWriter {
         delete(profile);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteForBulk(UUID profileUuid) throws NotFoundException {
         delete(findLocked(profileUuid));
     }
