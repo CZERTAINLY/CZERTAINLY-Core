@@ -32,24 +32,33 @@ public final class Occurrences {
      *
      * <p>
      * Replaced <b>globally</b>, not once. One location can hold more than one URI: an archive scanner writes
-     * {@code jar:file://u:p@h/a.jar!/https://u2:p2@h2/b} and a Kafka bootstrap list is comma-separated. Because
-     * {@code [^/?#]*} cannot cross a {@code /}, a single replacement leaves every credential after the first standing
-     * -- and this is the one method in this package on the live path to the served {@code evidence} column, so what
-     * survives here is a stored, queryable secret.
+     * {@code jar:file://u:p@h/a.jar!/https://u2:p2@h2/b} and a Kafka bootstrap list is comma-separated. A single
+     * replacement leaves every credential after the first standing -- and this is the one method in this package on the
+     * live path to the served {@code evidence} column, so what survives here is a stored, queryable secret.
      *
      * <p>
-     * <b>The authority, not the scheme delimiter.</b> Anchoring on a literal {@code ://} missed a network-path
-     * reference: {@code //user:secret@host/x} is a well-formed URI reference that {@link java.net.URI} parses with
-     * {@code userInfo=user:secret}, and it is what a scanner emits for a protocol-relative URL. The captured group is
-     * the scheme's colon or nothing at all, so both spellings survive the replacement with their prefix intact.
+     * <b>{@code [^/]*}, not {@code [^/?#]*}.</b> Excluding the two delimiters from the user-info class made the pattern
+     * blind to a credential that contains one: {@code //user:sec?ret@host/x} has its {@code @} beyond a {@code ?}, so
+     * {@code [^/?#]*@} matched nothing and {@link #withoutQueryOrFragment} then kept {@code //user:sec} -- a stored
+     * password prefix, whole when the password itself ends in {@code ?}. No step order can repair that: the class
+     * cannot span a delimiter it excludes, so the class is what had to widen. The cost is an authority that carries a
+     * genuine query: {@code //host?to=a@b} loses the host along with the credential shape, which is fidelity spent to
+     * close a credential leak.
      *
      * <p>
-     * {@code [^/?#]*} stays <b>greedy</b> on purpose. A comma-separated multi-host authority --
+     * <b>Unanchored.</b> The pattern used to require the {@code //} at the string start or after a colon, which the
+     * leading-fragment retention in {@link #withoutQueryOrFragment} silently defeated: cutting the {@code #} off
+     * {@code #/api/v1//admin:hunter2@db.internal/x} moves the {@code //} into the middle of a path, where an anchored
+     * pattern cannot see it, and the credential reached both the key and the evidence column. A path-internal
+     * {@code //u:p@h} is not a URI authority, but it is a credential either way, and this class strips credentials.
+     *
+     * <p>
+     * {@code [^/]*} stays <b>greedy</b> on purpose. A comma-separated multi-host authority --
      * {@code mongodb://u1:p1@h1,u2:p2@h2/db} -- carries two credentials under one {@code //}, and a lazy quantifier
      * stops at the first {@code @} and leaves the second standing. Greedy costs the first host, which is fidelity; lazy
      * costs a credential, which is the thing this pattern exists for.
      */
-    private static final Pattern USERINFO = Pattern.compile("(^|:)//[^/?#]*@");
+    private static final Pattern USERINFO = Pattern.compile("//[^/]*@");
 
     /**
      * An unpaired surrogate, which is well-formed to Java and has no encoding at all in UTF-8.
@@ -63,7 +72,36 @@ public final class Occurrences {
     private static final Pattern UNPAIRED_SURROGATE = Pattern
             .compile("(?:[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF]))" + "|(?:(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF])");
 
+    /**
+     * The triple's other separator, which the location slot cannot escape.
+     *
+     * <p>
+     * {@link #triples} joins triples with a newline and the location is the one slot {@link PreImageSlot} does not
+     * escape, so a location carrying CR or LF is the only value in the chain that can render as more than one line. A
+     * forged line cannot pass for a triple -- every real one carries two {@code #} and no sanitized location can carry
+     * any -- but the value also reaches the served {@code evidence} column, and a line break names no place. Removed
+     * rather than escaped, for the same reason the {@code #} is cut rather than added to the escape set: the set is
+     * shared, and opening it re-keys every row that contains one of its members.
+     */
+    private static final Pattern LINE_BREAK = Pattern.compile("[\r\n]");
+
     private static final int MAX_LOCATION_LENGTH = 1024;
+
+    /**
+     * The longest input {@link #sanitizeLocation} will read. A generous multiple of {@link #MAX_LOCATION_LENGTH} rather
+     * than the bound itself: what is refused here is a denial-of-service shape, not a long-but-real path, and anything
+     * under this is still capped to the bound after stripping.
+     */
+    private static final int MAX_LOCATION_INPUT = 64 * MAX_LOCATION_LENGTH;
+
+    /**
+     * How many user-info passes a location may need before it is refused instead.
+     *
+     * <p>
+     * Sixteen is far past real data -- one authority needs one pass, the deepest construction any review pass built was
+     * eight -- and small enough that the work stays linear in the location's length times a constant.
+     */
+    private static final int MAX_USERINFO_PASSES = 16;
 
     private static final Comparator<String> CODE_POINT_ORDER = AsciiText.BY_CODE_POINT;
 
@@ -72,6 +110,13 @@ public final class Occurrences {
 
     /**
      * SHA-256 over the sorted {@code location#line#offset} triples, or {@code null} when there are none.
+     *
+     * <p>
+     * No production caller: every keying site takes {@link #triples} and hashes it inline, so the pre-image can enter a
+     * tier record. This stays as the named reference operation the specification defines and the Python kernel mirrors
+     * -- deleting it would leave the two implementations with no common entry point to compare, which is the same
+     * reason {@code triples} is exposed at all. Its two assertions in {@code TextNormalizationTest} are conformance
+     * checks on that operation, not coverage of a live path.
      *
      * @see #triples for why the hashed string is exposed separately
      */
@@ -87,21 +132,57 @@ public final class Occurrences {
      * Exposed as a named operation because a hashed slot is invisible to a conformance vector: the vector shows the
      * digest, so an implementer who computes a different string sees only that "the key differs" with no way to find
      * out why. The sibling case cost one proof-of-concept round 768 guesses for exactly this reason.
+     *
+     * <p>
+     * This signature is the one the reference kernel mirrors, so it stays as it is; a caller that also wants to know
+     * which locations rendered as nothing passes a list to the overload, and the string is the same either way.
      */
     public static String triples(JsonNode component) {
+        return triples(component, new ArrayList<>());
+    }
+
+    /**
+     * {@link #triples}, recording every occurrence whose <em>stated</em> location rendered as no location.
+     *
+     * <p>
+     * Many mechanisms render a stated location as the empty string, and the empty string is what an occurrence that
+     * stated no location renders as: a non-string value of any JSON type, the input-length refusal, the user-info
+     * pass-cap refusal, a bare query string, a fragment delimiter run followed by a query, a run of nothing but
+     * delimiters, unpaired surrogates alone, a fragment whose retained text is longer than the cap and all whitespace,
+     * and a location whose sanitized remainder is whitespace the final strip removes. Every one of them keyed and
+     * stored identically to {@code "location": null}, and nothing said so -- an operator reading the stored evidence
+     * saw an occurrence with no location and could not tell a producer that stated nothing from one whose statement was
+     * refused. The key cannot tell them apart either, and deliberately: this slot is unescaped, so any sentinel it
+     * could carry a producer can also spell, which is why the position slot has a sentinel and this one has a record.
+     *
+     * <p>
+     * The record is a finding beside the redaction findings, one per emptied occurrence, naming the occurrence by its
+     * index and the mechanism by class -- never the location itself, which is the string that may hold the credential
+     * the sanitizer exists to remove. A location that is absent, JSON {@code null} or blank is not recorded: blank is
+     * absent in every slot of the chain, and a producer that wrote whitespace -- line breaks are whitespace -- stated
+     * nothing. The line is the chain's own {@link AsciiText#isBlank}, not a list of spellings.
+     *
+     * @param findings receives one line per occurrence whose stated location rendered as none
+     */
+    public static String triples(JsonNode component, List<String> findings) {
         JsonNode evidence = component == null ? null : component.get("evidence");
         JsonNode occurrences = evidence == null ? null : evidence.get("occurrences");
         if (occurrences == null || !occurrences.isArray()) {
             return null;
         }
         List<String> triples = new ArrayList<>();
-        for (JsonNode occurrence : occurrences) {
+        for (int index = 0; index < occurrences.size(); index++) {
+            JsonNode occurrence = occurrences.get(index);
             if (!occurrence.isObject()) {
                 continue;
             }
-            triples
-                    .add(sanitizeLocation(occurrence.get("location")) + "#" + slot(occurrence.get("line")) + "#"
-                            + slot(occurrence.get("offset")));
+            Sanitized location = sanitize(occurrence.get("location"));
+            if (location.emptiedBecauseIt() != null) {
+                findings
+                        .add("occurrence " + index + ": the stated location " + location.emptiedBecauseIt()
+                                + ", so it is keyed and stored as no location");
+            }
+            triples.add(location.text() + "#" + slot(occurrence.get("line")) + "#" + slot(occurrence.get("offset")));
         }
         if (triples.isEmpty()) {
             return null;
@@ -121,10 +202,36 @@ public final class Occurrences {
      * place, and {@link #withoutQueryOrFragment} keeps its text without its delimiter.
      */
     public static String sanitizeLocation(JsonNode location) {
-        if (location == null || !location.isTextual() || AsciiText.isBlank(location.textValue())) {
-            return "";
+        return sanitize(location).text();
+    }
+
+    /**
+     * A sanitized location, and the mechanism that emptied it when the producer stated one and nothing survived.
+     *
+     * <p>
+     * {@code emptiedBecauseIt} is {@code null} for a location that kept some text and for one that was absent, JSON
+     * {@code null} or blank -- the shapes the chain reads as "stated nothing" everywhere. It is set only when a stated
+     * location rendered as the empty string, which is the case {@link #triples(JsonNode, List)} records.
+     */
+    private record Sanitized(String text, String emptiedBecauseIt) {
+
+        static final Sanitized ABSENT = new Sanitized("", null);
+
+        static Sanitized emptied(String because) {
+            return new Sanitized("", because);
         }
-        return sanitizeLocation(location.textValue());
+    }
+
+    private static Sanitized sanitize(JsonNode location) {
+        if (location == null || location.isNull()) {
+            return Sanitized.ABSENT;
+        }
+        if (!location.isTextual()) {
+            // The stored evidence renders a non-string location as the empty string too, so the two surfaces agree,
+            // and the schema types the member as a string, so this is a producer defect worth a line.
+            return Sanitized.emptied("is not a string");
+        }
+        return sanitize(location.textValue());
     }
 
     /**
@@ -136,16 +243,106 @@ public final class Occurrences {
      * the strip yields {@code x://user:pass@host} -- a well-formed, hashable location with the credential intact.
      * Scrubbing first cannot have the mirror effect, because deleting a surrogate introduces no {@code ?}, {@code #},
      * {@code @} or {@code :} for a later step to miss.
+     *
+     * <p>
+     * <b>The user-info strip runs before the cut, once.</b> Before it, so a credential whose {@code @} lies beyond a
+     * {@code ?} or {@code #} is stripped whole rather than truncated by the cut into a stored password prefix. Once,
+     * because {@link #USERINFO} is unanchored: an authority the leading-fragment retention uncovers was already visible
+     * to the first pass, and {@link #withoutQueryOrFragment} returns a contiguous substring of its input, in which no
+     * match can appear that the whole did not have. A second pass after the cut used to run here and was believed to
+     * close that case; an exhaustive sweep to length 8 over <code>{/ : @ ? # a p}</code> found no input it changed. It
+     * went because a paragraph claiming it was load-bearing would have licensed re-anchoring the pattern.
+     *
+     * <p>
+     * <b>The strip after the cap makes the whole a fixpoint.</b> The cap is last and can land on interior whitespace,
+     * so the result could end in a space that a second application removed -- and the location is sanitized twice on
+     * two paths, once for the key and once for the stored evidence, which then disagreed by one character. The
+     * leading-fragment retention could likewise uncover a leading space. Sanitizing a sanitized location now changes
+     * nothing, which is what lets the two surfaces be compared byte for byte.
      */
     public static String sanitizeLocation(String location) {
+        return sanitize(location).text();
+    }
+
+    private static Sanitized sanitize(String location) {
         if (AsciiText.isBlank(location)) {
-            return "";
+            return Sanitized.ABSENT;
+        }
+        if (location.length() > MAX_LOCATION_INPUT) {
+            // Refused before any pass runs, for the reason `withoutUserInfo` refuses a location nested past its pass
+            // cap: the cap on the *result* is deliberately the last step, so every regex below scans the input at its
+            // stated length, and the location is the one producer string that never passes `boundedText`. At
+            // Jackson's 20-million-character ceiling that is seconds of CPU per occurrence, multiplied by every
+            // occurrence of every component. Refusing rather than capping first keeps core#2165 item 3 closed, where
+            // truncating first left `//user:passwo` standing. The longest corpus location is 194 characters.
+            return Sanitized.emptied("is longer than " + MAX_LOCATION_INPUT + " characters and was refused unread");
         }
         String text = AsciiText.strip(location);
         text = UNPAIRED_SURROGATE.matcher(text).replaceAll("");
+        text = LINE_BREAK.matcher(text).replaceAll("");
+        text = withoutUserInfo(text);
+        if (text == null) {
+            return Sanitized
+                    .emptied("nests user-info deeper than " + MAX_USERINFO_PASSES
+                            + " authorities and was refused with a credential still standing");
+        }
         text = withoutQueryOrFragment(text);
-        text = USERINFO.matcher(text).replaceAll("$1//");
-        return text.substring(0, capBoundary(text));
+        text = AsciiText.strip(text.substring(0, capBoundary(text)));
+        if (text.isEmpty()) {
+            return Sanitized
+                    .emptied("names no place once its query string, fragment delimiters, line breaks, unpaired "
+                            + "surrogates and surrounding whitespace are removed");
+        }
+        return new Sanitized(text, null);
+    }
+
+    /**
+     * Strips user-info until nothing changes, which is not the same as stripping it once or twice.
+     *
+     * <p>
+     * The replacement can <em>create</em> the shape it matches. {@code //u1:p1@/u2:p2@/u3:p3@host} has three
+     * {@code @}-terminated authorities sharing their slashes: consuming {@code //u1:p1@} leaves {@code ///u2:p2@…},
+     * where scanning resumes past the {@code /} and finds only one slash before the next credential. Each pass
+     * therefore peels exactly one layer, so two passes left the third password in the key and in the served
+     * {@code evidence} column. Found by an exhaustive sweep to length 8 over <code>{/ : @ ? # a p}</code> -- 27 of 6
+     * 725 600 inputs, all of this one family -- after a hand-built case set missed it, which is the difference between
+     * covering the cases you thought of and covering the input space.
+     *
+     * <p>
+     * <b>Bounded, because terminating is not the same as cheap.</b> Every replacement removes at least the {@code @},
+     * so the loop always ends -- but each pass rescans the whole string, and the cap on the result is deliberately the
+     * last step of {@link #sanitizeLocation}, so the length this runs against is the producer's, bounded only by
+     * {@link #MAX_LOCATION_INPUT}. A producer emitting {@code n} nested authorities costs {@code n} full passes: 2 048
+     * layers is 2 049 scans of a string that has not been shortened to 1 024 characters yet, which is a CPU stall on
+     * the ingest path of exactly the kind the name-length bound in {@code AssetNormalizer} exists to stop. Capping
+     * first is not the answer -- that is the defect core#2165 item 3 closed, where truncation left
+     * {@code //user:passwo} standing.
+     *
+     * <p>
+     * So the passes are capped and a location that still matches afterwards is <b>refused</b>, answered as {@code null}
+     * so the caller can record the refusal, and rendered as the empty location rather than as a partly-stripped one.
+     * Refusing costs a pathological location its discriminator; keeping it would either store a credential or spend
+     * unbounded CPU deciding not to. Real data needs one pass and the corpus needs zero: no corpus location carries a
+     * user-info shape at all, and the deepest construction either review pass could build was eight.
+     *
+     * <p>
+     * Two residuals stay, both pre-existing and both measured: a user-info containing a {@code /} survives whole
+     * ({@code //u:pa/ss@host/x}), because {@code [^/]*} cannot cross the slash and widening it further would eat whole
+     * paths; and a credential with no {@code //} at all ({@code smtp:user:pass@host}, an scp-style
+     * {@code user:pass@host:/path}) is not an authority and is out of this pattern's scope.
+     */
+    private static String withoutUserInfo(String text) {
+        String stripped = text;
+        for (int pass = 0; pass < MAX_USERINFO_PASSES; pass++) {
+            String next = USERINFO.matcher(stripped).replaceAll("//");
+            if (next.equals(stripped)) {
+                return stripped;
+            }
+            stripped = next;
+        }
+        // Still matching after the bound: the location is nested past anything a producer emits, and what is left
+        // holds a credential. Neither storing it nor scanning further is acceptable, so it names nothing.
+        return USERINFO.matcher(stripped).find() ? null : stripped;
     }
 
     /**
@@ -176,17 +373,49 @@ public final class Occurrences {
      * {@code ?} is a bare query string -- {@code ?X-Amz-Signature=}, {@code ?sig=}, {@code ?token=} are the shapes this
      * rule was written for -- so keeping it verbatim would store exactly the session token the rule drops. It renders
      * as the empty location. A sentinel distinguishable from absence would be better, as it is for a refused position,
-     * but this slot is unescaped: any sentinel a location could carry, a producer can also spell.
+     * but this slot is unescaped: any sentinel a location could carry, a producer can also spell. What distinguishes it
+     * from absence is the finding {@link #triples(JsonNode, List)} records instead.
+     *
+     * <p>
+     * <b>The whole leading run comes off, not one character.</b> Removing exactly one {@code #} left {@code ##a}
+     * cutting at position zero again, so it rendered as the empty location -- the defect this retention exists to
+     * close, reappearing one character further along. What the run rule does <em>not</em> restore is the count:
+     * {@code #a} and {@code ##a} both render {@code a}, because the delimiter cannot come back into an unescaped slot.
+     * That is the same residual as a pointer keying alike to the bare path it spells, and it is recorded as an open
+     * adjudication on core#2165 rather than papered over with a sentinel a producer could also spell.
+     *
+     * <p>
+     * <b>An empty string reaches this method.</b> {@link #UNPAIRED_SURROGATE} runs first and {@link AsciiText#isBlank}
+     * does not treat a lone surrogate as whitespace, so a location made only of surrogates passes the entry guard and
+     * arrives here empty -- where reading its first character threw {@code StringIndexOutOfBoundsException} out of the
+     * ingest path, taking the whole source upsert down with it. On {@code main} that same input reached
+     * {@link IdentityDigests#sha256Hex} and became a reported skip, so the step order turned a diagnosable skip into an
+     * index error.
      */
     private static String withoutQueryOrFragment(String text) {
+        if (text.isEmpty()) {
+            return "";
+        }
         String[] halves = QUERY_OR_FRAGMENT.split(text, 2);
         if (!halves[0].isEmpty()) {
             return halves[0];
         }
-        if (text.charAt(0) != '#') {
+        int retained = leadingDelimiterRun(text);
+        if (text.charAt(0) != '#' || text.lastIndexOf('?', retained - 1) >= 0) {
+            // A bare query string, or a fragment whose own text begins with one. Either way the first thing the
+            // location states is a token, not a place.
             return "";
         }
-        return QUERY_OR_FRAGMENT.split(text.substring(1), 2)[0];
+        return QUERY_OR_FRAGMENT.split(text.substring(retained), 2)[0];
+    }
+
+    /** The length of the {@code [?#]} run the location opens with. */
+    private static int leadingDelimiterRun(String text) {
+        int index = 0;
+        while (index < text.length() && (text.charAt(index) == '#' || text.charAt(index) == '?')) {
+            index++;
+        }
+        return index;
     }
 
     /**
@@ -204,8 +433,8 @@ public final class Occurrences {
      * {@link #UNPAIRED_SURROGATE} scrubs those explicitly rather than relying on where the cut lands.
      *
      * <p>
-     * The cap is the last step of {@link #sanitizeLocation}, after the query, fragment and user-info have already gone,
-     * so it can neither expose nor preserve a credential -- only shorten a location that no longer carries one.
+     * The cap runs after the query, fragment and user-info have already gone, so it can neither expose nor preserve a
+     * credential -- only shorten a location that no longer carries one. The final strip follows it, and nothing else.
      */
     private static int capBoundary(String text) {
         return text.codePointCount(0, text.length()) <= MAX_LOCATION_LENGTH
