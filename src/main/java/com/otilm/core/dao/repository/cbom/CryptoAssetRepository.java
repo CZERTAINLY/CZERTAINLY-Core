@@ -3,10 +3,13 @@ package com.otilm.core.dao.repository.cbom;
 import com.otilm.core.dao.entity.cbom.CryptoAsset;
 import com.otilm.core.dao.repository.SecurityFilterRepository;
 import com.otilm.core.model.cbom.CryptoAssetListRow;
+import com.otilm.core.model.cbom.PqcStaleVerdictRow;
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,8 +19,9 @@ import org.springframework.stereotype.Repository;
  * Queries and guarded writes for the deduplicated cryptographic asset inventory.
  *
  * <p>
- * Every {@code @Modifying} statement here is called from {@code CryptoAssetWriter} and from nowhere else: the
- * transactional boundary lives on the writer, never on this interface.
+ * Every {@code @Modifying} statement here is called from a writer bean in {@code ..service.writer..} and from nowhere
+ * else -- {@code CryptoAssetWriter} for the ingest path, {@code CryptoAssetPqcVerdictWriter} for the re-evaluation
+ * sweep's batches. The transactional boundary lives on those writers, never on this interface.
  */
 @Repository
 public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAsset, UUID> {
@@ -181,6 +185,53 @@ public interface CryptoAssetRepository extends SecurityFilterRepository<CryptoAs
     void applyPqcVerdict(@Param("uuid") UUID uuid, @Param("verdict") String verdict, @Param("ruleId") String ruleId,
             @Param("reason") String reason, @Param("rulesetVersion") int rulesetVersion,
             @Param("evaluatedFields") String evaluatedFields);
+
+    /**
+     * The sweep's work list. Keyset-cursored, and that is correctness rather than performance: a written row leaves
+     * this result set, so an offset would skip exactly as many unread rows as the last batch wrote, and re-querying
+     * from the start only terminates if every claimed row leaves -- one that throws would return at the head forever.
+     */
+    @Query("""
+            SELECT new com.otilm.core.model.cbom.PqcStaleVerdictRow(a.uuid, a.assetType, a.name, a.oid,
+                a.algorithmFamily, a.primitive, a.parameterSet, a.curve, a.mode, a.padding, a.variant,
+                a.mergedCryptoProperties, a.updated)
+            FROM CryptoAsset a
+            WHERE (a.pqcRulesetVersion IS NULL OR a.pqcRulesetVersion < :version) AND a.uuid > :after
+            ORDER BY a.uuid
+            """)
+    List<PqcStaleVerdictRow> findStaleVerdictRows(@Param("version") int version, @Param("after") UUID after,
+            Pageable page);
+
+    /**
+     * {@link #applyPqcVerdict} guarded against the sweep's read-to-write window. Every writer of this row moves
+     * {@code i_upd} -- an identity refresh, a payload re-election, a verdict -- so a row whose {@code i_upd} is no
+     * longer the one the sweep read has changed under it, and the verdict computed from the earlier read is not
+     * written. The version clause restates what the work list calls stale. A refused row keeps its old generation and
+     * is offered again on the next sweep; a touch that changed nothing the rules read costs it that one wait.
+     *
+     * @return 1 if the row was written, 0 if it was touched since it was read or is no longer stale
+     */
+    @Modifying
+    @Query(value = """
+            UPDATE {h-schema}crypto_asset
+            SET pqc_verdict = :verdict,
+                pqc_rule_id = :ruleId,
+                pqc_reason = :reason,
+                pqc_ruleset_version = :rulesetVersion,
+                pqc_evaluated_fields = CAST(:evaluatedFields AS jsonb),
+                pqc_evaluated_at = CURRENT_TIMESTAMP,
+                pqc_decided_at = CASE
+                    WHEN crypto_asset.pqc_verdict IS DISTINCT FROM CAST(:verdict AS TEXT) THEN CURRENT_TIMESTAMP
+                    ELSE COALESCE(crypto_asset.pqc_decided_at, CURRENT_TIMESTAMP)
+                END,
+                i_upd = CURRENT_TIMESTAMP
+            WHERE uuid = :uuid
+              AND (pqc_ruleset_version IS NULL OR pqc_ruleset_version < :rulesetVersion)
+              AND i_upd = :updatedAsRead
+            """, nativeQuery = true)
+    int applyPqcVerdictIfStale(@Param("uuid") UUID uuid, @Param("updatedAsRead") OffsetDateTime updatedAsRead,
+            @Param("verdict") String verdict, @Param("ruleId") String ruleId, @Param("reason") String reason,
+            @Param("rulesetVersion") int rulesetVersion, @Param("evaluatedFields") String evaluatedFields);
 
     @Modifying
     @Query("DELETE FROM CryptoAsset a WHERE a.uuid = :uuid")
