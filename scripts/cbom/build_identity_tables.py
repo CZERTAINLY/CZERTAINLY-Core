@@ -172,6 +172,15 @@ NAME_GRAMMAR = [
     {"pattern": r"(?<![A-Za-z0-9])yescrypt", "family": "yescrypt", "why": "before scrypt"},
     {"pattern": r"(?<![A-Za-z0-9])scrypt", "family": "scrypt", "why": "registry token"},
 
+    # --- DRBG named after its primitives, same principle ---------------------------
+    {"pattern": r"(?<![A-Za-z0-9])Yarrow", "family": "Yarrow",
+     "why": "registry token with no rule; superseded by Fortuna by its own authors and carrying a "
+            "legacy disposition, yet a bare `Yarrow` resolved to nothing and was read back as a broken "
+            "component of itself, the same defect as CMEA. Same shape as Skipjack, placed here rather "
+            "than beside it because the registry's variant pattern is `Yarrow[-{blockCipher}]"
+            "[-{hashAlgorithm}]`: the name may carry the cipher and the hash it is built over, and "
+            "after the AES and SHA-2 rules `Yarrow-AES-SHA256` would elect its block cipher"},
+
     # --- MAC before digest: HMAC-SHA256 must not read as SHA-2 ------------------
     {"pattern": r"(?<![A-Za-z0-9])HMAC(?![A-Za-z0-9])", "family": "HMAC",
      "why": "cbomkit HMAC-SHA256 / HMAC-SHA512"},
@@ -402,6 +411,11 @@ NAME_GRAMMAR = [
     {"pattern": r"(?<![A-Za-z0-9])Skipjack", "family": "Skipjack",
      "why": "registry token with no rule; `Skipjack (broken cipher)` resolved to nothing, and a "
             "broken cipher going unnamed is the opposite of what the inventory is for"},
+    {"pattern": r"(?<![A-Za-z0-9])CMEA", "family": "CMEA",
+     "why": "registry token with no rule; the family's own disposition is classically broken "
+            "(Wagner, Schneier and Kelsey, FSE 1997), yet a bare `CMEA` resolved to nothing and the "
+            "token survived into the variant residue, where the verdict path read it back as a "
+            "broken component of an asset that has no components. Same shape as Skipjack"},
     {"pattern": r"(?<![A-Za-z0-9])Fernet", "family": "Fernet",
      "why": "pseudo-family: a real construction the registry cannot express, 5 corpus rows"},
 
@@ -450,18 +464,63 @@ TRUNCATABLE_FAMILIES = ["SHA-2", "SHA-3", "BLAKE2", "BLAKE3", "SM3", "RIPEMD"]
 # dropping key exchange and authentication, and 33 groups of distinct suites collapsed.
 # Names matching these shapes bypass family derivation entirely and are keyed on the
 # full normalized name, which keeps every suite distinct.
+#
+# The shapes are pinned in both directions against two corpora, and any change here has to
+# be re-run against both: every suite OpenSSL 3.5.3 lists (`openssl ciphers -stdname -v
+# ALL:COMPLEMENTOFALL`, 159 suites in the IANA and the OpenSSL spelling, 318 names) must
+# match, and no plain algorithm name may -- the 130 ratified family spellings, all 65 names
+# `ssh -Q cipher/mac/kex/key-sig` prints, and the separated and glued algorithm spellings
+# the corpus carries (`AES-256-GCM`, `AES128-GCM` x13, `AES128-CBC-PKCS5` x10, `aes256-ctr`).
+# The two errors are not symmetric: a suite read as an algorithm serves a Shor-breakable RSA
+# key exchange as `ready` on the strength of its bulk cipher, and an algorithm read as a suite
+# drops the asset from the migration inventory altogether. Recall is never bought with a false
+# positive.
 CIPHER_SUITE_NAME_PATTERNS = [
     r"^TLS[_-].+[_-]WITH[_-]",
     r"^TLS[_-](AES|CHACHA|GOST|SM4|ARIA|CAMELLIA)",
+    # RFC 9150 integrity-only suites, 0xC0B4/0xC0B5. The only TLS 1.3 suites with no bulk
+    # cipher token at all; spelled exactly, since `TLS-PRF` is a ratified family and any
+    # `^TLS[_-]SHA` prefix test would be one spelling away from it.
+    r"^TLS[_-]SHA(256|384)[_-]SHA(256|384)$",
     # The bulk-cipher requirement is what separates an OpenSSL-style suite name from a
     # signature scheme that merely ends in a digest. Without it, `RSA-PSS-SHA256` and
-    # `RSA-PKCS1-1.5-SHA512` were classified as cipher suites and left with no family —
+    # `RSA-PKCS1-1.5-SHA512` were classified as cipher suites and left with no family --
     # invisible to every family-keyed rule. A suite names a key exchange, a bulk cipher
-    # and a MAC; `RSA-PSS-SHA256` names no cipher.
+    # and a MAC; `RSA-PSS-SHA256` names no cipher. POLY1305 is admitted as the trailing
+    # token because every ChaCha20 suite ends in it and none carries a MAC or mode after
+    # it: `ECDHE-RSA-CHACHA20-POLY1305` and its six siblings were the only prefixed suites
+    # the previous tail missed, and all seven were served `ready` on the cipher.
     r"^(SSL|SRP|PSK|DHE|ECDHE|ECDH|RSA|ADH|AECDH)[-_].*(?<![A-Za-z0-9])"
     r"(AES|CHACHA20|CHACHA|ARIA|CAMELLIA|SEED|3DES|DES|RC4|RC2|SM4|GOST|IDEA|NULL)"
-    r"(?![A-Za-z]).*[-_](SHA|MD5|GCM|CCM|CBC)",
-    r"@(openssh\.com|libssh\.org)$",
+    r"(?![A-Za-z]).*[-_](SHA|MD5|GCM|CCM|CBC|POLY1305)",
+    # OpenSSL omits the key-exchange prefix for every RSA-key-exchange suite, so
+    # `AES128-GCM-SHA256` (0x009C) carried no prefix and read as AES: 16 of the 318 names,
+    # every one a Shor-breakable key exchange served `ready`. What separates the suite from
+    # the algorithm is not the glued size -- OpenSSH glues too (`aes128-ctr`,
+    # `aes256-gcm@openssh.com`) and so does the corpus (`AES128-GCM` x13) -- but the token
+    # after it: a suite ends in the MAC digest (`AES128-SHA`, `CAMELLIA256-SHA256`,
+    # `ARIA128-GCM-SHA256`) or, for the RFC 6655 CCM suites whose PRF is implicit, in
+    # `CCM`/`CCM8` and nothing else. `AES128-GCM`, `AES128-CBC-PKCS5` and `AES128-OFB` end
+    # in a mode or a padding and stay algorithms. Three digits, so the prefix cannot read
+    # `CHACHA20` as a cipher and a size; `$`, so Kerberos `aes256-cts-hmac-sha1-96`, whose
+    # digest is followed by a truncation length, stays an enctype rather than a suite.
+    r"^(AES|ARIA|CAMELLIA)[0-9]{3}(?:(?:[-_]GCM)?[-_](?:SHA[0-9]*|MD5)|[-_]CCM8?)$",
+    # The same RSA-key-exchange spelling for the ciphers OpenSSL writes without a size:
+    # `NULL-SHA256` is in the 318; `RC4-MD5`, `RC4-SHA` and `DES-CBC3-SHA` are in the
+    # corpus as algorithm components, and C8 ruled `RC4-MD5` a suite name; `IDEA-CBC-SHA`
+    # is compiled into the measured libssl. `SEED-SHA`, `DES-CBC-SHA` and `RC2-CBC-MD5`
+    # complete OpenSSL's own list and, with the `EXP`/`EXP1024` export prefixes, are the
+    # shape and nothing else. Exact tokens, not a cipher-and-digest search, because
+    # Kerberos spells `des3-cbc-sha1` and `arcfour-hmac-md5` next door and neither may
+    # match; `des-cbc-md5` is byte-identical to the SSLv2 suite and does, unavoidably.
+    r"^(?:EXP(?:1024)?[-_])?(?:NULL|RC4|RC2[-_]CBC|IDEA[-_]CBC|DES[-_]CBC3?|SEED)[-_](?:SHA[0-9]*|MD5)$",
+    # No `@openssh.com` / `@libssh.org` rule. The suffix is a vendor namespace, not a suite
+    # marker: SSH negotiates cipher, MAC, key exchange and host key independently and has
+    # no suites, so the rule served 30 of 65 `ssh -Q` names `notApplicable` -- eleven
+    # Shor-breakable host-key algorithms and three post-quantum hybrids among them -- and
+    # gave `sntrup761x25519-sha512` opposite verdicts from the two spellings OpenSSH
+    # lists side by side. Without it the eight `aes128-gcm@openssh.com`-shaped names
+    # classify by family exactly as their unsuffixed spellings already did.
 ]
 
 # Tokens that are identity-bearing when they appear ALONGSIDE a winning family: the
@@ -589,6 +648,8 @@ PRIMITIVE_DEFAULTS = {
     "MD5": "hash",
     "RIPEMD": "hash",
     "Skipjack": "block-cipher",
+    "CMEA": "block-cipher",
+    "Yarrow": "drbg",
     "SP800-56C": "kdf",
     "Fernet": "ae",
     "BLAKE3": "hash",

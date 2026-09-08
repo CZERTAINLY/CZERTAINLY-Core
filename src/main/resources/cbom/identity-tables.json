@@ -3319,6 +3319,11 @@
       "why": "registry token"
     },
     {
+      "pattern": "(?<![A-Za-z0-9])Yarrow",
+      "family": "Yarrow",
+      "why": "registry token with no rule; superseded by Fortuna by its own authors and carrying a legacy disposition, yet a bare `Yarrow` resolved to nothing and was read back as a broken component of itself, the same defect as CMEA. Same shape as Skipjack, placed here rather than beside it because the registry's variant pattern is `Yarrow[-{blockCipher}][-{hashAlgorithm}]`: the name may carry the cipher and the hash it is built over, and after the AES and SHA-2 rules `Yarrow-AES-SHA256` would elect its block cipher"
+    },
+    {
       "pattern": "(?<![A-Za-z0-9])HMAC(?![A-Za-z0-9])",
       "family": "HMAC",
       "why": "cbomkit HMAC-SHA256 / HMAC-SHA512"
@@ -3864,6 +3869,11 @@
       "why": "registry token with no rule; `Skipjack (broken cipher)` resolved to nothing, and a broken cipher going unnamed is the opposite of what the inventory is for"
     },
     {
+      "pattern": "(?<![A-Za-z0-9])CMEA",
+      "family": "CMEA",
+      "why": "registry token with no rule; the family's own disposition is classically broken (Wagner, Schneier and Kelsey, FSE 1997), yet a bare `CMEA` resolved to nothing and the token survived into the variant residue, where the verdict path read it back as a broken component of an asset that has no components. Same shape as Skipjack"
+    },
+    {
       "pattern": "(?<![A-Za-z0-9])Fernet",
       "family": "Fernet",
       "why": "pseudo-family: a real construction the registry cannot express, 5 corpus rows"
@@ -3950,8 +3960,10 @@
   "cipherSuiteNamePatterns": [
     "^TLS[_-].+[_-]WITH[_-]",
     "^TLS[_-](AES|CHACHA|GOST|SM4|ARIA|CAMELLIA)",
-    "^(SSL|SRP|PSK|DHE|ECDHE|ECDH|RSA|ADH|AECDH)[-_].*(?<![A-Za-z0-9])(AES|CHACHA20|CHACHA|ARIA|CAMELLIA|SEED|3DES|DES|RC4|RC2|SM4|GOST|IDEA|NULL)(?![A-Za-z]).*[-_](SHA|MD5|GCM|CCM|CBC)",
-    "@(openssh\\.com|libssh\\.org)$"
+    "^TLS[_-]SHA(256|384)[_-]SHA(256|384)$",
+    "^(SSL|SRP|PSK|DHE|ECDHE|ECDH|RSA|ADH|AECDH)[-_].*(?<![A-Za-z0-9])(AES|CHACHA20|CHACHA|ARIA|CAMELLIA|SEED|3DES|DES|RC4|RC2|SM4|GOST|IDEA|NULL)(?![A-Za-z]).*[-_](SHA|MD5|GCM|CCM|CBC|POLY1305)",
+    "^(AES|ARIA|CAMELLIA)[0-9]{3}(?:(?:[-_]GCM)?[-_](?:SHA[0-9]*|MD5)|[-_]CCM8?)$",
+    "^(?:EXP(?:1024)?[-_])?(?:NULL|RC4|RC2[-_]CBC|IDEA[-_]CBC|DES[-_]CBC3?|SEED)[-_](?:SHA[0-9]*|MD5)$"
   ],
   "secondaryMarkers": [
     [
@@ -4081,6 +4093,8 @@
     "MD5": "hash",
     "RIPEMD": "hash",
     "Skipjack": "block-cipher",
+    "CMEA": "block-cipher",
+    "Yarrow": "drbg",
     "SP800-56C": "kdf",
     "Fernet": "ae",
     "BLAKE3": "hash",
