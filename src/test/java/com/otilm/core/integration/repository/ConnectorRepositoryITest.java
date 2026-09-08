@@ -84,8 +84,13 @@ class ConnectorRepositoryITest {
                 .withFunctionGroupCode(functionGroupCode)
                 .buildFixture();
         Connector connector = connectorRepository.save(fixture.connector());
+        var functionGroup = functionGroupRepository.save(fixture.functionGroup());
+
+        fixture.connectorInterface().setConnector(connector);
         connectorInterfaceRepository.save(fixture.connectorInterface());
-        functionGroupRepository.save(fixture.functionGroup());
+
+        fixture.relation().setConnector(connector);
+        fixture.relation().setFunctionGroup(functionGroup);
         connector2FunctionGroupRepository.save(fixture.relation());
         entityManager.flush();
         entityManager.clear();
