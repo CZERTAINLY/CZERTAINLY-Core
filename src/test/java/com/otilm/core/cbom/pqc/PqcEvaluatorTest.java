@@ -214,6 +214,30 @@ class PqcEvaluatorTest {
         }
     }
 
+    /**
+     * The size arms never ask what the key is, so a stated 56 bits -- below the ratified floor, and therefore read as
+     * absent -- left a DES key {@code unknown} while the same primitive as an algorithm row read {@code notReady}. The
+     * name is the finding, and reading it needs no judgement about whether the producer counted bits or bytes.
+     */
+    @Test
+    void aKeyNamedAfterABrokenPrimitiveIsDecidedByItsNameNotItsSize() {
+        for (Integer statedSize : new Integer[]{56, 40, null, 256}) {
+            PqcDecision des = verdictOf(material("DES", "secret-key", statedSize));
+            assertThat(des.verdict()).describedAs("DES at %s", statedSize).isEqualTo(PqcVerdict.NOT_READY);
+            assertThat(des.ruleId()).describedAs("DES at %s", statedSize).isEqualTo("CLASSICAL-LEGACY");
+            assertThat(des.evaluatedFields()).describedAs("DES at %s", statedSize).containsKey("algorithmFamily");
+        }
+        assertThat(verdictOf(material("RC4", "secret-key", 40)).ruleId()).isEqualTo("CLASSICAL-LEGACY");
+        assertThat(verdictOf(material("RSA-2048", "shared-secret", 2048)).ruleId()).isEqualTo("CLASSICAL-SHOR");
+
+        assertThat(verdictOf(material("AES-256", "secret-key", 256)).ruleId())
+                .describedAs("an unbroken family must still be decided by the size it states")
+                .isEqualTo("MATERIAL-SYMMETRIC-READY");
+        assertThat(verdictOf(material("sntrup761x25519-sha512", "shared-secret", 256)).ruleId())
+                .describedAs("a session key labelled with its hybrid KEX is its own strength, not the KEX's")
+                .isEqualTo("MATERIAL-SYMMETRIC-READY");
+    }
+
     @Test
     void materialThatIsNotAKeyIsNotApplicable() {
         assertThat(verdictOf(material("salt@1", "salt", 128)).ruleId()).isEqualTo("MATERIAL-NOT-KEY");
