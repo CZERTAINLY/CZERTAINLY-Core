@@ -381,18 +381,9 @@ class PqcEvaluatorTest {
     }
 
     /**
-     * <b>A finding, pinned rather than worked around.</b> FN-DSA is the standardised name for Falcon and is in no
-     * ratified table under any spelling, so the asset elects the classical {@code DSA} family and reads its Falcon
-     * security level 512 as a key size. The verdict lands on {@code notReady} -- the right answer for the wrong reason,
-     * over a wrong stored family and a wrong parameter set.
-     *
-     * <p>
-     * <b>Which ruling closes it, corrected.</b> An earlier revision blamed the grammar's loose form matching inside
-     * words and expected core#2196's ruling C7 to fix it. It will not: the rule that fires is the word-guarded
-     * {@code (?<![A-Za-z0-9])DSA(?![A-Za-z0-9])}, identical in strict and loose form, and the hyphen in {@code FN-DSA}
-     * is a word boundary. C7 guards a preceding <em>letter</em>, and only where a token is contained in a longer family
-     * token -- neither holds here. The only repair is a vocabulary act: an FN-DSA pseudo-family in the generator, which
-     * is key-affecting and belongs with ruling C12.
+     * FN-DSA is the standardised name for Falcon and is in no ratified table under any spelling, so the asset elects
+     * the classical {@code DSA} family and reads its security level 512 as a key size. The verdict is right for the
+     * wrong reason, over a wrong family and a wrong parameter set.
      */
     @Test
     void fnDsaElectsTheClassicalDsaFamily() {

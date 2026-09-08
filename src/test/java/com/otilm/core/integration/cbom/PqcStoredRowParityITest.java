@@ -34,15 +34,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The verdict the sweep reads off a stored row against the verdict ingest recorded, with the row written by the shipped
- * writer and read back from PostgreSQL.
+ * The verdict the sweep reads off a stored row against the verdict ingest recorded, over a row written by the shipped
+ * writer and read back from PostgreSQL, so the two sides share only the rule set.
  *
  * <p>
- * {@code PqcParityTest} builds its stored fixture with the expression {@code fromNormalized} delegates to, so a
- * {@link CryptoAssetIdentityFields#of} that drops a column leaves it green while every row reads
- * {@code FAMILY-UNRESOLVED}. Here the two sides share only the rule set: ingest is played as core#2228 will wire it,
- * and the sweep side is built from nothing but the entity that comes back. The expected rule id on each single-producer
- * vector is the non-vacuity guard -- two sides agreeing on a wrong answer is what that mutation produces.
+ * Each single-producer vector also asserts the rule id the rule set owes the asset. That oracle is not redundant: a
+ * derivation that drops a column leaves both sides agreeing on {@code FAMILY-UNRESOLVED}, which a parity assertion
+ * alone cannot see.
  */
 class PqcStoredRowParityITest extends BaseSpringBootTest {
 
@@ -109,16 +107,8 @@ class PqcStoredRowParityITest extends BaseSpringBootTest {
     }
 
     /**
-     * <b>A finding, pinned rather than worked around.</b> The upsert keeps the first producer's {@code name} --
-     * {@code COALESCE(crypto_asset.name, EXCLUDED.name)}, so that re-sync is idempotent -- while ingest evaluates the
-     * spelling it just read. The key path collapses internal whitespace runs and the column's fold does not, so
-     * {@code private key} and {@code private  key} share one row, and the surviving spelling is not the one
-     * {@code NAME-NOT-AN-ALGORITHM} looked up after a bare {@code trim()}.
-     *
-     * <p>
-     * <b>What closes it.</b> core#2228 hands {@code fromStoredRow} the row {@code upsertIdentity} already re-reads.
-     * Both sides then read {@code private key}, the recorded rule becomes {@code NAME-NOT-AN-ALGORITHM}, and the pinned
-     * assertions below collapse into the parity {@link #aRowWrittenByOneProducerDecidesAsIngestDid} states.
+     * The key path collapses internal whitespace runs where the column's fold does not, so the two spellings share one
+     * row; {@code COALESCE} then keeps the first, which is what makes re-sync idempotent.
      */
     @Test
     void theRowKeepsTheFirstProducersNameWhileIngestEvaluatedTheSecond() {
@@ -141,15 +131,8 @@ class PqcStoredRowParityITest extends BaseSpringBootTest {
     }
 
     /**
-     * <b>A finding, pinned rather than worked around.</b> {@code merged_crypto_properties} is the elected source's
-     * payload -- the richest by leaf count -- not the one ingest evaluated, and {@code size} is outside the material
-     * identity tuple. When the thin producer syncs last, its 256-bit verdict is recorded over a merged payload that
-     * says 64.
-     *
-     * <p>
-     * <b>What closes it.</b> core#2228 evaluates from the merged payload after {@code upsertSource} has re-elected it.
-     * The recorded rule is then {@code MATERIAL-SYMMETRIC-WEAK} whatever the sync order, and the two pinned rule ids
-     * below become one equality.
+     * {@code size} is outside the material identity tuple, so producers disagreeing about it share one row, and the
+     * merge elects the richest payload rather than the one ingest read.
      */
     @Test
     void theMergeElectsTheRichestPayloadWhileIngestEvaluatedTheThinOne() {
@@ -175,7 +158,7 @@ class PqcStoredRowParityITest extends BaseSpringBootTest {
 
     // ---- the two sides ----
 
-    /** Ingest as core#2228 will compose it: key, upsert identity and source, evaluate the derivation, record. */
+    /** Key the component, upsert identity and source, evaluate the derivation, record the verdict. */
     private UUID ingest(JsonNode component, Cbom cbom) {
         CryptoAssetIdentity.Identity keyed = identity.of(component);
         NormalizedAsset asset = keyed.asset();
