@@ -206,19 +206,17 @@ public class GroupServiceITest extends BaseSpringBootTest {
     @Test
     void getGroupUsersDeniesCallerWithoutMembersPermission() {
         denyResourceAccess(Resource.GROUP, ResourceAction.MEMBERS);
+        SecuredParentUUID groupUuid = SecuredParentUUID.fromUUID(group.getUuid());
 
-        Assertions
-                .assertThrows(AccessDeniedException.class,
-                        () -> groupService.getGroupUsers(SecuredParentUUID.fromUUID(group.getUuid())));
+        Assertions.assertThrows(AccessDeniedException.class, () -> groupService.getGroupUsers(groupUuid));
     }
 
     @Test
     void getGroupUsersDeniesCallerWithoutUserListPermission() {
         denyResourceAccess(Resource.USER, ResourceAction.LIST);
+        SecuredParentUUID groupUuid = SecuredParentUUID.fromUUID(group.getUuid());
 
-        Assertions
-                .assertThrows(AccessDeniedException.class,
-                        () -> groupService.getGroupUsers(SecuredParentUUID.fromUUID(group.getUuid())));
+        Assertions.assertThrows(AccessDeniedException.class, () -> groupService.getGroupUsers(groupUuid));
     }
 
     // auth serves the user directory as a single capped page; members it did not return cannot be recovered here

@@ -89,8 +89,7 @@ public class GroupControllerImpl implements GroupController {
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.GROUP, affiliatedResource = Resource.USER,
             operation = Operation.LIST)
-    public List<NameAndUuidDto> getGroupUsers(@LogResource(uuid = true) @PathVariable String uuid)
-            throws NotFoundException {
+    public List<NameAndUuidDto> getGroupUsers(@LogResource(uuid = true) String uuid) throws NotFoundException {
         return groupService.getGroupUsers(SecuredParentUUID.fromString(uuid));
     }
 }
