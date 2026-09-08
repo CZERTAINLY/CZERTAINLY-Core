@@ -173,6 +173,10 @@ public class AcmeProfileServiceImpl implements AcmeProfileExternalService, AcmeP
         acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         acmeProfile.setDisableNewOrders(false);
         acmeProfile.setRaProfile(raProfile);
+        if (request.getChallengeSource() != null) {
+            acmeProfile.setChallengeSource(request.getChallengeSource());
+        }
+        requireTermsUrlWhenAgreementIsRequired(acmeProfile);
         if (request.getCertificateAssociations() != null && !request.getCertificateAssociations().isEmpty()) {
             ProtocolCertificateAssociations certificateAssociation = new ProtocolCertificateAssociations();
             certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
@@ -274,6 +278,10 @@ public class AcmeProfileServiceImpl implements AcmeProfileExternalService, AcmeP
         acmeProfile.setWebsite(request.getWebsiteUrl());
         acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
+        if (request.getChallengeSource() != null) {
+            acmeProfile.setChallengeSource(request.getChallengeSource());
+        }
+        requireTermsUrlWhenAgreementIsRequired(acmeProfile);
 
         UUID certificateAssociationUuid = null;
         ProtocolCertificateAssociations certificateAssociation = null;
@@ -294,6 +302,20 @@ public class AcmeProfileServiceImpl implements AcmeProfileExternalService, AcmeP
 
         return updateAndMapDtoAttributes(acmeProfile, raProfile, request.getIssueCertificateAttributes(),
                 request.getRevokeCertificateAttributes(), request.getCustomAttributes());
+    }
+
+    /**
+     * ACME clients agree to terms only when the directory advertises them, so a profile that requires agreement without
+     * a terms URL would require nothing; rejected on the merged profile so create and partial edit are held to the same
+     * rule.
+     */
+    private static void requireTermsUrlWhenAgreementIsRequired(AcmeProfile acmeProfile) {
+        boolean required = Boolean.TRUE.equals(acmeProfile.isRequireTermsOfService());
+        boolean hasUrl = acmeProfile.getTermsOfServiceUrl() != null && !acmeProfile.getTermsOfServiceUrl().isBlank();
+        if (required && !hasUrl) {
+            throw new ValidationException(
+                    ValidationError.create("Requiring agreement to the Terms of Service needs a Terms of Service URL"));
+        }
     }
 
     private AcmeProfileDto mapToDetailDto(AcmeProfile acmeProfile) {

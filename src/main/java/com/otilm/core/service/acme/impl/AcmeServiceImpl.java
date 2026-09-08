@@ -2,6 +2,7 @@ package com.otilm.core.service.acme.impl;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
+import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.util.Base64URL;
 import com.otilm.api.exception.AcmeProblemDocumentException;
 import com.otilm.api.exception.AttributeException;
@@ -41,6 +42,7 @@ import com.otilm.core.attribute.engine.AttributeOperation;
 import com.otilm.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.otilm.core.certificate.request.ProtocolRequestAttributeValidator;
 import com.otilm.core.certificate.request.RequestAttributePolicyViolationException;
+import com.otilm.core.dao.CryptoAssetConstraintTranslator;
 import com.otilm.core.dao.entity.Certificate;
 import com.otilm.core.dao.entity.RaProfile;
 import com.otilm.core.dao.entity.acme.AcmeAccount;
@@ -70,6 +72,7 @@ import com.otilm.core.service.acme.AcmeDnsChallengeValidator;
 import com.otilm.core.service.acme.AcmeExternalService;
 import com.otilm.core.service.acme.ChallengeValidationResult;
 import com.otilm.core.service.acme.message.AcmeJwsRequest;
+import com.otilm.core.service.acme.registration.AcmeRegistrationBinder;
 import com.otilm.core.service.v2.ClientOperationInternalService;
 import com.otilm.core.service.writer.AcmeChallengeWriter;
 import com.otilm.core.util.AcmeCommonHelper;
@@ -125,6 +128,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -150,6 +154,7 @@ public class AcmeServiceImpl implements AcmeExternalService {
     private ClientOperationInternalService clientOperationService;
     private CertificateInternalService certificateService;
     private AcmeChallengeWriter acmeChallengeWriter;
+    private AcmeRegistrationBinder acmeRegistrationBinder;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -160,6 +165,11 @@ public class AcmeServiceImpl implements AcmeExternalService {
     @Autowired
     public void setAcmeChallengeWriter(AcmeChallengeWriter acmeChallengeWriter) {
         this.acmeChallengeWriter = acmeChallengeWriter;
+    }
+
+    @Autowired
+    public void setAcmeRegistrationBinder(AcmeRegistrationBinder acmeRegistrationBinder) {
+        this.acmeRegistrationBinder = acmeRegistrationBinder;
     }
 
     @Autowired
@@ -274,6 +284,9 @@ public class AcmeServiceImpl implements AcmeExternalService {
 
     @Override
     @ProtocolEndpoint
+    // A rejected registration binding is a checked problem exception thrown after a failed flush; the rollback rule
+    // turns the commit of the poisoned transaction into a plain rollback.
+    @Transactional(rollbackOn = AcmeProblemDocumentException.class)
     public ResponseEntity<Account> newAccount(String acmeProfileName, String requestJson, URI requestUri,
             boolean isRaProfileBased) throws AcmeProblemDocumentException {
         if (requestJson.isEmpty()) {
@@ -305,7 +318,7 @@ public class AcmeServiceImpl implements AcmeExternalService {
                 logger.debug("Request to create a new Account");
                 account = addNewAccount(acmeProfileName,
                         AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsRequest.getPublicKey()), accountRequest,
-                        isRaProfileBased);
+                        isRaProfileBased, jwsRequest.getJwk(), requestUri);
             }
         }
 
@@ -929,7 +942,7 @@ public class AcmeServiceImpl implements AcmeExternalService {
         DirectoryMeta meta = new DirectoryMeta();
         meta.setCaaIdentities(new String[0]);
         meta.setTermsOfService(acmeProfile.getTermsOfServiceUrl());
-        meta.setExternalAccountRequired(false);
+        meta.setExternalAccountRequired(acmeProfile.isRegistrationMode());
         meta.setWebsite(acmeProfile.getWebsite());
         logger.debug("Directory meta: {}", meta);
         return meta;
@@ -958,7 +971,7 @@ public class AcmeServiceImpl implements AcmeExternalService {
     }
 
     private AcmeAccount addNewAccount(String profileName, String publicKey, NewAccountRequest accountRequest,
-            boolean isRaProfileBased) throws AcmeProblemDocumentException {
+            boolean isRaProfileBased, JWK accountKey, URI requestUri) throws AcmeProblemDocumentException {
         AcmeRaProfiles acmeRaProfiles = getProfiles(profileName, isRaProfileBased);
         AcmeProfile acmeProfile = acmeRaProfiles.acmeProfile;
         RaProfile raProfileToUse = acmeRaProfiles.raProfile;
@@ -971,7 +984,7 @@ public class AcmeServiceImpl implements AcmeExternalService {
         String accountId = AcmeRandomGeneratorAndValidator.generateRandomId();
         AcmeAccount oldAccount = acmeAccountRepository.findByPublicKey(publicKey);
         if (acmeProfile.isRequireContact() != null && acmeProfile.isRequireContact()
-                && accountRequest.getContact().isEmpty()) {
+                && (accountRequest.getContact() == null || accountRequest.getContact().isEmpty())) {
             logger.error("Contact not found for Account: {}", accountRequest);
             {
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.INVALID_CONTACT,
@@ -979,8 +992,10 @@ public class AcmeServiceImpl implements AcmeExternalService {
             }
         }
 
+        // Clients agree to terms only when the directory advertises them, so the requirement binds only with a URL.
         if (acmeProfile.isRequireTermsOfService() != null && acmeProfile.isRequireTermsOfService()
-                && accountRequest.isTermsOfServiceAgreed()) {
+                && acmeProfile.getTermsOfServiceUrl() != null && !acmeProfile.getTermsOfServiceUrl().isBlank()
+                && !accountRequest.isTermsOfServiceAgreed()) {
             logger.error("Terms of Service not agreed for the new Account: {}", accountRequest);
             {
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.USER_ACTION_REQUIRED,
@@ -1000,6 +1015,11 @@ public class AcmeServiceImpl implements AcmeExternalService {
         } else {
             return oldAccount;
         }
+        // In registration mode the binding is the account's admission: resolved and MAC-verified before any row
+        // exists, so a rejected binding leaves nothing behind.
+        Certificate boundRegistration = acmeProfile.isRegistrationMode()
+                ? acmeRegistrationBinder.resolveBinding(raProfileToUse, accountRequest, accountKey, requestUri)
+                : null;
         AcmeAccount account = new AcmeAccount();
         account.setAcmeProfile(acmeProfile);
         account.setEnabled(true);
@@ -1009,10 +1029,42 @@ public class AcmeServiceImpl implements AcmeExternalService {
         account.setPublicKey(publicKey);
         account.setDefaultRaProfile(!isRaProfileBased);
         account.setAccountId(accountId);
-        account.setContact(SerializationUtil.serialize(accountRequest.getContact()));
-        acmeAccountRepository.save(account);
+        account
+                .setContact(SerializationUtil
+                        .serialize(accountRequest.getContact() != null ? accountRequest.getContact() : List.of()));
+        if (boundRegistration == null) {
+            acmeAccountRepository.save(account);
+        } else {
+            account.setRegistrationCertificateUuid(boundRegistration.getUuid());
+            saveBoundAccount(account);
+        }
         logger.debug("ACME Account created: {}", account);
         return account;
+    }
+
+    /**
+     * Flushes the bound account so a second binding of the same registration racing past the binder's existence check
+     * fails here, on the unique constraint, with the same generic rejection; the rollback rule on {@code newAccount}
+     * turns the poisoned transaction into a plain rollback.
+     */
+    private void saveBoundAccount(AcmeAccount account) throws AcmeProblemDocumentException {
+        try {
+            acmeAccountRepository.saveAndFlush(account);
+        } catch (DataIntegrityViolationException e) {
+            if (!isRegistrationBindingCollision(e)) {
+                throw e;
+            }
+            logger.info("ACME registration-mode newAccount rejected: registration bound concurrently");
+            throw new AcmeProblemDocumentException(HttpStatus.UNAUTHORIZED, Problem.UNAUTHORIZED,
+                    AcmeRegistrationBinder.REGISTRATION_REJECTION);
+        }
+    }
+
+    private static boolean isRegistrationBindingCollision(DataIntegrityViolationException e) {
+        return CryptoAssetConstraintTranslator
+                .constraintNameOf(e)
+                .filter(AcmeAccount.UNIQUE_REGISTRATION_CERTIFICATE_CONSTRAINT::equals)
+                .isPresent();
     }
 
     private RaProfile getRaProfileEntity(String name) throws NotFoundException {

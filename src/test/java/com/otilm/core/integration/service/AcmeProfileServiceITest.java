@@ -21,6 +21,7 @@ import com.otilm.api.model.core.acme.AcmeProfileDto;
 import com.otilm.api.model.core.acme.AcmeProfileListDto;
 import com.otilm.api.model.core.auth.Resource;
 import com.otilm.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
+import com.otilm.api.model.core.protocol.ProtocolChallengeSource;
 import com.otilm.core.attribute.engine.AttributeEngine;
 import com.otilm.core.dao.entity.AuthorityInstanceReference;
 import com.otilm.core.dao.entity.Connector;
@@ -222,6 +223,64 @@ class AcmeProfileServiceITest extends BaseSpringBootTest {
         dto = acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getCertificateAssociations());
+    }
+
+    @Test
+    void createDefaultsChallengeSourceToProtocolDefault() throws Exception {
+        AcmeProfileRequestDto request = new AcmeProfileRequestDto();
+        request.setName("defaultSource");
+
+        AcmeProfileDto dto = acmeProfileService.createAcmeProfile(request);
+
+        Assertions.assertEquals(ProtocolChallengeSource.PROTOCOL_DEFAULT, dto.getChallengeSource());
+    }
+
+    @Test
+    void createStoresTheRequestedChallengeSource() throws Exception {
+        AcmeProfileRequestDto request = new AcmeProfileRequestDto();
+        request.setName("registrationSource");
+        request.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+
+        AcmeProfileDto dto = acmeProfileService.createAcmeProfile(request);
+
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, dto.getChallengeSource());
+        Assertions
+                .assertTrue(acmeProfileRepository
+                        .findByUuid(UUID.fromString(dto.getUuid()))
+                        .orElseThrow()
+                        .isRegistrationMode());
+    }
+
+    @Test
+    void requiringTermsAgreementNeedsATermsUrlOnCreateAndEdit() throws Exception {
+        AcmeProfileRequestDto create = new AcmeProfileRequestDto();
+        create.setName("termsWithoutUrl");
+        create.setRequireTermsOfService(true);
+        Assertions.assertThrows(ValidationException.class, () -> acmeProfileService.createAcmeProfile(create));
+
+        create.setTermsOfServiceUrl("https://acme.example/terms");
+        Assertions.assertNotNull(acmeProfileService.createAcmeProfile(create));
+
+        AcmeProfileEditRequestDto edit = new AcmeProfileEditRequestDto();
+        edit.setRequireTermsOfService(true);
+        Assertions
+                .assertThrows(ValidationException.class,
+                        () -> acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), edit));
+    }
+
+    @Test
+    void editKeepsTheStoredChallengeSourceWhenOmittedAndReplacesItWhenGiven() throws Exception {
+        acmeProfile.setChallengeSource(ProtocolChallengeSource.CERTIFICATE_REGISTRATION);
+        acmeProfileRepository.save(acmeProfile);
+        AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
+        request.setDescription("edited");
+
+        AcmeProfileDto kept = acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request);
+        Assertions.assertEquals(ProtocolChallengeSource.CERTIFICATE_REGISTRATION, kept.getChallengeSource());
+
+        request.setChallengeSource(ProtocolChallengeSource.PROTOCOL_DEFAULT);
+        AcmeProfileDto replaced = acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request);
+        Assertions.assertEquals(ProtocolChallengeSource.PROTOCOL_DEFAULT, replaced.getChallengeSource());
     }
 
     private void setUpOldConnector() {

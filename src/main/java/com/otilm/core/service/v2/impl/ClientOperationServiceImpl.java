@@ -102,6 +102,7 @@ import com.otilm.core.service.CryptographicOperationInternalService;
 import com.otilm.core.service.LocationExternalService;
 import com.otilm.core.service.LocationInternalService;
 import com.otilm.core.service.ResourceObjectAssociationService;
+import com.otilm.core.service.acme.registration.AcmeEabCredential;
 import com.otilm.core.service.handler.ConnectorCapabilityService;
 import com.otilm.core.service.handler.authority.AdapterOperationOutcome;
 import com.otilm.core.service.handler.authority.AdapterOperationResult;
@@ -633,6 +634,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
         }
         rejectAmbiguousRegistrationIdentity(request);
+        rejectAmbiguousChallengeSource(request);
         rejectPastRegistrationWindow(request);
         rejectWindowWithoutChallenge(request);
         Certificate sourceCertificate = resolveRegistrationSource(request);
@@ -683,6 +685,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         stateMachine.transition(certificate, CertificateState.PENDING_REGISTRATION);
 
         AdapterOperationResult result;
+        String generatedEabKey = null;
         try {
             // Custom attributes were already validated up front (before the placeholder existed); persisting them
             // here can still fail (e.g. a definition removed concurrently), and no upstream work is in flight yet,
@@ -713,7 +716,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             // Persist the challenge authorization before the connector call — on every arc that can leave the
             // certificate reconcilable to REGISTERED (see the method) — but inside the try, so a store/save
             // failure fails the placeholder via the catch below rather than orphaning it in PENDING_REGISTRATION.
-            maybeCreateRegistrationAuthorization(certificate, request);
+            generatedEabKey = maybeCreateRegistrationAuthorization(certificate, request);
             result = registerCapability.register(certificate, request, registrationContent);
         } catch (ConnectorAcceptedButLocalFailureException e) {
             // Connector already accepted the registration (2xx/202); per the state-divergence rule local state
@@ -726,6 +729,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                             "Connector accepted the registration but a local step failed; left in PENDING_REGISTRATION for reconciliation. Cause: "
                                     + e.getMessage(),
                             "");
+            discardUndeliveredEabCredential(certificate, generatedEabKey);
             throw e;
         } catch (ConnectorException | RuntimeException | AttributeException | NotFoundException e) {
             // Pre-acceptance failure — either an explicit connector rejection, a custom-attribute persistence
@@ -743,31 +747,49 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             throw e;
         }
 
-        persistRegistrationMeta(certificate, result.meta());
-        persistRegistrationBinding(certificate, result.meta());
-        if (result.isAsync()) {
-            // Log on the actual scheduling outcome, not just instanceof: an async-capable adapter that does not
-            // advertise CERTIFICATE_STATUS_POLLING is NOT polled, so "awaiting completion" would be misleading.
-            if (scheduleStatusPoll(certificate, adapter, authority, CertificateOperation.REGISTER)) {
-                logger
-                        .info("Certificate {} registration accepted by authority; awaiting asynchronous completion",
-                                certificate.getUuid());
+        try {
+            persistRegistrationMeta(certificate, result.meta());
+            persistRegistrationBinding(certificate, result.meta());
+            if (result.isAsync()) {
+                // Log on the actual scheduling outcome, not just instanceof: an async-capable adapter that does not
+                // advertise CERTIFICATE_STATUS_POLLING is NOT polled, so "awaiting completion" would be misleading.
+                if (scheduleStatusPoll(certificate, adapter, authority, CertificateOperation.REGISTER)) {
+                    logger
+                            .info("Certificate {} registration accepted by authority; awaiting asynchronous completion",
+                                    certificate.getUuid());
+                } else {
+                    logger
+                            .warn("Certificate {} registration accepted asynchronously but status polling is not available "
+                                    + "(authority is not v3 or does not advertise CERTIFICATE_STATUS_POLLING); "
+                                    + "left in PENDING_REGISTRATION for manual/out-of-band completion",
+                                    certificate.getUuid());
+                }
             } else {
-                logger
-                        .warn("Certificate {} registration accepted asynchronously but status polling is not available "
-                                + "(authority is not v3 or does not advertise CERTIFICATE_STATUS_POLLING); "
-                                + "left in PENDING_REGISTRATION for manual/out-of-band completion",
-                                certificate.getUuid());
+                stateMachine.transition(certificate, CertificateState.REGISTERED);
+                logger.info("Certificate {} registered by authority", certificate.getUuid());
+                fireRegistrationEventIfChallengeProtected(certificate.getUuid());
             }
-        } else {
-            stateMachine.transition(certificate, CertificateState.REGISTERED);
-            logger.info("Certificate {} registered by authority", certificate.getUuid());
-            fireRegistrationEventIfChallengeProtected(certificate.getUuid());
+        } catch (RuntimeException | ConnectorAcceptedButLocalFailureException e) {
+            // Post-acceptance local failure: state stays as it is (state-divergence rule). The binding writer records
+            // its own divergence; the other steps are recorded here, the same line the register catch writes.
+            if (!(e instanceof ConnectorAcceptedButLocalFailureException)) {
+                certificateEventHistoryService
+                        .addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_STATE,
+                                CertificateEventStatus.FAILED,
+                                "Connector accepted the registration but a local step failed; left in "
+                                        + certificate.getState().getLabel() + " for reconciliation. Cause: "
+                                        + safeMessage(e, "registration completion failed"),
+                                "");
+            }
+            // A generated credential that will now never be returned must not remain the registration's challenge.
+            discardUndeliveredEabCredential(certificate, generatedEabKey);
+            throw e;
         }
 
         ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setUuid(certificate.getUuid().toString());
         response.setCertificateData(result.certificateData() != null ? result.certificateData() : "");
+        attachEabCredential(response, generatedEabKey);
         return response;
     }
 
@@ -810,6 +832,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                 .findForPollingByUuid(placeholder.getUuid())
                 .orElseThrow(() -> new NotFoundException(Certificate.class, placeholder.getUuid()));
         stateMachine.transition(certificate, CertificateState.PENDING_REGISTRATION);
+        String generatedEabKey;
         try {
             // See the connector-backed path above: custom attributes were already validated up front, but
             // persisting them can still fail, and no upstream work is in flight, so a failure here must fail
@@ -822,7 +845,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
             }
             persistRegistrationRequestValues(certificate, request);
             applyRegistrationAssociations(certificate, request);
-            maybeCreateRegistrationAuthorization(certificate, request);
+            generatedEabKey = maybeCreateRegistrationAuthorization(certificate, request);
             // Write the register->issue binding (no connector meta) so a platform-level placeholder carries the same
             // marker as a connector-backed one — the discriminator both the issue routing and the approval-reject
             // restore key on, which makes a no-secret placeholder restorable.
@@ -846,6 +869,7 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setUuid(certificate.getUuid().toString());
         response.setCertificateData("");
+        attachEabCredential(response, generatedEabKey);
         return response;
     }
 
@@ -993,35 +1017,45 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
      * rejectAmbiguousRegistrationIdentity) rather than at row creation so the rejection leaves no orphaned placeholder.
      */
     private static void rejectPastRegistrationWindow(ClientCertificateRegistrationDto request) {
-        String secret = request.getAuthorizationSecret();
         OffsetDateTime expiresAt = request.getExpiresAt();
-        if (secret != null && !secret.isBlank() && expiresAt != null
-                && !expiresAt.isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
+        if (hasChallenge(request) && expiresAt != null && !expiresAt.isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
             throw new ValidationException("The registration issuance window (expiresAt) must be in the future.");
+        }
+    }
+
+    private static boolean hasSecret(ClientCertificateRegistrationDto request) {
+        String secret = request.getAuthorizationSecret();
+        return secret != null && !secret.isBlank();
+    }
+
+    private static boolean hasChallenge(ClientCertificateRegistrationDto request) {
+        return hasSecret(request) || request.isGenerateEabCredential();
+    }
+
+    /**
+     * A registration has one challenge: the operator's {@code authorizationSecret} or a platform-generated EAB
+     * credential. Enforced here as well as by the contract's bean validation, so a caller that bypasses the controller
+     * cannot have its secret silently replaced by the generated key.
+     */
+    private static void rejectAmbiguousChallengeSource(ClientCertificateRegistrationDto request) {
+        if (hasSecret(request) && request.isGenerateEabCredential()) {
+            throw new ValidationException("Supply authorizationSecret or set generateEabCredential, not both.");
         }
     }
 
     /**
      * Rejects an issuance window supplied without a challenge. The window is enforced only within the challenge regime
-     * — it lives on the {@link CertificateRegistrationAuthorization}, which is created only when a secret is present —
-     * so a window without an {@code authorizationSecret} would be silently dropped. Reject it up front rather than
-     * accept a deadline that has no effect.
+     * — it lives on the {@link CertificateRegistrationAuthorization}, which exists only for a challenge-gated
+     * registration — so a window without a challenge would be silently dropped. Reject it up front rather than accept a
+     * deadline that has no effect.
      */
     private static void rejectWindowWithoutChallenge(ClientCertificateRegistrationDto request) {
-        String secret = request.getAuthorizationSecret();
-        if ((secret == null || secret.isBlank()) && request.getExpiresAt() != null) {
+        if (!hasChallenge(request) && request.getExpiresAt() != null) {
             throw new ValidationException(
-                    "A registration issuance window (expiresAt) requires an authorization secret; a registration without a challenge has no completion deadline.");
+                    "A registration issuance window (expiresAt) requires a challenge, either an authorization secret or a generated EAB credential; a registration without a challenge has no completion deadline.");
         }
     }
 
-    /**
-     * Creates the durable challenge authorization for a self-service pre-registration when the operator supplied an
-     * {@code authorizationSecret}. Created before the connector call, not after: a connector-accepted-but-local failure
-     * leaves the certificate reconcilable to REGISTERED, and a row written only on the success path would be missing
-     * there — the later issue gate would then treat a secret-protected registration as unprotected and issue with no
-     * challenge. Absent secret means no row, so the operator register→issue flow is unchanged.
-     */
     private CertificateRegistrationSettingsDto registrationSettings() {
         PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
         return platformSettings != null && platformSettings.getCertificates() != null
@@ -1038,12 +1072,24 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                 : CertificateRegistrationDefaults.ISSUANCE_WINDOW_DAYS;
     }
 
-    private void maybeCreateRegistrationAuthorization(Certificate certificate,
+    /**
+     * Creates the durable challenge authorization for a challenge-gated pre-registration: the operator's
+     * {@code authorizationSecret}, or a platform-generated challenge when {@code generateEabCredential} is set. Created
+     * before the connector call, not after: a connector-accepted-but-local failure leaves the certificate reconcilable
+     * to REGISTERED, and a row written only on the success path would be missing there — the later issue gate would
+     * then treat a challenge-protected registration as unprotected and issue with no challenge. No challenge means no
+     * row, so the operator register→issue flow has no gate.
+     *
+     * @return the generated challenge when the request asked for one, to be returned once in the response as the EAB
+     * credential; null otherwise
+     */
+    private String maybeCreateRegistrationAuthorization(Certificate certificate,
             ClientCertificateRegistrationDto request) {
-        String secret = request.getAuthorizationSecret();
-        if (secret == null || secret.isBlank()) {
-            return;
+        if (!hasChallenge(request)) {
+            return null;
         }
+        String generated = request.isGenerateEabCredential() ? AcmeEabCredential.generateChallenge() : null;
+        String secret = generated != null ? generated : request.getAuthorizationSecret();
         OffsetDateTime expiresAt = request.getExpiresAt();
         CertificateRegistrationAuthorization authorization = new CertificateRegistrationAuthorization();
         authorization.setCertificateUuid(certificate.getUuid());
@@ -1055,6 +1101,41 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
                         : OffsetDateTime.now(ZoneOffset.UTC).plus(Duration.ofDays(registrationWindowDays())));
         registrationChallengeStore.store(authorization, secret);
         registrationAuthorizationRepository.save(authorization);
+        return generated;
+    }
+
+    /**
+     * A generated EAB credential is shown once, in the registration response. When the connector has accepted the
+     * registration but the response is never built, the challenge stored for it is held by nobody, and the certificate
+     * the poll later reconciles to REGISTERED could be completed by no one. Remove the authorization so the operator
+     * can complete or re-register it, and say so in the event history.
+     */
+    private void discardUndeliveredEabCredential(Certificate certificate, String generatedChallenge) {
+        if (generatedChallenge == null) {
+            return;
+        }
+        boolean removed = deleteRegistrationAuthorizationBestEffort(certificate.getUuid());
+        String outcome = removed
+                ? "the registration challenge was removed, so the certificate is completable by an operator but not over ACME"
+                : "the registration challenge could not be removed and no client holds it; remove the registration authorization before completing";
+        // Best-effort like the delete: the audit line must not replace the failure being surfaced.
+        try {
+            certificateEventHistoryService
+                    .addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_STATE,
+                            CertificateEventStatus.FAILED,
+                            "The generated EAB credential could not be returned; " + outcome, "");
+        } catch (RuntimeException e) {
+            logger
+                    .warn("Failed to record the undelivered EAB credential for certificate {}: {}",
+                            certificate.getUuid(), e.getMessage());
+        }
+    }
+
+    private static void attachEabCredential(ClientCertificateDataResponseDto response, String generatedChallenge) {
+        if (generatedChallenge != null) {
+            response.setEabKid(response.getUuid());
+            response.setEabHmacKey(AcmeEabCredential.toEabHmacKey(generatedChallenge));
+        }
     }
 
     /**
@@ -1111,16 +1192,19 @@ public class ClientOperationServiceImpl implements ClientOperationExternalServic
         }
     }
 
-    private void deleteRegistrationAuthorizationBestEffort(UUID certificateUuid) {
+    /** @return whether the delete went through; false when it failed and the authorization row may still exist */
+    private boolean deleteRegistrationAuthorizationBestEffort(UUID certificateUuid) {
         // The writer opens its own transaction (registerCertificate is NOT_SUPPORTED). Best-effort: swallow a
         // cleanup failure so it never masks the caller's registration failure. A no-op when there is no
         // authorization row (e.g. a registration with no challenge).
         try {
             registrationAuthorizationWriter.deleteByCertificateUuid(certificateUuid);
+            return true;
         } catch (RuntimeException e) {
             logger
                     .warn("Failed to remove the registration authorization for failed certificate {}: {}",
                             certificateUuid, e.getMessage());
+            return false;
         }
     }
 

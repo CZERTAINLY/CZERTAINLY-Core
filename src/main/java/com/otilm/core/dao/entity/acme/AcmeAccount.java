@@ -18,6 +18,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
@@ -34,8 +35,12 @@ import org.hibernate.proxy.HibernateProxy;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "acme_account")
+@Table(name = "acme_account",
+        uniqueConstraints = @UniqueConstraint(name = AcmeAccount.UNIQUE_REGISTRATION_CERTIFICATE_CONSTRAINT,
+                columnNames = "registration_certificate_uuid"))
 public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Account> {
+
+    public static final String UNIQUE_REGISTRATION_CERTIFICATE_CONSTRAINT = "uq_acme_account_registration_certificate";
 
     @Column(name = "account_id")
     private String accountId;
@@ -86,6 +91,9 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Column(name = "acme_profile_uuid", nullable = false)
     private UUID acmeProfileUuid;
+
+    @Column(name = "registration_certificate_uuid")
+    private UUID registrationCertificateUuid;
 
     @Override
     public Account mapToDto() {

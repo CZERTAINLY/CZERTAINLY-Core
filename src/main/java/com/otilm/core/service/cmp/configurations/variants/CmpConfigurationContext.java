@@ -16,8 +16,8 @@ import com.otilm.core.service.cmp.message.protection.ProtectionStrategy;
 import com.otilm.core.service.cmp.message.protection.impl.PasswordBasedMacProtectionStrategy;
 import com.otilm.core.service.cmp.message.protection.impl.SingatureBaseProtectionStrategy;
 import com.otilm.core.service.cmp.registration.CmpRegistrationResolver;
+import com.otilm.core.service.registration.RegistrationResolver;
 import com.otilm.core.util.CertificateUtil;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.function.Predicate;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -129,7 +129,7 @@ public class CmpConfigurationContext implements ConfigurationContext {
             // placeholder is only read to inspect the strategy's algorithm, never to protect anything (the
             // request MAC is verified through the gate in verifyRegistrationMacProtection). Response path:
             // after a successful match the matched registration's challenge keys the response MAC.
-            return matchedChallenge != null ? matchedChallenge.getBytes(StandardCharsets.UTF_8) : new byte[0];
+            return matchedChallenge != null ? RegistrationResolver.macKey(matchedChallenge) : new byte[0];
         }
         return getCmpProfile().getSharedSecret().getBytes();
     }

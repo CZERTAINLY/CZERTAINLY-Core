@@ -1,0 +1,2 @@
+ALTER TABLE acme_profile
+    ADD COLUMN challenge_source VARCHAR NOT NULL DEFAULT 'PROTOCOL_DEFAULT';

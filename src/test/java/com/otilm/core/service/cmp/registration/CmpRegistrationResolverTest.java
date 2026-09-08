@@ -11,6 +11,7 @@ import com.otilm.core.dao.entity.cmp.CmpTransaction;
 import com.otilm.core.dao.repository.CertificateRelationRepository;
 import com.otilm.core.dao.repository.CertificateRepository;
 import com.otilm.core.service.registration.RegistrationChallengeGate;
+import com.otilm.core.service.registration.RegistrationResolver;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,10 +47,12 @@ class CmpRegistrationResolverTest {
         certificateRepository = mock(CertificateRepository.class);
         certificateRelationRepository = mock(CertificateRelationRepository.class);
         gate = mock(RegistrationChallengeGate.class);
+        RegistrationResolver registrationResolver = new RegistrationResolver();
+        registrationResolver.setCertificateRepository(certificateRepository);
+        registrationResolver.setRegistrationChallengeGate(gate);
         resolver = new CmpRegistrationResolver();
-        resolver.setCertificateRepository(certificateRepository);
+        resolver.setRegistrationResolver(registrationResolver);
         resolver.setCertificateRelationRepository(certificateRelationRepository);
-        resolver.setRegistrationChallengeGate(gate);
         raProfile = new RaProfile();
         raProfile.setUuid(RA_PROFILE_UUID);
     }
@@ -269,6 +272,36 @@ class CmpRegistrationResolverTest {
 
         Assertions.assertEquals(CERT_UUID, resolution.certificate().getUuid());
         Assertions.assertEquals(CHALLENGE, resolution.challenge());
+    }
+
+    @Test
+    void archivedRegisteredPlaceholderRejectsIssueBeforeAnyGateCall() {
+        Certificate archived = registeredCertificate();
+        archived.setArchived(true);
+        when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(archived));
+
+        ASN1OctetString senderKid = senderKid(CERT_UUID.toString());
+        Assertions
+                .assertThrows(CmpProcessingException.class, () -> resolver
+                        .resolveAndVerify(raProfile, senderKid, CertificateEvent.ISSUE, password -> true, TID));
+
+        verifyNoInteractions(gate);
+    }
+
+    @Test
+    void followupAcceptsAnArchivedIssuedCertificate() {
+        // An operator archiving the issued certificate must not strand the device's certConf.
+        Certificate archived = registeredCertificate();
+        archived.setState(CertificateState.ISSUED);
+        archived.setArchived(true);
+        when(certificateRepository.findByUuid(CERT_UUID)).thenReturn(Optional.of(archived));
+        when(gate.verify(eq(CERT_UUID), eq(CertificateEvent.ISSUE), any()))
+                .thenAnswer(gateRunsPredicateWith(CHALLENGE));
+
+        Assertions
+                .assertDoesNotThrow(() -> resolver
+                        .resolveAndVerifyFollowup(raProfile, senderKid(CERT_UUID.toString()),
+                                password -> new String(password, StandardCharsets.UTF_8).equals(CHALLENGE), TID));
     }
 
     @Test
